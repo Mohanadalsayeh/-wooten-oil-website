@@ -658,6 +658,8 @@
   .fuel-field.full{grid-column:1/-1}
   .fuel-field label{font-weight:700;color:#222;font-size:14px}
   .fuel-field input,.fuel-field select,.fuel-field textarea{width:100%;box-sizing:border-box;border:1px solid #cfd4da;border-radius:10px;padding:12px 13px;font:inherit;background:#fff;color:#111}
+  .fuel-field{min-width:0}
+  .fuel-field input[type="date"]{display:block;width:100%;max-width:100%;min-width:0;min-inline-size:0;-webkit-min-logical-width:0;box-sizing:border-box}
   .fuel-field textarea{min-height:110px;resize:vertical}
   .fuel-field input:focus,.fuel-field select:focus,.fuel-field textarea:focus{outline:2px solid rgba(0,91,187,.18);border-color:#005bbb}
   .fuel-form-actions{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
@@ -676,6 +678,8 @@
   .fuel-field.full{grid-column:1/-1}
   .fuel-field label{font-weight:700;color:#222;font-size:14px}
   .fuel-field input,.fuel-field select,.fuel-field textarea{width:100%;box-sizing:border-box;border:1px solid #cfd4da;border-radius:10px;padding:12px 13px;font:inherit;background:#fff;color:#111}
+  .fuel-field{min-width:0}
+  .fuel-field input[type="date"]{display:block;width:100%;max-width:100%;min-width:0;min-inline-size:0;-webkit-min-logical-width:0;box-sizing:border-box}
   .fuel-field textarea{min-height:110px;resize:vertical}
   .fuel-field input:focus,.fuel-field select:focus,.fuel-field textarea:focus{outline:2px solid rgba(0,91,187,.18);border-color:#005bbb}
   .fuel-form-actions{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
@@ -1460,7 +1464,7 @@
   const status=document.getElementById('fuelSendStatus');
   if(!form) return;
 
-  const FORM_ENDPOINT='https://formsubmit.co/ajax/Support@wootenoil.com';
+  const FORM_ENDPOINT='/api/fuel-request';
   let pendingRequest=null;
 
   const value=id=>document.getElementById(id).value.trim();
@@ -1506,7 +1510,7 @@
     yes.disabled=false;
     no.style.display='inline-flex';
     no.textContent='Done';
-    if(status) status.textContent='Your request was accepted by the website submission service.';
+    if(status) status.textContent='Your request was received by Wooten Oil's website system and the email notification was sent.';
     overlay.dataset.stage='complete';
     form.reset();
     pendingRequest=null;
@@ -1527,20 +1531,17 @@
   async function sendRequest(request){
     showSending();
     const payload={
-      '_subject':'Fuel Delivery Request '+request.requestNumber+' - Wooten Oil - '+request.customerName,
-      '_template':'table',
-      'Request Number':request.requestNumber,
-      'Customer / Company Name':request.customerName,
-      'Phone Number':request.phone,
-      'Customer Email':request.email || 'Not provided',
-      'Delivery Address':request.deliveryAddress,
-      'Fuel Type':request.fuelType,
-      'Estimated Gallons':request.gallons,
-      'Preferred Delivery Date':request.deliveryDate || 'Flexible / Not specified',
-      'Additional Notes':request.notes || 'None',
-      'Submitted From':window.location.href
+      requestNumber:request.requestNumber,
+      customerName:request.customerName,
+      phone:request.phone,
+      email:request.email || '',
+      deliveryAddress:request.deliveryAddress,
+      fuelType:request.fuelType,
+      gallons:request.gallons,
+      deliveryDate:request.deliveryDate || '',
+      notes:request.notes || '',
+      submittedFrom:window.location.href
     };
-    if(request.email) payload['_replyto']=request.email;
 
     try{
       const response=await fetch(FORM_ENDPOINT,{
@@ -1551,7 +1552,7 @@
       let data={};
       try{ data=await response.json(); }catch(err){}
       if(!response.ok || data.success===false){
-        throw new Error(data.message || 'Submission service returned an error.');
+        throw new Error(data.error || data.message || 'Wooten Oil server returned an error.');
       }
       showSuccess(request.requestNumber);
     }catch(err){

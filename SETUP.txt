@@ -1,0 +1,44 @@
+WOOTEN OIL - CLOUDFLARE DIRECT FUEL REQUEST SETUP
+
+Upload this folder to the ROOT of the GitHub repository used by your Cloudflare Pages project.
+The important structure is:
+
+index.html
+functions/
+  api/
+    fuel-request.js
+schema.sql
+
+1. RESEND EMAIL SERVICE
+- Create a Resend account.
+- Add and verify wootenoil.com (or a sending subdomain such as mail.wootenoil.com).
+- Create a Resend API key.
+
+2. CLOUDFLARE ENVIRONMENT VARIABLES / SECRETS
+In your Cloudflare Pages project, add:
+- RESEND_API_KEY = your Resend API key (use a secret)
+- FUEL_TO_EMAIL = Support@wootenoil.com
+- FUEL_FROM_EMAIL = Wooten Oil Website <orders@wootenoil.com>
+
+The FROM address must use a domain that is verified in Resend.
+
+3. OPTIONAL BUT RECOMMENDED: D1 DATABASE
+Create a D1 database, for example: wooten-oil-orders
+Run schema.sql on that database.
+Bind it to the Pages project with the binding name exactly:
+DB
+
+The backend works without DB, but D1 is recommended so each request is stored.
+
+4. REDEPLOY
+After adding the Function and settings, redeploy the Pages project.
+Test from https://wootenoil.com and submit one fuel request.
+
+Expected behavior:
+- Customer taps Submit Fuel Request.
+- Website asks for confirmation.
+- Request is POSTed to /api/fuel-request.
+- Backend validates and saves it (if DB is configured).
+- Backend sends the email to Support@wootenoil.com through Resend.
+- The same request number is shown to the customer and included in the email.
+- FormSubmit and mailto are not used.
