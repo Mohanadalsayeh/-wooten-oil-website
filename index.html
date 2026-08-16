@@ -813,6 +813,19 @@
   }
   @media(prefers-reduced-motion:reduce){#site-header,#site-header .nav,#site-header .brand-name,#site-header .brand-subtitle,.smart-desktop-nav .nav-link::after{transition:none!important}}
 
+
+  /* Fuel request send confirmation */
+  .fuel-send-overlay{position:fixed;inset:0;background:rgba(7,18,31,.72);display:none;align-items:center;justify-content:center;padding:22px;z-index:99999;backdrop-filter:blur(4px)}
+  .fuel-send-overlay.show{display:flex}
+  .fuel-send-dialog{width:min(520px,100%);background:#fff;border-radius:18px;padding:28px;box-shadow:0 24px 70px rgba(0,0,0,.28);text-align:center}
+  .fuel-send-icon{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;margin:0 auto 16px;background:#eaf7ee;color:#188447;font-size:32px;font-weight:900}
+  .fuel-send-dialog h3{margin:0 0 10px;font-size:27px;color:#111}
+  .fuel-send-dialog p{margin:0 auto 20px;color:#56616d;line-height:1.6;max-width:430px}
+  .fuel-send-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .fuel-send-actions button{min-width:140px}
+  .fuel-send-status{margin-top:14px;font-size:.83rem;color:#7a8591}
+  @media(max-width:520px){.fuel-send-dialog{padding:24px 18px}.fuel-send-actions{display:grid}.fuel-send-actions button{width:100%}}
+
 </style>
 
 <style>
@@ -962,7 +975,35 @@
     </div>
   </section>
 
-<section class="services" id="services">
+
+  <section class="quick-actions" aria-labelledby="quick-actions-title">
+    <div class="container">
+      <div class="quick-actions-head">
+        <div class="kicker">Quick Actions</div>
+        <h2 id="quick-actions-title">How can we help?</h2>
+      </div>
+      <div class="quick-actions-grid">
+        <a class="quick-action" href="#fuel-request">
+          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9v18H6z"/><path d="M8.5 6h4"/><path d="M15 8h2l2 2v8a2 2 0 0 0 2 2"/></svg></span>
+          <span><strong>Request Fuel</strong><span>Start a delivery request</span></span>
+        </a>
+        <a class="quick-action" href="#oil-card">
+          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+          <span><strong>Oil Card Help</strong><span>Card information & locations</span></span>
+        </a>
+        <a class="quick-action" href="tel:+19014762684">
+          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7.2 3.5 10 7.2 8.4 9.5c1.3 2.6 3.5 4.8 6.1 6.1l2.3-1.6 3.7 2.8-.7 3.2c-.2.8-.9 1.4-1.7 1.4C9.6 21.4 2.6 14.4 2.6 5.9c0-.8.6-1.5 1.4-1.7z"/></svg></span>
+          <span><strong>Call Wooten Oil</strong><span>(901) 476-2684</span></span>
+        </a>
+        <a class="quick-action" href="#locations">
+          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+          <span><strong>Find a Location</strong><span>Addresses, directions & phone</span></span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="services" id="services">
     <div class="container">
       <div class="section-head">
         <div class="kicker">What We Deliver</div>
@@ -1252,28 +1293,6 @@
   </div>
 </section>
 
-<style>
-.delivery-process{padding:72px 0;background:#fff}.process-wrap{max-width:1100px;margin:0 auto}.process-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:30px}.process-step{position:relative;border:1px solid #e1e5e8;border-radius:18px;padding:28px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.05)}.process-number{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-weight:900;font-size:18px;margin-bottom:18px}.process-step h3{margin:0 0 10px;font-size:21px}.process-step p{margin:0;color:#62676c;line-height:1.65}.process-arrow{position:absolute;right:-18px;top:42px;font-size:28px;color:#b58a32;font-weight:800;z-index:2}.process-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:30px}@media(max-width:800px){.delivery-process{padding:52px 0}.process-grid{grid-template-columns:1fr}.process-arrow{display:none}.process-step{padding:24px}.process-actions .btn{width:100%;text-align:center}}
-</style>
-<section class="delivery-process" id="delivery-process">
-  <div class="container process-wrap">
-    <div class="section-head">
-      <div class="eyebrow">Fuel Delivery Process</div>
-      <h2>Getting fuel delivered is simple.</h2>
-      <p>Tell us what you need, let our team confirm the details, and Wooten Oil will coordinate your delivery.</p>
-    </div>
-    <div class="process-grid">
-      <div class="process-step"><div class="process-number">1</div><h3>Request Fuel</h3><p>Send your delivery address, fuel type, estimated gallons, and preferred delivery date.</p><span class="process-arrow">›</span></div>
-      <div class="process-step"><div class="process-number">2</div><h3>We Confirm</h3><p>Wooten Oil reviews your request and confirms availability, delivery details, and any information we still need.</p><span class="process-arrow">›</span></div>
-      <div class="process-step"><div class="process-number">3</div><h3>We Deliver</h3><p>Once the order is confirmed, our team coordinates the fuel delivery to your farm, business, equipment, or location.</p></div>
-    </div>
-    <div class="process-actions">
-      <a class="btn btn-primary" href="#fuel-request">Request Fuel Delivery</a>
-      <a class="btn btn-outline" href="tel:+19014762684">Call (901) 476-2684</a>
-    </div>
-  </div>
-</section>
-
 <section class="faq-section" id="faq">
   <div class="container faq-wrap">
     <div class="section-head">
@@ -1329,7 +1348,7 @@
   <div class="container">
     <div class="fuel-request-card">
       <h2>Request Fuel Delivery</h2>
-      <p class="fuel-intro">Fill out the information below. When you submit, your email app will open with the request ready to send to Wooten Oil.</p>
+      <p class="fuel-intro">Fill out the information below. When you submit, your email app will open with the request ready to send to Wooten Oil. After you send it, return here and confirm so we can show your completion message.</p>
       <form id="fuelRequestForm">
         <div class="fuel-form-grid">
           <div class="fuel-field"><label for="customerName">Customer / Company Name *</label><input id="customerName" name="customerName" required autocomplete="organization"></div>
@@ -1347,6 +1366,18 @@
   </div>
 </section>
 
+<div class="fuel-send-overlay" id="fuelSendOverlay" role="dialog" aria-modal="true" aria-labelledby="fuelSendTitle">
+  <div class="fuel-send-dialog">
+    <div class="fuel-send-icon" aria-hidden="true">✓</div>
+    <h3 id="fuelSendTitle">Did you send the email?</h3>
+    <p id="fuelSendMessage">Your fuel request was prepared in your email app. If you tapped <strong>Send</strong>, confirm below.</p>
+    <div class="fuel-send-actions">
+      <button class="btn btn-primary" type="button" id="fuelSentYes">Yes, I Sent It</button>
+      <button class="btn btn-outline" type="button" id="fuelSentNo">Not Yet</button>
+    </div>
+    <div class="fuel-send-status">Wooten Oil cannot verify an email was delivered until a direct website submission system is connected.</div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -1376,7 +1407,22 @@
 <script>
 (function(){
   const form=document.getElementById('fuelRequestForm');
+  const overlay=document.getElementById('fuelSendOverlay');
+  const yes=document.getElementById('fuelSentYes');
+  const no=document.getElementById('fuelSentNo');
+  const title=document.getElementById('fuelSendTitle');
+  const msg=document.getElementById('fuelSendMessage');
   if(!form) return;
+
+  function openConfirm(){
+    if(!overlay) return;
+    title.textContent='Did you send the email?';
+    msg.innerHTML='Your fuel request was prepared in your email app. If you tapped <strong>Send</strong>, confirm below.';
+    yes.style.display='inline-flex';
+    no.textContent='Not Yet';
+    overlay.classList.add('show');
+  }
+
   form.addEventListener('submit',function(e){
     e.preventDefault();
     if(!form.reportValidity()) return;
@@ -1395,7 +1441,32 @@
       'Additional Notes:',v('notes')||'None','',
       'Thank you.'
     ].join('\n');
+    try{ sessionStorage.setItem('wootenFuelRequestPending','1'); }catch(err){}
     window.location.href='mailto:Support@wootenoil.com?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    setTimeout(openConfirm,900);
+  });
+
+  window.addEventListener('pageshow',function(){
+    try{
+      if(sessionStorage.getItem('wootenFuelRequestPending')==='1') setTimeout(openConfirm,250);
+    }catch(err){}
+  });
+
+  if(yes) yes.addEventListener('click',function(){
+    title.textContent='Fuel Request Submitted Successfully';
+    msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request email has been sent according to your confirmation. Our team will review it and contact you if additional information is needed.';
+    yes.style.display='none';
+    no.textContent='Done';
+    form.reset();
+    try{ sessionStorage.removeItem('wootenFuelRequestPending'); }catch(err){}
+  });
+
+  if(no) no.addEventListener('click',function(){
+    if(yes && yes.style.display==='none'){
+      overlay.classList.remove('show');
+    } else {
+      overlay.classList.remove('show');
+    }
   });
 })();
 </script>
