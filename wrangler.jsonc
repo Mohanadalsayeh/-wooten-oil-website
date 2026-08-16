@@ -3,5 +3,12 @@
   "compatibility_date": "2026-08-16",
   "assets": {
     "directory": "."
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wooten-oil-requests",
+      "database_id": "6a293919-08d6-4cd7-b40e-1fe6b44b6590"
+    }
+  ]
 }
