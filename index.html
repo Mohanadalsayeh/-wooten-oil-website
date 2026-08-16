@@ -1393,7 +1393,7 @@
   <div class="container">
     <div class="fuel-request-card">
       <h2>Request Fuel Delivery</h2>
-      <p class="fuel-intro">Fill out the information below. When you submit, your email app will open with the request ready to send to Wooten Oil. After you send it, return here and confirm so we can show your completion message.</p>
+      <p class="fuel-intro">Fill out the information below. When you tap Submit Fuel Request, you will first be asked to confirm. Your email app will open only after you choose to continue.</p>
       <form id="fuelRequestForm">
         <div class="fuel-form-grid">
           <div class="fuel-field"><label for="customerName">Customer / Company Name *</label><input id="customerName" name="customerName" required autocomplete="organization"></div>
@@ -1414,11 +1414,11 @@
 <div class="fuel-send-overlay" id="fuelSendOverlay" role="dialog" aria-modal="true" aria-labelledby="fuelSendTitle">
   <div class="fuel-send-dialog">
     <div class="fuel-send-icon" aria-hidden="true">✓</div>
-    <h3 id="fuelSendTitle">Did you send the email?</h3>
-    <p id="fuelSendMessage">Your fuel request was prepared in your email app. If you tapped <strong>Send</strong>, confirm below.</p>
+    <h3 id="fuelSendTitle">Ready to Send Your Fuel Request?</h3>
+    <p id="fuelSendMessage">Please confirm that you want to open your email app with this fuel request ready to send to Wooten Oil.</p>
     <div class="fuel-send-actions">
-      <button class="btn btn-primary" type="button" id="fuelSentYes">Yes, I Sent It</button>
-      <button class="btn btn-outline" type="button" id="fuelSentNo">Not Yet</button>
+      <button class="btn btn-primary" type="button" id="fuelSentYes">Yes, Continue</button>
+      <button class="btn btn-outline" type="button" id="fuelSentNo">Cancel</button>
     </div>
     <div class="fuel-send-status">Wooten Oil cannot verify an email was delivered until a direct website submission system is connected.</div>
   </div>
@@ -1459,23 +1459,39 @@
   const msg=document.getElementById('fuelSendMessage');
   if(!form) return;
 
-  function openConfirm(){
-    if(!overlay) return;
-    title.textContent='Did you send the email?';
+  let pendingMailto='';
+  let pendingRequestNumber='';
+
+  function showPreSendConfirm(mailtoUrl){
+    pendingMailto=mailtoUrl;
+    title.textContent='Ready to Send Your Fuel Request?';
+    msg.innerHTML='Please confirm that you want to open your email app with this fuel request ready to send to Wooten Oil.';
+    yes.textContent='Yes, Continue';
+    yes.style.display='inline-flex';
+    no.textContent='Cancel';
+    overlay.classList.add('show');
+  }
+
+  function showAfterEmailConfirm(){
+    title.textContent='Did You Send the Email?';
     msg.innerHTML='Your fuel request was prepared in your email app. If you tapped <strong>Send</strong>, confirm below.';
+    yes.textContent='Yes, I Sent It';
     yes.style.display='inline-flex';
     no.textContent='Not Yet';
     overlay.classList.add('show');
+    overlay.dataset.stage='afterEmail';
   }
 
   form.addEventListener('submit',function(e){
     e.preventDefault();
     if(!form.reportValidity()) return;
     const v=id=>document.getElementById(id).value.trim();
-    const subject='Fuel Delivery Request - Wooten Oil - '+v('customerName');
+    pendingRequestNumber='WO-'+String(Date.now()).slice(-6);
+    const subject='Fuel Delivery Request '+pendingRequestNumber+' - Wooten Oil - '+v('customerName');
     const body=[
       'Hello Wooten Oil,','',
       'I would like to request a fuel delivery.','',
+      'REQUEST NUMBER: '+pendingRequestNumber,'',
       'Customer / Company Name: '+v('customerName'),
       'Phone Number: '+v('phone'),
       'Customer Email: '+(v('email')||'Not provided'),
@@ -1486,33 +1502,48 @@
       'Additional Notes:',v('notes')||'None','',
       'Thank you.'
     ].join('\n');
-    try{ sessionStorage.setItem('wootenFuelRequestPending','1'); }catch(err){}
-    window.location.href='mailto:Support@wootenoil.com?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-    setTimeout(openConfirm,900);
+    const mailtoUrl='mailto:Support@wootenoil.com?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    overlay.dataset.stage='preSend';
+    showPreSendConfirm(mailtoUrl);
+  });
+
+  if(yes) yes.addEventListener('click',function(){
+    if(overlay.dataset.stage==='preSend'){
+      if(!pendingMailto) return;
+      try{ sessionStorage.setItem('wootenFuelRequestPending','1'); }catch(err){}
+      overlay.classList.remove('show');
+      window.location.href=pendingMailto;
+      return;
+    }
+
+    if(overlay.dataset.stage==='afterEmail'){
+      const requestNumber=pendingRequestNumber || 'WO-'+String(Date.now()).slice(-6);
+      title.textContent='Fuel Request Submitted Successfully';
+      msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request email has been sent according to your confirmation. Please save this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
+      yes.style.display='none';
+      no.textContent='Done';
+      overlay.dataset.stage='complete';
+      form.reset();
+      pendingMailto='';
+      pendingRequestNumber='';
+      try{ sessionStorage.removeItem('wootenFuelRequestPending'); }catch(err){}
+    }
+  });
+
+  if(no) no.addEventListener('click',function(){
+    overlay.classList.remove('show');
+    if(overlay.dataset.stage==='preSend'){
+      pendingMailto='';
+      pendingRequestNumber='';
+    }
   });
 
   window.addEventListener('pageshow',function(){
     try{
-      if(sessionStorage.getItem('wootenFuelRequestPending')==='1') setTimeout(openConfirm,250);
+      if(sessionStorage.getItem('wootenFuelRequestPending')==='1'){
+        setTimeout(showAfterEmailConfirm,250);
+      }
     }catch(err){}
-  });
-
-  if(yes) yes.addEventListener('click',function(){
-    const requestNumber='WO-'+String(Date.now()).slice(-6);
-    title.textContent='Fuel Request Submitted Successfully';
-    msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request email has been sent according to your confirmation. Please save this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
-    yes.style.display='none';
-    no.textContent='Done';
-    form.reset();
-    try{ sessionStorage.removeItem('wootenFuelRequestPending'); }catch(err){}
-  });
-
-  if(no) no.addEventListener('click',function(){
-    if(yes && yes.style.display==='none'){
-      overlay.classList.remove('show');
-    } else {
-      overlay.classList.remove('show');
-    }
   });
 })();
 </script>
