@@ -826,6 +826,55 @@
   .fuel-send-status{margin-top:14px;font-size:.83rem;color:#7a8591}
   @media(max-width:520px){.fuel-send-dialog{padding:24px 18px}.fuel-send-actions{display:grid}.fuel-send-actions button{width:100%}}
 
+
+
+  /* Dynamic Fuel Request Status Tracker */
+  .status-section{padding:72px 0;background:#fff;border-top:1px solid #e8edf2}
+  .status-shell{max-width:920px;margin:0 auto}
+  .status-head{text-align:center;max-width:700px;margin:0 auto 28px}
+  .status-head h2{margin:0 0 10px;font-size:clamp(28px,4vw,40px);color:#111}
+  .status-head p{margin:0;color:#5c6875;line-height:1.65}
+  .status-card{background:#f7f9fb;border:1px solid #dfe6ec;border-radius:20px;padding:26px;box-shadow:0 16px 42px rgba(15,39,66,.07)}
+  .status-search{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+  .status-search label{display:block;font-weight:800;margin-bottom:7px;color:#25384b}
+  .status-search input{width:100%;min-height:50px;border:1px solid #cfd8e1;border-radius:11px;padding:0 15px;font:inherit;text-transform:uppercase;background:#fff}
+  .status-search input:focus{outline:3px solid rgba(25,61,96,.14);border-color:#193d60}
+  .status-result{display:none;margin-top:24px;background:#fff;border:1px solid #dde5eb;border-radius:16px;padding:22px}
+  .status-result.show{display:block}
+  .status-result-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:20px}
+  .status-request-id{font-weight:900;font-size:1.22rem;color:#102b48}
+  .status-badge{display:inline-flex;align-items:center;gap:7px;border-radius:999px;background:#eaf7ee;color:#187b43;padding:8px 12px;font-size:.8rem;font-weight:900;white-space:nowrap}
+  .status-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 22px}
+  .status-meta div{background:#f7f9fb;border-radius:11px;padding:12px}
+  .status-meta small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}
+  .status-meta strong{display:block;color:#24384b;overflow-wrap:anywhere}
+  .status-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:0;position:relative;margin-top:8px}
+  .status-steps:before{content:'';position:absolute;top:17px;left:8%;right:8%;height:3px;background:#dce3e8;z-index:0}
+  .status-step{position:relative;z-index:1;text-align:center;color:#8a949e;font-size:.74rem;font-weight:800}
+  .status-dot{width:36px;height:36px;border-radius:50%;margin:0 auto 8px;background:#e4e9ed;border:4px solid #fff;box-shadow:0 0 0 1px #d7dfe6;display:grid;place-items:center;color:#7c8790;font-size:.8rem}
+  .status-step.active{color:#193d60}.status-step.active .status-dot{background:#193d60;color:#fff;box-shadow:0 0 0 2px #193d60}
+  .status-not-found{display:none;margin-top:16px;border-radius:12px;background:#fff3f3;border:1px solid #f0cccc;padding:14px;color:#9b2630;font-weight:700}
+  .status-not-found.show{display:block}
+  .status-note{margin-top:14px;color:#74808c;font-size:.82rem;line-height:1.55}
+  .tracking-number-box{margin:18px auto 4px;max-width:360px;background:#f3f7fa;border:1px solid #dbe4ea;border-radius:13px;padding:13px 16px}
+  .tracking-number-box small{display:block;text-transform:uppercase;letter-spacing:.08em;color:#6d7a87;font-size:.7rem;font-weight:900;margin-bottom:3px}
+  .tracking-number-box strong{display:block;color:#102b48;font-size:1.35rem;letter-spacing:.04em}
+  @media(max-width:720px){.status-section{padding:54px 0}.status-card{padding:20px 16px}.status-search{grid-template-columns:1fr}.status-search .btn{width:100%}.status-result-top{display:block}.status-badge{margin-top:10px}.status-meta{grid-template-columns:1fr 1fr}.status-steps{overflow-x:auto;grid-template-columns:repeat(5,minmax(92px,1fr));padding-bottom:4px}.status-steps:before{left:48px;right:48px}}
+/* About Wooten Oil */
+.about-section{background:#fff;padding:76px 0}
+.about-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:48px;align-items:center}
+.about-year{background:var(--navy);color:#fff;border-radius:22px;padding:38px;box-shadow:0 18px 42px rgba(15,39,66,.14)}
+.about-year .since{font-size:.82rem;letter-spacing:.16em;text-transform:uppercase;font-weight:900;color:#e5b342}
+.about-year .year{font-size:4.7rem;line-height:1;font-weight:900;margin:10px 0}
+.about-year p{margin:0;color:#dce5ee;line-height:1.65}
+.about-copy h2{color:var(--navy);font-size:clamp(2rem,4vw,3rem);margin:7px 0 16px}
+.about-copy>p{color:var(--muted);font-size:1.06rem;line-height:1.75}
+.about-points{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px}
+.about-point{border:1px solid #e4e9ef;border-radius:14px;padding:17px;background:#fafbfc}
+.about-point strong{display:block;color:var(--navy);margin-bottom:5px}
+.about-point span{color:var(--muted);font-size:.94rem;line-height:1.5}
+@media(max-width:760px){.about-section{padding:56px 0}.about-grid{grid-template-columns:1fr;gap:24px}.about-year{padding:28px}.about-year .year{font-size:3.8rem}.about-points{grid-template-columns:1fr}}
+
 </style>
 
 <style>
@@ -887,6 +936,7 @@
 
     <nav id="desktop-nav" class="smart-desktop-nav" aria-label="Primary navigation">
       <ul>
+        <li><a class="nav-link" href="#about">About Us</a></li>
         <li><a class="nav-link" href="#services">Services</a></li>
         <li><a class="nav-link" href="#farm">Farm Fuel</a></li>
         <li><a class="nav-link" href="#stations">Gas Stations</a></li>
@@ -904,6 +954,7 @@
     <nav id="mobile-menu" class="mobile-menu-panel" aria-label="Mobile navigation">
       <span class="mobile-menu-title">Menu</span>
       <a class="mobile-menu-close" href="#top" aria-label="Close navigation menu">&times;</a>
+      <a href="#about">About Us</a>
       <a href="#services">Services</a>
       <a href="#farm">Farm Fuel</a>
       <a href="#stations">Gas Stations</a>
@@ -975,30 +1026,23 @@
     </div>
   </section>
 
-
-  <section class="quick-actions" aria-labelledby="quick-actions-title">
-    <div class="container">
-      <div class="quick-actions-head">
-        <div class="kicker">Quick Actions</div>
-        <h2 id="quick-actions-title">How can we help?</h2>
+  <section class="about-section" id="about">
+    <div class="container about-grid">
+      <div class="about-year">
+        <div class="since">Serving West Tennessee Since</div>
+        <div class="year">1939</div>
+        <p>Wooten Oil was established as a regional fuel and petroleum supplier and has remained focused on dependable local service for generations.</p>
       </div>
-      <div class="quick-actions-grid">
-        <a class="quick-action" href="#fuel-request">
-          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9v18H6z"/><path d="M8.5 6h4"/><path d="M15 8h2l2 2v8a2 2 0 0 0 2 2"/></svg></span>
-          <span><strong>Request Fuel</strong><span>Start a delivery request</span></span>
-        </a>
-        <a class="quick-action" href="#oil-card">
-          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
-          <span><strong>Oil Card Help</strong><span>Card information & locations</span></span>
-        </a>
-        <a class="quick-action" href="tel:+19014762684">
-          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7.2 3.5 10 7.2 8.4 9.5c1.3 2.6 3.5 4.8 6.1 6.1l2.3-1.6 3.7 2.8-.7 3.2c-.2.8-.9 1.4-1.7 1.4C9.6 21.4 2.6 14.4 2.6 5.9c0-.8.6-1.5 1.4-1.7z"/></svg></span>
-          <span><strong>Call Wooten Oil</strong><span>(901) 476-2684</span></span>
-        </a>
-        <a class="quick-action" href="#locations">
-          <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
-          <span><strong>Find a Location</strong><span>Addresses, directions & phone</span></span>
-        </a>
+      <div class="about-copy">
+        <div class="kicker">About Us</div>
+        <h2>A long history of local petroleum service.</h2>
+        <p>Wooten Oil specializes in the wholesale distribution and local supply of petroleum products, including gasoline and diesel fuel for commercial and municipal needs throughout West Tennessee.</p>
+        <div class="about-points">
+          <div class="about-point"><strong>Established in 1939</strong><span>Founded as a regional fuel and petroleum supplier.</span></div>
+          <div class="about-point"><strong>Local Leadership</strong><span>Guided for more than 50 years by William Henry Wooten, a prominent Tipton County businessman.</span></div>
+          <div class="about-point"><strong>Petroleum Distribution</strong><span>Wholesale gasoline and diesel supply for commercial and municipal customers.</span></div>
+          <div class="about-point"><strong>West Tennessee Service</strong><span>A traditional bulk fuel jobber supporting the region's energy and transportation needs.</span></div>
+        </div>
       </div>
     </div>
   </section>
@@ -1344,6 +1388,7 @@
 
 
 
+
 <section class="fuel-request-section" id="fuel-request">
   <div class="container">
     <div class="fuel-request-card">
@@ -1453,8 +1498,9 @@
   });
 
   if(yes) yes.addEventListener('click',function(){
+    const requestNumber='WO-'+String(Date.now()).slice(-6);
     title.textContent='Fuel Request Submitted Successfully';
-    msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request email has been sent according to your confirmation. Our team will review it and contact you if additional information is needed.';
+    msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request email has been sent according to your confirmation. Please save this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
     yes.style.display='none';
     no.textContent='Done';
     form.reset();
@@ -1553,6 +1599,7 @@
   updateOfficeStatus(); setInterval(updateOfficeStatus,60000);
 })();
 </script>
+
 
 </body>
 </html>
