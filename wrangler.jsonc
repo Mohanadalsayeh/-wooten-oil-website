@@ -10,7 +10,10 @@
       "/api/*"
     ]
   },
-
+"vars": {
+  "FUEL_TO_EMAIL": "support@wootenoil.com",
+  "FUEL_FROM_EMAIL": "fuel@wootenoil.com"
+},
   "d1_databases": [
     {
       "binding": "DB",
