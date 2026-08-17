@@ -1523,12 +1523,16 @@
     return 'MSG-'+date+'-'+random;
   }
 
+  let contactMessageSent=false;
+
   function openContact(e){
     if(e) e.preventDefault();
+    contactMessageSent=false;
     status.className='contact-message-status';
     status.textContent='';
     submitBtn.disabled=false;
     submitBtn.textContent='Send Message';
+    cancelBtn.textContent='Cancel';
     overlay.classList.add('show');
     document.body.style.overflow='hidden';
     setTimeout(function(){document.getElementById('contactName').focus();},50);
@@ -1537,6 +1541,9 @@
   function closeContact(){
     overlay.classList.remove('show');
     document.body.style.overflow='';
+    if(contactMessageSent){
+      window.scrollTo({top:0,left:0,behavior:'smooth'});
+    }
   }
 
   document.querySelectorAll('.js-contact-open').forEach(function(link){link.addEventListener('click',openContact);});
@@ -1578,7 +1585,9 @@
       status.className='contact-message-status show success';
       status.innerHTML='Your message was sent successfully. We also sent a confirmation to <strong>'+escapeHtml(payload.email)+'</strong>.<div class="contact-reference"><small>Message Reference</small><strong>'+escapeHtml(referenceNumber)+'</strong></div>';
       form.reset();
+      contactMessageSent=true;
       submitBtn.textContent='Message Sent';
+      cancelBtn.textContent='Done';
     }catch(err){
       console.error('Contact message failed:',err);
       status.className='contact-message-status show error';
