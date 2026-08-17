@@ -218,6 +218,72 @@ export async function onRequestPost(context) {
         'The order was saved, but the email notification could not be sent. Please call Wooten Oil.'
     }, 502);
   }
+ 
+  // Send confirmation email to the customer, if they provided an email address
+  if (email) {
+    try {
+      const customerPayload = {
+        from: env.FUEL_FROM_EMAIL,
+        to: [email],
+        subject: `Wooten Oil Fuel Request Confirmation - ${requestNumber}`,
+        html: `
+          <h2>Fuel Request Confirmation</h2>
+          <p>Thank you for submitting your fuel delivery request to Wooten Oil.</p>
+
+          <p style="font-size:20px;">
+            <strong>Confirmation Number: ${esc(requestNumber)}</strong>
+          </p>
+
+          <hr>
+
+          <p><strong>Customer:</strong> ${esc(customerName)}</p>
+          <p><strong>Fuel Type:</strong> ${esc(fuelType)}</p>
+          <p><strong>Estimated Gallons:</strong> ${esc(gallons)}</p>
+          <p><strong>Delivery Address:</strong> ${esc(deliveryAddress)}</p>
+          <p><strong>Preferred Delivery Date:</strong> ${esc(deliveryDate || 'Not specified')}</p>
+
+          <p>We have received your request and will contact you if additional information is needed.</p>
+
+          <p>Please keep your confirmation number for your records.</p>
+
+          <p>
+            Thank you,<br>
+            <strong>Wooten Oil Company</strong>
+          </p>
+        `,
+        text:
+          `Wooten Oil Fuel Request Confirmation\n\n` +
+          `Confirmation Number: ${requestNumber}\n\n` +
+          `Customer: ${customerName}\n` +
+          `Fuel Type: ${fuelType}\n` +
+          `Estimated Gallons: ${gallons}\n` +
+          `Delivery Address: ${deliveryAddress}\n` +
+          `Preferred Delivery Date: ${deliveryDate || 'Not specified'}\n\n` +
+          `We have received your request and will contact you if additional information is needed.\n\n` +
+          `Please keep your confirmation number for your records.\n\n` +
+          `Wooten Oil Company`
+      };
+
+      const customerResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `fuel-confirmation-${requestNumber}`
+        },
+        body: JSON.stringify(customerPayload)
+      });
+
+      if (!customerResponse.ok) {
+        console.error(
+          'Customer confirmation email failed',
+          await customerResponse.text()
+        );
+      }
+    } catch (error) {
+      console.error('Customer confirmation email error', error);
+    }
+  }
 
   if (env.DB) {
     await env.DB
