@@ -103,7 +103,7 @@ export async function onRequestPost(context) {
   }
 
   const fromAddress =
-    env.FUEL_FROM_EMAIL || 'fuel@wootenoil.com';
+  'support@wootenoil.com';
 
   const toAddress =
     env.FUEL_TO_EMAIL || 'support@wootenoil.com';
