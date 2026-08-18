@@ -1330,7 +1330,7 @@
         <div class="hours-status" id="hoursStatus"><span class="hours-dot"></span><span id="hoursStatusText">Checking hours…</span></div>
       </div>
       <div class="hours-table">
-        <div class="hours-row"><strong>Monday – Friday</strong><span>6:00 AM – 5:00 PM</span></div>
+        <div class="hours-row"><strong>Monday – Friday</strong><span>8:00 AM – 4:30 PM</span></div>
         <div class="hours-row"><strong>Saturday – Sunday</strong><span>Call the Office</span></div>
       </div>
       <p class="hours-note">Monday–Friday office hours are posted above. On Saturday and Sunday, please call the office for availability.</p>
@@ -1817,11 +1817,11 @@
       var o={}; parts.forEach(function(x){o[x.type]=x.value});
       var weekday=o.weekday, mins=(parseInt(o.hour,10)%24)*60+parseInt(o.minute,10);
       var isWeekend=['Sat','Sun'].indexOf(weekday)>-1;
-      var weekdayOpen=['Mon','Tue','Wed','Thu','Fri'].indexOf(weekday)>-1 && mins>=360 && mins<1020;
+      var weekdayOpen=['Mon','Tue','Wed','Thu','Fri'].indexOf(weekday)>-1 && mins>=480 && mins<990;
       box.classList.remove('open','closed');
       if(isWeekend){ box.classList.add('closed'); text.textContent='Call the Office'; }
       else { box.classList.add(weekdayOpen?'open':'closed'); text.textContent=weekdayOpen?'Open Now':'Closed Now'; }
-    }catch(e){text.textContent='Mon–Fri 6 AM–5 PM';}
+    }catch(e){text.textContent='Mon–Fri 8 AM–4:30 PM';}
   }
   updateOfficeStatus(); setInterval(updateOfficeStatus,60000);
 })();
