@@ -8,6 +8,11 @@ import {
   onRequestGet as contactMessageGet
 } from "./functions/api/contact-message.js";
 
+import {
+  onRequestPost as customerImportPost,
+  onRequestGet as customerImportGet
+} from "./functions/api/admin-customers-import.js";
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -71,7 +76,34 @@ export default {
         }
       );
     }
+if (url.pathname === "/api/admin/customers-import") {
+  if (request.method === "POST") {
+    return customerImportPost({
+      request,
+      env
+    });
+  }
 
+  if (request.method === "GET") {
+    return customerImportGet({
+      request,
+      env
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: "Method not allowed."
+    }),
+    {
+      status: 405,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }
+  );
+}
     return env.ASSETS.fetch(request);
   }
 };
