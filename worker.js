@@ -13,9 +13,38 @@ import {
   onRequestGet as customerImportGet
 } from "./functions/api/admin-customers-import.js";
 
+import {
+  customerLoginPost,
+  customerMeGet,
+  customerLogoutPost
+} from "./functions/api/customer-login.js";
+
+
+function methodNotAllowed() {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: "Method not allowed."
+    }),
+    {
+      status: 405,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store"
+      }
+    }
+  );
+}
+
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+
+    /* =====================================================
+       FUEL REQUEST
+    ===================================================== */
 
     if (url.pathname === "/api/fuel-request") {
       if (request.method === "POST") {
@@ -33,19 +62,13 @@ export default {
         });
       }
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Method not allowed."
-        }),
-        {
-          status: 405,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      return methodNotAllowed();
     }
+
+
+    /* =====================================================
+       CONTACT MESSAGE
+    ===================================================== */
 
     if (url.pathname === "/api/contact-message") {
       if (request.method === "POST") {
@@ -63,47 +86,85 @@ export default {
         });
       }
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Method not allowed."
-        }),
-        {
-          status: 405,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      return methodNotAllowed();
     }
-if (url.pathname === "/api/admin/customers-import") {
-  if (request.method === "POST") {
-    return customerImportPost({
-      request,
-      env
-    });
-  }
 
-  if (request.method === "GET") {
-    return customerImportGet({
-      request,
-      env
-    });
-  }
 
-  return new Response(
-    JSON.stringify({
-      success: false,
-      error: "Method not allowed."
-    }),
-    {
-      status: 405,
-      headers: {
-        "Content-Type": "application/json"
+    /* =====================================================
+       MAS 90 CUSTOMER IMPORT
+    ===================================================== */
+
+    if (url.pathname === "/api/admin/customers-import") {
+      if (request.method === "POST") {
+        return customerImportPost({
+          request,
+          env
+        });
       }
+
+      if (request.method === "GET") {
+        return customerImportGet({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
     }
-  );
-}
+
+
+    /* =====================================================
+       CUSTOMER LOGIN
+    ===================================================== */
+
+    if (url.pathname === "/api/customer/login") {
+      if (request.method === "POST") {
+        return customerLoginPost({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       CURRENT LOGGED-IN CUSTOMER
+    ===================================================== */
+
+    if (url.pathname === "/api/customer/me") {
+      if (request.method === "GET") {
+        return customerMeGet({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       CUSTOMER LOGOUT
+    ===================================================== */
+
+    if (url.pathname === "/api/customer/logout") {
+      if (request.method === "POST") {
+        return customerLogoutPost({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       WEBSITE / STATIC FILES
+    ===================================================== */
+
     return env.ASSETS.fetch(request);
   }
 };
