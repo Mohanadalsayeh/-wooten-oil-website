@@ -920,11 +920,32 @@
 .portal-forgot{font-weight:800;color:#294f73}
 .portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer;transition:.2s ease}.portal-signin:hover{background:#132538;transform:translateY(-1px)}.portal-signin:disabled{opacity:.58;cursor:not-allowed;transform:none}
 .portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 20px;min-width:190px;text-align:right}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance strong{display:block;font-size:1.75rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balance{margin-top:14px;text-align:left}.account-grid{grid-template-columns:1fr}}
+
+.payment-panel{margin-top:20px;border:1px solid #dce4eb;border-radius:16px;padding:18px;background:#fff}
+.payment-panel h3{margin:0 0 6px;color:#102b48;font-size:1.18rem}
+.payment-panel>p{margin:0 0 15px;color:#64707c;font-size:.9rem;line-height:1.5}
+.payment-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.payment-choice{position:relative;display:block}
+.payment-choice input{position:absolute;opacity:0;pointer-events:none}
+.payment-choice span{display:block;border:1px solid #d8e0e7;border-radius:12px;padding:13px 14px;font-weight:850;color:#24384b;background:#f8fafb;cursor:pointer}
+.payment-choice input:checked+span{border-color:#193d60;background:#eef4f9;box-shadow:0 0 0 2px rgba(25,61,96,.08)}
+.partial-payment-row{display:none;margin-top:12px}
+.partial-payment-row.show{display:block}
+.partial-payment-row label{display:block;font-size:.82rem;font-weight:850;color:#455565;margin-bottom:6px}
+.partial-payment-input{display:flex;align-items:center;border:1px solid #d6dde5;border-radius:11px;background:#fff;overflow:hidden}
+.partial-payment-input span{padding-left:13px;font-weight:900;color:#53606d}
+.partial-payment-input input{width:100%;height:48px;border:0;outline:0;padding:0 12px 0 5px;font:inherit;font-weight:800;color:#182331}
+.payment-notice{margin-top:14px;background:#fff8e7;border:1px solid #ecd99d;border-radius:12px;padding:13px 14px;color:#6b5318;font-size:.84rem;line-height:1.5}
+.payment-notice strong{color:#57410f}
+.payment-continue{width:100%;min-height:48px;margin-top:14px;border:0;border-radius:11px;background:#bd1e2d;color:#fff;font:inherit;font-weight:900;cursor:pointer}
+.payment-continue:hover{background:#a91926}
+.payment-continue:disabled{opacity:.55;cursor:not-allowed}
+.payment-coming-soon{display:none;margin-top:10px;border-radius:11px;background:#eef4f9;border:1px solid #d7e2eb;padding:11px 13px;color:#294f73;font-size:.84rem;font-weight:750;line-height:1.45}
+.payment-coming-soon.show{display:block}
+@media(max-width:620px){.payment-options{grid-template-columns:1fr}.payment-panel{padding:15px}.account-actions{justify-content:stretch}.account-actions button{width:100%}}
+
 .portal-preview-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#d59d23;margin-top:6px}
 .portal-help{text-align:center;margin-top:18px;font-size:.9rem;color:#68717d}.portal-help a{font-weight:900;color:#193d60}
-
-.portal-activate-link{display:block;width:100%;margin-top:12px;padding:12px 14px;border:1px solid #cfd8e2;border-radius:11px;background:#fff;color:#244b70;font:inherit;font-weight:900;text-align:center;cursor:pointer;transition:.2s ease}.portal-activate-link:hover{background:#f5f8fb;border-color:#9fb0c1}.portal-activation-card{display:none;width:min(520px,100%)}.portal-activation-card.show{display:block}.portal-activation-step{display:grid;gap:15px}.portal-activation-details{display:none;gap:15px}.portal-activation-details.show{display:grid}.portal-code-input{letter-spacing:.18em;font-weight:800}.portal-action-row{display:flex;gap:10px;flex-wrap:wrap}.portal-action-row button{flex:1;min-width:150px}.portal-secondary-btn{height:48px;border:1px solid #ccd6df;border-radius:11px;background:#f6f8fa;color:#233b52;font:inherit;font-weight:900;cursor:pointer}.portal-secondary-btn:hover{background:#edf2f6}.portal-primary-btn{height:48px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer}.portal-primary-btn:hover{background:#132538}.portal-primary-btn:disabled,.portal-secondary-btn:disabled{opacity:.58;cursor:not-allowed}.portal-activation-note{background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.5}.portal-back-link{display:inline-block;margin-top:16px;color:#294f73;font-weight:900;cursor:pointer}.portal-account-card{display:none}.portal-account-card.show{display:block}
-
 .mobile-menu-panel .mobile-login-link{display:flex;align-items:center;justify-content:center;min-height:46px;margin-top:6px;border:1px solid #d7dee5;background:#fff;color:#22384f!important}
 @media(max-width:1100px) and (min-width:981px){.customer-login-link{padding:10px 12px;font-size:.88rem}}
 @media(max-width:980px){.customer-login-link{display:none!important}}
@@ -997,47 +1018,9 @@
       </div>
       <div id="portalStatus" class="portal-status" role="status" aria-live="polite"></div>
       <button class="portal-signin" id="portalSignIn" type="submit">Sign In</button>
-      <button class="portal-activate-link" id="portalActivateLink" type="button">First time here? Activate Online Account</button>
       <div class="portal-preview-note"><span class="portal-preview-dot" aria-hidden="true"></span><span>Your login is used only to securely access your Wooten Oil customer account.</span></div>
     </form>
     <div class="portal-help">Need login help? <a href="mailto:Support@wootenoil.com">Contact Wooten Oil</a></div>
-  </div>
-
-  <div class="portal-card portal-activation-card" id="portalActivationCard" aria-live="polite">
-    <a class="portal-close" href="#top" aria-label="Close account activation">&times;</a>
-    <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
-    <h2>Activate Online Account</h2>
-    <p>Enter your Wooten Oil customer number to begin. If an email is on file, we will send a verification code. Otherwise, contact Wooten Oil for a one-time activation code.</p>
-
-    <div class="portal-activation-step">
-      <div class="portal-field">
-        <label for="activation-account">Customer #</label>
-        <input id="activation-account" type="text" inputmode="numeric" placeholder="Example: 0001002" autocomplete="username" />
-      </div>
-      <div id="activationStatus" class="portal-status" role="status" aria-live="polite"></div>
-      <button class="portal-primary-btn" id="activationStart" type="button">Continue</button>
-    </div>
-
-    <div class="portal-activation-details" id="activationDetails">
-      <div class="portal-activation-note" id="activationInstructions"></div>
-      <div class="portal-field">
-        <label for="activation-code">6-Digit Activation Code</label>
-        <input class="portal-code-input" id="activation-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
-      </div>
-      <div class="portal-field">
-        <label for="activation-password">Create Password</label>
-        <input id="activation-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
-      </div>
-      <div class="portal-field">
-        <label for="activation-confirm">Confirm Password</label>
-        <input id="activation-confirm" type="password" minlength="10" maxlength="128" placeholder="Re-enter password" autocomplete="new-password" />
-      </div>
-      <div class="portal-action-row">
-        <button class="portal-primary-btn" id="activationComplete" type="button">Activate Account</button>
-      </div>
-    </div>
-
-    <button class="portal-secondary-btn" id="activationBack" type="button" style="width:100%;margin-top:16px">Back to Sign In</button>
   </div>
 
   <div class="portal-card portal-account-card portal-account" id="portalAccountCard" aria-live="polite">
@@ -1058,6 +1041,39 @@
       <div class="account-item"><small>Email</small><strong id="acctEmail">—</strong></div>
       <div class="account-item"><small>Address</small><strong id="acctAddress">—</strong></div>
     </div>
+    <div class="payment-panel" id="portalPaymentPanel">
+      <h3>Make a Payment</h3>
+      <p>Choose whether you would like to pay your full current balance or make a partial payment.</p>
+
+      <div class="payment-options">
+        <label class="payment-choice">
+          <input type="radio" name="portalPaymentType" id="payFullBalance" value="full" checked>
+          <span>Pay Full Balance</span>
+        </label>
+        <label class="payment-choice">
+          <input type="radio" name="portalPaymentType" id="payPartialBalance" value="partial">
+          <span>Make a Partial Payment</span>
+        </label>
+      </div>
+
+      <div class="partial-payment-row" id="partialPaymentRow">
+        <label for="partialPaymentAmount">Partial payment amount</label>
+        <div class="partial-payment-input">
+          <span>$</span>
+          <input id="partialPaymentAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="payment-notice">
+        <strong>Payment Notice:</strong> Payments submitted through the Wooten Oil Customer Portal will be reflected on your account within 24 business hours.
+      </div>
+
+      <button type="button" class="payment-continue" id="portalPaymentContinue">Continue to Secure Payment</button>
+      <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite">
+        Secure online payment processing is being connected. No payment has been submitted or charged.
+      </div>
+    </div>
+
     <div class="account-actions">
       <button type="button" class="account-logout" id="portalLogout">Sign Out</button>
     </div>
@@ -1894,29 +1910,65 @@
 
 
 <script>
+/* Customer Portal Payment Options - UI only until secure payment processor is connected */
+(function(){
+  var full=document.getElementById('payFullBalance');
+  var partial=document.getElementById('payPartialBalance');
+  var row=document.getElementById('partialPaymentRow');
+  var amount=document.getElementById('partialPaymentAmount');
+  var button=document.getElementById('portalPaymentContinue');
+  var message=document.getElementById('portalPaymentMessage');
+
+  if(!full || !partial || !row || !button) return;
+
+  function updatePaymentChoice(){
+    if(partial.checked){
+      row.classList.add('show');
+      setTimeout(function(){ if(amount) amount.focus(); },50);
+    }else{
+      row.classList.remove('show');
+      if(amount) amount.value='';
+    }
+    if(message) message.classList.remove('show');
+  }
+
+  full.addEventListener('change',updatePaymentChoice);
+  partial.addEventListener('change',updatePaymentChoice);
+
+  button.addEventListener('click',function(){
+    if(partial.checked){
+      var value=Number(amount && amount.value);
+      if(!value || value<=0){
+        if(message){
+          message.textContent='Please enter a valid partial payment amount.';
+          message.classList.add('show');
+        }
+        if(amount) amount.focus();
+        return;
+      }
+    }
+    if(message){
+      message.textContent='Secure online payment processing is being connected. No payment has been submitted or charged.';
+      message.classList.add('show');
+    }
+  });
+})();
+</script>
+
+<script>
 /* Customer Portal */
 (function(){
   var form=document.getElementById('portalLoginForm');
   var loginCard=document.getElementById('portalLoginCard');
-  var activationCard=document.getElementById('portalActivationCard');
   var accountCard=document.getElementById('portalAccountCard');
   var status=document.getElementById('portalStatus');
   var signIn=document.getElementById('portalSignIn');
   var logout=document.getElementById('portalLogout');
-  var activateLink=document.getElementById('portalActivateLink');
-  var activationBack=document.getElementById('activationBack');
-  var activationStart=document.getElementById('activationStart');
-  var activationComplete=document.getElementById('activationComplete');
-  var activationStatus=document.getElementById('activationStatus');
-  var activationDetails=document.getElementById('activationDetails');
-  var activationInstructions=document.getElementById('activationInstructions');
-  if(!form || !loginCard || !activationCard || !accountCard) return;
+  if(!form || !loginCard || !accountCard) return;
 
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
-  var ACTIVATE_START_ENDPOINT='/api/customer/activation/start';
-  var ACTIVATE_SET_PASSWORD_ENDPOINT='/api/customer/activation/set-password';
 
   function money(v){
     var n=Number(v);
@@ -1924,42 +1976,16 @@
     return n.toLocaleString('en-US',{style:'currency',currency:'USD'});
   }
   function clean(v){ return String(v == null ? '' : v).trim(); }
-  function setStatus(el,message,good){
-    if(!el) return;
-    el.className='portal-status show '+(good?'ok':'error');
-    el.textContent=message;
+  function showStatus(message,good){
+    status.className='portal-status show '+(good?'ok':'error');
+    status.textContent=message;
   }
-  function clearStatus(el){
-    if(!el) return;
-    el.className='portal-status';
-    el.textContent='';
-  }
+  function clearStatus(){ status.className='portal-status'; status.textContent=''; }
   function addressOf(c){
     var street=[clean(c.address1),clean(c.address2),clean(c.address3)].filter(Boolean).join(', ');
     var cityState=[clean(c.city),clean(c.state)].filter(Boolean).join(', ');
     var tail=[cityState,clean(c.zip_code)].filter(Boolean).join(' ');
     return [street,tail].filter(Boolean).join(' • ') || '—';
-  }
-  function hideAll(){
-    loginCard.style.display='none';
-    activationCard.classList.remove('show');
-    accountCard.classList.remove('show');
-  }
-  function showLogin(){
-    hideAll();
-    loginCard.style.display='block';
-  }
-  function showActivation(account){
-    hideAll();
-    activationCard.classList.add('show');
-    clearStatus(activationStatus);
-    activationDetails.classList.remove('show');
-    activationInstructions.textContent='';
-    document.getElementById('activation-code').value='';
-    document.getElementById('activation-password').value='';
-    document.getElementById('activation-confirm').value='';
-    if(account) document.getElementById('activation-account').value=account;
-    setTimeout(function(){ document.getElementById('activation-account').focus(); },50);
   }
   function showAccount(c){
     document.getElementById('acctName').textContent=clean(c.account_name)||'Customer Account';
@@ -1971,8 +1997,12 @@
     document.getElementById('acctPhone').textContent=clean(c.phone)||'—';
     document.getElementById('acctEmail').textContent=clean(c.email)||'—';
     document.getElementById('acctAddress').textContent=addressOf(c);
-    hideAll();
+    loginCard.style.display='none';
     accountCard.classList.add('show');
+  }
+  function showLogin(){
+    accountCard.classList.remove('show');
+    loginCard.style.display='block';
   }
   async function loadCurrentAccount(silent){
     try{
@@ -1988,14 +2018,14 @@
   form.addEventListener('submit',async function(e){
     e.preventDefault();
     if(!form.reportValidity()) return;
-    clearStatus(status);
+    clearStatus();
     signIn.disabled=true;
     signIn.textContent='Signing In…';
     try{
-      var user=document.getElementById('portal-user').value.trim();
       var payload={
-        user:user,
-        password:document.getElementById('portal-password').value
+        username:document.getElementById('portal-user').value.trim(),
+        password:document.getElementById('portal-password').value,
+        remember:document.getElementById('portal-remember').checked
       };
       var r=await fetch(LOGIN_ENDPOINT,{
         method:'POST',
@@ -2004,123 +2034,15 @@
         body:JSON.stringify(payload)
       });
       var d=await r.json().catch(function(){return {};});
-      if(!r.ok || d.success===false){
-        if(d.setup_required){
-          showActivation(d.account_number || user);
-          setStatus(activationStatus,'This account has not been activated for online access yet. Continue below to activate it.',false);
-          return;
-        }
-        throw new Error(d.error || 'The customer number/email or password is incorrect.');
-      }
+      if(!r.ok || d.success===false){ throw new Error(d.error || 'The customer number/email or password is incorrect.'); }
       if(d.customer){ showAccount(d.customer); }
       else if(!(await loadCurrentAccount(false))){ throw new Error('Signed in, but the account information could not be loaded.'); }
       document.getElementById('portal-password').value='';
     }catch(err){
-      setStatus(status,err.message || 'Sign in failed. Please try again.',false);
+      showStatus(err.message || 'Sign in failed. Please try again.',false);
     }finally{
       signIn.disabled=false;
       signIn.textContent='Sign In';
-    }
-  });
-
-  if(activateLink) activateLink.addEventListener('click',function(){
-    var existing=document.getElementById('portal-user').value.trim();
-    showActivation(existing);
-  });
-
-  if(activationBack) activationBack.addEventListener('click',function(){
-    showLogin();
-    clearStatus(status);
-  });
-
-  if(activationStart) activationStart.addEventListener('click',async function(){
-    var account=document.getElementById('activation-account').value.trim();
-    if(!account){
-      setStatus(activationStatus,'Enter your Customer Number.',false);
-      return;
-    }
-    clearStatus(activationStatus);
-    activationStart.disabled=true;
-    activationStart.textContent='Checking…';
-    try{
-      var r=await fetch(ACTIVATE_START_ENDPOINT,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        credentials:'same-origin',
-        body:JSON.stringify({account_number:account})
-      });
-      var d=await r.json().catch(function(){return {};});
-      if(!r.ok || d.success===false){
-        if(d.already_activated){
-          throw new Error('This online account has already been activated. Please return to Sign In.');
-        }
-        throw new Error(d.error || 'We could not start account activation.');
-      }
-      document.getElementById('activation-account').value=d.account_number || account;
-      activationDetails.classList.add('show');
-      if(d.method==='email'){
-        activationInstructions.textContent='A 6-digit verification code was sent to '+(d.email || 'the email address on your account')+'. Enter that code below and create your password.';
-      }else{
-        activationInstructions.textContent='There is no email address on this account. Please contact Wooten Oil, verify your account with our staff, and ask for a one-time 6-digit activation code. Then enter the code below and create your password.';
-      }
-      setStatus(activationStatus,d.message || 'Account located. Continue below.',true);
-      setTimeout(function(){ document.getElementById('activation-code').focus(); },50);
-    }catch(err){
-      setStatus(activationStatus,err.message || 'Activation could not be started.',false);
-    }finally{
-      activationStart.disabled=false;
-      activationStart.textContent='Continue';
-    }
-  });
-
-  if(activationComplete) activationComplete.addEventListener('click',async function(){
-    var account=document.getElementById('activation-account').value.trim();
-    var code=document.getElementById('activation-code').value.trim();
-    var password=document.getElementById('activation-password').value;
-    var confirm=document.getElementById('activation-confirm').value;
-    if(!account || !code || !password || !confirm){
-      setStatus(activationStatus,'Enter the activation code and both password fields.',false);
-      return;
-    }
-    if(!/^\d{6}$/.test(code)){
-      setStatus(activationStatus,'Enter the 6-digit activation code.',false);
-      return;
-    }
-    if(password.length<10){
-      setStatus(activationStatus,'Your password must be at least 10 characters.',false);
-      return;
-    }
-    if(password!==confirm){
-      setStatus(activationStatus,'The passwords do not match.',false);
-      return;
-    }
-    clearStatus(activationStatus);
-    activationComplete.disabled=true;
-    activationComplete.textContent='Activating…';
-    try{
-      var r=await fetch(ACTIVATE_SET_PASSWORD_ENDPOINT,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        credentials:'same-origin',
-        body:JSON.stringify({
-          account_number:account,
-          code:code,
-          password:password,
-          confirm_password:confirm
-        })
-      });
-      var d=await r.json().catch(function(){return {};});
-      if(!r.ok || d.success===false){ throw new Error(d.error || 'Account activation failed.'); }
-      showLogin();
-      document.getElementById('portal-user').value=d.account_number || account;
-      document.getElementById('portal-password').value='';
-      setStatus(status,'Your online account is activated. Enter your new password to sign in.',true);
-      setTimeout(function(){ document.getElementById('portal-password').focus(); },50);
-    }catch(err){
-      setStatus(activationStatus,err.message || 'Account activation failed.',false);
-    }finally{
-      activationComplete.disabled=false;
-      activationComplete.textContent='Activate Account';
     }
   });
 
@@ -2131,13 +2053,13 @@
     }catch(e){}
     showLogin();
     form.reset();
-    clearStatus(status);
+    clearStatus();
     logout.disabled=false;
   });
 
   document.querySelectorAll('a[href="#customer-login"]').forEach(function(link){
     link.addEventListener('click',function(){
-      clearStatus(status);
+      clearStatus();
       loadCurrentAccount(true).then(function(ok){ if(!ok) showLogin(); });
     });
   });
