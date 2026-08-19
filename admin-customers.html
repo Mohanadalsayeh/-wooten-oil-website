@@ -88,7 +88,7 @@
       </table>
     </div>
 
-    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> AccountNum, AccountName, Address1, Address2, City, State, ZipCode, Phone1, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
+    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
   </div>
 
   <div class="card">
@@ -130,14 +130,14 @@
 let preparedRows=[];
 
 const aliases={
-  account_number:["accountnum","accountnumber","account_number","acctnum","acctnumber"],
+  account_number:["customerno","customer_no","accountnum","accountnumber","account_number","acctnum","acctnumber"],
   account_name:["accountname","account_name","customername","name"],
-  address1:["address1","address","street","streetaddress"],
-  address2:["address2","address_2","suite"],
+  address1:["addressline1","address1","address","street","streetaddress"],
+  address2:["addressline2","address2","address_2","suite"],
   city:["city"],
   state:["state"],
   zip_code:["zipcode","zip","zip_code","postalcode"],
-  phone:["phone1","phone","phonenumber","phone_number"],
+  phone:["telephoneno","telephone_no","phone1","phone","phonenumber","phone_number"],
   email:["email","emailaddress","email_address"],
   current_balance:["currentbalance","current_balance","currentbal","current"],
   aging_category_1:["agingcategory1","aging_category_1","aging1","age1"],
