@@ -1,5 +1,5 @@
 const CODE_MINUTES = 15;
-const PASSWORD_ITERATIONS = 210000;
+const PASSWORD_ITERATIONS = 100000;
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -771,10 +771,26 @@ export async function customerActivationSetPassword({
     }, 400);
   }
 
-  const passwordHash =
-    await createPasswordHash(
-      password
-    );
+  let passwordHash;
+
+try {
+  passwordHash =
+    await createPasswordHash(password);
+
+} catch (error) {
+  console.error(
+    "Password hashing failed",
+    error
+  );
+
+  return json({
+    success: false,
+    error:
+      "We could not securely create your password. Please try again."
+  }, 500);
+}
+
+try {
 
   try {
     await env.DB.prepare(`
