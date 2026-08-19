@@ -919,7 +919,7 @@
 .portal-remember{display:flex;align-items:center;gap:8px}.portal-remember input{width:16px;height:16px}
 .portal-forgot{font-weight:800;color:#294f73}
 .portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer;transition:.2s ease}.portal-signin:hover{background:#132538;transform:translateY(-1px)}.portal-signin:disabled{opacity:.58;cursor:not-allowed;transform:none}
-.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 20px;min-width:190px;text-align:right}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance strong{display:block;font-size:1.75rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balance{margin-top:14px;text-align:left}.account-grid{grid-template-columns:1fr}}
+.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balances{display:grid;grid-template-columns:repeat(2,minmax(170px,1fr));gap:10px;min-width:370px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 20px;min-width:170px;text-align:right}.account-balance.previous{background:#f3f6f8;color:#102b48;border:1px solid #dce4ea}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance.previous small{color:#687887}.account-balance strong{display:block;font-size:1.75rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balances{grid-template-columns:1fr;min-width:0;margin-top:14px}.account-balance{margin-top:0;text-align:left}.account-grid{grid-template-columns:1fr}}
 
 .payment-panel{margin-top:20px;border:1px solid #dce4eb;border-radius:16px;padding:18px;background:#fff}
 .payment-panel h3{margin:0 0 6px;color:#102b48;font-size:1.18rem}
@@ -1103,7 +1103,10 @@
         <div class="account-name" id="acctName">Customer Account</div>
         <div class="account-number" id="acctNumber"></div>
       </div>
-      <div class="account-balance"><small>Current Balance</small><strong id="acctBalance">$0.00</strong></div>
+      <div class="account-balances" aria-label="Account balances">
+        <div class="account-balance"><small>Current Balance (0–30 Days)</small><strong id="acctBalance">$0.00</strong></div>
+        <div class="account-balance previous"><small>Previous Balance (31+ Days)</small><strong id="acctPreviousBalance">$0.00</strong></div>
+      </div>
     </div>
     <div class="account-grid">
       <div class="account-item"><small>Terms</small><strong id="acctTerms">—</strong></div>
@@ -1115,7 +1118,7 @@
     </div>
     <div class="payment-panel" id="portalPaymentPanel">
       <h3>Make a Payment</h3>
-      <p>Choose whether you would like to pay your full current balance or make a partial payment.</p>
+      <p>Choose whether you would like to pay your full account balance or make a partial payment.</p>
 
       <div class="payment-options">
         <label class="payment-choice">
@@ -2058,6 +2061,17 @@
     return n.toLocaleString('en-US',{style:'currency',currency:'USD'});
   }
   function clean(v){ return String(v == null ? '' : v).trim(); }
+  function numberValue(v){
+    if(v == null || v === '') return 0;
+    var n=Number(String(v).replace(/[$,]/g,''));
+    return Number.isFinite(n)?n:0;
+  }
+  function firstNumber(c,names){
+    for(var i=0;i<names.length;i++){
+      if(c && c[names[i]] != null && c[names[i]] !== '') return numberValue(c[names[i]]);
+    }
+    return 0;
+  }
   function setStatus(el,message,good){
     if(!el) return;
     el.className='portal-status show '+(good?'ok':'error');
@@ -2098,7 +2112,14 @@
   function showAccount(c){
     document.getElementById('acctName').textContent=clean(c.account_name)||'Customer Account';
     document.getElementById('acctNumber').textContent=clean(c.account_number)?'Customer # '+clean(c.account_number):'';
-    document.getElementById('acctBalance').textContent=money(c.current_balance);
+    var currentBalance=firstNumber(c,['current_balance','current','aging_current','aging_category_0','age_current']);
+    var aging1=firstNumber(c,['aging_category_1','aging1','age_1','aging_1','balance_31_60']);
+    var aging2=firstNumber(c,['aging_category_2','aging2','age_2','aging_2','balance_61_90']);
+    var aging3=firstNumber(c,['aging_category_3','aging3','age_3','aging_3','balance_91_120']);
+    var aging4=firstNumber(c,['aging_category_4','aging4','age_4','aging_4','balance_over_120']);
+    var previousBalance=aging1+aging2+aging3+aging4;
+    document.getElementById('acctBalance').textContent=money(currentBalance);
+    document.getElementById('acctPreviousBalance').textContent=money(previousBalance);
     document.getElementById('acctTerms').textContent=clean(c.terms_description)||'—';
     document.getElementById('acctCreditHold').textContent=clean(c.credit_hold)||'—';
     document.getElementById('acctCreditLimit').textContent=money(c.credit_limit);
