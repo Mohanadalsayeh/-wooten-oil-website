@@ -19,6 +19,13 @@ import {
   customerLogoutPost
 } from "./functions/api/customer-login.js";
 
+import {
+  customerActivationStart,
+  customerActivationVerify,
+  customerActivationSetPassword,
+  adminGenerateActivationCode
+} from "./functions/api/customer-activation.js";
+
 
 function methodNotAllowed() {
   return new Response(
@@ -152,6 +159,70 @@ export default {
     if (url.pathname === "/api/customer/logout") {
       if (request.method === "POST") {
         return customerLogoutPost({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       CUSTOMER ACTIVATION - START
+    ===================================================== */
+
+    if (url.pathname === "/api/customer/activation/start") {
+      if (request.method === "POST") {
+        return customerActivationStart({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       CUSTOMER ACTIVATION - VERIFY CODE
+    ===================================================== */
+
+    if (url.pathname === "/api/customer/activation/verify") {
+      if (request.method === "POST") {
+        return customerActivationVerify({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       CUSTOMER ACTIVATION - SET PASSWORD
+    ===================================================== */
+
+    if (url.pathname === "/api/customer/activation/set-password") {
+      if (request.method === "POST") {
+        return customerActivationSetPassword({
+          request,
+          env
+        });
+      }
+
+      return methodNotAllowed();
+    }
+
+
+    /* =====================================================
+       ADMIN - GENERATE PHONE ACTIVATION CODE
+    ===================================================== */
+
+    if (url.pathname === "/api/admin/customer-activation-code") {
+      if (request.method === "POST") {
+        return adminGenerateActivationCode({
           request,
           env
         });
