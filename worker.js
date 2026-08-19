@@ -27,6 +27,32 @@ import {
 } from "./functions/api/customer-activation.js";
 
 
+async function addBalanceFields(response, env) {
+  try {
+    const body = await response.clone().json();
+    if (!body || !body.customer || !body.customer.account_number || !env.DB) return response;
+    const row = await env.DB.prepare(`
+      SELECT current_balance, aging_category_1, aging_category_2, aging_category_3, aging_category_4
+      FROM customers WHERE account_number = ? LIMIT 1
+    `).bind(body.customer.account_number).first();
+    if (row) {
+      body.customer.current_balance = Number(row.current_balance || 0);
+      body.customer.aging_category_1 = Number(row.aging_category_1 || 0);
+      body.customer.aging_category_2 = Number(row.aging_category_2 || 0);
+      body.customer.aging_category_3 = Number(row.aging_category_3 || 0);
+      body.customer.aging_category_4 = Number(row.aging_category_4 || 0);
+      body.customer.previous_balance = body.customer.aging_category_1 + body.customer.aging_category_2 + body.customer.aging_category_3 + body.customer.aging_category_4;
+      body.customer.total_balance = body.customer.current_balance + body.customer.previous_balance;
+    }
+    const headers = new Headers(response.headers);
+    headers.set("Content-Type", "application/json; charset=utf-8");
+    headers.set("Cache-Control", "no-store");
+    return new Response(JSON.stringify(body), {status: response.status, statusText: response.statusText, headers});
+  } catch (_) {
+    return response;
+  }
+}
+
 function methodNotAllowed() {
   return new Response(
     JSON.stringify({
@@ -43,15 +69,9 @@ function methodNotAllowed() {
   );
 }
 
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
-
-    /* =====================================================
-       FUEL REQUEST
-    ===================================================== */
 
     if (url.pathname === "/api/fuel-request") {
       if (request.method === "POST") {
@@ -72,11 +92,6 @@ export default {
       return methodNotAllowed();
     }
 
-
-    /* =====================================================
-       CONTACT MESSAGE
-    ===================================================== */
-
     if (url.pathname === "/api/contact-message") {
       if (request.method === "POST") {
         return contactMessagePost({
@@ -96,11 +111,6 @@ export default {
       return methodNotAllowed();
     }
 
-
-    /* =====================================================
-       MAS 90 CUSTOMER IMPORT
-    ===================================================== */
-
     if (url.pathname === "/api/admin/customers-import") {
       if (request.method === "POST") {
         return customerImportPost({
@@ -119,42 +129,27 @@ export default {
       return methodNotAllowed();
     }
 
-
-    /* =====================================================
-       CUSTOMER LOGIN
-    ===================================================== */
-
     if (url.pathname === "/api/customer/login") {
       if (request.method === "POST") {
-        return customerLoginPost({
+        return addBalanceFields(await customerLoginPost({
           request,
           env
-        });
+        }), env);
       }
 
       return methodNotAllowed();
     }
-
-
-    /* =====================================================
-       CURRENT LOGGED-IN CUSTOMER
-    ===================================================== */
 
     if (url.pathname === "/api/customer/me") {
       if (request.method === "GET") {
-        return customerMeGet({
+        return addBalanceFields(await customerMeGet({
           request,
           env
-        });
+        }), env);
       }
 
       return methodNotAllowed();
     }
-
-
-    /* =====================================================
-       CUSTOMER LOGOUT
-    ===================================================== */
 
     if (url.pathname === "/api/customer/logout") {
       if (request.method === "POST") {
@@ -167,11 +162,6 @@ export default {
       return methodNotAllowed();
     }
 
-
-    /* =====================================================
-       CUSTOMER ACTIVATION - START
-    ===================================================== */
-
     if (url.pathname === "/api/customer/activation/start") {
       if (request.method === "POST") {
         return customerActivationStart({
@@ -182,11 +172,6 @@ export default {
 
       return methodNotAllowed();
     }
-
-
-    /* =====================================================
-       CUSTOMER ACTIVATION - VERIFY CODE
-    ===================================================== */
 
     if (url.pathname === "/api/customer/activation/verify") {
       if (request.method === "POST") {
@@ -199,11 +184,6 @@ export default {
       return methodNotAllowed();
     }
 
-
-    /* =====================================================
-       CUSTOMER ACTIVATION - SET PASSWORD
-    ===================================================== */
-
     if (url.pathname === "/api/customer/activation/set-password") {
       if (request.method === "POST") {
         return customerActivationSetPassword({
@@ -215,11 +195,6 @@ export default {
       return methodNotAllowed();
     }
 
-
-    /* =====================================================
-       ADMIN - GENERATE PHONE ACTIVATION CODE
-    ===================================================== */
-
     if (url.pathname === "/api/admin/customer-activation-code") {
       if (request.method === "POST") {
         return adminGenerateActivationCode({
@@ -230,11 +205,6 @@ export default {
 
       return methodNotAllowed();
     }
-
-
-    /* =====================================================
-       WEBSITE / STATIC FILES
-    ===================================================== */
 
     return env.ASSETS.fetch(request);
   }
