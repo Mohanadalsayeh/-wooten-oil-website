@@ -486,15 +486,20 @@ export async function customerActivationStart({
       .bind(customer.id)
       .first();
 
-    if (recent) {
-      return json({
-        success: false,
-        wait: true,
-        error:
-          "A verification code was already sent recently. Please wait about one minute before requesting another."
-      }, 429);
-    }
-
+   if (recent) {
+  return json({
+    success: true,
+    method: "email",
+    account_number:
+      customer.account_number,
+    account_name:
+      customer.account_name,
+    email:
+      maskEmail(customer.email),
+    message:
+      "A verification code was already sent to the email address on your account. Please check your inbox."
+  });
+}
     const code =
       randomCode();
 
