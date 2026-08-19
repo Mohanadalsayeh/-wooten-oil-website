@@ -920,6 +920,29 @@
 .portal-forgot{font-weight:800;color:#294f73}
 .portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer;transition:.2s ease}.portal-signin:hover{background:#132538;transform:translateY(-1px)}.portal-signin:disabled{opacity:.58;cursor:not-allowed;transform:none}
 .portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 20px;min-width:190px;text-align:right}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance strong{display:block;font-size:1.75rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balance{margin-top:14px;text-align:left}.account-grid{grid-template-columns:1fr}}
+
+.payment-panel{margin-top:20px;border:1px solid #dce4eb;border-radius:16px;padding:18px;background:#fff}
+.payment-panel h3{margin:0 0 6px;color:#102b48;font-size:1.18rem}
+.payment-panel>p{margin:0 0 15px;color:#64707c;font-size:.9rem;line-height:1.5}
+.payment-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.payment-choice{position:relative;display:block}
+.payment-choice input{position:absolute;opacity:0;pointer-events:none}
+.payment-choice span{display:block;border:1px solid #d8e0e7;border-radius:12px;padding:13px 14px;font-weight:850;color:#24384b;background:#f8fafb;cursor:pointer}
+.payment-choice input:checked+span{border-color:#193d60;background:#eef4f9;box-shadow:0 0 0 2px rgba(25,61,96,.08)}
+.partial-payment-row{display:none;margin-top:12px}
+.partial-payment-row.show{display:block}
+.partial-payment-row label{display:block;font-size:.82rem;font-weight:850;color:#455565;margin-bottom:6px}
+.partial-payment-input{display:flex;align-items:center;border:1px solid #d6dde5;border-radius:11px;background:#fff;overflow:hidden}
+.partial-payment-input span{padding-left:13px;font-weight:900;color:#53606d}
+.partial-payment-input input{width:100%;height:48px;border:0;outline:0;padding:0 12px 0 5px;font:inherit;font-weight:800;color:#182331}
+.payment-notice{margin-top:14px;background:#fff8e7;border:1px solid #ecd99d;border-radius:12px;padding:13px 14px;color:#6b5318;font-size:.84rem;line-height:1.5}
+.payment-notice strong{color:#57410f}
+.payment-continue{width:100%;min-height:48px;margin-top:14px;border:0;border-radius:11px;background:#bd1e2d;color:#fff;font:inherit;font-weight:900;cursor:pointer}
+.payment-continue:hover{background:#a91926}
+.payment-coming-soon{display:none;margin-top:10px;border-radius:11px;background:#eef4f9;border:1px solid #d7e2eb;padding:11px 13px;color:#294f73;font-size:.84rem;font-weight:750;line-height:1.45}
+.payment-coming-soon.show{display:block}
+@media(max-width:620px){.payment-options{grid-template-columns:1fr}.payment-panel{padding:15px}.account-actions{justify-content:stretch}.account-actions button{width:100%}}
+
 .portal-preview-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#d59d23;margin-top:6px}
 .portal-help{text-align:center;margin-top:18px;font-size:.9rem;color:#68717d}.portal-help a{font-weight:900;color:#193d60}
 
@@ -1090,6 +1113,39 @@
       <div class="account-item"><small>Email</small><strong id="acctEmail">—</strong></div>
       <div class="account-item"><small>Address</small><strong id="acctAddress">—</strong></div>
     </div>
+    <div class="payment-panel" id="portalPaymentPanel">
+      <h3>Make a Payment</h3>
+      <p>Choose whether you would like to pay your full current balance or make a partial payment.</p>
+
+      <div class="payment-options">
+        <label class="payment-choice">
+          <input type="radio" name="portalPaymentType" id="payFullBalance" value="full" checked>
+          <span>Pay Full Balance</span>
+        </label>
+        <label class="payment-choice">
+          <input type="radio" name="portalPaymentType" id="payPartialBalance" value="partial">
+          <span>Make a Partial Payment</span>
+        </label>
+      </div>
+
+      <div class="partial-payment-row" id="partialPaymentRow">
+        <label for="partialPaymentAmount">Partial payment amount</label>
+        <div class="partial-payment-input">
+          <span>$</span>
+          <input id="partialPaymentAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="payment-notice">
+        <strong>Payment Notice:</strong> Payments submitted through the Wooten Oil Customer Portal will be reflected on your account within 24 business hours.
+      </div>
+
+      <button type="button" class="payment-continue" id="portalPaymentContinue">Continue to Secure Payment</button>
+      <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite">
+        Secure online payment processing is being connected. No payment has been submitted or charged.
+      </div>
+    </div>
+
     <div class="account-actions">
       <button type="button" class="account-logout" id="portalLogout">Sign Out</button>
     </div>
@@ -1924,6 +1980,52 @@
 })();
 </script>
 
+
+<script>
+/* Customer Portal Payment Options - UI only until secure payment processor is connected */
+(function(){
+  var full=document.getElementById('payFullBalance');
+  var partial=document.getElementById('payPartialBalance');
+  var row=document.getElementById('partialPaymentRow');
+  var amount=document.getElementById('partialPaymentAmount');
+  var button=document.getElementById('portalPaymentContinue');
+  var message=document.getElementById('portalPaymentMessage');
+
+  if(!full || !partial || !row || !button) return;
+
+  function updatePaymentChoice(){
+    if(partial.checked){
+      row.classList.add('show');
+      setTimeout(function(){ if(amount) amount.focus(); },50);
+    }else{
+      row.classList.remove('show');
+      if(amount) amount.value='';
+    }
+    if(message) message.classList.remove('show');
+  }
+
+  full.addEventListener('change',updatePaymentChoice);
+  partial.addEventListener('change',updatePaymentChoice);
+
+  button.addEventListener('click',function(){
+    if(partial.checked){
+      var value=Number(amount && amount.value);
+      if(!value || value<=0){
+        if(message){
+          message.textContent='Please enter a valid partial payment amount.';
+          message.classList.add('show');
+        }
+        if(amount) amount.focus();
+        return;
+      }
+    }
+    if(message){
+      message.textContent='Secure online payment processing is being connected. No payment has been submitted or charged.';
+      message.classList.add('show');
+    }
+  });
+})();
+</script>
 
 <script>
 /* Customer Portal */
