@@ -918,8 +918,8 @@
 .portal-row{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:.88rem;color:#53606d}
 .portal-remember{display:flex;align-items:center;gap:8px}.portal-remember input{width:16px;height:16px}
 .portal-forgot{font-weight:800;color:#294f73}
-.portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;opacity:.58;cursor:not-allowed}
-.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}
+.portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer;transition:.2s ease}.portal-signin:hover{background:#132538;transform:translateY(-1px)}.portal-signin:disabled{opacity:.58;cursor:not-allowed;transform:none}
+.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 20px;min-width:190px;text-align:right}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance strong{display:block;font-size:1.75rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balance{margin-top:14px;text-align:left}.account-grid{grid-template-columns:1fr}}
 .portal-preview-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#d59d23;margin-top:6px}
 .portal-help{text-align:center;margin-top:18px;font-size:.9rem;color:#68717d}.portal-help a{font-weight:900;color:#193d60}
 .mobile-menu-panel .mobile-login-link{display:flex;align-items:center;justify-content:center;min-height:46px;margin-top:6px;border:1px solid #d7dee5;background:#fff;color:#22384f!important}
@@ -974,28 +974,52 @@
 
 
 <div id="customer-login" class="portal-overlay" role="dialog" aria-modal="true" aria-labelledby="portal-title">
-  <div class="portal-card">
+  <div class="portal-card" id="portalLoginCard">
     <a class="portal-close" href="#top" aria-label="Close customer login">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
     <h2 id="portal-title">Customer Login</h2>
-    <p>Sign in to your Wooten Oil account. <span style="color:#c62828;font-weight:700;">This login page is not connected to customer accounts yet. COMING SOON!</span></p>
-    <form class="portal-form" onsubmit="return false;" autocomplete="off">
+    <p>Sign in with your Wooten Oil customer number or account email to view your account information and current balance.</p>
+    <form class="portal-form" id="portalLoginForm" autocomplete="on">
       <div class="portal-field">
-        <label for="portal-user">Email or Customer ID</label>
-        <input id="portal-user" name="portal-user" type="text" placeholder="Enter email or customer ID" />
+        <label for="portal-user">Email or Customer #</label>
+        <input id="portal-user" name="username" type="text" placeholder="Example: 0001002" autocomplete="username" required />
       </div>
       <div class="portal-field">
         <label for="portal-password">Password</label>
-        <input id="portal-password" name="portal-password" type="password" placeholder="Enter password" />
+        <input id="portal-password" name="password" type="password" placeholder="Enter password" autocomplete="current-password" required />
       </div>
       <div class="portal-row">
-        <label class="portal-remember"><input type="checkbox" /> Remember me</label>
-        <span class="portal-forgot">Forgot password?</span>
+        <label class="portal-remember"><input id="portal-remember" type="checkbox" /> Remember me</label>
+        <a class="portal-forgot" href="mailto:Support@wootenoil.com?subject=Customer%20Portal%20Password%20Help">Forgot password?</a>
       </div>
-      <button class="portal-signin" type="button" disabled>Sign In</button>
-      <div class="portal-preview-note"><span class="portal-preview-dot" aria-hidden="true"></span><span><strong>Preview mode:</strong> Sign in is intentionally disabled. No login information entered here is sent or stored.</span></div>
+      <div id="portalStatus" class="portal-status" role="status" aria-live="polite"></div>
+      <button class="portal-signin" id="portalSignIn" type="submit">Sign In</button>
+      <div class="portal-preview-note"><span class="portal-preview-dot" aria-hidden="true"></span><span>Your login is used only to securely access your Wooten Oil customer account.</span></div>
     </form>
-    <div class="portal-help">Need an account? <a href="mailto:Support@wootenoil.com">Contact Wooten Oil</a></div>
+    <div class="portal-help">Need login help? <a href="mailto:Support@wootenoil.com">Contact Wooten Oil</a></div>
+  </div>
+
+  <div class="portal-card portal-account-card portal-account" id="portalAccountCard" aria-live="polite">
+    <a class="portal-close" href="#top" aria-label="Close customer account">&times;</a>
+    <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
+    <div class="account-head">
+      <div>
+        <div class="account-name" id="acctName">Customer Account</div>
+        <div class="account-number" id="acctNumber"></div>
+      </div>
+      <div class="account-balance"><small>Current Balance</small><strong id="acctBalance">$0.00</strong></div>
+    </div>
+    <div class="account-grid">
+      <div class="account-item"><small>Terms</small><strong id="acctTerms">—</strong></div>
+      <div class="account-item"><small>Credit Hold</small><strong id="acctCreditHold">—</strong></div>
+      <div class="account-item"><small>Credit Limit</small><strong id="acctCreditLimit">—</strong></div>
+      <div class="account-item"><small>Phone</small><strong id="acctPhone">—</strong></div>
+      <div class="account-item"><small>Email</small><strong id="acctEmail">—</strong></div>
+      <div class="account-item"><small>Address</small><strong id="acctAddress">—</strong></div>
+    </div>
+    <div class="account-actions">
+      <button type="button" class="account-logout" id="portalLogout">Sign Out</button>
+    </div>
   </div>
 </div>
 
@@ -1827,6 +1851,117 @@
 })();
 </script>
 
+
+<script>
+/* Customer Portal */
+(function(){
+  var form=document.getElementById('portalLoginForm');
+  var loginCard=document.getElementById('portalLoginCard');
+  var accountCard=document.getElementById('portalAccountCard');
+  var status=document.getElementById('portalStatus');
+  var signIn=document.getElementById('portalSignIn');
+  var logout=document.getElementById('portalLogout');
+  if(!form || !loginCard || !accountCard) return;
+
+  var LOGIN_ENDPOINT='/api/customer/login';
+  var ME_ENDPOINT='/api/customer/me';
+  var LOGOUT_ENDPOINT='/api/customer/logout';
+
+  function money(v){
+    var n=Number(v);
+    if(!Number.isFinite(n)) n=0;
+    return n.toLocaleString('en-US',{style:'currency',currency:'USD'});
+  }
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function showStatus(message,good){
+    status.className='portal-status show '+(good?'ok':'error');
+    status.textContent=message;
+  }
+  function clearStatus(){ status.className='portal-status'; status.textContent=''; }
+  function addressOf(c){
+    var street=[clean(c.address1),clean(c.address2),clean(c.address3)].filter(Boolean).join(', ');
+    var cityState=[clean(c.city),clean(c.state)].filter(Boolean).join(', ');
+    var tail=[cityState,clean(c.zip_code)].filter(Boolean).join(' ');
+    return [street,tail].filter(Boolean).join(' • ') || '—';
+  }
+  function showAccount(c){
+    document.getElementById('acctName').textContent=clean(c.account_name)||'Customer Account';
+    document.getElementById('acctNumber').textContent=clean(c.account_number)?'Customer # '+clean(c.account_number):'';
+    document.getElementById('acctBalance').textContent=money(c.current_balance);
+    document.getElementById('acctTerms').textContent=clean(c.terms_description)||'—';
+    document.getElementById('acctCreditHold').textContent=clean(c.credit_hold)||'—';
+    document.getElementById('acctCreditLimit').textContent=money(c.credit_limit);
+    document.getElementById('acctPhone').textContent=clean(c.phone)||'—';
+    document.getElementById('acctEmail').textContent=clean(c.email)||'—';
+    document.getElementById('acctAddress').textContent=addressOf(c);
+    loginCard.style.display='none';
+    accountCard.classList.add('show');
+  }
+  function showLogin(){
+    accountCard.classList.remove('show');
+    loginCard.style.display='block';
+  }
+  async function loadCurrentAccount(silent){
+    try{
+      var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
+      if(r.status===401){ if(!silent) showLogin(); return false; }
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok || d.success===false || !d.customer) return false;
+      showAccount(d.customer);
+      return true;
+    }catch(e){ return false; }
+  }
+
+  form.addEventListener('submit',async function(e){
+    e.preventDefault();
+    if(!form.reportValidity()) return;
+    clearStatus();
+    signIn.disabled=true;
+    signIn.textContent='Signing In…';
+    try{
+      var payload={
+        username:document.getElementById('portal-user').value.trim(),
+        password:document.getElementById('portal-password').value,
+        remember:document.getElementById('portal-remember').checked
+      };
+      var r=await fetch(LOGIN_ENDPOINT,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        credentials:'same-origin',
+        body:JSON.stringify(payload)
+      });
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok || d.success===false){ throw new Error(d.error || 'The customer number/email or password is incorrect.'); }
+      if(d.customer){ showAccount(d.customer); }
+      else if(!(await loadCurrentAccount(false))){ throw new Error('Signed in, but the account information could not be loaded.'); }
+      document.getElementById('portal-password').value='';
+    }catch(err){
+      showStatus(err.message || 'Sign in failed. Please try again.',false);
+    }finally{
+      signIn.disabled=false;
+      signIn.textContent='Sign In';
+    }
+  });
+
+  if(logout) logout.addEventListener('click',async function(){
+    logout.disabled=true;
+    try{
+      await fetch(LOGOUT_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},credentials:'same-origin'});
+    }catch(e){}
+    showLogin();
+    form.reset();
+    clearStatus();
+    logout.disabled=false;
+  });
+
+  document.querySelectorAll('a[href="#customer-login"]').forEach(function(link){
+    link.addEventListener('click',function(){
+      clearStatus();
+      loadCurrentAccount(true).then(function(ok){ if(!ok) showLogin(); });
+    });
+  });
+})();
+</script>
 
 </body>
 </html>
