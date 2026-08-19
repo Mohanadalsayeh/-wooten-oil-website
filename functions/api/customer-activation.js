@@ -644,6 +644,11 @@ export async function customerActivationVerify({
    POST /api/customer/activation/set-password
 ====================================================== */
 
+/* ======================================================
+   SET FIRST PASSWORD
+   POST /api/customer/activation/set-password
+====================================================== */
+
 export async function customerActivationSetPassword({
   request,
   env
@@ -651,36 +656,29 @@ export async function customerActivationSetPassword({
   if (!env.DB) {
     return json({
       success: false,
-      error:
-        "Customer database is not configured."
+      error: "Customer database is not configured."
     }, 503);
   }
 
   let body;
 
   try {
-    body =
-      await request.json();
+    body = await request.json();
   } catch {
     return json({
       success: false,
-      error:
-        "Invalid password request."
+      error: "Invalid password request."
     }, 400);
   }
 
   const account =
-    normalizeAccount(
-      body?.account_number
-    );
+    normalizeAccount(body?.account_number);
 
   const code =
     clean(body?.code);
 
   const password =
-    String(
-      body?.password ?? ""
-    );
+    String(body?.password ?? "");
 
   const confirmPassword =
     String(
@@ -689,11 +687,7 @@ export async function customerActivationSetPassword({
       ""
     );
 
-  if (
-    !account ||
-    !code ||
-    !password
-  ) {
+  if (!account || !code || !password) {
     return json({
       success: false,
       error:
@@ -707,8 +701,7 @@ export async function customerActivationSetPassword({
   ) {
     return json({
       success: false,
-      error:
-        "The passwords do not match."
+      error: "The passwords do not match."
     }, 400);
   }
 
@@ -723,8 +716,7 @@ export async function customerActivationSetPassword({
   if (password.length > 128) {
     return json({
       success: false,
-      error:
-        "Your password is too long."
+      error: "Your password is too long."
     }, 400);
   }
 
@@ -737,15 +729,9 @@ export async function customerActivationSetPassword({
   if (!customer) {
     return json({
       success: false,
-      error:
-        "Unable to activate this account."
+      error: "Unable to activate this account."
     }, 400);
   }
-
-  /*
-  Activation is only for customers
-  who do not already have a password.
-  */
 
   if (clean(customer.password_hash)) {
     return json({
@@ -773,24 +759,21 @@ export async function customerActivationSetPassword({
 
   let passwordHash;
 
-try {
-  passwordHash =
-    await createPasswordHash(password);
+  try {
+    passwordHash =
+      await createPasswordHash(password);
+  } catch (error) {
+    console.error(
+      "Password hashing failed",
+      error
+    );
 
-} catch (error) {
-  console.error(
-    "Password hashing failed",
-    error
-  );
-
-  return json({
-    success: false,
-    error:
-      "We could not securely create your password. Please try again."
-  }, 500);
-}
-
-try {
+    return json({
+      success: false,
+      error:
+        "We could not securely create your password. Please try again."
+    }, 500);
+  }
 
   try {
     await env.DB.prepare(`
@@ -846,7 +829,6 @@ try {
       "Your Wooten Oil online account has been activated. You can now sign in."
   });
 }
-
 
 /* ======================================================
    ADMIN GENERATE PHONE ACTIVATION CODE
