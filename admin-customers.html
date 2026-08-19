@@ -4,1107 +4,324 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wooten Oil Customer Database Admin</title>
-
 <style>
-  :root{
-    --navy:#0b2239;
-    --red:#cf2b2b;
-    --bg:#f5f7fa;
-    --line:#d9e0e7;
-    --muted:#64748b;
-  }
-
+  :root{--navy:#0b2239;--red:#cf2b2b;--bg:#f5f7fa;--line:#d9e0e7;--muted:#64748b}
   *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:#111827}
+  .wrap{max-width:1100px;margin:40px auto;padding:0 20px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px;box-shadow:0 12px 32px rgba(15,23,42,.08)}
+  h1{margin:0 0 8px;color:var(--navy);font-size:30px}
+  p{color:var(--muted);line-height:1.55}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  label{font-weight:700;font-size:14px;display:block;margin-bottom:7px}
+  input{width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
+  button{border:0;border-radius:10px;padding:13px 18px;font-weight:800;font-size:15px;cursor:pointer}
+  .primary{background:var(--red);color:#fff}
+  .secondary{background:#e8edf3;color:#0f172a}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .status{display:none;margin-top:18px;padding:14px;border-radius:10px}
+  .status.show{display:block}.ok{background:#e9f8ef;color:#166534}.bad{background:#feecec;color:#991b1b}
+  .summary{margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .metric{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .metric b{display:block;font-size:24px}.metric span{color:var(--muted);font-size:12px}
+  .tablewrap{margin-top:20px;overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+  th,td{padding:9px 10px;border-bottom:1px solid #eef2f7;text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:#eef3f8;z-index:1}
+  .note{margin-top:18px;font-size:13px}
+  @media(max-width:720px){.grid,.summary,.activation-grid{grid-template-columns:1fr}.activation-grid button{width:100%}.wrap{margin:18px auto}.card{padding:20px}}
 
-  body{
-    margin:0;
-    font-family:Inter,Segoe UI,Arial,sans-serif;
-    background:var(--bg);
-    color:#111827;
-  }
+  .activation-card{margin-top:22px;background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:20px}
+  .activation-card h2{margin:0 0 8px;color:var(--navy);font-size:22px}
+  .activation-card p{margin:0 0 16px}
+  .activation-grid{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+  .activation-result{display:none;margin-top:16px;border:1px solid #bbdfc7;background:#edf8f1;border-radius:14px;padding:16px}
+  .activation-result.show{display:block}
+  .activation-result .cust{font-size:14px;color:#475569;margin-bottom:8px}
+  .activation-result .code-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:800}
+  .activation-code{font-size:36px;line-height:1.1;letter-spacing:.16em;font-weight:900;color:#0b2239;margin:6px 0 10px}
+  .activation-meta{font-size:13px;color:#475569}
+  .copy-btn{margin-top:12px;background:#0b2239;color:#fff}
+  .activation-warning{margin-top:12px;font-size:13px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:11px 12px;line-height:1.45}
 
-  .wrap{
-    max-width:1450px;
-    margin:40px auto;
-    padding:0 20px;
-  }
-
-  .card{
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:18px;
-    padding:28px;
-    box-shadow:0 12px 32px rgba(15,23,42,.08);
-  }
-
-  h1{
-    margin:0 0 8px;
-    color:var(--navy);
-    font-size:30px;
-  }
-
-  p{
-    color:var(--muted);
-    line-height:1.55;
-  }
-
-  .grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:16px;
-    margin-top:22px;
-  }
-
-  label{
-    font-weight:700;
-    font-size:14px;
-    display:block;
-    margin-bottom:7px;
-  }
-
-  input{
-    width:100%;
-    padding:13px;
-    border:1px solid #cbd5e1;
-    border-radius:10px;
-    font-size:15px;
-  }
-
-  .actions{
-    display:flex;
-    gap:12px;
-    flex-wrap:wrap;
-    margin-top:20px;
-  }
-
-  button{
-    border:0;
-    border-radius:10px;
-    padding:13px 18px;
-    font-weight:800;
-    font-size:15px;
-    cursor:pointer;
-  }
-
-  .primary{
-    background:var(--red);
-    color:#fff;
-  }
-
-  .secondary{
-    background:#e8edf3;
-    color:#0f172a;
-  }
-
-  button:disabled{
-    opacity:.55;
-    cursor:not-allowed;
-  }
-
-  .status{
-    display:none;
-    margin-top:18px;
-    padding:14px;
-    border-radius:10px;
-  }
-
-  .status.show{display:block}
-
-  .ok{
-    background:#e9f8ef;
-    color:#166534;
-  }
-
-  .bad{
-    background:#feecec;
-    color:#991b1b;
-  }
-
-  .summary{
-    margin-top:20px;
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:10px;
-  }
-
-  .metric{
-    background:#f8fafc;
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:14px;
-  }
-
-  .metric b{
-    display:block;
-    font-size:24px;
-  }
-
-  .metric span{
-    color:var(--muted);
-    font-size:12px;
-  }
-
-  .tablewrap{
-    margin-top:20px;
-    overflow:auto;
-    max-height:500px;
-    border:1px solid var(--line);
-    border-radius:12px;
-  }
-
-  table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:13px;
-    background:#fff;
-  }
-
-  th,td{
-    padding:9px 10px;
-    border-bottom:1px solid #eef2f7;
-    text-align:left;
-    white-space:nowrap;
-  }
-
-  th{
-    position:sticky;
-    top:0;
-    background:#eef3f8;
-    z-index:1;
-  }
-
-  .note{
-    margin-top:18px;
-    font-size:13px;
-  }
-
-  @media(max-width:720px){
-    .grid,.summary{
-      grid-template-columns:1fr;
-    }
-
-    .wrap{
-      margin:18px auto;
-    }
-
-    .card{
-      padding:20px;
-    }
-  }
 </style>
 </head>
-
 <body>
-
 <div class="wrap">
-<div class="card">
+  <div class="card">
+    <h1>Wooten Oil Customer Database</h1>
+    <p>Upload a customer list from Excel or CSV. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
-<h1>Wooten Oil Customer Database</h1>
+    <div class="grid">
+      <div>
+        <label for="adminKey">Admin Import Key</label>
+        <input id="adminKey" type="password" autocomplete="off" placeholder="Enter your private admin key">
+      </div>
+      <div>
+        <label for="customerFile">Customer File</label>
+        <input id="customerFile" type="file" accept=".csv,.xlsx,.xls">
+      </div>
+    </div>
 
-<p>
-Upload the MAS 90 customer Excel file. Existing customers are updated by
-Customer Number and new customers are added automatically.
-Customer passwords and customer login information are not overwritten.
-</p>
+    <div class="actions">
+      <button class="secondary" id="previewBtn" type="button">Preview File</button>
+      <button class="primary" id="importBtn" type="button" disabled>Upload / Update Customers</button>
+    </div>
 
-<div class="grid">
+    <div id="status" class="status"></div>
 
-  <div>
-    <label for="adminKey">Admin Import Key</label>
+    <div class="summary" id="summary" style="display:none">
+      <div class="metric"><b id="mRows">0</b><span>Rows Found</span></div>
+      <div class="metric"><b id="mValid">0</b><span>Valid Customers</span></div>
+      <div class="metric"><b id="mSkipped">0</b><span>Skipped Rows</span></div>
+      <div class="metric"><b id="mImported">0</b><span>Last Import</span></div>
+    </div>
 
-    <input
-      id="adminKey"
-      type="password"
-      autocomplete="off"
-      placeholder="Enter your private admin key"
-    >
+    <div class="tablewrap" id="tablewrap" style="display:none">
+      <table>
+        <thead><tr>
+          <th>Account #</th><th>Name</th><th>Address 1</th><th>Address 2</th>
+          <th>City</th><th>State</th><th>ZIP</th><th>Phone</th><th>Email</th>
+        </tr></thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+
+    <p class="note"><strong>Accepted Access fields:</strong> AccountNum, AccountName, Address1, Address2, City, State, ZipCode, Phone1. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
   </div>
 
-  <div>
-    <label for="customerFile">MAS 90 Customer File</label>
+  <div class="card">
+    <h2>Customer Online Account Activation</h2>
+    <p>Use this section when a customer does not have an email address on file. Verify the customer first, then generate a one-time 6-digit activation code so they can create their own password.</p>
 
-    <input
-      id="customerFile"
-      type="file"
-      accept=".csv,.xlsx,.xls"
-    >
-  </div>
+    <div class="activation-card">
+      <div class="activation-grid">
+        <div>
+          <label for="activationAccount">Customer Number</label>
+          <input id="activationAccount" type="text" inputmode="numeric" placeholder="Example: 0000999" autocomplete="off">
+        </div>
+        <button class="primary" id="activationBtn" type="button">Generate One-Time Code</button>
+      </div>
 
-</div>
+      <div id="activationStatus" class="status"></div>
 
+      <div id="activationResult" class="activation-result">
+        <div class="cust">
+          <strong id="activationCustomerName"></strong><br>
+          Customer # <span id="activationCustomerNumber"></span>
+        </div>
+        <div class="code-label">One-Time Activation Code</div>
+        <div class="activation-code" id="activationCode">000000</div>
+        <div class="activation-meta">Expires: <span id="activationExpires">—</span></div>
+        <button class="copy-btn" id="copyActivationCode" type="button">Copy Code</button>
+      </div>
 
-<div class="actions">
-
-  <button
-    class="secondary"
-    id="previewBtn"
-    type="button">
-    Preview File
-  </button>
-
-  <button
-    class="primary"
-    id="importBtn"
-    type="button"
-    disabled>
-    Upload / Update Customers
-  </button>
-
-</div>
-
-
-<div id="status" class="status"></div>
-
-
-<div
-  class="summary"
-  id="summary"
-  style="display:none">
-
-  <div class="metric">
-    <b id="mRows">0</b>
-    <span>Rows Found</span>
-  </div>
-
-  <div class="metric">
-    <b id="mValid">0</b>
-    <span>Valid Customers</span>
-  </div>
-
-  <div class="metric">
-    <b id="mSkipped">0</b>
-    <span>Skipped Rows</span>
-  </div>
-
-  <div class="metric">
-    <b id="mImported">0</b>
-    <span>Last Import</span>
+      <div class="activation-warning">
+        Only give this code to the verified customer. The customer enters it on <strong>First time here? Activate Online Account</strong> and then creates their own password. Wooten Oil staff never needs to know the customer's password.
+      </div>
+    </div>
   </div>
 
 </div>
-
-
-<div
-  class="tablewrap"
-  id="tablewrap"
-  style="display:none">
-
-<table>
-
-<thead>
-<tr>
-
-<th>Customer #</th>
-<th>Customer Name</th>
-<th>Current Balance</th>
-<th>Credit Hold</th>
-<th>Credit Limit</th>
-<th>Terms</th>
-<th>Salesperson</th>
-
-<th>Phone</th>
-<th>Email</th>
-
-<th>Address</th>
-<th>City</th>
-<th>State</th>
-<th>ZIP</th>
-
-</tr>
-</thead>
-
-<tbody id="previewBody"></tbody>
-
-</table>
-
-</div>
-
-
-<p class="note">
-
-<strong>Expected MAS 90 fields:</strong>
-ARDivisionNo, CustomerNo, CustomerName, CreditHold,
-CurrentBalance, AgingCategory1, AgingCategory2,
-AgingCategory3, AgingCategory4, SalespersonName,
-CreditLimit, TermsCodeDesc, EmailAddress,
-TelephoneNo, TelephoneExt, FaxNo,
-AddressLine1, AddressLine2, AddressLine3,
-City, State and ZipCode.
-
-</p>
-
-</div>
-</div>
-
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
 <script>
+let preparedRows=[];
 
-let preparedRows = [];
-
-
-/* ---------------------------------------------------------
-   FIELD ALIASES
---------------------------------------------------------- */
-
-const aliases = {
-
-  ar_division_no:[
-    "ARDivisionNo",
-    "ar_division_no"
-  ],
-
-  account_number:[
-    "CustomerNo",
-    "CustomerNumber",
-    "account_number",
-    "AccountNum"
-  ],
-
-  account_name:[
-    "CustomerName",
-    "account_name",
-    "AccountName"
-  ],
-
-  credit_hold:[
-    "CreditHold",
-    "credit_hold"
-  ],
-
-  current_balance:[
-    "CurrentBalance",
-    "current_balance"
-  ],
-
-  aging_category_1:[
-    "AgingCategory1",
-    "aging_category_1"
-  ],
-
-  aging_category_2:[
-    "AgingCategory2",
-    "aging_category_2"
-  ],
-
-  aging_category_3:[
-    "AgingCategory3",
-    "aging_category_3"
-  ],
-
-  aging_category_4:[
-    "AgingCategory4",
-    "aging_category_4"
-  ],
-
-  salesperson_name:[
-    "SalespersonName",
-    "salesperson_name"
-  ],
-
-  credit_limit:[
-    "CreditLimit",
-    "credit_limit"
-  ],
-
-  terms_description:[
-    "TermsCodeDesc",
-    "terms_description"
-  ],
-
-  email:[
-    "EmailAddress",
-    "email",
-    "Email"
-  ],
-
-  phone:[
-    "TelephoneNo",
-    "phone",
-    "Phone1"
-  ],
-
-  phone_ext:[
-    "TelephoneExt",
-    "phone_ext"
-  ],
-
-  fax:[
-    "FaxNo",
-    "fax"
-  ],
-
-  address1:[
-    "AddressLine1",
-    "address1",
-    "Address1"
-  ],
-
-  address2:[
-    "AddressLine2",
-    "address2",
-    "Address2"
-  ],
-
-  address3:[
-    "AddressLine3",
-    "address3",
-    "Address3"
-  ],
-
-  city:[
-    "City",
-    "city"
-  ],
-
-  state:[
-    "State",
-    "state"
-  ],
-
-  zip_code:[
-    "ZipCode",
-    "zip_code",
-    "ZIP"
-  ]
-
+const aliases={
+  account_number:["accountnum","accountnumber","account_number","acctnum","acctnumber"],
+  account_name:["accountname","account_name","customername","name"],
+  address1:["address1","address","street","streetaddress"],
+  address2:["address2","address_2","suite"],
+  city:["city"],
+  state:["state"],
+  zip_code:["zipcode","zip","zip_code","postalcode"],
+  phone:["phone1","phone","phonenumber","phone_number"],
+  email:["email","emailaddress","email_address"]
 };
 
-
-/* ---------------------------------------------------------
-   HELPERS
---------------------------------------------------------- */
-
-function keyify(v){
-
-  return String(v ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g,"");
-
-}
-
-
+function keyify(v){return String(v??"").trim().toLowerCase().replace(/[^a-z0-9_]/g,"");}
 function pick(row,names){
-
-  const map = {};
-
-  Object.keys(row).forEach(k => {
-    map[keyify(k)] = row[k];
-  });
-
-  for(const n of names){
-
-    const value = map[keyify(n)];
-
-    if(value !== undefined){
-      return value;
-    }
-
-  }
-
+  const map={};
+  Object.keys(row).forEach(k=>map[keyify(k)]=row[k]);
+  for(const n of names){ if(map[keyify(n)]!==undefined) return map[keyify(n)]; }
   return "";
-
 }
-
-
-function clean(v){
-
-  return String(v ?? "").trim();
-
-}
-
-
-/*
-Keep customer number as 7 digits.
-
-Example:
-1002 → 0001002
-0001002 → 0001002
-*/
-
+function clean(v){return String(v??"").trim();}
 function normalizeAccount(v){
-
-  let s = clean(v);
-
-  if(/^\d+(\.0+)?$/.test(s)){
-    s = String(parseInt(s,10));
-  }
-
-  s = s.replace(/\D/g,"");
-
-  return s
-    ? s.padStart(7,"0")
-    : "";
-
+  let s=clean(v);
+  if(/^\d+(\.0+)?$/.test(s)) s=String(parseInt(s,10));
+  s=s.replace(/\D/g,"");
+  return s ? s.padStart(7,"0") : "";
 }
-
-
-function normalizePhone(v){
-
-  return clean(v)
-    .replace(/[^\d]/g,"");
-
-}
-
-
-function normalizeMoney(v){
-
-  let s = clean(v);
-
-  if(!s) return "0";
-
-  s = s
-    .replace(/[$,\s]/g,"")
-    .replace(/^\((.*)\)$/,"-$1");
-
-  const n = Number(s);
-
-  return Number.isFinite(n)
-    ? String(n)
-    : "0";
-
-}
-
-
-/* ---------------------------------------------------------
-   MAP EXCEL ROW
---------------------------------------------------------- */
-
+function normalizePhone(v){return clean(v).replace(/[^\d]/g,"");}
 function mapRow(row){
-
   return {
-
-    ar_division_no:
-      clean(pick(row,aliases.ar_division_no)),
-
-    account_number:
-      normalizeAccount(
-        pick(row,aliases.account_number)
-      ),
-
-    account_name:
-      clean(
-        pick(row,aliases.account_name)
-      ),
-
-    credit_hold:
-      clean(
-        pick(row,aliases.credit_hold)
-      ),
-
-    current_balance:
-      normalizeMoney(
-        pick(row,aliases.current_balance)
-      ),
-
-    aging_category_1:
-      normalizeMoney(
-        pick(row,aliases.aging_category_1)
-      ),
-
-    aging_category_2:
-      normalizeMoney(
-        pick(row,aliases.aging_category_2)
-      ),
-
-    aging_category_3:
-      normalizeMoney(
-        pick(row,aliases.aging_category_3)
-      ),
-
-    aging_category_4:
-      normalizeMoney(
-        pick(row,aliases.aging_category_4)
-      ),
-
-    salesperson_name:
-      clean(
-        pick(row,aliases.salesperson_name)
-      ),
-
-    credit_limit:
-      normalizeMoney(
-        pick(row,aliases.credit_limit)
-      ),
-
-    terms_description:
-      clean(
-        pick(row,aliases.terms_description)
-      ),
-
-    email:
-      clean(
-        pick(row,aliases.email)
-      ),
-
-    phone:
-      normalizePhone(
-        pick(row,aliases.phone)
-      ),
-
-    phone_ext:
-      clean(
-        pick(row,aliases.phone_ext)
-      ),
-
-    fax:
-      normalizePhone(
-        pick(row,aliases.fax)
-      ),
-
-    address1:
-      clean(
-        pick(row,aliases.address1)
-      ),
-
-    address2:
-      clean(
-        pick(row,aliases.address2)
-      ),
-
-    address3:
-      clean(
-        pick(row,aliases.address3)
-      ),
-
-    city:
-      clean(
-        pick(row,aliases.city)
-      ),
-
-    state:
-      clean(
-        pick(row,aliases.state)
-      ),
-
-    zip_code:
-      clean(
-        pick(row,aliases.zip_code)
-      ).replace(/\.0+$/,"")
-
+    account_number:normalizeAccount(pick(row,aliases.account_number)),
+    account_name:clean(pick(row,aliases.account_name)),
+    address1:clean(pick(row,aliases.address1)),
+    address2:clean(pick(row,aliases.address2)),
+    city:clean(pick(row,aliases.city)),
+    state:clean(pick(row,aliases.state)),
+    zip_code:clean(pick(row,aliases.zip_code)).replace(/\.0+$/,""),
+    phone:normalizePhone(pick(row,aliases.phone)),
+    email:clean(pick(row,aliases.email))
   };
-
 }
-
-
-/* ---------------------------------------------------------
-   STATUS MESSAGE
---------------------------------------------------------- */
-
 function setStatus(msg,good=true){
-
-  const el =
-    document.getElementById("status");
-
-  el.className =
-    "status show " +
-    (good ? "ok" : "bad");
-
-  el.textContent = msg;
-
+  const el=document.getElementById("status");
+  el.className="status show "+(good?"ok":"bad");
+  el.textContent=msg;
 }
-
-
-/* ---------------------------------------------------------
-   FORMAT MONEY FOR PREVIEW
---------------------------------------------------------- */
-
-function money(v){
-
-  const n = Number(v);
-
-  if(!Number.isFinite(n)){
-    return "$0.00";
-  }
-
-  return n.toLocaleString(
-    "en-US",
-    {
-      style:"currency",
-      currency:"USD"
-    }
-  );
-
-}
-
-
-/* ---------------------------------------------------------
-   PREVIEW
---------------------------------------------------------- */
-
 function render(rows,total,skipped){
-
-  document.getElementById("summary")
-    .style.display = "grid";
-
-  document.getElementById("tablewrap")
-    .style.display = "block";
-
-  document.getElementById("mRows")
-    .textContent = total;
-
-  document.getElementById("mValid")
-    .textContent = rows.length;
-
-  document.getElementById("mSkipped")
-    .textContent = skipped;
-
-
-  const body =
-    document.getElementById("previewBody");
-
-  body.innerHTML = "";
-
-
-  rows.slice(0,200).forEach(r => {
-
-    const tr =
-      document.createElement("tr");
-
-
-    const values = [
-
-      r.account_number,
-
-      r.account_name,
-
-      money(r.current_balance),
-
-      r.credit_hold,
-
-      money(r.credit_limit),
-
-      r.terms_description,
-
-      r.salesperson_name,
-
-      r.phone,
-
-      r.email,
-
-      [
-        r.address1,
-        r.address2,
-        r.address3
-      ]
-      .filter(Boolean)
-      .join(" "),
-
-      r.city,
-
-      r.state,
-
-      r.zip_code
-
-    ];
-
-
-    values.forEach(v => {
-
-      const td =
-        document.createElement("td");
-
-      td.textContent = v;
-
-      tr.appendChild(td);
-
+  document.getElementById("summary").style.display="grid";
+  document.getElementById("tablewrap").style.display="block";
+  document.getElementById("mRows").textContent=total;
+  document.getElementById("mValid").textContent=rows.length;
+  document.getElementById("mSkipped").textContent=skipped;
+  const body=document.getElementById("previewBody");
+  body.innerHTML="";
+  rows.slice(0,200).forEach(r=>{
+    const tr=document.createElement("tr");
+    [r.account_number,r.account_name,r.address1,r.address2,r.city,r.state,r.zip_code,r.phone,r.email].forEach(v=>{
+      const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
     });
-
-
     body.appendChild(tr);
-
   });
-
 }
-
-
-/* ---------------------------------------------------------
-   READ EXCEL / CSV
---------------------------------------------------------- */
 
 async function parseFile(file){
-
-  const ext =
-    file.name
-      .toLowerCase()
-      .split(".")
-      .pop();
-
-
-  if(ext === "csv"){
-
-    const text =
-      await file.text();
-
-    const wb =
-      XLSX.read(
-        text,
-        {type:"string"}
-      );
-
-    const ws =
-      wb.Sheets[
-        wb.SheetNames[0]
-      ];
-
-    return XLSX.utils.sheet_to_json(
-      ws,
-      {
-        defval:"",
-        raw:false
-      }
-    );
-
+  const ext=file.name.toLowerCase().split(".").pop();
+  if(ext==="csv"){
+    const text=await file.text();
+    const wb=XLSX.read(text,{type:"string"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
   }
-
-
-  const buf =
-    await file.arrayBuffer();
-
-
-  const wb =
-    XLSX.read(
-      buf,
-      {
-        type:"array",
-        cellText:true,
-        cellDates:false
-      }
-    );
-
-
-  const ws =
-    wb.Sheets[
-      wb.SheetNames[0]
-    ];
-
-
-  return XLSX.utils.sheet_to_json(
-    ws,
-    {
-      defval:"",
-      raw:false
-    }
-  );
-
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellText:true,cellDates:false});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
 }
 
-
-/* ---------------------------------------------------------
-   PREVIEW BUTTON
---------------------------------------------------------- */
-
-document
-.getElementById("previewBtn")
-.addEventListener(
-"click",
-async()=>{
-
-  const file =
-    document
-      .getElementById("customerFile")
-      .files[0];
-
-
-  if(!file){
-
-    setStatus(
-      "Choose the MAS 90 Excel file first.",
-      false
-    );
-
-    return;
-
-  }
-
-
+document.getElementById("previewBtn").addEventListener("click",async()=>{
+  const file=document.getElementById("customerFile").files[0];
+  if(!file){setStatus("Choose an Excel or CSV file first.",false);return;}
   try{
-
-    const raw =
-      await parseFile(file);
-
-
-    const mapped =
-      raw.map(mapRow);
-
-
-    preparedRows =
-      mapped.filter(
-        r =>
-          r.account_number &&
-          r.account_name
-      );
-
-
-    render(
-      preparedRows,
-      raw.length,
-      raw.length - preparedRows.length
-    );
-
-
-    document
-      .getElementById("importBtn")
-      .disabled =
-      preparedRows.length === 0;
-
-
-    setStatus(
-      `Preview ready: ${preparedRows.length} valid customer records found.`
-    );
-
+    const raw=await parseFile(file);
+    const mapped=raw.map(mapRow);
+    preparedRows=mapped.filter(r=>r.account_number && r.account_name);
+    render(preparedRows,raw.length,raw.length-preparedRows.length);
+    document.getElementById("importBtn").disabled=preparedRows.length===0;
+    setStatus(`Preview ready: ${preparedRows.length} valid customer records.`);
+  }catch(e){
+    console.error(e); setStatus("Could not read this file. Export it from Access as Excel or CSV and try again.",false);
   }
-
-  catch(e){
-
-    console.error(e);
-
-    setStatus(
-      "Could not read this customer file.",
-      false
-    );
-
-  }
-
 });
 
+document.getElementById("importBtn").addEventListener("click",async()=>{
+  const key=document.getElementById("adminKey").value.trim();
+  if(!key){setStatus("Enter your Admin Import Key first.",false);return;}
+  if(!preparedRows.length){setStatus("Preview a customer file first.",false);return;}
+  const btn=document.getElementById("importBtn");
+  btn.disabled=true; btn.textContent="Uploading…";
+  try{
+    const res=await fetch("/api/admin/customers-import",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Key":key},
+      body:JSON.stringify({customers:preparedRows})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok || data.success===false) throw new Error(data.error||"Import failed.");
+    document.getElementById("mImported").textContent=data.processed||preparedRows.length;
+    setStatus(`Success: ${data.processed} customer records were added or updated.`);
+  }catch(e){
+    console.error(e); setStatus(e.message||"Import failed.",false);
+  }finally{
+    btn.disabled=false; btn.textContent="Upload / Update Customers";
+  }
+});
 
-/* ---------------------------------------------------------
-   IMPORT BUTTON
---------------------------------------------------------- */
+function normalizeActivationAccount(v){
+  let s=String(v??"").trim();
+  if(/^\d+(\.0+)?$/.test(s)) s=String(parseInt(s,10));
+  s=s.replace(/\D/g,"");
+  return s ? s.padStart(7,"0") : "";
+}
 
-document
-.getElementById("importBtn")
-.addEventListener(
-"click",
-async()=>{
-
-  const key =
-    document
-      .getElementById("adminKey")
-      .value
-      .trim();
-
+document.getElementById("activationBtn").addEventListener("click",async()=>{
+  const key=document.getElementById("adminKey").value.trim();
+  const account=normalizeActivationAccount(document.getElementById("activationAccount").value);
+  const btn=document.getElementById("activationBtn");
+  const result=document.getElementById("activationResult");
 
   if(!key){
-
-    setStatus(
-      "Enter your Admin Import Key first.",
-      false
-    );
-
+    setStatus("Enter your Admin Import Key at the top of the page first.",false);
+    window.scrollTo({top:0,behavior:"smooth"});
     return;
-
   }
 
-
-  if(!preparedRows.length){
-
-    setStatus(
-      "Preview the customer file first.",
-      false
-    );
-
+  if(!account){
+    const el=document.getElementById("activationStatus");
+    el.className="status show bad";
+    el.textContent="Enter a valid Customer Number.";
+    result.classList.remove("show");
     return;
-
   }
 
-
-  const btn =
-    document
-      .getElementById("importBtn");
-
-
-  btn.disabled = true;
-
-  btn.textContent =
-    "Uploading…";
-
+  btn.disabled=true;
+  btn.textContent="Generating…";
 
   try{
+    const res=await fetch("/api/admin/customer-activation-code",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "X-Admin-Key":key
+      },
+      body:JSON.stringify({account_number:account})
+    });
 
-    const res =
-      await fetch(
-        "/api/admin/customers-import",
-        {
-          method:"POST",
-
-          headers:{
-            "Content-Type":
-              "application/json",
-
-            "X-Admin-Key":
-              key
-          },
-
-          body:
-            JSON.stringify({
-              customers:
-                preparedRows
-            })
-        }
-      );
-
-
-    const data =
-      await res
-        .json()
-        .catch(()=>({}));
-
-
-    if(
-      !res.ok ||
-      data.success === false
-    ){
-
-      throw new Error(
-        data.details ||
-        data.error ||
-        "Import failed."
-      );
-
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok || data.success===false){
+      throw new Error(data.error||"Could not generate activation code.");
     }
 
+    document.getElementById("activationCustomerName").textContent=data.account_name||"Customer";
+    document.getElementById("activationCustomerNumber").textContent=data.account_number||account;
+    document.getElementById("activationCode").textContent=data.activation_code||"";
+    document.getElementById("activationExpires").textContent=data.expires_at
+      ? new Date(data.expires_at).toLocaleString()
+      : "About 15 minutes";
 
-    document
-      .getElementById("mImported")
-      .textContent =
-      data.processed ||
-      preparedRows.length;
-
-
-    setStatus(
-      `Success: ${data.processed} customer records were added or updated. ${data.skipped || 0} rows were skipped.`
-    );
-
+    const el=document.getElementById("activationStatus");
+    el.className="status show ok";
+    el.textContent="One-time activation code generated successfully.";
+    result.classList.add("show");
+  }catch(e){
+    const el=document.getElementById("activationStatus");
+    el.className="status show bad";
+    el.textContent=e.message||"Could not generate activation code.";
+    result.classList.remove("show");
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Generate One-Time Code";
   }
+});
 
-  catch(e){
-
-    console.error(e);
-
-    setStatus(
-      e.message ||
-      "Import failed.",
-      false
-    );
-
+document.getElementById("copyActivationCode").addEventListener("click",async()=>{
+  const code=document.getElementById("activationCode").textContent.trim();
+  if(!code) return;
+  try{
+    await navigator.clipboard.writeText(code);
+    document.getElementById("copyActivationCode").textContent="Copied";
+    setTimeout(()=>document.getElementById("copyActivationCode").textContent="Copy Code",1200);
+  }catch{
+    alert("Activation code: "+code);
   }
-
-  finally{
-
-    btn.disabled = false;
-
-    btn.textContent =
-      "Upload / Update Customers";
-
-  }
-
 });
 
 </script>
-
 </body>
 </html>
