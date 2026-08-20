@@ -133,57 +133,83 @@ export async function customerPasswordResetStart({request, env}) {
 }
 
 export async function customerPasswordResetComplete({request, env}) {
-  if (!env.DB) return json({success:false,error:"Customer database is not configured."},503);
-  let body; try { body = await request.json(); } catch { return json({success:false,error:"Invalid password reset request."},400); }
-  const identifier = clean(body?.identifier || body?.account_number || body?.email);
-  const code = clean(body?.code);
-  const password = String(body?.password ?? "");
-  const confirm = String(body?.confirm_password ?? body?.confirmPassword ?? "");
-  if (!identifier || !/^\d{6}$/.test(code) || !password) return json({success:false,error:"Enter your Customer Number or email, the 6-digit code, and a new password."},400);
-  if (confirm && password !== confirm) return json({success:false,error:"The passwords do not match."},400);
-  if (password.length < 10) return json({success:false,error:"Your password must be at least 10 characters."},400);
-  if (password.length > 128) return json({success:false,error:"Your password is too long."},400);
-  const customer = await findCustomer(env, identifier);
-  if (!customer) return json({success:false,error:"The verification code is incorrect or has expired."},400);
-  const hash = await codeHash(customer.id, code);
-  const now = new Date().toISOString();
-  const token = await env.DB.prepare(`SELECT id FROM password_reset_tokens WHERE customer_id=? AND token_hash=? AND used_at IS NULL AND expires_at>? ORDER BY id DESC LIMIT 1`).bind(customer.id, hash, now).first();
-  if (!token) return json({success:false,error:"The verification code is incorrect or has expired."},400);
-  const passwordHash = await createPasswordHash(password);
-
-  // Save the new password first. Do not let optional cleanup work block a valid reset.
   try {
-    const result = await env.DB.prepare(`
+    if (!env.DB) return json({success:false,error:"Customer database is not configured."},503);
+
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return json({success:false,error:"Invalid password reset request body."},400);
+    }
+
+    const identifier = clean(body?.identifier || body?.account_number || body?.email);
+    const code = clean(body?.code);
+    const password = String(body?.password ?? "");
+    const confirm = String(body?.confirm_password ?? body?.confirmPassword ?? "");
+
+    if (!identifier || !/^\d{6}$/.test(code) || !password) {
+      return json({success:false,error:"Enter your Customer Number or email, the 6-digit code, and a new password."},400);
+    }
+    if (confirm && password !== confirm) return json({success:false,error:"The passwords do not match."},400);
+    if (password.length < 10) return json({success:false,error:"Your password must be at least 10 characters."},400);
+    if (password.length > 128) return json({success:false,error:"Your password is too long."},400);
+
+    const customer = await findCustomer(env, identifier);
+    if (!customer) return json({success:false,error:"The verification code is incorrect or has expired."},400);
+
+    const hash = await codeHash(customer.id, code);
+    const token = await env.DB.prepare(`
+      SELECT id
+      FROM password_reset_tokens
+      WHERE customer_id = ?
+        AND token_hash = ?
+        AND used_at IS NULL
+        AND datetime(expires_at) > datetime('now')
+      ORDER BY id DESC
+      LIMIT 1
+    `).bind(customer.id, hash).first();
+
+    if (!token) return json({success:false,error:"The verification code is incorrect or has expired. Please request a new code."},400);
+
+    const passwordHash = await createPasswordHash(password);
+
+    // Minimum required operation: save the new password.
+    const update = await env.DB.prepare(`
       UPDATE customers
-      SET password_hash = ?, must_change_password = 0
+      SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(passwordHash, customer.id).run();
 
-    if (!result || result.success === false) {
-      throw new Error("Customer password update did not complete.");
+    const changed = Number(update?.meta?.changes ?? update?.changes ?? 0);
+    if (changed < 1) {
+      return json({success:false,error:"The customer record was found, but the new password was not saved. Please contact Wooten Oil."},500);
     }
-  } catch (e) {
-    console.error("Customer password update failed", e);
-    return json({success:false,error:"We could not save the new password. Please try again or contact Wooten Oil."},500);
-  }
 
-  // Consume the reset code after the password is saved.
-  try {
-    await env.DB.prepare(`
-      UPDATE password_reset_tokens
-      SET used_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(token.id).run();
-  } catch (e) {
-    console.error("Password reset token cleanup failed", e);
-  }
+    // These are cleanup steps; none can cancel the successful password update.
+    try {
+      await env.DB.prepare(`UPDATE customers SET must_change_password = 0 WHERE id = ?`).bind(customer.id).run();
+    } catch (e) { console.error('must_change_password cleanup failed', e); }
 
-  // Sign out any old sessions. This is security cleanup and should not undo a successful password change.
-  try {
-    await env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id = ?`).bind(customer.id).run();
-  } catch (e) {
-    console.error("Customer session cleanup failed", e);
-  }
+    try {
+      await env.DB.prepare(`UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(token.id).run();
+    } catch (e) { console.error('reset token cleanup failed', e); }
 
-  return json({success:true,account_number:customer.account_number,message:"Your password has been reset. You can now sign in with your new password."});
+    try {
+      await env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id = ?`).bind(customer.id).run();
+    } catch (e) { console.error('session cleanup failed', e); }
+
+    return json({
+      success:true,
+      account_number:customer.account_number,
+      message:"Your password has been reset. You can now sign in with your new password."
+    });
+  } catch (e) {
+    console.error('Password reset complete unexpected error', e);
+    const msg = clean(e?.message) || String(e || 'Unknown server error');
+    return json({
+      success:false,
+      error:`Password reset server error: ${msg}`
+    },500);
+  }
 }
