@@ -1,5 +1,5 @@
 const CODE_MINUTES = 15;
-const PASSWORD_ITERATIONS = 210000;
+const PASSWORD_ITERATIONS = 100000;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
