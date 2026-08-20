@@ -1025,6 +1025,30 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   .hero::before{background-position:62% center;opacity:.26}
 }
 </style>
+
+<style id="wooten-desktop-menu-nowrap-fix">
+@media (min-width:981px){
+  .smart-desktop-nav ul{
+    flex-wrap:nowrap !important;
+  }
+  .smart-desktop-nav li{
+    flex:0 0 auto !important;
+  }
+  .smart-desktop-nav .nav-link{
+    white-space:nowrap !important;
+    flex-shrink:0 !important;
+  }
+}
+@media (max-width:1100px) and (min-width:981px){
+  .smart-desktop-nav ul{
+    gap:10px !important;
+  }
+  .smart-desktop-nav .nav-link{
+    font-size:.86rem !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
