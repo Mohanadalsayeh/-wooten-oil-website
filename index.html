@@ -1065,7 +1065,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       </div>
       <div class="portal-row">
         <label class="portal-remember"><input id="portal-remember" type="checkbox" /> Remember me</label>
-        <a class="portal-forgot" href="mailto:Support@wootenoil.com?subject=Customer%20Portal%20Password%20Help">Forgot password?</a>
+        <button class="portal-forgot" id="portalForgotPassword" type="button" style="border:0;background:transparent;padding:0;cursor:pointer;font:inherit">Forgot password?</button>
       </div>
       <div id="portalStatus" class="portal-status" role="status" aria-live="polite"></div>
       <button class="portal-signin" id="portalSignIn" type="submit">Sign In</button>
@@ -1110,6 +1110,43 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     </div>
 
     <button class="portal-secondary-btn" id="activationBack" type="button" style="width:100%;margin-top:16px">Back to Sign In</button>
+  </div>
+
+
+  <div class="portal-card portal-activation-card" id="portalResetCard" aria-live="polite">
+    <a class="portal-close" href="#top" aria-label="Close password reset">&times;</a>
+    <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
+    <h2>Reset Password</h2>
+    <p>Enter the <strong>email address or Customer Number</strong> on your account. If an email is on file, we will send a 6-digit reset code. If text-message recovery is enabled and no email is available, we can send the code to the phone number on file.</p>
+
+    <div class="portal-activation-step">
+      <div class="portal-field">
+        <label for="reset-identifier">Email or Customer #</label>
+        <input id="reset-identifier" type="text" placeholder="Example: 0001002 or name@email.com" autocomplete="username" />
+      </div>
+      <div id="resetStatus" class="portal-status" role="status" aria-live="polite"></div>
+      <button class="portal-primary-btn" id="resetStart" type="button">Send Reset Code</button>
+    </div>
+
+    <div class="portal-activation-details" id="resetDetails">
+      <div class="portal-activation-note" id="resetInstructions"></div>
+      <div class="portal-field">
+        <label for="reset-code">6-Digit Reset Code</label>
+        <input class="portal-code-input" id="reset-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+      </div>
+      <div class="portal-field">
+        <label for="reset-password">New Password</label>
+        <input id="reset-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
+      </div>
+      <div class="portal-field">
+        <label for="reset-confirm">Confirm New Password</label>
+        <input id="reset-confirm" type="password" minlength="10" maxlength="128" placeholder="Re-enter password" autocomplete="new-password" />
+      </div>
+      <button class="portal-primary-btn" id="resetComplete" type="button">Reset Password</button>
+    </div>
+
+    <div class="portal-help" id="resetOfficeHelp" style="display:none;margin-top:16px">Call Wooten Oil at <a href="tel:+19014762684">(901) 476-2684</a> or <a href="mailto:Support@wootenoil.com">email Support</a>.</div>
+    <button class="portal-secondary-btn" id="resetBack" type="button" style="width:100%;margin-top:16px">Back to Sign In</button>
   </div>
 
   <div class="portal-card portal-account-card portal-account" id="portalAccountCard" aria-live="polite">
@@ -2054,6 +2091,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   var form=document.getElementById('portalLoginForm');
   var loginCard=document.getElementById('portalLoginCard');
   var activationCard=document.getElementById('portalActivationCard');
+  var resetCard=document.getElementById('portalResetCard');
   var accountCard=document.getElementById('portalAccountCard');
   var status=document.getElementById('portalStatus');
   var signIn=document.getElementById('portalSignIn');
@@ -2063,19 +2101,29 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   var mobileCustomerAccount=document.getElementById('mobileCustomerAccount');
   var mobileCustomerLogout=document.getElementById('mobileCustomerLogout');
   var activateLink=document.getElementById('portalActivateLink');
+  var forgotPassword=document.getElementById('portalForgotPassword');
+  var resetBack=document.getElementById('resetBack');
+  var resetStart=document.getElementById('resetStart');
+  var resetComplete=document.getElementById('resetComplete');
+  var resetStatus=document.getElementById('resetStatus');
+  var resetDetails=document.getElementById('resetDetails');
+  var resetInstructions=document.getElementById('resetInstructions');
+  var resetOfficeHelp=document.getElementById('resetOfficeHelp');
   var activationBack=document.getElementById('activationBack');
   var activationStart=document.getElementById('activationStart');
   var activationComplete=document.getElementById('activationComplete');
   var activationStatus=document.getElementById('activationStatus');
   var activationDetails=document.getElementById('activationDetails');
   var activationInstructions=document.getElementById('activationInstructions');
-  if(!form || !loginCard || !activationCard || !accountCard) return;
+  if(!form || !loginCard || !activationCard || !resetCard || !accountCard) return;
 
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
   var ACTIVATE_START_ENDPOINT='/api/customer/activation/start';
   var ACTIVATE_SET_PASSWORD_ENDPOINT='/api/customer/activation/set-password';
+  var RESET_START_ENDPOINT='/api/customer/password-reset/start';
+  var RESET_COMPLETE_ENDPOINT='/api/customer/password-reset/complete';
 
   function money(v){
     var n=Number(v);
@@ -2125,6 +2173,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   function hideAll(){
     loginCard.style.display='none';
     activationCard.classList.remove('show');
+    resetCard.classList.remove('show');
     accountCard.classList.remove('show');
   }
   function showLogin(){
@@ -2143,6 +2192,21 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     if(account) document.getElementById('activation-account').value=account;
     setTimeout(function(){ document.getElementById('activation-account').focus(); },50);
   }
+
+  function showReset(identifier){
+    hideAll();
+    resetCard.classList.add('show');
+    clearStatus(resetStatus);
+    resetDetails.classList.remove('show');
+    resetInstructions.textContent='';
+    if(resetOfficeHelp) resetOfficeHelp.style.display='none';
+    document.getElementById('reset-code').value='';
+    document.getElementById('reset-password').value='';
+    document.getElementById('reset-confirm').value='';
+    if(identifier) document.getElementById('reset-identifier').value=identifier;
+    setTimeout(function(){ document.getElementById('reset-identifier').focus(); },50);
+  }
+
   function showAccount(c){
     document.getElementById('acctName').textContent=clean(c.account_name)||'Customer Account';
     document.getElementById('acctNumber').textContent=clean(c.account_number)?'Customer # '+clean(c.account_number):'';
@@ -2224,6 +2288,79 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       signIn.disabled=false;
       signIn.textContent='Sign In';
     }
+  });
+
+
+  if(forgotPassword) forgotPassword.addEventListener('click',function(){
+    var existing=document.getElementById('portal-user').value.trim();
+    if(!existing){
+      setStatus(status,'Enter your email address or Customer Number first, then select Forgot password.',false);
+      document.getElementById('portal-user').focus();
+      return;
+    }
+    showReset(existing);
+  });
+
+  if(resetBack) resetBack.addEventListener('click',function(){
+    var identifier=document.getElementById('reset-identifier').value.trim();
+    showLogin();
+    if(identifier) document.getElementById('portal-user').value=identifier;
+    clearStatus(status);
+  });
+
+  if(resetStart) resetStart.addEventListener('click',async function(){
+    var identifier=document.getElementById('reset-identifier').value.trim();
+    if(!identifier){ setStatus(resetStatus,'Enter the email address or Customer Number on the account.',false); return; }
+    clearStatus(resetStatus);
+    resetDetails.classList.remove('show');
+    if(resetOfficeHelp) resetOfficeHelp.style.display='none';
+    resetStart.disabled=true; resetStart.textContent='Checking…';
+    try{
+      var r=await fetch(RESET_START_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier})});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok || d.success===false){
+        if(d.setup_required){ showActivation(d.account_number || identifier); setStatus(activationStatus,d.error || 'This account must be activated first.',false); return; }
+        throw new Error(d.error || 'Password recovery could not be started.');
+      }
+      if(d.account_number) document.getElementById('reset-identifier').value=d.account_number;
+      if(d.method==='email'){
+        resetInstructions.textContent='A 6-digit reset code was sent to '+(d.destination || 'the email address on your account')+'. Enter the code below and create a new password.';
+        resetDetails.classList.add('show');
+        setTimeout(function(){document.getElementById('reset-code').focus();},50);
+      }else if(d.method==='sms'){
+        resetInstructions.textContent='A 6-digit reset code was sent by text message to '+(d.destination || 'the phone number on your account')+'. Enter the code below and create a new password.';
+        resetDetails.classList.add('show');
+        setTimeout(function(){document.getElementById('reset-code').focus();},50);
+      }else{
+        resetInstructions.textContent=d.message || 'Please contact Wooten Oil for password assistance.';
+        if(resetOfficeHelp) resetOfficeHelp.style.display='block';
+      }
+      setStatus(resetStatus,d.message || 'Account located.',true);
+    }catch(err){ setStatus(resetStatus,err.message || 'Password recovery could not be started.',false); }
+    finally{ resetStart.disabled=false; resetStart.textContent='Send Reset Code'; }
+  });
+
+  if(resetComplete) resetComplete.addEventListener('click',async function(){
+    var identifier=document.getElementById('reset-identifier').value.trim();
+    var code=document.getElementById('reset-code').value.trim();
+    var password=document.getElementById('reset-password').value;
+    var confirm=document.getElementById('reset-confirm').value;
+    if(!identifier || !code || !password || !confirm){ setStatus(resetStatus,'Enter the reset code and both password fields.',false); return; }
+    if(!/^\d{6}$/.test(code)){ setStatus(resetStatus,'Enter the 6-digit reset code.',false); return; }
+    if(password.length<10){ setStatus(resetStatus,'Your password must be at least 10 characters.',false); return; }
+    if(password!==confirm){ setStatus(resetStatus,'The passwords do not match.',false); return; }
+    clearStatus(resetStatus); resetComplete.disabled=true; resetComplete.textContent='Resetting…';
+    try{
+      var r=await fetch(RESET_COMPLETE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier,code:code,password:password,confirm_password:confirm})});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok || d.success===false) throw new Error(d.error || 'Password reset failed.');
+      showLogin();
+      document.getElementById('portal-user').value=d.account_number || identifier;
+      document.getElementById('portal-password').value='';
+      setStatus(status,d.message || 'Your password has been reset. Sign in with your new password.',true);
+      setTimeout(function(){document.getElementById('portal-password').focus();},50);
+    }catch(err){ setStatus(resetStatus,err.message || 'Password reset failed.',false); }
+    finally{ resetComplete.disabled=false; resetComplete.textContent='Reset Password'; }
   });
 
   if(activateLink) activateLink.addEventListener('click',function(){
