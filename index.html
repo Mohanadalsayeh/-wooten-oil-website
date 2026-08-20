@@ -902,8 +902,14 @@
 @media(max-width:600px){.service-area-section{padding:54px 0}.service-map{min-height:315px;border-radius:17px}.service-area-panel{border-radius:17px;padding:23px}.service-area-panel h3{font-size:1.42rem}.map-marker span:last-child{font-size:.68rem;padding:5px 8px}.map-pin{width:29px;height:29px}.map-badge{left:12px;bottom:12px;right:12px;text-align:center}.map-marker.covington{left:30%;top:38%}.map-marker.mason{left:66%;top:72%}.map-marker.atoka{left:72%;top:23%}}
 
 /* Customer Portal Preview */
-.customer-login-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #cfd7df;border-radius:999px;background:#fff;color:#15283c;font-weight:850;white-space:nowrap;transition:.2s ease}
-.customer-login-link:hover,.customer-login-link:focus{border-color:#9ba9b8;background:#f7f9fb;transform:translateY(-1px)}
+.customer-login-link,.customer-account-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #cfd7df;border-radius:999px;background:#fff;color:#15283c;font-weight:850;white-space:nowrap;transition:.2s ease}
+.customer-login-link:hover,.customer-login-link:focus,.customer-account-link:hover,.customer-account-link:focus{border-color:#9ba9b8;background:#f7f9fb;transform:translateY(-1px)}
+.customer-account-link,.customer-menu-logout{display:none}
+.customer-menu-logout{min-height:44px;padding:10px 14px;border:0;border-radius:999px;background:#eef2f5;color:#24384b;font:inherit;font-weight:900;cursor:pointer;white-space:nowrap}
+.customer-menu-logout:hover,.customer-menu-logout:focus{background:#e2e8ed}
+body.customer-signed-in .customer-login-link{display:none!important}
+body.customer-signed-in .customer-account-link,body.customer-signed-in .customer-menu-logout{display:inline-flex;align-items:center;justify-content:center}
+
 .portal-overlay{position:fixed;inset:0;z-index:5000;display:none;align-items:flex-start;justify-content:center;padding:24px;background:rgba(7,20,34,.68);backdrop-filter:blur(8px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 .portal-overlay:target{display:flex}
 .portal-card{position:relative;width:min(460px,100%);background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.28);padding:34px;margin:auto 0}
@@ -919,7 +925,7 @@
 .portal-remember{display:flex;align-items:center;gap:8px}.portal-remember input{width:16px;height:16px}
 .portal-forgot{font-weight:800;color:#294f73}
 .portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer;transition:.2s ease}.portal-signin:hover{background:#132538;transform:translateY(-1px)}.portal-signin:disabled{opacity:.58;cursor:not-allowed;transform:none}
-.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balances{display:grid;grid-template-columns:repeat(2,minmax(170px,1fr));gap:10px;min-width:370px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 20px;min-width:170px;text-align:right}.account-balance.previous{background:#f3f6f8;color:#102b48;border:1px solid #dce4ea}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance.previous small{color:#687887}.account-balance strong{display:block;font-size:1.75rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balances{grid-template-columns:1fr;min-width:0;margin-top:14px}.account-balance{margin-top:0;text-align:left}.account-grid{grid-template-columns:1fr}}
+.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balances{display:grid;grid-template-columns:repeat(3,minmax(145px,1fr));gap:10px;min-width:500px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 18px;min-width:145px;text-align:right}.account-balance.previous{background:#f3f6f8;color:#102b48;border:1px solid #dce4ea}.account-balance.total{background:#fff7e8;color:#102b48;border:1px solid #ecd79c}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance.previous small,.account-balance.total small{color:#687887}.account-balance strong{display:block;font-size:1.65rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balances{grid-template-columns:1fr;min-width:0;margin-top:14px}.account-balance{margin-top:0;text-align:left}.account-grid{grid-template-columns:1fr}}
 
 .payment-panel{margin-top:20px;border:1px solid #dce4eb;border-radius:16px;padding:18px;background:#fff}
 .payment-panel h3{margin:0 0 6px;color:#102b48;font-size:1.18rem}
@@ -949,8 +955,13 @@
 .portal-activate-link{display:block;width:100%;margin-top:12px;padding:12px 14px;border:1px solid #cfd8e2;border-radius:11px;background:#fff;color:#244b70;font:inherit;font-weight:900;text-align:center;cursor:pointer;transition:.2s ease}.portal-activate-link:hover{background:#f5f8fb;border-color:#9fb0c1}.portal-activation-card{display:none;width:min(520px,100%)}.portal-activation-card.show{display:block}.portal-activation-step{display:grid;gap:15px}.portal-activation-details{display:none;gap:15px}.portal-activation-details.show{display:grid}.portal-code-input{letter-spacing:.18em;font-weight:800}.portal-action-row{display:flex;gap:10px;flex-wrap:wrap}.portal-action-row button{flex:1;min-width:150px}.portal-secondary-btn{height:48px;border:1px solid #ccd6df;border-radius:11px;background:#f6f8fa;color:#233b52;font:inherit;font-weight:900;cursor:pointer}.portal-secondary-btn:hover{background:#edf2f6}.portal-primary-btn{height:48px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer}.portal-primary-btn:hover{background:#132538}.portal-primary-btn:disabled,.portal-secondary-btn:disabled{opacity:.58;cursor:not-allowed}.portal-activation-note{background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.5}.portal-back-link{display:inline-block;margin-top:16px;color:#294f73;font-weight:900;cursor:pointer}.portal-account-card{display:none}.portal-account-card.show{display:block}
 
 .mobile-menu-panel .mobile-login-link{display:flex;align-items:center;justify-content:center;min-height:46px;margin-top:6px;border:1px solid #d7dee5;background:#fff;color:#22384f!important}
-@media(max-width:1100px) and (min-width:981px){.customer-login-link{padding:10px 12px;font-size:.88rem}}
-@media(max-width:980px){.customer-login-link{display:none!important}}
+.mobile-menu-panel .mobile-customer-account,.mobile-menu-panel .mobile-customer-logout{display:none}
+.mobile-menu-panel .mobile-customer-account{align-items:center;justify-content:center;min-height:46px;margin-top:6px;border:1px solid #b9c8d6;background:#eef4f9;color:#193d60!important;font-weight:900}
+.mobile-menu-panel .mobile-customer-logout{width:100%;min-height:46px;margin-top:6px;border:0;border-radius:9px;background:#eef2f5;color:#24384b;font:inherit;font-weight:900;cursor:pointer}
+body.customer-signed-in .mobile-menu-panel .mobile-login-link{display:none!important}
+body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.customer-signed-in .mobile-menu-panel .mobile-customer-logout{display:flex}
+@media(max-width:1100px) and (min-width:981px){.customer-login-link,.customer-account-link{padding:10px 12px;font-size:.88rem}.customer-menu-logout{padding:10px 11px;font-size:.84rem}}
+@media(max-width:980px){.customer-login-link,.customer-account-link,.customer-menu-logout{display:none!important}}
 @media(max-width:560px){.portal-overlay{padding:12px;align-items:flex-start;justify-content:center;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}.portal-card{width:100%;margin:8px 0 20px;border-radius:22px;padding:28px 20px 24px;max-height:none;overflow:visible}.portal-card.portal-account-card{width:100%;max-height:none;overflow:visible}.portal-card h2{font-size:1.65rem}.portal-row{align-items:flex-start;flex-direction:column;gap:9px}}
 
 </style>
@@ -1009,6 +1020,8 @@
       </ul>
     </nav>
     <a class="customer-login-link" href="#customer-login">Customer Login</a>
+    <a class="customer-account-link" id="desktopCustomerAccount" href="#customer-login">Customer #</a>
+    <button class="customer-menu-logout" id="desktopCustomerLogout" type="button">Log Out</button>
     <a class="nav-cta desktop-request" href="#fuel-request">Request Fuel</a>
 
     <a class="mobile-menu-button" href="#mobile-menu" aria-label="Open navigation menu" aria-controls="mobile-menu">
@@ -1025,6 +1038,8 @@
       <a href="#locations">Locations</a>
       <a href="#contact">Contact</a>
       <a class="mobile-login-link" href="#customer-login">Customer Login</a>
+      <a class="mobile-customer-account" id="mobileCustomerAccount" href="#customer-login">Customer #</a>
+      <button class="mobile-customer-logout" id="mobileCustomerLogout" type="button">Log Out</button>
       <a class="mobile-request-link" href="#fuel-request">Request Fuel</a>
     </nav>
   </div>
@@ -1106,6 +1121,7 @@
       <div class="account-balances" aria-label="Account balances">
         <div class="account-balance"><small>Current Balance (0–30 Days)</small><strong id="acctBalance">$0.00</strong></div>
         <div class="account-balance previous"><small>Previous Balance (31+ Days)</small><strong id="acctPreviousBalance">$0.00</strong></div>
+        <div class="account-balance total"><small>Total Balance</small><strong id="acctTotalBalance">$0.00</strong></div>
       </div>
     </div>
     <div class="account-grid">
@@ -1123,7 +1139,7 @@
       <div class="payment-options">
         <label class="payment-choice">
           <input type="radio" name="portalPaymentType" id="payFullBalance" value="full" checked>
-          <span>Pay Full Balance</span>
+          <span id="payFullBalanceLabel">Pay Full Balance — $0.00</span>
         </label>
         <label class="payment-choice">
           <input type="radio" name="portalPaymentType" id="payPartialBalance" value="partial">
@@ -2040,6 +2056,10 @@
   var status=document.getElementById('portalStatus');
   var signIn=document.getElementById('portalSignIn');
   var logout=document.getElementById('portalLogout');
+  var desktopCustomerAccount=document.getElementById('desktopCustomerAccount');
+  var desktopCustomerLogout=document.getElementById('desktopCustomerLogout');
+  var mobileCustomerAccount=document.getElementById('mobileCustomerAccount');
+  var mobileCustomerLogout=document.getElementById('mobileCustomerLogout');
   var activateLink=document.getElementById('portalActivateLink');
   var activationBack=document.getElementById('activationBack');
   var activationStart=document.getElementById('activationStart');
@@ -2088,6 +2108,18 @@
     var tail=[cityState,clean(c.zip_code)].filter(Boolean).join(' ');
     return [street,tail].filter(Boolean).join(' • ') || '—';
   }
+  function updateCustomerMenu(c){
+    var account=clean(c && c.account_number);
+    if(account){
+      document.body.classList.add('customer-signed-in');
+      if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer # '+account;
+      if(mobileCustomerAccount) mobileCustomerAccount.textContent='Customer # '+account;
+    }else{
+      document.body.classList.remove('customer-signed-in');
+      if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer #';
+      if(mobileCustomerAccount) mobileCustomerAccount.textContent='Customer #';
+    }
+  }
   function hideAll(){
     loginCard.style.display='none';
     activationCard.classList.remove('show');
@@ -2118,8 +2150,13 @@
     var aging3=firstNumber(c,['aging_category_3','aging3','age_3','aging_3','balance_91_120']);
     var aging4=firstNumber(c,['aging_category_4','aging4','age_4','aging_4','balance_over_120']);
     var previousBalance=aging1+aging2+aging3+aging4;
+    var totalBalance=currentBalance+previousBalance;
     document.getElementById('acctBalance').textContent=money(currentBalance);
     document.getElementById('acctPreviousBalance').textContent=money(previousBalance);
+    document.getElementById('acctTotalBalance').textContent=money(totalBalance);
+    var fullLabel=document.getElementById('payFullBalanceLabel');
+    if(fullLabel) fullLabel.textContent='Pay Full Balance — '+money(totalBalance);
+    updateCustomerMenu(c);
     document.getElementById('acctTerms').textContent=clean(c.terms_description)||'—';
     document.getElementById('acctCreditHold').textContent=clean(c.credit_hold)||'—';
     document.getElementById('acctCreditLimit').textContent=money(c.credit_limit);
@@ -2132,12 +2169,21 @@
   async function loadCurrentAccount(silent){
     try{
       var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
-      if(r.status===401){ if(!silent) showLogin(); return false; }
+      if(r.status===401){ updateCustomerMenu(null); if(!silent) showLogin(); return false; }
       var d=await r.json().catch(function(){return {};});
-      if(!r.ok || d.success===false || !d.customer) return false;
+      if(!r.ok || d.success===false || !d.customer){ updateCustomerMenu(null); return false; }
       showAccount(d.customer);
       return true;
     }catch(e){ return false; }
+  }
+  async function refreshCustomerMenu(){
+    try{
+      var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
+      if(r.status===401){ updateCustomerMenu(null); return; }
+      var d=await r.json().catch(function(){return {};});
+      if(r.ok && d.success!==false && d.customer) updateCustomerMenu(d.customer);
+      else updateCustomerMenu(null);
+    }catch(e){}
   }
 
   form.addEventListener('submit',async function(e){
@@ -2279,16 +2325,24 @@
     }
   });
 
-  if(logout) logout.addEventListener('click',async function(){
-    logout.disabled=true;
+  async function performLogout(button,openLogin){
+    if(button) button.disabled=true;
     try{
       await fetch(LOGOUT_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},credentials:'same-origin'});
     }catch(e){}
-    showLogin();
+    updateCustomerMenu(null);
     form.reset();
     clearStatus(status);
-    logout.disabled=false;
-  });
+    if(openLogin) showLogin();
+    else{
+      hideAll();
+      if(location.hash==='#mobile-menu' || location.hash==='#customer-login') location.hash='top';
+    }
+    if(button) button.disabled=false;
+  }
+  if(logout) logout.addEventListener('click',function(){ performLogout(logout,true); });
+  if(desktopCustomerLogout) desktopCustomerLogout.addEventListener('click',function(){ performLogout(desktopCustomerLogout,false); });
+  if(mobileCustomerLogout) mobileCustomerLogout.addEventListener('click',function(){ performLogout(mobileCustomerLogout,false); });
 
   document.querySelectorAll('a[href="#customer-login"]').forEach(function(link){
     link.addEventListener('click',function(){
@@ -2296,6 +2350,9 @@
       loadCurrentAccount(true).then(function(ok){ if(!ok) showLogin(); });
     });
   });
+
+  refreshCustomerMenu();
+  window.addEventListener('pageshow',refreshCustomerMenu);
 })();
 </script>
 
