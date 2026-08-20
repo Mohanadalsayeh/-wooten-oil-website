@@ -26,32 +26,10 @@ import {
   adminGenerateActivationCode
 } from "./functions/api/customer-activation.js";
 
-
-async function addBalanceFields(response, env) {
-  try {
-    const body = await response.clone().json();
-    if (!body || !body.customer || !body.customer.account_number || !env.DB) return response;
-    const row = await env.DB.prepare(`
-      SELECT current_balance, aging_category_1, aging_category_2, aging_category_3, aging_category_4
-      FROM customers WHERE account_number = ? LIMIT 1
-    `).bind(body.customer.account_number).first();
-    if (row) {
-      body.customer.current_balance = Number(row.current_balance || 0);
-      body.customer.aging_category_1 = Number(row.aging_category_1 || 0);
-      body.customer.aging_category_2 = Number(row.aging_category_2 || 0);
-      body.customer.aging_category_3 = Number(row.aging_category_3 || 0);
-      body.customer.aging_category_4 = Number(row.aging_category_4 || 0);
-      body.customer.previous_balance = body.customer.aging_category_1 + body.customer.aging_category_2 + body.customer.aging_category_3 + body.customer.aging_category_4;
-      body.customer.total_balance = body.customer.current_balance + body.customer.previous_balance;
-    }
-    const headers = new Headers(response.headers);
-    headers.set("Content-Type", "application/json; charset=utf-8");
-    headers.set("Cache-Control", "no-store");
-    return new Response(JSON.stringify(body), {status: response.status, statusText: response.statusText, headers});
-  } catch (_) {
-    return response;
-  }
-}
+import {
+  customerPasswordResetStart,
+  customerPasswordResetComplete
+} from "./functions/api/password-reset.js";
 
 function methodNotAllowed() {
   return new Response(
@@ -131,10 +109,10 @@ export default {
 
     if (url.pathname === "/api/customer/login") {
       if (request.method === "POST") {
-        return addBalanceFields(await customerLoginPost({
+        return customerLoginPost({
           request,
           env
-        }), env);
+        });
       }
 
       return methodNotAllowed();
@@ -142,10 +120,10 @@ export default {
 
     if (url.pathname === "/api/customer/me") {
       if (request.method === "GET") {
-        return addBalanceFields(await customerMeGet({
+        return customerMeGet({
           request,
           env
-        }), env);
+        });
       }
 
       return methodNotAllowed();
@@ -192,6 +170,21 @@ export default {
         });
       }
 
+      return methodNotAllowed();
+    }
+
+
+    if (url.pathname === "/api/customer/password-reset/start") {
+      if (request.method === "POST") {
+        return customerPasswordResetStart({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/password-reset/complete") {
+      if (request.method === "POST") {
+        return customerPasswordResetComplete({ request, env });
+      }
       return methodNotAllowed();
     }
 
