@@ -150,12 +150,40 @@ export async function customerPasswordResetComplete({request, env}) {
   const token = await env.DB.prepare(`SELECT id FROM password_reset_tokens WHERE customer_id=? AND token_hash=? AND used_at IS NULL AND expires_at>? ORDER BY id DESC LIMIT 1`).bind(customer.id, hash, now).first();
   if (!token) return json({success:false,error:"The verification code is incorrect or has expired."},400);
   const passwordHash = await createPasswordHash(password);
+
+  // Save the new password first. Do not let optional cleanup work block a valid reset.
   try {
-    await env.DB.batch([
-      env.DB.prepare(`UPDATE customers SET password_hash=?,must_change_password=0,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(passwordHash, customer.id),
-      env.DB.prepare(`UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(token.id),
-      env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id=?`).bind(customer.id)
-    ]);
-  } catch (e) { console.error("Password reset failed", e); return json({success:false,error:"We could not reset the password. Please try again or contact Wooten Oil."},500); }
+    const result = await env.DB.prepare(`
+      UPDATE customers
+      SET password_hash = ?, must_change_password = 0
+      WHERE id = ?
+    `).bind(passwordHash, customer.id).run();
+
+    if (!result || result.success === false) {
+      throw new Error("Customer password update did not complete.");
+    }
+  } catch (e) {
+    console.error("Customer password update failed", e);
+    return json({success:false,error:"We could not save the new password. Please try again or contact Wooten Oil."},500);
+  }
+
+  // Consume the reset code after the password is saved.
+  try {
+    await env.DB.prepare(`
+      UPDATE password_reset_tokens
+      SET used_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(token.id).run();
+  } catch (e) {
+    console.error("Password reset token cleanup failed", e);
+  }
+
+  // Sign out any old sessions. This is security cleanup and should not undo a successful password change.
+  try {
+    await env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id = ?`).bind(customer.id).run();
+  } catch (e) {
+    console.error("Customer session cleanup failed", e);
+  }
+
   return json({success:true,account_number:customer.account_number,message:"Your password has been reset. You can now sign in with your new password."});
 }
