@@ -223,6 +223,26 @@ function publicCustomer(customer) {
         customer.current_balance || 0
       ),
 
+    aging_category_1:
+      Number(
+        customer.aging_category_1 || 0
+      ),
+
+    aging_category_2:
+      Number(
+        customer.aging_category_2 || 0
+      ),
+
+    aging_category_3:
+      Number(
+        customer.aging_category_3 || 0
+      ),
+
+    aging_category_4:
+      Number(
+        customer.aging_category_4 || 0
+      ),
+
     credit_hold:
       customer.credit_hold || "",
 
@@ -358,6 +378,10 @@ async function getCustomerFromSession(
         c.account_status,
         c.credit_hold,
         c.current_balance,
+        c.aging_category_1,
+        c.aging_category_2,
+        c.aging_category_3,
+        c.aging_category_4,
         c.salesperson_name,
         c.credit_limit,
         c.terms_description
