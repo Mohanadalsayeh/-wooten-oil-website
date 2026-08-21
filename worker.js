@@ -31,6 +31,12 @@ import {
   customerPasswordResetComplete
 } from "./functions/api/password-reset.js";
 
+import {
+  gmailOAuthStart,
+  gmailOAuthCallback,
+  gmailOAuthStatus
+} from "./functions/api/gmail-oauth.js";
+
 function methodNotAllowed() {
   return new Response(
     JSON.stringify({
@@ -196,6 +202,28 @@ export default {
         });
       }
 
+      return methodNotAllowed();
+    }
+
+
+    if (url.pathname === "/api/gmail/oauth/start") {
+      if (request.method === "GET") {
+        return gmailOAuthStart({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/gmail/oauth/callback") {
+      if (request.method === "GET") {
+        return gmailOAuthCallback({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/gmail/oauth/status") {
+      if (request.method === "GET") {
+        return gmailOAuthStatus({ request, env });
+      }
       return methodNotAllowed();
     }
 
