@@ -185,18 +185,21 @@ function parseCookies(request) {
   return cookies;
 }
 
-function sessionCookie(token) {
-  const maxAge =
-    SESSION_DAYS * 24 * 60 * 60;
-
-  return [
+function sessionCookie(token, rememberMe = false) {
+  const parts = [
     `${SESSION_COOKIE}=${token}`,
     "Path=/",
-    `Max-Age=${maxAge}`,
     "HttpOnly",
     "Secure",
     "SameSite=Lax"
-  ].join("; ");
+  ];
+
+  if (rememberMe) {
+    const maxAge = SESSION_DAYS * 24 * 60 * 60;
+    parts.splice(2, 0, `Max-Age=${maxAge}`);
+  }
+
+  return parts.join("; ");
 }
 
 function clearSessionCookie() {
@@ -208,6 +211,59 @@ function clearSessionCookie() {
     "Secure",
     "SameSite=Lax"
   ].join("; ");
+}
+
+function timeZoneOffsetMs(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+
+  const values = {};
+  for (const part of parts) {
+    if (part.type !== "literal") values[part.type] = Number(part.value);
+  }
+
+  return Date.UTC(
+    values.year,
+    values.month - 1,
+    values.day,
+    values.hour,
+    values.minute,
+    values.second
+  ) - date.getTime();
+}
+
+function nextCentralMidnight(now = new Date()) {
+  const timeZone = "America/Chicago";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
+
+  const values = {};
+  for (const part of parts) {
+    if (part.type !== "literal") values[part.type] = Number(part.value);
+  }
+
+  const naive = new Date(Date.UTC(
+    values.year,
+    values.month - 1,
+    values.day + 1,
+    0, 0, 0
+  ));
+
+  let candidate = new Date(naive.getTime() - timeZoneOffsetMs(naive, timeZone));
+  candidate = new Date(naive.getTime() - timeZoneOffsetMs(candidate, timeZone));
+  return candidate;
 }
 
 function publicCustomer(customer) {
@@ -293,7 +349,8 @@ function publicCustomer(customer) {
 
 async function createSession(
   env,
-  customerId
+  customerId,
+  rememberMe = false
 ) {
   const token =
     randomToken();
@@ -304,15 +361,16 @@ async function createSession(
   const now =
     new Date();
 
-  const expires =
-    new Date(
-      now.getTime() +
-      SESSION_DAYS *
-      24 *
-      60 *
-      60 *
-      1000
-    );
+  const expires = rememberMe
+    ? new Date(
+        now.getTime() +
+        SESSION_DAYS *
+        24 *
+        60 *
+        60 *
+        1000
+      )
+    : nextCentralMidnight(now);
 
   await env.DB.prepare(`
     INSERT INTO customer_sessions (
@@ -472,6 +530,12 @@ export async function customerLoginPost({
   const password =
     String(body?.password ?? "");
 
+  const rememberMe =
+    body?.remember_me === true ||
+    body?.remember_me === 1 ||
+    body?.remember_me === "1" ||
+    body?.remember_me === "true";
+
   if (!user || !password) {
     return json({
       success: false,
@@ -562,7 +626,8 @@ export async function customerLoginPost({
   const token =
     await createSession(
       env,
-      customer.id
+      customer.id,
+      rememberMe
     );
 
   return json(
@@ -574,7 +639,7 @@ export async function customerLoginPost({
     200,
     {
       "Set-Cookie":
-        sessionCookie(token)
+        sessionCookie(token, rememberMe)
     }
   );
 }
