@@ -1315,6 +1315,83 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 }
 </style>
 
+
+<style id="wooten-mobile-customer-header-style">
+.mobile-customer-header{
+  display:none;
+  margin-left:auto;
+  align-items:center;
+  justify-content:flex-end;
+  gap:5px;
+  min-width:0;
+}
+body.customer-signed-in .mobile-customer-header{display:flex}
+.mobile-customer-name{
+  max-width:118px;
+  border:0;
+  background:transparent;
+  color:#17314b;
+  font:inherit;
+  font-size:.76rem;
+  font-weight:850;
+  line-height:1.12;
+  padding:5px 4px;
+  text-align:right;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.mobile-customer-notifications{
+  position:relative;
+  flex:0 0 39px;
+  width:39px;
+  height:39px;
+  border:1px solid #dce4eb;
+  border-radius:50%;
+  background:#f7f9fb;
+  color:#183854;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  padding:0;
+}
+.mobile-customer-notifications svg{
+  width:19px;height:19px;
+  fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.mobile-header-notification-badge{
+  position:absolute;
+  right:-3px;
+  top:-4px;
+  min-width:18px;
+  height:18px;
+  padding:0 4px;
+  border-radius:999px;
+  background:#bd1e2d;
+  color:#fff;
+  border:2px solid #fff;
+  font-size:.60rem;
+  font-weight:900;
+  line-height:14px;
+  text-align:center;
+}
+@media(min-width:981px){
+  .mobile-customer-header{display:none!important}
+}
+@media(max-width:980px){
+  body.customer-signed-in .mobile-menu-button{margin-left:4px}
+}
+@media(max-width:520px){
+  .mobile-customer-name{max-width:104px;font-size:.72rem}
+  .mobile-customer-notifications{width:37px;height:37px;flex-basis:37px}
+}
+@media(max-width:390px){
+  .mobile-customer-name{max-width:84px}
+}
+</style>
+
 </head>
 <body>
 
@@ -1340,6 +1417,14 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     <a class="customer-account-link" id="desktopCustomerAccount" href="#customer-login">Customer #</a>
     <button class="customer-menu-logout" id="desktopCustomerLogout" type="button">Log Out</button>
     <a class="nav-cta desktop-request" href="#fuel-request">Request Fuel</a>
+
+    <div class="mobile-customer-header" id="mobileCustomerHeader" aria-label="Signed-in customer">
+      <button class="mobile-customer-notifications" id="mobileHeaderNotifications" type="button" aria-label="Open customer notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+        <span class="mobile-header-notification-badge" id="mobileHeaderNotificationBadge" style="display:none">0</span>
+      </button>
+      <button class="mobile-customer-name" id="mobileHeaderCustomerName" type="button" aria-label="Open customer account">Customer</button>
+    </div>
 
     <a class="mobile-menu-button" href="#mobile-menu" aria-label="Open navigation menu" aria-controls="mobile-menu">
       <span></span><span></span><span></span>
@@ -2533,6 +2618,9 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   }
 
   
+  var mobileHeaderNotifications=document.getElementById('mobileHeaderNotifications');
+  var mobileHeaderCustomerName=document.getElementById('mobileHeaderCustomerName');
+  var mobileHeaderNotificationBadge=document.getElementById('mobileHeaderNotificationBadge');
   var dashboardNotifications=document.getElementById('dashboardNotifications');
   var dashboardNotificationPanel=document.getElementById('dashboardNotificationPanel');
   var markNotificationsRead=document.getElementById('markNotificationsRead');
@@ -2605,11 +2693,14 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       document.body.classList.add('customer-signed-in');
       if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer # '+account;
       if(mobileCustomerAccount) mobileCustomerAccount.textContent='Customer # '+account;
+      if(mobileHeaderCustomerName) mobileHeaderCustomerName.textContent=clean(c && c.account_name)||('Customer # '+account);
     }else{
       clearFuelAccountIndicator();
       document.body.classList.remove('customer-signed-in');
       if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer #';
       if(mobileCustomerAccount) mobileCustomerAccount.textContent='Customer #';
+      if(mobileHeaderCustomerName) mobileHeaderCustomerName.textContent='Customer';
+      if(mobileHeaderNotificationBadge) mobileHeaderNotificationBadge.style.display='none';
     }
   }
   function hideAll(){
@@ -2739,6 +2830,27 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 
   
   
+  
+  if(mobileHeaderCustomerName) mobileHeaderCustomerName.addEventListener('click',async function(){
+    location.hash='customer-login';
+    var ok=await loadCurrentAccount(true);
+    if(!ok) showLogin();
+    else showDashboardView();
+  });
+
+  if(mobileHeaderNotifications) mobileHeaderNotifications.addEventListener('click',async function(){
+    location.hash='customer-login';
+    var ok=await loadCurrentAccount(true);
+    if(!ok){ showLogin(); return; }
+    showDashboardView();
+    if(dashboardNotificationPanel) dashboardNotificationPanel.classList.add('show');
+    if(dashboardNotifications) dashboardNotifications.setAttribute('aria-expanded','true');
+    var account=activePortalCustomer && activePortalCustomer.account_number;
+    if(account && window.wootenRenderCustomerNotifications){
+      window.wootenRenderCustomerNotifications(account);
+    }
+  });
+
   if(dashboardNotifications) dashboardNotifications.addEventListener('click',function(){
     var open=dashboardNotificationPanel && dashboardNotificationPanel.classList.toggle('show');
     dashboardNotifications.setAttribute('aria-expanded',open?'true':'false');
@@ -3056,11 +3168,17 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     account=cleanAccount(account);
     var list=document.getElementById('dashboardNotificationList');
     var badge=document.getElementById('dashboardNotificationBadge');
+    var headerBadge=document.getElementById('mobileHeaderNotificationBadge');
     if(!list || !badge) return;
     var items=read(account);
     var unread=items.filter(function(n){return !n.read;}).length;
-    badge.textContent=unread>9?'9+':String(unread);
+    var badgeText=unread>9?'9+':String(unread);
+    badge.textContent=badgeText;
     badge.style.display=unread?'block':'none';
+    if(headerBadge){
+      headerBadge.textContent=badgeText;
+      headerBadge.style.display=unread?'block':'none';
+    }
     if(!items.length){
       list.innerHTML='<div class="notification-empty">No notifications yet.</div>';
       return;
