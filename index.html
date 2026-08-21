@@ -1225,6 +1225,38 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 }
 </style>
 
+
+<style id="wooten-smart-fuel-request-style">
+.fuel-prefill-note{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:0 0 18px;
+  padding:12px 14px;
+  border:1px solid #cfe1d5;
+  border-radius:12px;
+  background:#f1f8f3;
+  color:#345844;
+  font-size:.88rem;
+  line-height:1.45;
+}
+.fuel-prefill-check{
+  flex:0 0 24px;
+  width:24px;height:24px;
+  border-radius:50%;
+  display:grid;place-items:center;
+  background:#2f7547;color:#fff;
+  font-weight:900;font-size:.76rem;
+  margin-top:1px;
+}
+#fuelCustomerAccount{
+  background:#f5f7f9;
+  color:#536575;
+  font-weight:800;
+}
+#fuelCustomerAccount[readonly]{cursor:default}
+</style>
+
 </head>
 <body>
 
@@ -1904,7 +1936,15 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       <h2>Request Fuel Delivery</h2>
       <p class="fuel-intro">Fill out the information below. When you tap Submit Fuel Request, you will be asked to confirm before the request is sent directly to Wooten Oil. Your email app will not open.</p>
       <form id="fuelRequestForm">
+        <div class="fuel-prefill-note" id="fuelPrefillNote" style="display:none">
+          <span class="fuel-prefill-check" aria-hidden="true">✓</span>
+          <span><strong>Customer information loaded.</strong> We filled this request from your Wooten Oil account. You can change the delivery details for this request.</span>
+        </div>
         <div class="fuel-form-grid">
+          <div class="fuel-field" id="fuelCustomerAccountField" style="display:none">
+            <label for="fuelCustomerAccount">Customer #</label>
+            <input id="fuelCustomerAccount" name="customerAccountNumber" readonly>
+          </div>
           <div class="fuel-field"><label for="customerName">Customer / Company Name *</label><input id="customerName" name="customerName" required autocomplete="organization"></div>
           <div class="fuel-field"><label for="phone">Phone Number *</label><input id="phone" name="phone" required type="tel" autocomplete="tel"></div>
           <div class="fuel-field full"><label for="deliveryAddress">Delivery Address *</label><input id="deliveryAddress" name="deliveryAddress" required autocomplete="street-address"></div>
@@ -2137,6 +2177,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     showSending();
     const payload={
       requestNumber:request.requestNumber,
+      customerAccountNumber:request.customerAccountNumber || '',
       customerName:request.customerName,
       phone:request.phone,
       email:request.email || '',
@@ -2171,6 +2212,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     if(!form.reportValidity()) return;
     pendingRequest={
       requestNumber:newRequestNumber(),
+      customerAccountNumber:value('fuelCustomerAccount'),
       customerName:value('customerName'),
       phone:value('phone'),
       email:value('email'),
@@ -2361,6 +2403,50 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   var activationInstructions=document.getElementById('activationInstructions');
   if(!form || !loginCard || !activationCard || !resetCard || !accountCard) return;
 
+  
+  var activePortalCustomer=null;
+
+  function customerFuelAddress(c){
+    var street=[clean(c && c.address1),clean(c && c.address2),clean(c && c.address3)].filter(Boolean).join(', ');
+    var cityState=[clean(c && c.city),clean(c && c.state)].filter(Boolean).join(', ');
+    var cityLine=[cityState,clean(c && c.zip_code)].filter(Boolean).join(' ');
+    return [street,cityLine].filter(Boolean).join(', ');
+  }
+
+  function prefillFuelRequest(c){
+    if(!c) return;
+    activePortalCustomer=c;
+
+    var account=clean(c.account_number);
+    var accountField=document.getElementById('fuelCustomerAccountField');
+    var accountInput=document.getElementById('fuelCustomerAccount');
+    var note=document.getElementById('fuelPrefillNote');
+
+    if(accountField) accountField.style.display=account?'block':'none';
+    if(accountInput) accountInput.value=account;
+    if(note) note.style.display='flex';
+
+    var nameInput=document.getElementById('customerName');
+    var phoneInput=document.getElementById('phone');
+    var emailInput=document.getElementById('email');
+    var addressInput=document.getElementById('deliveryAddress');
+
+    if(nameInput && clean(c.account_name)) nameInput.value=clean(c.account_name);
+    if(phoneInput && clean(c.phone)) phoneInput.value=clean(c.phone);
+    if(emailInput && clean(c.email)) emailInput.value=clean(c.email);
+    if(addressInput && customerFuelAddress(c)) addressInput.value=customerFuelAddress(c);
+  }
+
+  function clearFuelAccountIndicator(){
+    activePortalCustomer=null;
+    var accountField=document.getElementById('fuelCustomerAccountField');
+    var accountInput=document.getElementById('fuelCustomerAccount');
+    var note=document.getElementById('fuelPrefillNote');
+    if(accountField) accountField.style.display='none';
+    if(accountInput) accountInput.value='';
+    if(note) note.style.display='none';
+  }
+
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
@@ -2430,6 +2516,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer # '+account;
       if(mobileCustomerAccount) mobileCustomerAccount.textContent='Customer # '+account;
     }else{
+      clearFuelAccountIndicator();
       document.body.classList.remove('customer-signed-in');
       if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer #';
       if(mobileCustomerAccount) mobileCustomerAccount.textContent='Customer #';
@@ -2474,6 +2561,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 
   function showAccount(c){
     showDashboardView();
+    prefillFuelRequest(c);
     document.getElementById('acctName').textContent=clean(c.account_name)||'Customer Account';
     document.getElementById('acctNumber').textContent=clean(c.account_number)?'Customer # '+clean(c.account_number):'';
     var currentBalance=firstNumber(c,['current_balance','current','aging_current','aging_category_0','age_current']);
@@ -2513,7 +2601,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
       if(r.status===401){ updateCustomerMenu(null); return; }
       var d=await r.json().catch(function(){return {};});
-      if(r.ok && d.success!==false && d.customer) updateCustomerMenu(d.customer);
+      if(r.ok && d.success!==false && d.customer){ updateCustomerMenu(d.customer); prefillFuelRequest(d.customer); }
       else updateCustomerMenu(null);
     }catch(e){}
   }
@@ -2561,7 +2649,15 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   
   if(dashboardViewAccount) dashboardViewAccount.addEventListener('click',function(){ showAccountDetails(false); });
   if(dashboardMakePayment) dashboardMakePayment.addEventListener('click',function(){ showAccountDetails(true); });
-  if(dashboardRequestFuel) dashboardRequestFuel.addEventListener('click',function(){ window.location.hash='fuel-request'; });
+  if(dashboardRequestFuel) dashboardRequestFuel.addEventListener('click',function(){
+    if(activePortalCustomer) prefillFuelRequest(activePortalCustomer);
+    accountCard.classList.remove('show');
+    window.location.hash='fuel-request';
+    setTimeout(function(){
+      var fuel=document.getElementById('fuelType');
+      if(fuel) fuel.focus();
+    },180);
+  });
   if(dashboardBack) dashboardBack.addEventListener('click',function(){ showDashboardView(); });
   if(dashboardLogout) dashboardLogout.addEventListener('click',function(){ if(portalLogout) portalLogout.click(); });
 
