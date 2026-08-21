@@ -1257,6 +1257,64 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 #fuelCustomerAccount[readonly]{cursor:default}
 </style>
 
+
+<style id="wooten-notification-center-style">
+.dashboard-welcome-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.dashboard-notification-button{
+  position:relative;flex:0 0 48px;width:48px;height:48px;border-radius:50%;
+  border:1px solid #dce4eb;background:#f7f9fb;color:#183854;display:grid;
+  place-items:center;cursor:pointer;transition:.2s ease
+}
+.dashboard-notification-button:hover,.dashboard-notification-button:focus-visible{
+  background:#eef4f8;border-color:#bfd0dc;outline:none
+}
+.dashboard-notification-button svg{
+  width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round
+}
+.dashboard-notification-badge{
+  position:absolute;right:-2px;top:-3px;min-width:20px;height:20px;padding:0 5px;
+  border-radius:999px;background:#bd1e2d;color:#fff;border:2px solid #fff;
+  font-size:.66rem;font-weight:900;line-height:16px;text-align:center
+}
+.dashboard-notification-panel{
+  display:none;margin:0 0 18px;border:1px solid #dce4eb;border-radius:15px;
+  background:#fff;box-shadow:0 10px 28px rgba(15,39,66,.08);overflow:hidden
+}
+.dashboard-notification-panel.show{display:block;animation:notificationOpen .2s ease both}
+.notification-panel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px;border-bottom:1px solid #e5eaee;background:#f9fbfc
+}
+.notification-panel-head strong{display:block;color:#17314b;font-size:.95rem}
+.notification-panel-head small{display:block;color:#788591;font-size:.74rem;margin-top:2px}
+.notification-panel-head button{
+  border:0;background:transparent;color:#315b7e;font:inherit;font-size:.75rem;
+  font-weight:850;cursor:pointer;padding:6px
+}
+.notification-list{max-height:270px;overflow:auto}
+.notification-item{
+  display:flex;gap:11px;padding:14px 16px;border-bottom:1px solid #edf1f4;
+  background:#fff
+}
+.notification-item:last-child{border-bottom:0}
+.notification-item.unread{background:#f5f9fc}
+.notification-dot{
+  margin-top:7px;flex:0 0 8px;width:8px;height:8px;border-radius:50%;
+  background:#2c6d9a
+}
+.notification-item:not(.unread) .notification-dot{background:#cbd4db}
+.notification-copy strong{display:block;color:#243b51;font-size:.86rem}
+.notification-copy p{margin:3px 0 0;color:#647381;font-size:.78rem;line-height:1.4}
+.notification-copy time{display:block;color:#96a1aa;font-size:.68rem;margin-top:5px}
+.notification-empty{padding:22px 16px;text-align:center;color:#7a8792;font-size:.84rem}
+@keyframes notificationOpen{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:620px){
+  .dashboard-welcome-row{padding-right:0!important}
+  .dashboard-notification-button{width:44px;height:44px;flex-basis:44px}
+}
+</style>
+
 </head>
 <body>
 
@@ -1411,10 +1469,29 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
 
     <section class="customer-dashboard" id="customerDashboard">
-      <div class="dashboard-welcome">
-        <span>Welcome back</span>
-        <h2 class="account-name" id="acctName">Customer Account</h2>
-        <div class="account-number" id="acctNumber"></div>
+      <div class="dashboard-welcome dashboard-welcome-row">
+        <div>
+          <span>Welcome back</span>
+          <h2 class="account-name" id="acctName">Customer Account</h2>
+          <div class="account-number" id="acctNumber"></div>
+        </div>
+        <button class="dashboard-notification-button" id="dashboardNotifications" type="button" aria-label="Open notifications" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+          <span class="dashboard-notification-badge" id="dashboardNotificationBadge" style="display:none">0</span>
+        </button>
+      </div>
+
+      <div class="dashboard-notification-panel" id="dashboardNotificationPanel" aria-label="Notifications">
+        <div class="notification-panel-head">
+          <div>
+            <strong>Notifications</strong>
+            <small>Recent customer portal activity</small>
+          </div>
+          <button type="button" id="markNotificationsRead">Mark all read</button>
+        </div>
+        <div class="notification-list" id="dashboardNotificationList">
+          <div class="notification-empty">No notifications yet.</div>
+        </div>
       </div>
 
       <div class="account-balances dashboard-balances" aria-label="Account balances">
@@ -2157,6 +2234,14 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     no.textContent='Done';
     if(status) status.textContent="Your request was received by Wooten Oil's website system and the email notification was sent.";
     overlay.dataset.stage='complete';
+    var customerAccount=document.getElementById('fuelCustomerAccount');
+    if(customerAccount && customerAccount.value && window.wootenAddCustomerNotification){
+      window.wootenAddCustomerNotification(
+        customerAccount.value,
+        'Fuel Request Submitted',
+        'Your fuel request '+requestNumber+' was received by Wooten Oil.'
+      );
+    }
     form.reset();
     pendingRequest=null;
   }
@@ -2447,6 +2532,11 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
     if(note) note.style.display='none';
   }
 
+  
+  var dashboardNotifications=document.getElementById('dashboardNotifications');
+  var dashboardNotificationPanel=document.getElementById('dashboardNotificationPanel');
+  var markNotificationsRead=document.getElementById('markNotificationsRead');
+
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
@@ -2562,6 +2652,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
   function showAccount(c){
     showDashboardView();
     prefillFuelRequest(c);
+    if(window.wootenRenderCustomerNotifications) window.wootenRenderCustomerNotifications(c.account_number);
     document.getElementById('acctName').textContent=clean(c.account_name)||'Customer Account';
     document.getElementById('acctNumber').textContent=clean(c.account_number)?'Customer # '+clean(c.account_number):'';
     var currentBalance=firstNumber(c,['current_balance','current','aging_current','aging_category_0','age_current']);
@@ -2647,6 +2738,26 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 
 
   
+  
+  if(dashboardNotifications) dashboardNotifications.addEventListener('click',function(){
+    var open=dashboardNotificationPanel && dashboardNotificationPanel.classList.toggle('show');
+    dashboardNotifications.setAttribute('aria-expanded',open?'true':'false');
+    var account=activePortalCustomer && activePortalCustomer.account_number;
+    if(account && window.wootenRenderCustomerNotifications) window.wootenRenderCustomerNotifications(account);
+  });
+
+  if(markNotificationsRead) markNotificationsRead.addEventListener('click',function(){
+    var account=activePortalCustomer && activePortalCustomer.account_number;
+    if(account && window.wootenMarkCustomerNotificationsRead) window.wootenMarkCustomerNotificationsRead(account);
+  });
+
+  window.addEventListener('wooten-notifications-changed',function(e){
+    var account=activePortalCustomer && activePortalCustomer.account_number;
+    if(account && e.detail && String(e.detail.account).replace(/\D/g,'')===String(account).replace(/\D/g,'')){
+      if(window.wootenRenderCustomerNotifications) window.wootenRenderCustomerNotifications(account);
+    }
+  });
+
   if(dashboardViewAccount) dashboardViewAccount.addEventListener('click',function(){ showAccountDetails(false); });
   if(dashboardMakePayment) dashboardMakePayment.addEventListener('click',function(){ showAccountDetails(true); });
   if(dashboardRequestFuel) dashboardRequestFuel.addEventListener('click',function(){
@@ -2895,6 +3006,77 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 
   necessary.addEventListener('click',function(){savePreference('necessary');});
   accept.addEventListener('click',function(){savePreference('optional');});
+})();
+</script>
+
+
+<script id="wooten-notification-center-script">
+(function(){
+  function cleanAccount(v){ return String(v == null ? '' : v).replace(/\D/g,'').padStart(7,'0'); }
+  function storageKey(account){ return 'wooten_notifications_'+cleanAccount(account); }
+
+  function read(account){
+    if(!account) return [];
+    try{
+      var value=JSON.parse(localStorage.getItem(storageKey(account))||'[]');
+      return Array.isArray(value)?value:[];
+    }catch(e){ return []; }
+  }
+  function write(account,items){
+    if(!account) return;
+    try{ localStorage.setItem(storageKey(account),JSON.stringify(items.slice(0,30))); }catch(e){}
+  }
+  function escapeHtml(s){
+    return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function formatDate(value){
+    try{
+      return new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    }catch(e){ return ''; }
+  }
+
+  window.wootenAddCustomerNotification=function(account,title,message){
+    account=cleanAccount(account);
+    if(!account) return;
+    var items=read(account);
+    items.unshift({
+      id:Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      title:String(title||'Wooten Oil'),
+      message:String(message||''),
+      created_at:new Date().toISOString(),
+      read:false
+    });
+    write(account,items);
+    window.dispatchEvent(new CustomEvent('wooten-notifications-changed',{detail:{account:account}}));
+  };
+
+  window.wootenRenderCustomerNotifications=function(account){
+    account=cleanAccount(account);
+    var list=document.getElementById('dashboardNotificationList');
+    var badge=document.getElementById('dashboardNotificationBadge');
+    if(!list || !badge) return;
+    var items=read(account);
+    var unread=items.filter(function(n){return !n.read;}).length;
+    badge.textContent=unread>9?'9+':String(unread);
+    badge.style.display=unread?'block':'none';
+    if(!items.length){
+      list.innerHTML='<div class="notification-empty">No notifications yet.</div>';
+      return;
+    }
+    list.innerHTML=items.map(function(n){
+      return '<div class="notification-item '+(!n.read?'unread':'')+'"><span class="notification-dot"></span><div class="notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></div></div>';
+    }).join('');
+  };
+
+  window.wootenMarkCustomerNotificationsRead=function(account){
+    account=cleanAccount(account);
+    var items=read(account);
+    items.forEach(function(n){n.read=true;});
+    write(account,items);
+    window.wootenRenderCustomerNotifications(account);
+  };
 })();
 </script>
 
