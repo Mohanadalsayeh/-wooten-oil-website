@@ -1049,6 +1049,104 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 }
 </style>
 
+
+<style id="wooten-google-map-location-cards">
+/* Google Maps as the visual background of the four Oil Card location cards. */
+.location-map-card{
+  position:relative !important;
+  overflow:hidden !important;
+  min-height:285px;
+  padding:0 !important;
+  background:#e9eef3 !important;
+  isolation:isolate;
+}
+.location-map-bg{
+  position:absolute;
+  inset:-12px;
+  width:calc(100% + 24px);
+  height:calc(100% + 24px);
+  border:0;
+  z-index:0;
+  pointer-events:none;
+  filter:saturate(.82) contrast(.92);
+  opacity:.72;
+}
+.location-map-shade{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.96) 0%,rgba(255,255,255,.90) 52%,rgba(255,255,255,.58) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.10),rgba(15,39,66,.06));
+  pointer-events:none;
+}
+.location-card-content{
+  position:relative;
+  z-index:2;
+  min-height:285px;
+  padding:24px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+}
+.location-map-card .number{
+  box-shadow:0 5px 14px rgba(15,39,66,.18);
+}
+.location-map-card h3{
+  font-size:1.4rem;
+  text-shadow:0 1px 0 rgba(255,255,255,.8);
+}
+.location-map-card p{
+  color:#425466 !important;
+  font-weight:650;
+}
+.location-map-card .phone-link{
+  background:rgba(255,255,255,.86);
+  padding:6px 10px;
+  border-radius:8px;
+  box-shadow:0 3px 12px rgba(15,39,66,.08);
+}
+.location-map-card .location-actions{
+  margin-top:16px;
+}
+.location-map-card .location-action{
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+@media(max-width:600px){
+  .location-map-card,
+  .location-card-content{min-height:260px}
+  .location-map-shade{
+    background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.80) 70%,rgba(255,255,255,.55));
+  }
+}
+</style>
+
+
+<style id="wooten-cookie-consent-style">
+.cookie-consent{
+  position:fixed;left:18px;right:18px;bottom:18px;z-index:99999;
+  max-width:760px;margin:auto;background:#fff;color:#26394b;
+  border:1px solid #dbe3ea;border-radius:16px;
+  box-shadow:0 14px 40px rgba(15,39,66,.22);
+  padding:18px 20px;display:none;
+}
+.cookie-consent.show{display:block}
+.cookie-consent h3{margin:0 0 6px;color:#102b48;font-size:1.05rem}
+.cookie-consent p{margin:0;color:#5f6d7a;font-size:.9rem;line-height:1.5}
+.cookie-consent-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.cookie-consent button{
+  border:0;border-radius:10px;padding:10px 15px;font:inherit;font-weight:850;cursor:pointer
+}
+.cookie-necessary{background:#eef2f5;color:#24384b}
+.cookie-accept{background:#1d2e40;color:#fff}
+@media(max-width:600px){
+  .cookie-consent{left:10px;right:10px;bottom:10px;padding:16px}
+  .cookie-consent-actions button{flex:1 1 150px}
+}
+</style>
+
 </head>
 <body>
 
@@ -1454,7 +1552,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
           <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
       <div class="location-grid">
-        <article class="location-card">
+        <article class="location-card location-map-card"><iframe class="location-map-bg" src="https://www.google.com/maps?q=Wooten+Oil+Co+East+Sanford+Avenue+Covington+TN+38019&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" aria-hidden="true"></iframe><div class="location-map-shade"></div><div class="location-card-content">
           <div class="number">1</div>
           <h3>Wooten Oil Co</h3>
           <p>East Sanford Avenue<br>Covington, TN 38019</p>
@@ -1463,9 +1561,9 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
             <a class="location-action directions" href="https://www.google.com/maps/search/?api=1&query=Wooten+Oil+Co+East+Sanford+Avenue+Covington+TN+38019" target="_blank" rel="noopener"><svg class="direction-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg> Directions</a>
             <a class="location-action call" href="tel:+19014762684">Call</a>
           </div>
-        </article>
+        </div></article>
 
-        <article class="location-card">
+        <article class="location-card location-map-card"><iframe class="location-map-bg" src="https://www.google.com/maps?q=5000+Mueller+Brass+Road+Covington+TN+38019&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" aria-hidden="true"></iframe><div class="location-map-shade"></div><div class="location-card-content">
           <div class="number">2</div>
           <h3>Midway II</h3>
           <p>5000 Mueller Brass Road<br>Covington, TN 38019</p>
@@ -1474,9 +1572,9 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
             <a class="location-action directions" href="https://www.google.com/maps/search/?api=1&query=5000+Mueller+Brass+Road+Covington+TN+38019" target="_blank" rel="noopener"><svg class="direction-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg> Directions</a>
             <a class="location-action call" href="tel:+19017498800">Call</a>
           </div>
-        </article>
+        </div></article>
 
-        <article class="location-card">
+        <article class="location-card location-map-card"><iframe class="location-map-bg" src="https://www.google.com/maps?q=6213+Hwy+59+S+Mason+TN+38049&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" aria-hidden="true"></iframe><div class="location-map-shade"></div><div class="location-card-content">
           <div class="number">3</div>
           <h3>Midway I</h3>
           <p>6213 Hwy 59 S<br>Mason, TN 38049</p>
@@ -1485,9 +1583,9 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
             <a class="location-action directions" href="https://www.google.com/maps/search/?api=1&query=6213+Hwy+59+S+Mason+TN+38049" target="_blank" rel="noopener"><svg class="direction-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg> Directions</a>
             <a class="location-action call" href="tel:+19014764341">Call</a>
           </div>
-        </article>
+        </div></article>
 
-        <article class="location-card">
+        <article class="location-card location-map-card"><iframe class="location-map-bg" src="https://www.google.com/maps?q=11352+Hwy+51+Atoka+TN+38004&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" aria-hidden="true"></iframe><div class="location-map-shade"></div><div class="location-card-content">
           <div class="number">4</div>
           <h3>Penny Pantry</h3>
           <p>11352 Hwy 51<br>Atoka, TN 38004</p>
@@ -1496,7 +1594,7 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
             <a class="location-action directions" href="https://www.google.com/maps/search/?api=1&query=11352+Hwy+51+Atoka+TN+38004" target="_blank" rel="noopener"><svg class="direction-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg> Directions</a>
             <a class="location-action call" href="tel:+19018370392">Call</a>
           </div>
-        </article>
+        </div></article>
       </div>
       </details>
     </div>
@@ -2310,7 +2408,8 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
       var user=document.getElementById('portal-user').value.trim();
       var payload={
         user:user,
-        password:document.getElementById('portal-password').value
+        password:document.getElementById('portal-password').value,
+        remember_me:!!(document.getElementById('portal-remember') && document.getElementById('portal-remember').checked)
       };
       var r=await fetch(LOGIN_ENDPOINT,{
         method:'POST',
@@ -2540,6 +2639,39 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 
   refreshCustomerMenu();
   window.addEventListener('pageshow',refreshCustomerMenu);
+})();
+</script>
+
+
+<div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
+  <h3>Cookie Preferences</h3>
+  <p>Wooten Oil uses necessary cookies to securely operate the customer portal and keep you signed in. These necessary cookies cannot be disabled. Optional cookies will only be used with your permission.</p>
+  <div class="cookie-consent-actions">
+    <button class="cookie-necessary" id="wootenNecessaryOnly" type="button">Necessary Only</button>
+    <button class="cookie-accept" id="wootenAcceptOptional" type="button">Accept Optional Cookies</button>
+  </div>
+</div>
+
+
+<script id="wooten-cookie-consent-script">
+(function(){
+  var key='wooten_cookie_preference';
+  var box=document.getElementById('wootenCookieConsent');
+  var necessary=document.getElementById('wootenNecessaryOnly');
+  var accept=document.getElementById('wootenAcceptOptional');
+  if(!box || !necessary || !accept) return;
+
+  function savePreference(value){
+    try{ localStorage.setItem(key,value); }catch(e){}
+    box.classList.remove('show');
+  }
+
+  var saved='';
+  try{ saved=localStorage.getItem(key)||''; }catch(e){}
+  if(!saved) box.classList.add('show');
+
+  necessary.addEventListener('click',function(){savePreference('necessary');});
+  accept.addEventListener('click',function(){savePreference('optional');});
 })();
 </script>
 
