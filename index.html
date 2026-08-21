@@ -1392,6 +1392,28 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 }
 </style>
 
+
+<style id="wooten-header-notification-menu-style">
+.header-notification-menu{position:absolute;top:calc(100% + 8px);right:58px;z-index:3500;width:min(390px,calc(100vw - 28px));max-height:min(520px,70vh);display:none;background:#fff;border:1px solid #dce4eb;border-radius:16px;box-shadow:0 18px 48px rgba(15,39,66,.22);overflow:hidden}
+.header-notification-menu.show{display:block;animation:headerNotifyIn .18s ease both}
+.header-notification-menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #e4eaee;background:#f9fbfc}
+.header-notification-menu-head strong{display:block;color:#17314b;font-size:.96rem}
+.header-notification-menu-head small{display:block;color:#7b8792;font-size:.72rem;margin-top:2px}
+.header-notification-menu-head button{width:34px;height:34px;border:0;border-radius:50%;background:#eef2f5;color:#34495d;font-size:1.45rem;line-height:1;cursor:pointer}
+.header-notification-list{overflow:auto;max-height:430px}
+.header-notification-item{width:100%;border:0;border-bottom:1px solid #edf1f4;background:#fff;padding:14px 16px;text-align:left;display:flex;gap:11px;cursor:pointer;font:inherit;transition:background .15s ease}
+.header-notification-item:last-child{border-bottom:0}
+.header-notification-item:hover,.header-notification-item:focus-visible{background:#f7fafc;outline:none}
+.header-notification-item.unread{background:#f3f8fc}
+.header-notification-dot{margin-top:7px;flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#bd1e2d}
+.header-notification-item:not(.unread) .header-notification-dot{background:#cbd4db}
+.header-notification-copy strong{display:block;color:#243b51;font-size:.86rem}
+.header-notification-copy p{margin:3px 0 0;color:#647381;font-size:.78rem;line-height:1.4}
+.header-notification-copy time{display:block;color:#96a1aa;font-size:.68rem;margin-top:5px}
+@keyframes headerNotifyIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.header-notification-menu{right:0;left:0;width:auto;top:calc(100% + 8px);max-height:65vh;border-radius:14px}}
+</style>
+
 </head>
 <body>
 
@@ -1429,6 +1451,17 @@ body.customer-signed-in .mobile-customer-header{display:flex}
     <a class="mobile-menu-button" href="#mobile-menu" aria-label="Open navigation menu" aria-controls="mobile-menu">
       <span></span><span></span><span></span>
     </a>
+
+    <div class="header-notification-menu" id="headerNotificationMenu" aria-label="Customer notifications">
+      <div class="header-notification-menu-head">
+        <div><strong>Notifications</strong><small>Recent customer portal activity</small></div>
+        <button type="button" id="headerNotificationsClose" aria-label="Close notifications">&times;</button>
+      </div>
+      <div class="header-notification-list" id="headerNotificationList">
+        <div class="notification-empty">No notifications yet.</div>
+      </div>
+    </div>
+
     <nav id="mobile-menu" class="mobile-menu-panel" aria-label="Mobile navigation">
       <span class="mobile-menu-title">Menu</span>
       <a class="mobile-menu-close" href="#top" aria-label="Close navigation menu">&times;</a>
@@ -2618,6 +2651,9 @@ body.customer-signed-in .mobile-customer-header{display:flex}
   }
 
   
+  var headerNotificationMenu=document.getElementById('headerNotificationMenu');
+  var headerNotificationList=document.getElementById('headerNotificationList');
+  var headerNotificationsClose=document.getElementById('headerNotificationsClose');
   var mobileHeaderNotifications=document.getElementById('mobileHeaderNotifications');
   var mobileHeaderCustomerName=document.getElementById('mobileHeaderCustomerName');
   var mobileHeaderNotificationBadge=document.getElementById('mobileHeaderNotificationBadge');
@@ -2838,17 +2874,34 @@ body.customer-signed-in .mobile-customer-header{display:flex}
     else showDashboardView();
   });
 
-  if(mobileHeaderNotifications) mobileHeaderNotifications.addEventListener('click',async function(){
-    location.hash='customer-login';
-    var ok=await loadCurrentAccount(true);
-    if(!ok){ showLogin(); return; }
-    showDashboardView();
-    if(dashboardNotificationPanel) dashboardNotificationPanel.classList.add('show');
-    if(dashboardNotifications) dashboardNotifications.setAttribute('aria-expanded','true');
+  if(mobileHeaderNotifications) mobileHeaderNotifications.addEventListener('click',function(e){
+    e.preventDefault();
+    e.stopPropagation();
     var account=activePortalCustomer && activePortalCustomer.account_number;
-    if(account && window.wootenRenderCustomerNotifications){
-      window.wootenRenderCustomerNotifications(account);
+    if(account && window.wootenRenderCustomerNotifications) window.wootenRenderCustomerNotifications(account);
+    if(headerNotificationMenu) headerNotificationMenu.classList.toggle('show');
+  });
+
+  
+  if(headerNotificationsClose) headerNotificationsClose.addEventListener('click',function(){
+    if(headerNotificationMenu) headerNotificationMenu.classList.remove('show');
+  });
+
+  if(headerNotificationList) headerNotificationList.addEventListener('click',function(e){
+    var item=e.target.closest('.header-notification-item');
+    if(!item) return;
+    var account=activePortalCustomer && activePortalCustomer.account_number;
+    var id=item.getAttribute('data-notification-id');
+    if(account && id && window.wootenMarkOneCustomerNotificationRead){
+      window.wootenMarkOneCustomerNotificationRead(account,id);
     }
+  });
+
+  document.addEventListener('click',function(e){
+    if(!headerNotificationMenu || !headerNotificationMenu.classList.contains('show')) return;
+    if(headerNotificationMenu.contains(e.target)) return;
+    if(mobileHeaderNotifications && mobileHeaderNotifications.contains(e.target)) return;
+    headerNotificationMenu.classList.remove('show');
   });
 
   if(dashboardNotifications) dashboardNotifications.addEventListener('click',function(){
@@ -3167,25 +3220,41 @@ body.customer-signed-in .mobile-customer-header{display:flex}
   window.wootenRenderCustomerNotifications=function(account){
     account=cleanAccount(account);
     var list=document.getElementById('dashboardNotificationList');
+    var headerList=document.getElementById('headerNotificationList');
     var badge=document.getElementById('dashboardNotificationBadge');
     var headerBadge=document.getElementById('mobileHeaderNotificationBadge');
-    if(!list || !badge) return;
     var items=read(account);
     var unread=items.filter(function(n){return !n.read;}).length;
     var badgeText=unread>9?'9+':String(unread);
-    badge.textContent=badgeText;
-    badge.style.display=unread?'block':'none';
-    if(headerBadge){
-      headerBadge.textContent=badgeText;
-      headerBadge.style.display=unread?'block':'none';
+
+    if(badge){ badge.textContent=badgeText; badge.style.display=unread?'block':'none'; }
+    if(headerBadge){ headerBadge.textContent=badgeText; headerBadge.style.display=unread?'block':'none'; }
+
+    var empty='<div class="notification-empty">No notifications yet.</div>';
+
+    if(list){
+      list.innerHTML=!items.length?empty:items.map(function(n){
+        return '<div class="notification-item '+(!n.read?'unread':'')+'"><span class="notification-dot"></span><div class="notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></div></div>';
+      }).join('');
     }
-    if(!items.length){
-      list.innerHTML='<div class="notification-empty">No notifications yet.</div>';
-      return;
+
+    if(headerList){
+      headerList.innerHTML=!items.length?empty:items.map(function(n){
+        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+'" data-notification-id="'+escapeHtml(n.id)+'"><span class="header-notification-dot"></span><span class="header-notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></span></button>';
+      }).join('');
     }
-    list.innerHTML=items.map(function(n){
-      return '<div class="notification-item '+(!n.read?'unread':'')+'"><span class="notification-dot"></span><div class="notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></div></div>';
-    }).join('');
+  };
+
+  window.wootenMarkOneCustomerNotificationRead=function(account,id){
+    account=cleanAccount(account);
+    if(!account || !id) return;
+    var items=read(account);
+    var changed=false;
+    items.forEach(function(n){
+      if(String(n.id)===String(id) && !n.read){ n.read=true; changed=true; }
+    });
+    if(changed) write(account,items);
+    window.wootenRenderCustomerNotifications(account);
   };
 
   window.wootenMarkCustomerNotificationsRead=function(account){
