@@ -277,6 +277,13 @@
     }
   }
 
+
+  .gmail-sync-card{margin-top:22px;background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:20px}
+  .gmail-sync-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+  .gmail-sync-metric{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+  .gmail-sync-metric span{display:block;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .gmail-sync-metric strong{display:block;margin-top:5px;color:#0b2239;font-size:14px;overflow-wrap:anywhere}
+  @media(max-width:720px){.gmail-sync-meta{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -376,6 +383,24 @@
     <div id="mobileInboxCards" class="mobile-inbox-cards" style="display:none"></div>
   </div>
 
+
+
+  <div class="card">
+    <h2>Gmail → Customer Portal Sync</h2>
+    <p>Messages sent directly from the connected Wooten Oil Gmail mailbox are matched to customer email addresses and copied into each matching customer's portal notification bell.</p>
+    <div class="gmail-sync-card">
+      <div class="actions" style="margin-top:0">
+        <button class="primary" id="gmailPortalSyncBtn" type="button">Sync Gmail Sent Now</button>
+        <button class="secondary" id="gmailPortalSyncStatusBtn" type="button">Check Sync Status</button>
+      </div>
+      <div id="gmailPortalSyncStatus" class="status"></div>
+      <div class="gmail-sync-meta" id="gmailSyncMeta" style="display:none">
+        <div class="gmail-sync-metric"><span>Last Successful Sync</span><strong id="gmailSyncLastSuccess">—</strong></div>
+        <div class="gmail-sync-metric"><span>Total Gmail Notifications</span><strong id="gmailSyncTotal">0</strong></div>
+        <div class="gmail-sync-metric"><span>Last Error</span><strong id="gmailSyncError">None</strong></div>
+      </div>
+    </div>
+  </div>
 
   <div class="card">
     <h2>Send Customer Notification</h2>
@@ -793,6 +818,40 @@ function normalizeActivationAccount(v){
   return s ? s.padStart(7,"0") : "";
 }
 
+
+
+async function loadGmailPortalSyncStatus(){
+  const key=document.getElementById("adminKey").value.trim();
+  const status=document.getElementById("gmailPortalSyncStatus");
+  const meta=document.getElementById("gmailSyncMeta");
+  if(!key){status.className="status show bad";status.textContent="Enter your Admin Import Key first.";return;}
+  try{
+    const res=await fetch("/api/admin/gmail-portal-sync/status",{headers:{"X-Admin-Key":key},cache:"no-store"});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.success===false) throw new Error(data.error||"Could not read Gmail sync status.");
+    document.getElementById("gmailSyncLastSuccess").textContent=data.last_success_at?new Date(data.last_success_at).toLocaleString():"Not yet";
+    document.getElementById("gmailSyncTotal").textContent=String(data.synced_notifications||0);
+    document.getElementById("gmailSyncError").textContent=data.last_error||"None";
+    meta.style.display="grid";
+  }catch(error){status.className="status show bad";status.textContent=error.message||"Could not read Gmail sync status.";}
+}
+document.getElementById("gmailPortalSyncBtn").addEventListener("click",async()=>{
+  const key=document.getElementById("adminKey").value.trim();
+  const btn=document.getElementById("gmailPortalSyncBtn");
+  const status=document.getElementById("gmailPortalSyncStatus");
+  if(!key){status.className="status show bad";status.textContent="Enter your Admin Import Key first.";return;}
+  btn.disabled=true;btn.textContent="Syncing…";status.className="status show";status.textContent="Checking Wooten Oil Gmail Sent messages…";
+  try{
+    const res=await fetch("/api/admin/gmail-portal-sync",{method:"POST",headers:{"X-Admin-Key":key},cache:"no-store"});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.success===false) throw new Error(data.error||"Gmail synchronization failed.");
+    status.className="status show ok";
+    status.textContent=`Gmail sync complete. ${data.notifications_created||0} new portal notification(s) created, ${data.duplicates||0} duplicate(s) skipped, ${data.unmatched_messages||0} sent message(s) had no matching customer email.`;
+    await loadGmailPortalSyncStatus();
+  }catch(error){status.className="status show bad";status.textContent=error.message||"Gmail synchronization failed.";}
+  finally{btn.disabled=false;btn.textContent="Sync Gmail Sent Now";}
+});
+document.getElementById("gmailPortalSyncStatusBtn").addEventListener("click",loadGmailPortalSyncStatus);
 
 /* Send Customer Notification */
 document.getElementById("sendCustomerNotificationBtn").addEventListener("click",async()=>{
