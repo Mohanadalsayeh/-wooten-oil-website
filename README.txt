@@ -1,32 +1,16 @@
-WOOTEN OIL — LIVE CUSTOMER DATABASE ADMIN VIEW
+WOOTEN OIL — LIVE DATABASE LAYOUT V2
 
 Replace:
 - admin-customers.html
 - worker.js
-- index.html  (included unchanged from the current master so the ZIP remains a complete matching set)
+- index.html
 
-New Admin tab:
-DATABASE
-
-How to use:
-1. Enter the Admin Import Key at the top.
-2. Open Database.
-3. Click Load Database.
-4. Search/filter/sort the live Cloudflare D1 customer records.
-
-Available filters:
-- Search: customer #, name, email, phone, city, state, ZIP
-- Email: all / with email / without email
-- Online account: all / activated / not activated
-- Account status: all / active / inactive-other
-- Sort: customer #, name, balance, updated date
-
-The table is READ ONLY.
-It does not modify customer records.
-It loads 50 records per page and uses server-side search/filter/sort/pagination.
-
-Protected endpoint:
-GET /api/admin/customers-database
-Requires the existing X-Admin-Key / ADMIN_IMPORT_KEY.
-
-No Cloudflare binding, D1 migration, or wrangler.jsonc changes are required.
+Database tab improvements:
+- Main table is cleaner and narrower.
+- Main columns: Customer #, Customer/Company, Email, Phone, Current Balance, Status, Online Account.
+- Each row has a View button.
+- View opens a customer detail window with:
+  city, state, ZIP, updated date, account status, online-account status,
+  Current Balance, Aging 1, Aging 2, Aging 3, Aging 4.
+- Search, filters, sorting, pagination, and read-only protection remain unchanged.
+- No Cloudflare, D1, or wrangler.jsonc changes are needed.

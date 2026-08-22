@@ -662,6 +662,144 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-live-database-layout-v2">
+.db-toolbar{
+  grid-template-columns:minmax(260px,1.6fr) minmax(140px,.7fr) minmax(150px,.75fr) minmax(150px,.75fr) minmax(190px,.9fr) auto !important;
+}
+.db-table{
+  min-width:1080px !important;
+}
+.db-table th,
+.db-table td{
+  padding:9px 10px !important;
+}
+.db-table .db-hide-main{
+  display:none;
+}
+.db-company{
+  max-width:260px;
+  white-space:normal !important;
+  line-height:1.35;
+}
+.db-email{
+  max-width:235px;
+}
+.db-actions-cell{
+  text-align:right;
+}
+.db-view-btn{
+  min-width:74px;
+  padding:8px 12px !important;
+  white-space:nowrap;
+}
+.db-customer-modal{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(15,23,42,.56);
+  backdrop-filter:blur(4px);
+}
+.db-customer-modal.show{display:flex}
+.db-customer-card{
+  width:min(760px,100%);
+  max-height:min(760px,88vh);
+  overflow:auto;
+  background:#fff;
+  border:1px solid #dbe3eb;
+  border-radius:18px;
+  box-shadow:0 24px 70px rgba(15,23,42,.24);
+}
+.db-customer-head{
+  position:sticky;
+  top:0;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:18px 20px;
+  background:#fff;
+  border-bottom:1px solid #e5ebf0;
+}
+.db-customer-head h3{
+  margin:0;
+  color:#0b2239;
+  font-size:22px;
+}
+.db-customer-close{
+  width:40px;height:40px;border-radius:50% !important;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0 !important;
+}
+.db-customer-body{
+  padding:20px;
+}
+.db-detail-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.db-detail-box{
+  padding:13px 14px;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#f8fafc;
+}
+.db-detail-box.full{grid-column:1/-1}
+.db-detail-label{
+  margin-bottom:4px;
+  color:#64748b;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-weight:600;
+}
+.db-detail-value{
+  color:#0f172a;
+  font-size:14px;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.db-aging-grid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:10px;
+  margin-top:16px;
+}
+.db-aging-box{
+  padding:12px;
+  border:1px solid #dbe3eb;
+  border-radius:11px;
+  background:#fff;
+  text-align:right;
+}
+.db-aging-box .db-detail-label{text-align:left}
+.db-aging-box .db-detail-value{
+  font-variant-numeric:tabular-nums;
+  font-size:15px;
+}
+@media(max-width:900px){
+  .db-toolbar{
+    grid-template-columns:1fr 1fr !important;
+  }
+  .db-toolbar .db-search{grid-column:1/-1}
+  .db-actions{grid-column:1/-1}
+}
+@media(max-width:680px){
+  .db-toolbar{grid-template-columns:1fr !important}
+  .db-toolbar .db-search,.db-actions{grid-column:auto}
+  .db-detail-grid{grid-template-columns:1fr}
+  .db-detail-box.full{grid-column:auto}
+  .db-aging-grid{grid-template-columns:1fr 1fr}
+  .db-customer-modal{padding:10px}
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -802,16 +940,10 @@ input[type="file"]::file-selector-button{
             <th>Customer / Company</th>
             <th>Email</th>
             <th>Phone</th>
-            <th>City</th>
-            <th>State</th>
             <th class="money">Current Balance</th>
-            <th class="money">Aging 1</th>
-            <th class="money">Aging 2</th>
-            <th class="money">Aging 3</th>
-            <th class="money">Aging 4</th>
             <th>Status</th>
             <th>Online Account</th>
-            <th>Updated</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="dbTableBody"></tbody>
@@ -822,6 +954,16 @@ input[type="file"]::file-selector-button{
       <button class="secondary" id="dbPrevBtn" type="button">Previous</button>
       <div class="db-page-info" id="dbPageInfo">Page 1 of 1</div>
       <button class="secondary" id="dbNextBtn" type="button">Next</button>
+    </div>
+  </div>
+
+  <div class="db-customer-modal" id="dbCustomerModal" aria-hidden="true">
+    <div class="db-customer-card" role="dialog" aria-modal="true" aria-labelledby="dbCustomerModalTitle">
+      <div class="db-customer-head">
+        <h3 id="dbCustomerModalTitle">Customer Details</h3>
+        <button class="secondary db-customer-close" id="dbCustomerModalClose" type="button" aria-label="Close">&times;</button>
+      </div>
+      <div class="db-customer-body" id="dbCustomerModalBody"></div>
     </div>
   </div>
 
@@ -1833,13 +1975,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return "/api/admin/customers-database?"+params.toString();
   }
 
+  let currentRows=[];
+
   function renderRows(rows){
+    currentRows=rows;
     if(!rows.length){
-      tbody.innerHTML='<tr><td colspan="14"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
+      tbody.innerHTML='<tr><td colspan="8"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
       return;
     }
 
-    tbody.innerHTML=rows.map(row=>{
+    tbody.innerHTML=rows.map((row,index)=>{
       const acct=row.account_number||"";
       const online=row.online_activated
         ? '<span class="db-badge good">Activated</span>'
@@ -1852,22 +1997,118 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
       return `<tr>
         <td class="account">${esc(acct)}</td>
-        <td>${esc(row.account_name||"")}</td>
-        <td class="email-cell" title="${esc(row.email||"")}">${esc(row.email||"—")}</td>
+        <td class="db-company">${esc(row.account_name||"")}</td>
+        <td class="email-cell db-email" title="${esc(row.email||"")}">${esc(row.email||"—")}</td>
         <td>${esc(row.phone||"—")}</td>
-        <td>${esc(row.city||"—")}</td>
-        <td>${esc(row.state||"—")}</td>
         <td class="money">${money(row.current_balance)}</td>
-        <td class="money">${money(row.aging_category_1)}</td>
-        <td class="money">${money(row.aging_category_2)}</td>
-        <td class="money">${money(row.aging_category_3)}</td>
-        <td class="money">${money(row.aging_category_4)}</td>
         <td>${statusBadge}</td>
         <td>${online}</td>
-        <td>${fmtDate(row.updated_at)}</td>
+        <td class="db-actions-cell"><button class="secondary db-view-btn" type="button" data-db-row="${index}">View</button></td>
       </tr>`;
     }).join("");
   }
+
+  function renderCustomerDetails(row){
+    if(!row) return;
+    const modal=document.getElementById("dbCustomerModal");
+    const body=document.getElementById("dbCustomerModalBody");
+    const title=document.getElementById("dbCustomerModalTitle");
+
+    title.textContent=(row.account_name||"Customer")+" — "+(row.account_number||"");
+    body.innerHTML=`
+      <div class="db-detail-grid">
+        <div class="db-detail-box">
+          <div class="db-detail-label">Customer Number</div>
+          <div class="db-detail-value">${esc(row.account_number||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">Customer / Company</div>
+          <div class="db-detail-value">${esc(row.account_name||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">Email</div>
+          <div class="db-detail-value">${esc(row.email||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">Phone</div>
+          <div class="db-detail-value">${esc(row.phone||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">City</div>
+          <div class="db-detail-value">${esc(row.city||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">State</div>
+          <div class="db-detail-value">${esc(row.state||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">ZIP</div>
+          <div class="db-detail-value">${esc(row.zip_code||"—")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">Updated</div>
+          <div class="db-detail-value">${fmtDate(row.updated_at)}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">Account Status</div>
+          <div class="db-detail-value">${esc(row.account_status||"Active")}</div>
+        </div>
+        <div class="db-detail-box">
+          <div class="db-detail-label">Online Account</div>
+          <div class="db-detail-value">${row.online_activated?"Activated":"Not activated"}</div>
+        </div>
+      </div>
+
+      <div class="db-aging-grid">
+        <div class="db-aging-box">
+          <div class="db-detail-label">Current</div>
+          <div class="db-detail-value">${money(row.current_balance)}</div>
+        </div>
+        <div class="db-aging-box">
+          <div class="db-detail-label">Aging 1</div>
+          <div class="db-detail-value">${money(row.aging_category_1)}</div>
+        </div>
+        <div class="db-aging-box">
+          <div class="db-detail-label">Aging 2</div>
+          <div class="db-detail-value">${money(row.aging_category_2)}</div>
+        </div>
+        <div class="db-aging-box">
+          <div class="db-detail-label">Aging 3</div>
+          <div class="db-detail-value">${money(row.aging_category_3)}</div>
+        </div>
+        <div class="db-aging-box">
+          <div class="db-detail-label">Aging 4</div>
+          <div class="db-detail-value">${money(row.aging_category_4)}</div>
+        </div>
+      </div>`;
+
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden","false");
+    document.body.style.overflow="hidden";
+  }
+
+  function closeCustomerDetails(){
+    const modal=document.getElementById("dbCustomerModal");
+    if(!modal) return;
+    modal.classList.remove("show");
+    modal.setAttribute("aria-hidden","true");
+    document.body.style.overflow="";
+  }
+
+  tbody.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-db-row]");
+    if(!btn) return;
+    const index=Number(btn.getAttribute("data-db-row"));
+    if(Number.isInteger(index) && currentRows[index]) renderCustomerDetails(currentRows[index]);
+  });
+
+  document.getElementById("dbCustomerModalClose").addEventListener("click",closeCustomerDetails);
+  document.getElementById("dbCustomerModal").addEventListener("click",e=>{
+    if(e.target.id==="dbCustomerModal") closeCustomerDetails();
+  });
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") closeCustomerDetails();
+  });
 
   async function loadDatabase({silent=false}={}){
     const key=document.getElementById("adminKey").value.trim();
