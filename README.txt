@@ -1,21 +1,21 @@
-WOOTEN OIL NOTIFICATION MENU CLICK FIX
+WOOTEN OIL NOTIFICATION POPUP FIX
 
 Replace:
 - index.html
 - admin-customers.html
 - worker.js
 
-What this fixes:
-1. Customer notification bell/menu has a defensive fallback so it opens even if an earlier page handler fails.
-2. Notifications inside the customer dashboard are now clickable.
-3. Clicking a notification opens the full email-style notification popup.
-4. The popup includes attachments, and the Open button uses the secure authenticated attachment fetch.
-5. Existing R2 attachment storage is unchanged.
+Cause fixed:
+The full notification popup HTML was located after the Customer Portal JavaScript.
+When the JavaScript loaded, document.getElementById(...) returned null for the popup,
+so clicking a notification could not open anything.
 
-Your permanent wrangler.jsonc binding must remain:
-"r2_buckets": [
-  {
-    "binding": "NOTIFICATION_ATTACHMENTS",
-    "bucket_name": "wooten-notification-attachments"
-  }
-]
+Fix:
+- The notification popup HTML now loads before the Customer Portal script.
+- The popup code also re-queries the DOM defensively before opening.
+- Attachment click handling is bound defensively.
+- Existing notification bell, R2 attachment storage, admin notification sending,
+  password reset, and other current features are preserved.
+
+No Cloudflare setting changes are required.
+Keep the permanent wrangler.jsonc R2 binding.

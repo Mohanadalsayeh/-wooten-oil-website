@@ -3195,6 +3195,21 @@ input[type="reset"]:focus,
 })();
 </script>
 
+
+<div class="customer-notification-popup" id="customerNotificationPopup" role="dialog" aria-modal="true" aria-labelledby="customerNotificationPopupTitle">
+  <div class="customer-notification-popup-card">
+    <div class="customer-notification-popup-head">
+      <strong>Wooten Oil Notification</strong>
+      <button class="customer-notification-popup-close" id="customerNotificationPopupClose" type="button" aria-label="Close notification">&times;</button>
+    </div>
+    <div class="customer-notification-popup-body">
+      <h3 class="customer-notification-popup-title" id="customerNotificationPopupTitle">Notification</h3>
+      <div class="customer-notification-popup-date" id="customerNotificationPopupDate"></div>
+      <div class="customer-notification-email-meta">
+        <div class="customer-notification-email-row"><span>From</span><span id="customerNotificationPopupFrom">Wooten Oil Co Inc. &lt;support@wootenoil.com&gt;</span></div>
+        <div class="customer-notification-email-row"><span>To</span><span id="customerNotificationPopupTo"></span></div>
+      </div>
+      
 <script>
 /* Customer Portal */
 (function(){
@@ -3524,6 +3539,17 @@ input[type="reset"]:focus,
   }
 
   function openCustomerNotificationPopup(item){
+    if(!customerNotificationPopup){
+      customerNotificationPopup=document.getElementById('customerNotificationPopup');
+      customerNotificationPopupClose=document.getElementById('customerNotificationPopupClose');
+      customerNotificationPopupTitle=document.getElementById('customerNotificationPopupTitle');
+      customerNotificationPopupDate=document.getElementById('customerNotificationPopupDate');
+      customerNotificationPopupMessage=document.getElementById('customerNotificationPopupMessage');
+      customerNotificationPopupFrom=document.getElementById('customerNotificationPopupFrom');
+      customerNotificationPopupTo=document.getElementById('customerNotificationPopupTo');
+      customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
+      customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
+    }
     if(!item || !customerNotificationPopup) return;
     if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=item.getAttribute('data-notification-title') || 'Wooten Oil';
     if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=item.getAttribute('data-notification-message') || '';
@@ -3551,6 +3577,7 @@ input[type="reset"]:focus,
       customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0);
     }
 
+    bindCustomerNotificationAttachmentList();
     customerNotificationPopup.classList.add('show');
     document.body.style.overflow='hidden';
   }
@@ -3622,15 +3649,22 @@ input[type="reset"]:focus,
     }
   }
 
-  if(customerNotificationPopupAttachmentList){
-    customerNotificationPopupAttachmentList.addEventListener('click',function(e){
-      var button=e.target.closest('.customer-notification-attachment');
-      if(!button) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openCustomerNotificationAttachment(button);
-    });
+  function bindCustomerNotificationAttachmentList(){
+    if(!customerNotificationPopupAttachmentList){
+      customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
+    }
+    if(customerNotificationPopupAttachmentList && !customerNotificationPopupAttachmentList.dataset.boundAttachmentClick){
+      customerNotificationPopupAttachmentList.dataset.boundAttachmentClick='1';
+      customerNotificationPopupAttachmentList.addEventListener('click',function(e){
+        var button=e.target.closest('.customer-notification-attachment');
+        if(!button) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openCustomerNotificationAttachment(button);
+      });
+    }
   }
+  bindCustomerNotificationAttachmentList();
 
   function closeCustomerNotificationPopup(){
     if(!customerNotificationPopup) return;
@@ -4279,20 +4313,7 @@ input[type="reset"]:focus,
 </script>
 
 
-<div class="customer-notification-popup" id="customerNotificationPopup" role="dialog" aria-modal="true" aria-labelledby="customerNotificationPopupTitle">
-  <div class="customer-notification-popup-card">
-    <div class="customer-notification-popup-head">
-      <strong>Wooten Oil Notification</strong>
-      <button class="customer-notification-popup-close" id="customerNotificationPopupClose" type="button" aria-label="Close notification">&times;</button>
-    </div>
-    <div class="customer-notification-popup-body">
-      <h3 class="customer-notification-popup-title" id="customerNotificationPopupTitle">Notification</h3>
-      <div class="customer-notification-popup-date" id="customerNotificationPopupDate"></div>
-      <div class="customer-notification-email-meta">
-        <div class="customer-notification-email-row"><span>From</span><span id="customerNotificationPopupFrom">Wooten Oil Co Inc. &lt;support@wootenoil.com&gt;</span></div>
-        <div class="customer-notification-email-row"><span>To</span><span id="customerNotificationPopupTo"></span></div>
-      </div>
-      <p class="customer-notification-popup-message" id="customerNotificationPopupMessage"></p>
+<p class="customer-notification-popup-message" id="customerNotificationPopupMessage"></p>
       <div class="customer-notification-attachments" id="customerNotificationPopupAttachments">
         <div class="customer-notification-attachments-title">Attachments</div>
         <div class="customer-notification-attachment-list" id="customerNotificationPopupAttachmentList"></div>
