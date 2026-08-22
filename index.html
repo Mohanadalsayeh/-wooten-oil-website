@@ -1,4 +1,3 @@
-```
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3336,96 +3335,154 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 
 <script id="wooten-notification-center-script">
 (function(){
-  function cleanAccount(v){ return String(v == null ? '' : v).replace(/\D/g,'').padStart(7,'0'); }
-  function storageKey(account){ return 'wooten_notifications_'+cleanAccount(account); }
+  var NOTIFICATIONS_ENDPOINT='/api/customer/notifications';
+  var NOTIFICATIONS_READ_ENDPOINT='/api/customer/notifications/read';
+  var cachedItems=[];
 
-  function read(account){
-    if(!account) return [];
-    try{
-      var value=JSON.parse(localStorage.getItem(storageKey(account))||'[]');
-      return Array.isArray(value)?value:[];
-    }catch(e){ return []; }
-  }
-  function write(account,items){
-    if(!account) return;
-    try{ localStorage.setItem(storageKey(account),JSON.stringify(items.slice(0,30))); }catch(e){}
-  }
   function escapeHtml(s){
     return String(s==null?'':s).replace(/[&<>"']/g,function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+
   function formatDate(value){
     try{
-      return new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      var d=new Date(value);
+      if(Number.isNaN(d.getTime())) return String(value||'');
+      return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
     }catch(e){ return ''; }
   }
 
-  window.wootenAddCustomerNotification=function(account,title,message){
-    account=cleanAccount(account);
-    if(!account) return;
-    var items=read(account);
-    items.unshift({
-      id:Date.now()+'_'+Math.random().toString(36).slice(2,7),
-      title:String(title||'Wooten Oil'),
-      message:String(message||''),
-      created_at:new Date().toISOString(),
-      read:false
-    });
-    write(account,items);
-    window.dispatchEvent(new CustomEvent('wooten-notifications-changed',{detail:{account:account}}));
-  };
+  function renderItems(items){
+    items=Array.isArray(items)?items:[];
+    cachedItems=items;
 
-  window.wootenRenderCustomerNotifications=function(account){
-    account=cleanAccount(account);
     var list=document.getElementById('dashboardNotificationList');
     var headerList=document.getElementById('headerNotificationList');
     var badge=document.getElementById('dashboardNotificationBadge');
     var headerBadge=document.getElementById('mobileHeaderNotificationBadge');
-    var items=read(account);
     var unread=items.filter(function(n){return !n.read;}).length;
     var badgeText=unread>9?'9+':String(unread);
 
-    if(badge){ badge.textContent=badgeText; badge.style.display=unread?'block':'none'; }
-    if(headerBadge){ headerBadge.textContent=badgeText; headerBadge.style.display=unread?'block':'none'; }
+    if(badge){
+      badge.textContent=badgeText;
+      badge.style.display=unread?'block':'none';
+    }
+    if(headerBadge){
+      headerBadge.textContent=badgeText;
+      headerBadge.style.display=unread?'block':'none';
+    }
 
     var empty='<div class="notification-empty">No notifications yet.</div>';
 
     if(list){
       list.innerHTML=!items.length?empty:items.map(function(n){
-        return '<div class="notification-item '+(!n.read?'unread':'')+'"><span class="notification-dot"></span><div class="notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></div></div>';
+        return '<div class="notification-item '+(!n.read?'unread':'')+'">'+
+          '<span class="notification-dot"></span>'+
+          '<div class="notification-copy">'+
+          '<strong>'+escapeHtml(n.title||'Wooten Oil')+'</strong>'+
+          '<p>'+escapeHtml(n.message||'')+'</p>'+
+          '<time>'+escapeHtml(formatDate(n.created_at))+'</time>'+
+          '</div></div>';
       }).join('');
     }
 
     if(headerList){
       headerList.innerHTML=!items.length?empty:items.map(function(n){
-        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+'" data-notification-id="'+escapeHtml(n.id)+'"><span class="header-notification-dot"></span><span class="header-notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></span></button>';
+        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+'" data-notification-id="'+escapeHtml(n.id)+'">'+
+          '<span class="header-notification-dot"></span>'+
+          '<span class="header-notification-copy">'+
+          '<strong>'+escapeHtml(n.title||'Wooten Oil')+'</strong>'+
+          '<p>'+escapeHtml(n.message||'')+'</p>'+
+          '<time>'+escapeHtml(formatDate(n.created_at))+'</time>'+
+          '</span></button>';
       }).join('');
+    }
+  }
+
+  window.wootenRenderCustomerNotifications=async function(){
+    try{
+      var response=await fetch(NOTIFICATIONS_ENDPOINT,{
+        method:'GET',
+        credentials:'same-origin',
+        cache:'no-store'
+      });
+
+      if(response.status===401){
+        renderItems([]);
+        return [];
+      }
+
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false){
+        throw new Error(data.error||'Unable to load notifications.');
+      }
+
+      var items=Array.isArray(data.notifications)?data.notifications:[];
+      renderItems(items);
+      return items;
+    }catch(error){
+      console.error('Customer notifications load failed',error);
+      return cachedItems;
     }
   };
 
-  window.wootenMarkOneCustomerNotificationRead=function(account,id){
-    account=cleanAccount(account);
-    if(!account || !id) return;
-    var items=read(account);
-    var changed=false;
-    items.forEach(function(n){
-      if(String(n.id)===String(id) && !n.read){ n.read=true; changed=true; }
-    });
-    if(changed) write(account,items);
-    window.wootenRenderCustomerNotifications(account);
+  window.wootenMarkOneCustomerNotificationRead=async function(account,id){
+    if(!id) return;
+    try{
+      var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id:Number(id)})
+      });
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false){
+        throw new Error(data.error||'Unable to mark notification read.');
+      }
+      await window.wootenRenderCustomerNotifications();
+    }catch(error){
+      console.error('Could not mark notification read',error);
+    }
   };
 
-  window.wootenMarkCustomerNotificationsRead=function(account){
-    account=cleanAccount(account);
-    var items=read(account);
-    items.forEach(function(n){n.read=true;});
-    write(account,items);
-    window.wootenRenderCustomerNotifications(account);
+  window.wootenMarkCustomerNotificationsRead=async function(){
+    try{
+      var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({all:true})
+      });
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false){
+        throw new Error(data.error||'Unable to mark notifications read.');
+      }
+      await window.wootenRenderCustomerNotifications();
+    }catch(error){
+      console.error('Could not mark notifications read',error);
+    }
   };
+
+  // Keep the old function name available, but portal notifications now come from the server.
+  window.wootenAddCustomerNotification=function(){
+    return window.wootenRenderCustomerNotifications();
+  };
+
+  // Refresh periodically while a customer stays signed in.
+  setInterval(function(){
+    if(document.body.classList.contains('customer-signed-in')){
+      window.wootenRenderCustomerNotifications();
+    }
+  },60000);
+
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden && document.body.classList.contains('customer-signed-in')){
+      window.wootenRenderCustomerNotifications();
+    }
+  });
 })();
 </script>
 
 </body>
 </html>
-```
