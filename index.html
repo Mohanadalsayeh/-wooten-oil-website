@@ -1,3 +1,4 @@
+```
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1575,6 +1576,81 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 }
 </style>
 
+
+<style id="wooten-notification-popup-style">
+.customer-notification-popup{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(11,34,57,.56);
+  backdrop-filter:blur(3px);
+}
+.customer-notification-popup.show{display:flex}
+.customer-notification-popup-card{
+  width:min(560px,100%);
+  max-height:min(78vh,680px);
+  overflow:auto;
+  background:#fff;
+  border:1px solid #dce4eb;
+  border-radius:20px;
+  box-shadow:0 24px 70px rgba(15,39,66,.28);
+}
+.customer-notification-popup-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px 20px;
+  border-bottom:1px solid #edf1f4;
+}
+.customer-notification-popup-head strong{
+  color:#0b2239;
+  font-size:1rem;
+}
+.customer-notification-popup-close{
+  width:38px;
+  height:38px;
+  border:0;
+  border-radius:50%;
+  background:#eef3f7;
+  color:#17314b;
+  font-size:25px;
+  line-height:1;
+  cursor:pointer;
+}
+.customer-notification-popup-body{padding:22px 22px 24px}
+.customer-notification-popup-title{
+  margin:0 0 8px;
+  color:#0b2239;
+  font-size:1.35rem;
+  line-height:1.25;
+}
+.customer-notification-popup-date{
+  margin-bottom:18px;
+  color:#7a8792;
+  font-size:.78rem;
+  font-weight:700;
+}
+.customer-notification-popup-message{
+  margin:0;
+  color:#334155;
+  font-size:.98rem;
+  line-height:1.7;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+@media(max-width:600px){
+  .customer-notification-popup{padding:12px}
+  .customer-notification-popup-card{border-radius:16px;max-height:82vh}
+  .customer-notification-popup-body{padding:18px}
+  .customer-notification-popup-title{font-size:1.18rem}
+}
+</style>
+
 </head>
 <body>
 
@@ -2035,13 +2111,13 @@ body.customer-signed-in .mobile-customer-header{display:flex}
           <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
       <div class="location-grid">
-        <article class="location-card location-map-card"><iframe class="location-map-bg" src="https://www.google.com/maps?q=Wooten+Oil+Co+East+Sanford+Avenue+Covington+TN+38019&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" aria-hidden="true"></iframe><div class="location-map-shade"></div><div class="location-card-content">
+        <article class="location-card location-map-card"><iframe class="location-map-bg" src="https://www.google.com/maps?q=513+East+Sanford+Avenue+Covington+TN+38019&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" aria-hidden="true"></iframe><div class="location-map-shade"></div><div class="location-card-content">
           <div class="number">1</div>
           <h3>Wooten Oil Co</h3>
-          <p>East Sanford Avenue<br>Covington, TN 38019</p>
+          <p>513 East Sanford Avenue<br>Covington, TN 38019</p>
           <a class="phone-link" href="tel:+19014762684">(901) 476-2684</a>
           <div class="location-actions">
-            <a class="location-action directions" href="https://www.google.com/maps/search/?api=1&query=Wooten+Oil+Co+East+Sanford+Avenue+Covington+TN+38019" target="_blank" rel="noopener"><svg class="direction-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg> Directions</a>
+            <a class="location-action directions" href="https://www.google.com/maps/search/?api=1&query=513+East+Sanford+Avenue+Covington+TN+38019" target="_blank" rel="noopener"><svg class="direction-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg> Directions</a>
             <a class="location-action call" href="tel:+19014762684">Call</a>
           </div>
         </div></article>
@@ -2215,7 +2291,7 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 
       <div class="contact-details">
         <div><strong>Wooten Oil Co</strong></div>
-        <div>East Sanford Avenue, Covington, TN</div>
+        <div>513 East Sanford Avenue, Covington, TN</div>
         <div><a href="tel:+19014762684">(901) 476-2684</a></div>
         <div><a href="mailto:Support@wootenoil.com">Support@wootenoil.com</a></div>
       </div>
@@ -2226,7 +2302,7 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 <footer>
   <div class="container footer-row">
     <div class="footer-brand">WOOTEN OIL CO</div>
-    <div>East Sanford Avenue, Covington, TN • <a href="tel:+19014762684">(901) 476-2684</a> • <a href="mailto:Support@wootenoil.com">Support@wootenoil.com</a></div>
+    <div>513 East Sanford Avenue, Covington, TN • <a href="tel:+19014762684">(901) 476-2684</a> • <a href="mailto:Support@wootenoil.com">Support@wootenoil.com</a></div>
     <div>© 2026 Wooten Oil Co. All rights reserved.</div>
   </div>
 </footer>
@@ -2812,6 +2888,11 @@ body.customer-signed-in .mobile-customer-header{display:flex}
   var headerNotificationMenu=document.getElementById('headerNotificationMenu');
   var headerNotificationList=document.getElementById('headerNotificationList');
   var headerNotificationsClose=document.getElementById('headerNotificationsClose');
+  var customerNotificationPopup=document.getElementById('customerNotificationPopup');
+  var customerNotificationPopupClose=document.getElementById('customerNotificationPopupClose');
+  var customerNotificationPopupTitle=document.getElementById('customerNotificationPopupTitle');
+  var customerNotificationPopupDate=document.getElementById('customerNotificationPopupDate');
+  var customerNotificationPopupMessage=document.getElementById('customerNotificationPopupMessage');
   var mobileHeaderNotifications=document.getElementById('mobileHeaderNotifications');
   var mobileHeaderCustomerName=document.getElementById('mobileHeaderCustomerName');
   var mobileHeaderNotificationBadge=document.getElementById('mobileHeaderNotificationBadge');
@@ -3032,6 +3113,46 @@ body.customer-signed-in .mobile-customer-header{display:flex}
     else showDashboardView();
   });
 
+
+  function openCustomerNotificationPopup(item){
+    if(!item || !customerNotificationPopup) return;
+
+    var title=item.getAttribute('data-notification-title') || 'Wooten Oil';
+    var message=item.getAttribute('data-notification-message') || '';
+    var date=item.getAttribute('data-notification-date') || '';
+
+    if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=title;
+    if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=message;
+    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=date;
+
+    customerNotificationPopup.classList.add('show');
+    document.body.style.overflow='hidden';
+
+    if(customerNotificationPopupClose) customerNotificationPopupClose.focus();
+  }
+
+  function closeCustomerNotificationPopup(){
+    if(!customerNotificationPopup) return;
+    customerNotificationPopup.classList.remove('show');
+    document.body.style.overflow='';
+  }
+
+  if(customerNotificationPopupClose){
+    customerNotificationPopupClose.addEventListener('click',closeCustomerNotificationPopup);
+  }
+
+  if(customerNotificationPopup){
+    customerNotificationPopup.addEventListener('click',function(e){
+      if(e.target===customerNotificationPopup) closeCustomerNotificationPopup();
+    });
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape' && customerNotificationPopup && customerNotificationPopup.classList.contains('show')){
+      closeCustomerNotificationPopup();
+    }
+  });
+
   if(mobileHeaderNotifications) mobileHeaderNotifications.addEventListener('click',function(e){
     e.preventDefault();
     e.stopPropagation();
@@ -3048,8 +3169,14 @@ body.customer-signed-in .mobile-customer-header{display:flex}
   if(headerNotificationList) headerNotificationList.addEventListener('click',function(e){
     var item=e.target.closest('.header-notification-item');
     if(!item) return;
+
     var account=activePortalCustomer && activePortalCustomer.account_number;
     var id=item.getAttribute('data-notification-id');
+
+    openCustomerNotificationPopup(item);
+
+    if(headerNotificationMenu) headerNotificationMenu.classList.remove('show');
+
     if(account && id && window.wootenMarkOneCustomerNotificationRead){
       window.wootenMarkOneCustomerNotificationRead(account,id);
     }
@@ -3335,214 +3462,110 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 
 <script id="wooten-notification-center-script">
 (function(){
-  var NOTIFICATIONS_ENDPOINT='/api/customer/notifications';
-  var NOTIFICATIONS_READ_ENDPOINT='/api/customer/notifications/read';
-  var cachedItems=[];
+  function cleanAccount(v){ return String(v == null ? '' : v).replace(/\D/g,'').padStart(7,'0'); }
+  function storageKey(account){ return 'wooten_notifications_'+cleanAccount(account); }
 
+  function read(account){
+    if(!account) return [];
+    try{
+      var value=JSON.parse(localStorage.getItem(storageKey(account))||'[]');
+      return Array.isArray(value)?value:[];
+    }catch(e){ return []; }
+  }
+  function write(account,items){
+    if(!account) return;
+    try{ localStorage.setItem(storageKey(account),JSON.stringify(items.slice(0,30))); }catch(e){}
+  }
   function escapeHtml(s){
     return String(s==null?'':s).replace(/[&<>"']/g,function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-
   function formatDate(value){
     try{
-      var d=new Date(value);
-      if(Number.isNaN(d.getTime())) return String(value||'');
-      return d.toLocaleString('en-US',{
-        month:'short',day:'numeric',year:'numeric',
-        hour:'numeric',minute:'2-digit'
-      });
+      return new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
     }catch(e){ return ''; }
   }
 
-  function notificationElements(){
-    return {
-      list:document.getElementById('dashboardNotificationList'),
-      headerList:document.getElementById('headerNotificationList'),
-      badge:document.getElementById('dashboardNotificationBadge'),
-      headerBadge:document.getElementById('mobileHeaderNotificationBadge')
-    };
-  }
+  window.wootenAddCustomerNotification=function(account,title,message){
+    account=cleanAccount(account);
+    if(!account) return;
+    var items=read(account);
+    items.unshift({
+      id:Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      title:String(title||'Wooten Oil'),
+      message:String(message||''),
+      created_at:new Date().toISOString(),
+      read:false
+    });
+    write(account,items);
+    window.dispatchEvent(new CustomEvent('wooten-notifications-changed',{detail:{account:account}}));
+  };
 
-  function renderError(message){
-    var els=notificationElements();
-    var html='<div class="notification-empty" style="color:#a12622">'+
-      escapeHtml(message||'Unable to load notifications.')+
-      '</div>';
-
-    if(els.list) els.list.innerHTML=html;
-    if(els.headerList) els.headerList.innerHTML=html;
-
-    if(els.badge) els.badge.style.display='none';
-    if(els.headerBadge) els.headerBadge.style.display='none';
-  }
-
-  function renderItems(items){
-    items=Array.isArray(items)?items:[];
-    cachedItems=items;
-
-    var els=notificationElements();
+  window.wootenRenderCustomerNotifications=function(account){
+    account=cleanAccount(account);
+    var list=document.getElementById('dashboardNotificationList');
+    var headerList=document.getElementById('headerNotificationList');
+    var badge=document.getElementById('dashboardNotificationBadge');
+    var headerBadge=document.getElementById('mobileHeaderNotificationBadge');
+    var items=read(account);
     var unread=items.filter(function(n){return !n.read;}).length;
     var badgeText=unread>9?'9+':String(unread);
 
-    if(els.badge){
-      els.badge.textContent=badgeText;
-      els.badge.style.display=unread?'block':'none';
-    }
-
-    if(els.headerBadge){
-      els.headerBadge.textContent=badgeText;
-      els.headerBadge.style.display=unread?'block':'none';
-    }
+    if(badge){ badge.textContent=badgeText; badge.style.display=unread?'block':'none'; }
+    if(headerBadge){ headerBadge.textContent=badgeText; headerBadge.style.display=unread?'block':'none'; }
 
     var empty='<div class="notification-empty">No notifications yet.</div>';
 
-    if(els.list){
-      els.list.innerHTML=!items.length?empty:items.map(function(n){
-        return '<div class="notification-item '+(!n.read?'unread':'')+'">'+
-          '<span class="notification-dot"></span>'+
-          '<div class="notification-copy">'+
-          '<strong>'+escapeHtml(n.title||'Wooten Oil')+'</strong>'+
-          '<p>'+escapeHtml(n.message||'')+'</p>'+
-          '<time>'+escapeHtml(formatDate(n.created_at))+'</time>'+
-          '</div></div>';
+    if(list){
+      list.innerHTML=!items.length?empty:items.map(function(n){
+        return '<div class="notification-item '+(!n.read?'unread':'')+'"><span class="notification-dot"></span><div class="notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></div></div>';
       }).join('');
     }
 
-    if(els.headerList){
-      els.headerList.innerHTML=!items.length?empty:items.map(function(n){
-        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+
-          '" data-notification-id="'+escapeHtml(n.id)+'">'+
-          '<span class="header-notification-dot"></span>'+
-          '<span class="header-notification-copy">'+
-          '<strong>'+escapeHtml(n.title||'Wooten Oil')+'</strong>'+
-          '<p>'+escapeHtml(n.message||'')+'</p>'+
-          '<time>'+escapeHtml(formatDate(n.created_at))+'</time>'+
-          '</span></button>';
+    if(headerList){
+      headerList.innerHTML=!items.length?empty:items.map(function(n){
+        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+'" data-notification-id="'+escapeHtml(n.id)+'" data-notification-title="'+escapeHtml(n.title)+'" data-notification-message="'+escapeHtml(n.message)+'" data-notification-date="'+escapeHtml(formatDate(n.created_at))+'"><span class="header-notification-dot"></span><span class="header-notification-copy"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><time>'+escapeHtml(formatDate(n.created_at))+'</time></span></button>';
       }).join('');
     }
-  }
-
-  window.wootenRenderCustomerNotifications=async function(){
-    try{
-      var response=await fetch(NOTIFICATIONS_ENDPOINT,{
-        method:'GET',
-        headers:{'Accept':'application/json'},
-        credentials:'same-origin',
-        cache:'no-store'
-      });
-
-      var data=await response.json().catch(function(){return {};});
-
-      if(response.status===401){
-        renderItems([]);
-        return [];
-      }
-
-      if(!response.ok || data.success===false){
-        throw new Error(data.error||('Notification API error '+response.status));
-      }
-
-      var items=Array.isArray(data.notifications)?data.notifications:[];
-      renderItems(items);
-      return items;
-
-    }catch(error){
-      console.error('Customer notifications load failed',error);
-      renderError(error && error.message ? error.message : 'Unable to load notifications.');
-      return cachedItems;
-    }
   };
 
-  window.wootenMarkOneCustomerNotificationRead=async function(account,id){
-    if(!id) return;
-
-    try{
-      var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
-        method:'POST',
-        credentials:'same-origin',
-        headers:{
-          'Content-Type':'application/json',
-          'Accept':'application/json'
-        },
-        body:JSON.stringify({id:Number(id)})
-      });
-
-      var data=await response.json().catch(function(){return {};});
-
-      if(!response.ok || data.success===false){
-        throw new Error(data.error||'Unable to mark notification read.');
-      }
-
-      await window.wootenRenderCustomerNotifications();
-
-    }catch(error){
-      console.error('Could not mark notification read',error);
-      renderError(error && error.message ? error.message : 'Unable to update notification.');
-    }
-  };
-
-  window.wootenMarkCustomerNotificationsRead=async function(){
-    try{
-      var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
-        method:'POST',
-        credentials:'same-origin',
-        headers:{
-          'Content-Type':'application/json',
-          'Accept':'application/json'
-        },
-        body:JSON.stringify({all:true})
-      });
-
-      var data=await response.json().catch(function(){return {};});
-
-      if(!response.ok || data.success===false){
-        throw new Error(data.error||'Unable to mark notifications read.');
-      }
-
-      await window.wootenRenderCustomerNotifications();
-
-    }catch(error){
-      console.error('Could not mark notifications read',error);
-      renderError(error && error.message ? error.message : 'Unable to update notifications.');
-    }
-  };
-
-  window.wootenAddCustomerNotification=function(){
-    return window.wootenRenderCustomerNotifications();
-  };
-
-  function refreshIfSignedIn(){
-    if(document.body.classList.contains('customer-signed-in')){
-      window.wootenRenderCustomerNotifications();
-    }
-  }
-
-  // The portal login script appears earlier in the page, so run an explicit
-  // refresh after all scripts have loaded. This fixes customers who were
-  // already logged in when the page was refreshed.
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',function(){
-      setTimeout(refreshIfSignedIn,350);
-      setTimeout(refreshIfSignedIn,1400);
+  window.wootenMarkOneCustomerNotificationRead=function(account,id){
+    account=cleanAccount(account);
+    if(!account || !id) return;
+    var items=read(account);
+    var changed=false;
+    items.forEach(function(n){
+      if(String(n.id)===String(id) && !n.read){ n.read=true; changed=true; }
     });
-  }else{
-    setTimeout(refreshIfSignedIn,350);
-    setTimeout(refreshIfSignedIn,1400);
-  }
+    if(changed) write(account,items);
+    window.wootenRenderCustomerNotifications(account);
+  };
 
-  window.addEventListener('load',function(){
-    setTimeout(refreshIfSignedIn,600);
-  });
-
-  setInterval(refreshIfSignedIn,30000);
-
-  document.addEventListener('visibilitychange',function(){
-    if(!document.hidden) refreshIfSignedIn();
-  });
+  window.wootenMarkCustomerNotificationsRead=function(account){
+    account=cleanAccount(account);
+    var items=read(account);
+    items.forEach(function(n){n.read=true;});
+    write(account,items);
+    window.wootenRenderCustomerNotifications(account);
+  };
 })();
 </script>
+
+
+<div class="customer-notification-popup" id="customerNotificationPopup" role="dialog" aria-modal="true" aria-labelledby="customerNotificationPopupTitle">
+  <div class="customer-notification-popup-card">
+    <div class="customer-notification-popup-head">
+      <strong>Wooten Oil Notification</strong>
+      <button class="customer-notification-popup-close" id="customerNotificationPopupClose" type="button" aria-label="Close notification">&times;</button>
+    </div>
+    <div class="customer-notification-popup-body">
+      <h3 class="customer-notification-popup-title" id="customerNotificationPopupTitle">Notification</h3>
+      <div class="customer-notification-popup-date" id="customerNotificationPopupDate"></div>
+      <p class="customer-notification-popup-message" id="customerNotificationPopupMessage"></p>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
