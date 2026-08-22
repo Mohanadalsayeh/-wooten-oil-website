@@ -1,30 +1,19 @@
-WOOTEN OIL — ADMIN ONLINE ACCOUNT DEACTIVATION
+WOOTEN OIL CUSTOMER VIEW LAYOUT FIX
 
 Replace:
 - admin-customers.html
 - worker.js
 - index.html
 
-New behavior:
-- Database > View customer
-- If the customer's online account is Activated, Admin sees:
-  Deactivate Online Account
-- Requires the existing Admin Import Key.
-- Shows a confirmation before changing anything.
+Customer View changes:
+- Much more compact modal.
+- Empty Email/Phone/City/State/ZIP cards are no longer shown.
+- If no contact information exists, one clean message is shown instead.
+- Account Status and Online Account are shown as small summary badges.
+- Updated date is shown in the summary area.
+- Balances/Aging are grouped in one compact row.
+- Online Account Access is a compact section at the bottom.
+- Deactivate Online Account behavior is unchanged.
+- Mobile layout is responsive.
 
-What deactivation DOES:
-- Removes the customer's website password.
-- Signs out all current website sessions.
-- Invalidates unused password-reset tokens.
-- Invalidates unused activation codes.
-- Database view changes Online Account to Not activated.
-
-What deactivation DOES NOT do:
-- Does not deactivate the customer's accounting/billing account.
-- Does not change account_status.
-- Does not change balances, aging, customer number, name, email, or other account data.
-
-To restore online access later:
-Use the existing Account Activation tool to generate a new activation code and let the customer create a new password.
-
-No Cloudflare, D1, R2, or wrangler.jsonc changes are required.
+No Cloudflare, D1, R2, or wrangler.jsonc changes are needed.

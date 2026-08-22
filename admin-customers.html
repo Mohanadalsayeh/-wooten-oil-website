@@ -1115,6 +1115,145 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-customer-detail-modal-clean-final">
+.db-customer-modal{
+  padding:20px !important;
+}
+.db-customer-card{
+  width:min(820px,96vw) !important;
+  max-height:88vh !important;
+  overflow:hidden !important;
+  border-radius:18px !important;
+}
+.db-customer-head{
+  padding:16px 20px !important;
+}
+.db-customer-head h3{
+  font-size:21px !important;
+  line-height:1.25 !important;
+}
+.db-customer-body{
+  padding:18px 20px 20px !important;
+  max-height:calc(88vh - 74px) !important;
+  overflow:auto !important;
+}
+.db-customer-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 14px;
+  align-items:center;
+  margin-bottom:16px;
+}
+.db-customer-summary .db-badge{
+  min-height:26px;
+}
+.db-detail-section{
+  margin-top:16px;
+}
+.db-detail-section:first-child{
+  margin-top:0;
+}
+.db-section-title{
+  margin:0 0 9px;
+  color:#0b2239;
+  font-size:13px;
+  font-weight:600;
+}
+.db-detail-grid{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+.db-detail-box{
+  padding:11px 12px !important;
+  min-height:64px !important;
+  border-radius:10px !important;
+}
+.db-detail-box.full{
+  grid-column:1/-1 !important;
+}
+.db-detail-label{
+  margin-bottom:3px !important;
+  font-size:10px !important;
+}
+.db-detail-value{
+  font-size:13px !important;
+  line-height:1.35 !important;
+}
+.db-empty-contact{
+  padding:12px 13px;
+  border:1px dashed #cbd5e1;
+  border-radius:10px;
+  color:#64748b;
+  font-size:13px;
+  background:#f8fafc;
+}
+.db-aging-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:8px !important;
+  margin-top:10px !important;
+}
+.db-aging-box{
+  min-width:0;
+  padding:10px !important;
+  border-radius:10px !important;
+}
+.db-aging-box .db-detail-value{
+  font-size:13px !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.db-aging-box.current-balance{
+  background:#f8fafc;
+}
+.db-online-action{
+  margin-top:18px !important;
+  padding:14px !important;
+  border:1px solid #e2e8f0 !important;
+  border-radius:12px !important;
+  background:#f8fafc !important;
+}
+.db-online-action h4{
+  margin:0 0 5px !important;
+  font-size:14px !important;
+}
+.db-online-action p{
+  margin:0 0 10px !important;
+  font-size:12px !important;
+  line-height:1.45 !important;
+}
+.db-deactivate-btn{
+  min-height:40px !important;
+  height:40px !important;
+  padding:0 14px !important;
+  font-size:13px !important;
+}
+@media(max-width:720px){
+  .db-customer-modal{
+    padding:8px !important;
+  }
+  .db-customer-card{
+    width:100% !important;
+    max-height:94vh !important;
+  }
+  .db-customer-body{
+    max-height:calc(94vh - 70px) !important;
+    padding:14px !important;
+  }
+  .db-detail-grid{
+    grid-template-columns:1fr !important;
+  }
+  .db-detail-box.full{
+    grid-column:auto !important;
+  }
+  .db-aging-grid{
+    grid-template-columns:1fr 1fr !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -2330,86 +2469,77 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const title=document.getElementById("dbCustomerModalTitle");
 
     title.textContent=(row.account_name||"Customer")+" — "+(row.account_number||"");
+    const statusText=String(row.account_status||"Active").trim()||"Active";
+    const isActive=statusText.toLowerCase()==="active";
+    const onlineActivated=!!row.online_activated;
+
+    const contactFields=[
+      ["Email",row.email],
+      ["Phone",row.phone],
+      ["City",row.city],
+      ["State",row.state],
+      ["ZIP",row.zip_code]
+    ].filter(item=>String(item[1]||"").trim());
+
+    const contactHtml=contactFields.length
+      ? `<div class="db-detail-grid">${
+          contactFields.map(item=>`
+            <div class="db-detail-box">
+              <div class="db-detail-label">${esc(item[0])}</div>
+              <div class="db-detail-value">${esc(item[1])}</div>
+            </div>
+          `).join("")
+        }</div>`
+      : `<div class="db-empty-contact">No contact information is currently stored for this customer.</div>`;
+
     body.innerHTML=`
-      <div class="db-detail-grid">
-        <div class="db-detail-box">
-          <div class="db-detail-label">Customer Number</div>
-          <div class="db-detail-value">${esc(row.account_number||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">Customer / Company</div>
-          <div class="db-detail-value">${esc(row.account_name||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">Email</div>
-          <div class="db-detail-value">${esc(row.email||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">Phone</div>
-          <div class="db-detail-value">${esc(row.phone||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">City</div>
-          <div class="db-detail-value">${esc(row.city||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">State</div>
-          <div class="db-detail-value">${esc(row.state||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">ZIP</div>
-          <div class="db-detail-value">${esc(row.zip_code||"—")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">Updated</div>
-          <div class="db-detail-value">${fmtDate(row.updated_at)}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">Account Status</div>
-          <div class="db-detail-value">${esc(row.account_status||"Active")}</div>
-        </div>
-        <div class="db-detail-box">
-          <div class="db-detail-label">Online Account</div>
-          <div class="db-detail-value">${row.online_activated?"Activated":"Not activated"}</div>
+      <div class="db-customer-summary">
+        <span class="db-badge ${isActive?"good":"warn"}">${esc(statusText)}</span>
+        <span class="db-badge ${onlineActivated?"good":"muted"}">${onlineActivated?"Online account activated":"Online account not activated"}</span>
+        <span style="color:#64748b;font-size:12px">Updated ${fmtDate(row.updated_at)}</span>
+      </div>
+
+      <div class="db-detail-section">
+        <div class="db-section-title">Contact Information</div>
+        ${contactHtml}
+      </div>
+
+      <div class="db-detail-section">
+        <div class="db-section-title">Account Balance & Aging</div>
+        <div class="db-aging-grid">
+          <div class="db-aging-box current-balance">
+            <div class="db-detail-label">Current</div>
+            <div class="db-detail-value" title="${money(row.current_balance)}">${money(row.current_balance)}</div>
+          </div>
+          <div class="db-aging-box">
+            <div class="db-detail-label">Aging 1</div>
+            <div class="db-detail-value" title="${money(row.aging_category_1)}">${money(row.aging_category_1)}</div>
+          </div>
+          <div class="db-aging-box">
+            <div class="db-detail-label">Aging 2</div>
+            <div class="db-detail-value" title="${money(row.aging_category_2)}">${money(row.aging_category_2)}</div>
+          </div>
+          <div class="db-aging-box">
+            <div class="db-detail-label">Aging 3</div>
+            <div class="db-detail-value" title="${money(row.aging_category_3)}">${money(row.aging_category_3)}</div>
+          </div>
+          <div class="db-aging-box">
+            <div class="db-detail-label">Aging 4</div>
+            <div class="db-detail-value" title="${money(row.aging_category_4)}">${money(row.aging_category_4)}</div>
+          </div>
         </div>
       </div>
 
-      <div class="db-aging-grid">
-        <div class="db-aging-box">
-          <div class="db-detail-label">Current</div>
-          <div class="db-detail-value">${money(row.current_balance)}</div>
-        </div>
-        <div class="db-aging-box">
-          <div class="db-detail-label">Aging 1</div>
-          <div class="db-detail-value">${money(row.aging_category_1)}</div>
-        </div>
-        <div class="db-aging-box">
-          <div class="db-detail-label">Aging 2</div>
-          <div class="db-detail-value">${money(row.aging_category_2)}</div>
-        </div>
-        <div class="db-aging-box">
-          <div class="db-detail-label">Aging 3</div>
-          <div class="db-detail-value">${money(row.aging_category_3)}</div>
-        </div>
-        <div class="db-aging-box">
-          <div class="db-detail-label">Aging 4</div>
-          <div class="db-detail-value">${money(row.aging_category_4)}</div>
-        </div>
-      </div>
-
-      ${row.online_activated ? `
-        <div class="db-online-action">
-          <h4>Online Account Access</h4>
-          <p>Deactivate this customer's online login. This does not change the customer's billing account, balance, or account status. Their current website sessions will be signed out and they will need to activate the online account again before signing in.</p>
+      <div class="db-online-action">
+        <h4>Online Account Access</h4>
+        ${onlineActivated ? `
+          <p>Deactivate only the customer's website login. Billing status, balances, and customer information will not be changed.</p>
           <button class="secondary db-deactivate-btn" id="dbDeactivateOnlineBtn" type="button">Deactivate Online Account</button>
           <div class="db-action-status" id="dbDeactivateStatus"></div>
-        </div>
-      ` : `
-        <div class="db-online-action">
-          <h4>Online Account Access</h4>
+        ` : `
           <p>This customer does not currently have an activated online account.</p>
-        </div>
-      `}`;
+        `}
+      </div>`;
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
