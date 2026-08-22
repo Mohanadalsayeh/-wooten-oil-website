@@ -1,15 +1,21 @@
-WOOTEN OIL ATTACHMENT OPEN FIX
+WOOTEN OIL NOTIFICATION MENU CLICK FIX
 
-Replace index.html, admin-customers.html, and worker.js with these files.
+Replace:
+- index.html
+- admin-customers.html
+- worker.js
 
-What changed:
-- Clicking a customer notification attachment now uses an authenticated fetch.
-- The browser opens a blank preview tab immediately, then loads the attachment into it.
-- This avoids popup blocking and cookie/session issues with direct attachment links.
-- PNG/JPG/PDF files should open in the browser.
-- Word/Excel and other supported files may open/download according to the customer's browser/device.
+What this fixes:
+1. Customer notification bell/menu has a defensive fallback so it opens even if an earlier page handler fails.
+2. Notifications inside the customer dashboard are now clickable.
+3. Clicking a notification opens the full email-style notification popup.
+4. The popup includes attachments, and the Open button uses the secure authenticated attachment fetch.
+5. Existing R2 attachment storage is unchanged.
 
-The existing R2 binding remains:
-NOTIFICATION_ATTACHMENTS -> wooten-notification-attachments
-
-No new Cloudflare binding or D1 setup is required.
+Your permanent wrangler.jsonc binding must remain:
+"r2_buckets": [
+  {
+    "binding": "NOTIFICATION_ATTACHMENTS",
+    "bucket_name": "wooten-notification-attachments"
+  }
+]

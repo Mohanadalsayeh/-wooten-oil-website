@@ -1999,6 +1999,39 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-click-fix-style">
+#dashboardNotificationList .notification-item{
+  width:100% !important;
+  border:0 !important;
+  border-bottom:1px solid #edf1f4 !important;
+  background:#fff !important;
+  font:inherit !important;
+  text-align:left !important;
+  cursor:pointer !important;
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  transform:none !important;
+}
+#dashboardNotificationList .notification-item:hover,
+#dashboardNotificationList .notification-item:focus,
+#dashboardNotificationList .notification-item:focus-visible,
+#dashboardNotificationList .notification-item:active{
+  background:#fff !important;
+  transform:none !important;
+  outline:none !important;
+  box-shadow:inset 0 0 0 2px rgba(31,78,121,.12) !important;
+}
+#dashboardNotificationList .notification-item.unread{
+  background:#f7fbff !important;
+}
+#dashboardNotificationList .notification-item.unread:hover,
+#dashboardNotificationList .notification-item.unread:focus,
+#dashboardNotificationList .notification-item.unread:focus-visible{
+  background:#f7fbff !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -3521,6 +3554,8 @@ input[type="reset"]:focus,
     customerNotificationPopup.classList.add('show');
     document.body.style.overflow='hidden';
   }
+  window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
+
 
   async function openCustomerNotificationAttachment(button){
     if(!button) return;
@@ -4009,13 +4044,20 @@ input[type="reset"]:focus,
 
     if(els.list){
       els.list.innerHTML=!items.length?empty:items.map(function(n){
-        return '<div class="notification-item '+(!n.read?'unread':'')+'">'+
+        return '<button type="button" class="notification-item customer-notification-open '+(!n.read?'unread':'')+
+          '" data-notification-id="'+escapeHtml(n.id)+
+          '" data-notification-title="'+escapeHtml(n.title||'Wooten Oil')+
+          '" data-notification-message="'+escapeHtml(n.message||'')+
+          '" data-notification-date="'+escapeHtml(formatDate(n.created_at))+
+          '" data-notification-from="'+escapeHtml((n.sender_name||'Wooten Oil Co Inc.')+' <'+(n.sender_email||'support@wootenoil.com')+'>')+
+          '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
+          '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
           '<span class="notification-dot"></span>'+
-          '<div class="notification-copy">'+
+          '<span class="notification-copy">'+
           '<strong>'+escapeHtml(n.title||'Wooten Oil')+'</strong>'+
           '<p>'+escapeHtml(n.message||'')+'</p>'+
           '<time>'+escapeHtml(formatDate(n.created_at))+'</time>'+
-          '</div></div>';
+          '</span></button>';
       }).join('');
     }
 
@@ -4127,6 +4169,83 @@ input[type="reset"]:focus,
   window.wootenAddCustomerNotification=function(){
     return window.wootenRenderCustomerNotifications();
   };
+
+  function openNotificationItem(item){
+    if(!item) return;
+    var id=item.getAttribute('data-notification-id');
+
+    if(window.wootenOpenCustomerNotificationPopup){
+      window.wootenOpenCustomerNotificationPopup(item);
+    }
+
+    if(id && window.wootenMarkOneCustomerNotificationRead){
+      window.wootenMarkOneCustomerNotificationRead('',id);
+    }
+  }
+
+  var dashboardList=document.getElementById('dashboardNotificationList');
+  if(dashboardList){
+    dashboardList.addEventListener('click',function(e){
+      var item=e.target.closest('.customer-notification-open');
+      if(!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openNotificationItem(item);
+    });
+  }
+
+  /* Defensive bell behavior: make both customer bells work even if an earlier
+     portal handler was interrupted by another page script. */
+  function toggleNotificationSurface(source){
+    var headerMenu=document.getElementById('headerNotificationMenu');
+    var dashboardPanel=document.getElementById('dashboardNotificationPanel');
+
+    window.wootenRenderCustomerNotifications();
+
+    if(source==='dashboard' && dashboardPanel){
+      var willOpen=!dashboardPanel.classList.contains('show');
+      dashboardPanel.classList.toggle('show',willOpen);
+      var dashboardBell=document.getElementById('dashboardNotifications');
+      if(dashboardBell) dashboardBell.setAttribute('aria-expanded',willOpen?'true':'false');
+      return;
+    }
+
+    if(headerMenu){
+      headerMenu.classList.toggle('show');
+    }
+  }
+
+  var headerBell=document.getElementById('mobileHeaderNotifications');
+  if(headerBell && !headerBell.dataset.notificationFallbackBound){
+    headerBell.dataset.notificationFallbackBound='1';
+    headerBell.addEventListener('click',function(e){
+      /* Earlier customer-portal handler normally handles this. If it did not
+         produce a visible menu, make sure the menu is visible now. */
+      setTimeout(function(){
+        var menu=document.getElementById('headerNotificationMenu');
+        if(menu && !menu.classList.contains('show')){
+          window.wootenRenderCustomerNotifications();
+          menu.classList.add('show');
+        }
+      },0);
+    });
+  }
+
+  var dashboardBell=document.getElementById('dashboardNotifications');
+  if(dashboardBell && !dashboardBell.dataset.notificationFallbackBound){
+    dashboardBell.dataset.notificationFallbackBound='1';
+    dashboardBell.addEventListener('click',function(){
+      setTimeout(function(){
+        var panel=document.getElementById('dashboardNotificationPanel');
+        if(panel && !panel.classList.contains('show')){
+          window.wootenRenderCustomerNotifications();
+          panel.classList.add('show');
+          dashboardBell.setAttribute('aria-expanded','true');
+        }
+      },0);
+    });
+  }
+
 
   function refreshIfSignedIn(){
     if(document.body.classList.contains('customer-signed-in')){
