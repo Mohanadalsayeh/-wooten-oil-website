@@ -2669,22 +2669,23 @@ __name(
 // Customer portal notifications
 async function ensureCustomerNotificationsTable(env) {
   if (!env?.DB) throw new Error("Customer database is not configured.");
+
   await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS customer_notifications (
+    CREATE TABLE IF NOT EXISTS portal_notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      customer_id INTEGER NOT NULL,
+      account_number TEXT NOT NULL,
       title TEXT NOT NULL,
       message TEXT NOT NULL,
       email_sent INTEGER NOT NULL DEFAULT 0,
       email_id TEXT,
       read_at TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (customer_id) REFERENCES customers(id)
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+
   await env.DB.prepare(`
-    CREATE INDEX IF NOT EXISTS idx_customer_notifications_customer_created
-    ON customer_notifications(customer_id, created_at DESC)
+    CREATE INDEX IF NOT EXISTS idx_portal_notifications_account_created
+    ON portal_notifications(account_number, created_at DESC)
   `).run();
 }
 __name(ensureCustomerNotificationsTable, "ensureCustomerNotificationsTable");
@@ -2746,12 +2747,13 @@ async function adminSendCustomerNotification({ request, env }) {
         error: "Customer Number, subject and message are required."
       }, 400);
     }
+
     if (title.length > 160 || message.length > 5000) {
       return notificationJson({ success: false, error: "Subject or message is too long." }, 400);
     }
 
     const customer = await env.DB.prepare(`
-      SELECT id, account_number, account_name, email
+      SELECT account_number, account_name, email
       FROM customers
       WHERE account_number = ?
       LIMIT 1
@@ -2763,18 +2765,36 @@ async function adminSendCustomerNotification({ request, env }) {
 
     await ensureCustomerNotificationsTable(env);
 
-    let emailSent = 0;
+    // IMPORTANT: save the portal notification FIRST.
+    // Email is secondary, so a successful email can never hide a failed portal insert.
+    const inserted = await env.DB.prepare(`
+      INSERT INTO portal_notifications
+        (account_number, title, message, email_sent, email_id, created_at)
+      VALUES (?, ?, ?, 0, '', CURRENT_TIMESTAMP)
+    `).bind(
+      customer.account_number,
+      title,
+      message
+    ).run();
+
+    const notificationId =
+      inserted?.meta?.last_row_id ||
+      inserted?.meta?.last_insert_rowid ||
+      null;
+
+    let emailSent = false;
     let emailId = "";
-    let emailWarning = "";
+    let warning = "";
 
     if (sendEmail) {
       if (!customer.email) {
-        emailWarning = "Portal notification was created, but this customer does not have an email address on file.";
+        warning = "Portal notification was saved, but this customer does not have an email address on file.";
       } else if (!env.RESEND_API_KEY) {
-        emailWarning = "Portal notification was created, but email service is not configured.";
+        warning = "Portal notification was saved, but email service is not configured.";
       } else {
         try {
           const fromAddress = String(env.FUEL_FROM_EMAIL || "support@wootenoil.com").trim();
+
           const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
@@ -2801,46 +2821,49 @@ async function adminSendCustomerNotification({ request, env }) {
           });
 
           const emailData = await emailResponse.json().catch(() => ({}));
+
           if (emailResponse.ok) {
-            emailSent = 1;
+            emailSent = true;
             emailId = emailData.id || "";
+
+            if (notificationId) {
+              await env.DB.prepare(`
+                UPDATE portal_notifications
+                SET email_sent = 1, email_id = ?
+                WHERE id = ? AND account_number = ?
+              `).bind(
+                emailId,
+                notificationId,
+                customer.account_number
+              ).run();
+            }
           } else {
-            emailWarning = "Portal notification was created, but the email could not be sent.";
+            warning = "Portal notification was saved, but the email could not be sent.";
             console.error("Customer notification email failed", emailData);
           }
         } catch (error) {
-          emailWarning = "Portal notification was created, but the email could not be sent.";
+          warning = "Portal notification was saved, but the email could not be sent.";
           console.error("Customer notification email error", error);
         }
       }
     }
 
-    const inserted = await env.DB.prepare(`
-      INSERT INTO customer_notifications
-        (customer_id, title, message, email_sent, email_id, created_at)
-      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).bind(
-      customer.id,
-      title,
-      message,
-      emailSent,
-      emailId
-    ).run();
-
     return notificationJson({
       success: true,
-      notification_id: inserted?.meta?.last_row_id || null,
+      saved_to_portal: true,
+      notification_id: notificationId,
       account_number: customer.account_number,
       account_name: customer.account_name,
       email: customer.email || "",
-      email_sent: emailSent === 1,
-      warning: emailWarning
+      email_sent: emailSent,
+      warning
     });
   } catch (error) {
     console.error("adminSendCustomerNotification failed", error);
+
     return notificationJson({
       success: false,
-      error: String(error?.message || error)
+      error: "The portal notification could not be saved. " + String(error?.message || error)
     }, 500);
   }
 }
@@ -2853,19 +2876,26 @@ async function customerNotificationsGet({ request, env }) {
     }
 
     const customer = await getCustomerFromSession(request, env);
+
     if (!customer) {
-      return notificationJson({ success: false, authenticated: false }, 401);
+      return notificationJson({
+        success: false,
+        authenticated: false,
+        error: "Customer session was not found."
+      }, 401);
     }
 
     await ensureCustomerNotificationsTable(env);
 
+    const account = normalizeNotificationAccount(customer.account_number);
+
     const result = await env.DB.prepare(`
       SELECT id, title, message, read_at, created_at
-      FROM customer_notifications
-      WHERE customer_id = ?
+      FROM portal_notifications
+      WHERE account_number = ?
       ORDER BY datetime(created_at) DESC, id DESC
       LIMIT 50
-    `).bind(customer.id).all();
+    `).bind(account).all();
 
     const notifications = (result?.results || []).map((row) => ({
       id: row.id,
@@ -2877,15 +2907,17 @@ async function customerNotificationsGet({ request, env }) {
 
     return notificationJson({
       success: true,
-      account_number: customer.account_number,
+      authenticated: true,
+      account_number: account,
       unread_count: notifications.filter((n) => !n.read).length,
       notifications
     });
   } catch (error) {
     console.error("customerNotificationsGet failed", error);
+
     return notificationJson({
       success: false,
-      error: String(error?.message || error)
+      error: "Notifications could not be loaded. " + String(error?.message || error)
     }, 500);
   }
 }
@@ -2898,11 +2930,14 @@ async function customerNotificationsReadPost({ request, env }) {
     }
 
     const customer = await getCustomerFromSession(request, env);
+
     if (!customer) {
       return notificationJson({ success: false, authenticated: false }, 401);
     }
 
     await ensureCustomerNotificationsTable(env);
+
+    const account = normalizeNotificationAccount(customer.account_number);
 
     let body = {};
     try {
@@ -2916,16 +2951,16 @@ async function customerNotificationsReadPost({ request, env }) {
 
     if (markAll) {
       await env.DB.prepare(`
-        UPDATE customer_notifications
+        UPDATE portal_notifications
         SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
-        WHERE customer_id = ?
-      `).bind(customer.id).run();
+        WHERE account_number = ?
+      `).bind(account).run();
     } else if (Number.isInteger(id) && id > 0) {
       await env.DB.prepare(`
-        UPDATE customer_notifications
+        UPDATE portal_notifications
         SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
-        WHERE id = ? AND customer_id = ?
-      `).bind(id, customer.id).run();
+        WHERE id = ? AND account_number = ?
+      `).bind(id, account).run();
     } else {
       return notificationJson({ success: false, error: "Notification id is required." }, 400);
     }
@@ -2933,6 +2968,7 @@ async function customerNotificationsReadPost({ request, env }) {
     return notificationJson({ success: true });
   } catch (error) {
     console.error("customerNotificationsReadPost failed", error);
+
     return notificationJson({
       success: false,
       error: String(error?.message || error)
@@ -2940,7 +2976,6 @@ async function customerNotificationsReadPost({ request, env }) {
   }
 }
 __name(customerNotificationsReadPost, "customerNotificationsReadPost");
-
 
 // worker.js
 function methodNotAllowed() {
