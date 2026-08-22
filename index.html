@@ -1414,6 +1414,60 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 @media(max-width:600px){.header-notification-menu{right:0;left:0;width:auto;top:calc(100% + 8px);max-height:65vh;border-radius:14px}}
 </style>
 
+
+<style id="wooten-compact-navigation-final">
+/* Desktop: four primary links plus menu icon.
+   Phone/tablet: menu icon only; all links are inside the dropdown. */
+
+@media (min-width:981px){
+  #site-header .nav{position:relative}
+
+  .mobile-menu-button{
+    display:flex !important;
+    margin-left:6px;
+    flex:0 0 44px;
+  }
+
+  .customer-login-link,
+  .customer-account-link,
+  .customer-menu-logout,
+  .desktop-request,
+  .mobile-customer-header{
+    display:none !important;
+  }
+
+  .mobile-menu-panel .mobile-only-main-link{
+    display:none !important;
+  }
+}
+
+@media (max-width:980px){
+  #site-header .nav{
+    position:relative;
+    justify-content:flex-end;
+  }
+
+  #site-header .brand,
+  .smart-desktop-nav,
+  .desktop-request,
+  .customer-login-link,
+  .customer-account-link,
+  .customer-menu-logout,
+  .mobile-customer-header{
+    display:none !important;
+  }
+
+  .mobile-menu-button{
+    display:flex !important;
+    margin-left:auto !important;
+  }
+
+  .mobile-menu-panel .mobile-only-main-link{
+    display:block !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -1426,13 +1480,10 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 
     <nav id="desktop-nav" class="smart-desktop-nav" aria-label="Primary navigation">
       <ul>
-        <li><a class="nav-link" href="#about">About Us</a></li>
         <li><a class="nav-link" href="#services">Services</a></li>
         <li><a class="nav-link" href="#farm">Farm Fuel</a></li>
         <li><a class="nav-link" href="#stations">Gas Stations</a></li>
         <li><a class="nav-link" href="#oil-card">Oil Card</a></li>
-        <li><a class="nav-link" href="#locations">Locations</a></li>
-        <li><a class="nav-link" href="#contact">Contact</a></li>
       </ul>
     </nav>
     <a class="customer-login-link" href="#customer-login">Customer Login</a>
@@ -1466,10 +1517,10 @@ body.customer-signed-in .mobile-customer-header{display:flex}
       <span class="mobile-menu-title">Menu</span>
       <a class="mobile-menu-close" href="#top" aria-label="Close navigation menu">&times;</a>
       <a href="#about">About Us</a>
-      <a href="#services">Services</a>
-      <a href="#farm">Farm Fuel</a>
-      <a href="#stations">Gas Stations</a>
-      <a href="#oil-card">Oil Card</a>
+      <a class="mobile-only-main-link" href="#services">Services</a>
+      <a class="mobile-only-main-link" href="#farm">Farm Fuel</a>
+      <a class="mobile-only-main-link" href="#stations">Gas Stations</a>
+      <a class="mobile-only-main-link" href="#oil-card">Oil Card</a>
       <a href="#locations">Locations</a>
       <a href="#contact">Contact</a>
       <a class="mobile-login-link" href="#customer-login">Customer Login</a>
