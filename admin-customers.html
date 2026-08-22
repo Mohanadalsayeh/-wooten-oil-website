@@ -194,6 +194,89 @@
     }
   }
 
+
+  /* FINAL DESKTOP CUSTOMER MESSAGE TABLE */
+  @media(min-width:721px){
+    #inboxTableWrap{
+      overflow-x:auto !important;
+      overflow-y:auto !important;
+      max-height:520px !important;
+      border:1px solid var(--line) !important;
+      border-radius:12px !important;
+    }
+
+    #inboxTableWrap table{
+      width:100% !important;
+      min-width:1380px !important;
+      table-layout:fixed !important;
+    }
+
+    #inboxTableWrap th,
+    #inboxTableWrap td{
+      white-space:normal !important;
+      overflow-wrap:anywhere !important;
+      word-break:normal !important;
+      vertical-align:top !important;
+      line-height:1.42 !important;
+    }
+
+    #inboxTableWrap th:nth-child(1),
+    #inboxTableWrap td:nth-child(1){width:12% !important}
+
+    #inboxTableWrap th:nth-child(2),
+    #inboxTableWrap td:nth-child(2){width:8% !important}
+
+    #inboxTableWrap th:nth-child(3),
+    #inboxTableWrap td:nth-child(3){width:8% !important}
+
+    #inboxTableWrap th:nth-child(4),
+    #inboxTableWrap td:nth-child(4){width:11% !important}
+
+    #inboxTableWrap th:nth-child(5),
+    #inboxTableWrap td:nth-child(5){width:16% !important}
+
+    #inboxTableWrap th:nth-child(6),
+    #inboxTableWrap td:nth-child(6){width:13% !important}
+
+    #inboxTableWrap th:nth-child(7),
+    #inboxTableWrap td:nth-child(7){width:13% !important}
+
+    #inboxTableWrap th:nth-child(8),
+    #inboxTableWrap td:nth-child(8){width:19% !important}
+
+    #inboxTableWrap th{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:#eef3f8;
+    }
+  }
+
+  .inbox-sort-label{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:13px;
+    font-weight:800;
+    color:#475569;
+  }
+  .inbox-sort-label select{
+    min-width:185px;
+  }
+
+
+  @media(max-width:720px){
+    .inbox-sort-label{
+      display:grid !important;
+      grid-template-columns:1fr !important;
+      gap:6px !important;
+    }
+    .inbox-sort-label select{
+      width:100% !important;
+      min-width:0 !important;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -256,6 +339,21 @@
         <option value="Fuel Request">Fuel Requests</option>
         <option value="Website Message">Website Messages</option>
       </select>
+
+      <label class="inbox-sort-label" for="inboxSort">
+        Sort by
+        <select id="inboxSort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="name-az">Customer name A–Z</option>
+          <option value="name-za">Customer name Z–A</option>
+          <option value="account-asc">Account # low to high</option>
+          <option value="account-desc">Account # high to low</option>
+          <option value="type">Message type</option>
+          <option value="subject">Subject A–Z</option>
+        </select>
+      </label>
+
       <span id="inboxFilterCount" class="inbox-count"></span>
     </div>
 
@@ -486,6 +584,8 @@ function renderInboxMessages(){
   const typeFilter=document.getElementById("inboxTypeFilter")?.value||"";
   const count=document.getElementById("inboxFilterCount");
 
+  const sortBy=document.getElementById("inboxSort")?.value||"newest";
+
   const filtered=inboxMessages.filter(message=>{
     if(typeFilter && message.type!==typeFilter) return false;
     if(!search) return true;
@@ -501,6 +601,38 @@ function renderInboxMessages(){
     ].map(v=>String(v||"").toLowerCase()).join(" ");
 
     return haystack.includes(search);
+  });
+
+  const dateValue=(m)=>{
+    const d=new Date(m?.date||"");
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+  const textValue=(v)=>String(v||"").trim().toLowerCase();
+  const accountValue=(v)=>{
+    const n=parseInt(String(v||"").replace(/\D/g,""),10);
+    return Number.isFinite(n)?n:0;
+  };
+
+  filtered.sort((a,b)=>{
+    switch(sortBy){
+      case "oldest":
+        return dateValue(a)-dateValue(b);
+      case "name-az":
+        return textValue(a.customer_name).localeCompare(textValue(b.customer_name));
+      case "name-za":
+        return textValue(b.customer_name).localeCompare(textValue(a.customer_name));
+      case "account-asc":
+        return accountValue(a.account_number)-accountValue(b.account_number);
+      case "account-desc":
+        return accountValue(b.account_number)-accountValue(a.account_number);
+      case "type":
+        return textValue(a.type).localeCompare(textValue(b.type)) || dateValue(b)-dateValue(a);
+      case "subject":
+        return textValue(a.subject).localeCompare(textValue(b.subject));
+      case "newest":
+      default:
+        return dateValue(b)-dateValue(a);
+    }
   });
 
   body.innerHTML="";
@@ -652,6 +784,7 @@ document.getElementById("loadInboxBtn").addEventListener("click",loadGmailInbox)
 document.getElementById("refreshInboxBtn").addEventListener("click",loadGmailInbox);
 document.getElementById("inboxSearch").addEventListener("input",renderInboxMessages);
 document.getElementById("inboxTypeFilter").addEventListener("change",renderInboxMessages);
+document.getElementById("inboxSort").addEventListener("change",renderInboxMessages);
 
 function normalizeActivationAccount(v){
   let s=String(v??"").trim();
