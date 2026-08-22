@@ -45,6 +45,16 @@
   .copy-btn{margin-top:12px;background:#0b2239;color:#fff}
   .activation-warning{margin-top:12px;font-size:13px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:11px 12px;line-height:1.45}
 
+  /* Customer Messages: prevent long message text from stretching the page */
+  #inboxTableWrap{margin-top:18px;overflow-x:hidden;overflow-y:auto;max-height:430px;border:1px solid var(--line);border-radius:12px}
+  #inboxTableWrap table{width:100%;table-layout:fixed;border-collapse:collapse}
+  #inboxTableWrap th,#inboxTableWrap td{vertical-align:top;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+  #inboxTableWrap th:nth-child(1),#inboxTableWrap td:nth-child(1){width:11%}
+  #inboxTableWrap th:nth-child(2),#inboxTableWrap td:nth-child(2){width:16%}
+  #inboxTableWrap th:nth-child(3),#inboxTableWrap td:nth-child(3){width:25%}
+  #inboxTableWrap th:nth-child(4),#inboxTableWrap td:nth-child(4){width:17%}
+  #inboxTableWrap th:nth-child(5),#inboxTableWrap td:nth-child(5){width:31%}
+
 </style>
 </head>
 <body>
@@ -90,40 +100,24 @@
 
     <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
   </div>
-<div class="card" id="gmailInboxCard">
-  <h2>Customer Messages</h2>
-  <p>
-    View Fuel Delivery Requests and Website Messages received by
-    support@wootenoil.com.
-  </p>
 
-  <div class="actions">
-    <button class="primary" id="loadInboxBtn" type="button">
-      Load Inbox
-    </button>
 
-    <button class="secondary" id="refreshInboxBtn" type="button">
-      Refresh
-    </button>
+  <div class="card">
+    <h2>Customer Messages</h2>
+    <p>View Fuel Delivery Requests and Website Messages received by support@wootenoil.com.</p>
+    <div class="actions">
+      <button class="primary" id="loadInboxBtn" type="button">Load Inbox</button>
+      <button class="secondary" id="refreshInboxBtn" type="button">Refresh</button>
+    </div>
+    <div id="inboxStatus" class="status"></div>
+    <div id="inboxTableWrap" style="display:none">
+      <table>
+        <thead><tr><th>Type</th><th>Received</th><th>Subject</th><th>From</th><th>Message</th></tr></thead>
+        <tbody id="inboxBody"></tbody>
+      </table>
+    </div>
   </div>
 
-  <div id="inboxStatus" class="status"></div>
-
-  <div id="inboxTableWrap" class="table-wrap" style="display:none;">
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Received</th>
-          <th>Subject</th>
-          <th>From</th>
-          <th>Message</th>
-        </tr>
-      </thead>
-      <tbody id="inboxBody"></tbody>
-    </table>
-  </div>
-</div>
   <div class="card">
     <h2>Customer Online Account Activation</h2>
     <p>Use this section when a customer does not have an email address on file. Verify the customer first, then generate a one-time 6-digit activation code so they can create their own password.</p>
@@ -161,102 +155,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 let preparedRows=[];
-const loadInboxBtn = document.getElementById("loadInboxBtn");
-const refreshInboxBtn = document.getElementById("refreshInboxBtn");
-const inboxStatus = document.getElementById("inboxStatus");
-const inboxTableWrap = document.getElementById("inboxTableWrap");
-const inboxBody = document.getElementById("inboxBody");
 
-async function loadGmailInbox() {
-  const adminKey = document.getElementById("adminKey").value.trim();
-
-  if (!adminKey) {
-    inboxStatus.textContent = "Enter your Admin Import Key first.";
-    inboxTableWrap.style.display = "none";
-    return;
-  }
-
-  loadInboxBtn.disabled = true;
-  refreshInboxBtn.disabled = true;
-  inboxStatus.textContent = "Loading customer messages...";
-
-  try {
-    const response = await fetch("/api/admin/gmail-inbox", {
-      method: "GET",
-      headers: {
-        "X-Admin-Key": adminKey
-      }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || "Unable to load customer messages.");
-    }
-
-    inboxBody.replaceChildren();
-
-    const messages = Array.isArray(data.messages)
-      ? data.messages
-      : [];
-
-    if (!messages.length) {
-      inboxStatus.textContent = "No customer messages found.";
-      inboxTableWrap.style.display = "none";
-      return;
-    }
-
-    for (const message of messages) {
-      const row = document.createElement("tr");
-
-      const typeCell = document.createElement("td");
-      typeCell.textContent = message.type || "Message";
-
-      const dateCell = document.createElement("td");
-      const parsedDate = new Date(message.date);
-      dateCell.textContent = Number.isNaN(parsedDate.getTime())
-        ? (message.date || "")
-        : parsedDate.toLocaleString();
-
-      const subjectCell = document.createElement("td");
-      subjectCell.textContent = message.subject || "(No subject)";
-
-      const fromCell = document.createElement("td");
-      fromCell.textContent = message.from || "";
-
-      const messageCell = document.createElement("td");
-      messageCell.textContent = message.snippet || "";
-
-      row.append(
-        typeCell,
-        dateCell,
-        subjectCell,
-        fromCell,
-        messageCell
-      );
-
-      inboxBody.appendChild(row);
-    }
-
-    inboxStatus.textContent =
-      `${messages.length} customer message${messages.length === 1 ? "" : "s"} loaded.`;
-
-    inboxTableWrap.style.display = "block";
-
-  } catch (error) {
-    inboxStatus.textContent =
-      error.message || "Unable to load customer messages.";
-
-    inboxTableWrap.style.display = "none";
-
-  } finally {
-    loadInboxBtn.disabled = false;
-    refreshInboxBtn.disabled = false;
-  }
-}
-
-loadInboxBtn.addEventListener("click", loadGmailInbox);
-refreshInboxBtn.addEventListener("click", loadGmailInbox);
 const aliases={
   account_number:["customerno","customer_no","accountnum","accountnumber","account_number","acctnum","acctnumber"],
   account_name:["accountname","account_name","customername","name"],
@@ -381,6 +280,53 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
     btn.disabled=false; btn.textContent="Upload / Update Customers";
   }
 });
+
+
+async function loadGmailInbox(){
+  const key=document.getElementById("adminKey").value.trim();
+  const loadBtn=document.getElementById("loadInboxBtn");
+  const refreshBtn=document.getElementById("refreshInboxBtn");
+  const status=document.getElementById("inboxStatus");
+  const wrap=document.getElementById("inboxTableWrap");
+  const body=document.getElementById("inboxBody");
+  if(!key){
+    status.className="status show bad";
+    status.textContent="Enter your Admin Import Key at the top of the page first.";
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+  loadBtn.disabled=true; refreshBtn.disabled=true;
+  status.className="status show"; status.textContent="Loading customer messages…";
+  try{
+    const res=await fetch("/api/admin/gmail-inbox",{method:"GET",headers:{"X-Admin-Key":key},cache:"no-store"});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.success===false) throw new Error(data.error||"Unable to load customer messages.");
+    const messages=Array.isArray(data.messages)?data.messages:[];
+    body.innerHTML="";
+    messages.forEach(message=>{
+      const row=document.createElement("tr");
+      const type=document.createElement("td"); type.textContent=message.type||"Message";
+      const received=document.createElement("td");
+      const raw=message.date||"", d=new Date(raw);
+      received.textContent=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
+      const subject=document.createElement("td"); subject.textContent=message.subject||"(No subject)";
+      const from=document.createElement("td"); from.textContent=message.from||"";
+      const msg=document.createElement("td"); msg.textContent=message.snippet||"";
+      row.append(type,received,subject,from,msg); body.appendChild(row);
+    });
+    status.className="status show ok";
+    status.textContent=`${messages.length} customer message${messages.length===1?"":"s"} loaded.`;
+    wrap.style.display=messages.length?"block":"none";
+  }catch(error){
+    status.className="status show bad";
+    status.textContent=error.message||"Unable to load customer messages.";
+    wrap.style.display="none";
+  }finally{
+    loadBtn.disabled=false; refreshBtn.disabled=false;
+  }
+}
+document.getElementById("loadInboxBtn").addEventListener("click",loadGmailInbox);
+document.getElementById("refreshInboxBtn").addEventListener("click",loadGmailInbox);
 
 function normalizeActivationAccount(v){
   let s=String(v??"").trim();
