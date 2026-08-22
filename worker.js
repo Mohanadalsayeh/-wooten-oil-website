@@ -2665,6 +2665,283 @@ __name(
   gmailTestMessages,
   "gmailTestMessages"
 );
+
+// Customer portal notifications
+async function ensureCustomerNotificationsTable(env) {
+  if (!env?.DB) throw new Error("Customer database is not configured.");
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS customer_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      email_sent INTEGER NOT NULL DEFAULT 0,
+      email_id TEXT,
+      read_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (customer_id) REFERENCES customers(id)
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_notifications_customer_created
+    ON customer_notifications(customer_id, created_at DESC)
+  `).run();
+}
+__name(ensureCustomerNotificationsTable, "ensureCustomerNotificationsTable");
+
+function notificationJson(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
+  });
+}
+__name(notificationJson, "notificationJson");
+
+function notificationEscapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+__name(notificationEscapeHtml, "notificationEscapeHtml");
+
+function normalizeNotificationAccount(value) {
+  let s = String(value ?? "").trim();
+  if (/^\d+(\.0+)?$/.test(s)) s = String(parseInt(s, 10));
+  s = s.replace(/\D/g, "");
+  return s ? s.padStart(7, "0") : "";
+}
+__name(normalizeNotificationAccount, "normalizeNotificationAccount");
+
+async function adminSendCustomerNotification({ request, env }) {
+  try {
+    const supplied = request.headers.get("X-Admin-Key") || "";
+    if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
+      return notificationJson({ success: false, error: "Unauthorized." }, 401);
+    }
+    if (!env.DB) {
+      return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return notificationJson({ success: false, error: "Invalid request data." }, 400);
+    }
+
+    const account = normalizeNotificationAccount(body?.account_number || body?.accountNumber);
+    const title = String(body?.title || body?.subject || "").trim();
+    const message = String(body?.message || "").trim();
+    const sendEmail = body?.send_email !== false && body?.sendEmail !== false;
+
+    if (!account || !title || !message) {
+      return notificationJson({
+        success: false,
+        error: "Customer Number, subject and message are required."
+      }, 400);
+    }
+    if (title.length > 160 || message.length > 5000) {
+      return notificationJson({ success: false, error: "Subject or message is too long." }, 400);
+    }
+
+    const customer = await env.DB.prepare(`
+      SELECT id, account_number, account_name, email
+      FROM customers
+      WHERE account_number = ?
+      LIMIT 1
+    `).bind(account).first();
+
+    if (!customer) {
+      return notificationJson({ success: false, error: "Customer was not found." }, 404);
+    }
+
+    await ensureCustomerNotificationsTable(env);
+
+    let emailSent = 0;
+    let emailId = "";
+    let emailWarning = "";
+
+    if (sendEmail) {
+      if (!customer.email) {
+        emailWarning = "Portal notification was created, but this customer does not have an email address on file.";
+      } else if (!env.RESEND_API_KEY) {
+        emailWarning = "Portal notification was created, but email service is not configured.";
+      } else {
+        try {
+          const fromAddress = String(env.FUEL_FROM_EMAIL || "support@wootenoil.com").trim();
+          const emailResponse = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+              "User-Agent": "WootenOilCustomerPortal/1.0"
+            },
+            body: JSON.stringify({
+              from: `Wooten Oil <${fromAddress}>`,
+              to: [customer.email],
+              subject: title,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033;line-height:1.6">
+                  <h2 style="color:#0b2239;margin-bottom:8px">Wooten Oil</h2>
+                  <p>Hello ${notificationEscapeHtml(customer.account_name)},</p>
+                  <p style="white-space:pre-wrap">${notificationEscapeHtml(message)}</p>
+                  <p style="margin-top:24px;color:#64748b;font-size:13px">
+                    This message is also available in your Wooten Oil online customer account.
+                  </p>
+                </div>
+              `,
+              text: `Hello ${customer.account_name},\n\n${message}\n\nThis message is also available in your Wooten Oil online customer account.`
+            })
+          });
+
+          const emailData = await emailResponse.json().catch(() => ({}));
+          if (emailResponse.ok) {
+            emailSent = 1;
+            emailId = emailData.id || "";
+          } else {
+            emailWarning = "Portal notification was created, but the email could not be sent.";
+            console.error("Customer notification email failed", emailData);
+          }
+        } catch (error) {
+          emailWarning = "Portal notification was created, but the email could not be sent.";
+          console.error("Customer notification email error", error);
+        }
+      }
+    }
+
+    const inserted = await env.DB.prepare(`
+      INSERT INTO customer_notifications
+        (customer_id, title, message, email_sent, email_id, created_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(
+      customer.id,
+      title,
+      message,
+      emailSent,
+      emailId
+    ).run();
+
+    return notificationJson({
+      success: true,
+      notification_id: inserted?.meta?.last_row_id || null,
+      account_number: customer.account_number,
+      account_name: customer.account_name,
+      email: customer.email || "",
+      email_sent: emailSent === 1,
+      warning: emailWarning
+    });
+  } catch (error) {
+    console.error("adminSendCustomerNotification failed", error);
+    return notificationJson({
+      success: false,
+      error: String(error?.message || error)
+    }, 500);
+  }
+}
+__name(adminSendCustomerNotification, "adminSendCustomerNotification");
+
+async function customerNotificationsGet({ request, env }) {
+  try {
+    if (!env.DB) {
+      return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
+    }
+
+    const customer = await getCustomerFromSession(request, env);
+    if (!customer) {
+      return notificationJson({ success: false, authenticated: false }, 401);
+    }
+
+    await ensureCustomerNotificationsTable(env);
+
+    const result = await env.DB.prepare(`
+      SELECT id, title, message, read_at, created_at
+      FROM customer_notifications
+      WHERE customer_id = ?
+      ORDER BY datetime(created_at) DESC, id DESC
+      LIMIT 50
+    `).bind(customer.id).all();
+
+    const notifications = (result?.results || []).map((row) => ({
+      id: row.id,
+      title: row.title || "Wooten Oil",
+      message: row.message || "",
+      created_at: row.created_at,
+      read: !!row.read_at
+    }));
+
+    return notificationJson({
+      success: true,
+      account_number: customer.account_number,
+      unread_count: notifications.filter((n) => !n.read).length,
+      notifications
+    });
+  } catch (error) {
+    console.error("customerNotificationsGet failed", error);
+    return notificationJson({
+      success: false,
+      error: String(error?.message || error)
+    }, 500);
+  }
+}
+__name(customerNotificationsGet, "customerNotificationsGet");
+
+async function customerNotificationsReadPost({ request, env }) {
+  try {
+    if (!env.DB) {
+      return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
+    }
+
+    const customer = await getCustomerFromSession(request, env);
+    if (!customer) {
+      return notificationJson({ success: false, authenticated: false }, 401);
+    }
+
+    await ensureCustomerNotificationsTable(env);
+
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const id = Number(body?.id || 0);
+    const markAll = body?.all === true || body?.mark_all === true;
+
+    if (markAll) {
+      await env.DB.prepare(`
+        UPDATE customer_notifications
+        SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+        WHERE customer_id = ?
+      `).bind(customer.id).run();
+    } else if (Number.isInteger(id) && id > 0) {
+      await env.DB.prepare(`
+        UPDATE customer_notifications
+        SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+        WHERE id = ? AND customer_id = ?
+      `).bind(id, customer.id).run();
+    } else {
+      return notificationJson({ success: false, error: "Notification id is required." }, 400);
+    }
+
+    return notificationJson({ success: true });
+  } catch (error) {
+    console.error("customerNotificationsReadPost failed", error);
+    return notificationJson({
+      success: false,
+      error: String(error?.message || error)
+    }, 500);
+  }
+}
+__name(customerNotificationsReadPost, "customerNotificationsReadPost");
+
+
 // worker.js
 function methodNotAllowed() {
   return new Response(
@@ -2742,6 +3019,28 @@ var worker_default = {
   return methodNotAllowed();
 }
     
+
+    if (url.pathname === "/api/admin/customer-notifications") {
+      if (request.method === "POST") {
+        return adminSendCustomerNotification({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/notifications") {
+      if (request.method === "GET") {
+        return customerNotificationsGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/notifications/read") {
+      if (request.method === "POST") {
+        return customerNotificationsReadPost({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
     if (url.pathname === "/api/customer/login") {
       if (request.method === "POST") {
         return customerLoginPost({
