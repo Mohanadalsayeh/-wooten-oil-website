@@ -2736,15 +2736,23 @@ async function adminSendCustomerNotification({ request, env }) {
       return notificationJson({ success: false, error: "Invalid request data." }, 400);
     }
 
+    const sendAllWithEmail =
+      body?.send_all_with_email === true ||
+      body?.sendAllWithEmail === true;
+
     const account = normalizeNotificationAccount(body?.account_number || body?.accountNumber);
     const title = String(body?.title || body?.subject || "").trim();
     const message = String(body?.message || "").trim();
-    const sendEmail = body?.send_email !== false && body?.sendEmail !== false;
+    const sendEmail = sendAllWithEmail
+      ? true
+      : (body?.send_email !== false && body?.sendEmail !== false);
 
-    if (!account || !title || !message) {
+    if (!title || !message || (!sendAllWithEmail && !account)) {
       return notificationJson({
         success: false,
-        error: "Customer Number, subject and message are required."
+        error: sendAllWithEmail
+          ? "Subject and message are required."
+          : "Customer Number, subject and message are required."
       }, 400);
     }
 
@@ -2752,6 +2760,182 @@ async function adminSendCustomerNotification({ request, env }) {
       return notificationJson({ success: false, error: "Subject or message is too long." }, 400);
     }
 
+    await ensureCustomerNotificationsTable(env);
+
+    /* BULK SEND: every customer with a valid email address on file. */
+    if (sendAllWithEmail) {
+      if (!env.RESEND_API_KEY) {
+        return notificationJson({
+          success: false,
+          error: "Email service is not configured. No broadcast was sent."
+        }, 503);
+      }
+
+      const result = await env.DB.prepare(`
+        SELECT account_number, account_name, email
+        FROM customers
+        WHERE email IS NOT NULL
+          AND trim(email) <> ''
+        ORDER BY account_number
+      `).all();
+
+      const allRows = result?.results || [];
+      const isUsableEmail = (value) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+
+      const customers = allRows
+        .map((row) => ({
+          account_number: normalizeNotificationAccount(row.account_number),
+          account_name: String(row.account_name || "Customer").trim() || "Customer",
+          email: String(row.email || "").trim()
+        }))
+        .filter((row) => row.account_number && isUsableEmail(row.email));
+
+      const invalidEmailCustomers = Math.max(0, allRows.length - customers.length);
+
+      if (!customers.length) {
+        return notificationJson({
+          success: false,
+          error: "No customers with valid email addresses were found."
+        }, 404);
+      }
+
+      const records = [];
+
+      /* Save every portal notification first. */
+      for (let i = 0; i < customers.length; i += 50) {
+        const chunk = customers.slice(i, i + 50);
+        const statements = chunk.map((customer) =>
+          env.DB.prepare(`
+            INSERT INTO portal_notifications
+              (account_number, title, message, email_sent, email_id, created_at)
+            VALUES (?, ?, ?, 0, '', CURRENT_TIMESTAMP)
+          `).bind(customer.account_number, title, message)
+        );
+
+        const insertedResults = await env.DB.batch(statements);
+
+        chunk.forEach((customer, index) => {
+          const inserted = insertedResults?.[index];
+          const notificationId =
+            inserted?.meta?.last_row_id ||
+            inserted?.meta?.last_insert_rowid ||
+            null;
+
+          records.push({
+            ...customer,
+            notification_id: notificationId
+          });
+        });
+      }
+
+      const fromAddress = String(env.FUEL_FROM_EMAIL || "support@wootenoil.com").trim();
+      let emailsSent = 0;
+      let emailsFailed = 0;
+      const emailErrors = [];
+
+      /* Resend Batch Emails supports up to 100 emails per API call. */
+      for (let i = 0; i < records.length; i += 100) {
+        const chunk = records.slice(i, i + 100);
+
+        const payload = chunk.map((customer) => ({
+          from: `Wooten Oil <${fromAddress}>`,
+          to: [customer.email],
+          subject: title,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033;line-height:1.6">
+              <h2 style="color:#0b2239;margin-bottom:8px">Wooten Oil</h2>
+              <p>Hello ${notificationEscapeHtml(customer.account_name)},</p>
+              <p style="white-space:pre-wrap">${notificationEscapeHtml(message)}</p>
+              <p style="margin-top:24px;color:#64748b;font-size:13px">
+                This message is also available in your Wooten Oil online customer account.
+              </p>
+            </div>
+          `,
+          text: `Hello ${customer.account_name},\n\n${message}\n\nThis message is also available in your Wooten Oil online customer account.`
+        }));
+
+        try {
+          const emailResponse = await fetch("https://api.resend.com/emails/batch", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+              "User-Agent": "WootenOilCustomerPortal/1.0"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const emailData = await emailResponse.json().catch(() => ({}));
+
+          if (!emailResponse.ok) {
+            emailsFailed += chunk.length;
+            emailErrors.push(
+              String(
+                emailData?.message ||
+                emailData?.error?.message ||
+                emailData?.error ||
+                `Batch email request failed with status ${emailResponse.status}.`
+              )
+            );
+            console.error("Bulk customer notification email batch failed", emailData);
+            continue;
+          }
+
+          const responseItems = Array.isArray(emailData?.data)
+            ? emailData.data
+            : (Array.isArray(emailData) ? emailData : []);
+
+          const updates = chunk
+            .filter((customer) => customer.notification_id)
+            .map((customer, index) => {
+              const emailId = responseItems?.[index]?.id || "";
+              return env.DB.prepare(`
+                UPDATE portal_notifications
+                SET email_sent = 1, email_id = ?
+                WHERE id = ? AND account_number = ?
+              `).bind(
+                emailId,
+                customer.notification_id,
+                customer.account_number
+              );
+            });
+
+          if (updates.length) {
+            for (let u = 0; u < updates.length; u += 50) {
+              await env.DB.batch(updates.slice(u, u + 50));
+            }
+          }
+
+          emailsSent += chunk.length;
+        } catch (error) {
+          emailsFailed += chunk.length;
+          emailErrors.push(String(error?.message || error));
+          console.error("Bulk customer notification email error", error);
+        }
+      }
+
+      let warning = "";
+      if (emailsFailed) {
+        warning =
+          `${emailsFailed} email(s) could not be sent. ` +
+          `Their portal notifications were still saved.`;
+      }
+
+      return notificationJson({
+        success: true,
+        bulk: true,
+        customers_targeted: records.length,
+        notifications_saved: records.length,
+        emails_sent: emailsSent,
+        emails_failed: emailsFailed,
+        invalid_email_customers: invalidEmailCustomers,
+        warning,
+        email_errors: emailErrors.slice(0, 5)
+      });
+    }
+
+    /* SINGLE CUSTOMER SEND — existing behavior preserved. */
     const customer = await env.DB.prepare(`
       SELECT account_number, account_name, email
       FROM customers
@@ -2762,8 +2946,6 @@ async function adminSendCustomerNotification({ request, env }) {
     if (!customer) {
       return notificationJson({ success: false, error: "Customer was not found." }, 404);
     }
-
-    await ensureCustomerNotificationsTable(env);
 
     // IMPORTANT: save the portal notification FIRST.
     // Email is secondary, so a successful email can never hide a failed portal insert.
@@ -3072,49 +3254,6 @@ function gmailSyncBody(payload) {
 }
 __name(gmailSyncBody,"gmailSyncBody");
 
-
-function gmailSyncCleanNotificationBody(value) {
-  let text = String(value || "").trim();
-  if (!text) return "";
-
-  // Gmail/HTML signatures sometimes arrive as one long line after HTML stripping.
-  // Only remove a Wooten Oil signature when the tail also looks like the company
-  // signature (support email / phone / address), so normal message text is preserved.
-  const signatureNames = [
-    "Wooten Oil Co. Inc.",
-    "Wooten Oil Co Inc.",
-    "Wooten Oil Company",
-    "Wooten Oil Co."
-  ];
-
-  const lower = text.toLowerCase();
-
-  for (const name of signatureNames) {
-    const idx = lower.lastIndexOf(name.toLowerCase());
-    if (idx <= 0) continue;
-
-    const tail = text.slice(idx).toLowerCase();
-    const looksLikeSignature =
-      tail.includes("support@wootenoil.com") ||
-      tail.includes("(901)") ||
-      tail.includes("901-") ||
-      tail.includes("covington, tn") ||
-      tail.includes("sanford");
-
-    // Signatures are expected near the end of the email.
-    if (looksLikeSignature && idx >= Math.max(1, Math.floor(text.length * 0.15))) {
-      text = text.slice(0, idx).trim();
-      break;
-    }
-  }
-
-  return text
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .slice(0, 5000);
-}
-__name(gmailSyncCleanNotificationBody, "gmailSyncCleanNotificationBody");
-
 function gmailSyncHeader(payload,name) {
   const found=(payload?.headers||[]).find(h=>String(h?.name||"").toLowerCase()===name.toLowerCase());
   return String(found?.value||"");
@@ -3169,8 +3308,7 @@ async function syncGmailSentToPortal(env,options={}) {
       if(internalDate&&internalDate<cutoff) continue;
 
       const subject=(gmailSyncHeader(m.payload,"Subject")||"(No subject)").trim().slice(0,160);
-      const rawBody=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
-      const body=gmailSyncCleanNotificationBody(rawBody)||"(Email message)";
+      const body=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
       const recipients=[...new Set([
         ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"To")),
         ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"Cc")),
