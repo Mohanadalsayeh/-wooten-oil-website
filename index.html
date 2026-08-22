@@ -1883,6 +1883,100 @@ background:#c62828 !important;color:#fff !important;border-color:#c62828 !import
 }
 </style>
 
+
+<style id="wooten-request-fuel-hover-font-fix">
+/* Keep Request Fuel typography identical and clean in every state. */
+#site-header .nav-cta.desktop-request,
+#site-header .nav-cta.desktop-request:link,
+#site-header .nav-cta.desktop-request:visited,
+#site-header .nav-cta.desktop-request:hover,
+#site-header .nav-cta.desktop-request:focus,
+#site-header .nav-cta.desktop-request:focus-visible,
+#site-header .nav-cta.desktop-request:active,
+#mobile-menu .mobile-request-link,
+#mobile-menu .mobile-request-link:link,
+#mobile-menu .mobile-request-link:visited,
+#mobile-menu .mobile-request-link:hover,
+#mobile-menu .mobile-request-link:focus,
+#mobile-menu .mobile-request-link:focus-visible,
+#mobile-menu .mobile-request-link:active{
+  background:#d62828 !important;
+  color:#ffffff !important;
+  font-family:inherit !important;
+  font-size:inherit !important;
+  font-weight:400 !important;
+  font-style:normal !important;
+  letter-spacing:normal !important;
+  text-decoration:none !important;
+  text-shadow:none !important;
+  -webkit-text-stroke:0 !important;
+  -webkit-font-smoothing:antialiased !important;
+  -moz-osx-font-smoothing:grayscale !important;
+  text-rendering:geometricPrecision !important;
+  transform:none !important;
+  filter:none !important;
+  opacity:1 !important;
+}
+
+/* No hover animation or font-weight jump. */
+#site-header .nav-cta.desktop-request:hover,
+#mobile-menu .mobile-request-link:hover{
+  background:#c82323 !important;
+  color:#ffffff !important;
+  transform:none !important;
+}
+</style>
+
+
+<style id="wooten-menu-icon-even-lines-fix">
+/* Clean, perfectly even hamburger icon on laptop/desktop and mobile. */
+#site-header .mobile-menu-button{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:0 !important;
+}
+
+#site-header .mobile-menu-button .hamburger{
+  width:26px !important;
+  height:18px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:space-between !important;
+  align-items:stretch !important;
+  gap:0 !important;
+  transform:none !important;
+}
+
+#site-header .mobile-menu-button .hamburger span{
+  display:block !important;
+  width:26px !important;
+  height:2px !important;
+  min-height:2px !important;
+  max-height:2px !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:2px !important;
+  background:#111827 !important;
+  opacity:1 !important;
+  transform:none !important;
+  position:static !important;
+  box-sizing:border-box !important;
+}
+
+/* Prevent hover/focus rules from shifting individual lines. */
+#site-header .mobile-menu-button:hover .hamburger span,
+#site-header .mobile-menu-button:focus .hamburger span,
+#site-header .mobile-menu-button:focus-visible .hamburger span,
+#site-header .mobile-menu-button:active .hamburger span{
+  width:26px !important;
+  height:2px !important;
+  margin:0 !important;
+  transform:none !important;
+}
+</style>
+
 </head>
 <body>
 
