@@ -1416,24 +1416,62 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 
 
 <style id="wooten-compact-navigation-final">
-/* Desktop: four primary links plus menu icon.
-   Phone/tablet: menu icon only; all links are inside the dropdown. */
+/* Desktop:
+   - logo + four primary menu links stay aligned to the left
+   - signed-in customer name + notification bell sit on the right
+   - menu icon stays available for the remaining links
+   Phone/tablet:
+   - only the menu icon is shown in the top header
+   - all menu links remain inside the dropdown */
 
 @media (min-width:981px){
-  #site-header .nav{position:relative}
+  #site-header .nav{
+    position:relative;
+    justify-content:flex-start !important;
+  }
+
+  .smart-desktop-nav{
+    margin-left:6px;
+  }
 
   .mobile-menu-button{
     display:flex !important;
-    margin-left:6px;
+    margin-left:8px !important;
     flex:0 0 44px;
   }
 
   .customer-login-link,
   .customer-account-link,
   .customer-menu-logout,
-  .desktop-request,
+  .desktop-request{
+    display:none !important;
+  }
+
+  /* Right side customer area: bell + account name */
   .mobile-customer-header{
     display:none !important;
+    margin-left:auto !important;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+  }
+
+  body.customer-signed-in .mobile-customer-header{
+    display:flex !important;
+  }
+
+  .mobile-customer-name{
+    max-width:220px;
+    font-size:.86rem;
+    font-weight:900;
+    color:#17314b;
+    text-align:right;
+  }
+
+  .mobile-customer-notifications{
+    width:42px;
+    height:42px;
+    flex-basis:42px;
   }
 
   .mobile-menu-panel .mobile-only-main-link{
@@ -1444,7 +1482,7 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 @media (max-width:980px){
   #site-header .nav{
     position:relative;
-    justify-content:flex-end;
+    justify-content:flex-end !important;
   }
 
   #site-header .brand,
