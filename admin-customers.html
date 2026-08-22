@@ -80,6 +80,120 @@
   .notify-options input{width:auto}
   @media(max-width:720px){.notify-grid{grid-template-columns:1fr}}
 
+
+  /* FINAL MOBILE CUSTOMER MESSAGE LAYOUT */
+  .mobile-inbox-cards{display:none}
+
+  @media(max-width:720px){
+    .wrap{padding:0 10px !important}
+    .inbox-tools{
+      display:grid !important;
+      grid-template-columns:1fr !important;
+      gap:10px !important;
+    }
+    .inbox-tools input,
+    .inbox-tools select{
+      width:100% !important;
+      min-width:0 !important;
+      max-width:none !important;
+    }
+    .inbox-count{
+      display:block !important;
+      padding:2px 2px 4px !important;
+    }
+
+    /* Never show the squeezed desktop table on a phone. */
+    #inboxTableWrap{
+      display:none !important;
+    }
+
+    /* Phone uses readable message cards instead. */
+    #mobileInboxCards.mobile-inbox-cards{
+      display:grid !important;
+      grid-template-columns:1fr !important;
+      gap:14px !important;
+      margin-top:14px !important;
+    }
+
+    .mobile-inbox-card{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:16px;
+      box-shadow:0 4px 14px rgba(15,23,42,.06);
+      min-width:0;
+    }
+    .mobile-inbox-card-name{
+      margin:0 0 4px;
+      color:var(--navy);
+      font-size:19px;
+      line-height:1.2;
+      font-weight:900;
+      overflow-wrap:anywhere;
+    }
+    .mobile-inbox-card-meta{
+      color:#64748b;
+      font-size:12px;
+      line-height:1.45;
+      margin-bottom:12px;
+    }
+    .mobile-inbox-card-type{
+      display:inline-block;
+      margin-bottom:10px;
+      padding:5px 9px;
+      border-radius:999px;
+      background:#eef3f8;
+      color:#0b2239;
+      font-size:11px;
+      font-weight:800;
+    }
+    .mobile-inbox-card-subject{
+      color:#111827;
+      font-size:15px;
+      line-height:1.35;
+      font-weight:800;
+      margin-bottom:12px;
+      overflow-wrap:anywhere;
+    }
+    .mobile-inbox-row{
+      display:grid;
+      grid-template-columns:72px minmax(0,1fr);
+      gap:8px;
+      padding:5px 0;
+      font-size:13px;
+      line-height:1.4;
+    }
+    .mobile-inbox-label{
+      color:#64748b;
+      font-weight:800;
+    }
+    .mobile-inbox-value{
+      min-width:0;
+      color:#111827;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+    .mobile-inbox-message{
+      margin-top:10px;
+      padding-top:11px;
+      border-top:1px solid #eef2f7;
+    }
+    .mobile-inbox-message .mobile-inbox-label{
+      display:block;
+      margin-bottom:5px;
+    }
+    .mobile-inbox-message .mobile-inbox-value{
+      white-space:pre-wrap;
+      line-height:1.5;
+    }
+  }
+
+  @media(min-width:721px){
+    #mobileInboxCards.mobile-inbox-cards{
+      display:none !important;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -160,6 +274,8 @@
         <tbody id="inboxBody"></tbody>
       </table>
     </div>
+
+    <div id="mobileInboxCards" class="mobile-inbox-cards" style="display:none"></div>
   </div>
 
 
@@ -365,13 +481,13 @@ let inboxMessages=[];
 function renderInboxMessages(){
   const body=document.getElementById("inboxBody");
   const wrap=document.getElementById("inboxTableWrap");
+  const mobileCards=document.getElementById("mobileInboxCards");
   const search=(document.getElementById("inboxSearch")?.value||"").trim().toLowerCase();
   const typeFilter=document.getElementById("inboxTypeFilter")?.value||"";
   const count=document.getElementById("inboxFilterCount");
 
   const filtered=inboxMessages.filter(message=>{
     if(typeFilter && message.type!==typeFilter) return false;
-
     if(!search) return true;
 
     const haystack=[
@@ -388,44 +504,100 @@ function renderInboxMessages(){
   });
 
   body.innerHTML="";
+  mobileCards.innerHTML="";
 
   filtered.forEach(message=>{
+    const raw=message.date||"";
+    const d=new Date(raw);
+    const receivedText=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
+
+    /* Desktop table row */
     const row=document.createElement("tr");
 
-    const customerName=document.createElement("td");
-    customerName.textContent=message.customer_name||"—";
+    [
+      message.customer_name||"—",
+      message.account_number||"—",
+      message.type||"Message",
+      receivedText,
+      message.subject||"(No subject)",
+      message.from||"",
+      message.customer_email||"—",
+      message.snippet||""
+    ].forEach(value=>{
+      const td=document.createElement("td");
+      td.textContent=value;
+      row.appendChild(td);
+    });
 
-    const accountNumber=document.createElement("td");
-    accountNumber.textContent=message.account_number||"—";
-
-    const type=document.createElement("td");
-    type.textContent=message.type||"Message";
-
-    const received=document.createElement("td");
-    const raw=message.date||"", d=new Date(raw);
-    received.textContent=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
-
-    const subject=document.createElement("td");
-    subject.textContent=message.subject||"(No subject)";
-
-    const from=document.createElement("td");
-    from.textContent=message.from||"";
-
-    const email=document.createElement("td");
-    email.textContent=message.customer_email||"—";
-
-    const msg=document.createElement("td");
-    msg.textContent=message.snippet||"";
-
-    row.append(customerName,accountNumber,type,received,subject,from,email,msg);
     body.appendChild(row);
+
+    /* Mobile card */
+    const card=document.createElement("article");
+    card.className="mobile-inbox-card";
+
+    const name=document.createElement("h3");
+    name.className="mobile-inbox-card-name";
+    name.textContent=message.customer_name||"Unknown Customer";
+    card.appendChild(name);
+
+    const meta=document.createElement("div");
+    meta.className="mobile-inbox-card-meta";
+    meta.textContent=`Account # ${message.account_number||"—"} • ${receivedText||"No date"}`;
+    card.appendChild(meta);
+
+    const type=document.createElement("span");
+    type.className="mobile-inbox-card-type";
+    type.textContent=message.type||"Message";
+    card.appendChild(type);
+
+    const subject=document.createElement("div");
+    subject.className="mobile-inbox-card-subject";
+    subject.textContent=message.subject||"(No subject)";
+    card.appendChild(subject);
+
+    function addRow(label,value){
+      const r=document.createElement("div");
+      r.className="mobile-inbox-row";
+
+      const l=document.createElement("div");
+      l.className="mobile-inbox-label";
+      l.textContent=label;
+
+      const v=document.createElement("div");
+      v.className="mobile-inbox-value";
+      v.textContent=value||"—";
+
+      r.append(l,v);
+      card.appendChild(r);
+    }
+
+    addRow("From",message.from||"");
+    addRow("Email",message.customer_email||"");
+
+    const messageBox=document.createElement("div");
+    messageBox.className="mobile-inbox-message";
+
+    const messageLabel=document.createElement("span");
+    messageLabel.className="mobile-inbox-label";
+    messageLabel.textContent="Message";
+
+    const messageValue=document.createElement("div");
+    messageValue.className="mobile-inbox-value";
+    messageValue.textContent=message.snippet||"";
+
+    messageBox.append(messageLabel,messageValue);
+    card.appendChild(messageBox);
+
+    mobileCards.appendChild(card);
   });
 
   if(count){
     count.textContent=`Showing ${filtered.length} of ${inboxMessages.length}`;
   }
 
+  /* Desktop only; CSS forces it hidden on phones. */
   wrap.style.display=filtered.length?"block":"none";
+  mobileCards.style.display=filtered.length?"grid":"none";
 }
 
 async function loadGmailInbox(){
