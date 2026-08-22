@@ -308,6 +308,59 @@
   @media(max-width:800px){.admin-header{grid-template-columns:1fr;align-items:stretch}.admin-key-box{max-width:none}}
   @media(max-width:720px){.admin-header{margin-bottom:12px}.admin-header h1{font-size:26px}.admin-tabs-shell{margin-left:-10px;margin-right:-10px;padding-left:6px;padding-right:6px}.admin-tabs{padding-left:4px;padding-right:4px}.admin-tab{padding:10px 13px 9px;font-size:13px}.admin-tab-panel{border-radius:0 0 16px 16px;min-height:0}}
 
+
+  /* Notification audience controls */
+  .notify-audience{
+    margin:0 0 18px;
+    padding:14px 15px;
+    background:#fff;
+    border:1px solid #dbe3eb;
+    border-radius:12px;
+  }
+  .notify-audience-title{
+    margin:0 0 10px;
+    color:var(--navy);
+    font-size:13px;
+    font-weight:700;
+  }
+  .notify-audience-options{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 18px;
+  }
+  .notify-audience-option{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin:0;
+    color:#334155;
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+  }
+  .notify-audience-option input{
+    width:auto;
+    margin:0;
+    accent-color:var(--red);
+  }
+  .notify-broadcast-warning{
+    display:none;
+    margin:12px 0 0;
+    padding:11px 12px;
+    border:1px solid #fed7aa;
+    border-radius:10px;
+    background:#fff7ed;
+    color:#9a3412;
+    font-size:13px;
+    line-height:1.45;
+  }
+  .notify-broadcast-warning.show{display:block}
+  #notifyAccount:disabled{
+    background:#eef2f6;
+    color:#94a3b8;
+    cursor:not-allowed;
+  }
+
 </style>
 </head>
 <body>
@@ -451,9 +504,26 @@
   <div class="card admin-tab-panel" id="admin-tab-notifications" role="tabpanel" aria-labelledby="admin-tab-btn-notifications" data-admin-panel="notifications">
     <div class="admin-page-label">Notifications</div>
     <h2>Send Customer Notification</h2>
-    <p>Send a private portal notification to one customer. You can also send the same message to the customer's email address.</p>
+    <p>Send a private portal notification to one customer, or send the same notification to every customer who has an email address on file.</p>
 
     <div class="notify-card">
+      <div class="notify-audience">
+        <div class="notify-audience-title">Send notification to</div>
+        <div class="notify-audience-options" role="radiogroup" aria-label="Notification audience">
+          <label class="notify-audience-option">
+            <input id="notifyAudienceOne" type="radio" name="notifyAudience" value="one" checked>
+            One customer
+          </label>
+          <label class="notify-audience-option">
+            <input id="notifyAudienceAll" type="radio" name="notifyAudience" value="all">
+            All customers with email addresses
+          </label>
+        </div>
+        <div class="notify-broadcast-warning" id="notifyBroadcastWarning">
+          This sends the notification to every customer with a valid email address on file. Each matching customer will receive the message by email and in the Wooten Oil customer portal.
+        </div>
+      </div>
+
       <div class="notify-grid">
         <div class="notify-field">
           <label for="notifyAccount">Customer Number</label>
@@ -902,13 +972,50 @@ document.getElementById("gmailPortalSyncBtn").addEventListener("click",async()=>
 document.getElementById("gmailPortalSyncStatusBtn").addEventListener("click",loadGmailPortalSyncStatus);
 
 /* Send Customer Notification */
-document.getElementById("sendCustomerNotificationBtn").addEventListener("click",async()=>{
+const notifyAudienceOne=document.getElementById("notifyAudienceOne");
+const notifyAudienceAll=document.getElementById("notifyAudienceAll");
+const notifyAccountInput=document.getElementById("notifyAccount");
+const notifySendEmailInput=document.getElementById("notifySendEmail");
+const notifyBroadcastWarning=document.getElementById("notifyBroadcastWarning");
+const sendCustomerNotificationBtn=document.getElementById("sendCustomerNotificationBtn");
+
+let notifySingleEmailChoice=notifySendEmailInput.checked;
+
+function updateNotificationAudience(){
+  const sendAll=notifyAudienceAll.checked;
+
+  if(sendAll){
+    notifySingleEmailChoice=notifySendEmailInput.checked;
+    notifyAccountInput.disabled=true;
+    notifyAccountInput.value="";
+    notifySendEmailInput.checked=true;
+    notifySendEmailInput.disabled=true;
+    notifyBroadcastWarning.classList.add("show");
+    sendCustomerNotificationBtn.textContent="Send to All Customers";
+  }else{
+    notifyAccountInput.disabled=false;
+    notifySendEmailInput.disabled=false;
+    notifySendEmailInput.checked=notifySingleEmailChoice;
+    notifyBroadcastWarning.classList.remove("show");
+    sendCustomerNotificationBtn.textContent="Send Notification";
+  }
+}
+
+notifyAudienceOne.addEventListener("change",updateNotificationAudience);
+notifyAudienceAll.addEventListener("change",updateNotificationAudience);
+notifySendEmailInput.addEventListener("change",()=>{
+  if(!notifyAudienceAll.checked) notifySingleEmailChoice=notifySendEmailInput.checked;
+});
+updateNotificationAudience();
+
+sendCustomerNotificationBtn.addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
-  const account=normalizeActivationAccount(document.getElementById("notifyAccount").value);
+  const sendAll=notifyAudienceAll.checked;
+  const account=sendAll ? "" : normalizeActivationAccount(notifyAccountInput.value);
   const title=document.getElementById("notifySubject").value.trim();
   const message=document.getElementById("notifyMessage").value.trim();
-  const sendEmail=document.getElementById("notifySendEmail").checked;
-  const btn=document.getElementById("sendCustomerNotificationBtn");
+  const sendEmail=sendAll ? true : notifySendEmailInput.checked;
+  const btn=sendCustomerNotificationBtn;
   const status=document.getElementById("notifyStatus");
 
   if(!key){
@@ -916,16 +1023,29 @@ document.getElementById("sendCustomerNotificationBtn").addEventListener("click",
     status.textContent="Enter your Admin Import Key at the top of the page first.";
     return;
   }
-  if(!account || !title || !message){
+
+  if(!title || !message || (!sendAll && !account)){
     status.className="status show bad";
-    status.textContent="Customer Number, subject and message are required.";
+    status.textContent=sendAll
+      ? "Subject and message are required."
+      : "Customer Number, subject and message are required.";
     return;
   }
 
+  if(sendAll){
+    const confirmed=window.confirm(
+      "Send this notification to ALL customers who have a valid email address on file?\n\n"+
+      "Each matching customer will receive an email and a portal notification."
+    );
+    if(!confirmed) return;
+  }
+
   btn.disabled=true;
-  btn.textContent="Sending…";
+  btn.textContent=sendAll ? "Sending to All…" : "Sending…";
   status.className="status show";
-  status.textContent="Sending customer notification…";
+  status.textContent=sendAll
+    ? "Sending notification to all customers with email addresses…"
+    : "Sending customer notification…";
 
   try{
     const res=await fetch("/api/admin/customer-notifications",{
@@ -938,7 +1058,8 @@ document.getElementById("sendCustomerNotificationBtn").addEventListener("click",
         account_number:account,
         title,
         message,
-        send_email:sendEmail
+        send_email:sendEmail,
+        send_all_with_email:sendAll
       })
     });
 
@@ -948,10 +1069,22 @@ document.getElementById("sendCustomerNotificationBtn").addEventListener("click",
     }
 
     status.className="status show ok";
-    status.textContent=
-      `Portal notification #${data.notification_id||"saved"} saved for ${data.account_name||"customer"} (${data.account_number||account}).`+
-      (data.email_sent?" Email sent too.":"")+
-      (data.warning?` ${data.warning}`:"");
+
+    if(data.bulk){
+      status.textContent=
+        `Broadcast complete: ${data.customers_targeted||0} customer(s) targeted, `+
+        `${data.notifications_saved||0} portal notification(s) saved, `+
+        `${data.emails_sent||0} email(s) sent`+
+        (data.emails_failed?`, ${data.emails_failed} email(s) failed`:"")+
+        (data.invalid_email_customers?`, ${data.invalid_email_customers} invalid email record(s) skipped`:"")+
+        (data.warning?`. ${data.warning}`:"")+
+        ".";
+    }else{
+      status.textContent=
+        `Portal notification #${data.notification_id||"saved"} saved for ${data.account_name||"customer"} (${data.account_number||account}).`+
+        (data.email_sent?" Email sent too.":"")+
+        (data.warning?` ${data.warning}`:"");
+    }
 
     document.getElementById("notifySubject").value="";
     document.getElementById("notifyMessage").value="";
@@ -960,7 +1093,7 @@ document.getElementById("sendCustomerNotificationBtn").addEventListener("click",
     status.textContent=error.message||"Could not send notification.";
   }finally{
     btn.disabled=false;
-    btn.textContent="Send Notification";
+    btn.textContent=notifyAudienceAll.checked ? "Send to All Customers" : "Send Notification";
   }
 });
 
