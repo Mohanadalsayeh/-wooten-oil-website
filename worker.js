@@ -3384,6 +3384,85 @@ async function customerNotificationsGet({ request, env }) {
 __name(customerNotificationsGet, "customerNotificationsGet");
 
 
+
+async function customerNotificationDetailGet({ request, env }) {
+  try {
+    if (!env.DB) {
+      return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
+    }
+
+    const customer = await getCustomerFromSession(request, env);
+    if (!customer) {
+      return notificationJson({
+        success: false,
+        authenticated: false,
+        error: "Customer session was not found."
+      }, 401);
+    }
+
+    await ensureCustomerNotificationsTable(env);
+
+    const url = new URL(request.url);
+    const idPart = url.pathname.split("/").filter(Boolean).pop() || "";
+    const notificationId = Number(idPart);
+
+    if (!Number.isInteger(notificationId) || notificationId <= 0) {
+      return notificationJson({ success: false, error: "Notification was not found." }, 404);
+    }
+
+    const account = normalizeNotificationAccount(customer.account_number);
+
+    const row = await env.DB.prepare(`
+      SELECT id, title, message, read_at, created_at
+      FROM portal_notifications
+      WHERE id = ? AND account_number = ?
+      LIMIT 1
+    `).bind(notificationId, account).first();
+
+    if (!row) {
+      return notificationJson({ success: false, error: "Notification was not found." }, 404);
+    }
+
+    const attachmentResult = await env.DB.prepare(`
+      SELECT id, filename, content_type, size_bytes
+      FROM portal_notification_attachments
+      WHERE notification_id = ? AND account_number = ?
+      ORDER BY id ASC
+    `).bind(notificationId, account).all();
+
+    const attachments = (attachmentResult?.results || []).map((attachment) => ({
+      id: attachment.id,
+      filename: attachment.filename || "Attachment",
+      content_type: attachment.content_type || "application/octet-stream",
+      size_bytes: Number(attachment.size_bytes || 0),
+      url: `/api/customer/notification-attachments/${encodeURIComponent(attachment.id)}`
+    }));
+
+    return notificationJson({
+      success: true,
+      authenticated: true,
+      notification: {
+        id: row.id,
+        title: row.title || "Wooten Oil",
+        message: row.message || "",
+        created_at: row.created_at,
+        read: !!row.read_at,
+        sender_name: "Wooten Oil Co Inc.",
+        sender_email: "support@wootenoil.com",
+        recipient_email: String(customer.email || ""),
+        attachments
+      }
+    });
+  } catch (error) {
+    console.error("customerNotificationDetailGet failed", error);
+    return notificationJson({
+      success: false,
+      error: "Notification could not be opened. " + String(error?.message || error)
+    }, 500);
+  }
+}
+__name(customerNotificationDetailGet, "customerNotificationDetailGet");
+
 async function customerNotificationAttachmentGet({ request, env }) {
   try {
     if (!env.DB || !env.NOTIFICATION_ATTACHMENTS) {
@@ -3841,6 +3920,13 @@ var worker_default = {
     if (url.pathname === "/api/customer/notifications") {
       if (request.method === "GET") {
         return customerNotificationsGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname.startsWith("/api/customer/notifications/detail/")) {
+      if (request.method === "GET") {
+        return customerNotificationDetailGet({ request, env });
       }
       return methodNotAllowed();
     }

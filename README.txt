@@ -1,18 +1,22 @@
-WOOTEN OIL NOTIFICATION CLICK FIX
+WOOTEN OIL NOTIFICATION EXACT-DETAIL FIX
 
 Replace:
 - index.html
 - admin-customers.html
 - worker.js
 
-Actual root cause fixed:
-The notification popup code called formatDate(), but formatDate() was declared in a
-different <script> block. JavaScript variables/functions declared inside that other
-IIFE are not visible to the Customer Portal script. Clicking a notification therefore
-threw "ReferenceError: formatDate is not defined" before the popup could open.
+This version simplifies the customer notification flow:
 
-This version adds a date formatter inside the Customer Portal script itself and uses
-that local function.
+1. Customer clicks a notification.
+2. The popup opens immediately using the exact subject/body already visible in the dropdown.
+3. The page calls a dedicated secure endpoint for that one notification:
+   /api/customer/notifications/detail/{notification_id}
+4. The Worker verifies the signed-in customer owns that notification.
+5. The response contains the complete message body and that notification's attachments.
+6. The popup refreshes with the exact server data.
+7. Attachment Open continues to use the secure R2 endpoint.
 
-No Cloudflare configuration changes are required.
-Keep the existing NOTIFICATION_ATTACHMENTS R2 binding in wrangler.jsonc.
+This removes dependency on cross-script caches and fragile HTML data attributes for full notification content.
+
+No Cloudflare setting changes are needed.
+Keep the permanent NOTIFICATION_ATTACHMENTS R2 binding in wrangler.jsonc.

@@ -2050,6 +2050,32 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-detail-final-style">
+.customer-notification-popup-message{
+  display:block !important;
+  min-height:32px !important;
+  margin:18px 0 0 !important;
+  color:#334155 !important;
+  font-size:.98rem !important;
+  line-height:1.7 !important;
+  white-space:pre-wrap !important;
+  overflow-wrap:anywhere !important;
+}
+.customer-notification-popup-message:empty::before{
+  content:"No message body.";
+  color:#94a3b8;
+  font-style:italic;
+}
+.customer-notification-attachments.show{
+  display:block !important;
+}
+.customer-notification-attachment{
+  position:relative;
+  z-index:1;
+}
+</style>
+
 </head>
 <body>
 
@@ -3588,7 +3614,7 @@ input[type="reset"]:focus,
 
     if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=notification.title || 'Wooten Oil';
     if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=notification.message || '';
-    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=formatNotificationPopupDate(notification.created_at);
+    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=notification.display_date || formatNotificationPopupDate(notification.created_at);
     if(customerNotificationPopupFrom){
       customerNotificationPopupFrom.textContent=
         (notification.sender_name||'Wooten Oil Co Inc.')+
@@ -3619,79 +3645,83 @@ input[type="reset"]:focus,
     document.body.style.overflow='hidden';
   }
 
-  function notificationFromItemAttributes(item){
+  function notificationFromClickedItem(item){
     if(!item) return null;
-    var attachments=[];
-    try{
-      attachments=JSON.parse(decodeURIComponent(item.getAttribute('data-notification-attachments')||'%5B%5D'));
-    }catch(e){attachments=[];}
+
+    var titleEl=item.querySelector('strong');
+    var messageEl=item.querySelector('p');
+    var dateEl=item.querySelector('time');
 
     return {
       id:item.getAttribute('data-notification-id')||'',
-      title:item.getAttribute('data-notification-title')||'Wooten Oil',
-      message:item.getAttribute('data-notification-message')||'',
-      created_at:item.getAttribute('data-notification-created-at')||'',
+      title:(titleEl && titleEl.textContent) || item.getAttribute('data-notification-title') || 'Wooten Oil',
+      message:(messageEl && messageEl.textContent) || item.getAttribute('data-notification-message') || '',
+      created_at:item.getAttribute('data-notification-created-at') || '',
+      display_date:(dateEl && dateEl.textContent) || item.getAttribute('data-notification-date') || '',
       sender_name:'Wooten Oil Co Inc.',
       sender_email:'support@wootenoil.com',
       recipient_email:item.getAttribute('data-notification-to')||'',
-      attachments:attachments
+      attachments:[]
     };
   }
 
-  async function openCustomerNotificationById(id,item){
-    var notification=null;
-    var wanted=String(id||'');
+  async function loadExactCustomerNotification(id){
+    var response=await fetch('/api/customer/notifications/detail/'+encodeURIComponent(id),{
+      method:'GET',
+      credentials:'same-origin',
+      cache:'no-store',
+      headers:{'Accept':'application/json'}
+    });
 
-    /* The notification-center cache is shared through window because it lives
-       in a separate <script> scope from this Customer Portal script. */
-    var sharedCache=Array.isArray(window.wootenNotificationCache)
-      ? window.wootenNotificationCache
-      : [];
+    var data=await response.json().catch(function(){return {};});
 
-    if(sharedCache.length){
-      notification=sharedCache.find(function(n){
-        return String(n.id||'')===wanted;
-      })||null;
+    if(!response.ok || data.success===false || !data.notification){
+      throw new Error(data.error || 'Notification could not be opened.');
     }
 
-    /* If the shared cache is stale/missing, refresh directly from the server. */
-    if(!notification && wanted){
-      try{
-        var response=await fetch('/api/customer/notifications',{
-          method:'GET',
-          credentials:'same-origin',
-          cache:'no-store',
-          headers:{'Accept':'application/json'}
-        });
-        var data=await response.json().catch(function(){return {};});
-        if(response.ok && data.success!==false && Array.isArray(data.notifications)){
-          window.wootenNotificationCache=data.notifications;
-          notification=data.notifications.find(function(n){
-            return String(n.id||'')===wanted;
-          })||null;
-        }
-      }catch(e){
-        console.error('Could not refresh customer notification',e);
+    return data.notification;
+  }
+
+  async function openCustomerNotificationPopup(item){
+    if(!item) return;
+
+    var id=item.getAttribute('data-notification-id')||'';
+    var fallback=notificationFromClickedItem(item);
+
+    /* Always open immediately using exactly what the customer can already see
+       in the dropdown. This guarantees the subject/body do not disappear. */
+    if(fallback){
+      renderCustomerNotificationPopup(fallback);
+
+      if(customerNotificationPopupDate && fallback.display_date){
+        customerNotificationPopupDate.textContent=fallback.display_date;
+      }
+
+      if(customerNotificationPopupAttachments){
+        customerNotificationPopupAttachments.classList.remove('show');
       }
     }
 
-    if(!notification) notification=notificationFromItemAttributes(item);
-    if(!notification) return;
+    if(!id) return;
 
-    renderCustomerNotificationPopup(notification);
-  }
+    try{
+      var fullNotification=await loadExactCustomerNotification(id);
+      renderCustomerNotificationPopup(fullNotification);
+    }catch(error){
+      console.error('Notification detail load failed',error);
 
-  function openCustomerNotificationPopup(item){
-    var id=item && item.getAttribute ? item.getAttribute('data-notification-id') : '';
-
-    /* Open immediately from the list data, then refresh with the full server object.
-       This makes the click feel instant and the server response fills body/attachments. */
-    var fallback=notificationFromItemAttributes(item);
-    if(fallback) renderCustomerNotificationPopup(fallback);
-
-    openCustomerNotificationById(id,item).catch(function(error){
-      console.error('Notification open failed',error);
-    });
+      /* Keep the visible fallback message open. Show a useful attachment error
+         instead of closing or blanking the popup. */
+      if(customerNotificationPopupAttachments){
+        customerNotificationPopupAttachments.classList.add('show');
+      }
+      if(customerNotificationPopupAttachmentList){
+        customerNotificationPopupAttachmentList.innerHTML=
+          '<div style="padding:11px 12px;border:1px solid #fecaca;background:#fff7f7;border-radius:10px;color:#991b1b;font-size:.85rem">'+
+          'The full notification details could not be loaded. Please refresh the page and try again.'+
+          '</div>';
+      }
+    }
   }
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
 
