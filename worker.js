@@ -2395,52 +2395,52 @@ async function gmailTestMessages({
   try {
     const url = new URL(request.url);
 
-if (url.pathname === "/api/admin/gmail-inbox") {
-  const suppliedAdminKey =
-    request.headers.get("X-Admin-Key") || "";
+    if (url.pathname === "/api/admin/gmail-inbox") {
+      const suppliedAdminKey =
+        request.headers.get("X-Admin-Key") || "";
 
-  if (
-    !env.ADMIN_IMPORT_KEY ||
-    suppliedAdminKey !== env.ADMIN_IMPORT_KEY
-  ) {
-    return json7(
-      {
-        success: false,
-        error: "Unauthorized."
-      },
-      401
-    );
-  }
-} else {
-  const suppliedKey =
-    url.searchParams.get("key") || "";
+      if (
+        !env.ADMIN_IMPORT_KEY ||
+        suppliedAdminKey !== env.ADMIN_IMPORT_KEY
+      ) {
+        return json7(
+          {
+            success: false,
+            error: "Unauthorized."
+          },
+          401
+        );
+      }
+    } else {
+      const suppliedKey =
+        url.searchParams.get("key") || "";
 
-  const setupKey = requiredEnv(
-    env,
-    "GMAIL_SETUP_KEY"
-  );
+      const setupKey = requiredEnv(
+        env,
+        "GMAIL_SETUP_KEY"
+      );
 
-  if (
-    !constantTimeEqual(
-      suppliedKey,
-      setupKey
-    )
-  ) {
-    return json7(
-      {
-        success: false,
-        error: "Unauthorized."
-      },
-      401
-    );
-  }
-}
+      if (
+        !constantTimeEqual(
+          suppliedKey,
+          setupKey
+        )
+      ) {
+        return json7(
+          {
+            success: false,
+            error: "Unauthorized."
+          },
+          401
+        );
+      }
+    }
 
     const accessToken =
       await getGmailAccessToken(env);
 
     const listResponse = await fetch(
-      "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10",
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25",
       {
         headers: {
           Authorization:
@@ -2463,6 +2463,71 @@ if (url.pathname === "/api/admin/gmail-inbox") {
       listData.messages || [];
 
     const messages = [];
+
+    const extractEmail = (value = "") => {
+      const text = String(value || "").trim();
+      const bracket = text.match(/<([^<>@\s]+@[^<>@\s]+)>/);
+      if (bracket) return bracket[1].trim().toLowerCase();
+      const plain = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+      return plain ? plain[0].trim().toLowerCase() : "";
+    };
+
+    const extractLabeledValue = (snippet = "", label = "", stopLabels = []) => {
+      const text = String(snippet || "");
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const stops = stopLabels
+        .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("|");
+      const pattern = stops
+        ? new RegExp(`${escaped}\\s*:?\\s*(.+?)(?=\\s+(?:${stops})\\s*:?|$)`, "i")
+        : new RegExp(`${escaped}\\s*:?\\s*(.+)$`, "i");
+      const match = text.match(pattern);
+      return match ? String(match[1] || "").trim() : "";
+    };
+
+    const findCustomer = async ({
+      email = "",
+      name = "",
+      accountNumber = ""
+    } = {}) => {
+      if (!env.DB) return null;
+
+      const normalizedAccount = String(accountNumber || "")
+        .replace(/\D/g, "")
+        .padStart(7, "0");
+
+      if (normalizedAccount && normalizedAccount !== "0000000") {
+        const byAccount = await env.DB.prepare(`
+          SELECT account_number, account_name, email
+          FROM customers
+          WHERE account_number = ?
+          LIMIT 1
+        `).bind(normalizedAccount).first();
+        if (byAccount) return byAccount;
+      }
+
+      if (email) {
+        const byEmail = await env.DB.prepare(`
+          SELECT account_number, account_name, email
+          FROM customers
+          WHERE lower(email) = lower(?)
+          LIMIT 1
+        `).bind(email).first();
+        if (byEmail) return byEmail;
+      }
+
+      if (name) {
+        const byName = await env.DB.prepare(`
+          SELECT account_number, account_name, email
+          FROM customers
+          WHERE lower(trim(account_name)) = lower(trim(?))
+          LIMIT 1
+        `).bind(name).first();
+        if (byName) return byName;
+      }
+
+      return null;
+    };
 
     for (const item of messageIds) {
       const messageResponse =
@@ -2497,34 +2562,84 @@ if (url.pathname === "/api/admin/gmail-inbox") {
       };
 
       const fromValue = header("From");
-const toValue = header("To");
-const subjectValue = header("Subject");
+      const toValue = header("To");
+      const subjectValue = header("Subject");
+      const snippetValue = message.snippet || "";
 
-const fromLower = fromValue.toLowerCase();
-const subjectLower = subjectValue.toLowerCase();
+      const fromLower = fromValue.toLowerCase();
+      const subjectLower = subjectValue.toLowerCase();
 
-const isFuelRequest =
-  fromLower.includes("fuel@wootenoil.com") ||
-  subjectLower.includes("fuel delivery request");
+      const isFuelRequest =
+        fromLower.includes("fuel@wootenoil.com") ||
+        subjectLower.includes("fuel delivery request");
 
-const isWebsiteMessage =
-  subjectLower.includes("website message") ||
-  subjectLower.includes("new website message");
+      const isWebsiteMessage =
+        subjectLower.includes("website message") ||
+        subjectLower.includes("new website message");
 
-if (!isFuelRequest && !isWebsiteMessage) {
-  continue;
-}
+      if (!isFuelRequest && !isWebsiteMessage) {
+        continue;
+      }
 
-  messages.push({
-  id: message.id,
-  threadId: message.threadId,
-  type: isFuelRequest ? "Fuel Request" : "Website Message",
-  from: fromValue,
-  to: toValue,
-  subject: subjectValue,
-  date: header("Date"),
-  snippet: message.snippet || ""
-});
+      let customerEmail = "";
+      let customerName = "";
+      let accountNumber = "";
+
+      if (isFuelRequest) {
+        customerEmail = extractEmail(
+          extractLabeledValue(
+            snippetValue,
+            "Customer Email",
+            ["Delivery Address", "Fuel Type", "Estimated Gallons", "Preferred Delivery Date", "Additional Notes"]
+          )
+        );
+
+        customerName = extractLabeledValue(
+          snippetValue,
+          "Customer / Company Name",
+          ["Phone Number", "Customer Email", "Delivery Address"]
+        );
+      } else {
+        customerEmail = extractEmail(
+          extractLabeledValue(
+            snippetValue,
+            "Email",
+            ["Phone", "Subject", "Message", "Received"]
+          )
+        );
+
+        customerName = extractLabeledValue(
+          snippetValue,
+          "Name",
+          ["Email", "Phone", "Subject", "Message"]
+        );
+      }
+
+      const customer = await findCustomer({
+        email: customerEmail,
+        name: customerName,
+        accountNumber
+      });
+
+      if (customer) {
+        accountNumber = customer.account_number || "";
+        customerName = customer.account_name || customerName || "";
+        customerEmail = customer.email || customerEmail || "";
+      }
+
+      messages.push({
+        id: message.id,
+        threadId: message.threadId,
+        type: isFuelRequest ? "Fuel Request" : "Website Message",
+        customer_name: customerName || "",
+        account_number: accountNumber || "",
+        customer_email: customerEmail || "",
+        from: fromValue,
+        to: toValue,
+        subject: subjectValue,
+        date: header("Date"),
+        snippet: snippetValue
+      });
     }
 
     return json7({
