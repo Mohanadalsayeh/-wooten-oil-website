@@ -1,21 +1,17 @@
-WOOTEN OIL NOTIFICATION POPUP FIX
+WOOTEN OIL NOTIFICATION CONTENT + ATTACHMENT FIX
 
 Replace:
 - index.html
 - admin-customers.html
 - worker.js
 
-Cause fixed:
-The full notification popup HTML was located after the Customer Portal JavaScript.
-When the JavaScript loaded, document.getElementById(...) returned null for the popup,
-so clicking a notification could not open anything.
+What changed:
+- Clicking a notification now uses the real notification object returned by /api/customer/notifications.
+- The popup no longer depends on message/attachment data stored only in HTML attributes.
+- If needed, the page refreshes notifications from the server before opening the popup.
+- The full message body is rendered directly from the API response.
+- Attachment metadata is rendered directly from the API response.
+- Existing secure R2 attachment opening is preserved.
+- Existing R2 wrangler.jsonc binding stays unchanged.
 
-Fix:
-- The notification popup HTML now loads before the Customer Portal script.
-- The popup code also re-queries the DOM defensively before opening.
-- Attachment click handling is bound defensively.
-- Existing notification bell, R2 attachment storage, admin notification sending,
-  password reset, and other current features are preserved.
-
-No Cloudflare setting changes are required.
-Keep the permanent wrangler.jsonc R2 binding.
+No Cloudflare settings need to be changed.

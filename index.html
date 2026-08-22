@@ -2032,6 +2032,24 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-popup-content-fix">
+.customer-notification-popup-message{
+  display:block !important;
+  min-height:28px !important;
+  margin:18px 0 0 !important;
+  padding:0 !important;
+  color:#334155 !important;
+  font-size:.98rem !important;
+  line-height:1.7 !important;
+  white-space:pre-wrap !important;
+  overflow-wrap:anywhere !important;
+}
+.customer-notification-attachments.show{
+  display:block !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -3538,7 +3556,7 @@ input[type="reset"]:focus,
     return (n/(1024*1024)).toFixed(1)+' MB';
   }
 
-  function openCustomerNotificationPopup(item){
+  function renderCustomerNotificationPopup(notification){
     if(!customerNotificationPopup){
       customerNotificationPopup=document.getElementById('customerNotificationPopup');
       customerNotificationPopupClose=document.getElementById('customerNotificationPopupClose');
@@ -3550,17 +3568,19 @@ input[type="reset"]:focus,
       customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
       customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
     }
-    if(!item || !customerNotificationPopup) return;
-    if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=item.getAttribute('data-notification-title') || 'Wooten Oil';
-    if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=item.getAttribute('data-notification-message') || '';
-    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=item.getAttribute('data-notification-date') || '';
-    if(customerNotificationPopupFrom) customerNotificationPopupFrom.textContent=item.getAttribute('data-notification-from') || 'Wooten Oil Co Inc. <support@wootenoil.com>';
-    if(customerNotificationPopupTo) customerNotificationPopupTo.textContent=item.getAttribute('data-notification-to') || '';
+    if(!notification || !customerNotificationPopup) return;
 
-    var attachments=[];
-    try{
-      attachments=JSON.parse(decodeURIComponent(item.getAttribute('data-notification-attachments')||'%5B%5D'));
-    }catch(e){attachments=[];}
+    if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=notification.title || 'Wooten Oil';
+    if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=notification.message || '';
+    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=formatDate(notification.created_at);
+    if(customerNotificationPopupFrom){
+      customerNotificationPopupFrom.textContent=
+        (notification.sender_name||'Wooten Oil Co Inc.')+
+        ' <'+(notification.sender_email||'support@wootenoil.com')+'>';
+    }
+    if(customerNotificationPopupTo) customerNotificationPopupTo.textContent=notification.recipient_email || '';
+
+    var attachments=Array.isArray(notification.attachments)?notification.attachments:[];
 
     if(customerNotificationPopupAttachmentList){
       customerNotificationPopupAttachmentList.innerHTML=attachments.map(function(a){
@@ -3573,6 +3593,7 @@ input[type="reset"]:focus,
           '</button>';
       }).join('');
     }
+
     if(customerNotificationPopupAttachments){
       customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0);
     }
@@ -3580,6 +3601,62 @@ input[type="reset"]:focus,
     bindCustomerNotificationAttachmentList();
     customerNotificationPopup.classList.add('show');
     document.body.style.overflow='hidden';
+  }
+
+  function notificationFromItemAttributes(item){
+    if(!item) return null;
+    var attachments=[];
+    try{
+      attachments=JSON.parse(decodeURIComponent(item.getAttribute('data-notification-attachments')||'%5B%5D'));
+    }catch(e){attachments=[];}
+
+    return {
+      id:item.getAttribute('data-notification-id')||'',
+      title:item.getAttribute('data-notification-title')||'Wooten Oil',
+      message:item.getAttribute('data-notification-message')||'',
+      created_at:item.getAttribute('data-notification-created-at')||'',
+      sender_name:'Wooten Oil Co Inc.',
+      sender_email:'support@wootenoil.com',
+      recipient_email:item.getAttribute('data-notification-to')||'',
+      attachments:attachments
+    };
+  }
+
+  async function openCustomerNotificationById(id,item){
+    var notification=null;
+    var wanted=String(id||'');
+
+    /* First use the actual API object already cached by the notification center. */
+    if(Array.isArray(cachedItems)){
+      notification=cachedItems.find(function(n){return String(n.id||'')===wanted;})||null;
+    }
+
+    /* If cache is stale/missing, refresh directly from the server. */
+    if(!notification && wanted){
+      try{
+        var response=await fetch('/api/customer/notifications',{
+          method:'GET',
+          credentials:'same-origin',
+          cache:'no-store',
+          headers:{'Accept':'application/json'}
+        });
+        var data=await response.json().catch(function(){return {};});
+        if(response.ok && data.success!==false && Array.isArray(data.notifications)){
+          cachedItems=data.notifications;
+          notification=data.notifications.find(function(n){return String(n.id||'')===wanted;})||null;
+        }
+      }catch(e){}
+    }
+
+    if(!notification) notification=notificationFromItemAttributes(item);
+    if(!notification) return;
+
+    renderCustomerNotificationPopup(notification);
+  }
+
+  function openCustomerNotificationPopup(item){
+    var id=item && item.getAttribute ? item.getAttribute('data-notification-id') : '';
+    openCustomerNotificationById(id,item);
   }
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
 
@@ -4083,6 +4160,7 @@ input[type="reset"]:focus,
           '" data-notification-title="'+escapeHtml(n.title||'Wooten Oil')+
           '" data-notification-message="'+escapeHtml(n.message||'')+
           '" data-notification-date="'+escapeHtml(formatDate(n.created_at))+
+          '" data-notification-created-at="'+escapeHtml(n.created_at||'')+
           '" data-notification-from="'+escapeHtml((n.sender_name||'Wooten Oil Co Inc.')+' <'+(n.sender_email||'support@wootenoil.com')+'>')+
           '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
           '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
@@ -4102,6 +4180,7 @@ input[type="reset"]:focus,
           '" data-notification-title="'+escapeHtml(n.title||'Wooten Oil')+
           '" data-notification-message="'+escapeHtml(n.message||'')+
           '" data-notification-date="'+escapeHtml(formatDate(n.created_at))+
+          '" data-notification-created-at="'+escapeHtml(n.created_at||'')+
           '" data-notification-from="'+escapeHtml((n.sender_name||'Wooten Oil Co Inc.')+' <'+(n.sender_email||'support@wootenoil.com')+'>')+
           '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
           '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
