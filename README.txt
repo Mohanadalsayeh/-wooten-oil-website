@@ -1,31 +1,32 @@
-WOOTEN OIL NOTIFICATION POPUP COMPLETE DOM FIX
+WOOTEN OIL — LIVE CUSTOMER DATABASE ADMIN VIEW
 
 Replace:
-- index.html
 - admin-customers.html
 - worker.js
+- index.html  (included unchanged from the current master so the ZIP remains a complete matching set)
 
-ACTUAL PROBLEM FOUND:
-The notification popup HTML had accidentally been split into two pieces.
+New Admin tab:
+DATABASE
 
-The first half (title, date, From, To) loaded BEFORE the Customer Portal JavaScript.
-The second half (Message body and Attachments) was located hundreds of lines later,
-AFTER the JavaScript.
+How to use:
+1. Enter the Admin Import Key at the top.
+2. Open Database.
+3. Click Load Database.
+4. Search/filter/sort the live Cloudflare D1 customer records.
 
-That exactly explains the behavior:
-- Subject displayed
-- Date displayed
-- From / To displayed
-- Message body missing
-- Attachment section missing
+Available filters:
+- Search: customer #, name, email, phone, city, state, ZIP
+- Email: all / with email / without email
+- Online account: all / activated / not activated
+- Account status: all / active / inactive-other
+- Sort: customer #, name, balance, updated date
 
-This version reconstructs the popup as ONE complete HTML block:
-Title -> Date -> From/To -> Message -> Attachments
+The table is READ ONLY.
+It does not modify customer records.
+It loads 50 records per page and uses server-side search/filter/sort/pagination.
 
-The entire popup now exists in the DOM BEFORE the Customer Portal JavaScript initializes.
+Protected endpoint:
+GET /api/admin/customers-database
+Requires the existing X-Admin-Key / ADMIN_IMPORT_KEY.
 
-No D1 migration or Cloudflare setting change is needed.
-Keep the NOTIFICATION_ATTACHMENTS R2 binding in wrangler.jsonc.
-
-You can test the SAME existing notification again after deployment.
-You do not need to send a new notification just to test this fix.
+No Cloudflare binding, D1 migration, or wrangler.jsonc changes are required.

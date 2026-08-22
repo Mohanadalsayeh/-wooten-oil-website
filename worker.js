@@ -3823,6 +3823,141 @@ async function adminGmailPortalSyncStatus({request,env}) {
 }
 __name(adminGmailPortalSyncStatus,"adminGmailPortalSyncStatus");
 
+
+async function adminCustomersDatabaseGet({ request, env }) {
+  try {
+    const supplied = request.headers.get("X-Admin-Key") || "";
+    if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized." }), {
+        status: 401,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+    if (!env.DB) {
+      return new Response(JSON.stringify({ success: false, error: "Customer database is not configured." }), {
+        status: 503,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    const url = new URL(request.url);
+    const page = Math.max(1, Math.min(100000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
+    const pageSize = Math.max(10, Math.min(100, Number.parseInt(url.searchParams.get("page_size") || "50", 10) || 50));
+    const search = String(url.searchParams.get("search") || "").trim().slice(0, 160);
+    const email = String(url.searchParams.get("email") || "all");
+    const online = String(url.searchParams.get("online") || "all");
+    const status = String(url.searchParams.get("status") || "all");
+    const sort = String(url.searchParams.get("sort") || "account_asc");
+
+    const where = [];
+    const args = [];
+
+    if (search) {
+      const q = `%${search}%`;
+      where.push(`(
+        account_number LIKE ? OR
+        account_name LIKE ? OR
+        email LIKE ? OR
+        phone LIKE ? OR
+        city LIKE ? OR
+        state LIKE ? OR
+        zip_code LIKE ?
+      )`);
+      args.push(q, q, q, q, q, q, q);
+    }
+
+    if (email === "with") {
+      where.push(`email IS NOT NULL AND trim(email) <> ''`);
+    } else if (email === "without") {
+      where.push(`email IS NULL OR trim(email) = ''`);
+    }
+
+    if (online === "activated") {
+      where.push(`password_hash IS NOT NULL AND trim(password_hash) <> ''`);
+    } else if (online === "not_activated") {
+      where.push(`password_hash IS NULL OR trim(password_hash) = ''`);
+    }
+
+    if (status === "active") {
+      where.push(`(account_status IS NULL OR trim(account_status) = '' OR lower(trim(account_status)) = 'active')`);
+    } else if (status === "inactive") {
+      where.push(`account_status IS NOT NULL AND trim(account_status) <> '' AND lower(trim(account_status)) <> 'active'`);
+    }
+
+    const sortSql = {
+      account_asc: "account_number ASC",
+      account_desc: "account_number DESC",
+      name_asc: "account_name COLLATE NOCASE ASC, account_number ASC",
+      name_desc: "account_name COLLATE NOCASE DESC, account_number ASC",
+      balance_desc: "COALESCE(current_balance,0) DESC, account_number ASC",
+      balance_asc: "COALESCE(current_balance,0) ASC, account_number ASC",
+      updated_desc: "datetime(updated_at) DESC, account_number ASC"
+    }[sort] || "account_number ASC";
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const countRow = await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM customers
+      ${whereSql}
+    `).bind(...args).first();
+
+    const total = Number(countRow?.total || 0);
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, pages);
+    const offset = (safePage - 1) * pageSize;
+
+    const result = await env.DB.prepare(`
+      SELECT
+        account_number,
+        account_name,
+        email,
+        phone,
+        city,
+        state,
+        zip_code,
+        current_balance,
+        aging_category_1,
+        aging_category_2,
+        aging_category_3,
+        aging_category_4,
+        account_status,
+        CASE
+          WHEN password_hash IS NOT NULL AND trim(password_hash) <> '' THEN 1
+          ELSE 0
+        END AS online_activated,
+        updated_at
+      FROM customers
+      ${whereSql}
+      ORDER BY ${sortSql}
+      LIMIT ? OFFSET ?
+    `).bind(...args, pageSize, offset).all();
+
+    return new Response(JSON.stringify({
+      success: true,
+      read_only: true,
+      page: safePage,
+      page_size: pageSize,
+      total,
+      pages,
+      customers: result?.results || []
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  } catch (error) {
+    console.error("adminCustomersDatabaseGet failed", error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: "Could not load customer database. " + String(error?.message || error)
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+}
+__name(adminCustomersDatabaseGet, "adminCustomersDatabaseGet");
+
 function methodNotAllowed() {
   return new Response(
     JSON.stringify({
@@ -3874,6 +4009,13 @@ var worker_default = {
       }
       return methodNotAllowed();
     }
+    if (url.pathname === "/api/admin/customers-database") {
+      if (request.method === "GET") {
+        return adminCustomersDatabaseGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
     if (url.pathname === "/api/admin/customers-import") {
       if (request.method === "POST") {
         return onRequestPost3({

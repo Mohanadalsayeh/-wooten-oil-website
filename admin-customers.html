@@ -564,6 +564,104 @@ input[type="file"]::file-selector-button{
 .notify-attachment-box.disabled{opacity:.55}
 </style>
 
+
+<style id="wooten-live-database-style">
+.db-toolbar{
+  display:grid;
+  grid-template-columns:minmax(220px,1.7fr) repeat(3,minmax(150px,.8fr)) minmax(170px,.9fr) auto;
+  gap:10px;
+  align-items:end;
+  margin:18px 0 12px;
+}
+.db-toolbar .db-field{min-width:0}
+.db-toolbar label{display:block;margin:0 0 6px}
+.db-toolbar input,.db-toolbar select{width:100%}
+.db-actions{display:flex;gap:8px;align-items:center}
+.db-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px 18px;
+  align-items:center;
+  justify-content:space-between;
+  margin:12px 0 10px;
+  color:#64748b;
+  font-size:13px;
+}
+.db-meta strong{color:#0b2239;font-weight:500}
+.db-live-dot{
+  display:inline-block;
+  width:8px;height:8px;border-radius:50%;
+  margin-right:6px;background:#16a34a;vertical-align:1px
+}
+.db-tablewrap{
+  overflow:auto;
+  max-height:590px;
+  border:1px solid #dbe3eb;
+  border-radius:12px;
+  background:#fff;
+}
+.db-table{
+  width:100%;
+  min-width:1450px;
+  border-collapse:separate;
+  border-spacing:0;
+}
+.db-table th{
+  position:sticky;top:0;z-index:2;
+  background:#f8fafc;
+  color:#334155;
+  font-size:12px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.035em;
+  border-bottom:1px solid #dbe3eb;
+  padding:11px 12px;
+  white-space:nowrap;
+  text-align:left;
+}
+.db-table td{
+  padding:10px 12px;
+  border-bottom:1px solid #edf1f4;
+  color:#334155;
+  font-size:13px;
+  vertical-align:top;
+  white-space:nowrap;
+}
+.db-table tbody tr:last-child td{border-bottom:0}
+.db-table tbody tr:hover td{background:#fbfdff}
+.db-table .money{text-align:right;font-variant-numeric:tabular-nums}
+.db-table .account{font-variant-numeric:tabular-nums;color:#0b2239}
+.db-table .email-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.db-badge{
+  display:inline-flex;align-items:center;
+  min-height:24px;padding:3px 8px;
+  border-radius:999px;font-size:11px;line-height:1;
+  border:1px solid #dbe3eb;background:#f8fafc;color:#475569
+}
+.db-badge.good{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+.db-badge.muted{border-color:#e2e8f0;background:#f8fafc;color:#64748b}
+.db-badge.warn{border-color:#fed7aa;background:#fff7ed;color:#9a3412}
+.db-pagination{
+  display:flex;align-items:center;justify-content:flex-end;
+  gap:10px;margin-top:12px
+}
+.db-page-info{font-size:13px;color:#64748b;min-width:120px;text-align:center}
+.db-empty{
+  padding:34px 18px;text-align:center;color:#64748b
+}
+@media(max-width:1050px){
+  .db-toolbar{grid-template-columns:1fr 1fr 1fr}
+  .db-toolbar .db-search{grid-column:1/-1}
+}
+@media(max-width:680px){
+  .db-toolbar{grid-template-columns:1fr}
+  .db-toolbar .db-search{grid-column:auto}
+  .db-actions{justify-content:stretch}
+  .db-actions button{flex:1}
+  .db-meta{align-items:flex-start;flex-direction:column}
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -572,7 +670,7 @@ input[type="file"]::file-selector-button{
     <div>
       <div class="admin-brand-kicker">Wooten Oil</div>
       <h1>Customer Administration</h1>
-      <p>Use the tabs below to manage customers, messages, notifications, Gmail synchronization, and online account activation.</p>
+      <p>Use the tabs below to manage customers, preview the live database, messages, notifications, Gmail synchronization, and online account activation.</p>
     </div>
     <div class="admin-key-box">
       <label for="adminKey">Admin Import Key</label>
@@ -583,6 +681,7 @@ input[type="file"]::file-selector-button{
   <div class="admin-tabs-shell">
     <nav class="admin-tabs" role="tablist" aria-label="Wooten Oil admin pages">
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-customers" data-admin-tab="customers">Customers</button>
+      <button class="admin-tab" id="admin-tab-btn-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-database" data-admin-tab="database">Database</button>
       <button class="admin-tab" id="admin-tab-btn-messages" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-messages" data-admin-tab="messages">Customer Messages</button>
       <button class="admin-tab" id="admin-tab-btn-gmail" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-gmail" data-admin-tab="gmail">Gmail Sync</button>
       <button class="admin-tab" id="admin-tab-btn-notifications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-notifications" data-admin-tab="notifications">Notifications</button>
@@ -629,6 +728,102 @@ input[type="file"]::file-selector-button{
     <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
   </div>
 
+
+  
+  <div class="card admin-tab-panel" id="admin-tab-database" role="tabpanel" aria-labelledby="admin-tab-btn-database" data-admin-panel="database">
+    <div class="admin-page-label">Database</div>
+    <h2>Live Customer Database</h2>
+    <p>Read-only view of customer records stored on the server. Enter the Admin Import Key above, then load the database. Search, filter, sort, and page through the live D1 records without changing them.</p>
+
+    <div class="db-toolbar">
+      <div class="db-field db-search">
+        <label for="dbSearch">Search</label>
+        <input id="dbSearch" type="search" placeholder="Customer #, name, email, phone, city…" autocomplete="off">
+      </div>
+
+      <div class="db-field">
+        <label for="dbEmailFilter">Email</label>
+        <select id="dbEmailFilter">
+          <option value="all">All customers</option>
+          <option value="with">With email</option>
+          <option value="without">Without email</option>
+        </select>
+      </div>
+
+      <div class="db-field">
+        <label for="dbOnlineFilter">Online Account</label>
+        <select id="dbOnlineFilter">
+          <option value="all">All</option>
+          <option value="activated">Activated</option>
+          <option value="not_activated">Not activated</option>
+        </select>
+      </div>
+
+      <div class="db-field">
+        <label for="dbStatusFilter">Account Status</label>
+        <select id="dbStatusFilter">
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive / other</option>
+        </select>
+      </div>
+
+      <div class="db-field">
+        <label for="dbSort">Sort</label>
+        <select id="dbSort">
+          <option value="account_asc">Customer # low → high</option>
+          <option value="account_desc">Customer # high → low</option>
+          <option value="name_asc">Name A → Z</option>
+          <option value="name_desc">Name Z → A</option>
+          <option value="balance_desc">Balance high → low</option>
+          <option value="balance_asc">Balance low → high</option>
+          <option value="updated_desc">Recently updated</option>
+        </select>
+      </div>
+
+      <div class="db-actions">
+        <button class="primary" id="dbLoadBtn" type="button">Load Database</button>
+        <button class="secondary" id="dbRefreshBtn" type="button" disabled>Refresh</button>
+      </div>
+    </div>
+
+    <div id="dbStatus" class="status"></div>
+
+    <div class="db-meta" id="dbMeta" style="display:none">
+      <div><span class="db-live-dot"></span><strong id="dbTotal">0</strong> matching customer(s)</div>
+      <div id="dbRange">Showing 0–0</div>
+    </div>
+
+    <div class="db-tablewrap" id="dbTableWrap" style="display:none">
+      <table class="db-table">
+        <thead>
+          <tr>
+            <th>Customer #</th>
+            <th>Customer / Company</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>City</th>
+            <th>State</th>
+            <th class="money">Current Balance</th>
+            <th class="money">Aging 1</th>
+            <th class="money">Aging 2</th>
+            <th class="money">Aging 3</th>
+            <th class="money">Aging 4</th>
+            <th>Status</th>
+            <th>Online Account</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="dbTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="db-pagination" id="dbPagination" style="display:none">
+      <button class="secondary" id="dbPrevBtn" type="button">Previous</button>
+      <div class="db-page-info" id="dbPageInfo">Page 1 of 1</div>
+      <button class="secondary" id="dbNextBtn" type="button">Next</button>
+    </div>
+  </div>
 
   <div class="card admin-tab-panel" id="admin-tab-messages" role="tabpanel" aria-labelledby="admin-tab-btn-messages" data-admin-panel="messages">
     <div class="admin-page-label">Customer Messages</div>
@@ -1566,6 +1761,195 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     alert("Password reset code: "+code);
   }
 });
+
+
+
+/* Live D1 Customer Database — read only */
+(function(){
+  const search=document.getElementById("dbSearch");
+  const emailFilter=document.getElementById("dbEmailFilter");
+  const onlineFilter=document.getElementById("dbOnlineFilter");
+  const statusFilter=document.getElementById("dbStatusFilter");
+  const sort=document.getElementById("dbSort");
+  const loadBtn=document.getElementById("dbLoadBtn");
+  const refreshBtn=document.getElementById("dbRefreshBtn");
+  const status=document.getElementById("dbStatus");
+  const meta=document.getElementById("dbMeta");
+  const totalEl=document.getElementById("dbTotal");
+  const rangeEl=document.getElementById("dbRange");
+  const tableWrap=document.getElementById("dbTableWrap");
+  const tbody=document.getElementById("dbTableBody");
+  const pagination=document.getElementById("dbPagination");
+  const prevBtn=document.getElementById("dbPrevBtn");
+  const nextBtn=document.getElementById("dbNextBtn");
+  const pageInfo=document.getElementById("dbPageInfo");
+
+  if(!loadBtn) return;
+
+  let page=1;
+  const pageSize=50;
+  let loaded=false;
+  let requestSerial=0;
+  let debounceTimer=null;
+
+  function esc(value){
+    return String(value??"").replace(/[&<>"']/g,c=>({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+
+  function money(value){
+    const n=Number(value||0);
+    return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number.isFinite(n)?n:0);
+  }
+
+  function fmtDate(value){
+    if(!value) return "—";
+    const d=new Date(String(value).replace(" ","T")+"Z");
+    if(Number.isNaN(d.getTime())) return esc(value);
+    return d.toLocaleString();
+  }
+
+  function setDbStatus(message,good=false){
+    if(!message){
+      status.className="status";
+      status.textContent="";
+      return;
+    }
+    status.className="status show "+(good?"ok":"bad");
+    status.textContent=message;
+  }
+
+  function buildUrl(){
+    const params=new URLSearchParams({
+      page:String(page),
+      page_size:String(pageSize),
+      search:search.value.trim(),
+      email:emailFilter.value,
+      online:onlineFilter.value,
+      status:statusFilter.value,
+      sort:sort.value
+    });
+    return "/api/admin/customers-database?"+params.toString();
+  }
+
+  function renderRows(rows){
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="14"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML=rows.map(row=>{
+      const acct=row.account_number||"";
+      const online=row.online_activated
+        ? '<span class="db-badge good">Activated</span>'
+        : '<span class="db-badge muted">Not activated</span>';
+      const rawStatus=String(row.account_status||"").trim();
+      const isActive=!rawStatus || rawStatus.toLowerCase()==="active";
+      const statusBadge=isActive
+        ? '<span class="db-badge good">Active</span>'
+        : '<span class="db-badge warn">'+esc(rawStatus)+'</span>';
+
+      return `<tr>
+        <td class="account">${esc(acct)}</td>
+        <td>${esc(row.account_name||"")}</td>
+        <td class="email-cell" title="${esc(row.email||"")}">${esc(row.email||"—")}</td>
+        <td>${esc(row.phone||"—")}</td>
+        <td>${esc(row.city||"—")}</td>
+        <td>${esc(row.state||"—")}</td>
+        <td class="money">${money(row.current_balance)}</td>
+        <td class="money">${money(row.aging_category_1)}</td>
+        <td class="money">${money(row.aging_category_2)}</td>
+        <td class="money">${money(row.aging_category_3)}</td>
+        <td class="money">${money(row.aging_category_4)}</td>
+        <td>${statusBadge}</td>
+        <td>${online}</td>
+        <td>${fmtDate(row.updated_at)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  async function loadDatabase({silent=false}={}){
+    const key=document.getElementById("adminKey").value.trim();
+    if(!key){
+      setDbStatus("Enter your Admin Import Key at the top of the page first.");
+      return;
+    }
+
+    const serial=++requestSerial;
+    loadBtn.disabled=true;
+    refreshBtn.disabled=true;
+    if(!silent){
+      status.className="status show";
+      status.textContent="Loading live customer database…";
+    }
+
+    try{
+      const response=await fetch(buildUrl(),{
+        method:"GET",
+        headers:{"X-Admin-Key":key,"Accept":"application/json"},
+        cache:"no-store"
+      });
+      const data=await response.json().catch(()=>({}));
+      if(serial!==requestSerial) return;
+      if(!response.ok || data.success===false){
+        throw new Error(data.error||"Could not load customer database.");
+      }
+
+      loaded=true;
+      const rows=Array.isArray(data.customers)?data.customers:[];
+      const total=Number(data.total||0);
+      const pages=Math.max(1,Number(data.pages||1));
+      if(page>pages){
+        page=pages;
+        return loadDatabase({silent:true});
+      }
+
+      renderRows(rows);
+      totalEl.textContent=String(total);
+      const start=total ? ((page-1)*pageSize)+1 : 0;
+      const end=total ? Math.min(page*pageSize,total) : 0;
+      rangeEl.textContent=`Showing ${start}–${end}`;
+      pageInfo.textContent=`Page ${page} of ${pages}`;
+      prevBtn.disabled=page<=1;
+      nextBtn.disabled=page>=pages;
+
+      meta.style.display="flex";
+      tableWrap.style.display="block";
+      pagination.style.display="flex";
+      setDbStatus(`Live database loaded. ${total} customer(s) match the current view.`,true);
+    }catch(error){
+      setDbStatus(error.message||"Could not load customer database.");
+    }finally{
+      loadBtn.disabled=false;
+      refreshBtn.disabled=!loaded;
+    }
+  }
+
+  function filtersChanged(){
+    if(!loaded) return;
+    page=1;
+    loadDatabase({silent:true});
+  }
+
+  loadBtn.addEventListener("click",()=>{page=1;loadDatabase();});
+  refreshBtn.addEventListener("click",()=>loadDatabase());
+  emailFilter.addEventListener("change",filtersChanged);
+  onlineFilter.addEventListener("change",filtersChanged);
+  statusFilter.addEventListener("change",filtersChanged);
+  sort.addEventListener("change",filtersChanged);
+  prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:true});}});
+  nextBtn.addEventListener("click",()=>{page++;loadDatabase({silent:true});});
+
+  search.addEventListener("input",()=>{
+    if(!loaded) return;
+    clearTimeout(debounceTimer);
+    debounceTimer=setTimeout(()=>{
+      page=1;
+      loadDatabase({silent:true});
+    },300);
+  });
+})();
 
 
 /* Edge-style admin tab navigation */
