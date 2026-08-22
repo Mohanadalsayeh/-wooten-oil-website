@@ -2069,6 +2069,7 @@ input[type="reset"]:focus,
         <label class="portal-remember"><input id="portal-remember" type="checkbox" /> Remember me</label>
         <button class="portal-forgot" id="portalForgotPassword" type="button" style="border:0;background:transparent;padding:0;cursor:pointer;font:inherit">Forgot password?</button>
       </div>
+      <button class="portal-secondary-btn" id="portalUseResetCode" type="button" style="width:100%;margin-top:10px">Use a Wooten Oil Reset Code</button>
       <div id="portalStatus" class="portal-status" role="status" aria-live="polite"></div>
       <button class="portal-signin" id="portalSignIn" type="submit">Sign In</button>
       <button class="portal-activate-link" id="portalActivateLink" type="button">First time here? Activate Online Account</button>
@@ -2119,7 +2120,7 @@ input[type="reset"]:focus,
     <a class="portal-close" href="#top" aria-label="Close password reset">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
     <h2>Reset Password</h2>
-    <p>Enter the <strong>email address or Customer Number</strong> on your account. If an email is on file, we will send a 6-digit reset code. If text-message recovery is enabled and no email is available, we can send the code to the phone number on file.</p>
+    <p>Enter the <strong>email address or Customer Number</strong> on your account. You can have Wooten Oil send you a reset code, or if Wooten Oil already gave you a 6-digit reset code, choose <strong>I already have a Reset Code</strong> below.</p>
 
     <div class="portal-activation-step">
       <div class="portal-field">
@@ -2129,6 +2130,10 @@ input[type="reset"]:focus,
       <div id="resetStatus" class="portal-status" role="status" aria-live="polite"></div>
       <button class="portal-primary-btn" id="resetStart" type="button">Send Reset Code</button>
       <button class="portal-secondary-btn" id="resetHaveCode" type="button" style="width:100%;margin-top:10px">I already have a Reset Code</button>
+      <div class="portal-preview-note" style="margin-top:10px">
+        <span class="portal-preview-dot" aria-hidden="true"></span>
+        <span>If Wooten Oil gave you a 6-digit code, use this option. You do not need access to your old password.</span>
+      </div>
     </div>
 
     <div class="portal-activation-details" id="resetDetails">
@@ -3161,6 +3166,7 @@ input[type="reset"]:focus,
   var mobileCustomerLogout=document.getElementById('mobileCustomerLogout');
   var activateLink=document.getElementById('portalActivateLink');
   var forgotPassword=document.getElementById('portalForgotPassword');
+  var useResetCode=document.getElementById('portalUseResetCode');
   var resetBack=document.getElementById('resetBack');
   var resetStart=document.getElementById('resetStart');
   var resetHaveCode=document.getElementById('resetHaveCode');
@@ -3549,6 +3555,26 @@ input[type="reset"]:focus,
       return;
     }
     showReset(existing);
+  });
+
+  if(useResetCode) useResetCode.addEventListener('click',function(){
+    var existing=document.getElementById('portal-user').value.trim();
+    showReset(existing);
+
+    setTimeout(function(){
+      if(existing){
+        document.getElementById('reset-identifier').value=existing;
+        clearStatus(resetStatus);
+        if(resetOfficeHelp) resetOfficeHelp.style.display='none';
+        resetInstructions.textContent='Enter the 6-digit password reset code provided by Wooten Oil, then create and confirm your new password.';
+        resetDetails.classList.add('show');
+        setStatus(resetStatus,'Enter the reset code provided by Wooten Oil.',true);
+        document.getElementById('reset-code').focus();
+      }else{
+        setStatus(resetStatus,'Enter your Customer Number or email first, then choose I already have a Reset Code.',true);
+        document.getElementById('reset-identifier').focus();
+      }
+    },75);
   });
 
   if(resetBack) resetBack.addEventListener('click',function(){
