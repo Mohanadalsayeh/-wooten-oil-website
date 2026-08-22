@@ -2752,6 +2752,24 @@ async function ensureCustomerNotificationsTable(env) {
     CREATE INDEX IF NOT EXISTS idx_portal_notifications_account_created
     ON portal_notifications(account_number, created_at DESC)
   `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS portal_notification_attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      notification_id INTEGER NOT NULL,
+      account_number TEXT NOT NULL,
+      object_key TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_portal_notification_attachments_account_notification
+    ON portal_notification_attachments(account_number, notification_id, id)
+  `).run();
 }
 __name(ensureCustomerNotificationsTable, "ensureCustomerNotificationsTable");
 
@@ -2782,7 +2800,48 @@ function normalizeNotificationAccount(value) {
   s = s.replace(/\D/g, "");
   return s ? s.padStart(7, "0") : "";
 }
+
 __name(normalizeNotificationAccount, "normalizeNotificationAccount");
+
+function notificationBase64ToBytes(value) {
+  const cleaned = String(value || "").replace(/\s+/g, "");
+  const binary = atob(cleaned);
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+__name(notificationBase64ToBytes, "notificationBase64ToBytes");
+
+function notificationSafeFilename(value) {
+  return String(value || "attachment")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\/\\]+/g, "_")
+    .trim()
+    .slice(0, 180) || "attachment";
+}
+__name(notificationSafeFilename, "notificationSafeFilename");
+
+function notificationAllowedAttachmentType(value) {
+  const type = String(value || "").toLowerCase().trim();
+  return new Set([
+    "application/pdf",
+    "image/png","image/jpeg","image/gif","image/webp",
+    "text/plain","text/csv",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ]).has(type);
+}
+__name(notificationAllowedAttachmentType, "notificationAllowedAttachmentType");
+
+function notificationAttachmentDisposition(contentType) {
+  const type = String(contentType || "").toLowerCase();
+  return (
+    type === "application/pdf" ||
+    type.startsWith("image/") ||
+    type === "text/plain"
+  ) ? "inline" : "attachment";
+}
+__name(notificationAttachmentDisposition, "notificationAttachmentDisposition");
 
 async function adminSendCustomerNotification({ request, env }) {
   try {
@@ -2811,6 +2870,60 @@ async function adminSendCustomerNotification({ request, env }) {
     const sendEmail = sendAllWithEmail
       ? true
       : (body?.send_email !== false && body?.sendEmail !== false);
+
+    const rawAttachments = Array.isArray(body?.attachments) ? body.attachments : [];
+    if (sendAllWithEmail && rawAttachments.length) {
+      return notificationJson({
+        success: false,
+        error: "Attachments are currently supported for one-customer notifications only."
+      }, 400);
+    }
+    if (rawAttachments.length > 3) {
+      return notificationJson({ success: false, error: "Choose no more than 3 attachments." }, 400);
+    }
+
+    let totalAttachmentBytes = 0;
+    const attachments = [];
+    for (const item of rawAttachments) {
+      const filename = notificationSafeFilename(item?.filename);
+      const contentType = String(item?.content_type || item?.contentType || "application/octet-stream").toLowerCase().trim();
+      const contentBase64 = String(item?.content_base64 || item?.contentBase64 || "").replace(/\s+/g, "");
+      if (!contentBase64) {
+        return notificationJson({ success: false, error: `Attachment ${filename} is empty.` }, 400);
+      }
+      if (!notificationAllowedAttachmentType(contentType)) {
+        return notificationJson({ success: false, error: `Attachment type is not allowed: ${filename}` }, 400);
+      }
+
+      let bytes;
+      try {
+        bytes = notificationBase64ToBytes(contentBase64);
+      } catch {
+        return notificationJson({ success: false, error: `Attachment ${filename} could not be decoded.` }, 400);
+      }
+
+      if (bytes.byteLength > 5 * 1024 * 1024) {
+        return notificationJson({ success: false, error: `${filename} is larger than 5 MB.` }, 400);
+      }
+      totalAttachmentBytes += bytes.byteLength;
+      if (totalAttachmentBytes > 10 * 1024 * 1024) {
+        return notificationJson({ success: false, error: "Total attachment size cannot exceed 10 MB." }, 400);
+      }
+
+      attachments.push({
+        filename,
+        content_type: contentType,
+        content_base64: contentBase64,
+        bytes
+      });
+    }
+
+    if (attachments.length && !env.NOTIFICATION_ATTACHMENTS) {
+      return notificationJson({
+        success: false,
+        error: "Notification attachment storage is not configured. Add the NOTIFICATION_ATTACHMENTS R2 binding."
+      }, 503);
+    }
 
     if (!title || !message || (!sendAllWithEmail && !account)) {
       return notificationJson({
@@ -3029,6 +3142,69 @@ async function adminSendCustomerNotification({ request, env }) {
       inserted?.meta?.last_insert_rowid ||
       null;
 
+    const savedAttachments = [];
+    if (attachments.length) {
+      if (!notificationId) {
+        throw new Error("Notification was saved but its id could not be determined.");
+      }
+
+      const storedKeys = [];
+      try {
+        for (const attachment of attachments) {
+          const objectKey =
+            `notifications/${customer.account_number}/${notificationId}/` +
+            `${crypto.randomUUID()}-${notificationSafeFilename(attachment.filename)}`;
+
+          await env.NOTIFICATION_ATTACHMENTS.put(objectKey, attachment.bytes, {
+            httpMetadata: {
+              contentType: attachment.content_type,
+              contentDisposition:
+                `${notificationAttachmentDisposition(attachment.content_type)}; filename="${attachment.filename.replace(/"/g, "")}"`
+            },
+            customMetadata: {
+              account_number: String(customer.account_number),
+              notification_id: String(notificationId),
+              filename: attachment.filename
+            }
+          });
+          storedKeys.push(objectKey);
+
+          const attachmentRow = await env.DB.prepare(`
+            INSERT INTO portal_notification_attachments
+              (notification_id, account_number, object_key, filename, content_type, size_bytes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `).bind(
+            notificationId,
+            customer.account_number,
+            objectKey,
+            attachment.filename,
+            attachment.content_type,
+            attachment.bytes.byteLength
+          ).run();
+
+          savedAttachments.push({
+            id:
+              attachmentRow?.meta?.last_row_id ||
+              attachmentRow?.meta?.last_insert_rowid ||
+              null,
+            filename: attachment.filename,
+            content_type: attachment.content_type,
+            size_bytes: attachment.bytes.byteLength,
+            object_key: objectKey
+          });
+        }
+      } catch (attachmentError) {
+        for (const key of storedKeys) {
+          try { await env.NOTIFICATION_ATTACHMENTS.delete(key); } catch {}
+        }
+        try {
+          await env.DB.prepare(`DELETE FROM portal_notification_attachments WHERE notification_id=?`).bind(notificationId).run();
+          await env.DB.prepare(`DELETE FROM portal_notifications WHERE id=? AND account_number=?`).bind(notificationId, customer.account_number).run();
+        } catch {}
+        throw new Error("Attachment could not be stored. " + String(attachmentError?.message || attachmentError));
+      }
+    }
+
     let emailSent = false;
     let emailId = "";
     let warning = "";
@@ -3063,7 +3239,13 @@ async function adminSendCustomerNotification({ request, env }) {
                   </p>
                 </div>
               `,
-              text: `Hello ${customer.account_name},\n\n${message}\n\nThis message is also available in your Wooten Oil online customer account.`
+              text: `Hello ${customer.account_name},\n\n${message}\n\nThis message is also available in your Wooten Oil online customer account.`,
+              ...(attachments.length ? {
+                attachments: attachments.map((attachment) => ({
+                  filename: attachment.filename,
+                  content: attachment.content_base64
+                }))
+              } : {})
             })
           });
 
@@ -3103,6 +3285,7 @@ async function adminSendCustomerNotification({ request, env }) {
       account_name: customer.account_name,
       email: customer.email || "",
       email_sent: emailSent,
+      attachment_count: savedAttachments.length,
       warning
     });
   } catch (error) {
@@ -3150,12 +3333,36 @@ async function customerNotificationsGet({ request, env }) {
       LIMIT 50
     `).bind(account).all();
 
+    const attachmentResult = await env.DB.prepare(`
+      SELECT id, notification_id, filename, content_type, size_bytes
+      FROM portal_notification_attachments
+      WHERE account_number = ?
+      ORDER BY notification_id DESC, id ASC
+    `).bind(account).all();
+
+    const attachmentsByNotification = new Map();
+    for (const row of attachmentResult?.results || []) {
+      const key = Number(row.notification_id);
+      if (!attachmentsByNotification.has(key)) attachmentsByNotification.set(key, []);
+      attachmentsByNotification.get(key).push({
+        id: row.id,
+        filename: row.filename || "Attachment",
+        content_type: row.content_type || "application/octet-stream",
+        size_bytes: Number(row.size_bytes || 0),
+        url: `/api/customer/notification-attachments/${encodeURIComponent(row.id)}`
+      });
+    }
+
     const notifications = (result?.results || []).map((row) => ({
       id: row.id,
       title: row.title || "Wooten Oil",
       message: row.message || "",
       created_at: row.created_at,
-      read: !!row.read_at
+      read: !!row.read_at,
+      sender_name: "Wooten Oil Co Inc.",
+      sender_email: "support@wootenoil.com",
+      recipient_email: String(customer.email || ""),
+      attachments: attachmentsByNotification.get(Number(row.id)) || []
     }));
 
     return notificationJson({
@@ -3175,6 +3382,65 @@ async function customerNotificationsGet({ request, env }) {
   }
 }
 __name(customerNotificationsGet, "customerNotificationsGet");
+
+
+async function customerNotificationAttachmentGet({ request, env }) {
+  try {
+    if (!env.DB || !env.NOTIFICATION_ATTACHMENTS) {
+      return new Response("Attachment storage is not configured.", { status: 503 });
+    }
+
+    const customer = await getCustomerFromSession(request, env);
+    if (!customer) {
+      return new Response("Unauthorized.", { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const idPart = url.pathname.split("/").filter(Boolean).pop() || "";
+    const attachmentId = Number(idPart);
+    if (!Number.isInteger(attachmentId) || attachmentId <= 0) {
+      return new Response("Attachment not found.", { status: 404 });
+    }
+
+    await ensureCustomerNotificationsTable(env);
+    const account = normalizeNotificationAccount(customer.account_number);
+
+    const row = await env.DB.prepare(`
+      SELECT id, object_key, filename, content_type, size_bytes
+      FROM portal_notification_attachments
+      WHERE id = ? AND account_number = ?
+      LIMIT 1
+    `).bind(attachmentId, account).first();
+
+    if (!row) {
+      return new Response("Attachment not found.", { status: 404 });
+    }
+
+    const object = await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);
+    if (!object) {
+      return new Response("Attachment file is unavailable.", { status: 404 });
+    }
+
+    const filename = notificationSafeFilename(row.filename);
+    const disposition = notificationAttachmentDisposition(row.content_type);
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("Content-Type", row.content_type || "application/octet-stream");
+    headers.set(
+      "Content-Disposition",
+      `${disposition}; filename="${filename.replace(/"/g, "")}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+    headers.set("Cache-Control", "private, no-store");
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
+
+    return new Response(object.body, { status: 200, headers });
+  } catch (error) {
+    console.error("customerNotificationAttachmentGet failed", error);
+    return new Response("Attachment could not be opened.", { status: 500 });
+  }
+}
+__name(customerNotificationAttachmentGet, "customerNotificationAttachmentGet");
 
 async function customerNotificationsReadPost({ request, env }) {
   try {
@@ -3575,6 +3841,13 @@ var worker_default = {
     if (url.pathname === "/api/customer/notifications") {
       if (request.method === "GET") {
         return customerNotificationsGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname.startsWith("/api/customer/notification-attachments/")) {
+      if (request.method === "GET") {
+        return customerNotificationAttachmentGet({ request, env });
       }
       return methodNotAllowed();
     }

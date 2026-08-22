@@ -1,0 +1,49 @@
+WOOTEN OIL CUSTOMER NOTIFICATION ATTACHMENTS
+
+FILES TO REPLACE IN GITHUB
+1. index.html
+2. admin-customers.html
+3. worker.js
+
+ONE-TIME CLOUDFLARE R2 SETUP
+The attachment files are stored privately in Cloudflare R2. The Worker checks the logged-in
+customer before serving any attachment.
+
+1. Open Cloudflare Dashboard.
+2. Go to R2 Object Storage.
+3. Create a bucket named:
+   wooten-notification-attachments
+4. Open your Wooten Oil Worker / Pages project.
+5. Go to Settings > Bindings.
+6. Add an R2 bucket binding.
+7. Set the binding / variable name EXACTLY to:
+   NOTIFICATION_ATTACHMENTS
+8. Select the bucket:
+   wooten-notification-attachments
+9. Save and redeploy.
+
+HOW IT WORKS
+- Admin > Notifications > One customer
+- Choose up to 3 attachments.
+- Maximum 5 MB per file and 10 MB total.
+- Supported: PDF, PNG/JPG/GIF/WebP, TXT, CSV, Word, Excel.
+- The portal notification is saved first.
+- The attachment is stored privately in R2 and linked to that customer's notification.
+- If "Send the same message to the customer's email address" is checked, the file is also
+  attached to the Resend email.
+- Customer clicks the notification bell, opens the notification, and sees an Attachments section.
+- Clicking Open verifies the customer's signed-in session before returning the file.
+- PDF/images can open in a browser tab; Word/Excel normally download/open in the device's app.
+
+SECURITY
+- Attachment URLs are not public R2 URLs.
+- A customer must have a valid Wooten Oil portal session.
+- The attachment record must belong to that customer's account number.
+- HTML/SVG/script/executable files are not accepted.
+
+CURRENT LIMITATION
+Attachments are intentionally disabled for "All customers with email addresses" broadcasts.
+This avoids sending a large attachment to every customer in one bulk operation. One-customer
+attachments are supported in this version.
+
+No manual D1 SQL migration is required; the Worker creates the attachment table automatically.

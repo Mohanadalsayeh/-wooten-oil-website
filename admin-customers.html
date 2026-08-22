@@ -522,6 +522,48 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-notification-attachment-admin-style">
+.notify-attachment-box{
+  grid-column:1/-1;
+  padding:14px;
+  border:1px solid #dbe3eb;
+  border-radius:12px;
+  background:#fff;
+}
+.notify-attachment-box label{margin-bottom:7px}
+.notify-attachment-help{
+  margin:7px 0 0;
+  color:#64748b;
+  font-size:12px;
+  line-height:1.45;
+}
+.notify-attachment-list{
+  display:grid;
+  gap:7px;
+  margin-top:10px;
+}
+.notify-attachment-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 10px;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:9px;
+  font-size:13px;
+}
+.notify-attachment-item strong{
+  min-width:0;
+  overflow-wrap:anywhere;
+  font-weight:400;
+  color:#0b2239;
+}
+.notify-attachment-item span{flex:0 0 auto;color:#64748b}
+.notify-attachment-box.disabled{opacity:.55}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -696,6 +738,12 @@ input[type="file"]::file-selector-button{
         <div class="notify-field full">
           <label for="notifyMessage">Message</label>
           <textarea id="notifyMessage" maxlength="5000" placeholder="Type the message the customer should see in the notification bell."></textarea>
+        </div>
+        <div class="notify-attachment-box" id="notifyAttachmentBox">
+          <label for="notifyAttachments">Attachments</label>
+          <input id="notifyAttachments" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.doc,.docx,.xls,.xlsx">
+          <p class="notify-attachment-help">Up to 3 files, 5 MB each, 10 MB total. Attachments are available for one-customer notifications. The customer can open them from the notification window and they are also attached to the email.</p>
+          <div class="notify-attachment-list" id="notifyAttachmentList"></div>
         </div>
       </div>
 
@@ -1168,8 +1216,76 @@ const notifyAccountInput=document.getElementById("notifyAccount");
 const notifySendEmailInput=document.getElementById("notifySendEmail");
 const notifyBroadcastWarning=document.getElementById("notifyBroadcastWarning");
 const sendCustomerNotificationBtn=document.getElementById("sendCustomerNotificationBtn");
+const notifyAttachmentsInput=document.getElementById("notifyAttachments");
+const notifyAttachmentBox=document.getElementById("notifyAttachmentBox");
+const notifyAttachmentList=document.getElementById("notifyAttachmentList");
 
 let notifySingleEmailChoice=notifySendEmailInput.checked;
+
+function formatNotifyFileSize(bytes){
+  const n=Number(bytes||0);
+  if(n<1024) return `${n} B`;
+  if(n<1024*1024) return `${(n/1024).toFixed(1)} KB`;
+  return `${(n/(1024*1024)).toFixed(1)} MB`;
+}
+
+function renderNotifyAttachmentList(){
+  if(!notifyAttachmentList || !notifyAttachmentsInput) return;
+  const files=Array.from(notifyAttachmentsInput.files||[]);
+  notifyAttachmentList.innerHTML=files.map(file=>
+    `<div class="notify-attachment-item"><strong>${String(file.name||"Attachment").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}</strong><span>${formatNotifyFileSize(file.size)}</span></div>`
+  ).join("");
+}
+
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const value=String(reader.result||"");
+      resolve(value.includes(",")?value.split(",").pop():value);
+    };
+    reader.onerror=()=>reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function collectNotifyAttachments(){
+  const files=Array.from(notifyAttachmentsInput?.files||[]);
+  if(!files.length) return [];
+  if(files.length>3) throw new Error("Choose no more than 3 attachments.");
+
+  const allowed=new Set([
+    "application/pdf","image/png","image/jpeg","image/gif","image/webp",
+    "text/plain","text/csv",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ]);
+
+  let total=0;
+  for(const file of files){
+    if(file.size>5*1024*1024) throw new Error(`${file.name} is larger than 5 MB.`);
+    total+=file.size;
+    if(total>10*1024*1024) throw new Error("Total attachment size cannot exceed 10 MB.");
+    if(file.type && !allowed.has(file.type)) throw new Error(`${file.name} is not an allowed attachment type.`);
+  }
+
+  const values=[];
+  for(const file of files){
+    values.push({
+      filename:file.name,
+      content_type:file.type||"application/octet-stream",
+      size_bytes:file.size,
+      content_base64:await fileToBase64(file)
+    });
+  }
+  return values;
+}
+
+if(notifyAttachmentsInput){
+  notifyAttachmentsInput.addEventListener("change",renderNotifyAttachmentList);
+}
 
 function updateNotificationAudience(){
   const sendAll=notifyAudienceAll.checked;
@@ -1180,12 +1296,20 @@ function updateNotificationAudience(){
     notifyAccountInput.value="";
     notifySendEmailInput.checked=true;
     notifySendEmailInput.disabled=true;
+    if(notifyAttachmentsInput){
+      notifyAttachmentsInput.value="";
+      notifyAttachmentsInput.disabled=true;
+      renderNotifyAttachmentList();
+    }
+    if(notifyAttachmentBox) notifyAttachmentBox.classList.add("disabled");
     notifyBroadcastWarning.classList.add("show");
     sendCustomerNotificationBtn.textContent="Send to All Customers";
   }else{
     notifyAccountInput.disabled=false;
     notifySendEmailInput.disabled=false;
     notifySendEmailInput.checked=notifySingleEmailChoice;
+    if(notifyAttachmentsInput) notifyAttachmentsInput.disabled=false;
+    if(notifyAttachmentBox) notifyAttachmentBox.classList.remove("disabled");
     notifyBroadcastWarning.classList.remove("show");
     sendCustomerNotificationBtn.textContent="Send Notification";
   }
@@ -1238,6 +1362,8 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
     : "Sending customer notification…";
 
   try{
+    const attachments=sendAll ? [] : await collectNotifyAttachments();
+
     const res=await fetch("/api/admin/customer-notifications",{
       method:"POST",
       headers:{
@@ -1249,7 +1375,8 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
         title,
         message,
         send_email:sendEmail,
-        send_all_with_email:sendAll
+        send_all_with_email:sendAll,
+        attachments
       })
     });
 
@@ -1278,6 +1405,10 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
 
     document.getElementById("notifySubject").value="";
     document.getElementById("notifyMessage").value="";
+    if(notifyAttachmentsInput){
+      notifyAttachmentsInput.value="";
+      renderNotifyAttachmentList();
+    }
   }catch(error){
     status.className="status show bad";
     status.textContent=error.message||"Could not send notification.";
