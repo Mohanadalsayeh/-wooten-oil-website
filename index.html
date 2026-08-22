@@ -2076,6 +2076,36 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-popup-dom-repair-style">
+.customer-notification-message-label{
+  margin:18px 0 7px;
+  color:#7a8792;
+  font-size:.76rem;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.customer-notification-popup-message{
+  display:block !important;
+  min-height:30px !important;
+  margin:0 !important;
+  color:#334155 !important;
+  font-size:.98rem !important;
+  line-height:1.7 !important;
+  white-space:pre-wrap !important;
+  overflow-wrap:anywhere !important;
+}
+.customer-notification-popup-message:empty::before{
+  content:"No message body.";
+  color:#94a3b8;
+  font-style:italic;
+}
+.customer-notification-attachments.show{
+  display:block !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -3240,6 +3270,7 @@ input[type="reset"]:focus,
 </script>
 
 
+
 <div class="customer-notification-popup" id="customerNotificationPopup" role="dialog" aria-modal="true" aria-labelledby="customerNotificationPopupTitle">
   <div class="customer-notification-popup-card">
     <div class="customer-notification-popup-head">
@@ -3249,11 +3280,29 @@ input[type="reset"]:focus,
     <div class="customer-notification-popup-body">
       <h3 class="customer-notification-popup-title" id="customerNotificationPopupTitle">Notification</h3>
       <div class="customer-notification-popup-date" id="customerNotificationPopupDate"></div>
+
       <div class="customer-notification-email-meta">
-        <div class="customer-notification-email-row"><span>From</span><span id="customerNotificationPopupFrom">Wooten Oil Co Inc. &lt;support@wootenoil.com&gt;</span></div>
-        <div class="customer-notification-email-row"><span>To</span><span id="customerNotificationPopupTo"></span></div>
+        <div class="customer-notification-email-row">
+          <span>From</span>
+          <span id="customerNotificationPopupFrom">Wooten Oil Co Inc. &lt;support@wootenoil.com&gt;</span>
+        </div>
+        <div class="customer-notification-email-row">
+          <span>To</span>
+          <span id="customerNotificationPopupTo"></span>
+        </div>
       </div>
-      
+
+      <div class="customer-notification-message-label">Message</div>
+      <p class="customer-notification-popup-message" id="customerNotificationPopupMessage"></p>
+
+      <div class="customer-notification-attachments" id="customerNotificationPopupAttachments">
+        <div class="customer-notification-attachments-title">Attachments</div>
+        <div class="customer-notification-attachment-list" id="customerNotificationPopupAttachmentList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* Customer Portal */
 (function(){
@@ -4457,18 +4506,6 @@ input[type="reset"]:focus,
   });
 })();
 </script>
-
-
-<p class="customer-notification-popup-message" id="customerNotificationPopupMessage"></p>
-      <div class="customer-notification-attachments" id="customerNotificationPopupAttachments">
-        <div class="customer-notification-attachments-title">Attachments</div>
-        <div class="customer-notification-attachment-list" id="customerNotificationPopupAttachmentList"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
 <script id="wooten-mobile-menu-outside-close">
 (function(){
   var menu = document.getElementById('mobile-menu');
