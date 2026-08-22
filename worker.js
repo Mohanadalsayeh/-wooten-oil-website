@@ -2887,6 +2887,12 @@ async function customerNotificationsGet({ request, env }) {
 
     await ensureCustomerNotificationsTable(env);
 
+    try {
+      await syncGmailSentToPortal(env, { force: false, maxMessages: 50 });
+    } catch (syncError) {
+      console.error("Customer notification Gmail sync skipped", syncError);
+    }
+
     const account = normalizeNotificationAccount(customer.account_number);
 
     const result = await env.DB.prepare(`
@@ -2978,6 +2984,253 @@ async function customerNotificationsReadPost({ request, env }) {
 __name(customerNotificationsReadPost, "customerNotificationsReadPost");
 
 // worker.js
+
+async function ensureGmailPortalSyncTables(env) {
+  if (!env?.DB) throw new Error("Customer database is not configured.");
+  await ensureCustomerNotificationsTable(env);
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS gmail_portal_sync (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      gmail_message_id TEXT NOT NULL,
+      account_number TEXT NOT NULL,
+      recipient_email TEXT NOT NULL,
+      notification_id INTEGER,
+      synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(gmail_message_id, account_number)
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS gmail_portal_sync_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      last_checked_at TEXT,
+      last_internal_date INTEGER NOT NULL DEFAULT 0,
+      last_success_at TEXT,
+      last_error TEXT
+    )
+  `).run();
+  await env.DB.prepare(`
+    INSERT INTO gmail_portal_sync_state
+      (id,last_checked_at,last_internal_date,last_success_at,last_error)
+    VALUES (1,NULL,0,NULL,'')
+    ON CONFLICT(id) DO NOTHING
+  `).run();
+}
+__name(ensureGmailPortalSyncTables,"ensureGmailPortalSyncTables");
+
+function gmailSyncExtractEmails(value) {
+  const matches=String(value||"").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[];
+  return [...new Set(matches.map(v=>v.toLowerCase().trim()))];
+}
+__name(gmailSyncExtractEmails,"gmailSyncExtractEmails");
+
+function gmailSyncDecode(data) {
+  const s=String(data||"").replace(/-/g,"+").replace(/_/g,"/");
+  if(!s) return "";
+  try{
+    const padded=s+"=".repeat((4-s.length%4)%4);
+    const bin=atob(padded);
+    return new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0)));
+  }catch{return "";}
+}
+__name(gmailSyncDecode,"gmailSyncDecode");
+
+function gmailSyncStripHtml(html) {
+  return String(html||"")
+    .replace(/<style[\s\S]*?<\/style>/gi," ")
+    .replace(/<script[\s\S]*?<\/script>/gi," ")
+    .replace(/<br\s*\/?>/gi,"\n")
+    .replace(/<\/p>|<\/div>/gi,"\n")
+    .replace(/<[^>]+>/g," ")
+    .replace(/&nbsp;/gi," ")
+    .replace(/&amp;/gi,"&")
+    .replace(/&lt;/gi,"<")
+    .replace(/&gt;/gi,">")
+    .replace(/&quot;/gi,'"')
+    .replace(/&#39;/gi,"'")
+    .replace(/[ \t]+\n/g,"\n")
+    .replace(/\n{3,}/g,"\n\n")
+    .replace(/[ \t]{2,}/g," ")
+    .trim();
+}
+__name(gmailSyncStripHtml,"gmailSyncStripHtml");
+
+function gmailSyncBody(payload) {
+  let plain="",html="";
+  const walk=part=>{
+    if(!part) return;
+    const mime=String(part.mimeType||"").toLowerCase();
+    const data=part?.body?.data||"";
+    if(data){
+      const decoded=gmailSyncDecode(data);
+      if(mime==="text/plain"&&!plain) plain=decoded;
+      if(mime==="text/html"&&!html) html=decoded;
+    }
+    for(const child of part.parts||[]) walk(child);
+  };
+  walk(payload);
+  return (plain.trim()||gmailSyncStripHtml(html)).slice(0,5000);
+}
+__name(gmailSyncBody,"gmailSyncBody");
+
+function gmailSyncHeader(payload,name) {
+  const found=(payload?.headers||[]).find(h=>String(h?.name||"").toLowerCase()===name.toLowerCase());
+  return String(found?.value||"");
+}
+__name(gmailSyncHeader,"gmailSyncHeader");
+
+async function syncGmailSentToPortal(env,options={}) {
+  const force=options?.force===true;
+  const maxMessages=Math.min(Math.max(Number(options?.maxMessages||50),1),100);
+  if(!env?.DB) return {success:false,error:"Customer database is not configured."};
+
+  await ensureGmailPortalSyncTables(env);
+  const state=await env.DB.prepare(`
+    SELECT last_checked_at,last_internal_date
+    FROM gmail_portal_sync_state WHERE id=1
+  `).first();
+
+  const lastChecked=state?.last_checked_at?new Date(state.last_checked_at).getTime():0;
+  if(!force&&lastChecked&&Date.now()-lastChecked<60000){
+    return {success:true,skipped:true,reason:"Gmail was checked less than one minute ago."};
+  }
+
+  await env.DB.prepare(`
+    UPDATE gmail_portal_sync_state SET last_checked_at=CURRENT_TIMESTAMP WHERE id=1
+  `).run();
+
+  try{
+    const accessToken=await getGmailAccessToken(env);
+    const listUrl=new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+    listUrl.searchParams.set("maxResults",String(maxMessages));
+    listUrl.searchParams.set("q","in:sent newer_than:2d");
+
+    const lr=await fetch(listUrl.toString(),{headers:{Authorization:`Bearer ${accessToken}`}});
+    const ld=await lr.json().catch(()=>({}));
+    if(!lr.ok) throw new Error(ld?.error?.message||"Unable to read Gmail Sent messages.");
+
+    let checked=0,matched=0,created=0,duplicates=0,unmatched=0;
+    let newest=Number(state?.last_internal_date||0);
+    const cutoff=newest>0?newest-120000:Date.now()-30*60*1000;
+
+    for(const item of ld.messages||[]){
+      const mr=await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
+        {headers:{Authorization:`Bearer ${accessToken}`}}
+      );
+      const m=await mr.json().catch(()=>({}));
+      if(!mr.ok) continue;
+      checked++;
+
+      const internalDate=Number(m.internalDate||0);
+      if(internalDate>newest) newest=internalDate;
+      if(internalDate&&internalDate<cutoff) continue;
+
+      const subject=(gmailSyncHeader(m.payload,"Subject")||"(No subject)").trim().slice(0,160);
+      const body=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
+      const recipients=[...new Set([
+        ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"To")),
+        ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"Cc")),
+        ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"Bcc"))
+      ])];
+
+      let any=false;
+      for(const email of recipients){
+        const rows=await env.DB.prepare(`
+          SELECT account_number,account_name,email
+          FROM customers
+          WHERE lower(trim(email))=lower(trim(?))
+            AND (account_status IS NULL OR lower(account_status)='active')
+        `).bind(email).all();
+
+        for(const c of rows?.results||[]){
+          any=true;
+          const account=normalizeNotificationAccount(c.account_number);
+          if(!account) continue;
+          matched++;
+
+          const exists=await env.DB.prepare(`
+            SELECT id FROM gmail_portal_sync
+            WHERE gmail_message_id=? AND account_number=? LIMIT 1
+          `).bind(m.id,account).first();
+
+          if(exists){duplicates++;continue;}
+
+          const ins=await env.DB.prepare(`
+            INSERT INTO portal_notifications
+              (account_number,title,message,email_sent,email_id,created_at)
+            VALUES (?,?,?,?,?,?)
+          `).bind(
+            account,subject,body,1,`gmail:${m.id}`,
+            internalDate?new Date(internalDate).toISOString():new Date().toISOString()
+          ).run();
+
+          const notificationId=ins?.meta?.last_row_id||ins?.meta?.last_insert_rowid||null;
+
+          await env.DB.prepare(`
+            INSERT OR IGNORE INTO gmail_portal_sync
+              (gmail_message_id,account_number,recipient_email,notification_id,synced_at)
+            VALUES (?,?,?,?,CURRENT_TIMESTAMP)
+          `).bind(m.id,account,email,notificationId).run();
+
+          created++;
+        }
+      }
+      if(!any) unmatched++;
+    }
+
+    await env.DB.prepare(`
+      UPDATE gmail_portal_sync_state
+      SET last_internal_date=?,last_success_at=CURRENT_TIMESTAMP,last_error=''
+      WHERE id=1
+    `).bind(newest).run();
+
+    return {
+      success:true,checked,matched_customers:matched,
+      notifications_created:created,duplicates,unmatched_messages:unmatched
+    };
+  }catch(error){
+    const msg=String(error?.message||error);
+    try{
+      await env.DB.prepare(`UPDATE gmail_portal_sync_state SET last_error=? WHERE id=1`)
+        .bind(msg.slice(0,1000)).run();
+    }catch{}
+    console.error("Gmail portal synchronization failed",error);
+    return {success:false,error:msg};
+  }
+}
+__name(syncGmailSentToPortal,"syncGmailSentToPortal");
+
+async function adminGmailPortalSync({request,env}) {
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY)
+    return notificationJson({success:false,error:"Unauthorized."},401);
+  const result=await syncGmailSentToPortal(env,{force:true,maxMessages:100});
+  return notificationJson(result,result.success===false?500:200);
+}
+__name(adminGmailPortalSync,"adminGmailPortalSync");
+
+async function adminGmailPortalSyncStatus({request,env}) {
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY)
+    return notificationJson({success:false,error:"Unauthorized."},401);
+
+  await ensureGmailPortalSyncTables(env);
+  const state=await env.DB.prepare(`
+    SELECT last_checked_at,last_success_at,last_error
+    FROM gmail_portal_sync_state WHERE id=1
+  `).first();
+  const count=await env.DB.prepare(`SELECT COUNT(*) AS total FROM gmail_portal_sync`).first();
+
+  return notificationJson({
+    success:true,
+    last_checked_at:state?.last_checked_at||null,
+    last_success_at:state?.last_success_at||null,
+    last_error:state?.last_error||"",
+    synced_notifications:Number(count?.total||0)
+  });
+}
+__name(adminGmailPortalSyncStatus,"adminGmailPortalSyncStatus");
+
 function methodNotAllowed() {
   return new Response(
     JSON.stringify({
@@ -3054,6 +3307,16 @@ var worker_default = {
   return methodNotAllowed();
 }
     
+
+    if (url.pathname === "/api/admin/gmail-portal-sync") {
+      if (request.method === "POST") return adminGmailPortalSync({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/gmail-portal-sync/status") {
+      if (request.method === "GET") return adminGmailPortalSyncStatus({ request, env });
+      return methodNotAllowed();
+    }
 
     if (url.pathname === "/api/admin/customer-notifications") {
       if (request.method === "POST") {
@@ -3182,8 +3445,12 @@ var worker_default = {
 
 return env.ASSETS.fetch(request);
 
+  },
+
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
   }
-  
+
 };
 export {
   worker_default as default
