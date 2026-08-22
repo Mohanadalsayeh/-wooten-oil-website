@@ -1725,6 +1725,108 @@ background:#c62828 !important;color:#fff !important;border-color:#c62828 !import
 }
 </style>
 
+
+<style id="wooten-main-menu-js-control">
+/* The menu is controlled by JavaScript instead of :target so clicking
+   anywhere outside it can reliably close it. */
+#mobile-menu.mobile-menu-panel:target{
+  display:none !important;
+}
+#mobile-menu.mobile-menu-panel.menu-open{
+  display:block !important;
+}
+</style>
+
+
+<style id="wooten-menu-font-clarity-global">
+/* Sharper, clearer typography for navigation and menu items across the site. */
+#site-header,
+#site-header a,
+#site-header button,
+.smart-desktop-nav,
+.smart-desktop-nav a,
+.mobile-menu-panel,
+.mobile-menu-panel a,
+.mobile-menu-panel button,
+.header-notification-menu,
+.header-notification-menu button,
+.customer-login-link,
+.customer-account-link,
+.customer-menu-logout,
+.mobile-customer-name,
+.mobile-customer-logout,
+.mobile-customer-account,
+.portal-card .account-actions button,
+.portal-card .portal-action-row button{
+  -webkit-font-smoothing:auto !important;
+  -moz-osx-font-smoothing:auto !important;
+  text-rendering:optimizeLegibility !important;
+  font-synthesis:none;
+}
+
+.smart-desktop-nav .nav-link,
+.mobile-menu-panel a,
+.mobile-menu-panel button,
+.customer-login-link,
+.customer-account-link,
+.customer-menu-logout,
+.mobile-customer-name,
+.mobile-customer-logout,
+.mobile-customer-account{
+  color:#17283c !important;
+  font-weight:850 !important;
+  opacity:1 !important;
+  text-shadow:0 0 .01px currentColor;
+}
+
+.mobile-menu-panel .mobile-menu-title{
+  color:#536477 !important;
+  font-weight:900 !important;
+  opacity:1 !important;
+}
+
+#site-header .brand-name{
+  color:#101d2b !important;
+  font-weight:900 !important;
+}
+
+#site-header .brand-subtitle{
+  color:#4f6074 !important;
+  font-weight:850 !important;
+  opacity:1 !important;
+}
+
+/* Keep Request Fuel visibly red/white while retaining sharp text. */
+#site-header .nav-cta.desktop-request,
+#site-header .nav-cta.desktop-request:hover,
+#site-header .nav-cta.desktop-request:focus,
+#site-header .nav-cta.desktop-request:focus-visible,
+#mobile-menu .mobile-request-link,
+#mobile-menu .mobile-request-link:hover,
+#mobile-menu .mobile-request-link:focus{
+  color:#fff !important;
+  font-weight:900 !important;
+  -webkit-font-smoothing:auto !important;
+  text-rendering:optimizeLegibility !important;
+}
+
+/* Notification dropdown headings also get higher contrast. */
+.header-notification-menu-head strong,
+.header-notification-subject,
+.header-notification-sender-name{
+  color:#14283d !important;
+  font-weight:900 !important;
+  opacity:1 !important;
+}
+
+.header-notification-menu-head small,
+.header-notification-sender-email,
+.header-notification-copy p,
+.header-notification-copy time{
+  opacity:1 !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -3775,48 +3877,92 @@ background:#c62828 !important;color:#fff !important;border-color:#c62828 !import
 </script>
 
 
-<script id="wooten-menu-click-outside-final">
-(function () {
-  function closeMainMenu() {
-    var menu = document.getElementById("mobile-menu");
-    if (!menu) return;
 
-    menu.classList.remove("open", "show", "active");
-    menu.removeAttribute("open");
-    menu.setAttribute("aria-hidden", "true");
 
-    var button =
-      document.querySelector(".mobile-menu-button") ||
-      document.querySelector(".menu-toggle") ||
-      document.querySelector('[aria-controls="mobile-menu"]');
 
-    if (button) {
-      button.setAttribute("aria-expanded", "false");
-      button.classList.remove("open", "active");
+<script id="wooten-main-menu-controller">
+(function(){
+  function initMainMenu(){
+    var menu=document.getElementById('mobile-menu');
+    var button=document.querySelector('.mobile-menu-button');
+    if(!menu || !button) return;
+
+    var closeButton=menu.querySelector('.mobile-menu-close');
+
+    function isOpen(){
+      return menu.classList.contains('menu-open');
     }
 
-    /* Some versions of this site use #mobile-menu / :target to open it. */
-    if (window.location.hash === "#mobile-menu") {
-      history.replaceState(null, "", window.location.pathname + window.location.search);
+    function openMenu(){
+      menu.classList.add('menu-open');
+      menu.setAttribute('aria-hidden','false');
+      button.setAttribute('aria-expanded','true');
+
+      /* Remove an old #mobile-menu hash if one is present. */
+      if(window.location.hash==='#mobile-menu'){
+        history.replaceState(null,'',window.location.pathname+window.location.search);
+      }
     }
+
+    function closeMenu(){
+      menu.classList.remove('menu-open');
+      menu.setAttribute('aria-hidden','true');
+      button.setAttribute('aria-expanded','false');
+
+      if(window.location.hash==='#mobile-menu'){
+        history.replaceState(null,'',window.location.pathname+window.location.search);
+      }
+    }
+
+    button.setAttribute('aria-expanded','false');
+    menu.setAttribute('aria-hidden','true');
+
+    button.addEventListener('click',function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      if(isOpen()) closeMenu();
+      else openMenu();
+    });
+
+    if(closeButton){
+      closeButton.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu();
+      });
+    }
+
+    /* Menu links still navigate normally, but close the dropdown first. */
+    menu.addEventListener('click',function(event){
+      var link=event.target.closest('a');
+      if(!link || link===closeButton) return;
+      closeMenu();
+    });
+
+    /* This is the behavior requested: click anywhere else on the page = close. */
+    document.addEventListener('click',function(event){
+      if(!isOpen()) return;
+      if(menu.contains(event.target) || button.contains(event.target)) return;
+      closeMenu();
+    });
+
+    document.addEventListener('keydown',function(event){
+      if(event.key==='Escape' && isOpen()){
+        closeMenu();
+        button.focus();
+      }
+    });
+
+    window.addEventListener('resize',function(){
+      if(window.innerWidth>980 && isOpen()) closeMenu();
+    });
   }
 
-  document.addEventListener("click", function (event) {
-    var menu = document.getElementById("mobile-menu");
-    if (!menu) return;
-
-    var button =
-      document.querySelector(".mobile-menu-button") ||
-      document.querySelector(".menu-toggle") ||
-      document.querySelector('[aria-controls="mobile-menu"]');
-
-    var clickedInsideMenu = menu.contains(event.target);
-    var clickedMenuButton = button && button.contains(event.target);
-
-    if (!clickedInsideMenu && !clickedMenuButton) {
-      closeMainMenu();
-    }
-  }, true);
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',initMainMenu);
+  }else{
+    initMainMenu();
+  }
 })();
 </script>
 
