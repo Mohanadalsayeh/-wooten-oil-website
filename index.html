@@ -1511,19 +1511,68 @@ body.customer-signed-in .mobile-customer-header{display:flex}
   .desktop-request,
   .customer-login-link,
   .customer-account-link,
-  .customer-menu-logout,
+  .customer-menu-logout{
+    display:none !important;
+  }
+
+  /* On phone/tablet, show the signed-in customer's bell + account name
+     immediately before the hamburger menu. */
   .mobile-customer-header{
     display:none !important;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px;
+    flex:0 1 auto;
+    min-width:0;
+  }
+
+  body.customer-signed-in .mobile-customer-header{
+    display:flex !important;
+  }
+
+  .mobile-customer-name{
+    max-width:104px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:.72rem;
+    font-weight:900;
+    color:#17314b;
+    text-align:right;
+  }
+
+  .mobile-customer-notifications{
+    width:38px;
+    height:38px;
+    flex:0 0 38px;
   }
 
   .mobile-menu-button{
     display:flex !important;
-    margin-left:auto !important;
+    margin-left:6px !important;
+    flex:0 0 42px;
+    order:99;
   }
 
   .mobile-menu-panel .mobile-only-main-link{
     display:block !important;
   }
+}
+
+@media (max-width:600px){
+  #site-header .nav{gap:6px !important;}
+  #site-header .brand{margin-right:auto !important;}
+  .mobile-customer-name{max-width:82px;font-size:.68rem;}
+  .mobile-customer-notifications{width:36px;height:36px;flex-basis:36px;}
+  .mobile-menu-button{width:40px;height:40px;flex-basis:40px;margin-left:4px !important;}
+}
+
+@media (max-width:430px){
+  #site-header .brand-name{font-size:.94rem !important;}
+  #site-header .brand-subtitle{font-size:.46rem !important;letter-spacing:.10em;}
+  .mobile-customer-name{max-width:64px;font-size:.64rem;}
+  .mobile-customer-notifications{width:34px;height:34px;flex-basis:34px;}
+  .mobile-menu-button{width:38px;height:38px;flex-basis:38px;}
 }
 </style>
 
