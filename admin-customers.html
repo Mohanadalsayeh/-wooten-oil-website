@@ -469,6 +469,59 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-admin-password-reset-assistance-style">
+.reset-assist-card{
+  margin-top:22px;
+  background:#f8fafc;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:20px;
+}
+.reset-assist-card h3{
+  margin:0 0 8px;
+  color:var(--navy);
+  font-size:20px;
+}
+.reset-assist-card p{margin:0 0 16px}
+.reset-assist-result{
+  display:none;
+  margin-top:16px;
+  border:1px solid #bbdfc7;
+  background:#edf8f1;
+  border-radius:14px;
+  padding:16px;
+}
+.reset-assist-result.show{display:block}
+.reset-assist-result .cust{font-size:14px;color:#475569;margin-bottom:8px}
+.reset-assist-result .code-label{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#64748b;
+  font-weight:400;
+}
+.reset-assist-code{
+  font-size:36px;
+  line-height:1.1;
+  letter-spacing:.16em;
+  font-weight:400;
+  color:#0b2239;
+  margin:6px 0 10px;
+}
+.reset-assist-meta{font-size:13px;color:#475569}
+.reset-assist-note{
+  margin-top:12px;
+  font-size:13px;
+  color:#334155;
+  background:#fff;
+  border:1px solid #dbe3eb;
+  border-radius:10px;
+  padding:11px 12px;
+  line-height:1.5;
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -688,6 +741,36 @@ input[type="file"]::file-selector-button{
 
       <div class="activation-warning">
         Only give this code to the verified customer. The customer enters it on <strong>First time here? Activate Online Account</strong> and then creates their own password. Wooten Oil staff never needs to know the customer's password.
+      </div>
+    </div>
+
+    <div class="reset-assist-card">
+      <h3>Password Reset Assistance</h3>
+      <p>Use this for a customer whose online account is already activated but they forgot the password. After verifying the customer, generate a temporary 6-digit reset code.</p>
+
+      <div class="activation-grid">
+        <div>
+          <label for="resetAssistAccount">Customer Number</label>
+          <input id="resetAssistAccount" type="text" inputmode="numeric" placeholder="Example: 0000999" autocomplete="off">
+        </div>
+        <button class="primary" id="resetAssistBtn" type="button">Generate Password Reset Code</button>
+      </div>
+
+      <div id="resetAssistStatus" class="status"></div>
+
+      <div id="resetAssistResult" class="reset-assist-result">
+        <div class="cust">
+          <strong id="resetAssistCustomerName"></strong><br>
+          Customer # <span id="resetAssistCustomerNumber"></span>
+        </div>
+        <div class="code-label">Temporary Password Reset Code</div>
+        <div class="reset-assist-code" id="resetAssistCode">000000</div>
+        <div class="reset-assist-meta">Expires: <span id="resetAssistExpires">—</span></div>
+        <button class="copy-btn" id="copyResetAssistCode" type="button">Copy Code</button>
+      </div>
+
+      <div class="reset-assist-note">
+        Give this code only to the verified customer. On the Wooten Oil login page, the customer selects <strong>Forgot password?</strong>, then chooses <strong>I already have a Reset Code</strong>, enters this 6-digit code, and creates a new password. Wooten Oil staff does not create or see the customer's new password.
       </div>
     </div>
   </div>
@@ -1273,6 +1356,83 @@ document.getElementById("copyActivationCode").addEventListener("click",async()=>
     setTimeout(()=>document.getElementById("copyActivationCode").textContent="Copy Code",1200);
   }catch{
     alert("Activation code: "+code);
+  }
+});
+
+
+
+/* Password Reset Assistance for activated customers */
+document.getElementById("resetAssistBtn").addEventListener("click",async()=>{
+  const key=document.getElementById("adminKey").value.trim();
+  const account=normalizeActivationAccount(document.getElementById("resetAssistAccount").value);
+  const btn=document.getElementById("resetAssistBtn");
+  const status=document.getElementById("resetAssistStatus");
+  const result=document.getElementById("resetAssistResult");
+
+  if(!key){
+    status.className="status show bad";
+    status.textContent="Enter your Admin Import Key at the top of the page first.";
+    return;
+  }
+
+  if(!account){
+    status.className="status show bad";
+    status.textContent="Enter a valid Customer Number.";
+    result.classList.remove("show");
+    return;
+  }
+
+  btn.disabled=true;
+  btn.textContent="Generating…";
+  status.className="status show";
+  status.textContent="Generating password reset code…";
+  result.classList.remove("show");
+
+  try{
+    const res=await fetch("/api/admin/customer-password-reset-code",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "X-Admin-Key":key
+      },
+      body:JSON.stringify({account_number:account})
+    });
+
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok || data.success===false){
+      throw new Error(data.error||"Could not generate password reset code.");
+    }
+
+    document.getElementById("resetAssistCustomerName").textContent=data.account_name||"Customer";
+    document.getElementById("resetAssistCustomerNumber").textContent=data.account_number||account;
+    document.getElementById("resetAssistCode").textContent=data.reset_code||"";
+    document.getElementById("resetAssistExpires").textContent=data.expires_at
+      ? new Date(data.expires_at).toLocaleString()
+      : "About 15 minutes";
+
+    status.className="status show ok";
+    status.textContent="Password reset code generated successfully.";
+    result.classList.add("show");
+  }catch(error){
+    status.className="status show bad";
+    status.textContent=error.message||"Could not generate password reset code.";
+    result.classList.remove("show");
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Generate Password Reset Code";
+  }
+});
+
+document.getElementById("copyResetAssistCode").addEventListener("click",async()=>{
+  const code=document.getElementById("resetAssistCode").textContent.trim();
+  if(!code) return;
+  const btn=document.getElementById("copyResetAssistCode");
+  try{
+    await navigator.clipboard.writeText(code);
+    btn.textContent="Copied";
+    setTimeout(()=>btn.textContent="Copy Code",1200);
+  }catch{
+    alert("Password reset code: "+code);
   }
 });
 

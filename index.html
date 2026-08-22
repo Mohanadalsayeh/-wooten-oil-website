@@ -2128,6 +2128,7 @@ input[type="reset"]:focus,
       </div>
       <div id="resetStatus" class="portal-status" role="status" aria-live="polite"></div>
       <button class="portal-primary-btn" id="resetStart" type="button">Send Reset Code</button>
+      <button class="portal-secondary-btn" id="resetHaveCode" type="button" style="width:100%;margin-top:10px">I already have a Reset Code</button>
     </div>
 
     <div class="portal-activation-details" id="resetDetails">
@@ -3162,6 +3163,7 @@ input[type="reset"]:focus,
   var forgotPassword=document.getElementById('portalForgotPassword');
   var resetBack=document.getElementById('resetBack');
   var resetStart=document.getElementById('resetStart');
+  var resetHaveCode=document.getElementById('resetHaveCode');
   var resetComplete=document.getElementById('resetComplete');
   var resetStatus=document.getElementById('resetStatus');
   var resetDetails=document.getElementById('resetDetails');
@@ -3554,6 +3556,21 @@ input[type="reset"]:focus,
     showLogin();
     if(identifier) document.getElementById('portal-user').value=identifier;
     clearStatus(status);
+  });
+
+  if(resetHaveCode) resetHaveCode.addEventListener('click',function(){
+    var identifier=document.getElementById('reset-identifier').value.trim();
+    if(!identifier){
+      setStatus(resetStatus,'Enter your email address or Customer Number first.',false);
+      document.getElementById('reset-identifier').focus();
+      return;
+    }
+    clearStatus(resetStatus);
+    if(resetOfficeHelp) resetOfficeHelp.style.display='none';
+    resetInstructions.textContent='Enter the 6-digit password reset code provided by Wooten Oil, then create and confirm your new password.';
+    resetDetails.classList.add('show');
+    setStatus(resetStatus,'Enter the reset code provided by Wooten Oil.',true);
+    setTimeout(function(){document.getElementById('reset-code').focus();},50);
   });
 
   if(resetStart) resetStart.addEventListener('click',async function(){

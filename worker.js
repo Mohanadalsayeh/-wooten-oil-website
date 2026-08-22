@@ -1876,6 +1876,71 @@ async function storeResetCode(env, customerId, code) {
   return expires;
 }
 __name(storeResetCode, "storeResetCode");
+
+async function adminGeneratePasswordResetCode({ request, env }) {
+  try {
+    if (!env.DB) {
+      return json6({ success: false, error: "Customer database is not configured." }, 503);
+    }
+
+    const supplied = request.headers.get("X-Admin-Key") || "";
+    if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
+      return json6({ success: false, error: "Unauthorized." }, 401);
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json6({ success: false, error: "Invalid request." }, 400);
+    }
+
+    const account = normalizeAccount3(body?.account_number || body?.accountNumber);
+    if (!account) {
+      return json6({ success: false, error: "Customer Number is required." }, 400);
+    }
+
+    const customer = await findCustomer(env, account);
+    if (!customer) {
+      return json6({ success: false, error: "Customer was not found." }, 404);
+    }
+
+    const status = clean3(customer.account_status).toLowerCase();
+    if (status && status !== "active") {
+      return json6({
+        success: false,
+        error: "This customer account is not active."
+      }, 403);
+    }
+
+    if (!clean3(customer.password_hash)) {
+      return json6({
+        success: false,
+        setup_required: true,
+        error: "This online account has not been activated yet. Use the Account Activation tool instead."
+      }, 409);
+    }
+
+    const code = randomCode2();
+    const expires = await storeResetCode(env, customer.id, code);
+
+    return json6({
+      success: true,
+      account_number: customer.account_number,
+      account_name: customer.account_name,
+      reset_code: code,
+      expires_at: expires
+    });
+  } catch (error) {
+    console.error("adminGeneratePasswordResetCode failed", error);
+    return json6({
+      success: false,
+      error: "The password reset code could not be generated. " + String(error?.message || error)
+    }, 500);
+  }
+}
+__name(adminGeneratePasswordResetCode, "adminGeneratePasswordResetCode");
+
 async function sendResetEmail(env, customer, code) {
   if (!env.RESEND_API_KEY) throw new Error("Email service is not configured.");
   const fromAddress = clean3(env.FUEL_FROM_EMAIL) || "support@wootenoil.com";
@@ -3590,6 +3655,15 @@ var worker_default = {
     if (url.pathname === "/api/admin/customer-activation-code") {
       if (request.method === "POST") {
         return adminGenerateActivationCode({
+          request,
+          env
+        });
+      }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/customer-password-reset-code") {
+      if (request.method === "POST") {
+        return adminGeneratePasswordResetCode({
           request,
           env
         });
