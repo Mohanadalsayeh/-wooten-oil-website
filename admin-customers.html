@@ -362,6 +362,113 @@
   }
 
 </style>
+
+<style id="wooten-admin-button-focus-only">
+/* Match the main website button behavior:
+   - normal-weight text
+   - no movement
+   - no size/position/font change
+   - no hover recolor
+   - only a subtle focus ring/shadow */
+
+button,
+button *,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.admin-tab,
+.copy-btn{
+  font-weight:400 !important;
+  font-style:normal !important;
+  text-shadow:none !important;
+  -webkit-text-stroke:0 !important;
+  transform:none !important;
+  filter:none !important;
+}
+
+/* Preserve each button's original normal appearance on hover. */
+button:hover,
+button:focus,
+button:focus-visible,
+input[type="button"]:hover,
+input[type="button"]:focus,
+input[type="submit"]:hover,
+input[type="submit"]:focus,
+input[type="reset"]:hover,
+input[type="reset"]:focus,
+.admin-tab:hover,
+.admin-tab:focus,
+.admin-tab:focus-visible,
+.copy-btn:hover,
+.copy-btn:focus,
+.copy-btn:focus-visible{
+  font-weight:400 !important;
+  font-style:normal !important;
+  transform:none !important;
+  filter:none !important;
+  text-shadow:none !important;
+  -webkit-text-stroke:0 !important;
+  outline:none !important;
+  box-shadow:
+    0 0 0 2px rgba(31,78,121,.18),
+    0 4px 12px rgba(15,39,66,.10) !important;
+}
+
+/* Keep primary buttons exactly red/white in every state. */
+button.primary,
+button.primary:hover,
+button.primary:focus,
+button.primary:focus-visible,
+button.primary:active{
+  background:var(--red) !important;
+  color:#fff !important;
+}
+
+/* Keep secondary buttons exactly as designed in every state. */
+button.secondary,
+button.secondary:hover,
+button.secondary:focus,
+button.secondary:focus-visible,
+button.secondary:active{
+  background:#e8edf3 !important;
+  color:#0f172a !important;
+}
+
+/* Keep Copy Code button exactly as designed. */
+button.copy-btn,
+button.copy-btn:hover,
+button.copy-btn:focus,
+button.copy-btn:focus-visible,
+button.copy-btn:active{
+  background:#0b2239 !important;
+  color:#fff !important;
+}
+
+/* Edge-style tabs: keep the selected/unselected colors unchanged on hover. */
+.admin-tab:not([aria-selected="true"]),
+.admin-tab:not([aria-selected="true"]):hover,
+.admin-tab:not([aria-selected="true"]):focus,
+.admin-tab:not([aria-selected="true"]):focus-visible{
+  background:#e8edf3 !important;
+  color:#475569 !important;
+}
+
+.admin-tab[aria-selected="true"],
+.admin-tab[aria-selected="true"]:hover,
+.admin-tab[aria-selected="true"]:focus,
+.admin-tab[aria-selected="true"]:focus-visible{
+  background:#fff !important;
+  color:var(--navy) !important;
+}
+
+/* Browser file-picker button follows the same normal-weight look. */
+input[type="file"]::file-selector-button{
+  font:inherit;
+  font-weight:400 !important;
+  cursor:pointer;
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
