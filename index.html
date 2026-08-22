@@ -3349,34 +3349,57 @@ body.customer-signed-in .mobile-customer-header{display:flex}
     try{
       var d=new Date(value);
       if(Number.isNaN(d.getTime())) return String(value||'');
-      return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+      return d.toLocaleString('en-US',{
+        month:'short',day:'numeric',year:'numeric',
+        hour:'numeric',minute:'2-digit'
+      });
     }catch(e){ return ''; }
+  }
+
+  function notificationElements(){
+    return {
+      list:document.getElementById('dashboardNotificationList'),
+      headerList:document.getElementById('headerNotificationList'),
+      badge:document.getElementById('dashboardNotificationBadge'),
+      headerBadge:document.getElementById('mobileHeaderNotificationBadge')
+    };
+  }
+
+  function renderError(message){
+    var els=notificationElements();
+    var html='<div class="notification-empty" style="color:#a12622">'+
+      escapeHtml(message||'Unable to load notifications.')+
+      '</div>';
+
+    if(els.list) els.list.innerHTML=html;
+    if(els.headerList) els.headerList.innerHTML=html;
+
+    if(els.badge) els.badge.style.display='none';
+    if(els.headerBadge) els.headerBadge.style.display='none';
   }
 
   function renderItems(items){
     items=Array.isArray(items)?items:[];
     cachedItems=items;
 
-    var list=document.getElementById('dashboardNotificationList');
-    var headerList=document.getElementById('headerNotificationList');
-    var badge=document.getElementById('dashboardNotificationBadge');
-    var headerBadge=document.getElementById('mobileHeaderNotificationBadge');
+    var els=notificationElements();
     var unread=items.filter(function(n){return !n.read;}).length;
     var badgeText=unread>9?'9+':String(unread);
 
-    if(badge){
-      badge.textContent=badgeText;
-      badge.style.display=unread?'block':'none';
+    if(els.badge){
+      els.badge.textContent=badgeText;
+      els.badge.style.display=unread?'block':'none';
     }
-    if(headerBadge){
-      headerBadge.textContent=badgeText;
-      headerBadge.style.display=unread?'block':'none';
+
+    if(els.headerBadge){
+      els.headerBadge.textContent=badgeText;
+      els.headerBadge.style.display=unread?'block':'none';
     }
 
     var empty='<div class="notification-empty">No notifications yet.</div>';
 
-    if(list){
-      list.innerHTML=!items.length?empty:items.map(function(n){
+    if(els.list){
+      els.list.innerHTML=!items.length?empty:items.map(function(n){
         return '<div class="notification-item '+(!n.read?'unread':'')+'">'+
           '<span class="notification-dot"></span>'+
           '<div class="notification-copy">'+
@@ -3387,9 +3410,10 @@ body.customer-signed-in .mobile-customer-header{display:flex}
       }).join('');
     }
 
-    if(headerList){
-      headerList.innerHTML=!items.length?empty:items.map(function(n){
-        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+'" data-notification-id="'+escapeHtml(n.id)+'">'+
+    if(els.headerList){
+      els.headerList.innerHTML=!items.length?empty:items.map(function(n){
+        return '<button type="button" class="header-notification-item '+(!n.read?'unread':'')+
+          '" data-notification-id="'+escapeHtml(n.id)+'">'+
           '<span class="header-notification-dot"></span>'+
           '<span class="header-notification-copy">'+
           '<strong>'+escapeHtml(n.title||'Wooten Oil')+'</strong>'+
@@ -3404,45 +3428,58 @@ body.customer-signed-in .mobile-customer-header{display:flex}
     try{
       var response=await fetch(NOTIFICATIONS_ENDPOINT,{
         method:'GET',
+        headers:{'Accept':'application/json'},
         credentials:'same-origin',
         cache:'no-store'
       });
+
+      var data=await response.json().catch(function(){return {};});
 
       if(response.status===401){
         renderItems([]);
         return [];
       }
 
-      var data=await response.json().catch(function(){return {};});
       if(!response.ok || data.success===false){
-        throw new Error(data.error||'Unable to load notifications.');
+        throw new Error(data.error||('Notification API error '+response.status));
       }
 
       var items=Array.isArray(data.notifications)?data.notifications:[];
       renderItems(items);
       return items;
+
     }catch(error){
       console.error('Customer notifications load failed',error);
+      renderError(error && error.message ? error.message : 'Unable to load notifications.');
       return cachedItems;
     }
   };
 
   window.wootenMarkOneCustomerNotificationRead=async function(account,id){
     if(!id) return;
+
     try{
       var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
         method:'POST',
         credentials:'same-origin',
-        headers:{'Content-Type':'application/json'},
+        headers:{
+          'Content-Type':'application/json',
+          'Accept':'application/json'
+        },
         body:JSON.stringify({id:Number(id)})
       });
+
       var data=await response.json().catch(function(){return {};});
+
       if(!response.ok || data.success===false){
         throw new Error(data.error||'Unable to mark notification read.');
       }
+
       await window.wootenRenderCustomerNotifications();
+
     }catch(error){
       console.error('Could not mark notification read',error);
+      renderError(error && error.message ? error.message : 'Unable to update notification.');
     }
   };
 
@@ -3451,35 +3488,58 @@ body.customer-signed-in .mobile-customer-header{display:flex}
       var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
         method:'POST',
         credentials:'same-origin',
-        headers:{'Content-Type':'application/json'},
+        headers:{
+          'Content-Type':'application/json',
+          'Accept':'application/json'
+        },
         body:JSON.stringify({all:true})
       });
+
       var data=await response.json().catch(function(){return {};});
+
       if(!response.ok || data.success===false){
         throw new Error(data.error||'Unable to mark notifications read.');
       }
+
       await window.wootenRenderCustomerNotifications();
+
     }catch(error){
       console.error('Could not mark notifications read',error);
+      renderError(error && error.message ? error.message : 'Unable to update notifications.');
     }
   };
 
-  // Keep the old function name available, but portal notifications now come from the server.
   window.wootenAddCustomerNotification=function(){
     return window.wootenRenderCustomerNotifications();
   };
 
-  // Refresh periodically while a customer stays signed in.
-  setInterval(function(){
+  function refreshIfSignedIn(){
     if(document.body.classList.contains('customer-signed-in')){
       window.wootenRenderCustomerNotifications();
     }
-  },60000);
+  }
+
+  // The portal login script appears earlier in the page, so run an explicit
+  // refresh after all scripts have loaded. This fixes customers who were
+  // already logged in when the page was refreshed.
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){
+      setTimeout(refreshIfSignedIn,350);
+      setTimeout(refreshIfSignedIn,1400);
+    });
+  }else{
+    setTimeout(refreshIfSignedIn,350);
+    setTimeout(refreshIfSignedIn,1400);
+  }
+
+  window.addEventListener('load',function(){
+    setTimeout(refreshIfSignedIn,600);
+  });
+
+  setInterval(refreshIfSignedIn,30000);
 
   document.addEventListener('visibilitychange',function(){
-    if(!document.hidden && document.body.classList.contains('customer-signed-in')){
-      window.wootenRenderCustomerNotifications();
-    }
+    if(!document.hidden) refreshIfSignedIn();
   });
 })();
 </script>
