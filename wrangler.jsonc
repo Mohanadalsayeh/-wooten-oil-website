@@ -10,15 +10,24 @@
       "/api/*"
     ]
   },
-"vars": {
-  "FUEL_TO_EMAIL": "support@wootenoil.com",
-  "FUEL_FROM_EMAIL": "fuel@wootenoil.com"
-},
+
+  "vars": {
+    "FUEL_TO_EMAIL": "support@wootenoil.com",
+    "FUEL_FROM_EMAIL": "fuel@wootenoil.com"
+  },
+
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "wooten-oil-requests",
       "database_id": "6a293919-08d6-4cd7-b40e-1fe6b44b6590"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "NOTIFICATION_ATTACHMENTS",
+      "bucket_name": "wooten-notification-attachments"
     }
   ]
 }
