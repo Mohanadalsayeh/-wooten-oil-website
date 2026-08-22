@@ -69,6 +69,17 @@
   #inboxTableWrap th:nth-child(7),#inboxTableWrap td:nth-child(7){width:13%}
   #inboxTableWrap th:nth-child(8),#inboxTableWrap td:nth-child(8){width:12%}
 
+
+  .notify-card{margin-top:22px;background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:20px}
+  .notify-grid{display:grid;grid-template-columns:220px 1fr;gap:14px}
+  .notify-field.full{grid-column:1/-1}
+  .notify-field label{font-weight:700;font-size:14px;display:block;margin-bottom:7px}
+  .notify-field input,.notify-field textarea{width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;background:#fff}
+  .notify-field textarea{min-height:130px;resize:vertical}
+  .notify-options{display:flex;align-items:center;gap:9px;margin-top:13px;color:#475569;font-size:14px}
+  .notify-options input{width:auto}
+  @media(max-width:720px){.notify-grid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -148,6 +159,40 @@
         </tr></thead>
         <tbody id="inboxBody"></tbody>
       </table>
+    </div>
+  </div>
+
+
+  <div class="card">
+    <h2>Send Customer Notification</h2>
+    <p>Send a private portal notification to one customer. You can also send the same message to the customer's email address.</p>
+
+    <div class="notify-card">
+      <div class="notify-grid">
+        <div class="notify-field">
+          <label for="notifyAccount">Customer Number</label>
+          <input id="notifyAccount" type="text" inputmode="numeric" placeholder="Example: 0003331" autocomplete="off">
+        </div>
+        <div class="notify-field">
+          <label for="notifySubject">Subject</label>
+          <input id="notifySubject" type="text" maxlength="160" placeholder="Example: Account Update">
+        </div>
+        <div class="notify-field full">
+          <label for="notifyMessage">Message</label>
+          <textarea id="notifyMessage" maxlength="5000" placeholder="Type the message the customer should see in the notification bell."></textarea>
+        </div>
+      </div>
+
+      <label class="notify-options">
+        <input id="notifySendEmail" type="checkbox" checked>
+        Send the same message to the customer's email address
+      </label>
+
+      <div class="actions">
+        <button class="primary" id="sendCustomerNotificationBtn" type="button">Send Notification</button>
+      </div>
+
+      <div id="notifyStatus" class="status"></div>
     </div>
   </div>
 
@@ -442,6 +487,70 @@ function normalizeActivationAccount(v){
   s=s.replace(/\D/g,"");
   return s ? s.padStart(7,"0") : "";
 }
+
+
+/* Send Customer Notification */
+document.getElementById("sendCustomerNotificationBtn").addEventListener("click",async()=>{
+  const key=document.getElementById("adminKey").value.trim();
+  const account=normalizeActivationAccount(document.getElementById("notifyAccount").value);
+  const title=document.getElementById("notifySubject").value.trim();
+  const message=document.getElementById("notifyMessage").value.trim();
+  const sendEmail=document.getElementById("notifySendEmail").checked;
+  const btn=document.getElementById("sendCustomerNotificationBtn");
+  const status=document.getElementById("notifyStatus");
+
+  if(!key){
+    status.className="status show bad";
+    status.textContent="Enter your Admin Import Key at the top of the page first.";
+    return;
+  }
+  if(!account || !title || !message){
+    status.className="status show bad";
+    status.textContent="Customer Number, subject and message are required.";
+    return;
+  }
+
+  btn.disabled=true;
+  btn.textContent="Sending…";
+  status.className="status show";
+  status.textContent="Sending customer notification…";
+
+  try{
+    const res=await fetch("/api/admin/customer-notifications",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "X-Admin-Key":key
+      },
+      body:JSON.stringify({
+        account_number:account,
+        title,
+        message,
+        send_email:sendEmail
+      })
+    });
+
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok || data.success===false){
+      throw new Error(data.error||"Could not send notification.");
+    }
+
+    status.className="status show ok";
+    status.textContent=
+      `Notification sent to ${data.account_name||"customer"} (${data.account_number||account}).`+
+      (data.email_sent?" Email sent too.":"")+
+      (data.warning?` ${data.warning}`:"");
+
+    document.getElementById("notifySubject").value="";
+    document.getElementById("notifyMessage").value="";
+  }catch(error){
+    status.className="status show bad";
+    status.textContent=error.message||"Could not send notification.";
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Send Notification";
+  }
+});
 
 document.getElementById("activationBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
