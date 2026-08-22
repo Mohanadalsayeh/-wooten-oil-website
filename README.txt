@@ -1,17 +1,16 @@
-WOOTEN OIL DATABASE TOOLBAR LAYOUT FIX
+WOOTEN OIL DATABASE BUTTON POSITION FIX
 
 Replace:
 - admin-customers.html
 - worker.js
 - index.html
 
-What changed:
-- Search field remains the widest control.
-- Email, Online Account, Account Status, and Sort use balanced widths.
-- Load Database and Refresh are now normal-height buttons aligned with the dropdowns.
-- Button text stays on one line.
-- Desktop spacing is cleaner.
-- Controls wrap neatly on medium screens and stack cleanly on phones.
-- Database table, search, filters, sort, pagination, and View customer details remain unchanged.
+Fix:
+- Load Database and Refresh now sit on their own row INSIDE the Database panel.
+- They are right-aligned on desktop.
+- They no longer extend outside the white bordered Database area.
+- Search and all four filters remain on the row above.
+- On tablets/phones the layout wraps cleanly.
+- No database functions changed.
 
-No Cloudflare, D1, or wrangler.jsonc changes are needed.
+No Cloudflare, D1, R2, or wrangler.jsonc changes are required.
