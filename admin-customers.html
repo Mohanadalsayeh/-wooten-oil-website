@@ -55,6 +55,20 @@
   #inboxTableWrap th:nth-child(4),#inboxTableWrap td:nth-child(4){width:17%}
   #inboxTableWrap th:nth-child(5),#inboxTableWrap td:nth-child(5){width:31%}
 
+
+  .inbox-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 12px}
+  .inbox-tools input,.inbox-tools select{width:auto;min-width:220px;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff;color:#111827}
+  .inbox-tools select{min-width:180px}
+  .inbox-count{font-size:13px;color:var(--muted);font-weight:700}
+  #inboxTableWrap th:nth-child(1),#inboxTableWrap td:nth-child(1){width:12%}
+  #inboxTableWrap th:nth-child(2),#inboxTableWrap td:nth-child(2){width:9%}
+  #inboxTableWrap th:nth-child(3),#inboxTableWrap td:nth-child(3){width:9%}
+  #inboxTableWrap th:nth-child(4),#inboxTableWrap td:nth-child(4){width:12%}
+  #inboxTableWrap th:nth-child(5),#inboxTableWrap td:nth-child(5){width:15%}
+  #inboxTableWrap th:nth-child(6),#inboxTableWrap td:nth-child(6){width:18%}
+  #inboxTableWrap th:nth-child(7),#inboxTableWrap td:nth-child(7){width:13%}
+  #inboxTableWrap th:nth-child(8),#inboxTableWrap td:nth-child(8){width:12%}
+
 </style>
 </head>
 <body>
@@ -110,9 +124,28 @@
       <button class="secondary" id="refreshInboxBtn" type="button">Refresh</button>
     </div>
     <div id="inboxStatus" class="status"></div>
+    <div class="inbox-tools">
+      <input id="inboxSearch" type="search" placeholder="Search name, account #, email, subject or message">
+      <select id="inboxTypeFilter">
+        <option value="">All message types</option>
+        <option value="Fuel Request">Fuel Requests</option>
+        <option value="Website Message">Website Messages</option>
+      </select>
+      <span id="inboxFilterCount" class="inbox-count"></span>
+    </div>
+
     <div id="inboxTableWrap" style="display:none">
       <table>
-        <thead><tr><th>Type</th><th>Received</th><th>Subject</th><th>From</th><th>Message</th></tr></thead>
+        <thead><tr>
+          <th>Customer Name</th>
+          <th>Account #</th>
+          <th>Type</th>
+          <th>Received</th>
+          <th>Subject</th>
+          <th>From</th>
+          <th>Email</th>
+          <th>Message</th>
+        </tr></thead>
         <tbody id="inboxBody"></tbody>
       </table>
     </div>
@@ -282,51 +315,126 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
 });
 
 
+let inboxMessages=[];
+
+function renderInboxMessages(){
+  const body=document.getElementById("inboxBody");
+  const wrap=document.getElementById("inboxTableWrap");
+  const search=(document.getElementById("inboxSearch")?.value||"").trim().toLowerCase();
+  const typeFilter=document.getElementById("inboxTypeFilter")?.value||"";
+  const count=document.getElementById("inboxFilterCount");
+
+  const filtered=inboxMessages.filter(message=>{
+    if(typeFilter && message.type!==typeFilter) return false;
+
+    if(!search) return true;
+
+    const haystack=[
+      message.customer_name,
+      message.account_number,
+      message.customer_email,
+      message.type,
+      message.subject,
+      message.from,
+      message.snippet
+    ].map(v=>String(v||"").toLowerCase()).join(" ");
+
+    return haystack.includes(search);
+  });
+
+  body.innerHTML="";
+
+  filtered.forEach(message=>{
+    const row=document.createElement("tr");
+
+    const customerName=document.createElement("td");
+    customerName.textContent=message.customer_name||"—";
+
+    const accountNumber=document.createElement("td");
+    accountNumber.textContent=message.account_number||"—";
+
+    const type=document.createElement("td");
+    type.textContent=message.type||"Message";
+
+    const received=document.createElement("td");
+    const raw=message.date||"", d=new Date(raw);
+    received.textContent=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
+
+    const subject=document.createElement("td");
+    subject.textContent=message.subject||"(No subject)";
+
+    const from=document.createElement("td");
+    from.textContent=message.from||"";
+
+    const email=document.createElement("td");
+    email.textContent=message.customer_email||"—";
+
+    const msg=document.createElement("td");
+    msg.textContent=message.snippet||"";
+
+    row.append(customerName,accountNumber,type,received,subject,from,email,msg);
+    body.appendChild(row);
+  });
+
+  if(count){
+    count.textContent=`Showing ${filtered.length} of ${inboxMessages.length}`;
+  }
+
+  wrap.style.display=filtered.length?"block":"none";
+}
+
 async function loadGmailInbox(){
   const key=document.getElementById("adminKey").value.trim();
   const loadBtn=document.getElementById("loadInboxBtn");
   const refreshBtn=document.getElementById("refreshInboxBtn");
   const status=document.getElementById("inboxStatus");
-  const wrap=document.getElementById("inboxTableWrap");
-  const body=document.getElementById("inboxBody");
+
   if(!key){
     status.className="status show bad";
     status.textContent="Enter your Admin Import Key at the top of the page first.";
     window.scrollTo({top:0,behavior:"smooth"});
     return;
   }
-  loadBtn.disabled=true; refreshBtn.disabled=true;
-  status.className="status show"; status.textContent="Loading customer messages…";
+
+  loadBtn.disabled=true;
+  refreshBtn.disabled=true;
+  status.className="status show";
+  status.textContent="Loading customer messages…";
+
   try{
-    const res=await fetch("/api/admin/gmail-inbox",{method:"GET",headers:{"X-Admin-Key":key},cache:"no-store"});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok||data.success===false) throw new Error(data.error||"Unable to load customer messages.");
-    const messages=Array.isArray(data.messages)?data.messages:[];
-    body.innerHTML="";
-    messages.forEach(message=>{
-      const row=document.createElement("tr");
-      const type=document.createElement("td"); type.textContent=message.type||"Message";
-      const received=document.createElement("td");
-      const raw=message.date||"", d=new Date(raw);
-      received.textContent=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
-      const subject=document.createElement("td"); subject.textContent=message.subject||"(No subject)";
-      const from=document.createElement("td"); from.textContent=message.from||"";
-      const msg=document.createElement("td"); msg.textContent=message.snippet||"";
-      row.append(type,received,subject,from,msg); body.appendChild(row);
+    const res=await fetch("/api/admin/gmail-inbox",{
+      method:"GET",
+      headers:{"X-Admin-Key":key},
+      cache:"no-store"
     });
+
+    const data=await res.json().catch(()=>({}));
+
+    if(!res.ok||data.success===false){
+      throw new Error(data.error||"Unable to load customer messages.");
+    }
+
+    inboxMessages=Array.isArray(data.messages)?data.messages:[];
+    renderInboxMessages();
+
     status.className="status show ok";
-    status.textContent=`${messages.length} customer message${messages.length===1?"":"s"} loaded.`;
-    wrap.style.display=messages.length?"block":"none";
+    status.textContent=`${inboxMessages.length} customer message${inboxMessages.length===1?"":"s"} loaded.`;
+
   }catch(error){
+    inboxMessages=[];
+    renderInboxMessages();
     status.className="status show bad";
     status.textContent=error.message||"Unable to load customer messages.";
-    wrap.style.display="none";
   }finally{
-    loadBtn.disabled=false; refreshBtn.disabled=false;
+    loadBtn.disabled=false;
+    refreshBtn.disabled=false;
   }
 }
+
 document.getElementById("loadInboxBtn").addEventListener("click",loadGmailInbox);
 document.getElementById("refreshInboxBtn").addEventListener("click",loadGmailInbox);
+document.getElementById("inboxSearch").addEventListener("input",renderInboxMessages);
+document.getElementById("inboxTypeFilter").addEventListener("change",renderInboxMessages);
 
 function normalizeActivationAccount(v){
   let s=String(v??"").trim();
