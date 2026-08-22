@@ -3824,6 +3824,153 @@ async function adminGmailPortalSyncStatus({request,env}) {
 __name(adminGmailPortalSyncStatus,"adminGmailPortalSyncStatus");
 
 
+
+async function adminCustomerOnlineDeactivate({ request, env }) {
+  try {
+    if (!env.DB) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Customer database is not configured."
+      }), {
+        status: 503,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    const supplied = request.headers.get("X-Admin-Key") || "";
+    if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Unauthorized."
+      }), {
+        status: 401,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Invalid request."
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    const raw = String(body?.account_number || body?.accountNumber || "").replace(/\D/g, "");
+    const account = raw ? raw.padStart(7, "0") : "";
+    if (!account) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Customer Number is required."
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    const customer = await env.DB.prepare(`
+      SELECT id, account_number, account_name, password_hash
+      FROM customers
+      WHERE account_number = ?
+      LIMIT 1
+    `).bind(account).first();
+
+    if (!customer) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Customer was not found."
+      }), {
+        status: 404,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    if (!String(customer.password_hash || "").trim()) {
+      return new Response(JSON.stringify({
+        success: true,
+        already_deactivated: true,
+        account_number: customer.account_number,
+        account_name: customer.account_name,
+        message: "This customer's online account is already not activated."
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    /* Only remove WEBSITE LOGIN access. Do not alter account_status,
+       balances, email, customer number, or accounting data. */
+    await env.DB.prepare(`
+      UPDATE customers
+      SET
+        password_hash = NULL,
+        must_change_password = 0,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(customer.id).run();
+
+    /* Immediately sign out every active customer portal session. */
+    try {
+      await env.DB.prepare(`
+        DELETE FROM customer_sessions
+        WHERE customer_id = ?
+      `).bind(customer.id).run();
+    } catch (error) {
+      console.error("customer session cleanup during online deactivation failed", error);
+    }
+
+    /* Invalidate any unused password-reset codes/tokens. */
+    try {
+      await env.DB.prepare(`
+        UPDATE password_reset_tokens
+        SET used_at = CURRENT_TIMESTAMP
+        WHERE customer_id = ?
+          AND used_at IS NULL
+      `).bind(customer.id).run();
+    } catch (error) {
+      console.error("password reset cleanup during online deactivation failed", error);
+    }
+
+    /* Invalidate old activation codes so a fresh code is required. */
+    try {
+      await env.DB.prepare(`
+        UPDATE customer_activation_codes
+        SET used_at = CURRENT_TIMESTAMP
+        WHERE customer_id = ?
+          AND used_at IS NULL
+      `).bind(customer.id).run();
+    } catch (error) {
+      console.error("activation code cleanup during online deactivation failed", error);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      account_number: customer.account_number,
+      account_name: customer.account_name,
+      online_activated: false,
+      message: "Online account deactivated."
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  } catch (error) {
+    console.error("adminCustomerOnlineDeactivate failed", error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: "Could not deactivate the online account. " + String(error?.message || error)
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+}
+__name(adminCustomerOnlineDeactivate, "adminCustomerOnlineDeactivate");
+
 async function adminCustomersDatabaseGet({ request, env }) {
   try {
     const supplied = request.headers.get("X-Admin-Key") || "";
@@ -4009,6 +4156,13 @@ var worker_default = {
       }
       return methodNotAllowed();
     }
+    if (url.pathname === "/api/admin/customer-online-deactivate") {
+      if (request.method === "POST") {
+        return adminCustomerOnlineDeactivate({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
     if (url.pathname === "/api/admin/customers-database") {
       if (request.method === "GET") {
         return adminCustomersDatabaseGet({ request, env });

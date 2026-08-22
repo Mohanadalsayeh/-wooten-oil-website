@@ -1065,6 +1065,56 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-online-deactivate-style">
+.db-online-action{
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid #e5ebf0;
+}
+.db-online-action h4{
+  margin:0 0 7px;
+  color:#0b2239;
+  font-size:15px;
+}
+.db-online-action p{
+  margin:0 0 12px;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.5;
+}
+.db-deactivate-btn{
+  background:#fff !important;
+  color:#b91c1c !important;
+  border:1px solid #fecaca !important;
+}
+.db-deactivate-btn:hover,
+.db-deactivate-btn:focus,
+.db-deactivate-btn:active{
+  background:#fff !important;
+  color:#b91c1c !important;
+  transform:none !important;
+}
+.db-action-status{
+  display:none;
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:13px;
+}
+.db-action-status.show{display:block}
+.db-action-status.ok{
+  background:#ecfdf3;
+  border:1px solid #bbf7d0;
+  color:#166534;
+}
+.db-action-status.bad{
+  background:#fff1f2;
+  border:1px solid #fecdd3;
+  color:#9f1239;
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -2345,11 +2395,82 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
           <div class="db-detail-label">Aging 4</div>
           <div class="db-detail-value">${money(row.aging_category_4)}</div>
         </div>
-      </div>`;
+      </div>
+
+      ${row.online_activated ? `
+        <div class="db-online-action">
+          <h4>Online Account Access</h4>
+          <p>Deactivate this customer's online login. This does not change the customer's billing account, balance, or account status. Their current website sessions will be signed out and they will need to activate the online account again before signing in.</p>
+          <button class="secondary db-deactivate-btn" id="dbDeactivateOnlineBtn" type="button">Deactivate Online Account</button>
+          <div class="db-action-status" id="dbDeactivateStatus"></div>
+        </div>
+      ` : `
+        <div class="db-online-action">
+          <h4>Online Account Access</h4>
+          <p>This customer does not currently have an activated online account.</p>
+        </div>
+      `}`;
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden","false");
     document.body.style.overflow="hidden";
+
+    const deactivateBtn=document.getElementById("dbDeactivateOnlineBtn");
+    if(deactivateBtn){
+      deactivateBtn.addEventListener("click",async()=>{
+        const key=document.getElementById("adminKey").value.trim();
+        const actionStatus=document.getElementById("dbDeactivateStatus");
+
+        if(!key){
+          actionStatus.className="db-action-status show bad";
+          actionStatus.textContent="Enter the Admin Import Key at the top of the page first.";
+          return;
+        }
+
+        const confirmed=confirm(
+          `Deactivate the online account for ${row.account_name||"this customer"} (${row.account_number||""})?\n\n`+
+          "The customer will be signed out and their current online password will no longer work. " +
+          "This does NOT change their Wooten Oil billing account or balance."
+        );
+        if(!confirmed) return;
+
+        deactivateBtn.disabled=true;
+        deactivateBtn.textContent="Deactivating…";
+        actionStatus.className="db-action-status show";
+        actionStatus.textContent="Deactivating online account…";
+
+        try{
+          const response=await fetch("/api/admin/customer-online-deactivate",{
+            method:"POST",
+            headers:{
+              "Content-Type":"application/json",
+              "X-Admin-Key":key
+            },
+            body:JSON.stringify({account_number:row.account_number})
+          });
+
+          const data=await response.json().catch(()=>({}));
+          if(!response.ok || data.success===false){
+            throw new Error(data.error||"Could not deactivate the online account.");
+          }
+
+          row.online_activated=0;
+          actionStatus.className="db-action-status show ok";
+          actionStatus.textContent="Online account deactivated. The customer has been signed out and must activate the online account again before signing in.";
+          deactivateBtn.remove();
+
+          setTimeout(()=>{
+            closeCustomerDetails();
+            loadDatabase({silent:true});
+          },1100);
+        }catch(error){
+          actionStatus.className="db-action-status show bad";
+          actionStatus.textContent=error.message||"Could not deactivate the online account.";
+          deactivateBtn.disabled=false;
+          deactivateBtn.textContent="Deactivate Online Account";
+        }
+      });
+    }
   }
 
   function closeCustomerDetails(){
