@@ -3072,6 +3072,49 @@ function gmailSyncBody(payload) {
 }
 __name(gmailSyncBody,"gmailSyncBody");
 
+
+function gmailSyncCleanNotificationBody(value) {
+  let text = String(value || "").trim();
+  if (!text) return "";
+
+  // Gmail/HTML signatures sometimes arrive as one long line after HTML stripping.
+  // Only remove a Wooten Oil signature when the tail also looks like the company
+  // signature (support email / phone / address), so normal message text is preserved.
+  const signatureNames = [
+    "Wooten Oil Co. Inc.",
+    "Wooten Oil Co Inc.",
+    "Wooten Oil Company",
+    "Wooten Oil Co."
+  ];
+
+  const lower = text.toLowerCase();
+
+  for (const name of signatureNames) {
+    const idx = lower.lastIndexOf(name.toLowerCase());
+    if (idx <= 0) continue;
+
+    const tail = text.slice(idx).toLowerCase();
+    const looksLikeSignature =
+      tail.includes("support@wootenoil.com") ||
+      tail.includes("(901)") ||
+      tail.includes("901-") ||
+      tail.includes("covington, tn") ||
+      tail.includes("sanford");
+
+    // Signatures are expected near the end of the email.
+    if (looksLikeSignature && idx >= Math.max(1, Math.floor(text.length * 0.15))) {
+      text = text.slice(0, idx).trim();
+      break;
+    }
+  }
+
+  return text
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 5000);
+}
+__name(gmailSyncCleanNotificationBody, "gmailSyncCleanNotificationBody");
+
 function gmailSyncHeader(payload,name) {
   const found=(payload?.headers||[]).find(h=>String(h?.name||"").toLowerCase()===name.toLowerCase());
   return String(found?.value||"");
@@ -3126,7 +3169,8 @@ async function syncGmailSentToPortal(env,options={}) {
       if(internalDate&&internalDate<cutoff) continue;
 
       const subject=(gmailSyncHeader(m.payload,"Subject")||"(No subject)").trim().slice(0,160);
-      const body=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
+      const rawBody=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
+      const body=gmailSyncCleanNotificationBody(rawBody)||"(Email message)";
       const recipients=[...new Set([
         ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"To")),
         ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"Cc")),
