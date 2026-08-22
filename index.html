@@ -1595,7 +1595,7 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 .customer-notification-attachments.show{display:block}
 .customer-notification-attachments-title{margin:0 0 10px;color:#0b2239;font-size:.86rem;font-weight:600}
 .customer-notification-attachment-list{display:grid;gap:9px}
-.customer-notification-attachment{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #dce4eb;border-radius:11px;background:#f8fafc;text-decoration:none;color:#17314b}
+.customer-notification-attachment{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #dce4eb;border-radius:11px;background:#f8fafc;text-decoration:none;color:#17314b;font:inherit;text-align:left;cursor:pointer}
 .customer-notification-attachment:hover,.customer-notification-attachment:focus{background:#f8fafc;color:#17314b;transform:none}
 .customer-notification-attachment-name{min-width:0;overflow-wrap:anywhere;font-size:.88rem}
 .customer-notification-attachment-open{flex:0 0 auto;font-size:.78rem;color:#64748b}
@@ -3508,10 +3508,10 @@ input[type="reset"]:focus,
         var name=String(a.filename||'Attachment');
         var safeName=name.replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
         var safeUrl=String(a.url||'').replace(/"/g,'%22');
-        return '<a class="customer-notification-attachment" href="'+safeUrl+'" target="_blank" rel="noopener">'+
+        return '<button class="customer-notification-attachment" type="button" data-attachment-url="'+safeUrl+'" data-attachment-name="'+safeName+'">'+
           '<span class="customer-notification-attachment-name">📎 '+safeName+' <small>('+formatPopupFileSize(a.size_bytes)+')</small></span>'+
           '<span class="customer-notification-attachment-open">Open</span>'+
-          '</a>';
+          '</button>';
       }).join('');
     }
     if(customerNotificationPopupAttachments){
@@ -3520,6 +3520,81 @@ input[type="reset"]:focus,
 
     customerNotificationPopup.classList.add('show');
     document.body.style.overflow='hidden';
+  }
+
+  async function openCustomerNotificationAttachment(button){
+    if(!button) return;
+
+    var url=button.getAttribute('data-attachment-url')||'';
+    var filename=button.getAttribute('data-attachment-name')||'Attachment';
+    var openLabel=button.querySelector('.customer-notification-attachment-open');
+
+    if(!url) return;
+
+    /* Open a blank tab immediately while the click is still a user gesture.
+       This avoids browser popup blockers after the authenticated fetch finishes. */
+    var previewWindow=null;
+    try{
+      previewWindow=window.open('about:blank','_blank');
+      if(previewWindow){
+        previewWindow.document.title='Opening '+filename;
+        previewWindow.document.body.innerHTML=
+          '<div style="font-family:Arial,sans-serif;padding:24px;color:#17314b">Opening attachment…</div>';
+      }
+    }catch(e){previewWindow=null;}
+
+    button.disabled=true;
+    if(openLabel) openLabel.textContent='Opening…';
+
+    try{
+      var response=await fetch(url,{
+        method:'GET',
+        credentials:'same-origin',
+        cache:'no-store'
+      });
+
+      if(!response.ok){
+        var errorText=await response.text().catch(function(){return '';});
+        throw new Error(errorText || ('Attachment could not be opened ('+response.status+').'));
+      }
+
+      var blob=await response.blob();
+      var blobUrl=URL.createObjectURL(blob);
+
+      if(previewWindow && !previewWindow.closed){
+        previewWindow.location.replace(blobUrl);
+      }else{
+        /* Fallback when the browser blocks a new tab. */
+        var a=document.createElement('a');
+        a.href=blobUrl;
+        a.target='_blank';
+        a.rel='noopener';
+        a.download='';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      setTimeout(function(){URL.revokeObjectURL(blobUrl);},60000);
+    }catch(err){
+      if(previewWindow && !previewWindow.closed){
+        try{previewWindow.close();}catch(e){}
+      }
+      alert(err && err.message ? err.message : 'Attachment could not be opened.');
+    }finally{
+      button.disabled=false;
+      if(openLabel) openLabel.textContent='Open';
+    }
+  }
+
+  if(customerNotificationPopupAttachmentList){
+    customerNotificationPopupAttachmentList.addEventListener('click',function(e){
+      var button=e.target.closest('.customer-notification-attachment');
+      if(!button) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openCustomerNotificationAttachment(button);
+    });
   }
 
   function closeCustomerNotificationPopup(){
