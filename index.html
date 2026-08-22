@@ -1460,6 +1460,20 @@ body.customer-signed-in .mobile-customer-header{display:flex}
     display:flex !important;
   }
 
+  /* Keep the hamburger/menu icon at the far right at all times */
+  .mobile-menu-button{
+    order:99;
+    margin-left:auto !important;
+  }
+
+  body.customer-signed-in .mobile-customer-header{
+    margin-left:auto !important;
+  }
+
+  body.customer-signed-in .mobile-menu-button{
+    margin-left:8px !important;
+  }
+
   .mobile-customer-name{
     max-width:220px;
     font-size:.86rem;
