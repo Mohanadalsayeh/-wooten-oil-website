@@ -3556,6 +3556,22 @@ input[type="reset"]:focus,
     return (n/(1024*1024)).toFixed(1)+' MB';
   }
 
+  function formatNotificationPopupDate(value){
+    try{
+      var d=new Date(value);
+      if(Number.isNaN(d.getTime())) return String(value||'');
+      return d.toLocaleString('en-US',{
+        month:'short',
+        day:'numeric',
+        year:'numeric',
+        hour:'numeric',
+        minute:'2-digit'
+      });
+    }catch(e){
+      return String(value||'');
+    }
+  }
+
   function renderCustomerNotificationPopup(notification){
     if(!customerNotificationPopup){
       customerNotificationPopup=document.getElementById('customerNotificationPopup');
@@ -3572,7 +3588,7 @@ input[type="reset"]:focus,
 
     if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=notification.title || 'Wooten Oil';
     if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=notification.message || '';
-    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=formatDate(notification.created_at);
+    if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=formatNotificationPopupDate(notification.created_at);
     if(customerNotificationPopupFrom){
       customerNotificationPopupFrom.textContent=
         (notification.sender_name||'Wooten Oil Co Inc.')+
