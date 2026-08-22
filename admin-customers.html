@@ -537,7 +537,7 @@ document.getElementById("sendCustomerNotificationBtn").addEventListener("click",
 
     status.className="status show ok";
     status.textContent=
-      `Notification sent to ${data.account_name||"customer"} (${data.account_number||account}).`+
+      `Portal notification #${data.notification_id||"saved"} saved for ${data.account_name||"customer"} (${data.account_number||account}).`+
       (data.email_sent?" Email sent too.":"")+
       (data.warning?` ${data.warning}`:"");
 
