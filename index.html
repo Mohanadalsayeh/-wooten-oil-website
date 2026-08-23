@@ -2830,6 +2830,38 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-document-notification-popup-clickable-style">
+.customer-notification-popup-card.document-notification-clickable{
+  cursor:pointer;
+}
+.customer-notification-popup-card.document-notification-clickable .customer-notification-popup-body{
+  cursor:pointer;
+}
+.customer-notification-popup-card.document-notification-clickable:hover{
+  box-shadow:0 22px 60px rgba(5,23,42,.26) !important;
+}
+.customer-notification-popup-card.document-notification-clickable .customer-notification-popup-title::after{
+  content:"Click to open Statements & Invoices";
+  display:block;
+  margin-top:6px;
+  color:#5d7488;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+.customer-notification-popup-card.document-notification-clickable .customer-notification-popup-close,
+.customer-notification-popup-card.document-notification-clickable .customer-notification-document-open,
+.customer-notification-popup-card.document-notification-clickable .customer-notification-attachment{
+  cursor:pointer;
+}
+@media(max-width:600px){
+  .customer-notification-popup-card.document-notification-clickable .customer-notification-popup-title::after{
+    font-size:.68rem;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -4090,7 +4122,7 @@ input[type="reset"]:focus,
 
 
 <div class="customer-notification-popup" id="customerNotificationPopup" role="dialog" aria-modal="true" aria-labelledby="customerNotificationPopupTitle">
-  <div class="customer-notification-popup-card">
+  <div class="customer-notification-popup-card" id="customerNotificationPopupCard">
     <div class="customer-notification-popup-head">
       <strong>Wooten Oil Notification</strong>
       <button class="customer-notification-popup-close" id="customerNotificationPopupClose" type="button" aria-label="Close notification">&times;</button>
@@ -4217,6 +4249,7 @@ input[type="reset"]:focus,
   var customerNotificationPopupTo=document.getElementById('customerNotificationPopupTo');
   var customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
   var customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
+  var customerNotificationPopupCard=document.getElementById('customerNotificationPopupCard');
   var customerNotificationDocumentAction=document.getElementById('customerNotificationDocumentAction');
   var customerNotificationDocumentOpen=document.getElementById('customerNotificationDocumentOpen');
   var activeNotificationDocumentId=null;
@@ -4888,6 +4921,7 @@ input[type="reset"]:focus,
       customerNotificationPopupMessage=document.getElementById('customerNotificationPopupMessage');
       customerNotificationPopupFrom=document.getElementById('customerNotificationPopupFrom');
       customerNotificationPopupTo=document.getElementById('customerNotificationPopupTo');
+      customerNotificationPopupCard=document.getElementById('customerNotificationPopupCard');
       customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
       customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
       customerNotificationDocumentAction=document.getElementById('customerNotificationDocumentAction');
@@ -4909,6 +4943,20 @@ input[type="reset"]:focus,
     var isDocumentNotification=String(notification.action_type||'')==='customer_documents';
     activeNotificationDocumentId=isDocumentNotification ? (notification.action_id||null) : null;
 
+    if(customerNotificationPopupCard){
+      customerNotificationPopupCard.classList.toggle('document-notification-clickable',isDocumentNotification);
+      customerNotificationPopupCard.setAttribute(
+        'aria-label',
+        isDocumentNotification ? 'Open Statements and Invoices' : 'Wooten Oil Notification'
+      );
+      if(isDocumentNotification){
+        customerNotificationPopupCard.setAttribute('role','button');
+        customerNotificationPopupCard.setAttribute('tabindex','0');
+      }else{
+        customerNotificationPopupCard.removeAttribute('role');
+        customerNotificationPopupCard.removeAttribute('tabindex');
+      }
+    }
     if(customerNotificationDocumentAction){
       customerNotificationDocumentAction.classList.toggle('show',isDocumentNotification);
     }
@@ -5041,12 +5089,46 @@ input[type="reset"]:focus,
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
 
 
+  function openNotificationLinkedDocuments(){
+    var documentId=activeNotificationDocumentId;
+    closeCustomerNotificationPopup();
+    if(window.wootenOpenCustomerDocuments){
+      window.wootenOpenCustomerDocuments(documentId||null);
+    }
+  }
+
   if(customerNotificationDocumentOpen){
-    customerNotificationDocumentOpen.addEventListener('click',function(){
-      var documentId=activeNotificationDocumentId;
-      closeCustomerNotificationPopup();
-      if(window.wootenOpenCustomerDocuments){
-        window.wootenOpenCustomerDocuments(documentId||null);
+    customerNotificationDocumentOpen.addEventListener('click',function(e){
+      if(e){ e.preventDefault(); e.stopPropagation(); }
+      openNotificationLinkedDocuments();
+    });
+  }
+
+  if(customerNotificationPopupCard){
+    customerNotificationPopupCard.addEventListener('click',function(e){
+      if(!activeNotificationDocumentId) return;
+
+      /* Do not turn the close button or a real attachment control into the
+         document-navigation click. */
+      if(e.target && e.target.closest(
+        '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-open'
+      )){
+        return;
+      }
+
+      openNotificationLinkedDocuments();
+    });
+
+    customerNotificationPopupCard.addEventListener('keydown',function(e){
+      if(!activeNotificationDocumentId) return;
+      if(e.key==='Enter' || e.key===' '){
+        if(e.target && e.target.closest(
+          '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-open'
+        )){
+          return;
+        }
+        e.preventDefault();
+        openNotificationLinkedDocuments();
       }
     });
   }

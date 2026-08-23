@@ -1,19 +1,16 @@
-WOOTEN OIL — OPEN STATEMENT / INVOICE FROM NOTIFICATION POPUP
+WOOTEN OIL — CLICKABLE STATEMENT / INVOICE NOTIFICATION POPUP
 
-Requested customer flow:
-1. Admin uploads a new Statement or Invoice.
-2. Customer receives a portal notification.
-3. Customer clicks the notification.
-4. The normal Wooten Oil Notification popup opens.
-5. The popup shows an Open Statement or Open Invoice button in its fixed footer.
-6. Customer clicks that button.
-7. Statements & Invoices opens and the matching document is highlighted.
-8. Customer can click Open PDF.
-
-This replaces the previous behavior that jumped directly from the notification
-list to Statements & Invoices without first showing the notification popup.
-
-Admin Open PDF functionality remains unchanged.
+Customer behavior:
+- A New Statement Available or New Invoice Available notification still opens
+  the normal Wooten Oil Notification popup.
+- The ENTIRE notification popup is now clickable for linked documents.
+- Clicking the subject, message, From/To area, blank content area, or footer
+  opens Statements & Invoices.
+- The matching statement/invoice is highlighted.
+- The X close button still only closes the popup.
+- Attachment buttons still open their attachments normally.
+- The existing Open Statement / Open Invoice button still works.
+- Keyboard users can press Enter or Space on the linked popup.
 
 Upload:
 - index.html
@@ -21,4 +18,4 @@ Upload:
 - admin-customers.html
 - worker.js
 
-No manual D1 or R2 configuration change is required.
+No Cloudflare, D1, R2, or wrangler configuration changes are required.
