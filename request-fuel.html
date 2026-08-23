@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wooten Oil | Fuel Delivery for Farms, Businesses & Gas Stations</title>
+  <title>Request Fuel Delivery | Wooten Oil Co Inc.</title>
   <meta name="description" content="Wooten Oil provides dependable gasoline, on-road diesel, farm diesel, and bulk fuel delivery for farmers, businesses, and gas stations." />
   <style>
     :root{
@@ -2115,28 +2115,48 @@ input[type="reset"]:focus,
 @media(max-width:620px){.footer-contact{flex-direction:column;align-items:flex-start;gap:9px}.footer-contact-item{white-space:normal}}
 </style>
 
+
+<style id="wooten-request-fuel-dedicated-page">
+body.request-fuel-page main > section:not(#fuel-request){
+  display:none !important;
+}
+body.request-fuel-page #fuel-request{
+  display:block !important;
+  padding-top:54px !important;
+  min-height:calc(100vh - 170px);
+}
+body.request-fuel-page .fuel-request-card{
+  margin-top:0 !important;
+}
+@media(max-width:760px){
+  body.request-fuel-page #fuel-request{
+    padding-top:28px !important;
+  }
+}
+</style>
+
 </head>
-<body>
+<body class="request-fuel-page">
 
 <header id="site-header">
   <div class="container nav">
-    <a class="brand brand-text" href="#top" aria-label="Wooten Oil Home">
+    <a class="brand brand-text" href="index.html#top" aria-label="Wooten Oil Home">
       <span class="brand-name">Wooten Oil Co Inc.</span>
       <span class="brand-subtitle">Local Petroleum Delivery</span>
     </a>
 
     <nav id="desktop-nav" class="smart-desktop-nav" aria-label="Primary navigation">
       <ul>
-        <li><a class="nav-link" href="#services">Services</a></li>
+        <li><a class="nav-link" href="index.html#services">Services</a></li>
         <li><a class="nav-link" href="#farm">Farm Fuel</a></li>
         <li><a class="nav-link" href="#stations">Gas Stations</a></li>
-        <li><a class="nav-link" href="#oil-card">Oil Card</a></li>
+        <li><a class="nav-link" href="index.html#oil-card">Oil Card</a></li>
       </ul>
     </nav>
-    <a class="customer-login-link" href="#customer-login">Customer Login</a>
-    <a class="customer-account-link" id="desktopCustomerAccount" href="#customer-login">Customer #</a>
+    <a class="customer-login-link" href="index.html#customer-login">Customer Login</a>
+    <a class="customer-account-link" id="desktopCustomerAccount" href="index.html#customer-login">Customer #</a>
     <button class="customer-menu-logout" id="desktopCustomerLogout" type="button">Log Out</button>
-    <a class="nav-cta desktop-request" href="request-fuel.html">Request Fuel</a>
+    <a class="nav-cta desktop-request" href="#fuel-request">Request Fuel</a>
 
     <div class="mobile-customer-header" id="mobileCustomerHeader" aria-label="Signed-in customer">
       <button class="mobile-customer-notifications" id="mobileHeaderNotifications" type="button" aria-label="Open customer notifications">
@@ -2162,18 +2182,18 @@ input[type="reset"]:focus,
 
     <nav id="mobile-menu" class="mobile-menu-panel" aria-label="Mobile navigation">
       <span class="mobile-menu-title">Menu</span>
-      <a class="mobile-menu-close" href="#top" aria-label="Close navigation menu">&times;</a>
-      <a href="#about">About Us</a>
-      <a class="mobile-only-main-link" href="#services">Services</a>
+      <a class="mobile-menu-close" href="index.html#top" aria-label="Close navigation menu">&times;</a>
+      <a href="index.html#about">About Us</a>
+      <a class="mobile-only-main-link" href="index.html#services">Services</a>
       <a class="mobile-only-main-link" href="#farm">Farm Fuel</a>
       <a class="mobile-only-main-link" href="#stations">Gas Stations</a>
-      <a class="mobile-only-main-link" href="#oil-card">Oil Card</a>
-      <a href="#locations">Locations</a>
-      <a href="#contact">Contact</a>
-      <a class="mobile-login-link" href="#customer-login">Customer Login</a>
-      <a class="mobile-customer-account" id="mobileCustomerAccount" href="#customer-login">Customer #</a>
+      <a class="mobile-only-main-link" href="index.html#oil-card">Oil Card</a>
+      <a href="index.html#locations">Locations</a>
+      <a href="index.html#contact">Contact</a>
+      <a class="mobile-login-link" href="index.html#customer-login">Customer Login</a>
+      <a class="mobile-customer-account" id="mobileCustomerAccount" href="index.html#customer-login">Customer #</a>
       <button class="mobile-customer-logout" id="mobileCustomerLogout" type="button">Log Out</button>
-      <a class="mobile-request-link" href="request-fuel.html">Request Fuel</a>
+      <a class="mobile-request-link" href="#fuel-request">Request Fuel</a>
     </nav>
   </div>
 </header>
@@ -2181,7 +2201,7 @@ input[type="reset"]:focus,
 
 <div id="customer-login" class="portal-overlay" role="dialog" aria-modal="true" aria-labelledby="portal-title">
   <div class="portal-card" id="portalLoginCard">
-    <a class="portal-close" href="#top" aria-label="Close customer login">&times;</a>
+    <a class="portal-close" href="index.html#top" aria-label="Close customer login">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
     <h2 id="portal-title">Customer Login</h2>
     <p>Sign in with your Wooten Oil customer number or account email to view your account information and current balance.</p>
@@ -2208,7 +2228,7 @@ input[type="reset"]:focus,
   </div>
 
   <div class="portal-card portal-activation-card" id="portalActivationCard" aria-live="polite">
-    <a class="portal-close" href="#top" aria-label="Close account activation">&times;</a>
+    <a class="portal-close" href="index.html#top" aria-label="Close account activation">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
     <h2>Activate Online Account</h2>
     <p>Enter your Wooten Oil customer number to begin. If an email is on file, we will send a verification code. Otherwise, contact Wooten Oil for a one-time activation code.</p>
@@ -2246,7 +2266,7 @@ input[type="reset"]:focus,
 
 
   <div class="portal-card portal-activation-card" id="portalResetCard" aria-live="polite">
-    <a class="portal-close" href="#top" aria-label="Close password reset">&times;</a>
+    <a class="portal-close" href="index.html#top" aria-label="Close password reset">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
     <h2>Reset Password</h2>
     <p>Enter the <strong>email address or Customer Number</strong> on your account. You can have Wooten Oil send you a reset code, or if Wooten Oil already gave you a 6-digit reset code, choose <strong>I already have a Reset Code</strong> below.</p>
@@ -2287,7 +2307,7 @@ input[type="reset"]:focus,
   </div>
 
   <div class="portal-card portal-account-card portal-account dashboard-account-card" id="portalAccountCard" aria-live="polite">
-    <a class="portal-close" href="#top" aria-label="Close customer account">&times;</a>
+    <a class="portal-close" href="index.html#top" aria-label="Close customer account">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
 
     <section class="customer-dashboard" id="customerDashboard">
@@ -2396,8 +2416,8 @@ input[type="reset"]:focus,
       </p>
 
       <div class="hero-buttons">
-        <a class="btn btn-primary" href="request-fuel.html">Request Fuel Delivery</a>
-        <a class="btn btn-secondary" href="#services">View Our Services</a>
+        <a class="btn btn-primary" href="#fuel-request">Request Fuel Delivery</a>
+        <a class="btn btn-secondary" href="index.html#services">View Our Services</a>
       </div>
 
       <div class="hero-badges">
@@ -2494,7 +2514,7 @@ input[type="reset"]:focus,
           <div class="check"><b>✓</b><span>Flexible delivery for seasonal and ongoing farm needs</span></div>
         </div>
 
-        <a class="btn btn-primary" href="request-fuel.html">Request Farm Fuel</a>
+        <a class="btn btn-primary" href="#fuel-request">Request Farm Fuel</a>
       </div>
 
       <div class="visual">
@@ -2518,22 +2538,22 @@ input[type="reset"]:focus,
       </div>
 
       <div class="fuel-grid">
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Regular%20Gasoline" data-fuel="Regular Gasoline" aria-label="Request Regular Gasoline">
+        <a class="fuel-item fuel-select" href="#fuel-request" data-fuel="Regular Gasoline" aria-label="Request Regular Gasoline">
           <strong>Regular Gasoline</strong>
           <span>Bulk delivery for retail fuel locations.</span>
           <em>Request this fuel →</em>
         </a>
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Premium%20Gasoline" data-fuel="Premium Gasoline" aria-label="Request Premium Gasoline">
+        <a class="fuel-item fuel-select" href="#fuel-request" data-fuel="Premium Gasoline" aria-label="Request Premium Gasoline">
           <strong>Premium Gasoline</strong>
           <span>Premium-grade product for station inventory.</span>
           <em>Request this fuel →</em>
         </a>
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=On-Road%20Diesel" data-fuel="On-Road Diesel" aria-label="Request On-Road Diesel">
+        <a class="fuel-item fuel-select" href="#fuel-request" data-fuel="On-Road Diesel" aria-label="Request On-Road Diesel">
           <strong>On-Road Diesel</strong>
           <span>Diesel for public and commercial fueling.</span>
           <em>Request this fuel →</em>
         </a>
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Off-Road%20Diesel" data-fuel="Off-Road Diesel" aria-label="Request Farm or Off-Road Diesel">
+        <a class="fuel-item fuel-select" href="#fuel-request" data-fuel="Off-Road Diesel" aria-label="Request Farm or Off-Road Diesel">
           <strong>Farm / Off-Road Diesel</strong>
           <span>Fuel for agricultural and approved off-road use.</span>
           <em>Request this fuel →</em>
@@ -2690,7 +2710,7 @@ input[type="reset"]:focus,
           <li>Gasoline and diesel needs</li>
         </ul>
         <div class="service-area-actions">
-          <a class="btn btn-primary" href="request-fuel.html">Check Delivery Availability</a>
+          <a class="btn btn-primary" href="#fuel-request">Check Delivery Availability</a>
           <a class="btn btn-outline-light" href="tel:+19014762684">Call (901) 476-2684</a>
         </div>
         <p class="service-area-note">Outside the areas shown? Contact Wooten Oil — service may still be available.</p>
@@ -2737,7 +2757,7 @@ input[type="reset"]:focus,
     </div>
     <div class="faq-list">
       <details class="faq-item"><summary>What types of fuel does Wooten Oil deliver?</summary><div class="faq-answer">Wooten Oil serves local petroleum needs including gasoline, on-road diesel, and farm/off-road diesel. For a specific product or delivery requirement, contact us to confirm availability.</div></details>
-      <details class="faq-item"><summary>How do I request a fuel delivery?</summary><div class="faq-answer">Open the <a href="request-fuel.html">Request Fuel Delivery</a> page, or call Wooten Oil at <a href="tel:+19014762684">(901) 476-2684</a>.</div></details>
+      <details class="faq-item"><summary>How do I request a fuel delivery?</summary><div class="faq-answer">Use the <a href="#fuel-request">Request Fuel Delivery</a> form on this website, or call Wooten Oil at <a href="tel:+19014762684">(901) 476-2684</a>.</div></details>
       <details class="faq-item"><summary>Do you deliver farm and off-road diesel?</summary><div class="faq-answer">Yes. Wooten Oil provides farm/off-road diesel service for qualifying farm, equipment, and commercial needs. Contact us for pricing and delivery availability.</div></details>
       <details class="faq-item"><summary>What areas do you deliver to?</summary><div class="faq-answer">Delivery availability depends on the location and fuel requirement. Send a fuel request with your delivery address or call us at <a href="tel:+19014762684">(901) 476-2684</a> to confirm service for your area.</div></details>
       <details class="faq-item"><summary>Where can I use my Wooten Oil Card?</summary><div class="faq-answer">Your Wooten Oil Card can be used at the participating locations shown in the Oil Card and Locations sections of this website.</div></details>
@@ -2837,6 +2857,47 @@ input[type="reset"]:focus,
 
 
 
+<section class="fuel-request-section" id="fuel-request">
+  <div class="container">
+    <div class="fuel-request-card">
+      <h2>Request Fuel Delivery</h2>
+      <p class="fuel-intro">Fill out the information below. When you tap Submit Fuel Request, you will be asked to confirm before the request is sent directly to Wooten Oil. Your email app will not open.</p>
+      <form id="fuelRequestForm">
+        <div class="fuel-prefill-note" id="fuelPrefillNote" style="display:none">
+          <span class="fuel-prefill-check" aria-hidden="true">✓</span>
+          <span><strong>Customer information loaded.</strong> We filled this request from your Wooten Oil account. You can change the delivery details for this request.</span>
+        </div>
+        <div class="fuel-form-grid">
+          <div class="fuel-field" id="fuelCustomerAccountField" style="display:none">
+            <label for="fuelCustomerAccount">Customer #</label>
+            <input id="fuelCustomerAccount" name="customerAccountNumber" readonly>
+          </div>
+          <div class="fuel-field"><label for="customerName">Customer / Company Name *</label><input id="customerName" name="customerName" required autocomplete="organization"></div>
+          <div class="fuel-field"><label for="phone">Phone Number *</label><input id="phone" name="phone" required type="tel" autocomplete="tel"></div>
+          <div class="fuel-field full"><label for="deliveryAddress">Delivery Address *</label><input id="deliveryAddress" name="deliveryAddress" required autocomplete="street-address"></div>
+          <div class="fuel-field"><label for="fuelType">Fuel Type *</label><select id="fuelType" name="fuelType" required><option value="">Select fuel type</option><option>Regular Gasoline</option><option>Premium Gasoline</option><option>On-Road Diesel</option><option>Off-Road Diesel</option><option>Other / Not Sure</option></select></div>
+          <div class="fuel-field"><label for="gallons">Estimated Gallons *</label><input id="gallons" name="gallons" required type="number" min="1" inputmode="numeric" placeholder="Example: 500"></div>
+          <div class="fuel-field"><label for="deliveryDate">Preferred Delivery Date</label><input id="deliveryDate" name="deliveryDate" type="date"></div>
+          <div class="fuel-field"><label for="email">Customer Email</label><input id="email" name="email" type="email" autocomplete="email"></div>
+          <div class="fuel-field full"><label for="notes">Additional Notes</label><textarea id="notes" name="notes" placeholder="Gate instructions, tank location, special delivery notes, etc."></textarea></div>
+        </div>
+        <div class="fuel-form-actions"><button class="btn btn-primary fuel-submit" type="submit">Submit Fuel Request</button></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div class="fuel-send-overlay" id="fuelSendOverlay" role="dialog" aria-modal="true" aria-labelledby="fuelSendTitle">
+  <div class="fuel-send-dialog">
+    <div class="fuel-send-icon" aria-hidden="true">✓</div>
+    <h3 id="fuelSendTitle">Ready to Submit Your Fuel Request?</h3>
+    <p id="fuelSendMessage">Please review your information and confirm that you want to send this fuel request directly to Wooten Oil.</p>
+    <div class="fuel-send-actions">
+      <button class="btn btn-primary" type="button" id="fuelSentYes">Yes, Continue</button>
+      <button class="btn btn-outline" type="button" id="fuelSentNo">Cancel</button>
+    </div>
+    <div class="fuel-send-status" id="fuelSendStatus">Your request will be sent directly from this website. No personal email app is required.</div>
+  </div>
 </div>
 
 <script>
@@ -3116,6 +3177,35 @@ input[type="reset"]:focus,
 </script>
 
 <script>
+(function(){
+  function chooseFuel(fuel){
+    var sel=document.getElementById('fuelType');
+    if(!sel) return;
+    for(var i=0;i<sel.options.length;i++){
+      if(sel.options[i].value===fuel || sel.options[i].text===fuel){
+        sel.selectedIndex=i;
+        break;
+      }
+    }
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+    window.setTimeout(function(){
+      sel.classList.add('fuel-highlight');
+      window.setTimeout(function(){sel.classList.remove('fuel-highlight');},1400);
+    },350);
+  }
+  var cards=document.querySelectorAll('.fuel-select[data-fuel]');
+  for(var i=0;i<cards.length;i++){
+    cards[i].addEventListener('click',function(){
+      chooseFuel(this.getAttribute('data-fuel'));
+      // Do not preventDefault: the native #fuel-request link always scrolls, even if JS has an issue.
+    });
+  }
+})();
+</script>
+
+
+
+<script>
 /* Upgrade 10: sticky header + auto-closing CSS target mobile menu */
 (function(){
   var header=document.getElementById('site-header');
@@ -3126,7 +3216,7 @@ input[type="reset"]:focus,
   setHeaderState();
   window.addEventListener('scroll',setHeaderState,{passive:true});
 
-  document.querySelectorAll('a[href="#locations"]').forEach(function(link){
+  document.querySelectorAll('a[href="index.html#locations"]').forEach(function(link){
     link.addEventListener('click',function(){ if(locations && locations.tagName.toLowerCase()==='details') locations.open=true; });
   });
 
@@ -4103,7 +4193,7 @@ input[type="reset"]:focus,
   if(desktopCustomerLogout) desktopCustomerLogout.addEventListener('click',function(){ performLogout(desktopCustomerLogout,false); });
   if(mobileCustomerLogout) mobileCustomerLogout.addEventListener('click',function(){ performLogout(mobileCustomerLogout,false); });
 
-  document.querySelectorAll('a[href="#customer-login"]').forEach(function(link){
+  document.querySelectorAll('a[href="index.html#customer-login"]').forEach(function(link){
     link.addEventListener('click',function(){
       clearStatus(status);
       loadCurrentAccount(true).then(function(ok){ if(!ok) showLogin(); });
@@ -4652,6 +4742,31 @@ input[type="reset"]:focus,
     document.addEventListener('DOMContentLoaded',bindExclusiveMenus);
   }else{
     bindExclusiveMenus();
+  }
+})();
+</script>
+
+
+<script id="wooten-request-fuel-query-prefill">
+(function(){
+  function applyFuelFromQuery(){
+    var params=new URLSearchParams(window.location.search);
+    var requested=params.get('fuel');
+    if(!requested) return;
+    var select=document.getElementById('fuelType');
+    if(!select) return;
+    for(var i=0;i<select.options.length;i++){
+      if(select.options[i].value===requested || select.options[i].text===requested){
+        select.selectedIndex=i;
+        select.dispatchEvent(new Event('change',{bubbles:true}));
+        break;
+      }
+    }
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',applyFuelFromQuery);
+  }else{
+    applyFuelFromQuery();
   }
 })();
 </script>
