@@ -2231,6 +2231,152 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-customer-fuel-history">
+.dashboard-action-history .dashboard-action-icon{
+  background:#eef1ff !important;
+  color:#354f9b !important;
+}
+.fuel-history-panel{display:none}
+.fuel-history-panel.show{display:block}
+.fuel-history-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  margin:4px 0 18px;
+}
+.fuel-history-head h3{
+  margin:0 0 5px;
+  color:#15304b;
+  font-size:1.25rem;
+}
+.fuel-history-head p{
+  margin:0;
+  color:#6c7986;
+  line-height:1.45;
+  font-size:.9rem;
+}
+.fuel-history-refresh{
+  min-height:40px;
+  padding:0 14px;
+  border:1px solid #d5dee7;
+  border-radius:10px;
+  background:#fff;
+  color:#294f73;
+  font:inherit;
+  font-weight:800;
+  cursor:pointer;
+}
+.fuel-history-refresh:hover,
+.fuel-history-refresh:focus{
+  background:#fff;
+  color:#294f73;
+  transform:none;
+  box-shadow:0 0 0 3px rgba(31,78,121,.08);
+}
+.fuel-history-status{
+  display:none;
+  margin-bottom:12px;
+  padding:11px 13px;
+  border-radius:10px;
+  font-size:.88rem;
+}
+.fuel-history-status.show{display:block}
+.fuel-history-status.error{
+  background:#fff3f3;
+  border:1px solid #f0cccc;
+  color:#922d35;
+}
+.fuel-history-status.info{
+  background:#f5f8fb;
+  border:1px solid #dde6ed;
+  color:#53606d;
+}
+.fuel-history-list{
+  display:grid;
+  gap:12px;
+}
+.fuel-history-empty{
+  border:1px dashed #ced9e2;
+  border-radius:14px;
+  padding:26px 20px;
+  text-align:center;
+  background:#fafcfd;
+  color:#687887;
+}
+.fuel-history-card{
+  border:1px solid #dce4eb;
+  border-radius:15px;
+  background:#fff;
+  padding:16px 17px;
+  box-shadow:0 5px 16px rgba(15,39,66,.04);
+}
+.fuel-history-card-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.fuel-history-number{
+  color:#15304b;
+  font-size:1rem;
+  font-weight:900;
+}
+.fuel-history-date{
+  color:#73808d;
+  font-size:.8rem;
+  white-space:nowrap;
+}
+.fuel-history-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px 14px;
+}
+.fuel-history-item{
+  min-width:0;
+}
+.fuel-history-item.full{
+  grid-column:1/-1;
+}
+.fuel-history-item small{
+  display:block;
+  margin-bottom:3px;
+  color:#7a8793;
+  font-size:.7rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.fuel-history-item strong,
+.fuel-history-item span{
+  display:block;
+  color:#26394b;
+  font-size:.9rem;
+  overflow-wrap:anywhere;
+}
+.fuel-history-badge{
+  display:inline-flex !important;
+  width:auto !important;
+  margin-top:12px;
+  border-radius:999px;
+  padding:5px 9px;
+  background:#edf7ef;
+  color:#287342 !important;
+  font-size:.72rem !important;
+  font-weight:900;
+}
+@media(max-width:620px){
+  .fuel-history-head{display:block}
+  .fuel-history-refresh{margin-top:12px}
+  .fuel-history-card-top{display:block}
+  .fuel-history-date{margin-top:4px;white-space:normal}
+  .fuel-history-grid{grid-template-columns:1fr}
+  .fuel-history-item.full{grid-column:auto}
+}
+</style>
+
 </head>
 <body>
 
@@ -2457,6 +2603,12 @@ input[type="reset"]:focus,
     </span>
           <span><strong>Request Fuel</strong><small>Start a new fuel delivery request</small></span>
         </button>
+        <button type="button" class="dashboard-action dashboard-action-history" id="dashboardFuelHistory">
+          <span class="dashboard-action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5M8 17h7"/></svg>
+          </span>
+          <span><strong>Fuel Request History</strong><small>View your previous fuel delivery requests</small></span>
+        </button>
         <button type="button" class="dashboard-action dashboard-action-logout" id="dashboardLogout">
           <span class="dashboard-action-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M10 5H5v14h5"/><path d="M13 8l4 4-4 4M17 12H9"/></svg>
@@ -2498,6 +2650,24 @@ input[type="reset"]:focus,
       </div>
 
       <div class="account-actions"><button type="button" class="account-logout" id="portalLogout">Sign Out</button></div>
+    </section>
+
+    <section class="customer-account-details fuel-history-panel" id="customerFuelHistory" aria-label="Fuel request history">
+      <div class="details-toolbar">
+        <button type="button" class="dashboard-back" id="fuelHistoryBack">← Dashboard</button>
+        <span>Fuel Request History</span>
+      </div>
+
+      <div class="fuel-history-head">
+        <div>
+          <h3>Fuel Request History</h3>
+          <p>Recent fuel delivery requests submitted while signed in to your Wooten Oil account.</p>
+        </div>
+        <button type="button" class="fuel-history-refresh" id="fuelHistoryRefresh">Refresh</button>
+      </div>
+
+      <div class="fuel-history-status" id="fuelHistoryStatus" role="status" aria-live="polite"></div>
+      <div class="fuel-history-list" id="fuelHistoryList"></div>
     </section>
   </div>
 </div>
@@ -3477,15 +3647,24 @@ input[type="reset"]:focus,
   var dashboardViewAccount=document.getElementById('dashboardViewAccount');
   var dashboardMakePayment=document.getElementById('dashboardMakePayment');
   var dashboardRequestFuel=document.getElementById('dashboardRequestFuel');
+  var dashboardFuelHistory=document.getElementById('dashboardFuelHistory');
   var dashboardLogout=document.getElementById('dashboardLogout');
   var dashboardBack=document.getElementById('dashboardBack');
+  var fuelHistory=document.getElementById('customerFuelHistory');
+  var fuelHistoryBack=document.getElementById('fuelHistoryBack');
+  var fuelHistoryRefresh=document.getElementById('fuelHistoryRefresh');
+  var fuelHistoryStatus=document.getElementById('fuelHistoryStatus');
+  var fuelHistoryList=document.getElementById('fuelHistoryList');
+  var FUEL_HISTORY_ENDPOINT='/api/customer/fuel-requests';
 
   function showDashboardView(){
     if(dashboard) dashboard.classList.remove('dashboard-hidden');
     if(accountDetails) accountDetails.classList.remove('show');
+    if(fuelHistory) fuelHistory.classList.remove('show');
   }
   function showAccountDetails(focusPayment){
     if(dashboard) dashboard.classList.add('dashboard-hidden');
+    if(fuelHistory) fuelHistory.classList.remove('show');
     if(accountDetails) accountDetails.classList.add('show');
     setTimeout(function(){
       var target=focusPayment?document.getElementById('portalPaymentPanel'):accountDetails;
@@ -3493,6 +3672,141 @@ input[type="reset"]:focus,
     },30);
   }
 
+
+
+  function historyDate(value){
+    if(!value) return '—';
+    try{
+      var d=new Date(value);
+      if(Number.isNaN(d.getTime())) return value;
+      return d.toLocaleString('en-US',{
+        month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'
+      });
+    }catch(e){return value;}
+  }
+
+  function historyDeliveryDate(value){
+    if(!value) return 'Flexible / Not specified';
+    try{
+      var parts=String(value).split('-');
+      if(parts.length===3){
+        return new Date(Number(parts[0]),Number(parts[1])-1,Number(parts[2]))
+          .toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      }
+    }catch(e){}
+    return value;
+  }
+
+  function historyText(value,fallback){
+    var s=String(value==null?'':value).trim();
+    return s || (fallback||'—');
+  }
+
+  function renderFuelHistory(rows){
+    if(!fuelHistoryList) return;
+    fuelHistoryList.innerHTML='';
+
+    if(!Array.isArray(rows) || !rows.length){
+      var empty=document.createElement('div');
+      empty.className='fuel-history-empty';
+      empty.textContent='No fuel requests are saved to this online account yet.';
+      fuelHistoryList.appendChild(empty);
+      return;
+    }
+
+    rows.forEach(function(r){
+      var card=document.createElement('article');
+      card.className='fuel-history-card';
+
+      var top=document.createElement('div');
+      top.className='fuel-history-card-top';
+
+      var number=document.createElement('div');
+      number.className='fuel-history-number';
+      number.textContent=historyText(r.request_number,'Fuel Request');
+
+      var submitted=document.createElement('div');
+      submitted.className='fuel-history-date';
+      submitted.textContent=historyDate(r.received_at);
+
+      top.appendChild(number);
+      top.appendChild(submitted);
+      card.appendChild(top);
+
+      var grid=document.createElement('div');
+      grid.className='fuel-history-grid';
+
+      function addItem(label,value,full){
+        var item=document.createElement('div');
+        item.className='fuel-history-item'+(full?' full':'');
+        var small=document.createElement('small');
+        small.textContent=label;
+        var strong=document.createElement('strong');
+        strong.textContent=value;
+        item.appendChild(small);
+        item.appendChild(strong);
+        grid.appendChild(item);
+      }
+
+      addItem('Fuel Type',historyText(r.fuel_type),'');
+      addItem('Estimated Gallons',historyText(r.gallons),'');
+      addItem('Preferred Delivery Date',historyDeliveryDate(r.delivery_date),'');
+      addItem('Delivery Address',historyText(r.delivery_address),'');
+      if(historyText(r.notes,'') ){
+        addItem('Notes',historyText(r.notes),true);
+      }
+
+      card.appendChild(grid);
+
+      var badge=document.createElement('span');
+      badge.className='fuel-history-badge';
+      badge.textContent='Submitted';
+      card.appendChild(badge);
+
+      fuelHistoryList.appendChild(card);
+    });
+  }
+
+  async function loadFuelHistory(){
+    if(!fuelHistoryList) return;
+    if(fuelHistoryStatus){
+      fuelHistoryStatus.className='fuel-history-status show info';
+      fuelHistoryStatus.textContent='Loading fuel request history…';
+    }
+    if(fuelHistoryRefresh) fuelHistoryRefresh.disabled=true;
+
+    try{
+      var response=await fetch(FUEL_HISTORY_ENDPOINT,{
+        method:'GET',
+        credentials:'same-origin',
+        cache:'no-store',
+        headers:{'Accept':'application/json'}
+      });
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false){
+        throw new Error(data.error || 'Fuel request history could not be loaded.');
+      }
+      renderFuelHistory(data.requests||[]);
+      if(fuelHistoryStatus){
+        fuelHistoryStatus.className='fuel-history-status';
+        fuelHistoryStatus.textContent='';
+      }
+    }catch(error){
+      if(fuelHistoryStatus){
+        fuelHistoryStatus.className='fuel-history-status show error';
+        fuelHistoryStatus.textContent=error.message || 'Fuel request history could not be loaded.';
+      }
+    }finally{
+      if(fuelHistoryRefresh) fuelHistoryRefresh.disabled=false;
+    }
+  }
+
+  function showFuelHistory(){
+    if(dashboard) dashboard.classList.add('dashboard-hidden');
+    if(accountDetails) accountDetails.classList.remove('show');
+    if(fuelHistory) fuelHistory.classList.add('show');
+    loadFuelHistory();
+  }
 
   function money(v){
     var n=Number(v);
@@ -4000,14 +4314,11 @@ input[type="reset"]:focus,
   if(dashboardViewAccount) dashboardViewAccount.addEventListener('click',function(){ showAccountDetails(false); });
   if(dashboardMakePayment) dashboardMakePayment.addEventListener('click',function(){ showAccountDetails(true); });
   if(dashboardRequestFuel) dashboardRequestFuel.addEventListener('click',function(){
-    if(activePortalCustomer) prefillFuelRequest(activePortalCustomer);
-    accountCard.classList.remove('show');
-    window.location.hash='fuel-request';
-    setTimeout(function(){
-      var fuel=document.getElementById('fuelType');
-      if(fuel) fuel.focus();
-    },180);
+    window.location.href='request-fuel.html';
   });
+  if(dashboardFuelHistory) dashboardFuelHistory.addEventListener('click',function(){ showFuelHistory(); });
+  if(fuelHistoryRefresh) fuelHistoryRefresh.addEventListener('click',function(){ loadFuelHistory(); });
+  if(fuelHistoryBack) fuelHistoryBack.addEventListener('click',function(){ showDashboardView(); });
   if(dashboardBack) dashboardBack.addEventListener('click',function(){ showDashboardView(); });
   if(dashboardLogout) dashboardLogout.addEventListener('click',function(){ if(portalLogout) portalLogout.click(); });
 

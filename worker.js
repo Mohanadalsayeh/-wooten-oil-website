@@ -48,15 +48,28 @@ async function onRequestPost(context) {
     return json({ success: false, error: "Email service is not configured yet." }, 503);
   }
   const receivedAt = (/* @__PURE__ */ new Date()).toISOString();
+  let customerAccountNumber="";
+  if(env.DB){
+    try{
+      const signedInCustomer=await getCustomerFromSession(request,env);
+      if(signedInCustomer){
+        customerAccountNumber=String(signedInCustomer.account_number||"").trim();
+      }
+    }catch(error){
+      console.error("Could not identify signed-in customer for fuel request",error);
+    }
+  }
   if (env.DB) {
     try {
+      await ensureFuelRequestHistorySchema(env);
       await env.DB.prepare(`
         INSERT INTO fuel_requests
-        (request_number, customer_name, phone, email, delivery_address, fuel_type,
+        (request_number, customer_account_number, customer_name, phone, email, delivery_address, fuel_type,
          gallons, delivery_date, notes, submitted_from, received_at, email_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         requestNumber,
+        customerAccountNumber,
         customerName,
         phone,
         email,
@@ -271,6 +284,64 @@ function onRequestGet() {
   }, 405);
 }
 __name(onRequestGet, "onRequestGet");
+
+
+async function ensureFuelRequestHistorySchema(env) {
+  if(!env.DB) return;
+  const info=await env.DB.prepare(`PRAGMA table_info(fuel_requests)`).all();
+  const columns=(info?.results||[]).map(r=>String(r.name||"").toLowerCase());
+  if(!columns.includes("customer_account_number")){
+    await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN customer_account_number TEXT`).run();
+  }
+}
+__name(ensureFuelRequestHistorySchema,"ensureFuelRequestHistorySchema");
+
+async function customerFuelRequestHistoryGet({request,env}) {
+  if(!env.DB){
+    return json4({success:false,error:"Customer database is not configured."},503);
+  }
+  const customer=await getCustomerFromSession(request,env);
+  if(!customer){
+    return json4({success:false,error:"Please sign in to view fuel request history."},401);
+  }
+
+  try{
+    await ensureFuelRequestHistorySchema(env);
+    const rows=await env.DB.prepare(`
+      SELECT
+        request_number,
+        fuel_type,
+        gallons,
+        delivery_date,
+        delivery_address,
+        notes,
+        received_at,
+        email_status
+      FROM fuel_requests
+      WHERE customer_account_number = ?
+      ORDER BY datetime(received_at) DESC, rowid DESC
+      LIMIT 50
+    `).bind(String(customer.account_number||"").trim()).all();
+
+    return json4({
+      success:true,
+      requests:(rows?.results||[]).map(row=>({
+        request_number:String(row.request_number||""),
+        fuel_type:String(row.fuel_type||""),
+        gallons:String(row.gallons||""),
+        delivery_date:String(row.delivery_date||""),
+        delivery_address:String(row.delivery_address||""),
+        notes:String(row.notes||""),
+        received_at:String(row.received_at||""),
+        email_status:String(row.email_status||"")
+      }))
+    });
+  }catch(error){
+    console.error("fuel request history load failed",error);
+    return json4({success:false,error:"Fuel request history could not be loaded right now."},500);
+  }
+}
+__name(customerFuelRequestHistoryGet,"customerFuelRequestHistoryGet");
 
 // functions/api/contact-message.js
 var json2 = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.stringify(data), {
@@ -4409,6 +4480,13 @@ var worker_default = {
     if (url.pathname === "/api/customer/notifications/read") {
       if (request.method === "POST") {
         return customerNotificationsReadPost({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/fuel-requests") {
+      if (request.method === "GET") {
+        return customerFuelRequestHistoryGet({ request, env });
       }
       return methodNotAllowed();
     }

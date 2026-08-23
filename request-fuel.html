@@ -3347,6 +3347,7 @@ body.request-fuel-page .fuel-login-help a:active{
       const response=await fetch(FORM_ENDPOINT,{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
+        credentials:'same-origin',
         body:JSON.stringify(payload)
       });
       let data={};
