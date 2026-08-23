@@ -1,13 +1,12 @@
-WOOTEN OIL — REQUEST FUEL POPUP REFERENCE SPACING
+WOOTEN OIL — REQUEST FUEL EQUAL SIDE PADDING
 
-This version adjusts the Request Fuel popup spacing to visually follow the Customer Login reference:
-- smaller bold labels
-- consistent 46px field height
-- tighter label-to-field spacing
-- 12px row spacing
-- compact Additional Notes area
-- cleaner popup padding and proportions
-- responsive mobile layout preserved
+Fixed the horizontal form alignment so:
+- distance from the left popup/form edge to the far-left fields
+  matches
+- distance from the far-right fields to the right popup/form edge
+
+Desktop side padding: 22px on both sides.
+Mobile side padding: 14px on both sides.
 
 Upload:
 - index.html
