@@ -1,2 +1,2 @@
-Changed the top main-page company name from "Wooten Oil Com Inc." to "Wooten Oil Co Inc.".
+Changed the main-page footer brand from "WOOTEN OIL CO" to "WOOTEN OIL CO INC.".
 No other website behavior or settings were changed.
