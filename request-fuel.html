@@ -2352,6 +2352,104 @@ html.fuel-popup-mode .fuel-form-grid{
 }
 </style>
 
+
+<style id="wooten-request-fuel-reference-form-spacing">
+@media(min-width:701px){
+  html.fuel-popup-mode #fuel-request{
+    padding:16px 22px 18px !important;
+  }
+
+  html.fuel-popup-mode .fuel-form-grid{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    column-gap:16px !important;
+    row-gap:12px !important;
+  }
+
+  html.fuel-popup-mode .fuel-field{
+    gap:6px !important;
+    margin:0 !important;
+  }
+
+  html.fuel-popup-mode .fuel-field label{
+    margin:0 !important;
+    font-size:13px !important;
+    line-height:1.2 !important;
+    font-weight:700 !important;
+    letter-spacing:0 !important;
+    color:#213246 !important;
+  }
+
+  html.fuel-popup-mode .fuel-field input,
+  html.fuel-popup-mode .fuel-field select{
+    height:46px !important;
+    min-height:46px !important;
+    padding:9px 13px !important;
+    border-radius:10px !important;
+    font-size:15px !important;
+    line-height:1.2 !important;
+  }
+
+  html.fuel-popup-mode .fuel-field textarea{
+    height:78px !important;
+    min-height:78px !important;
+    max-height:78px !important;
+    padding:11px 13px !important;
+    border-radius:10px !important;
+    font-size:15px !important;
+    line-height:1.35 !important;
+  }
+
+  html.fuel-popup-mode .fuel-prefill-note{
+    margin:0 0 10px !important;
+    font-size:13px !important;
+    line-height:1.35 !important;
+  }
+
+  html.fuel-popup-mode .fuel-form-actions{
+    margin-top:12px !important;
+  }
+
+  html.fuel-popup-mode .fuel-submit{
+    min-height:46px !important;
+    padding:10px 20px !important;
+    border-radius:10px !important;
+    font-size:15px !important;
+    font-weight:500 !important;
+  }
+}
+
+/* Keep the same clean rhythm on phones, while allowing vertical scrolling if needed. */
+@media(max-width:700px){
+  html.fuel-popup-mode #fuel-request{
+    padding:14px 14px 18px !important;
+  }
+  html.fuel-popup-mode .fuel-form-grid{
+    row-gap:12px !important;
+  }
+  html.fuel-popup-mode .fuel-field{
+    gap:6px !important;
+  }
+  html.fuel-popup-mode .fuel-field label{
+    font-size:13px !important;
+    line-height:1.2 !important;
+    font-weight:700 !important;
+  }
+  html.fuel-popup-mode .fuel-field input,
+  html.fuel-popup-mode .fuel-field select{
+    min-height:46px !important;
+    height:46px !important;
+    padding:9px 12px !important;
+  }
+  html.fuel-popup-mode .fuel-field textarea{
+    min-height:82px !important;
+    height:82px !important;
+  }
+  html.fuel-popup-mode .fuel-form-actions{
+    margin-top:12px !important;
+  }
+}
+</style>
+
 </head>
 <body class="request-fuel-page">
 
