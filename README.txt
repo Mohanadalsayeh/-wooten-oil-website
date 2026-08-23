@@ -1,13 +1,19 @@
-WOOTEN OIL — FUEL REQUEST HISTORY COMPACT LAYOUT
+WOOTEN OIL — MY ACCOUNT FIRST-CLICK FIX
 
-Changes:
-- Reduced the large wasted blank space above Fuel Request History.
-- Removed the large wasted blank space below the request cards.
-- Fuel Request History popup now sizes more closely to its actual content.
-- Added a small footer at the bottom:
-  Wooten Oil Co Inc. • Customer Portal
-- Search, sort, refresh, dashboard button, and request cards remain unchanged.
-- Mobile layout also tightened.
+Problem:
+When a customer was on request-fuel.html and selected My Account, the browser
+returned to index.html#customer-login. The portal overlay opened because of the
+URL hash, but the customer account data was not automatically loaded on that
+cross-page navigation. The customer had to select My Account a second time.
+
+Fix:
+- When index.html loads with #customer-login, it now immediately checks the
+  existing customer session.
+- If the customer is signed in, the Customer Dashboard appears on the FIRST visit.
+- Fuel Request History is available immediately.
+- If the session is not valid, the normal login form appears.
+- The same check also runs on hash changes and browser pageshow/back-forward events.
+- request-fuel.html My Account links continue to return to index.html#customer-login.
 
 Upload:
 - index.html
@@ -15,4 +21,4 @@ Upload:
 - admin-customers.html
 - worker.js
 
-No Cloudflare, D1, R2, or wrangler changes are required.
+No Cloudflare, D1, R2, or wrangler configuration changes are required.

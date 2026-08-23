@@ -4898,8 +4898,29 @@ input[type="reset"]:focus,
     });
   });
 
+  async function openCustomerPortalFromHash(){
+    if(location.hash!=='#customer-login') return;
+    clearStatus(status);
+    var ok=await loadCurrentAccount(true);
+    if(!ok) showLogin();
+    else showDashboardView();
+  }
+
   refreshCustomerMenu();
-  window.addEventListener('pageshow',refreshCustomerMenu);
+  openCustomerPortalFromHash();
+
+  window.addEventListener('hashchange',function(){
+    if(location.hash==='#customer-login'){
+      openCustomerPortalFromHash();
+    }
+  });
+
+  window.addEventListener('pageshow',function(){
+    refreshCustomerMenu();
+    if(location.hash==='#customer-login'){
+      openCustomerPortalFromHash();
+    }
+  });
 })();
 </script>
 
