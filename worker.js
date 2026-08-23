@@ -3670,6 +3670,146 @@ function gmailSyncHeader(payload,name) {
 }
 __name(gmailSyncHeader,"gmailSyncHeader");
 
+
+function gmailSyncDecodeBytes(data) {
+  const s=String(data||"").replace(/-/g,"+").replace(/_/g,"/");
+  if(!s) return new Uint8Array();
+  const padded=s+"=".repeat((4-s.length%4)%4);
+  const bin=atob(padded);
+  return Uint8Array.from(bin,c=>c.charCodeAt(0));
+}
+__name(gmailSyncDecodeBytes,"gmailSyncDecodeBytes");
+
+function gmailSyncCollectAttachmentParts(payload) {
+  const found=[];
+  const walk=part=>{
+    if(!part) return;
+    const filename=notificationSafeFilename(part?.filename||"");
+    const mime=String(part?.mimeType||"application/octet-stream").toLowerCase().trim();
+    const attachmentId=String(part?.body?.attachmentId||"").trim();
+    const inlineData=String(part?.body?.data||"").trim();
+    const size=Number(part?.body?.size||0);
+
+    if(filename && filename!=="attachment" && (attachmentId||inlineData)){
+      found.push({
+        filename,
+        content_type:mime||"application/octet-stream",
+        attachment_id:attachmentId,
+        inline_data:inlineData,
+        size_bytes:Number.isFinite(size)?size:0
+      });
+    }
+    for(const child of part.parts||[]) walk(child);
+  };
+  walk(payload);
+  return found;
+}
+__name(gmailSyncCollectAttachmentParts,"gmailSyncCollectAttachmentParts");
+
+async function gmailSyncLoadAttachments({message,accessToken}) {
+  const parts=gmailSyncCollectAttachmentParts(message?.payload);
+  const loaded=[];
+  let totalBytes=0;
+
+  for(const part of parts){
+    if(loaded.length>=3) break;
+    if(!notificationAllowedAttachmentType(part.content_type)) continue;
+    if(part.size_bytes>5*1024*1024) continue;
+
+    let bytes=new Uint8Array();
+
+    if(part.inline_data){
+      try{bytes=gmailSyncDecodeBytes(part.inline_data);}catch{bytes=new Uint8Array();}
+    } else if(part.attachment_id){
+      const ar=await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(part.attachment_id)}`,
+        {headers:{Authorization:`Bearer ${accessToken}`}}
+      );
+      const ad=await ar.json().catch(()=>({}));
+      if(!ar.ok || !ad?.data) continue;
+      try{bytes=gmailSyncDecodeBytes(ad.data);}catch{bytes=new Uint8Array();}
+    }
+
+    if(!bytes.byteLength) continue;
+    if(bytes.byteLength>5*1024*1024) continue;
+    if(totalBytes+bytes.byteLength>10*1024*1024) continue;
+
+    totalBytes+=bytes.byteLength;
+    loaded.push({
+      filename:part.filename,
+      content_type:part.content_type,
+      bytes
+    });
+  }
+
+  return loaded;
+}
+__name(gmailSyncLoadAttachments,"gmailSyncLoadAttachments");
+
+async function gmailSyncStoreNotificationAttachments(env,{notificationId,accountNumber,attachments}) {
+  if(!attachments?.length) return [];
+  if(!env.NOTIFICATION_ATTACHMENTS){
+    throw new Error("Gmail attachment storage is not configured. Add the NOTIFICATION_ATTACHMENTS R2 binding.");
+  }
+
+  const saved=[];
+  const storedKeys=[];
+
+  try{
+    for(const attachment of attachments){
+      const objectKey=
+        `notifications/${accountNumber}/${notificationId}/`+
+        `${crypto.randomUUID()}-${notificationSafeFilename(attachment.filename)}`;
+
+      await env.NOTIFICATION_ATTACHMENTS.put(objectKey,attachment.bytes,{
+        httpMetadata:{
+          contentType:attachment.content_type,
+          contentDisposition:
+            `${notificationAttachmentDisposition(attachment.content_type)}; filename="${notificationSafeFilename(attachment.filename).replace(/"/g,"")}"`
+        },
+        customMetadata:{
+          account_number:String(accountNumber),
+          notification_id:String(notificationId),
+          filename:notificationSafeFilename(attachment.filename),
+          source:"gmail-sync"
+        }
+      });
+      storedKeys.push(objectKey);
+
+      const row=await env.DB.prepare(`
+        INSERT INTO portal_notification_attachments
+          (notification_id,account_number,object_key,filename,content_type,size_bytes,created_at)
+        VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+      `).bind(
+        notificationId,
+        accountNumber,
+        objectKey,
+        notificationSafeFilename(attachment.filename),
+        attachment.content_type,
+        attachment.bytes.byteLength
+      ).run();
+
+      saved.push({
+        id:row?.meta?.last_row_id||row?.meta?.last_insert_rowid||null,
+        filename:notificationSafeFilename(attachment.filename),
+        content_type:attachment.content_type,
+        size_bytes:attachment.bytes.byteLength
+      });
+    }
+    return saved;
+  }catch(error){
+    for(const key of storedKeys){
+      try{await env.NOTIFICATION_ATTACHMENTS.delete(key);}catch{}
+    }
+    try{
+      await env.DB.prepare(`DELETE FROM portal_notification_attachments WHERE notification_id=?`)
+        .bind(notificationId).run();
+    }catch{}
+    throw error;
+  }
+}
+__name(gmailSyncStoreNotificationAttachments,"gmailSyncStoreNotificationAttachments");
+
 async function syncGmailSentToPortal(env,options={}) {
   const force=options?.force===true;
   const maxMessages=Math.min(Math.max(Number(options?.maxMessages||50),1),100);
@@ -3700,7 +3840,7 @@ async function syncGmailSentToPortal(env,options={}) {
     const ld=await lr.json().catch(()=>({}));
     if(!lr.ok) throw new Error(ld?.error?.message||"Unable to read Gmail Sent messages.");
 
-    let checked=0,matched=0,created=0,duplicates=0,unmatched=0;
+    let checked=0,matched=0,created=0,duplicates=0,unmatched=0,attachmentMessages=0,attachmentsFound=0;
     let newest=Number(state?.last_internal_date||0);
     const cutoff=newest>0?newest-120000:Date.now()-30*60*1000;
 
@@ -3719,6 +3859,22 @@ async function syncGmailSentToPortal(env,options={}) {
 
       const subject=(gmailSyncHeader(m.payload,"Subject")||"(No subject)").trim().slice(0,160);
       const body=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
+
+      /* Gmail messages need their binary attachments fetched separately.
+         The previous sync only copied Subject + body, so portal notifications
+         created from real email never had rows in portal_notification_attachments. */
+      let gmailAttachments=[];
+      try{
+        gmailAttachments=await gmailSyncLoadAttachments({message:m,accessToken});
+        if(gmailAttachments.length){
+          attachmentMessages++;
+          attachmentsFound+=gmailAttachments.length;
+        }
+      }catch(attachmentLoadError){
+        console.error("Gmail attachment download skipped",attachmentLoadError);
+        gmailAttachments=[];
+      }
+
       const recipients=[...new Set([
         ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"To")),
         ...gmailSyncExtractEmails(gmailSyncHeader(m.payload,"Cc")),
@@ -3758,6 +3914,20 @@ async function syncGmailSentToPortal(env,options={}) {
 
           const notificationId=ins?.meta?.last_row_id||ins?.meta?.last_insert_rowid||null;
 
+          if(notificationId && gmailAttachments.length){
+            try{
+              await gmailSyncStoreNotificationAttachments(env,{
+                notificationId,
+                accountNumber:account,
+                attachments:gmailAttachments
+              });
+            }catch(attachmentStoreError){
+              /* Keep the notification itself even if one attachment cannot be stored.
+                 This matches the existing Gmail sync behavior of not losing the email notification. */
+              console.error("Gmail portal attachment storage failed",attachmentStoreError);
+            }
+          }
+
           await env.DB.prepare(`
             INSERT OR IGNORE INTO gmail_portal_sync
               (gmail_message_id,account_number,recipient_email,notification_id,synced_at)
@@ -3778,7 +3948,9 @@ async function syncGmailSentToPortal(env,options={}) {
 
     return {
       success:true,checked,matched_customers:matched,
-      notifications_created:created,duplicates,unmatched_messages:unmatched
+      notifications_created:created,duplicates,unmatched_messages:unmatched,
+      gmail_messages_with_attachments:attachmentMessages,
+      attachments_found:attachmentsFound
     };
   }catch(error){
     const msg=String(error?.message||error);
