@@ -2367,7 +2367,119 @@ input[type="reset"]:focus,
   font-size:.72rem !important;
   font-weight:900;
 }
+
+.fuel-history-tools{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:end;
+  margin:0 0 10px;
+}
+.fuel-history-search-wrap{
+  position:relative;
+  min-width:0;
+}
+.fuel-history-search-icon{
+  position:absolute;
+  left:13px;
+  top:50%;
+  width:18px;
+  height:18px;
+  transform:translateY(-50%);
+  fill:none;
+  stroke:#7b8894;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  pointer-events:none;
+}
+.fuel-history-search{
+  width:100%;
+  height:44px;
+  padding:0 42px 0 40px;
+  border:1px solid #d5dee7;
+  border-radius:11px;
+  background:#fff;
+  color:#26394b;
+  font:inherit;
+  font-size:.9rem;
+  box-sizing:border-box;
+  outline:none;
+}
+.fuel-history-search:focus{
+  border-color:#72869a;
+  box-shadow:0 0 0 3px rgba(31,78,121,.08);
+}
+.fuel-history-search::placeholder{
+  color:#8b97a2;
+}
+.fuel-history-clear{
+  position:absolute;
+  right:7px;
+  top:50%;
+  width:30px;
+  height:30px;
+  transform:translateY(-50%);
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:#7c8893;
+  font:inherit;
+  font-size:1.25rem;
+  line-height:1;
+  cursor:pointer;
+  display:none;
+}
+.fuel-history-clear.show{display:block}
+.fuel-history-clear:hover,
+.fuel-history-clear:focus{
+  background:#f1f4f7;
+  color:#35485b;
+}
+.fuel-history-sort-wrap{
+  display:grid;
+  gap:5px;
+  min-width:190px;
+}
+.fuel-history-sort-wrap span{
+  color:#6e7b87;
+  font-size:.72rem;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.fuel-history-sort{
+  height:44px;
+  min-width:190px;
+  padding:0 34px 0 12px;
+  border:1px solid #d5dee7;
+  border-radius:11px;
+  background:#fff;
+  color:#26394b;
+  font:inherit;
+  font-size:.88rem;
+  outline:none;
+}
+.fuel-history-sort:focus{
+  border-color:#72869a;
+  box-shadow:0 0 0 3px rgba(31,78,121,.08);
+}
+.fuel-history-results-meta{
+  min-height:20px;
+  margin:0 0 10px;
+  color:#7a8793;
+  font-size:.8rem;
+}
+
 @media(max-width:620px){
+  .fuel-history-tools{
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  .fuel-history-sort-wrap,
+  .fuel-history-sort{
+    width:100%;
+    min-width:0;
+  }
   .fuel-history-head{display:block}
   .fuel-history-refresh{margin-top:12px}
   .fuel-history-card-top{display:block}
@@ -2666,6 +2778,40 @@ input[type="reset"]:focus,
         <button type="button" class="fuel-history-refresh" id="fuelHistoryRefresh">Refresh</button>
       </div>
 
+      <div class="fuel-history-tools" aria-label="Search and sort fuel request history">
+        <div class="fuel-history-search-wrap">
+          <svg class="fuel-history-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+          <input
+            type="search"
+            id="fuelHistorySearch"
+            class="fuel-history-search"
+            placeholder="Search request #, fuel type, address, gallons, notes..."
+            autocomplete="off"
+            aria-label="Search fuel request history"
+          >
+          <button type="button" id="fuelHistoryClear" class="fuel-history-clear" aria-label="Clear fuel request search">×</button>
+        </div>
+
+        <label class="fuel-history-sort-wrap">
+          <span>Sort</span>
+          <select id="fuelHistorySort" class="fuel-history-sort" aria-label="Sort fuel request history">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="request_asc">Request # A–Z</option>
+            <option value="request_desc">Request # Z–A</option>
+            <option value="delivery_asc">Delivery date: earliest</option>
+            <option value="delivery_desc">Delivery date: latest</option>
+            <option value="gallons_desc">Gallons: high to low</option>
+            <option value="gallons_asc">Gallons: low to high</option>
+            <option value="fuel_asc">Fuel type A–Z</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="fuel-history-results-meta" id="fuelHistoryResultsMeta"></div>
       <div class="fuel-history-status" id="fuelHistoryStatus" role="status" aria-live="polite"></div>
       <div class="fuel-history-list" id="fuelHistoryList"></div>
     </section>
@@ -3653,8 +3799,13 @@ input[type="reset"]:focus,
   var fuelHistory=document.getElementById('customerFuelHistory');
   var fuelHistoryBack=document.getElementById('fuelHistoryBack');
   var fuelHistoryRefresh=document.getElementById('fuelHistoryRefresh');
+  var fuelHistorySearch=document.getElementById('fuelHistorySearch');
+  var fuelHistoryClear=document.getElementById('fuelHistoryClear');
+  var fuelHistorySort=document.getElementById('fuelHistorySort');
+  var fuelHistoryResultsMeta=document.getElementById('fuelHistoryResultsMeta');
   var fuelHistoryStatus=document.getElementById('fuelHistoryStatus');
   var fuelHistoryList=document.getElementById('fuelHistoryList');
+  var fuelHistoryRows=[];
   var FUEL_HISTORY_ENDPOINT='/api/customer/fuel-requests';
 
   function showDashboardView(){
@@ -3702,6 +3853,85 @@ input[type="reset"]:focus,
     return s || (fallback||'—');
   }
 
+
+  function fuelHistorySearchText(row){
+    return [
+      row && row.request_number,
+      row && row.fuel_type,
+      row && row.gallons,
+      row && row.delivery_date,
+      row && row.delivery_address,
+      row && row.notes,
+      row && row.received_at
+    ].map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ');
+  }
+
+  function fuelHistoryTime(value){
+    var t=Date.parse(value||'');
+    return Number.isFinite(t)?t:0;
+  }
+
+  function fuelHistoryDeliveryTime(value){
+    if(!value) return 0;
+    var t=Date.parse(String(value)+'T12:00:00');
+    return Number.isFinite(t)?t:0;
+  }
+
+  function fuelHistoryGallons(value){
+    var n=Number(String(value==null?'':value).replace(/[^0-9.-]/g,''));
+    return Number.isFinite(n)?n:0;
+  }
+
+  function filteredSortedFuelHistory(){
+    var query=String(fuelHistorySearch && fuelHistorySearch.value || '').trim().toLowerCase();
+    var sort=String(fuelHistorySort && fuelHistorySort.value || 'newest');
+    var rows=(fuelHistoryRows||[]).slice();
+
+    if(query){
+      var tokens=query.split(/\s+/).filter(Boolean);
+      rows=rows.filter(function(row){
+        var haystack=fuelHistorySearchText(row);
+        return tokens.every(function(token){return haystack.indexOf(token)!==-1;});
+      });
+    }
+
+    rows.sort(function(a,b){
+      if(sort==='oldest') return fuelHistoryTime(a.received_at)-fuelHistoryTime(b.received_at);
+      if(sort==='request_asc') return historyText(a.request_number,'').localeCompare(historyText(b.request_number,''),undefined,{numeric:true,sensitivity:'base'});
+      if(sort==='request_desc') return historyText(b.request_number,'').localeCompare(historyText(a.request_number,''),undefined,{numeric:true,sensitivity:'base'});
+      if(sort==='delivery_asc') return fuelHistoryDeliveryTime(a.delivery_date)-fuelHistoryDeliveryTime(b.delivery_date);
+      if(sort==='delivery_desc') return fuelHistoryDeliveryTime(b.delivery_date)-fuelHistoryDeliveryTime(a.delivery_date);
+      if(sort==='gallons_desc') return fuelHistoryGallons(b.gallons)-fuelHistoryGallons(a.gallons);
+      if(sort==='gallons_asc') return fuelHistoryGallons(a.gallons)-fuelHistoryGallons(b.gallons);
+      if(sort==='fuel_asc') return historyText(a.fuel_type,'').localeCompare(historyText(b.fuel_type,''),undefined,{sensitivity:'base'});
+      return fuelHistoryTime(b.received_at)-fuelHistoryTime(a.received_at);
+    });
+
+    return rows;
+  }
+
+  function updateFuelHistoryView(){
+    var rows=filteredSortedFuelHistory();
+    renderFuelHistory(rows);
+
+    if(fuelHistoryResultsMeta){
+      var total=(fuelHistoryRows||[]).length;
+      var query=String(fuelHistorySearch && fuelHistorySearch.value || '').trim();
+      if(!total){
+        fuelHistoryResultsMeta.textContent='';
+      }else if(query){
+        fuelHistoryResultsMeta.textContent=rows.length+' of '+total+' requests match your search';
+      }else{
+        fuelHistoryResultsMeta.textContent=total+' request'+(total===1?'':'s');
+      }
+    }
+
+    if(fuelHistoryClear){
+      var hasSearch=String(fuelHistorySearch && fuelHistorySearch.value || '').length>0;
+      fuelHistoryClear.classList.toggle('show',hasSearch);
+    }
+  }
+
   function renderFuelHistory(rows){
     if(!fuelHistoryList) return;
     fuelHistoryList.innerHTML='';
@@ -3709,7 +3939,10 @@ input[type="reset"]:focus,
     if(!Array.isArray(rows) || !rows.length){
       var empty=document.createElement('div');
       empty.className='fuel-history-empty';
-      empty.textContent='No fuel requests are saved to this online account yet.';
+      var searching=String(fuelHistorySearch && fuelHistorySearch.value || '').trim().length>0;
+      empty.textContent=searching
+        ? 'No fuel requests match your search.'
+        : 'No fuel requests are saved to this online account yet.';
       fuelHistoryList.appendChild(empty);
       return;
     }
@@ -3786,7 +4019,8 @@ input[type="reset"]:focus,
       if(!response.ok || data.success===false){
         throw new Error(data.error || 'Fuel request history could not be loaded.');
       }
-      renderFuelHistory(data.requests||[]);
+      fuelHistoryRows=Array.isArray(data.requests)?data.requests:[];
+      updateFuelHistoryView();
       if(fuelHistoryStatus){
         fuelHistoryStatus.className='fuel-history-status';
         fuelHistoryStatus.textContent='';
@@ -4318,6 +4552,15 @@ input[type="reset"]:focus,
   });
   if(dashboardFuelHistory) dashboardFuelHistory.addEventListener('click',function(){ showFuelHistory(); });
   if(fuelHistoryRefresh) fuelHistoryRefresh.addEventListener('click',function(){ loadFuelHistory(); });
+  if(fuelHistorySearch) fuelHistorySearch.addEventListener('input',function(){ updateFuelHistoryView(); });
+  if(fuelHistorySort) fuelHistorySort.addEventListener('change',function(){ updateFuelHistoryView(); });
+  if(fuelHistoryClear) fuelHistoryClear.addEventListener('click',function(){
+    if(fuelHistorySearch){
+      fuelHistorySearch.value='';
+      fuelHistorySearch.focus();
+    }
+    updateFuelHistoryView();
+  });
   if(fuelHistoryBack) fuelHistoryBack.addEventListener('click',function(){ showDashboardView(); });
   if(dashboardBack) dashboardBack.addEventListener('click',function(){ showDashboardView(); });
   if(dashboardLogout) dashboardLogout.addEventListener('click',function(){ if(portalLogout) portalLogout.click(); });
