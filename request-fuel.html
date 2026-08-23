@@ -2135,379 +2135,241 @@ body.request-fuel-page .fuel-request-card{
 }
 </style>
 
-
-<style id="wooten-request-fuel-popup-mode">
-html.fuel-popup-mode,
-html.fuel-popup-mode body{
-  background:#fff !important;
+<style id="wooten-request-fuel-integrated-page-final">
+body.request-fuel-page{
+  background:#f5f7f9 !important;
 }
-html.fuel-popup-mode body{
-  min-height:0 !important;
+body.request-fuel-page main{
+  min-height:calc(100vh - 88px);
 }
-html.fuel-popup-mode header,
-html.fuel-popup-mode footer,
-html.fuel-popup-mode .site-header,
-html.fuel-popup-mode .header,
-html.fuel-popup-mode .topbar,
-html.fuel-popup-mode .nav-wrap,
-html.fuel-popup-mode .main-nav{
+body.request-fuel-page main > section:not(#fuel-request){
   display:none !important;
 }
-html.fuel-popup-mode main{
-  padding:0 !important;
-  margin:0 !important;
-}
-html.fuel-popup-mode main > section:not(#fuel-request){
-  display:none !important;
-}
-html.fuel-popup-mode #fuel-request{
+body.request-fuel-page #fuel-request{
   display:block !important;
-  min-height:0 !important;
-  padding:18px 20px 22px !important;
-  margin:0 !important;
-  background:#fff !important;
+  background:#f5f7f9 !important;
+  padding:42px 0 56px !important;
+  min-height:calc(100vh - 88px);
 }
-html.fuel-popup-mode #fuel-request .container{
+body.request-fuel-page #fuel-request .container{
+  width:min(900px,calc(100% - 36px)) !important;
+  max-width:900px !important;
+  margin:0 auto !important;
+  padding:0 !important;
+}
+body.request-fuel-page .fuel-request-card{
   width:100% !important;
-  max-width:100% !important;
-  padding:0 !important;
+  max-width:none !important;
   margin:0 !important;
-}
-html.fuel-popup-mode #fuel-request .section-header,
-html.fuel-popup-mode #fuel-request .eyebrow{
-  display:none !important;
-}
-html.fuel-popup-mode .fuel-request-card{
-  max-width:100% !important;
-  margin:0 !important;
-  border:0 !important;
-  box-shadow:none !important;
-  padding:0 !important;
+  padding:30px 32px 32px !important;
+  border-radius:20px !important;
   background:#fff !important;
+  box-shadow:0 16px 42px rgba(15,35,55,.10) !important;
 }
-@media(max-width:700px){
-  html.fuel-popup-mode #fuel-request{
-    padding:14px 12px 18px !important;
-  }
+body.request-fuel-page .fuel-request-card h2{
+  margin:0 0 8px !important;
+  color:#111f2f !important;
+  font-size:1.9rem !important;
+  line-height:1.15 !important;
+  font-weight:800 !important;
 }
-</style>
-
-
-<script id="wooten-request-fuel-popup-boot">
-(function(){
-  var params=new URLSearchParams(window.location.search);
-  if(params.get('popup')==='1'){
-    document.documentElement.classList.add('fuel-popup-mode');
-  }
-})();
-</script>
-
-
-<style id="wooten-request-fuel-popup-layout-fix">
-html.fuel-popup-mode,
-html.fuel-popup-mode body{
-  overflow-x:hidden !important;
-  background:#fff !important;
+body.request-fuel-page .fuel-request-card .fuel-intro{
+  margin:0 0 22px !important;
+  color:#64707c !important;
+  font-size:.98rem !important;
+  line-height:1.5 !important;
 }
-
-html.fuel-popup-mode #fuel-request{
-  padding:22px 24px 26px !important;
-  overflow:visible !important;
-}
-
-html.fuel-popup-mode .fuel-request-card{
-  transform:none !important;
-  opacity:1 !important;
-  transition:none !important;
-}
-
-/* The parent popup already shows the title, so don't repeat it inside the iframe. */
-html.fuel-popup-mode .fuel-request-card > h2,
-html.fuel-popup-mode .fuel-request-card > .fuel-intro{
-  display:none !important;
-}
-
-html.fuel-popup-mode #fuelRequestForm{
-  margin:0 !important;
-  padding:0 !important;
-}
-
-html.fuel-popup-mode .fuel-form-grid{
+body.request-fuel-page .fuel-form-grid{
   display:grid !important;
   grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
-  gap:16px 18px !important;
-  align-items:start !important;
+  column-gap:18px !important;
+  row-gap:16px !important;
 }
-
-html.fuel-popup-mode .fuel-field{
-  gap:7px !important;
+body.request-fuel-page .fuel-field{
+  display:block !important;
   min-width:0 !important;
 }
-
-html.fuel-popup-mode .fuel-field label{
-  margin:0 !important;
-  font-size:15px !important;
-  line-height:1.25 !important;
-  font-weight:650 !important;
-  color:#16283a !important;
+body.request-fuel-page .fuel-field.full{
+  grid-column:1/-1 !important;
 }
-
-html.fuel-popup-mode .fuel-field input,
-html.fuel-popup-mode .fuel-field select{
+body.request-fuel-page .fuel-field label{
+  display:block !important;
+  margin:0 0 7px !important;
+  color:#26394b !important;
+  font-size:.9rem !important;
+  font-weight:800 !important;
+}
+body.request-fuel-page .fuel-field input,
+body.request-fuel-page .fuel-field select{
+  width:100% !important;
   height:50px !important;
   min-height:50px !important;
-  padding:10px 14px !important;
-  border-radius:10px !important;
+  padding:0 14px !important;
+  border:1px solid #d6dde5 !important;
+  border-radius:11px !important;
+  background:#fff !important;
+  color:#182331 !important;
+  box-sizing:border-box !important;
 }
-
-html.fuel-popup-mode .fuel-field textarea{
-  min-height:100px !important;
-  max-height:150px !important;
+body.request-fuel-page .fuel-field textarea{
+  width:100% !important;
+  min-height:96px !important;
   padding:12px 14px !important;
-  border-radius:10px !important;
+  border:1px solid #d6dde5 !important;
+  border-radius:11px !important;
+  background:#fff !important;
+  box-sizing:border-box !important;
+  resize:vertical !important;
 }
-
-html.fuel-popup-mode .fuel-form-actions{
-  margin-top:18px !important;
+body.request-fuel-page .fuel-field input:focus,
+body.request-fuel-page .fuel-field select:focus,
+body.request-fuel-page .fuel-field textarea:focus{
+  border-color:#72869a !important;
+  box-shadow:0 0 0 3px rgba(31,78,121,.10) !important;
+  outline:none !important;
 }
-
-html.fuel-popup-mode .fuel-submit{
-  min-height:48px !important;
-  padding:11px 22px !important;
+body.request-fuel-page .fuel-prefill-note{
+  margin:0 0 18px !important;
+  padding:12px 14px !important;
+  border:1px solid #e0e5ea !important;
+  border-radius:12px !important;
+  background:#f5f7f9 !important;
+  color:#53606d !important;
 }
-
-html.fuel-popup-mode .fuel-prefill-note{
-  margin:0 0 16px !important;
+body.request-fuel-page .fuel-form-actions{
+  display:flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  margin-top:20px !important;
+  flex-wrap:wrap !important;
 }
-
-/* Keep the first row fully visible when the iframe opens. */
-html.fuel-popup-mode #fuel-request,
-html.fuel-popup-mode .fuel-request-card,
-html.fuel-popup-mode #fuelRequestForm,
-html.fuel-popup-mode .fuel-form-grid{
-  scroll-margin-top:0 !important;
+body.request-fuel-page .fuel-submit,
+body.request-fuel-page .fuel-cancel{
+  min-height:50px !important;
+  padding:0 22px !important;
+  border-radius:11px !important;
+  font:inherit !important;
+  font-weight:600 !important;
+  text-decoration:none !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  transform:none !important;
 }
-
+body.request-fuel-page .fuel-submit{
+  border:0 !important;
+  background:#1d2e40 !important;
+  color:#fff !important;
+}
+body.request-fuel-page .fuel-cancel{
+  border:1px solid #d6dde5 !important;
+  background:#fff !important;
+  color:#1d2e40 !important;
+}
+body.request-fuel-page .fuel-submit:hover,
+body.request-fuel-page .fuel-submit:focus,
+body.request-fuel-page .fuel-submit:active{
+  background:#1d2e40 !important;
+  color:#fff !important;
+  transform:none !important;
+}
+body.request-fuel-page .fuel-cancel:hover,
+body.request-fuel-page .fuel-cancel:focus,
+body.request-fuel-page .fuel-cancel:active{
+  background:#fff !important;
+  color:#1d2e40 !important;
+  transform:none !important;
+}
 @media(max-width:700px){
-  html.fuel-popup-mode #fuel-request{
-    padding:16px 14px 20px !important;
+  body.request-fuel-page #fuel-request{
+    padding:24px 0 34px !important;
   }
-  html.fuel-popup-mode .fuel-form-grid{
+  body.request-fuel-page #fuel-request .container{
+    width:min(100% - 20px,900px) !important;
+  }
+  body.request-fuel-page .fuel-request-card{
+    padding:24px 18px 24px !important;
+    border-radius:16px !important;
+  }
+  body.request-fuel-page .fuel-form-grid{
     grid-template-columns:1fr !important;
-    gap:14px !important;
+    row-gap:15px !important;
   }
-  html.fuel-popup-mode .fuel-field.full{
+  body.request-fuel-page .fuel-field.full{
     grid-column:auto !important;
   }
-}
-</style>
-
-
-<style id="wooten-request-fuel-popup-extra-compact">
-/* Extra compact desktop popup layout to fit the complete form without a vertical scrollbar. */
-@media(min-width:701px){
-  html.fuel-popup-mode #fuel-request{
-    padding:14px 22px 16px !important;
+  body.request-fuel-page .fuel-form-actions{
+    display:grid !important;
+    grid-template-columns:1fr !important;
   }
-
-  html.fuel-popup-mode .fuel-form-grid{
-    gap:10px 16px !important;
-  }
-
-  html.fuel-popup-mode .fuel-field{
-    gap:4px !important;
-  }
-
-  html.fuel-popup-mode .fuel-field label{
-    font-size:14px !important;
-    line-height:1.15 !important;
-  }
-
-  html.fuel-popup-mode .fuel-field input,
-  html.fuel-popup-mode .fuel-field select{
-    height:43px !important;
-    min-height:43px !important;
-    padding:7px 12px !important;
-  }
-
-  html.fuel-popup-mode .fuel-field textarea{
-    min-height:76px !important;
-    height:76px !important;
-    max-height:90px !important;
-    padding:9px 12px !important;
-  }
-
-  html.fuel-popup-mode .fuel-prefill-note{
-    margin-bottom:10px !important;
-  }
-
-  html.fuel-popup-mode .fuel-form-actions{
-    margin-top:12px !important;
-  }
-
-  html.fuel-popup-mode .fuel-submit{
-    min-height:44px !important;
-    padding:9px 20px !important;
+  body.request-fuel-page .fuel-submit,
+  body.request-fuel-page .fuel-cancel{
+    width:100% !important;
   }
 }
 </style>
 
 
-<style id="wooten-request-fuel-reference-form-spacing">
-@media(min-width:701px){
-  html.fuel-popup-mode #fuel-request{
-    padding:16px 22px 18px !important;
-  }
-
-  html.fuel-popup-mode .fuel-form-grid{
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
-    column-gap:16px !important;
-    row-gap:12px !important;
-  }
-
-  html.fuel-popup-mode .fuel-field{
-    gap:6px !important;
-    margin:0 !important;
-  }
-
-  html.fuel-popup-mode .fuel-field label{
-    margin:0 !important;
-    font-size:13px !important;
-    line-height:1.2 !important;
-    font-weight:700 !important;
-    letter-spacing:0 !important;
-    color:#213246 !important;
-  }
-
-  html.fuel-popup-mode .fuel-field input,
-  html.fuel-popup-mode .fuel-field select{
-    height:46px !important;
-    min-height:46px !important;
-    padding:9px 13px !important;
-    border-radius:10px !important;
-    font-size:15px !important;
-    line-height:1.2 !important;
-  }
-
-  html.fuel-popup-mode .fuel-field textarea{
-    height:78px !important;
-    min-height:78px !important;
-    max-height:78px !important;
-    padding:11px 13px !important;
-    border-radius:10px !important;
-    font-size:15px !important;
-    line-height:1.35 !important;
-  }
-
-  html.fuel-popup-mode .fuel-prefill-note{
-    margin:0 0 10px !important;
-    font-size:13px !important;
-    line-height:1.35 !important;
-  }
-
-  html.fuel-popup-mode .fuel-form-actions{
-    margin-top:12px !important;
-  }
-
-  html.fuel-popup-mode .fuel-submit{
-    min-height:46px !important;
-    padding:10px 20px !important;
-    border-radius:10px !important;
-    font-size:15px !important;
-    font-weight:500 !important;
-  }
+<style id="wooten-request-fuel-top-gap-fix">
+body.request-fuel-page main#top{
+  display:none !important;
+  min-height:0 !important;
+  height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
 }
-
-/* Keep the same clean rhythm on phones, while allowing vertical scrolling if needed. */
+body.request-fuel-page #fuel-request{
+  margin-top:0 !important;
+  padding-top:28px !important;
+}
 @media(max-width:700px){
-  html.fuel-popup-mode #fuel-request{
-    padding:14px 14px 18px !important;
-  }
-  html.fuel-popup-mode .fuel-form-grid{
-    row-gap:12px !important;
-  }
-  html.fuel-popup-mode .fuel-field{
-    gap:6px !important;
-  }
-  html.fuel-popup-mode .fuel-field label{
-    font-size:13px !important;
-    line-height:1.2 !important;
-    font-weight:700 !important;
-  }
-  html.fuel-popup-mode .fuel-field input,
-  html.fuel-popup-mode .fuel-field select{
-    min-height:46px !important;
-    height:46px !important;
-    padding:9px 12px !important;
-  }
-  html.fuel-popup-mode .fuel-field textarea{
-    min-height:82px !important;
-    height:82px !important;
-  }
-  html.fuel-popup-mode .fuel-form-actions{
-    margin-top:12px !important;
+  body.request-fuel-page #fuel-request{
+    padding-top:18px !important;
   }
 }
 </style>
 
-
-<style id="wooten-request-fuel-equal-horizontal-padding">
-html.fuel-popup-mode #fuel-request{
-  padding-left:22px !important;
-  padding-right:22px !important;
-  box-sizing:border-box !important;
+<style id="wooten-request-fuel-nav-hover-only">
+/* On Request Fuel page: no persistent active red line, but show the red line on hover. */
+body.request-fuel-page .smart-desktop-nav .nav-link::after{
+  display:block !important;
+  content:"" !important;
+  background:var(--red) !important;
+  transform:scaleX(0) !important;
+  transition:transform .2s ease !important;
 }
-
-html.fuel-popup-mode #fuel-request .container,
-html.fuel-popup-mode .fuel-request-card,
-html.fuel-popup-mode #fuelRequestForm,
-html.fuel-popup-mode .fuel-form-grid{
-  width:100% !important;
-  max-width:100% !important;
-  margin-left:0 !important;
-  margin-right:0 !important;
-  box-sizing:border-box !important;
+body.request-fuel-page .smart-desktop-nav .nav-link:hover::after,
+body.request-fuel-page .smart-desktop-nav .nav-link:focus-visible::after{
+  transform:scaleX(1) !important;
 }
-
-html.fuel-popup-mode .fuel-form-grid{
-  padding-left:0 !important;
-  padding-right:0 !important;
+body.request-fuel-page .smart-desktop-nav .nav-link.active::after{
+  transform:scaleX(0) !important;
 }
-
-html.fuel-popup-mode .fuel-field,
-html.fuel-popup-mode .fuel-field input,
-html.fuel-popup-mode .fuel-field select,
-html.fuel-popup-mode .fuel-field textarea{
-  box-sizing:border-box !important;
-  max-width:100% !important;
-}
-
-@media(max-width:700px){
-  html.fuel-popup-mode #fuel-request{
-    padding-left:14px !important;
-    padding-right:14px !important;
-  }
+body.request-fuel-page .smart-desktop-nav .nav-link.active{
+  border-bottom:0 !important;
+  box-shadow:none !important;
+  text-decoration:none !important;
 }
 </style>
 
 
-<style id="wooten-request-fuel-bottom-spacing-fix">
-html.fuel-popup-mode #fuel-request{
-  padding-bottom:28px !important;
+<style id="wooten-fuel-login-help-style">
+body.request-fuel-page .fuel-login-help{
+  margin-top:18px !important;
+  text-align:center !important;
+  color:#6b7280 !important;
+  font-size:.9rem !important;
+  line-height:1.4 !important;
 }
-
-html.fuel-popup-mode .fuel-form-actions{
-  margin-bottom:0 !important;
+body.request-fuel-page .fuel-login-help a{
+  color:#1f4d7a !important;
+  text-decoration:none !important;
 }
-
-html.fuel-popup-mode .fuel-submit{
-  margin-bottom:0 !important;
-}
-
-@media(max-width:700px){
-  html.fuel-popup-mode #fuel-request{
-    padding-bottom:24px !important;
-  }
+body.request-fuel-page .fuel-login-help a:hover,
+body.request-fuel-page .fuel-login-help a:focus,
+body.request-fuel-page .fuel-login-help a:active{
+  color:#1f4d7a !important;
+  text-decoration:none !important;
 }
 </style>
 
@@ -2524,8 +2386,8 @@ html.fuel-popup-mode .fuel-submit{
     <nav id="desktop-nav" class="smart-desktop-nav" aria-label="Primary navigation">
       <ul>
         <li><a class="nav-link" href="index.html#services">Services</a></li>
-        <li><a class="nav-link" href="#farm">Farm Fuel</a></li>
-        <li><a class="nav-link" href="#stations">Gas Stations</a></li>
+        <li><a class="nav-link" href="index.html#farm">Farm Fuel</a></li>
+        <li><a class="nav-link" href="index.html#stations">Gas Stations</a></li>
         <li><a class="nav-link" href="index.html#oil-card">Oil Card</a></li>
       </ul>
     </nav>
@@ -2561,8 +2423,8 @@ html.fuel-popup-mode .fuel-submit{
       <a class="mobile-menu-close" href="index.html#top" aria-label="Close navigation menu">&times;</a>
       <a href="index.html#about">About Us</a>
       <a class="mobile-only-main-link" href="index.html#services">Services</a>
-      <a class="mobile-only-main-link" href="#farm">Farm Fuel</a>
-      <a class="mobile-only-main-link" href="#stations">Gas Stations</a>
+      <a class="mobile-only-main-link" href="index.html#farm">Farm Fuel</a>
+      <a class="mobile-only-main-link" href="index.html#stations">Gas Stations</a>
       <a class="mobile-only-main-link" href="index.html#oil-card">Oil Card</a>
       <a href="index.html#locations">Locations</a>
       <a href="index.html#contact">Contact</a>
@@ -3160,29 +3022,6 @@ html.fuel-popup-mode .fuel-submit{
   </section>
 </main>
 
-<footer>
-  <div class="container footer-row">
-    <div class="footer-brand">WOOTEN OIL CO</div>
-    <div class="footer-contact">
-      <span class="footer-contact-item">
-        <svg class="footer-contact-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-12A7 7 0 1 0 5 9c0 5.8 7 12 7 12Z"></path><circle cx="12" cy="9" r="2.4"></circle></svg>
-        <span>513 East Sanford Avenue, Covington, TN</span>
-      </span>
-      <a class="footer-contact-item" href="tel:+19014762684">
-        <svg class="footer-contact-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 2.8 9.4 2a1.8 1.8 0 0 1 2.1 1l1.3 3a1.8 1.8 0 0 1-.5 2.1l-1.6 1.3a14 14 0 0 0 4 4l1.3-1.6a1.8 1.8 0 0 1 2.1-.5l3 1.3a1.8 1.8 0 0 1 1 2.1l-.8 2.8a3 3 0 0 1-2.9 2.2C10.5 19.7 4.3 13.5 4.3 5.7A3 3 0 0 1 6.6 2.8Z"></path></svg>
-        <span>(901) 476-2684</span>
-      </a>
-      <a class="footer-contact-item" href="mailto:Support@wootenoil.com">
-        <svg class="footer-contact-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4.5 7 7.5 6 7.5-6"></path></svg>
-        <span>Support@wootenoil.com</span>
-      </a>
-    </div>
-    <div>© 2026 Wooten Oil Co. All rights reserved.</div>
-  </div>
-</footer>
-
-
-
 <style>
 .contact-message-overlay{position:fixed;inset:0;background:rgba(12,18,24,.68);display:none;align-items:center;justify-content:center;padding:20px;z-index:10050}
 .contact-message-overlay.show{display:flex}
@@ -3257,7 +3096,11 @@ html.fuel-popup-mode .fuel-submit{
           <div class="fuel-field"><label for="email">Customer Email</label><input id="email" name="email" type="email" autocomplete="email"></div>
           <div class="fuel-field full"><label for="notes">Additional Notes</label><textarea id="notes" name="notes" placeholder="Gate instructions, tank location, special delivery notes, etc."></textarea></div>
         </div>
-        <div class="fuel-form-actions"><button class="btn btn-primary fuel-submit" type="submit">Submit Fuel Request</button></div>
+        <div class="fuel-form-actions"><button class="btn btn-primary fuel-submit" type="submit">Submit Fuel Request</button><a class="fuel-cancel" href="index.html#top">Cancel</a></div>
+      <div class="fuel-login-help">
+        Need login help? <a href="mailto:Support@wootenoil.com"><strong>Contact Wooten Oil</strong></a>
+      </div>
+
       </form>
     </div>
   </div>
@@ -5146,55 +4989,5 @@ html.fuel-popup-mode .fuel-submit{
   }
 })();
 </script>
-
-
-<script id="wooten-request-fuel-popup-runtime">
-(function(){
-  var params=new URLSearchParams(window.location.search);
-  if(params.get('popup')!=='1') return;
-
-  function enforcePopupMode(){
-    document.documentElement.classList.add('fuel-popup-mode');
-    document.body.classList.add('fuel-popup-mode-body');
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',enforcePopupMode);
-  }else{
-    enforcePopupMode();
-  }
-})();
-</script>
-
-
-<script id="wooten-request-fuel-popup-scroll-fix">
-(function(){
-  var params=new URLSearchParams(window.location.search);
-  if(params.get('popup')!=='1') return;
-
-  function resetPopupScroll(){
-    try{
-      window.scrollTo({top:0,left:0,behavior:'auto'});
-      document.documentElement.scrollTop=0;
-      document.body.scrollTop=0;
-      var section=document.getElementById('fuel-request');
-      if(section) section.scrollTop=0;
-    }catch(e){}
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',function(){
-      resetPopupScroll();
-      requestAnimationFrame(resetPopupScroll);
-      setTimeout(resetPopupScroll,60);
-    });
-  }else{
-    resetPopupScroll();
-    requestAnimationFrame(resetPopupScroll);
-    setTimeout(resetPopupScroll,60);
-  }
-})();
-</script>
-
 </body>
 </html>
