@@ -1,34 +1,24 @@
-WOOTEN OIL — DOCUMENT OPEN + CUSTOMER NOTIFICATION LINK
+WOOTEN OIL — OPEN STATEMENT / INVOICE FROM NOTIFICATION POPUP
 
-ADMIN
-- Customer Documents list now has an Open PDF button.
-- Admin document opening is protected by the Admin Import Key.
-- PDF opens securely from the private R2 bucket.
+Requested customer flow:
+1. Admin uploads a new Statement or Invoice.
+2. Customer receives a portal notification.
+3. Customer clicks the notification.
+4. The normal Wooten Oil Notification popup opens.
+5. The popup shows an Open Statement or Open Invoice button in its fixed footer.
+6. Customer clicks that button.
+7. Statements & Invoices opens and the matching document is highlighted.
+8. Customer can click Open PDF.
 
-CUSTOMER
-- Uploading a Statement or Invoice automatically creates a portal notification:
-  • New Statement Available
-  • New Invoice Available
-- The notification is linked to that document.
-- When the customer clicks the notification, the normal notification popup is skipped.
-- The portal opens Statements & Invoices automatically.
-- The matching document is highlighted briefly in the list.
-- Customer can then click Open PDF.
+This replaces the previous behavior that jumped directly from the notification
+list to Statements & Invoices without first showing the notification popup.
 
-DATABASE
-- portal_notifications automatically gains:
-  action_type
-  action_id
-  if those columns do not already exist.
-- No manual D1 command is required.
-
-IMPORTANT
-This applies to newly uploaded Statements/Invoices. Existing document uploads from before
-this update will not automatically have linked notifications unless uploaded again or
-a future migration is added.
+Admin Open PDF functionality remains unchanged.
 
 Upload:
 - index.html
 - request-fuel.html
 - admin-customers.html
 - worker.js
+
+No manual D1 or R2 configuration change is required.

@@ -2785,6 +2785,51 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-document-action-style">
+.customer-notification-document-action{
+  display:none;
+  width:100%;
+  margin:0 0 9px;
+}
+.customer-notification-document-action.show{
+  display:block;
+}
+.customer-notification-document-open{
+  width:100%;
+  min-height:44px;
+  padding:10px 14px;
+  border:1px solid #bccbd7;
+  border-radius:10px;
+  background:#e8eef3;
+  color:#17314b;
+  font:inherit;
+  font-weight:800;
+  text-align:center;
+  cursor:pointer;
+}
+.customer-notification-document-open:hover,
+.customer-notification-document-open:focus,
+.customer-notification-document-open:focus-visible{
+  background:#e1e8ee !important;
+  color:#17314b !important;
+  border-color:#aebfcd !important;
+  transform:none !important;
+}
+.customer-notification-popup-footer.has-document-action{
+  min-height:0 !important;
+}
+.customer-notification-popup-footer.has-document-action .customer-notification-attachments-title,
+.customer-notification-popup-footer.has-document-action .customer-notification-attachment-list:empty{
+  display:none;
+}
+@media(max-width:600px){
+  .customer-notification-document-open{
+    min-height:46px;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -4070,6 +4115,11 @@ input[type="reset"]:focus,
     </div>
 
     <div class="customer-notification-attachments customer-notification-popup-footer" id="customerNotificationPopupAttachments">
+      <div class="customer-notification-document-action" id="customerNotificationDocumentAction">
+        <button type="button" class="customer-notification-document-open" id="customerNotificationDocumentOpen">
+          Open Statement / Invoice
+        </button>
+      </div>
       <div class="customer-notification-attachments-title">Attachments</div>
       <div class="customer-notification-attachment-list" id="customerNotificationPopupAttachmentList"></div>
     </div>
@@ -4167,6 +4217,9 @@ input[type="reset"]:focus,
   var customerNotificationPopupTo=document.getElementById('customerNotificationPopupTo');
   var customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
   var customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
+  var customerNotificationDocumentAction=document.getElementById('customerNotificationDocumentAction');
+  var customerNotificationDocumentOpen=document.getElementById('customerNotificationDocumentOpen');
+  var activeNotificationDocumentId=null;
   var mobileHeaderNotifications=document.getElementById('mobileHeaderNotifications');
   var mobileHeaderCustomerName=document.getElementById('mobileHeaderCustomerName');
   var mobileHeaderNotificationBadge=document.getElementById('mobileHeaderNotificationBadge');
@@ -4837,6 +4890,8 @@ input[type="reset"]:focus,
       customerNotificationPopupTo=document.getElementById('customerNotificationPopupTo');
       customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
       customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
+      customerNotificationDocumentAction=document.getElementById('customerNotificationDocumentAction');
+      customerNotificationDocumentOpen=document.getElementById('customerNotificationDocumentOpen');
     }
     if(!notification || !customerNotificationPopup) return;
 
@@ -4851,6 +4906,17 @@ input[type="reset"]:focus,
     if(customerNotificationPopupTo) customerNotificationPopupTo.textContent=notification.recipient_email || '';
 
     var attachments=Array.isArray(notification.attachments)?notification.attachments:[];
+    var isDocumentNotification=String(notification.action_type||'')==='customer_documents';
+    activeNotificationDocumentId=isDocumentNotification ? (notification.action_id||null) : null;
+
+    if(customerNotificationDocumentAction){
+      customerNotificationDocumentAction.classList.toggle('show',isDocumentNotification);
+    }
+    if(customerNotificationDocumentOpen){
+      customerNotificationDocumentOpen.textContent=
+        /invoice/i.test(String(notification.title||'')) ? 'Open Invoice' : 'Open Statement';
+      customerNotificationDocumentOpen.disabled=!isDocumentNotification;
+    }
 
     if(customerNotificationPopupAttachmentList){
       customerNotificationPopupAttachmentList.innerHTML=attachments.map(function(a){
@@ -4865,7 +4931,8 @@ input[type="reset"]:focus,
     }
 
     if(customerNotificationPopupAttachments){
-      customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0);
+      customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0 || isDocumentNotification);
+      customerNotificationPopupAttachments.classList.toggle('has-document-action',isDocumentNotification);
     }
 
     bindCustomerNotificationAttachmentList();
@@ -4923,20 +4990,6 @@ input[type="reset"]:focus,
   }
 
   async function openCustomerNotificationPopup(item){
-    var actionType='';
-    var actionId='';
-    try{
-      if(fallback){
-        actionType=String(fallback.action_type||'');
-        actionId=fallback.action_id||'';
-      }
-    }catch(e){}
-    if(actionType==='customer_documents'){
-      closeCustomerNotificationPopup();
-      if(window.wootenOpenCustomerDocuments) window.wootenOpenCustomerDocuments(actionId||null);
-      return;
-    }
-
     if(!item) return;
 
     var id=item.getAttribute('data-notification-id')||'';
@@ -4968,11 +5021,6 @@ input[type="reset"]:focus,
       ){
         fullNotification.attachments=fallback.attachments;
       }
-      if(fullNotification && fullNotification.action_type==='customer_documents'){
-        closeCustomerNotificationPopup();
-        if(window.wootenOpenCustomerDocuments) window.wootenOpenCustomerDocuments(fullNotification.action_id||null);
-        return;
-      }
       renderCustomerNotificationPopup(fullNotification);
     }catch(error){
       console.error('Notification detail load failed',error);
@@ -4991,6 +5039,18 @@ input[type="reset"]:focus,
     }
   }
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
+
+
+  if(customerNotificationDocumentOpen){
+    customerNotificationDocumentOpen.addEventListener('click',function(){
+      var documentId=activeNotificationDocumentId;
+      closeCustomerNotificationPopup();
+      if(window.wootenOpenCustomerDocuments){
+        window.wootenOpenCustomerDocuments(documentId||null);
+      }
+    });
+  }
+
 
 
   async function openCustomerNotificationAttachment(button){
