@@ -1,14 +1,11 @@
-WOOTEN OIL — NOTIFICATION POPUP SCROLLBAR FIX
+WOOTEN OIL — NOTIFICATION FIXED FOOTER
 
-Fixed the notification popup scrollbar.
-
-Changes:
-- The popup outer card no longer scrolls.
-- The rounded popup border stays clean.
-- The header and close button remain fixed at the top.
-- Only the notification content area scrolls.
-- The scrollbar is thinner, rounded, and sits inside the content area.
-- Attachments remain inside the scrollable notification content.
+Notification popup behavior:
+- Header stays fixed.
+- Attachment footer stays fixed at the bottom.
+- Only the notification message/body scrolls.
+- If there are multiple attachments, only the attachment list itself can scroll.
+- Existing Gmail attachment sync and secure attachment opening are preserved.
 
 Upload:
 - index.html
