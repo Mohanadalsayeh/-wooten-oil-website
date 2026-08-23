@@ -2106,6 +2106,15 @@ input[type="reset"]:focus,
 }
 </style>
 
+<style id="wooten-footer-contact-icons-final">
+.footer-contact{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 16px}
+.footer-contact-item{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none;white-space:nowrap}
+.footer-contact-item:hover,.footer-contact-item:focus,.footer-contact-item:active{color:inherit;text-decoration:none;transform:none}
+.footer-contact-icon{width:17px;height:17px;flex:0 0 17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:900px){.footer-row{gap:14px!important}.footer-contact{width:100%}}
+@media(max-width:620px){.footer-contact{flex-direction:column;align-items:flex-start;gap:9px}.footer-contact-item{white-space:normal}}
+</style>
+
 </head>
 <body>
 
@@ -2750,12 +2759,7 @@ input[type="reset"]:focus,
         <a class="btn btn-outline-light js-contact-open" href="#contact-message">Email Wooten Oil</a>
       </div>
 
-      <div class="contact-details">
-        <div><strong>Wooten Oil Co</strong></div>
-        <div>513 East Sanford Avenue, Covington, TN</div>
-        <div><a href="tel:+19014762684">(901) 476-2684</a></div>
-        <div><a href="mailto:Support@wootenoil.com">Support@wootenoil.com</a></div>
-      </div>
+
     </div>
   </section>
 </main>
@@ -2763,7 +2767,20 @@ input[type="reset"]:focus,
 <footer>
   <div class="container footer-row">
     <div class="footer-brand">WOOTEN OIL CO</div>
-    <div>513 East Sanford Avenue, Covington, TN • <a href="tel:+19014762684">(901) 476-2684</a> • <a href="mailto:Support@wootenoil.com">Support@wootenoil.com</a></div>
+    <div class="footer-contact">
+      <span class="footer-contact-item">
+        <svg class="footer-contact-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-12A7 7 0 1 0 5 9c0 5.8 7 12 7 12Z"></path><circle cx="12" cy="9" r="2.4"></circle></svg>
+        <span>513 East Sanford Avenue, Covington, TN</span>
+      </span>
+      <a class="footer-contact-item" href="tel:+19014762684">
+        <svg class="footer-contact-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 2.8 9.4 2a1.8 1.8 0 0 1 2.1 1l1.3 3a1.8 1.8 0 0 1-.5 2.1l-1.6 1.3a14 14 0 0 0 4 4l1.3-1.6a1.8 1.8 0 0 1 2.1-.5l3 1.3a1.8 1.8 0 0 1 1 2.1l-.8 2.8a3 3 0 0 1-2.9 2.2C10.5 19.7 4.3 13.5 4.3 5.7A3 3 0 0 1 6.6 2.8Z"></path></svg>
+        <span>(901) 476-2684</span>
+      </a>
+      <a class="footer-contact-item" href="mailto:Support@wootenoil.com">
+        <svg class="footer-contact-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4.5 7 7.5 6 7.5-6"></path></svg>
+        <span>Support@wootenoil.com</span>
+      </a>
+    </div>
     <div>© 2026 Wooten Oil Co. All rights reserved.</div>
   </div>
 </footer>
