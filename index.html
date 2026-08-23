@@ -3657,7 +3657,17 @@ input[type="reset"]:focus,
       sender_name:'Wooten Oil Co Inc.',
       sender_email:'support@wootenoil.com',
       recipient_email:item.getAttribute('data-notification-to')||'',
-      attachments:[]
+      attachments:(function(){
+        try{
+          var raw=item.getAttribute('data-notification-attachments')||'';
+          if(!raw) return [];
+          var parsed=JSON.parse(decodeURIComponent(raw));
+          return Array.isArray(parsed)?parsed:[];
+        }catch(e){
+          console.error('Could not read notification attachment metadata',e);
+          return [];
+        }
+      })()
     };
   }
 
@@ -3693,15 +3703,23 @@ input[type="reset"]:focus,
         customerNotificationPopupDate.textContent=fallback.display_date;
       }
 
-      if(customerNotificationPopupAttachments){
-        customerNotificationPopupAttachments.classList.remove('show');
-      }
+      /* Keep any attachment metadata already delivered with the notification list
+         visible while the exact detail request is loading. */
     }
 
     if(!id) return;
 
     try{
       var fullNotification=await loadExactCustomerNotification(id);
+      if(
+        fullNotification &&
+        (!Array.isArray(fullNotification.attachments) || !fullNotification.attachments.length) &&
+        fallback &&
+        Array.isArray(fallback.attachments) &&
+        fallback.attachments.length
+      ){
+        fullNotification.attachments=fallback.attachments;
+      }
       renderCustomerNotificationPopup(fullNotification);
     }catch(error){
       console.error('Notification detail load failed',error);
