@@ -4929,6 +4929,7 @@ input[type="reset"]:focus,
     }
     if(!notification || !customerNotificationPopup) return;
 
+    if(customerNotificationPopup) customerNotificationPopup.setAttribute('data-active-notification-id',String(notification.id||''));
     if(customerNotificationPopupTitle) customerNotificationPopupTitle.textContent=notification.title || 'Wooten Oil';
     if(customerNotificationPopupMessage) customerNotificationPopupMessage.textContent=notification.message || '';
     if(customerNotificationPopupDate) customerNotificationPopupDate.textContent=notification.display_date || formatNotificationPopupDate(notification.created_at);
@@ -4940,8 +4941,10 @@ input[type="reset"]:focus,
     if(customerNotificationPopupTo) customerNotificationPopupTo.textContent=notification.recipient_email || '';
 
     var attachments=Array.isArray(notification.attachments)?notification.attachments:[];
-    var isDocumentNotification=String(notification.action_type||'')==='customer_documents';
-    activeNotificationDocumentId=isDocumentNotification ? (notification.action_id||null) : null;
+    var looksLikeDocumentNotification=/statement|invoice/i.test(String(notification.title||'')+' '+String(notification.message||''));
+    var isDocumentNotification=String(notification.action_type||'')==='customer_documents' || looksLikeDocumentNotification;
+    var linkedDocumentId=Number(notification.action_id||0);
+    activeNotificationDocumentId=isDocumentNotification && linkedDocumentId>0 ? linkedDocumentId : null;
 
     if(customerNotificationPopupCard){
       customerNotificationPopupCard.classList.toggle('document-notification-clickable',isDocumentNotification);
@@ -5060,6 +5063,14 @@ input[type="reset"]:focus,
 
     try{
       var fullNotification=await loadExactCustomerNotification(id);
+      if(fullNotification && fallback){
+        if(!fullNotification.action_type && fallback.action_type){
+          fullNotification.action_type=fallback.action_type;
+        }
+        if((fullNotification.action_id==null || fullNotification.action_id==='') && fallback.action_id){
+          fullNotification.action_id=fallback.action_id;
+        }
+      }
       if(
         fullNotification &&
         (!Array.isArray(fullNotification.attachments) || !fullNotification.attachments.length) &&
@@ -5089,11 +5100,33 @@ input[type="reset"]:focus,
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
 
 
-  function openNotificationLinkedDocuments(){
+  async function openNotificationLinkedDocuments(){
     var documentId=activeNotificationDocumentId;
+
+    if(!documentId){
+      var notificationId=customerNotificationPopup && customerNotificationPopup.getAttribute('data-active-notification-id');
+      if(notificationId){
+        try{
+          var response=await fetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
+            method:'GET',
+            credentials:'same-origin',
+            cache:'no-store',
+            headers:{'Accept':'application/json'}
+          });
+          var data=await response.json().catch(function(){return {};});
+          if(response.ok && data.success!==false && Number(data.document_id)>0){
+            documentId=Number(data.document_id);
+            activeNotificationDocumentId=documentId;
+          }
+        }catch(e){}
+      }
+    }
+
+    if(!documentId) return;
+
     closeCustomerNotificationPopup();
     if(window.wootenOpenCustomerDocuments){
-      window.wootenOpenCustomerDocuments(documentId||null);
+      window.wootenOpenCustomerDocuments(documentId);
     }
   }
 
@@ -5106,7 +5139,8 @@ input[type="reset"]:focus,
 
   if(customerNotificationPopupCard){
     customerNotificationPopupCard.addEventListener('click',function(e){
-      if(!activeNotificationDocumentId) return;
+      var popupLooksLikeDocument=/statement|invoice/i.test(String(customerNotificationPopupTitle && customerNotificationPopupTitle.textContent || ''));
+      if(!activeNotificationDocumentId && !popupLooksLikeDocument) return;
 
       /* Do not turn the close button or a real attachment control into the
          document-navigation click. */
@@ -5120,7 +5154,8 @@ input[type="reset"]:focus,
     });
 
     customerNotificationPopupCard.addEventListener('keydown',function(e){
-      if(!activeNotificationDocumentId) return;
+      var popupLooksLikeDocument=/statement|invoice/i.test(String(customerNotificationPopupTitle && customerNotificationPopupTitle.textContent || ''));
+      if(!activeNotificationDocumentId && !popupLooksLikeDocument) return;
       if(e.key==='Enter' || e.key===' '){
         if(e.target && e.target.closest(
           '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-open'
@@ -5678,6 +5713,8 @@ input[type="reset"]:focus,
           '" data-notification-created-at="'+escapeHtml(n.created_at||'')+
           '" data-notification-from="'+escapeHtml((n.sender_name||'Wooten Oil Co Inc.')+' <'+(n.sender_email||'support@wootenoil.com')+'>')+
           '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
+          '" data-notification-action-type="'+escapeHtml(n.action_type||'')+
+          '" data-notification-action-id="'+escapeHtml(n.action_id==null?'':String(n.action_id))+
           '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
           '<span class="notification-dot"></span>'+
           '<span class="notification-copy">'+
@@ -5698,6 +5735,8 @@ input[type="reset"]:focus,
           '" data-notification-created-at="'+escapeHtml(n.created_at||'')+
           '" data-notification-from="'+escapeHtml((n.sender_name||'Wooten Oil Co Inc.')+' <'+(n.sender_email||'support@wootenoil.com')+'>')+
           '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
+          '" data-notification-action-type="'+escapeHtml(n.action_type||'')+
+          '" data-notification-action-id="'+escapeHtml(n.action_id==null?'':String(n.action_id))+
           '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
           '<span class="header-notification-dot"></span>'+
           '<span class="header-notification-copy">'+

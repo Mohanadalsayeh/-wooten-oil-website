@@ -1,21 +1,24 @@
-WOOTEN OIL — CLICKABLE STATEMENT / INVOICE NOTIFICATION POPUP
+WOOTEN OIL — STATEMENT/INVOICE NOTIFICATION CLICK REAL FIX
 
-Customer behavior:
-- A New Statement Available or New Invoice Available notification still opens
-  the normal Wooten Oil Notification popup.
-- The ENTIRE notification popup is now clickable for linked documents.
-- Clicking the subject, message, From/To area, blank content area, or footer
-  opens Statements & Invoices.
-- The matching statement/invoice is highlighted.
-- The X close button still only closes the popup.
-- Attachment buttons still open their attachments normally.
-- The existing Open Statement / Open Invoice button still works.
-- Keyboard users can press Enter or Space on the linked popup.
+Root cause:
+The notification list API had the document link, but the HTML notification
+buttons did not carry action_type/action_id. The notification detail endpoint
+also dropped those fields. That is why the popup displayed correctly but clicking
+it did nothing.
 
-Upload:
+Fixed:
+- Dashboard notification items now include document action metadata.
+- Header/mobile notification items now include document action metadata.
+- Notification detail API now returns action_type/action_id.
+- Popup preserves the metadata when full detail loads.
+- Entire statement/invoice popup opens Statements & Invoices.
+- Existing older statement/invoice notifications are also supported: the Worker
+  securely locates the matching customer document and repairs the link.
+
+Upload all:
 - index.html
 - request-fuel.html
 - admin-customers.html
 - worker.js
 
-No Cloudflare, D1, R2, or wrangler configuration changes are required.
+No manual D1 command is required.

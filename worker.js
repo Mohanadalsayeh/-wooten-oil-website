@@ -3473,6 +3473,81 @@ __name(customerNotificationsGet, "customerNotificationsGet");
 
 
 
+
+async function customerNotificationDocumentResolve({request,env}){
+  try{
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+    const customer=await getCustomerFromSession(request,env);
+    if(!customer) return notificationJson({success:false,error:"Unauthorized."},401);
+
+    const url=new URL(request.url);
+    const notificationId=Number(url.searchParams.get("notification_id")||0);
+    if(!Number.isInteger(notificationId)||notificationId<=0){
+      return notificationJson({success:false,error:"Notification was not found."},404);
+    }
+
+    await ensureCustomerNotificationsTable(env);
+    await ensureCustomerDocumentsTable(env);
+    const account=normalizeNotificationAccount(customer.account_number);
+
+    const notification=await env.DB.prepare(`
+      SELECT id,title,message,created_at,action_type,action_id
+      FROM portal_notifications
+      WHERE id=? AND account_number=?
+      LIMIT 1
+    `).bind(notificationId,account).first();
+
+    if(!notification) return notificationJson({success:false,error:"Notification was not found."},404);
+
+    if(String(notification.action_type||"")==="customer_documents" && Number(notification.action_id||0)>0){
+      return notificationJson({success:true,document_id:Number(notification.action_id)});
+    }
+
+    const text=String(notification.title||"")+" "+String(notification.message||"");
+    if(!/statement|invoice/i.test(text)){
+      return notificationJson({success:false,error:"This notification is not linked to a document."},404);
+    }
+
+    let doc=null;
+    const match=String(notification.message||"").match(/^(.*?)\s+is now available in your Statements & Invoices\./i);
+    if(match && match[1]){
+      doc=await env.DB.prepare(`
+        SELECT id FROM portal_customer_documents
+        WHERE account_number=? AND title=?
+        ORDER BY id DESC LIMIT 1
+      `).bind(account,String(match[1]).trim()).first();
+    }
+
+    if(!doc){
+      doc=await env.DB.prepare(`
+        SELECT id FROM portal_customer_documents
+        WHERE account_number=?
+          AND datetime(created_at) <= datetime(?,'+5 minutes')
+        ORDER BY datetime(created_at) DESC,id DESC
+        LIMIT 1
+      `).bind(account,notification.created_at).first();
+    }
+
+    if(!doc) return notificationJson({success:false,error:"The related document could not be found."},404);
+
+    try{
+      await env.DB.prepare(`
+        UPDATE portal_notifications
+        SET action_type='customer_documents',action_id=?
+        WHERE id=? AND account_number=?
+      `).bind(Number(doc.id),notificationId,account).run();
+    }catch(error){
+      console.error("Could not repair document notification link",error);
+    }
+
+    return notificationJson({success:true,document_id:Number(doc.id)});
+  }catch(error){
+    console.error("customerNotificationDocumentResolve failed",error);
+    return notificationJson({success:false,error:"The related document could not be located."},500);
+  }
+}
+__name(customerNotificationDocumentResolve,"customerNotificationDocumentResolve");
+
 async function customerNotificationDetailGet({ request, env }) {
   try {
     if (!env.DB) {
@@ -3501,7 +3576,7 @@ async function customerNotificationDetailGet({ request, env }) {
     const account = normalizeNotificationAccount(customer.account_number);
 
     const row = await env.DB.prepare(`
-      SELECT id, title, message, read_at, created_at
+      SELECT id, title, message, read_at, created_at, action_type, action_id
       FROM portal_notifications
       WHERE id = ? AND account_number = ?
       LIMIT 1
@@ -3538,6 +3613,8 @@ async function customerNotificationDetailGet({ request, env }) {
         sender_name: "Wooten Oil Co Inc.",
         sender_email: "support@wootenoil.com",
         recipient_email: String(customer.email || ""),
+        action_type: String(row.action_type || ""),
+        action_id: row.action_id == null ? null : Number(row.action_id),
         attachments
       }
     });
@@ -4791,6 +4868,13 @@ var worker_default = {
     if (url.pathname === "/api/customer/notifications") {
       if (request.method === "GET") {
         return customerNotificationsGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/notifications/document-resolve") {
+      if (request.method === "GET") {
+        return customerNotificationDocumentResolve({ request, env });
       }
       return methodNotAllowed();
     }
