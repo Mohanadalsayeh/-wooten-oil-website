@@ -1,12 +1,16 @@
-WOOTEN OIL — NOTIFICATION FOOTER STYLE UPDATE
+WOOTEN OIL — MOBILE PREFERRED DELIVERY DATE WIDTH FIX
 
-Changes to the Wooten Oil Notification popup:
-- Footer is slightly taller.
-- Footer background is a little darker.
-- Footer top border is slightly stronger.
-- Attachment title is slightly darker for better contrast.
-- Works both with and without attachments.
-- Mobile spacing adjusted too.
+Fixed the Preferred Delivery Date field on phones.
+
+Problem:
+Mobile Safari/iPhone can render HTML date inputs wider than their parent grid,
+making the date field stick outside the Fuel Request form.
+
+Fix:
+- Forces the date input to 100% of the available width.
+- Removes browser minimum-width overflow.
+- Keeps the field inside the form on iPhone/mobile.
+- Preserves the existing desktop layout.
 
 Upload:
 - index.html

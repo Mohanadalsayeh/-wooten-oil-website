@@ -2380,6 +2380,40 @@ body.request-fuel-page #customer-login.portal-overlay{
 }
 </style>
 
+
+<style id="wooten-mobile-preferred-delivery-date-width-fix">
+/* iPhone/mobile Safari can render date inputs wider than their grid/container.
+   Force the Preferred Delivery Date field to stay inside the Fuel Request form. */
+body.request-fuel-page input[type="date"],
+body.request-fuel-page #deliveryDate,
+body.request-fuel-page #preferredDeliveryDate{
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  box-sizing:border-box !important;
+  display:block !important;
+  -webkit-appearance:none;
+  appearance:none;
+}
+body.request-fuel-page .fuel-form-grid,
+body.request-fuel-page .fuel-form-grid > *,
+body.request-fuel-page .fuel-field{
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+@media(max-width:700px){
+  body.request-fuel-page input[type="date"],
+  body.request-fuel-page #deliveryDate,
+  body.request-fuel-page #preferredDeliveryDate{
+    inline-size:100% !important;
+    max-inline-size:100% !important;
+    min-inline-size:0 !important;
+    overflow:hidden !important;
+  }
+}
+</style>
+
 </head>
 <body class="request-fuel-page">
 
