@@ -2114,6 +2114,55 @@ input[type="reset"]:focus,
 @media(max-width:900px){.footer-row{gap:14px!important}.footer-contact{width:100%}}
 @media(max-width:620px){.footer-contact{flex-direction:column;align-items:flex-start;gap:9px}.footer-contact-item{white-space:normal}}
 </style>
+
+<style id="wooten-notification-popup-scrollbar-fix">
+/* Keep the popup shell rounded and fixed; only the message body scrolls. */
+.customer-notification-popup-card{
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  max-height:min(78vh,680px) !important;
+}
+.customer-notification-popup-head{
+  flex:0 0 auto !important;
+  background:#fff !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+.customer-notification-popup-body{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  scrollbar-gutter:stable !important;
+  overscroll-behavior:contain !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:#9aa5af transparent !important;
+}
+.customer-notification-popup-body::-webkit-scrollbar{
+  width:8px !important;
+}
+.customer-notification-popup-body::-webkit-scrollbar-track{
+  background:transparent !important;
+}
+.customer-notification-popup-body::-webkit-scrollbar-thumb{
+  background:#9aa5af !important;
+  border-radius:999px !important;
+  border:2px solid transparent !important;
+  background-clip:padding-box !important;
+}
+.customer-notification-popup-body::-webkit-scrollbar-thumb:hover{
+  background:#7f8b96 !important;
+  border:2px solid transparent !important;
+  background-clip:padding-box !important;
+}
+@media(max-width:600px){
+  .customer-notification-popup-card{
+    max-height:82vh !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
