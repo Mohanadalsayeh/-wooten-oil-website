@@ -1,12 +1,12 @@
-WOOTEN OIL — REQUEST FUEL EQUAL SIDE PADDING
+WOOTEN OIL — REQUEST FUEL BOTTOM SPACING FIX
 
-Fixed the horizontal form alignment so:
-- distance from the left popup/form edge to the far-left fields
-  matches
-- distance from the far-right fields to the right popup/form edge
+Fixed the logged-in Request Fuel popup so the Submit Fuel Request button
+is not crowded against the bottom edge.
 
-Desktop side padding: 22px on both sides.
-Mobile side padding: 14px on both sides.
+Changes:
+- Increased bottom padding below the form/button.
+- Gave the popup iframe slightly more usable vertical room.
+- Preserved equal left/right field spacing and all prior functionality.
 
 Upload:
 - index.html
