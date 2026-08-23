@@ -2632,6 +2632,50 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-account-statement-bottom-space-fix">
+/* Remove unnecessary blank space below the Account Statement payment area. */
+#customerAccountDetails.account-statement-panel{
+  padding-bottom:0 !important;
+}
+#customerAccountDetails .statement-footer{
+  margin-top:12px !important;
+  padding:9px 12px !important;
+}
+#customerAccountDetails .account-actions{
+  margin:0 !important;
+  padding:10px 0 12px !important;
+  min-height:0 !important;
+  display:flex !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+}
+#customerAccountDetails .account-logout{
+  margin:0 !important;
+}
+#portalAccountCard:has(#customerAccountDetails.show){
+  padding-bottom:14px !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+#portalAccountCard:has(#customerAccountDetails.show) .portal-card-inner,
+#portalAccountCard:has(#customerAccountDetails.show) .customer-account-details{
+  min-height:0 !important;
+  height:auto !important;
+}
+.portal-overlay:has(#customerAccountDetails.show){
+  padding-bottom:14px !important;
+}
+@media(max-width:700px){
+  #portalAccountCard:has(#customerAccountDetails.show){
+    padding-bottom:8px !important;
+  }
+  #customerAccountDetails .account-actions{
+    padding:8px 0 8px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
