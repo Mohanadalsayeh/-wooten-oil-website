@@ -1,27 +1,30 @@
-WOOTEN OIL — MY ACCOUNT FIRST-CLICK REAL FIX
+WOOTEN OIL — BETTER ACCOUNT STATEMENT AREA
 
-ROOT CAUSE FOUND:
-request-fuel.html still contained an older embedded copy of the Customer Portal.
-That older portal did not contain the new Fuel Request History feature.
+Customer Portal > Account Statement now includes:
+- Total Balance
+- Current Balance (0–30 days)
+- Past Due Balance (31+ days)
+- Full aging breakdown:
+  • Current / 0–30
+  • 31–60
+  • 61–90
+  • 91–120
+  • 120+
+- Account terms
+- Credit hold
+- Credit limit
+- Phone
+- Email
+- Billing address
+- Updated timestamp
+- Payment panel remains directly below the statement
+- Small Wooten Oil Customer Portal footer
 
-On some account/My Account clicks (especially the mobile customer-name button),
-request-fuel.html opened its own local portal first. That is why Fuel Request
-History was missing on the first click. A later click reached index.html, where
-the newer portal contained Fuel Request History.
+The Total Balance uses the existing formula:
+Current + Aging 1 + Aging 2 + Aging 3 + Aging 4.
+Negative aging values continue to reduce the total.
 
-FIX:
-- request-fuel.html no longer opens its own stale customer portal.
-- All Customer Login / My Account actions on request-fuel.html go directly to:
-  index.html#customer-login
-- Added a defensive redirect for any old/cached #customer-login action.
-- The local request-page portal is prevented from displaying.
-- index.html always resets to the current Customer Dashboard after loading the
-  signed-in customer session.
-- Browser back/forward cache can no longer leave the account in an old inner view.
-
-EXPECTED RESULT:
-Request Fuel -> My Account -> Customer Dashboard appears correctly on the FIRST click,
-with Fuel Request History visible immediately.
+Recent invoices and recent payments are NOT shown yet because the current portal data source does not provide transaction-level invoice/payment history. This version only displays data already supplied by the customer account record.
 
 Upload:
 - index.html
@@ -29,4 +32,4 @@ Upload:
 - admin-customers.html
 - worker.js
 
-No Cloudflare, D1, R2, or wrangler changes are required.
+No D1, R2, Cloudflare binding, or wrangler change is required.

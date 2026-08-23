@@ -2584,6 +2584,54 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-better-account-statement">
+.account-statement-panel{padding-bottom:0 !important}
+.statement-heading{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:18px;
+  margin:2px 0 16px;
+}
+.statement-heading h3{margin:0 0 5px;color:#17314b;font-size:1.35rem}
+.statement-heading p{margin:0;color:#74818e;font-size:.9rem;line-height:1.45}
+.statement-updated{color:#7c8995;font-size:.78rem;white-space:nowrap;padding-top:4px}
+.statement-updated strong{color:#4f6070;font-weight:800}
+.statement-summary-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.statement-summary-card{border:1px solid #dbe3ea;border-radius:15px;background:#fff;padding:15px 16px;min-width:0}
+.statement-summary-card small{display:block;color:#71808e;font-size:.72rem;font-weight:900;text-transform:uppercase;letter-spacing:.045em;margin-bottom:7px}
+.statement-summary-card strong{display:block;color:#19324b;font-size:1.45rem;line-height:1.1;margin-bottom:6px;overflow-wrap:anywhere}
+.statement-summary-card span{display:block;color:#87939e;font-size:.75rem;line-height:1.35}
+.statement-summary-card.total{background:#f4f8fb;border-color:#cfdce7}
+.statement-summary-card.total strong{font-size:1.65rem}
+.statement-summary-card.past-due strong{color:#8a3e32}
+.statement-section{border:1px solid #dfe6ec;border-radius:15px;background:#fff;margin:0 0 14px;overflow:hidden}
+.statement-section-title{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 11px;border-bottom:1px solid #edf1f4;background:#fbfcfd}
+.statement-section-title h4{margin:0 0 3px;color:#22394f;font-size:.98rem}
+.statement-section-title p{margin:0;color:#85919c;font-size:.75rem}
+.statement-aging{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:4px 16px 8px}
+.statement-aging-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'label amount' 'sub amount';column-gap:12px;align-items:center;padding:11px 3px;border-bottom:1px solid #edf1f4}
+.statement-aging-row:nth-last-child(2){border-bottom:0}
+.statement-aging-row span{grid-area:label;color:#33495d;font-weight:800;font-size:.86rem}
+.statement-aging-row small{grid-area:sub;color:#8a96a1;font-size:.7rem;margin-top:2px}
+.statement-aging-row strong{grid-area:amount;color:#23394e;font-size:.92rem;text-align:right}
+.statement-aging-row:nth-child(odd):not(.statement-aging-total){margin-right:14px}
+.statement-aging-row:nth-child(even):not(.statement-aging-total){margin-left:14px}
+.statement-aging-total{grid-column:1/-1;border-top:1px solid #dbe3ea;border-bottom:0 !important;margin:2px 0 0 !important;padding-top:13px}
+.statement-aging-total span,.statement-aging-total strong{font-size:1rem;color:#17314b}
+.statement-account-grid{padding:14px 16px 16px;margin:0 !important}
+.statement-account-grid .account-item{background:#f8fafb;border:1px solid #e3e9ee}
+.statement-account-grid .account-item-wide{grid-column:1/-1}
+.statement-data-note{margin:0 0 14px;padding:11px 13px;border-radius:11px;background:#f5f8fa;border:1px solid #e0e7ed;color:#6f7c88;font-size:.78rem;line-height:1.45}
+.statement-footer{margin-top:16px;border-top:1px solid #e4e9ee;padding:10px 12px;text-align:center;color:#8b96a0;font-size:.74rem}
+@media(max-width:760px){
+  .statement-summary-cards{grid-template-columns:1fr}
+  .statement-aging{grid-template-columns:1fr}
+  .statement-aging-row:nth-child(n){margin-left:0 !important;margin-right:0 !important}
+  .statement-aging-row:nth-last-child(2){border-bottom:1px solid #edf1f4}
+  .statement-heading{display:block}
+  .statement-updated{padding-top:8px}
+}
+</style>
+
 </head>
 <body>
 
@@ -2796,7 +2844,7 @@ input[type="reset"]:focus,
           <span class="dashboard-action-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M4 5.5h16v13H4z"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>
     </span>
-          <span><strong>View My Account</strong><small>Account details and contact information</small></span>
+          <span><strong>Account Statement</strong><small>Balances, aging and account details</small></span>
         </button>
         <button type="button" class="dashboard-action dashboard-action-pay" id="dashboardMakePayment">
           <span class="dashboard-action-icon" aria-hidden="true">
@@ -2825,19 +2873,74 @@ input[type="reset"]:focus,
       </div>
     </section>
 
-    <section class="customer-account-details" id="customerAccountDetails" aria-label="Detailed account information">
+    <section class="customer-account-details account-statement-panel" id="customerAccountDetails" aria-label="Account statement">
       <div class="details-toolbar">
         <button type="button" class="dashboard-back" id="dashboardBack">← Dashboard</button>
-        <span>Account Details</span>
+        <span>Account Statement</span>
       </div>
 
-      <div class="account-grid">
-        <div class="account-item"><small>Terms</small><strong id="acctTerms">—</strong></div>
-        <div class="account-item"><small>Credit Hold</small><strong id="acctCreditHold">—</strong></div>
-        <div class="account-item"><small>Credit Limit</small><strong id="acctCreditLimit">—</strong></div>
-        <div class="account-item"><small>Phone</small><strong id="acctPhone">—</strong></div>
-        <div class="account-item"><small>Email</small><strong id="acctEmail">—</strong></div>
-        <div class="account-item"><small>Address</small><strong id="acctAddress">—</strong></div>
+      <div class="statement-heading">
+        <div>
+          <h3>Account Summary</h3>
+          <p>Current balance and aging information from your Wooten Oil account.</p>
+        </div>
+        <div class="statement-updated">Updated <strong id="statementUpdated">—</strong></div>
+      </div>
+
+      <div class="statement-summary-cards" aria-label="Statement balance summary">
+        <div class="statement-summary-card total">
+          <small>Total Balance</small>
+          <strong id="statementTotalBalance">$0.00</strong>
+          <span>Current + all aging periods</span>
+        </div>
+        <div class="statement-summary-card current">
+          <small>Current (0–30 Days)</small>
+          <strong id="statementCurrentBalance">$0.00</strong>
+          <span>Current account charges</span>
+        </div>
+        <div class="statement-summary-card past-due">
+          <small>Past Due (31+ Days)</small>
+          <strong id="statementPastDue">$0.00</strong>
+          <span>Combined aging balance</span>
+        </div>
+      </div>
+
+      <div class="statement-section">
+        <div class="statement-section-title">
+          <div>
+            <h4>Aging Breakdown</h4>
+            <p>Balance by account age.</p>
+          </div>
+        </div>
+        <div class="statement-aging" aria-label="Aging breakdown">
+          <div class="statement-aging-row"><span>Current</span><small>0–30 days</small><strong id="statementAgingCurrent">$0.00</strong></div>
+          <div class="statement-aging-row"><span>31–60 Days</span><small>Past due</small><strong id="statementAging1">$0.00</strong></div>
+          <div class="statement-aging-row"><span>61–90 Days</span><small>Past due</small><strong id="statementAging2">$0.00</strong></div>
+          <div class="statement-aging-row"><span>91–120 Days</span><small>Past due</small><strong id="statementAging3">$0.00</strong></div>
+          <div class="statement-aging-row"><span>120+ Days</span><small>Past due</small><strong id="statementAging4">$0.00</strong></div>
+          <div class="statement-aging-row statement-aging-total"><span>Total Balance</span><small>All periods</small><strong id="statementAgingTotal">$0.00</strong></div>
+        </div>
+      </div>
+
+      <div class="statement-section">
+        <div class="statement-section-title">
+          <div>
+            <h4>Account Information</h4>
+            <p>Billing terms and contact information currently on file.</p>
+          </div>
+        </div>
+        <div class="account-grid statement-account-grid">
+          <div class="account-item"><small>Terms</small><strong id="acctTerms">—</strong></div>
+          <div class="account-item"><small>Credit Hold</small><strong id="acctCreditHold">—</strong></div>
+          <div class="account-item"><small>Credit Limit</small><strong id="acctCreditLimit">—</strong></div>
+          <div class="account-item"><small>Phone</small><strong id="acctPhone">—</strong></div>
+          <div class="account-item"><small>Email</small><strong id="acctEmail">—</strong></div>
+          <div class="account-item account-item-wide"><small>Billing Address</small><strong id="acctAddress">—</strong></div>
+        </div>
+      </div>
+
+      <div class="statement-data-note">
+        Account balances shown here reflect the latest information available in the Wooten Oil customer portal. Payments may take up to 24 business hours to appear.
       </div>
 
       <div class="payment-panel" id="portalPaymentPanel">
@@ -2856,6 +2959,7 @@ input[type="reset"]:focus,
         <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite">Secure online payment processing is being connected. No payment has been submitted or charged.</div>
       </div>
 
+      <div class="statement-footer">Wooten Oil Co Inc. • Customer Portal</div>
       <div class="account-actions"><button type="button" class="account-logout" id="portalLogout">Sign Out</button></div>
     </section>
 
@@ -4243,6 +4347,27 @@ input[type="reset"]:focus,
     document.getElementById('acctBalance').textContent=money(currentBalance);
     document.getElementById('acctPreviousBalance').textContent=money(previousBalance);
     document.getElementById('acctTotalBalance').textContent=money(totalBalance);
+
+    var statementValues={
+      statementTotalBalance:totalBalance,
+      statementCurrentBalance:currentBalance,
+      statementPastDue:previousBalance,
+      statementAgingCurrent:currentBalance,
+      statementAging1:aging1,
+      statementAging2:aging2,
+      statementAging3:aging3,
+      statementAging4:aging4,
+      statementAgingTotal:totalBalance
+    };
+    Object.keys(statementValues).forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.textContent=money(statementValues[id]);
+    });
+    var statementUpdated=document.getElementById('statementUpdated');
+    if(statementUpdated){
+      statementUpdated.textContent=(new Date()).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    }
+
     var fullLabel=document.getElementById('payFullBalanceLabel');
     if(fullLabel) fullLabel.textContent='Pay Full Balance — '+money(totalBalance);
     updateCustomerMenu(c);
