@@ -2714,6 +2714,36 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-footer-higher-darker">
+/* Notification popup footer: slightly taller and a little darker. */
+.customer-notification-popup-footer{
+  min-height:26px !important;
+  padding-top:11px !important;
+  padding-bottom:11px !important;
+  background:#f3f5f7 !important;
+  border-top:1px solid #d9e0e6 !important;
+}
+.customer-notification-popup-footer:not(.show){
+  min-height:26px !important;
+  padding:10px 22px !important;
+  background:#f3f5f7 !important;
+  border-top:1px solid #d9e0e6 !important;
+}
+.customer-notification-popup-footer .customer-notification-attachments-title{
+  color:#2f3d4b !important;
+}
+@media(max-width:600px){
+  .customer-notification-popup-footer{
+    padding-top:9px !important;
+    padding-bottom:9px !important;
+  }
+  .customer-notification-popup-footer:not(.show){
+    padding:9px 18px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 

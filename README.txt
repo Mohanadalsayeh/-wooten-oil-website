@@ -1,14 +1,12 @@
-WOOTEN OIL — ACCOUNT STATEMENT TOP SPACE FIX
+WOOTEN OIL — NOTIFICATION FOOTER STYLE UPDATE
 
-Fixed the large unused blank area at the top of the Account Statement window.
-
-Changes:
-- Reduced the space below "WOOTEN OIL CUSTOMER PORTAL".
-- Moved the Dashboard / Account Statement toolbar upward.
-- Moved Account Summary upward.
-- Reduced overall top padding while Account Statement is open.
-- Preserved the existing bottom-space fix.
-- Mobile spacing tightened as well.
+Changes to the Wooten Oil Notification popup:
+- Footer is slightly taller.
+- Footer background is a little darker.
+- Footer top border is slightly stronger.
+- Attachment title is slightly darker for better contrast.
+- Works both with and without attachments.
+- Mobile spacing adjusted too.
 
 Upload:
 - index.html
