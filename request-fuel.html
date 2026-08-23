@@ -2373,6 +2373,13 @@ body.request-fuel-page .fuel-login-help a:active{
 }
 </style>
 
+
+<style id="wooten-request-page-main-portal-route">
+body.request-fuel-page #customer-login.portal-overlay{
+  display:none !important;
+}
+</style>
+
 </head>
 <body class="request-fuel-page">
 
@@ -3864,11 +3871,9 @@ body.request-fuel-page .fuel-login-help a:active{
   
   
   
-  if(mobileHeaderCustomerName) mobileHeaderCustomerName.addEventListener('click',async function(){
-    location.hash='customer-login';
-    var ok=await loadCurrentAccount(true);
-    if(!ok) showLogin();
-    else showDashboardView();
+  if(mobileHeaderCustomerName) mobileHeaderCustomerName.addEventListener('click',function(e){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
+    window.location.href='index.html#customer-login';
   });
 
   if(mobileHeaderNotifications) mobileHeaderNotifications.addEventListener('click',function(e){
@@ -4990,5 +4995,18 @@ body.request-fuel-page .fuel-login-help a:active{
   }
 })();
 </script>
+
+<script id="wooten-request-page-account-route-fix">
+(function(){
+  function routeAccountToMainPortal(){
+    if(window.location.hash==='#customer-login'){
+      window.location.replace('index.html#customer-login');
+    }
+  }
+  routeAccountToMainPortal();
+  window.addEventListener('hashchange',routeAccountToMainPortal);
+})();
+</script>
+
 </body>
 </html>

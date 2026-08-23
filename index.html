@@ -4647,6 +4647,7 @@ input[type="reset"]:focus,
   if(dashboardViewAccount) dashboardViewAccount.addEventListener('click',function(){ showAccountDetails(false); });
   if(dashboardMakePayment) dashboardMakePayment.addEventListener('click',function(){ showAccountDetails(true); });
   if(dashboardRequestFuel) dashboardRequestFuel.addEventListener('click',function(){
+    showDashboardView();
     window.location.href='request-fuel.html';
   });
   if(dashboardFuelHistory) dashboardFuelHistory.addEventListener('click',function(){ showFuelHistory(); });
@@ -4902,8 +4903,14 @@ input[type="reset"]:focus,
     if(location.hash!=='#customer-login') return;
     clearStatus(status);
     var ok=await loadCurrentAccount(true);
-    if(!ok) showLogin();
-    else showDashboardView();
+    if(!ok){
+      showLogin();
+      return;
+    }
+    /* Always force the first screen to the current Customer Dashboard.
+       This clears any Account Details / Fuel History state restored by bfcache. */
+    if(accountCard) accountCard.classList.add('show');
+    showDashboardView();
   }
 
   refreshCustomerMenu();
