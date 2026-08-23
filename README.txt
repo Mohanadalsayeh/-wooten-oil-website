@@ -1,22 +1,16 @@
-WOOTEN OIL — SEPARATE REQUEST FUEL DELIVERY PAGE
+WOOTEN OIL — REQUEST FUEL OPENS IN NEW WINDOW/TAB
 
-Files included:
+Files:
 - index.html
-- request-fuel.html   NEW
+- request-fuel.html
 - admin-customers.html
 - worker.js
 
-What changed:
-- The Request Fuel Delivery form was removed from the main page.
-- A new dedicated request-fuel.html page contains the existing Fuel Request Delivery form.
-- Main-page Request Fuel buttons now open request-fuel.html.
-- The hero "Request Fuel Delivery" button opens request-fuel.html.
-- Desktop/mobile Request Fuel menu links open request-fuel.html.
-- Fuel-type cards open the new page and automatically select the matching fuel:
-  Regular Gasoline, Premium Gasoline, On-Road Diesel, or Off-Road Diesel.
-- Existing fuel-request submission endpoint and confirmation behavior are preserved.
-- The new Request Fuel page keeps the same Wooten Oil header/footer styling.
+Change:
+- All 10 Request Fuel links/buttons on the main page now open request-fuel.html
+  in a NEW browser tab/window using target="_blank".
+- The main Wooten Oil page remains open in the original tab.
+- Fuel-type links still pass the selected fuel to the new page.
+- No form behavior, Worker API, Cloudflare, D1, R2, or wrangler.jsonc settings changed.
 
-Upload request-fuel.html to GitHub along with the other files.
-
-No Cloudflare, D1, R2, or wrangler.jsonc configuration change is required.
+Upload all four files to GitHub, including request-fuel.html.
