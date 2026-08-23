@@ -2744,6 +2744,38 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-customer-documents-style">
+.dashboard-action-documents .dashboard-action-icon{background:#eef6f3 !important;color:#286955 !important}
+.customer-documents-panel{display:none}
+.customer-documents-panel.show{display:block}
+.customer-documents-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 16px}
+.customer-documents-head h3{margin:0 0 4px;color:#17314b;font-size:1.3rem}
+.customer-documents-head p{margin:0;color:#76838f;font-size:.9rem}
+.customer-documents-refresh{height:40px;padding:0 14px;border:1px solid #d5dee7;border-radius:10px;background:#fff;color:#294f73;font:inherit;cursor:pointer}
+.customer-documents-tools{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:10px;margin-bottom:12px}
+.customer-documents-tools input,.customer-documents-tools select{width:100%;height:44px;border:1px solid #d5dee7;border-radius:11px;background:#fff;color:#26394b;font:inherit;padding:0 12px;box-sizing:border-box}
+.customer-documents-status{display:none;margin:0 0 10px;padding:10px 12px;border-radius:10px;font-size:.84rem}
+.customer-documents-status.show{display:block;background:#f5f8fb;border:1px solid #dde6ed;color:#586775}
+.customer-documents-status.error{background:#fff3f3;border-color:#f0cccc;color:#922d35}
+.customer-documents-list{display:grid;gap:10px}
+.customer-document-empty{border:1px dashed #ccd8e1;border-radius:13px;padding:24px;text-align:center;background:#fafcfd;color:#6f7d89}
+.customer-document-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #dce4eb;border-radius:13px;padding:13px 14px;background:#fff}
+.customer-document-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:#f0f4f7;color:#36546d;font-weight:900;font-size:.7rem;text-transform:uppercase}
+.customer-document-main{min-width:0}
+.customer-document-main strong{display:block;color:#20374d;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.customer-document-main small{display:block;margin-top:4px;color:#82909c;font-size:.75rem}
+.customer-document-open{min-height:38px;padding:0 14px;border:1px solid #ccd8e1;border-radius:9px;background:#fff;color:#244f75;font:inherit;cursor:pointer}
+.customer-documents-footer{margin-top:14px;padding:9px 10px;border-top:1px solid #e2e8ed;text-align:center;color:#8b96a0;font-size:.73rem}
+@media(max-width:620px){
+  .customer-documents-head{display:block}
+  .customer-documents-refresh{margin-top:10px}
+  .customer-documents-tools{grid-template-columns:1fr}
+  .customer-document-row{grid-template-columns:auto minmax(0,1fr)}
+  .customer-document-open{grid-column:1/-1;width:100%}
+}
+</style>
+
 </head>
 <body>
 
@@ -2976,6 +3008,12 @@ input[type="reset"]:focus,
           </span>
           <span><strong>Fuel Request History</strong><small>View your previous fuel delivery requests</small></span>
         </button>
+        <button type="button" class="dashboard-action dashboard-action-documents" id="dashboardDocuments">
+          <span class="dashboard-action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>
+          </span>
+          <span><strong>Statements &amp; Invoices</strong><small>Open or download account documents</small></span>
+        </button>
         <button type="button" class="dashboard-action dashboard-action-logout" id="dashboardLogout">
           <span class="dashboard-action-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M10 5H5v14h5"/><path d="M13 8l4 4-4 4M17 12H9"/></svg>
@@ -3073,6 +3111,37 @@ input[type="reset"]:focus,
 
       <div class="statement-footer">Wooten Oil Co Inc. • Customer Portal</div>
       <div class="account-actions"><button type="button" class="account-logout" id="portalLogout">Sign Out</button></div>
+    </section>
+
+
+    <section class="customer-account-details customer-documents-panel" id="customerDocuments" aria-label="Statements and invoices">
+      <div class="details-toolbar">
+        <button type="button" class="dashboard-back" id="customerDocumentsBack">← Dashboard</button>
+        <span>Statements &amp; Invoices</span>
+      </div>
+
+      <div class="customer-documents-head">
+        <div>
+          <h3>Statements &amp; Invoices</h3>
+          <p>Secure account documents provided by Wooten Oil.</p>
+        </div>
+        <button type="button" class="customer-documents-refresh" id="customerDocumentsRefresh">Refresh</button>
+      </div>
+
+      <div class="customer-documents-tools">
+        <div class="customer-documents-search-wrap">
+          <input id="customerDocumentsSearch" type="search" placeholder="Search statements or invoices…" autocomplete="off">
+        </div>
+        <select id="customerDocumentsTypeFilter" aria-label="Filter documents">
+          <option value="all">All documents</option>
+          <option value="statement">Statements</option>
+          <option value="invoice">Invoices</option>
+        </select>
+      </div>
+
+      <div class="customer-documents-status" id="customerDocumentsStatus" role="status" aria-live="polite"></div>
+      <div class="customer-documents-list" id="customerDocumentsList"></div>
+      <div class="customer-documents-footer">Wooten Oil Co Inc. • Secure Customer Documents</div>
     </section>
 
     <section class="customer-account-details fuel-history-panel" id="customerFuelHistory" aria-label="Fuel request history">
@@ -4109,6 +4178,16 @@ input[type="reset"]:focus,
   var dashboardMakePayment=document.getElementById('dashboardMakePayment');
   var dashboardRequestFuel=document.getElementById('dashboardRequestFuel');
   var dashboardFuelHistory=document.getElementById('dashboardFuelHistory');
+  var dashboardDocuments=document.getElementById('dashboardDocuments');
+  var customerDocuments=document.getElementById('customerDocuments');
+  var customerDocumentsBack=document.getElementById('customerDocumentsBack');
+  var customerDocumentsRefresh=document.getElementById('customerDocumentsRefresh');
+  var customerDocumentsSearch=document.getElementById('customerDocumentsSearch');
+  var customerDocumentsTypeFilter=document.getElementById('customerDocumentsTypeFilter');
+  var customerDocumentsStatus=document.getElementById('customerDocumentsStatus');
+  var customerDocumentsList=document.getElementById('customerDocumentsList');
+  var customerDocumentRows=[];
+  var CUSTOMER_DOCUMENTS_ENDPOINT='/api/customer/documents';
   var dashboardLogout=document.getElementById('dashboardLogout');
   var dashboardBack=document.getElementById('dashboardBack');
   var fuelHistory=document.getElementById('customerFuelHistory');
@@ -4127,10 +4206,12 @@ input[type="reset"]:focus,
     if(dashboard) dashboard.classList.remove('dashboard-hidden');
     if(accountDetails) accountDetails.classList.remove('show');
     if(fuelHistory) fuelHistory.classList.remove('show');
+    if(customerDocuments) customerDocuments.classList.remove('show');
   }
   function showAccountDetails(focusPayment){
     if(dashboard) dashboard.classList.add('dashboard-hidden');
     if(fuelHistory) fuelHistory.classList.remove('show');
+    if(customerDocuments) customerDocuments.classList.remove('show');
     if(accountDetails) accountDetails.classList.add('show');
     setTimeout(function(){
       var target=focusPayment?document.getElementById('portalPaymentPanel'):accountDetails;
@@ -4139,6 +4220,132 @@ input[type="reset"]:focus,
   }
 
 
+
+
+  function customerDocumentFormatDate(value){
+    if(!value) return 'Date not specified';
+    try{
+      var d=/^\d{4}-\d{2}-\d{2}$/.test(value)
+        ? new Date(value+'T12:00:00')
+        : new Date(value);
+      if(Number.isNaN(d.getTime())) return value;
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    }catch(e){return value;}
+  }
+
+  function customerDocumentSize(bytes){
+    var n=Number(bytes||0);
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+    return (n/(1024*1024)).toFixed(1)+' MB';
+  }
+
+  function renderCustomerDocuments(){
+    if(!customerDocumentsList) return;
+    var q=String(customerDocumentsSearch && customerDocumentsSearch.value || '').trim().toLowerCase();
+    var type=String(customerDocumentsTypeFilter && customerDocumentsTypeFilter.value || 'all');
+    var rows=(customerDocumentRows||[]).filter(function(r){
+      if(type!=='all' && String(r.document_type||'')!==type) return false;
+      if(!q) return true;
+      return [
+        r.title,r.filename,r.document_type,r.document_date
+      ].join(' ').toLowerCase().indexOf(q)!==-1;
+    });
+
+    customerDocumentsList.innerHTML='';
+    if(!rows.length){
+      var empty=document.createElement('div');
+      empty.className='customer-document-empty';
+      empty.textContent=(customerDocumentRows||[]).length
+        ? 'No documents match your search.'
+        : 'No statements or invoices are available yet.';
+      customerDocumentsList.appendChild(empty);
+      return;
+    }
+
+    rows.forEach(function(r){
+      var row=document.createElement('div');
+      row.className='customer-document-row';
+
+      var icon=document.createElement('div');
+      icon.className='customer-document-icon';
+      icon.textContent=String(r.document_type||'PDF').slice(0,3);
+
+      var main=document.createElement('div');
+      main.className='customer-document-main';
+      var title=document.createElement('strong');
+      title.textContent=r.title || r.filename || 'Account Document';
+      var meta=document.createElement('small');
+      meta.textContent=(r.document_type==='invoice'?'Invoice':'Statement')+' • '+customerDocumentFormatDate(r.document_date||r.created_at)+' • '+customerDocumentSize(r.size_bytes);
+      main.appendChild(title);
+      main.appendChild(meta);
+
+      var open=document.createElement('button');
+      open.type='button';
+      open.className='customer-document-open';
+      open.textContent='Open PDF';
+      open.addEventListener('click',function(){ openCustomerDocument(r.id); });
+
+      row.appendChild(icon);
+      row.appendChild(main);
+      row.appendChild(open);
+      customerDocumentsList.appendChild(row);
+    });
+  }
+
+  async function openCustomerDocument(id){
+    var popup=window.open('about:blank','_blank');
+    try{
+      var response=await fetch('/api/customer/documents/'+encodeURIComponent(id)+'/file',{
+        method:'GET',credentials:'same-origin',cache:'no-store'
+      });
+      if(!response.ok) throw new Error(await response.text() || 'Document could not be opened.');
+      var blob=await response.blob();
+      var url=URL.createObjectURL(blob);
+      if(popup) popup.location=url;
+      else window.location.href=url;
+      setTimeout(function(){URL.revokeObjectURL(url);},60000);
+    }catch(error){
+      if(popup) popup.close();
+      alert(error.message || 'Document could not be opened.');
+    }
+  }
+
+  async function loadCustomerDocuments(){
+    if(customerDocumentsStatus){
+      customerDocumentsStatus.className='customer-documents-status show';
+      customerDocumentsStatus.textContent='Loading statements and invoices…';
+    }
+    try{
+      var response=await fetch(CUSTOMER_DOCUMENTS_ENDPOINT,{
+        method:'GET',credentials:'same-origin',cache:'no-store',
+        headers:{'Accept':'application/json'}
+      });
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false) throw new Error(data.error||'Documents could not be loaded.');
+      customerDocumentRows=Array.isArray(data.documents)?data.documents:[];
+      renderCustomerDocuments();
+      if(customerDocumentsStatus){
+        customerDocumentsStatus.className='customer-documents-status';
+        customerDocumentsStatus.textContent='';
+      }
+    }catch(error){
+      customerDocumentRows=[];
+      renderCustomerDocuments();
+      if(customerDocumentsStatus){
+        customerDocumentsStatus.className='customer-documents-status show error';
+        customerDocumentsStatus.textContent=error.message||'Documents could not be loaded.';
+      }
+    }
+  }
+
+  function showCustomerDocuments(){
+    if(dashboard) dashboard.classList.add('dashboard-hidden');
+    if(accountDetails) accountDetails.classList.remove('show');
+    if(fuelHistory) fuelHistory.classList.remove('show');
+    if(customerDocuments) customerDocuments.classList.add('show');
+    loadCustomerDocuments();
+  }
 
   function historyDate(value){
     if(!value) return '—';
@@ -4887,6 +5094,11 @@ input[type="reset"]:focus,
     showDashboardView();
     window.location.href='request-fuel.html';
   });
+  if(dashboardDocuments) dashboardDocuments.addEventListener('click',function(){ showCustomerDocuments(); });
+  if(customerDocumentsBack) customerDocumentsBack.addEventListener('click',function(){ showDashboardView(); });
+  if(customerDocumentsRefresh) customerDocumentsRefresh.addEventListener('click',function(){ loadCustomerDocuments(); });
+  if(customerDocumentsSearch) customerDocumentsSearch.addEventListener('input',function(){ renderCustomerDocuments(); });
+  if(customerDocumentsTypeFilter) customerDocumentsTypeFilter.addEventListener('change',function(){ renderCustomerDocuments(); });
   if(dashboardFuelHistory) dashboardFuelHistory.addEventListener('click',function(){ showFuelHistory(); });
   if(fuelHistoryRefresh) fuelHistoryRefresh.addEventListener('click',function(){ loadFuelHistory(); });
   if(fuelHistorySearch) fuelHistorySearch.addEventListener('input',function(){ updateFuelHistoryView(); });

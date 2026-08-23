@@ -1,16 +1,38 @@
-WOOTEN OIL — MOBILE PREFERRED DELIVERY DATE WIDTH FIX
+WOOTEN OIL — STATEMENTS & INVOICES DOWNLOAD
 
-Fixed the Preferred Delivery Date field on phones.
+Built from: Stage 1 Done
 
-Problem:
-Mobile Safari/iPhone can render HTML date inputs wider than their parent grid,
-making the date field stick outside the Fuel Request form.
+CUSTOMER PORTAL
+- New dashboard button: Statements & Invoices
+- Secure list of customer PDF documents
+- Search documents
+- Filter: All / Statements / Invoices
+- Open PDF in a new tab
+- Customer session is required
+- A customer can only access documents assigned to their own account
 
-Fix:
-- Forces the date input to 100% of the available width.
-- Removes browser minimum-width overflow.
-- Keeps the field inside the form on iPhone/mobile.
-- Preserves the existing desktop layout.
+ADMIN PAGE
+- New tab: Statements & Invoices
+- Enter Customer Number
+- Choose Statement or Invoice
+- Enter document date
+- Optional title / invoice number
+- Upload PDF
+- View documents already uploaded for that customer
+- PDF limit: 10 MB
+
+STORAGE / SECURITY
+- Uses the existing private R2 binding:
+  NOTIFICATION_ATTACHMENTS
+- Uses a new D1 table created automatically:
+  portal_customer_documents
+- No public R2 URLs are created
+- Download endpoint validates the signed-in customer's account number before returning the PDF
+
+IMPORTANT
+This feature gives you a secure way to manually upload statements/invoices now.
+It does not automatically pull invoice PDFs from MAS 90/Sage yet. Automatic accounting-system
+sync can be added later without changing the customer-facing Documents area.
 
 Upload:
 - index.html
@@ -18,4 +40,5 @@ Upload:
 - admin-customers.html
 - worker.js
 
-No Cloudflare, D1, R2, or wrangler changes are required.
+No manual D1 command is required. The Worker creates the document table automatically.
+No new R2 bucket is required; it uses the existing secure attachment bucket.

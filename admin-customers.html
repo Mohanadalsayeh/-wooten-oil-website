@@ -1282,6 +1282,24 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-admin-customer-documents-style">
+.doc-admin-grid{display:grid;grid-template-columns:1.1fr 1fr 1fr 1.5fr;gap:14px;margin-top:18px}
+.doc-admin-grid label{display:block;margin-bottom:6px;font-size:12px;font-weight:800;color:#536273;text-transform:uppercase;letter-spacing:.04em}
+.doc-admin-grid input,.doc-admin-grid select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--navy);font:inherit;padding:9px 11px;box-sizing:border-box}
+.doc-file-field{grid-column:1/-1}
+.doc-customer-meta{margin:14px 0 8px;padding:10px 12px;border:1px solid #dce5ec;border-radius:10px;background:#f8fafc;color:#425466}
+.doc-admin-list{display:grid;gap:9px;margin-top:12px}
+.doc-admin-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:11px;background:#fff;padding:11px 12px}
+.doc-admin-badge{padding:5px 8px;border-radius:999px;background:#eef3f7;color:#465b6d;font-size:11px;font-weight:800;text-transform:uppercase}
+.doc-admin-main{min-width:0}
+.doc-admin-main strong{display:block;color:var(--navy);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-admin-main small{display:block;margin-top:3px;color:#7c8996;font-size:12px}
+.doc-admin-empty{padding:18px;border:1px dashed var(--line);border-radius:11px;text-align:center;color:#748291;background:#fbfcfd}
+@media(max-width:900px){.doc-admin-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.doc-admin-grid{grid-template-columns:1fr}.doc-admin-row{grid-template-columns:1fr}.doc-admin-badge{width:max-content}}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -1305,6 +1323,7 @@ input[type="file"]::file-selector-button{
       <button class="admin-tab" id="admin-tab-btn-messages" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-messages" data-admin-tab="messages">Customer Messages</button>
       <button class="admin-tab" id="admin-tab-btn-gmail" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-gmail" data-admin-tab="gmail">Gmail Sync</button>
       <button class="admin-tab" id="admin-tab-btn-notifications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-notifications" data-admin-tab="notifications">Notifications</button>
+      <button class="admin-tab" id="admin-tab-btn-documents" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-documents" data-admin-tab="documents">Statements &amp; Invoices</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation">Account Activation</button>
     </nav>
   </div>
@@ -1577,6 +1596,48 @@ input[type="file"]::file-selector-button{
 
       <div id="notifyStatus" class="status"></div>
     </div>
+  </div>
+
+
+  <div class="card admin-tab-panel" id="admin-tab-documents" role="tabpanel" aria-labelledby="admin-tab-btn-documents" data-admin-panel="documents">
+    <div class="admin-page-label">Statements &amp; Invoices</div>
+    <h2>Customer Documents</h2>
+    <p>Upload secure PDF statements and invoices to a customer's online account. Customers can open them from My Account → Statements &amp; Invoices.</p>
+
+    <div class="doc-admin-grid">
+      <div>
+        <label for="docAccount">Customer Number</label>
+        <input id="docAccount" type="text" inputmode="numeric" placeholder="0000000" maxlength="12">
+      </div>
+      <div>
+        <label for="docType">Document Type</label>
+        <select id="docType">
+          <option value="statement">Statement</option>
+          <option value="invoice">Invoice</option>
+        </select>
+      </div>
+      <div>
+        <label for="docDate">Document Date</label>
+        <input id="docDate" type="date">
+      </div>
+      <div>
+        <label for="docTitle">Title / Invoice Number</label>
+        <input id="docTitle" type="text" placeholder="Example: August 2026 Statement">
+      </div>
+      <div class="doc-file-field">
+        <label for="docFile">PDF File</label>
+        <input id="docFile" type="file" accept=".pdf,application/pdf">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="docUploadBtn" type="button">Upload Document</button>
+      <button class="secondary" id="docLoadBtn" type="button">View Customer Documents</button>
+    </div>
+    <div id="docStatus" class="status"></div>
+    <div id="docCustomerMeta" class="doc-customer-meta" style="display:none"></div>
+    <div id="docList" class="doc-admin-list"></div>
+    <p class="note"><strong>Security:</strong> Documents are stored privately and can only be opened by the customer account they are assigned to. PDF limit: 10 MB per file.</p>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -2803,5 +2864,114 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 })();
 
 </script>
+
+<script id="wooten-admin-customer-documents-script">
+(function(){
+  const account=document.getElementById('docAccount');
+  const type=document.getElementById('docType');
+  const date=document.getElementById('docDate');
+  const title=document.getElementById('docTitle');
+  const file=document.getElementById('docFile');
+  const upload=document.getElementById('docUploadBtn');
+  const load=document.getElementById('docLoadBtn');
+  const status=document.getElementById('docStatus');
+  const meta=document.getElementById('docCustomerMeta');
+  const list=document.getElementById('docList');
+  if(!account||!upload||!load||!status||!list) return;
+
+  function normalize(v){
+    let s=String(v||'').replace(/\D/g,'');
+    return s?s.padStart(7,'0'):'';
+  }
+  function setStatus(message,ok){
+    status.className='status show '+(ok===true?'ok':ok===false?'bad':'');
+    status.textContent=message||'';
+  }
+  function formatDate(v){
+    if(!v) return 'No date';
+    try{
+      const d=/^\d{4}-\d{2}-\d{2}$/.test(v)?new Date(v+'T12:00:00'):new Date(v);
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    }catch{return v;}
+  }
+  function formatSize(n){
+    n=Number(n||0);
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+    return (n/(1024*1024)).toFixed(1)+' MB';
+  }
+  function render(data){
+    const docs=Array.isArray(data.documents)?data.documents:[];
+    list.innerHTML='';
+    if(data.customer){
+      meta.style.display='block';
+      meta.textContent=(data.customer.account_name||'Customer')+' • Customer # '+(data.customer.account_number||'');
+    }
+    if(!docs.length){
+      const empty=document.createElement('div');
+      empty.className='doc-admin-empty';
+      empty.textContent='No statements or invoices have been uploaded for this customer.';
+      list.appendChild(empty);
+      return;
+    }
+    docs.forEach(d=>{
+      const row=document.createElement('div'); row.className='doc-admin-row';
+      const badge=document.createElement('div'); badge.className='doc-admin-badge'; badge.textContent=d.document_type||'document';
+      const main=document.createElement('div'); main.className='doc-admin-main';
+      const strong=document.createElement('strong'); strong.textContent=d.title||d.filename||'Document';
+      const small=document.createElement('small'); small.textContent=formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '+(d.filename||'PDF');
+      main.append(strong,small);
+      const id=document.createElement('small'); id.textContent='Document #'+d.id;
+      row.append(badge,main,id); list.appendChild(row);
+    });
+  }
+  async function loadDocs(){
+    const key=document.getElementById('adminKey').value.trim();
+    const acct=normalize(account.value);
+    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
+    account.value=acct;
+    setStatus('Loading customer documents…');
+    try{
+      const res=await fetch('/api/admin/customer-documents?account_number='+encodeURIComponent(acct),{
+        headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||data.success===false) throw new Error(data.error||'Documents could not be loaded.');
+      render(data); setStatus(data.documents.length+' document(s) found.',true);
+    }catch(e){setStatus(e.message||'Documents could not be loaded.',false);}
+  }
+  load.addEventListener('click',loadDocs);
+
+  upload.addEventListener('click',async()=>{
+    const key=document.getElementById('adminKey').value.trim();
+    const acct=normalize(account.value);
+    const selected=file.files&&file.files[0];
+    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
+    if(!selected){setStatus('Choose a PDF statement or invoice.',false);return;}
+    if(selected.size>10*1024*1024){setStatus('PDF files must be 10 MB or smaller.',false);return;}
+    account.value=acct; upload.disabled=true; upload.textContent='Uploading…';
+    try{
+      const fd=new FormData();
+      fd.append('account_number',acct);
+      fd.append('document_type',type.value);
+      fd.append('document_date',date.value||'');
+      fd.append('title',title.value||'');
+      fd.append('file',selected,selected.name);
+      const res=await fetch('/api/admin/customer-documents/upload',{
+        method:'POST',headers:{'X-Admin-Key':key},body:fd
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||data.success===false) throw new Error(data.error||'Upload failed.');
+      setStatus(data.message||'Document uploaded successfully.',true);
+      file.value=''; title.value='';
+      await loadDocs();
+    }catch(e){setStatus(e.message||'Upload failed.',false);}
+    finally{upload.disabled=false;upload.textContent='Upload Document';}
+  });
+})();
+</script>
+
 </body>
 </html>

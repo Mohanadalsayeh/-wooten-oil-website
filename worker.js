@@ -4364,6 +4364,230 @@ function methodNotAllowed() {
   );
 }
 __name(methodNotAllowed, "methodNotAllowed");
+
+async function ensureCustomerDocumentsTable(env){
+  if(!env.DB) return;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS portal_customer_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_number TEXT NOT NULL,
+      document_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      document_date TEXT,
+      object_key TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL DEFAULT 'application/pdf',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_portal_customer_documents_account_date
+    ON portal_customer_documents(account_number, document_date, created_at, id)
+  `).run();
+}
+__name(ensureCustomerDocumentsTable,"ensureCustomerDocumentsTable");
+
+function customerDocumentType(value){
+  const v=String(value||"").trim().toLowerCase();
+  return v==="invoice" ? "invoice" : "statement";
+}
+__name(customerDocumentType,"customerDocumentType");
+
+function customerDocumentTitle(type,title,filename){
+  const clean=String(title||"").trim().slice(0,160);
+  if(clean) return clean;
+  const base=notificationSafeFilename(filename||"document.pdf").replace(/\.pdf$/i,"");
+  return type==="invoice" ? `Invoice ${base}` : `Statement ${base}`;
+}
+__name(customerDocumentTitle,"customerDocumentTitle");
+
+async function adminCustomerDocumentsGet({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+      return notificationJson({success:false,error:"Unauthorized."},401);
+    }
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+
+    await ensureCustomerDocumentsTable(env);
+    const url=new URL(request.url);
+    const account=normalizeNotificationAccount(url.searchParams.get("account_number")||"");
+    if(!account) return notificationJson({success:false,error:"Enter a valid Customer Number."},400);
+
+    const customer=await env.DB.prepare(`
+      SELECT account_number,account_name,email
+      FROM customers WHERE account_number=? LIMIT 1
+    `).bind(account).first();
+    if(!customer) return notificationJson({success:false,error:"Customer was not found."},404);
+
+    const rows=await env.DB.prepare(`
+      SELECT id,document_type,title,document_date,filename,content_type,size_bytes,created_at
+      FROM portal_customer_documents
+      WHERE account_number=?
+      ORDER BY COALESCE(document_date,created_at) DESC,id DESC
+      LIMIT 100
+    `).bind(account).all();
+
+    return notificationJson({
+      success:true,
+      customer,
+      documents:rows?.results||[]
+    });
+  }catch(error){
+    console.error("adminCustomerDocumentsGet failed",error);
+    return notificationJson({success:false,error:"Customer documents could not be loaded."},500);
+  }
+}
+__name(adminCustomerDocumentsGet,"adminCustomerDocumentsGet");
+
+async function adminCustomerDocumentUpload({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+      return notificationJson({success:false,error:"Unauthorized."},401);
+    }
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+    if(!env.NOTIFICATION_ATTACHMENTS){
+      return notificationJson({success:false,error:"Document storage is not configured. Add the NOTIFICATION_ATTACHMENTS R2 binding."},503);
+    }
+
+    const form=await request.formData();
+    const account=normalizeNotificationAccount(form.get("account_number")||"");
+    const type=customerDocumentType(form.get("document_type"));
+    const documentDate=String(form.get("document_date")||"").trim().slice(0,10);
+    const file=form.get("file");
+    const rawTitle=String(form.get("title")||"").trim();
+
+    if(!account) return notificationJson({success:false,error:"Enter a valid Customer Number."},400);
+    const customer=await env.DB.prepare(`SELECT account_number,account_name FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
+    if(!customer) return notificationJson({success:false,error:"Customer was not found."},404);
+
+    if(!(file instanceof File)) return notificationJson({success:false,error:"Choose a PDF statement or invoice."},400);
+    const filename=notificationSafeFilename(file.name||"document.pdf");
+    const contentType=String(file.type||"application/pdf").toLowerCase();
+    if(contentType!=="application/pdf" && !filename.toLowerCase().endsWith(".pdf")){
+      return notificationJson({success:false,error:"Statements and invoices must be PDF files."},400);
+    }
+    if(file.size<=0) return notificationJson({success:false,error:"The selected PDF is empty."},400);
+    if(file.size>10*1024*1024) return notificationJson({success:false,error:"PDF files must be 10 MB or smaller."},413);
+
+    await ensureCustomerDocumentsTable(env);
+    const title=customerDocumentTitle(type,rawTitle,filename);
+    const objectKey=`customer-documents/${account}/${crypto.randomUUID()}-${filename}`;
+
+    await env.NOTIFICATION_ATTACHMENTS.put(objectKey,file.stream(),{
+      httpMetadata:{
+        contentType:"application/pdf",
+        contentDisposition:`inline; filename="${filename.replace(/"/g,"")}"`
+      },
+      customMetadata:{
+        account_number:account,
+        document_type:type,
+        filename
+      }
+    });
+
+    try{
+      const result=await env.DB.prepare(`
+        INSERT INTO portal_customer_documents
+          (account_number,document_type,title,document_date,object_key,filename,content_type,size_bytes,created_at)
+        VALUES (?,?,?,?,?,?,?, ?,CURRENT_TIMESTAMP)
+      `).bind(
+        account,type,title,documentDate||null,objectKey,filename,"application/pdf",file.size
+      ).run();
+
+      return notificationJson({
+        success:true,
+        message:`${type==="invoice"?"Invoice":"Statement"} uploaded successfully.`,
+        document:{
+          id:result?.meta?.last_row_id||result?.meta?.last_insert_rowid||null,
+          account_number:account,
+          document_type:type,
+          title,
+          document_date:documentDate||null,
+          filename,
+          size_bytes:file.size
+        }
+      });
+    }catch(error){
+      try{await env.NOTIFICATION_ATTACHMENTS.delete(objectKey);}catch{}
+      throw error;
+    }
+  }catch(error){
+    console.error("adminCustomerDocumentUpload failed",error);
+    return notificationJson({success:false,error:"Document upload failed. "+String(error?.message||error)},500);
+  }
+}
+__name(adminCustomerDocumentUpload,"adminCustomerDocumentUpload");
+
+async function customerDocumentsGet({request,env}){
+  try{
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+    const customer=await getCustomerFromSession(request,env);
+    if(!customer) return notificationJson({success:false,error:"Please sign in to view statements and invoices."},401);
+
+    await ensureCustomerDocumentsTable(env);
+    const account=normalizeNotificationAccount(customer.account_number);
+    const rows=await env.DB.prepare(`
+      SELECT id,document_type,title,document_date,filename,size_bytes,created_at
+      FROM portal_customer_documents
+      WHERE account_number=?
+      ORDER BY COALESCE(document_date,created_at) DESC,id DESC
+      LIMIT 100
+    `).bind(account).all();
+
+    return notificationJson({success:true,documents:rows?.results||[]});
+  }catch(error){
+    console.error("customerDocumentsGet failed",error);
+    return notificationJson({success:false,error:"Statements and invoices could not be loaded."},500);
+  }
+}
+__name(customerDocumentsGet,"customerDocumentsGet");
+
+async function customerDocumentFileGet({request,env}){
+  try{
+    if(!env.DB || !env.NOTIFICATION_ATTACHMENTS){
+      return new Response("Document storage is not configured.",{status:503});
+    }
+    const customer=await getCustomerFromSession(request,env);
+    if(!customer) return new Response("Unauthorized.",{status:401});
+
+    const url=new URL(request.url);
+    const parts=url.pathname.split("/").filter(Boolean);
+    const id=Number(parts[parts.length-2]);
+    if(!Number.isInteger(id)||id<=0) return new Response("Document not found.",{status:404});
+
+    await ensureCustomerDocumentsTable(env);
+    const account=normalizeNotificationAccount(customer.account_number);
+    const row=await env.DB.prepare(`
+      SELECT id,object_key,filename,content_type,size_bytes
+      FROM portal_customer_documents
+      WHERE id=? AND account_number=?
+      LIMIT 1
+    `).bind(id,account).first();
+
+    if(!row) return new Response("Document not found.",{status:404});
+    const object=await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);
+    if(!object) return new Response("Document file is unavailable.",{status:404});
+
+    const filename=notificationSafeFilename(row.filename||"document.pdf");
+    const headers=new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("Content-Type","application/pdf");
+    headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    headers.set("Cache-Control","private, no-store");
+    headers.set("X-Content-Type-Options","nosniff");
+    headers.set("Content-Security-Policy","default-src 'none'; sandbox");
+    return new Response(object.body,{status:200,headers});
+  }catch(error){
+    console.error("customerDocumentFileGet failed",error);
+    return new Response("Document could not be opened.",{status:500});
+  }
+}
+__name(customerDocumentFileGet,"customerDocumentFileGet");
+
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -4449,10 +4673,30 @@ var worker_default = {
       return methodNotAllowed();
     }
 
+    if (url.pathname === "/api/admin/customer-documents") {
+      if (request.method === "GET") return adminCustomerDocumentsGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/customer-documents/upload") {
+      if (request.method === "POST") return adminCustomerDocumentUpload({ request, env });
+      return methodNotAllowed();
+    }
+
     if (url.pathname === "/api/admin/customer-notifications") {
       if (request.method === "POST") {
         return adminSendCustomerNotification({ request, env });
       }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/documents") {
+      if (request.method === "GET") return customerDocumentsGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (/^\/api\/customer\/documents\/\d+\/file$/.test(url.pathname)) {
+      if (request.method === "GET") return customerDocumentFileGet({ request, env });
       return methodNotAllowed();
     }
 
