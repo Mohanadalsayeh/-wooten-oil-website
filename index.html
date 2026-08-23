@@ -2676,6 +2676,44 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-account-statement-top-space-fix">
+/* Account Statement: remove the large empty area above the toolbar/title. */
+#portalAccountCard:has(#customerAccountDetails.show){
+  padding-top:24px !important;
+}
+#portalAccountCard:has(#customerAccountDetails.show) > .portal-eyebrow{
+  margin-bottom:16px !important;
+}
+#customerAccountDetails.account-statement-panel{
+  margin-top:0 !important;
+  padding-top:0 !important;
+}
+#customerAccountDetails .details-toolbar{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  margin-bottom:14px !important;
+}
+#customerAccountDetails .statement-heading{
+  margin-top:0 !important;
+}
+.portal-overlay:has(#customerAccountDetails.show){
+  align-items:flex-start !important;
+  padding-top:12px !important;
+}
+@media(max-width:700px){
+  #portalAccountCard:has(#customerAccountDetails.show){
+    padding-top:18px !important;
+  }
+  #portalAccountCard:has(#customerAccountDetails.show) > .portal-eyebrow{
+    margin-bottom:12px !important;
+  }
+  .portal-overlay:has(#customerAccountDetails.show){
+    padding-top:8px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
