@@ -1,11 +1,11 @@
-WOOTEN OIL — NOTIFICATION FIXED FOOTER
+WOOTEN OIL — NOTIFICATION FOOTER ALWAYS VISIBLE
 
 Notification popup behavior:
-- Header stays fixed.
-- Attachment footer stays fixed at the bottom.
-- Only the notification message/body scrolls.
-- If there are multiple attachments, only the attachment list itself can scroll.
-- Existing Gmail attachment sync and secure attachment opening are preserved.
+- Header remains fixed.
+- Footer remains fixed at the bottom at all times.
+- If attachments exist, the footer shows the Attachments title and file list.
+- If there are no attachments, a small clean footer bar remains visible.
+- Only the notification body scrolls.
 
 Upload:
 - index.html

@@ -2208,6 +2208,29 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-footer-always-visible">
+.customer-notification-popup-footer{
+  display:block !important;
+  min-height:18px !important;
+}
+.customer-notification-popup-footer:not(.show){
+  padding:7px 22px !important;
+  min-height:18px !important;
+  border-top:1px solid #edf1f4 !important;
+  background:#fff !important;
+}
+.customer-notification-popup-footer:not(.show) .customer-notification-attachments-title,
+.customer-notification-popup-footer:not(.show) .customer-notification-attachment-list{
+  display:none !important;
+}
+@media(max-width:600px){
+  .customer-notification-popup-footer:not(.show){
+    padding:6px 18px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
