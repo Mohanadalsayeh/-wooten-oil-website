@@ -1254,6 +1254,34 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-total-balance-field-style">
+.db-aging-grid{
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+}
+.db-total-balance{
+  background:#f0f7ff !important;
+  border-color:#bfd7ee !important;
+}
+.db-total-balance .db-detail-label{
+  color:#365f86 !important;
+}
+.db-total-balance .db-detail-value{
+  font-weight:600 !important;
+  color:#0b2239 !important;
+}
+@media(max-width:900px){
+  .db-aging-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  }
+}
+@media(max-width:620px){
+  .db-aging-grid{
+    grid-template-columns:1fr 1fr !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -2526,6 +2554,22 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
           <div class="db-aging-box">
             <div class="db-detail-label">Aging 4</div>
             <div class="db-detail-value" title="${money(row.aging_category_4)}">${money(row.aging_category_4)}</div>
+          </div>
+          <div class="db-aging-box db-total-balance">
+            <div class="db-detail-label">Total Balance</div>
+            <div class="db-detail-value" title="${money(
+              Number(row.current_balance||0)+
+              Number(row.aging_category_1||0)+
+              Number(row.aging_category_2||0)+
+              Number(row.aging_category_3||0)+
+              Number(row.aging_category_4||0)
+            )}">${money(
+              Number(row.current_balance||0)+
+              Number(row.aging_category_1||0)+
+              Number(row.aging_category_2||0)+
+              Number(row.aging_category_3||0)+
+              Number(row.aging_category_4||0)
+            )}</div>
           </div>
         </div>
       </div>
