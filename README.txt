@@ -1,4 +1,2 @@
-Wooten Oil footer update:
-- Removed duplicate contact block from red Need fuel delivered section.
-- Added location, phone, and email icons in footer.
-- No Cloudflare/D1/R2/wrangler changes required.
+Changed the top main-page company name from "Wooten Oil Com Inc." to "Wooten Oil Co Inc.".
+No other website behavior or settings were changed.
