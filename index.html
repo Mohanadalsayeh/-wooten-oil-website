@@ -2776,6 +2776,15 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-customer-document-notification-link-style">
+.customer-document-row:target,
+.customer-document-row.notification-focus{
+  border-color:#9fb9cf !important;
+  box-shadow:0 0 0 3px rgba(31,78,121,.08) !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -4266,6 +4275,7 @@ input[type="reset"]:focus,
     rows.forEach(function(r){
       var row=document.createElement('div');
       row.className='customer-document-row';
+      row.setAttribute('data-document-id',String(r.id||''));
 
       var icon=document.createElement('div');
       icon.className='customer-document-icon';
@@ -4339,13 +4349,27 @@ input[type="reset"]:focus,
     }
   }
 
-  function showCustomerDocuments(){
+  async function showCustomerDocuments(focusDocumentId){
     if(dashboard) dashboard.classList.add('dashboard-hidden');
     if(accountDetails) accountDetails.classList.remove('show');
     if(fuelHistory) fuelHistory.classList.remove('show');
     if(customerDocuments) customerDocuments.classList.add('show');
-    loadCustomerDocuments();
+    await loadCustomerDocuments();
+
+    if(focusDocumentId){
+      setTimeout(function(){
+        var target=customerDocumentsList && customerDocumentsList.querySelector('[data-document-id="'+String(focusDocumentId)+'"]');
+        if(target){
+          target.classList.add('notification-focus');
+          if(target.scrollIntoView) target.scrollIntoView({behavior:'smooth',block:'center'});
+          setTimeout(function(){target.classList.remove('notification-focus');},3000);
+        }
+      },60);
+    }
   }
+  window.wootenOpenCustomerDocuments=function(documentId){
+    showCustomerDocuments(documentId||null);
+  };
 
   function historyDate(value){
     if(!value) return '—';
@@ -4865,6 +4889,8 @@ input[type="reset"]:focus,
       sender_name:'Wooten Oil Co Inc.',
       sender_email:'support@wootenoil.com',
       recipient_email:item.getAttribute('data-notification-to')||'',
+      action_type:item.getAttribute('data-notification-action-type')||'',
+      action_id:item.getAttribute('data-notification-action-id')||'',
       attachments:(function(){
         try{
           var raw=item.getAttribute('data-notification-attachments')||'';
@@ -4897,6 +4923,20 @@ input[type="reset"]:focus,
   }
 
   async function openCustomerNotificationPopup(item){
+    var actionType='';
+    var actionId='';
+    try{
+      if(fallback){
+        actionType=String(fallback.action_type||'');
+        actionId=fallback.action_id||'';
+      }
+    }catch(e){}
+    if(actionType==='customer_documents'){
+      closeCustomerNotificationPopup();
+      if(window.wootenOpenCustomerDocuments) window.wootenOpenCustomerDocuments(actionId||null);
+      return;
+    }
+
     if(!item) return;
 
     var id=item.getAttribute('data-notification-id')||'';
@@ -4927,6 +4967,11 @@ input[type="reset"]:focus,
         fallback.attachments.length
       ){
         fullNotification.attachments=fallback.attachments;
+      }
+      if(fullNotification && fullNotification.action_type==='customer_documents'){
+        closeCustomerNotificationPopup();
+        if(window.wootenOpenCustomerDocuments) window.wootenOpenCustomerDocuments(fullNotification.action_id||null);
+        return;
       }
       renderCustomerNotificationPopup(fullNotification);
     }catch(error){

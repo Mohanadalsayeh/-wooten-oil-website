@@ -1,44 +1,34 @@
-WOOTEN OIL — STATEMENTS & INVOICES DOWNLOAD
+WOOTEN OIL — DOCUMENT OPEN + CUSTOMER NOTIFICATION LINK
 
-Built from: Stage 1 Done
+ADMIN
+- Customer Documents list now has an Open PDF button.
+- Admin document opening is protected by the Admin Import Key.
+- PDF opens securely from the private R2 bucket.
 
-CUSTOMER PORTAL
-- New dashboard button: Statements & Invoices
-- Secure list of customer PDF documents
-- Search documents
-- Filter: All / Statements / Invoices
-- Open PDF in a new tab
-- Customer session is required
-- A customer can only access documents assigned to their own account
+CUSTOMER
+- Uploading a Statement or Invoice automatically creates a portal notification:
+  • New Statement Available
+  • New Invoice Available
+- The notification is linked to that document.
+- When the customer clicks the notification, the normal notification popup is skipped.
+- The portal opens Statements & Invoices automatically.
+- The matching document is highlighted briefly in the list.
+- Customer can then click Open PDF.
 
-ADMIN PAGE
-- New tab: Statements & Invoices
-- Enter Customer Number
-- Choose Statement or Invoice
-- Enter document date
-- Optional title / invoice number
-- Upload PDF
-- View documents already uploaded for that customer
-- PDF limit: 10 MB
-
-STORAGE / SECURITY
-- Uses the existing private R2 binding:
-  NOTIFICATION_ATTACHMENTS
-- Uses a new D1 table created automatically:
-  portal_customer_documents
-- No public R2 URLs are created
-- Download endpoint validates the signed-in customer's account number before returning the PDF
+DATABASE
+- portal_notifications automatically gains:
+  action_type
+  action_id
+  if those columns do not already exist.
+- No manual D1 command is required.
 
 IMPORTANT
-This feature gives you a secure way to manually upload statements/invoices now.
-It does not automatically pull invoice PDFs from MAS 90/Sage yet. Automatic accounting-system
-sync can be added later without changing the customer-facing Documents area.
+This applies to newly uploaded Statements/Invoices. Existing document uploads from before
+this update will not automatically have linked notifications unless uploaded again or
+a future migration is added.
 
 Upload:
 - index.html
 - request-fuel.html
 - admin-customers.html
 - worker.js
-
-No manual D1 command is required. The Worker creates the document table automatically.
-No new R2 bucket is required; it uses the existing secure attachment bucket.

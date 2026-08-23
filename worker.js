@@ -2824,6 +2824,21 @@ async function ensureCustomerNotificationsTable(env) {
     ON portal_notifications(account_number, created_at DESC)
   `).run();
 
+  /* Optional action metadata lets certain notifications open a portal feature
+     instead of the generic message popup. Added safely for existing databases. */
+  try{
+    const info=await env.DB.prepare(`PRAGMA table_info(portal_notifications)`).all();
+    const cols=(info?.results||[]).map(r=>String(r.name||"").toLowerCase());
+    if(!cols.includes("action_type")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN action_type TEXT`).run();
+    }
+    if(!cols.includes("action_id")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN action_id INTEGER`).run();
+    }
+  }catch(error){
+    console.error("portal notification action columns check failed",error);
+  }
+
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS portal_notification_attachments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3397,7 +3412,7 @@ async function customerNotificationsGet({ request, env }) {
     const account = normalizeNotificationAccount(customer.account_number);
 
     const result = await env.DB.prepare(`
-      SELECT id, title, message, read_at, created_at
+      SELECT id, title, message, read_at, created_at, action_type, action_id
       FROM portal_notifications
       WHERE account_number = ?
       ORDER BY datetime(created_at) DESC, id DESC
@@ -3433,6 +3448,8 @@ async function customerNotificationsGet({ request, env }) {
       sender_name: "Wooten Oil Co Inc.",
       sender_email: "support@wootenoil.com",
       recipient_email: String(customer.email || ""),
+      action_type: String(row.action_type || ""),
+      action_id: row.action_id == null ? null : Number(row.action_id),
       attachments: attachmentsByNotification.get(Number(row.id)) || []
     }));
 
@@ -4497,11 +4514,34 @@ async function adminCustomerDocumentUpload({request,env}){
         account,type,title,documentDate||null,objectKey,filename,"application/pdf",file.size
       ).run();
 
+      const documentId=result?.meta?.last_row_id||result?.meta?.last_insert_rowid||null;
+
+      /* Create a portal notification linked to the Statements & Invoices screen. */
+      await ensureCustomerNotificationsTable(env);
+      const notificationTitle=type==="invoice" ? "New Invoice Available" : "New Statement Available";
+      const notificationMessage=type==="invoice"
+        ? `${title} is now available in your Statements & Invoices.`
+        : `${title} is now available in your Statements & Invoices.`;
+
+      const notificationResult=await env.DB.prepare(`
+        INSERT INTO portal_notifications
+          (account_number,title,message,email_sent,action_type,action_id,created_at)
+        VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+      `).bind(
+        account,
+        notificationTitle,
+        notificationMessage,
+        0,
+        "customer_documents",
+        documentId
+      ).run();
+
       return notificationJson({
         success:true,
-        message:`${type==="invoice"?"Invoice":"Statement"} uploaded successfully.`,
+        message:`${type==="invoice"?"Invoice":"Statement"} uploaded successfully and the customer was notified.`,
+        notification_id:notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null,
         document:{
-          id:result?.meta?.last_row_id||result?.meta?.last_insert_rowid||null,
+          id:documentId,
           account_number:account,
           document_type:type,
           title,
@@ -4520,6 +4560,49 @@ async function adminCustomerDocumentUpload({request,env}){
   }
 }
 __name(adminCustomerDocumentUpload,"adminCustomerDocumentUpload");
+
+
+async function adminCustomerDocumentFileGet({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+      return new Response("Unauthorized.",{status:401});
+    }
+    if(!env.DB || !env.NOTIFICATION_ATTACHMENTS){
+      return new Response("Document storage is not configured.",{status:503});
+    }
+
+    const url=new URL(request.url);
+    const parts=url.pathname.split("/").filter(Boolean);
+    const id=Number(parts[parts.length-2]);
+    if(!Number.isInteger(id)||id<=0) return new Response("Document not found.",{status:404});
+
+    await ensureCustomerDocumentsTable(env);
+    const row=await env.DB.prepare(`
+      SELECT id,object_key,filename,content_type,size_bytes
+      FROM portal_customer_documents
+      WHERE id=?
+      LIMIT 1
+    `).bind(id).first();
+
+    if(!row) return new Response("Document not found.",{status:404});
+    const object=await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);
+    if(!object) return new Response("Document file is unavailable.",{status:404});
+
+    const filename=notificationSafeFilename(row.filename||"document.pdf");
+    const headers=new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("Content-Type","application/pdf");
+    headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    headers.set("Cache-Control","private, no-store");
+    headers.set("X-Content-Type-Options","nosniff");
+    return new Response(object.body,{status:200,headers});
+  }catch(error){
+    console.error("adminCustomerDocumentFileGet failed",error);
+    return new Response("Document could not be opened.",{status:500});
+  }
+}
+__name(adminCustomerDocumentFileGet,"adminCustomerDocumentFileGet");
 
 async function customerDocumentsGet({request,env}){
   try{
@@ -4680,6 +4763,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/customer-documents/upload") {
       if (request.method === "POST") return adminCustomerDocumentUpload({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (/^\/api\/admin\/customer-documents\/\d+\/file$/.test(url.pathname)) {
+      if (request.method === "GET") return adminCustomerDocumentFileGet({ request, env });
       return methodNotAllowed();
     }
 
