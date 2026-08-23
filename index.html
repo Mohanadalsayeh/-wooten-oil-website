@@ -2115,6 +2115,124 @@ input[type="reset"]:focus,
 @media(max-width:620px){.footer-contact{flex-direction:column;align-items:flex-start;gap:9px}.footer-contact-item{white-space:normal}}
 </style>
 
+
+<style id="wooten-fuel-request-modal-final">
+.fuel-request-modal{
+  position:fixed;
+  inset:0;
+  z-index:10050;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+}
+.fuel-request-modal.show{display:flex}
+.fuel-request-modal-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(10,24,38,.62);
+  backdrop-filter:blur(4px);
+}
+.fuel-request-modal-card{
+  position:relative;
+  z-index:1;
+  width:min(920px,96vw);
+  max-height:92vh;
+  overflow:hidden;
+  border-radius:18px;
+  background:#fff;
+  border:1px solid rgba(15,23,42,.12);
+  box-shadow:0 30px 90px rgba(15,23,42,.34);
+  display:flex;
+  flex-direction:column;
+}
+.fuel-request-modal-head{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:16px 18px 14px 20px;
+  border-bottom:1px solid #e5e7eb;
+  background:#fff;
+}
+.fuel-request-modal-eyebrow{
+  margin-bottom:3px;
+  color:#8b99a6;
+  font-size:.72rem;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.fuel-request-modal-head h2{
+  margin:0;
+  color:#13263a;
+  font-size:1.35rem;
+  line-height:1.2;
+  font-weight:600;
+}
+.fuel-request-modal-close{
+  width:40px;
+  height:40px;
+  min-width:40px;
+  border:1px solid #dbe3ea;
+  border-radius:50%;
+  background:#fff;
+  color:#27384a;
+  font:inherit;
+  font-size:1.7rem;
+  line-height:1;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+.fuel-request-modal-close:hover,
+.fuel-request-modal-close:focus,
+.fuel-request-modal-close:active{
+  background:#fff;
+  color:#27384a;
+  transform:none;
+  box-shadow:0 0 0 3px rgba(31,78,121,.10);
+}
+.fuel-request-modal-frame-wrap{
+  flex:1 1 auto;
+  min-height:0;
+  background:#f6f8fa;
+}
+.fuel-request-modal-frame{
+  display:block;
+  width:100%;
+  height:min(760px,calc(92vh - 74px));
+  border:0;
+  background:#fff;
+}
+body.fuel-request-modal-open{
+  overflow:hidden !important;
+}
+@media(max-width:700px){
+  .fuel-request-modal{
+    padding:8px;
+    align-items:flex-start;
+  }
+  .fuel-request-modal-card{
+    width:100%;
+    max-height:96vh;
+    border-radius:14px;
+  }
+  .fuel-request-modal-head{
+    padding:13px 12px 12px 14px;
+  }
+  .fuel-request-modal-head h2{
+    font-size:1.15rem;
+  }
+  .fuel-request-modal-frame{
+    height:calc(96vh - 68px);
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -2136,7 +2254,7 @@ input[type="reset"]:focus,
     <a class="customer-login-link" href="#customer-login">Customer Login</a>
     <a class="customer-account-link" id="desktopCustomerAccount" href="#customer-login">Customer #</a>
     <button class="customer-menu-logout" id="desktopCustomerLogout" type="button">Log Out</button>
-    <a class="nav-cta desktop-request" href="request-fuel.html" target="_blank" rel="noopener">Request Fuel</a>
+    <a class="nav-cta desktop-request" href="request-fuel.html">Request Fuel</a>
 
     <div class="mobile-customer-header" id="mobileCustomerHeader" aria-label="Signed-in customer">
       <button class="mobile-customer-notifications" id="mobileHeaderNotifications" type="button" aria-label="Open customer notifications">
@@ -2173,7 +2291,7 @@ input[type="reset"]:focus,
       <a class="mobile-login-link" href="#customer-login">Customer Login</a>
       <a class="mobile-customer-account" id="mobileCustomerAccount" href="#customer-login">Customer #</a>
       <button class="mobile-customer-logout" id="mobileCustomerLogout" type="button">Log Out</button>
-      <a class="mobile-request-link" href="request-fuel.html" target="_blank" rel="noopener">Request Fuel</a>
+      <a class="mobile-request-link" href="request-fuel.html">Request Fuel</a>
     </nav>
   </div>
 </header>
@@ -2396,7 +2514,7 @@ input[type="reset"]:focus,
       </p>
 
       <div class="hero-buttons">
-        <a class="btn btn-primary" href="request-fuel.html" target="_blank" rel="noopener">Request Fuel Delivery</a>
+        <a class="btn btn-primary" href="request-fuel.html">Request Fuel Delivery</a>
         <a class="btn btn-secondary" href="#services">View Our Services</a>
       </div>
 
@@ -2494,7 +2612,7 @@ input[type="reset"]:focus,
           <div class="check"><b>✓</b><span>Flexible delivery for seasonal and ongoing farm needs</span></div>
         </div>
 
-        <a class="btn btn-primary" href="request-fuel.html" target="_blank" rel="noopener">Request Farm Fuel</a>
+        <a class="btn btn-primary" href="request-fuel.html">Request Farm Fuel</a>
       </div>
 
       <div class="visual">
@@ -2518,22 +2636,22 @@ input[type="reset"]:focus,
       </div>
 
       <div class="fuel-grid">
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Regular%20Gasoline" data-fuel="Regular Gasoline" aria-label="Request Regular Gasoline" target="_blank" rel="noopener">
+        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Regular%20Gasoline" data-fuel="Regular Gasoline" aria-label="Request Regular Gasoline">
           <strong>Regular Gasoline</strong>
           <span>Bulk delivery for retail fuel locations.</span>
           <em>Request this fuel →</em>
         </a>
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Premium%20Gasoline" data-fuel="Premium Gasoline" aria-label="Request Premium Gasoline" target="_blank" rel="noopener">
+        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Premium%20Gasoline" data-fuel="Premium Gasoline" aria-label="Request Premium Gasoline">
           <strong>Premium Gasoline</strong>
           <span>Premium-grade product for station inventory.</span>
           <em>Request this fuel →</em>
         </a>
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=On-Road%20Diesel" data-fuel="On-Road Diesel" aria-label="Request On-Road Diesel" target="_blank" rel="noopener">
+        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=On-Road%20Diesel" data-fuel="On-Road Diesel" aria-label="Request On-Road Diesel">
           <strong>On-Road Diesel</strong>
           <span>Diesel for public and commercial fueling.</span>
           <em>Request this fuel →</em>
         </a>
-        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Off-Road%20Diesel" data-fuel="Off-Road Diesel" aria-label="Request Farm or Off-Road Diesel" target="_blank" rel="noopener">
+        <a class="fuel-item fuel-select" href="request-fuel.html?fuel=Off-Road%20Diesel" data-fuel="Off-Road Diesel" aria-label="Request Farm or Off-Road Diesel">
           <strong>Farm / Off-Road Diesel</strong>
           <span>Fuel for agricultural and approved off-road use.</span>
           <em>Request this fuel →</em>
@@ -2690,7 +2808,7 @@ input[type="reset"]:focus,
           <li>Gasoline and diesel needs</li>
         </ul>
         <div class="service-area-actions">
-          <a class="btn btn-primary" href="request-fuel.html" target="_blank" rel="noopener">Check Delivery Availability</a>
+          <a class="btn btn-primary" href="request-fuel.html">Check Delivery Availability</a>
           <a class="btn btn-outline-light" href="tel:+19014762684">Call (901) 476-2684</a>
         </div>
         <p class="service-area-note">Outside the areas shown? Contact Wooten Oil — service may still be available.</p>
@@ -2737,7 +2855,7 @@ input[type="reset"]:focus,
     </div>
     <div class="faq-list">
       <details class="faq-item"><summary>What types of fuel does Wooten Oil deliver?</summary><div class="faq-answer">Wooten Oil serves local petroleum needs including gasoline, on-road diesel, and farm/off-road diesel. For a specific product or delivery requirement, contact us to confirm availability.</div></details>
-      <details class="faq-item"><summary>How do I request a fuel delivery?</summary><div class="faq-answer">Open the <a href="request-fuel.html" target="_blank" rel="noopener">Request Fuel Delivery</a> page, or call Wooten Oil at <a href="tel:+19014762684">(901) 476-2684</a>.</div></details>
+      <details class="faq-item"><summary>How do I request a fuel delivery?</summary><div class="faq-answer">Open the <a href="request-fuel.html">Request Fuel Delivery</a> page, or call Wooten Oil at <a href="tel:+19014762684">(901) 476-2684</a>.</div></details>
       <details class="faq-item"><summary>Do you deliver farm and off-road diesel?</summary><div class="faq-answer">Yes. Wooten Oil provides farm/off-road diesel service for qualifying farm, equipment, and commercial needs. Contact us for pricing and delivery availability.</div></details>
       <details class="faq-item"><summary>What areas do you deliver to?</summary><div class="faq-answer">Delivery availability depends on the location and fuel requirement. Send a fuel request with your delivery address or call us at <a href="tel:+19014762684">(901) 476-2684</a> to confirm service for your area.</div></details>
       <details class="faq-item"><summary>Where can I use my Wooten Oil Card?</summary><div class="faq-answer">Your Wooten Oil Card can be used at the participating locations shown in the Oil Card and Locations sections of this website.</div></details>
@@ -2763,6 +2881,29 @@ input[type="reset"]:focus,
     </div>
   </section>
 </main>
+
+
+<div class="fuel-request-modal" id="fuelRequestModal" aria-hidden="true">
+  <div class="fuel-request-modal-backdrop" data-fuel-modal-close></div>
+  <div class="fuel-request-modal-card" role="dialog" aria-modal="true" aria-labelledby="fuelRequestModalTitle">
+    <div class="fuel-request-modal-head">
+      <div>
+        <div class="fuel-request-modal-eyebrow">Wooten Oil Co Inc.</div>
+        <h2 id="fuelRequestModalTitle">Request Fuel Delivery</h2>
+      </div>
+      <button class="fuel-request-modal-close" id="fuelRequestModalClose" type="button" aria-label="Close Request Fuel Delivery">&times;</button>
+    </div>
+    <div class="fuel-request-modal-frame-wrap">
+      <iframe
+        id="fuelRequestModalFrame"
+        class="fuel-request-modal-frame"
+        src="about:blank"
+        title="Request Fuel Delivery form"
+        loading="eager"
+      ></iframe>
+    </div>
+  </div>
+</div>
 
 <footer>
   <div class="container footer-row">
@@ -4653,6 +4794,108 @@ input[type="reset"]:focus,
   }else{
     bindExclusiveMenus();
   }
+})();
+</script>
+
+
+<script id="wooten-fuel-request-modal-script">
+(function(){
+  var modal=document.getElementById('fuelRequestModal');
+  var frame=document.getElementById('fuelRequestModalFrame');
+  var closeBtn=document.getElementById('fuelRequestModalClose');
+  if(!modal || !frame) return;
+
+  var lastTrigger=null;
+
+  function buildPopupUrl(href){
+    var url;
+    try{
+      url=new URL(href,window.location.href);
+    }catch(e){
+      url=new URL('request-fuel.html',window.location.href);
+    }
+    url.searchParams.set('popup','1');
+    return url.pathname.replace(/^\//,'') + (url.search||'') + (url.hash||'');
+  }
+
+  function openFuelModal(href,trigger){
+    lastTrigger=trigger||null;
+
+    /* Keep main navigation and customer notification dropdown from overlapping
+       the Request Fuel popup. */
+    try{
+      var menu=document.getElementById('menu');
+      if(menu) menu.classList.remove('menu-open');
+      document.body.classList.remove('menu-open');
+      history.replaceState(null,'',window.location.pathname+window.location.search);
+    }catch(e){}
+
+    try{
+      var headerMenu=document.getElementById('headerNotificationMenu');
+      var dashboardPanel=document.getElementById('dashboardNotificationPanel');
+      if(headerMenu) headerMenu.classList.remove('show');
+      if(dashboardPanel) dashboardPanel.classList.remove('show');
+    }catch(e){}
+
+    frame.src=buildPopupUrl(href||'request-fuel.html');
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden','false');
+    document.body.classList.add('fuel-request-modal-open');
+
+    setTimeout(function(){
+      if(closeBtn) closeBtn.focus();
+    },0);
+  }
+
+  function closeFuelModal(){
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('fuel-request-modal-open');
+
+    /* Clear the iframe after closing so the next opening starts with a clean form. */
+    setTimeout(function(){
+      if(!modal.classList.contains('show')) frame.src='about:blank';
+    },220);
+
+    if(lastTrigger && typeof lastTrigger.focus==='function'){
+      try{lastTrigger.focus();}catch(e){}
+    }
+  }
+
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[href^="request-fuel.html"]');
+    if(!link) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    openFuelModal(link.getAttribute('href'),link);
+  });
+
+  if(closeBtn) closeBtn.addEventListener('click',closeFuelModal);
+
+  modal.addEventListener('click',function(e){
+    if(e.target && e.target.hasAttribute('data-fuel-modal-close')){
+      closeFuelModal();
+    }
+  });
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape' && modal.classList.contains('show')){
+      closeFuelModal();
+    }
+  });
+
+  /* The Request Fuel form can ask the parent page to close after a successful
+     submission if desired. */
+  window.addEventListener('message',function(e){
+    if(!e || !e.data) return;
+    if(e.data==='wooten-close-fuel-request-modal'){
+      closeFuelModal();
+    }
+  });
+
+  window.wootenOpenFuelRequestModal=openFuelModal;
+  window.wootenCloseFuelRequestModal=closeFuelModal;
 })();
 </script>
 

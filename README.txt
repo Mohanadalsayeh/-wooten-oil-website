@@ -1,16 +1,21 @@
-WOOTEN OIL — REQUEST FUEL OPENS IN NEW WINDOW/TAB
+WOOTEN OIL — REQUEST FUEL LOGIN-STYLE POPUP
 
-Files:
+Upload:
 - index.html
 - request-fuel.html
 - admin-customers.html
 - worker.js
 
-Change:
-- All 10 Request Fuel links/buttons on the main page now open request-fuel.html
-  in a NEW browser tab/window using target="_blank".
-- The main Wooten Oil page remains open in the original tab.
-- Fuel-type links still pass the selected fuel to the new page.
-- No form behavior, Worker API, Cloudflare, D1, R2, or wrangler.jsonc settings changed.
+New behavior:
+- Request Fuel NO LONGER opens a browser tab/window.
+- Clicking any Request Fuel button opens a centered popup/modal on top of the main page,
+  similar to the Customer Login popup.
+- The main page remains visible behind the darkened background.
+- X button, clicking the dark background, or Escape closes the Request Fuel popup.
+- The Request Fuel form itself remains in request-fuel.html and is loaded inside the popup.
+- request-fuel.html automatically switches into "popup mode" so the iframe shows only the form,
+  without the website header/footer.
+- Fuel-type cards still preselect the selected fuel.
+- Opening Request Fuel closes the main menu/notification dropdown so they do not overlap it.
 
-Upload all four files to GitHub, including request-fuel.html.
+No Cloudflare, D1, R2, or wrangler.jsonc changes are required.
