@@ -1,4 +1,4 @@
-WOOTEN OIL — REQUEST FUEL POPUP LAYOUT FIX
+WOOTEN OIL — REQUEST FUEL POPUP EXTRA COMPACT
 
 Upload:
 - index.html
@@ -6,13 +6,15 @@ Upload:
 - admin-customers.html
 - worker.js
 
-Fixed:
-- First row of form is no longer cut off under the popup header.
-- Popup always opens at the top of the form.
-- Removed duplicate form title/intro inside iframe because popup header already shows Request Fuel Delivery.
-- Reduced excess vertical spacing and field height.
-- Kept two-column desktop layout and one-column mobile layout.
-- Improved popup height/width so the form fits more naturally.
-- Preserved prior footer text: WOOTEN OIL CO INC.
+Changes:
+- Tightened desktop form spacing further.
+- Reduced input/select height.
+- Reduced label spacing and font size slightly.
+- Reduced Additional Notes height.
+- Reduced Submit button spacing.
+- Increased usable popup height slightly.
+- Goal: show the complete desktop Request Fuel form without the internal vertical scrollbar.
+
+Mobile layout remains responsive and can scroll if the phone screen is too short.
 
 No Cloudflare, D1, R2, or wrangler.jsonc changes are required.
