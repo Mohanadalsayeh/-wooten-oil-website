@@ -2489,6 +2489,101 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-fuel-history-compact-layout">
+/* Fuel Request History: remove wasted vertical space and keep a small footer visible. */
+#customerFuelHistory{
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  min-height:0 !important;
+}
+#customerFuelHistory.show{
+  display:flex !important;
+  flex-direction:column !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+#customerFuelHistory .details-toolbar{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  margin-bottom:14px !important;
+}
+#customerFuelHistory .fuel-history-head{
+  margin-top:0 !important;
+  margin-bottom:14px !important;
+}
+#customerFuelHistory .fuel-history-tools{
+  margin-top:0 !important;
+  margin-bottom:8px !important;
+}
+#customerFuelHistory .fuel-history-results-meta{
+  margin-bottom:8px !important;
+}
+#customerFuelHistory .fuel-history-list{
+  flex:0 1 auto !important;
+  min-height:0 !important;
+  padding-bottom:14px !important;
+}
+#customerFuelHistory .fuel-history-panel-footer{
+  flex:0 0 auto !important;
+  margin-top:auto !important;
+  min-height:34px !important;
+  border-top:1px solid #e3e8ed !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:8px 12px !important;
+  color:#8a96a1 !important;
+  font-size:.76rem !important;
+  background:#fff !important;
+}
+/* Reduce the large empty area at the very top of the customer portal when history is open. */
+.customer-account-card:has(#customerFuelHistory.show){
+  padding-top:28px !important;
+  padding-bottom:0 !important;
+}
+.customer-account-card:has(#customerFuelHistory.show) .portal-card-brand{
+  margin-bottom:18px !important;
+}
+@media(max-width:700px){
+  .customer-account-card:has(#customerFuelHistory.show){
+    padding-top:20px !important;
+  }
+  #customerFuelHistory .details-toolbar{
+    margin-bottom:10px !important;
+  }
+  #customerFuelHistory .fuel-history-panel-footer{
+    min-height:30px !important;
+    padding:7px 10px !important;
+  }
+}
+</style>
+
+
+<style id="wooten-fuel-history-card-height-fix">
+.customer-account-overlay:has(#customerFuelHistory.show) .customer-account-card{
+  min-height:0 !important;
+  height:auto !important;
+  max-height:calc(100vh - 28px) !important;
+}
+.customer-account-overlay:has(#customerFuelHistory.show) .customer-account-card-inner,
+.customer-account-overlay:has(#customerFuelHistory.show) .customer-account-content{
+  min-height:0 !important;
+  height:auto !important;
+}
+.customer-account-overlay:has(#customerFuelHistory.show){
+  align-items:flex-start !important;
+  padding-top:14px !important;
+  padding-bottom:14px !important;
+}
+@media(max-width:700px){
+  .customer-account-overlay:has(#customerFuelHistory.show){
+    padding-top:8px !important;
+    padding-bottom:8px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -2814,6 +2909,10 @@ input[type="reset"]:focus,
       <div class="fuel-history-results-meta" id="fuelHistoryResultsMeta"></div>
       <div class="fuel-history-status" id="fuelHistoryStatus" role="status" aria-live="polite"></div>
       <div class="fuel-history-list" id="fuelHistoryList"></div>
+
+      <div class="fuel-history-panel-footer" aria-hidden="true">
+        Wooten Oil Co Inc. • Customer Portal
+      </div>
     </section>
   </div>
 </div>
