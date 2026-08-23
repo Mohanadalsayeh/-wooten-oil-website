@@ -2202,6 +2202,106 @@ html.fuel-popup-mode .fuel-request-card{
 })();
 </script>
 
+
+<style id="wooten-request-fuel-popup-layout-fix">
+html.fuel-popup-mode,
+html.fuel-popup-mode body{
+  overflow-x:hidden !important;
+  background:#fff !important;
+}
+
+html.fuel-popup-mode #fuel-request{
+  padding:22px 24px 26px !important;
+  overflow:visible !important;
+}
+
+html.fuel-popup-mode .fuel-request-card{
+  transform:none !important;
+  opacity:1 !important;
+  transition:none !important;
+}
+
+/* The parent popup already shows the title, so don't repeat it inside the iframe. */
+html.fuel-popup-mode .fuel-request-card > h2,
+html.fuel-popup-mode .fuel-request-card > .fuel-intro{
+  display:none !important;
+}
+
+html.fuel-popup-mode #fuelRequestForm{
+  margin:0 !important;
+  padding:0 !important;
+}
+
+html.fuel-popup-mode .fuel-form-grid{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+  gap:16px 18px !important;
+  align-items:start !important;
+}
+
+html.fuel-popup-mode .fuel-field{
+  gap:7px !important;
+  min-width:0 !important;
+}
+
+html.fuel-popup-mode .fuel-field label{
+  margin:0 !important;
+  font-size:15px !important;
+  line-height:1.25 !important;
+  font-weight:650 !important;
+  color:#16283a !important;
+}
+
+html.fuel-popup-mode .fuel-field input,
+html.fuel-popup-mode .fuel-field select{
+  height:50px !important;
+  min-height:50px !important;
+  padding:10px 14px !important;
+  border-radius:10px !important;
+}
+
+html.fuel-popup-mode .fuel-field textarea{
+  min-height:100px !important;
+  max-height:150px !important;
+  padding:12px 14px !important;
+  border-radius:10px !important;
+}
+
+html.fuel-popup-mode .fuel-form-actions{
+  margin-top:18px !important;
+}
+
+html.fuel-popup-mode .fuel-submit{
+  min-height:48px !important;
+  padding:11px 22px !important;
+}
+
+html.fuel-popup-mode .fuel-prefill-note{
+  margin:0 0 16px !important;
+}
+
+/* Keep the first row fully visible when the iframe opens. */
+html.fuel-popup-mode #fuel-request,
+html.fuel-popup-mode .fuel-request-card,
+html.fuel-popup-mode #fuelRequestForm,
+html.fuel-popup-mode .fuel-form-grid{
+  scroll-margin-top:0 !important;
+}
+
+@media(max-width:700px){
+  html.fuel-popup-mode #fuel-request{
+    padding:16px 14px 20px !important;
+  }
+  html.fuel-popup-mode .fuel-form-grid{
+    grid-template-columns:1fr !important;
+    gap:14px !important;
+  }
+  html.fuel-popup-mode .fuel-field.full{
+    grid-column:auto !important;
+  }
+}
+</style>
+
 </head>
 <body class="request-fuel-page">
 
@@ -4853,6 +4953,36 @@ html.fuel-popup-mode .fuel-request-card{
     document.addEventListener('DOMContentLoaded',enforcePopupMode);
   }else{
     enforcePopupMode();
+  }
+})();
+</script>
+
+
+<script id="wooten-request-fuel-popup-scroll-fix">
+(function(){
+  var params=new URLSearchParams(window.location.search);
+  if(params.get('popup')!=='1') return;
+
+  function resetPopupScroll(){
+    try{
+      window.scrollTo({top:0,left:0,behavior:'auto'});
+      document.documentElement.scrollTop=0;
+      document.body.scrollTop=0;
+      var section=document.getElementById('fuel-request');
+      if(section) section.scrollTop=0;
+    }catch(e){}
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){
+      resetPopupScroll();
+      requestAnimationFrame(resetPopupScroll);
+      setTimeout(resetPopupScroll,60);
+    });
+  }else{
+    resetPopupScroll();
+    requestAnimationFrame(resetPopupScroll);
+    setTimeout(resetPopupScroll,60);
   }
 })();
 </script>
