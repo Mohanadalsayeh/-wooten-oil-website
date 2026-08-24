@@ -2494,6 +2494,32 @@ input[type="file"]::file-selector-button{
 @media(max-width:1200px){.live-payment-toolbar{grid-template-columns:1fr 1fr 1fr}.live-payment-search{grid-column:1/-1}}
 @media(max-width:760px){.live-payment-db-section{margin-top:24px;padding-top:20px}.live-payment-toolbar{grid-template-columns:1fr}.live-payment-search{grid-column:auto}.live-payment-actions{display:grid;grid-template-columns:1fr}.live-payment-actions button{width:100%}}
 </style>
+
+<style id="wooten-database-clear-style">
+.danger-db-btn,.danger-db-confirm{
+  min-height:44px;border:1px solid #b42318;border-radius:10px;background:#fff;color:#b42318;
+  padding:0 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer
+}
+.danger-db-btn:hover,.danger-db-btn:focus{background:#fff1f0}
+.danger-db-confirm{background:#b42318;color:#fff}
+.danger-db-confirm:hover,.danger-db-confirm:focus{background:#8f1c13}
+.danger-db-btn:disabled,.danger-db-confirm:disabled{opacity:.55;cursor:not-allowed}
+.database-clear-modal{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:20px}
+.database-clear-modal.open{display:flex}
+.database-clear-backdrop{position:absolute;inset:0;background:rgba(5,16,28,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.database-clear-card{position:relative;z-index:1;width:min(470px,100%);padding:28px;border-radius:20px;background:#fff;box-shadow:0 28px 80px rgba(0,0,0,.32)}
+.database-clear-icon{width:46px;height:46px;display:grid;place-items:center;margin-bottom:16px;border-radius:50%;background:#fff1f0;color:#b42318;font-size:24px;font-weight:900}
+.database-clear-eyebrow{color:#b42318;text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:900}
+.database-clear-card h3{margin:4px 0 8px;color:#10263c;font-size:25px}
+.database-clear-card p{margin:0 0 16px;color:#5f6f7f;line-height:1.55}
+.database-clear-warning{margin:0 0 18px;padding:13px 14px;border:1px solid #f0c4c0;border-radius:12px;background:#fff7f6;color:#7a271a;line-height:1.5;font-size:13px}
+.database-clear-warning strong{display:block;margin-bottom:2px}
+.database-clear-card label{display:block;margin:0 0 7px;color:#26394b;font-size:13px;font-weight:800}
+.database-clear-card input{width:100%;height:48px;box-sizing:border-box;padding:0 13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}
+.database-clear-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+@media(max-width:560px){.database-clear-card{padding:24px 18px}.database-clear-actions{display:grid;grid-template-columns:1fr}.database-clear-actions button{width:100%}}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -2795,6 +2821,7 @@ input[type="file"]::file-selector-button{
       <div class="db-actions">
         <button class="primary" id="dbLoadBtn" type="button">Load Database</button>
         <button class="secondary" id="dbRefreshBtn" type="button" disabled>Refresh</button>
+        <button class="danger-db-btn" id="clearCustomerDatabaseBtn" type="button">Clear Customer Database</button>
       </div>
     </div>
 
@@ -2886,6 +2913,7 @@ input[type="file"]::file-selector-button{
           <button class="primary" id="livePaymentLoadBtn" type="button">Load Payments</button>
           <button class="secondary" id="livePaymentRefreshBtn" type="button" disabled>Refresh</button>
           <button class="secondary" id="livePaymentClearBtn" type="button">Clear Filters</button>
+          <button class="danger-db-btn" id="clearPaymentDatabaseBtn" type="button">Clear Payment Database</button>
         </div>
       </div>
 
@@ -3921,6 +3949,130 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
 
   prevBtn.addEventListener("click",()=>{if(page>1){page--;loadPayments();}});
   nextBtn.addEventListener("click",()=>{page++;loadPayments();});
+})();
+
+
+
+/* CLEAR SERVER DATABASES */
+(function(){
+  const modal=document.getElementById("databaseClearModal");
+  const title=document.getElementById("databaseClearTitle");
+  const message=document.getElementById("databaseClearMessage");
+  const warning=document.getElementById("databaseClearWarning");
+  const keyInput=document.getElementById("databaseClearAdminKey");
+  const status=document.getElementById("databaseClearStatus");
+  const cancelBtn=document.getElementById("databaseClearCancelBtn");
+  const confirmBtn=document.getElementById("databaseClearConfirmBtn");
+  const clearCustomersBtn=document.getElementById("clearCustomerDatabaseBtn");
+  const clearPaymentsBtn=document.getElementById("clearPaymentDatabaseBtn");
+
+  if(!modal||!confirmBtn) return;
+
+  let target="";
+
+  function setClearStatus(text,good=false){
+    if(!text){status.className="status";status.textContent="";return;}
+    status.className="status show "+(good?"ok":"bad");
+    status.textContent=text;
+  }
+
+  function openClearModal(kind){
+    target=kind;
+    keyInput.value="";
+    setClearStatus("");
+
+    if(kind==="customers"){
+      title.textContent="Clear Customer Database";
+      message.textContent="This will permanently delete every customer record stored in the server customer database.";
+      warning.innerHTML="<strong>This cannot be undone.</strong> Clearing the customer database also removes customer login/password data stored with those customer records. Re-importing the MAS 90 customer file restores the customer data, but online passwords may need to be set again.";
+      confirmBtn.textContent="OK — Clear Customer Database";
+    }else{
+      title.textContent="Clear Customer Payments Database";
+      message.textContent="This will permanently delete every customer payment record stored on the server.";
+      warning.innerHTML="<strong>This cannot be undone.</strong> Make sure the original Customer Payments MDB/Access file is available so the payment history can be imported again.";
+      confirmBtn.textContent="OK — Clear Payment Database";
+    }
+
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden","false");
+    setTimeout(()=>keyInput.focus(),50);
+  }
+
+  function closeClearModal(){
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden","true");
+    keyInput.value="";
+    target="";
+    setClearStatus("");
+  }
+
+  clearCustomersBtn?.addEventListener("click",()=>openClearModal("customers"));
+  clearPaymentsBtn?.addEventListener("click",()=>openClearModal("payments"));
+  cancelBtn.addEventListener("click",closeClearModal);
+  modal.querySelectorAll("[data-clear-close]").forEach(el=>el.addEventListener("click",closeClearModal));
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"&&modal.classList.contains("open")) closeClearModal();
+  });
+
+  confirmBtn.addEventListener("click",async()=>{
+    const key=keyInput.value.trim();
+    if(!key){
+      setClearStatus("Enter the Admin Import Key before continuing.");
+      keyInput.focus();
+      return;
+    }
+    if(!target) return;
+
+    const label=target==="customers"?"Customer Database":"Customer Payments Database";
+    const ok=window.confirm(
+      `FINAL CONFIRMATION\n\nAre you sure you want to permanently clear the ${label} from the server?\n\nClick OK to delete all records or Cancel to stop.`
+    );
+    if(!ok) return;
+
+    confirmBtn.disabled=true;
+    cancelBtn.disabled=true;
+    setClearStatus("Verifying Admin Import Key and clearing the database…",true);
+
+    try{
+      const res=await fetch("/api/admin/clear-database",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "X-Admin-Key":key,
+          "Accept":"application/json"
+        },
+        body:JSON.stringify({database:target})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||data.success===false) throw new Error(data.error||"Database could not be cleared.");
+
+      setClearStatus(`${label} cleared successfully. ${Number(data.deleted||0).toLocaleString()} record(s) removed.`,true);
+
+      if(target==="customers"){
+        const body=document.getElementById("dbTableBody");
+        if(body) body.innerHTML="";
+        ["dbMeta","dbTableWrap","dbPagination"].forEach(id=>{
+          const el=document.getElementById(id);if(el) el.style.display="none";
+        });
+        if(typeof setImportLastUpdate==="function") setImportLastUpdate("customers","");
+      }else{
+        const body=document.getElementById("livePaymentBody");
+        if(body) body.innerHTML="";
+        ["livePaymentMeta","livePaymentTableWrap","livePaymentPagination"].forEach(id=>{
+          const el=document.getElementById(id);if(el) el.style.display="none";
+        });
+        if(typeof setImportLastUpdate==="function") setImportLastUpdate("payments","");
+      }
+
+      setTimeout(closeClearModal,1800);
+    }catch(error){
+      console.error(error);
+      setClearStatus(error.message||"Database could not be cleared.");
+    }finally{
+      confirmBtn.disabled=false;
+      cancelBtn.disabled=false;
+    }
+  });
 })();
 
 
@@ -5495,6 +5647,32 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 })();
 </script>
+
+
+<div class="database-clear-modal" id="databaseClearModal" aria-hidden="true">
+  <div class="database-clear-backdrop" data-clear-close></div>
+  <div class="database-clear-card" role="dialog" aria-modal="true" aria-labelledby="databaseClearTitle">
+    <div class="database-clear-icon">!</div>
+    <div class="database-clear-eyebrow">Permanent Action</div>
+    <h3 id="databaseClearTitle">Clear Database</h3>
+    <p id="databaseClearMessage">This will permanently remove all records from the selected database on the server.</p>
+
+    <div class="database-clear-warning" id="databaseClearWarning">
+      <strong>This cannot be undone.</strong>
+      Make sure the original MAS 90 / Access file is available before continuing.
+    </div>
+
+    <label for="databaseClearAdminKey">Admin Import Key</label>
+    <input id="databaseClearAdminKey" type="password" autocomplete="off" placeholder="Enter Admin Import Key">
+
+    <div id="databaseClearStatus" class="status"></div>
+
+    <div class="database-clear-actions">
+      <button class="secondary" id="databaseClearCancelBtn" type="button">Cancel</button>
+      <button class="danger-db-confirm" id="databaseClearConfirmBtn" type="button">OK — Clear Database</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

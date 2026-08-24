@@ -4846,6 +4846,68 @@ async function adminCustomerPaymentsDatabaseGet({request,env}){
 __name(adminCustomerPaymentsDatabaseGet,"adminCustomerPaymentsDatabaseGet");
 
 
+
+async function adminClearDatabasePost({request,env}){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+    return json3({success:false,error:"Invalid Admin Import Key."},401);
+  }
+  if(!env.DB){
+    return json3({success:false,error:"Customer database is not configured."},503);
+  }
+
+  let body;
+  try{body=await request.json();}
+  catch{return json3({success:false,error:"Invalid request."},400);}
+
+  const database=String(body?.database||"").trim().toLowerCase();
+  if(database!=="customers"&&database!=="payments"){
+    return json3({success:false,error:"Unknown database selection."},400);
+  }
+
+  try{
+    await ensureAdminImportMetadataSchema(env);
+
+    if(database==="payments"){
+      await ensureCustomerPaymentsSchema(env);
+      const count=await env.DB.prepare(`SELECT COUNT(*) AS total FROM customer_payments`).first();
+      const deleted=Number(count?.total||0);
+
+      await env.DB.batch([
+        env.DB.prepare(`DELETE FROM customer_payments`),
+        env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='payments'`)
+      ]);
+
+      return json3({success:true,database:"payments",deleted});
+    }
+
+    const exists=await env.DB.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type='table' AND name='customers'
+      LIMIT 1
+    `).first();
+
+    let deleted=0;
+    if(exists?.name){
+      const count=await env.DB.prepare(`SELECT COUNT(*) AS total FROM customers`).first();
+      deleted=Number(count?.total||0);
+      await env.DB.batch([
+        env.DB.prepare(`DELETE FROM customers`),
+        env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='customers'`)
+      ]);
+    }else{
+      await env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='customers'`).run();
+    }
+
+    return json3({success:true,database:"customers",deleted});
+  }catch(error){
+    console.error("adminClearDatabasePost failed",error);
+    return json3({success:false,error:"Database could not be cleared. "+String(error?.message||error)},500);
+  }
+}
+__name(adminClearDatabasePost,"adminClearDatabasePost");
+
+
 function methodNotAllowed() {
   return new Response(
     JSON.stringify({
@@ -5711,6 +5773,13 @@ var worker_default = {
     if (url.pathname === "/api/admin/customer-payments-database") {
       if (request.method === "GET") {
         return adminCustomerPaymentsDatabaseGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/clear-database") {
+      if (request.method === "POST") {
+        return adminClearDatabasePost({ request, env });
       }
       return methodNotAllowed();
     }
