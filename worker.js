@@ -4743,6 +4743,109 @@ async function adminCustomersDatabaseGet({ request, env }) {
 }
 __name(adminCustomersDatabaseGet, "adminCustomersDatabaseGet");
 
+
+async function adminCustomerPaymentsDatabaseGet({request,env}){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+    return json3({success:false,error:"Unauthorized."},401);
+  }
+  if(!env.DB) return json3({success:false,error:"Customer database is not configured."},503);
+
+  try{
+    await ensureCustomerPaymentsSchema(env);
+
+    const url=new URL(request.url);
+    const page=Math.max(1,parseInt(url.searchParams.get("page")||"1",10)||1);
+    const pageSize=Math.min(100,Math.max(10,parseInt(url.searchParams.get("page_size")||"50",10)||50));
+    const search=(url.searchParams.get("search")||"").trim().slice(0,200);
+    const depType=(url.searchParams.get("deposit_type")||"all").trim().slice(0,100);
+    const dateFrom=(url.searchParams.get("date_from")||"").trim().slice(0,10);
+    const dateTo=(url.searchParams.get("date_to")||"").trim().slice(0,10);
+    const amount=(url.searchParams.get("amount")||"all").trim();
+    const sort=(url.searchParams.get("sort")||"posting_desc").trim();
+
+    const where=[];
+    const args=[];
+
+    if(search){
+      const q=`%${search.replace(/[%_]/g,m=>"\\"+m)}%`;
+      where.push(`(
+        account_number LIKE ? ESCAPE '\\'
+        OR customer_name LIKE ? ESCAPE '\\'
+        OR reference LIKE ? ESCAPE '\\'
+        OR source_invoice_no LIKE ? ESCAPE '\\'
+        OR deposit_no LIKE ? ESCAPE '\\'
+        OR deposit_type LIKE ? ESCAPE '\\'
+      )`);
+      args.push(q,q,q,q,q,q);
+    }
+
+    if(depType && depType!=="all"){where.push(`deposit_type=?`);args.push(depType);}
+    if(dateFrom){where.push(`COALESCE(NULLIF(posting_date,''),payment_date)>=?`);args.push(dateFrom);}
+    if(dateTo){where.push(`COALESCE(NULLIF(posting_date,''),payment_date)<=?`);args.push(dateTo);}
+
+    if(amount==="positive") where.push(`COALESCE(amount,0)>0`);
+    else if(amount==="zero") where.push(`ABS(COALESCE(amount,0))<0.005`);
+    else if(amount==="negative") where.push(`COALESCE(amount,0)<0`);
+
+    const sortSql={
+      posting_desc:`COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`,
+      posting_asc:`COALESCE(NULLIF(posting_date,''),payment_date) ASC,id ASC`,
+      customer_asc:`account_number ASC,COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`,
+      customer_desc:`account_number DESC,COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`,
+      amount_desc:`COALESCE(amount,0) DESC,id DESC`,
+      amount_asc:`COALESCE(amount,0) ASC,id ASC`,
+      check_asc:`reference COLLATE NOCASE ASC,id ASC`
+    }[sort]||`COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`;
+
+    const whereSql=where.length?`WHERE ${where.join(" AND ")}`:"";
+
+    const countRow=await env.DB.prepare(`
+      SELECT COUNT(*) AS total FROM customer_payments ${whereSql}
+    `).bind(...args).first();
+
+    const total=Number(countRow?.total||0);
+    const pages=Math.max(1,Math.ceil(total/pageSize));
+    const safePage=Math.min(page,pages);
+    const offset=(safePage-1)*pageSize;
+
+    const result=await env.DB.prepare(`
+      SELECT
+        id,deposit_date,deposit_no,deposit_type,account_number,reference,
+        posting_date,payment_date,customer_name,
+        source_invoice_no AS invoice_no,amount,discount_amount,imported_at
+      FROM customer_payments
+      ${whereSql}
+      ORDER BY ${sortSql}
+      LIMIT ? OFFSET ?
+    `).bind(...args,pageSize,offset).all();
+
+    const types=await env.DB.prepare(`
+      SELECT DISTINCT deposit_type
+      FROM customer_payments
+      WHERE deposit_type IS NOT NULL AND trim(deposit_type)<>''
+      ORDER BY deposit_type COLLATE NOCASE ASC
+      LIMIT 100
+    `).all();
+
+    return json3({
+      success:true,
+      read_only:true,
+      page:safePage,
+      page_size:pageSize,
+      total,
+      pages,
+      payments:result?.results||[],
+      deposit_types:(types?.results||[]).map(r=>String(r.deposit_type||"")).filter(Boolean)
+    });
+  }catch(error){
+    console.error("adminCustomerPaymentsDatabaseGet failed",error);
+    return json3({success:false,error:"Could not load customer payments database. "+String(error?.message||error)},500);
+  }
+}
+__name(adminCustomerPaymentsDatabaseGet,"adminCustomerPaymentsDatabaseGet");
+
+
 function methodNotAllowed() {
   return new Response(
     JSON.stringify({
@@ -5601,6 +5704,13 @@ var worker_default = {
     if (url.pathname === "/api/admin/customer-payments-import") {
       if (request.method === "POST") {
         return adminCustomerPaymentsImport({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/customer-payments-database") {
+      if (request.method === "GET") {
+        return adminCustomerPaymentsDatabaseGet({ request, env });
       }
       return methodNotAllowed();
     }

@@ -2477,6 +2477,23 @@ input[type="file"]::file-selector-button{
 <style id="wooten-access-direct-import-style">
 .access-import-hint{margin-top:7px;color:#64748b;font-size:12.5px;line-height:1.45}
 </style>
+<style id="wooten-live-customer-payments-database-style">
+.live-payment-db-section{margin-top:32px;padding-top:26px;border-top:2px solid #e5ebf0}
+.live-payment-db-head h3{margin:3px 0 6px;color:#0b2239;font-size:23px;line-height:1.2}
+.live-payment-db-head p{max-width:980px;margin:0;color:#687787;line-height:1.55}
+.live-payment-toolbar{display:grid;grid-template-columns:minmax(270px,1.6fr) repeat(5,minmax(145px,.78fr));gap:12px;align-items:end;margin:18px 0 14px}
+.live-payment-toolbar .db-field{min-width:0}
+.live-payment-toolbar .db-field label{display:block;margin:0 0 7px;color:#0f172a;font-size:13px;line-height:1.2;font-weight:600}
+.live-payment-toolbar input,.live-payment-toolbar select{width:100%;height:46px;min-height:46px;box-sizing:border-box;margin:0;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font:inherit;font-size:14px}
+.live-payment-actions{grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.live-payment-actions button{min-height:44px;padding:0 16px}
+.live-payment-tablewrap{overflow:auto}.live-payment-table{min-width:1540px}
+.live-payment-table th,.live-payment-table td{white-space:nowrap}
+.live-payment-table td.money{font-variant-numeric:tabular-nums;text-align:right}
+.live-payment-table .live-payment-customer{font-weight:700;color:#17324d}
+@media(max-width:1200px){.live-payment-toolbar{grid-template-columns:1fr 1fr 1fr}.live-payment-search{grid-column:1/-1}}
+@media(max-width:760px){.live-payment-db-section{margin-top:24px;padding-top:20px}.live-payment-toolbar{grid-template-columns:1fr}.live-payment-search{grid-column:auto}.live-payment-actions{display:grid;grid-template-columns:1fr}.live-payment-actions button{width:100%}}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -2811,6 +2828,100 @@ input[type="file"]::file-selector-button{
       <div class="db-page-info" id="dbPageInfo">Page 1 of 1</div>
       <button class="secondary" id="dbNextBtn" type="button">Next</button>
     </div>
+
+    <section class="live-payment-db-section" id="livePaymentDatabaseSection">
+      <div class="live-payment-db-head">
+        <div>
+          <div class="admin-page-label">Payments</div>
+          <h3>Live Customer Payments Database</h3>
+          <p>Read-only view of customer payment records currently stored in D1. Search, filter, sort, and page through the imported MAS 90 payment history.</p>
+        </div>
+      </div>
+
+      <div class="live-payment-toolbar">
+        <div class="db-field live-payment-search">
+          <label for="livePaymentSearch">Search</label>
+          <input id="livePaymentSearch" type="search" placeholder="Customer #, name, check #, invoice #, deposit #…" autocomplete="off">
+        </div>
+
+        <div class="db-field">
+          <label for="livePaymentDepositType">Deposit Type</label>
+          <select id="livePaymentDepositType"><option value="all">All types</option></select>
+        </div>
+
+        <div class="db-field">
+          <label for="livePaymentFromDate">From Date</label>
+          <input id="livePaymentFromDate" type="date">
+        </div>
+
+        <div class="db-field">
+          <label for="livePaymentToDate">To Date</label>
+          <input id="livePaymentToDate" type="date">
+        </div>
+
+        <div class="db-field">
+          <label for="livePaymentAmountFilter">Cash Amount</label>
+          <select id="livePaymentAmountFilter">
+            <option value="all">All amounts</option>
+            <option value="positive">Positive</option>
+            <option value="zero">Zero</option>
+            <option value="negative">Negative / reversal</option>
+          </select>
+        </div>
+
+        <div class="db-field">
+          <label for="livePaymentSort">Sort</label>
+          <select id="livePaymentSort">
+            <option value="posting_desc">Posting date newest</option>
+            <option value="posting_asc">Posting date oldest</option>
+            <option value="customer_asc">Customer # low → high</option>
+            <option value="customer_desc">Customer # high → low</option>
+            <option value="amount_desc">Cash amount high → low</option>
+            <option value="amount_asc">Cash amount low → high</option>
+            <option value="check_asc">Check # low → high</option>
+          </select>
+        </div>
+
+        <div class="live-payment-actions">
+          <button class="primary" id="livePaymentLoadBtn" type="button">Load Payments</button>
+          <button class="secondary" id="livePaymentRefreshBtn" type="button" disabled>Refresh</button>
+          <button class="secondary" id="livePaymentClearBtn" type="button">Clear Filters</button>
+        </div>
+      </div>
+
+      <div id="livePaymentStatus" class="status"></div>
+
+      <div class="db-meta" id="livePaymentMeta" style="display:none">
+        <div><span class="db-live-dot"></span><strong id="livePaymentTotal">0</strong> matching payment row(s)</div>
+        <div id="livePaymentRange">Showing 0–0</div>
+      </div>
+
+      <div class="db-tablewrap live-payment-tablewrap" id="livePaymentTableWrap" style="display:none">
+        <table class="db-table live-payment-table">
+          <thead>
+            <tr>
+              <th>Deposit Date</th>
+              <th>Deposit No</th>
+              <th>Deposit Type</th>
+              <th>Customer No</th>
+              <th>Check No</th>
+              <th>Posting Date</th>
+              <th>Customer Name</th>
+              <th>Invoice No</th>
+              <th class="money">Cash Amount Applied</th>
+              <th class="money">Discount Amount Applied</th>
+            </tr>
+          </thead>
+          <tbody id="livePaymentBody"></tbody>
+        </table>
+      </div>
+
+      <div class="db-pagination" id="livePaymentPagination" style="display:none">
+        <button class="secondary" id="livePaymentPrevBtn" type="button">Previous</button>
+        <div class="db-page-info" id="livePaymentPageInfo">Page 1 of 1</div>
+        <button class="secondary" id="livePaymentNextBtn" type="button">Next</button>
+      </div>
+    </section>
   </div>
 
   <div class="db-customer-modal" id="dbCustomerModal" aria-hidden="true">
@@ -3474,6 +3585,18 @@ function paymentMoney(v){
   return n.toLocaleString("en-US",{style:"currency",currency:"USD"});
 }
 
+function paymentDisplayDate(value){
+  if(!value) return "";
+  const s=String(value).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m) return `${m[2]}-${m[3]}-${m[1]}`;
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m) return `${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}-${m[3]}`;
+  const d=new Date(s);
+  if(Number.isNaN(d.getTime())) return s;
+  return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}-${d.getFullYear()}`;
+}
+
 function paymentPreviewFilteredRows(){
   const q=(document.getElementById("paymentPreviewSearch")?.value||"").trim().toLowerCase();
   const depType=document.getElementById("paymentDepositTypeFilter")?.value||"all";
@@ -3515,7 +3638,7 @@ function renderPaymentPreview(rows,total,skipped){
   const body=document.getElementById("paymentPreviewBody");body.innerHTML="";
   filtered.slice(0,200).forEach(r=>{
     const tr=document.createElement("tr");
-    [r.deposit_date,r.deposit_no,r.deposit_type,r.account_number,r.check_no,r.posting_date,r.customer_name,r.invoice_no,paymentMoney(r.cash_amount_applied),paymentMoney(r.discount_amount_applied)].forEach(v=>{
+    [paymentDisplayDate(r.deposit_date),r.deposit_no,r.deposit_type,r.account_number,r.check_no,paymentDisplayDate(r.posting_date),r.customer_name,r.invoice_no,paymentMoney(r.cash_amount_applied),paymentMoney(r.discount_amount_applied)].forEach(v=>{
       const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);
     });
     body.appendChild(tr);
@@ -3627,6 +3750,178 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     btn.textContent="Import Payments";
   }
 });
+
+
+
+/* LIVE CUSTOMER PAYMENTS DATABASE */
+(function(){
+  const loadBtn=document.getElementById("livePaymentLoadBtn");
+  if(!loadBtn) return;
+
+  const refreshBtn=document.getElementById("livePaymentRefreshBtn");
+  const clearBtn=document.getElementById("livePaymentClearBtn");
+  const search=document.getElementById("livePaymentSearch");
+  const depositType=document.getElementById("livePaymentDepositType");
+  const fromDate=document.getElementById("livePaymentFromDate");
+  const toDate=document.getElementById("livePaymentToDate");
+  const amountFilter=document.getElementById("livePaymentAmountFilter");
+  const sort=document.getElementById("livePaymentSort");
+  const status=document.getElementById("livePaymentStatus");
+  const meta=document.getElementById("livePaymentMeta");
+  const totalEl=document.getElementById("livePaymentTotal");
+  const rangeEl=document.getElementById("livePaymentRange");
+  const tableWrap=document.getElementById("livePaymentTableWrap");
+  const tbody=document.getElementById("livePaymentBody");
+  const pagination=document.getElementById("livePaymentPagination");
+  const prevBtn=document.getElementById("livePaymentPrevBtn");
+  const nextBtn=document.getElementById("livePaymentNextBtn");
+  const pageInfo=document.getElementById("livePaymentPageInfo");
+
+  let page=1;
+  const pageSize=50;
+  let loaded=false;
+  let requestSerial=0;
+  let debounceTimer=null;
+
+  function esc(v){
+    return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function money(v){
+    const n=Number(v||0);
+    return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number.isFinite(n)?n:0);
+  }
+  function dateDisplay(v){
+    if(!v) return "—";
+    const s=String(v).trim();
+    let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(m) return `${m[2]}-${m[3]}-${m[1]}`;
+    m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m) return `${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}-${m[3]}`;
+    return s;
+  }
+  function setStatus(message,good=false){
+    if(!message){status.className="status";status.textContent="";return;}
+    status.className="status show "+(good?"ok":"bad");
+    status.textContent=message;
+  }
+  function buildUrl(){
+    const params=new URLSearchParams({
+      page:String(page),
+      page_size:String(pageSize),
+      search:search.value.trim(),
+      deposit_type:depositType.value,
+      date_from:fromDate.value,
+      date_to:toDate.value,
+      amount:amountFilter.value,
+      sort:sort.value
+    });
+    return "/api/admin/customer-payments-database?"+params.toString();
+  }
+  function renderRows(rows){
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="10"><div class="db-empty">No payment records match the current search and filters.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML=rows.map(row=>`<tr>
+      <td>${esc(dateDisplay(row.deposit_date))}</td>
+      <td>${esc(row.deposit_no||"—")}</td>
+      <td>${esc(row.deposit_type||"—")}</td>
+      <td class="live-payment-customer">${esc(row.account_number||"")}</td>
+      <td>${esc(row.reference||"—")}</td>
+      <td>${esc(dateDisplay(row.posting_date||row.payment_date))}</td>
+      <td>${esc(row.customer_name||"—")}</td>
+      <td>${esc(row.invoice_no||"—")}</td>
+      <td class="money">${money(row.amount)}</td>
+      <td class="money">${money(row.discount_amount)}</td>
+    </tr>`).join("");
+  }
+  function populateDepositTypes(types){
+    const current=depositType.value;
+    const list=Array.isArray(types)?types:[];
+    depositType.innerHTML='<option value="all">All types</option>'+list.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if(list.includes(current)) depositType.value=current;
+  }
+  async function loadPayments(){
+    const key=document.getElementById("adminKey").value.trim();
+    if(!key){
+      window.ensureAdminLoginKey?.("Enter your Admin Import Key to load the live payment database.");
+      setStatus("Enter the Admin Import Key in the Admin Login window first.");
+      return;
+    }
+
+    const serial=++requestSerial;
+    loadBtn.disabled=true;
+    refreshBtn.disabled=true;
+    setStatus("Loading customer payments…",true);
+
+    try{
+      const response=await fetch(buildUrl(),{
+        headers:{"X-Admin-Key":key,"Accept":"application/json"},
+        cache:"no-store"
+      });
+      const data=await response.json().catch(()=>({}));
+      if(serial!==requestSerial) return;
+      if(!response.ok||data.success===false) throw new Error(data.error||"Customer payments could not be loaded.");
+
+      loaded=true;
+      renderRows(Array.isArray(data.payments)?data.payments:[]);
+      populateDepositTypes(data.deposit_types||[]);
+
+      const total=Number(data.total||0);
+      totalEl.textContent=total.toLocaleString();
+      const start=total?((Number(data.page||1)-1)*Number(data.page_size||pageSize))+1:0;
+      const end=total?Math.min(start+Number(data.page_size||pageSize)-1,total):0;
+      rangeEl.textContent=`Showing ${start.toLocaleString()}–${end.toLocaleString()}`;
+
+      page=Number(data.page||1);
+      const pages=Math.max(1,Number(data.pages||1));
+      pageInfo.textContent=`Page ${page.toLocaleString()} of ${pages.toLocaleString()}`;
+      prevBtn.disabled=page<=1;
+      nextBtn.disabled=page>=pages;
+
+      meta.style.display="flex";
+      tableWrap.style.display="block";
+      pagination.style.display=pages>1?"flex":"none";
+      refreshBtn.disabled=false;
+      setStatus(`Live payment database loaded • ${total.toLocaleString()} matching row(s).`,true);
+    }catch(error){
+      console.error(error);
+      setStatus(error.message||"Customer payments could not be loaded.");
+    }finally{
+      loadBtn.disabled=false;
+      if(loaded) refreshBtn.disabled=false;
+    }
+  }
+  function resetAndLoad(){
+    if(!loaded) return;
+    page=1;
+    loadPayments();
+  }
+  function debounceLoad(){
+    if(!loaded) return;
+    clearTimeout(debounceTimer);
+    debounceTimer=setTimeout(()=>{page=1;loadPayments();},350);
+  }
+
+  loadBtn.addEventListener("click",()=>{page=1;loadPayments();});
+  refreshBtn.addEventListener("click",()=>loadPayments());
+  search.addEventListener("input",debounceLoad);
+  [depositType,fromDate,toDate,amountFilter,sort].forEach(el=>el.addEventListener("change",resetAndLoad));
+
+  clearBtn.addEventListener("click",()=>{
+    search.value="";
+    depositType.value="all";
+    fromDate.value="";
+    toDate.value="";
+    amountFilter.value="all";
+    sort.value="posting_desc";
+    page=1;
+    if(loaded) loadPayments();
+  });
+
+  prevBtn.addEventListener("click",()=>{if(page>1){page--;loadPayments();}});
+  nextBtn.addEventListener("click",()=>{page++;loadPayments();});
+})();
 
 
 let inboxMessages=[];
