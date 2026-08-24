@@ -2597,10 +2597,7 @@ input[type="file"]::file-selector-button{
       </div>
 
       <p class="note payments-import-note">
-        <strong>Accepted payment fields:</strong>
-        CustomerNo or AccountNumber, PaymentDate or Date, Amount or PaymentAmount,
-        CheckNo / Reference / ReferenceNumber, PaymentType / Method, Description / Memo.
-        Only <strong>Account Number, Payment Date, and Amount</strong> are required.
+        <strong>MAS 90 payment fields used:</strong> CustomerNo, PostingDate / DepositDate, CheckNo, CashAmountApplied, DepositNo, DepositDesc, Comment, and InvoiceNo for duplicate protection. DepositType, ARDivisionNo, TransactionType, and InvoiceType are ignored. Every valid payment row is imported separately; payments are not combined.
       </p>
     </div>
   </div>
@@ -3136,12 +3133,33 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
 let preparedPaymentRows=[];
 
 const paymentAliases={
-  account_number:["customerno","customer_no","customer","accountnumber","account_number","accountno","account_no","acctnumber","acct_no","acctnum"],
-  payment_date:["paymentdate","payment_date","datepaid","paiddate","date","transactiondate","transaction_date","postdate","postingdate"],
-  amount:["amount","paymentamount","payment_amount","paidamount","paid_amount","payment","creditamount","credit_amount"],
-  reference:["checkno","check_no","checknumber","check_number","reference","referenceno","reference_no","referencenumber","reference_number","receiptno","receipt_number"],
-  payment_type:["paymenttype","payment_type","method","paymentmethod","payment_method","type","tendertype","tender_type"],
-  description:["description","memo","comment","comments","note","notes","remark","remarks","detail","details"]
+  account_number:[
+    "CustomerNo","AccountNumber","AccountNo","AcctNumber","AcctNo"
+  ],
+  posting_date:[
+    "PostingDate","PaymentDate","DatePaid","PaidDate","TransactionDate","PostDate"
+  ],
+  deposit_date:[
+    "DepositDate","Date"
+  ],
+  amount:[
+    "CashAmountApplied","PaymentAmount","Amount","PaidAmount","Payment"
+  ],
+  reference:[
+    "CheckNo","CheckNumber","Reference","ReferenceNo","ReferenceNumber","ReceiptNo"
+  ],
+  deposit_no:[
+    "DepositNo","DepositNumber"
+  ],
+  payment_type:[
+    "PaymentType","PaymentMethod","Method"
+  ],
+  description:[
+    "DepositDesc","Description","Memo","Comment","Comments","Notes"
+  ],
+  invoice_no:[
+    "InvoiceNo","InvoiceNumber"
+  ]
 };
 
 function paymentPick(row,names){
@@ -3155,17 +3173,28 @@ function paymentPick(row,names){
 }
 
 function normalizePaymentDate(v){
+  if(v===undefined || v===null || v==="") return "";
+
+  // MAS 90 Excel exports store dates as Excel serial numbers.
+  const numeric=Number(v);
+  if(Number.isFinite(numeric) && numeric>20000 && numeric<100000){
+    const excelEpoch=Date.UTC(1899,11,30);
+    const d=new Date(excelEpoch + Math.round(numeric)*86400000);
+    return [
+      d.getUTCFullYear(),
+      String(d.getUTCMonth()+1).padStart(2,"0"),
+      String(d.getUTCDate()).padStart(2,"0")
+    ].join("-");
+  }
+
   const s=clean(v);
   if(!s) return "";
 
-  // Already ISO-ish.
   let m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
   if(m){
-    const y=m[1], mo=String(m[2]).padStart(2,"0"), d=String(m[3]).padStart(2,"0");
-    return `${y}-${mo}-${d}`;
+    return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
   }
 
-  // Common U.S. format MM/DD/YYYY.
   m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if(m){
     let y=m[3];
@@ -3173,31 +3202,41 @@ function normalizePaymentDate(v){
     return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
   }
 
-  // Month-name formats as produced by Excel's formatted text.
   const parsed=new Date(s);
   if(!Number.isNaN(parsed.getTime())){
-    const y=parsed.getFullYear();
-    const mo=String(parsed.getMonth()+1).padStart(2,"0");
-    const d=String(parsed.getDate()).padStart(2,"0");
-    return `${y}-${mo}-${d}`;
+    return [
+      parsed.getFullYear(),
+      String(parsed.getMonth()+1).padStart(2,"0"),
+      String(parsed.getDate()).padStart(2,"0")
+    ].join("-");
   }
 
-  return s;
+  return "";
 }
 
 function mapPaymentRow(row){
+  const postingDate=paymentPick(row,paymentAliases.posting_date);
+  const depositDate=paymentPick(row,paymentAliases.deposit_date);
+  const checkNo=clean(paymentPick(row,paymentAliases.reference));
+  const depositNo=clean(paymentPick(row,paymentAliases.deposit_no));
+
   return {
     account_number:normalizeAccount(paymentPick(row,paymentAliases.account_number)),
-    payment_date:normalizePaymentDate(paymentPick(row,paymentAliases.payment_date)),
+    payment_date:normalizePaymentDate(postingDate || depositDate),
     amount:normalizeMoney(paymentPick(row,paymentAliases.amount)),
-    reference:clean(paymentPick(row,paymentAliases.reference)),
+    reference:checkNo || (depositNo ? `Deposit ${depositNo}` : ""),
+    deposit_no:depositNo,
     payment_type:clean(paymentPick(row,paymentAliases.payment_type)),
-    description:clean(paymentPick(row,paymentAliases.description))
+    description:clean(paymentPick(row,paymentAliases.description)),
+    invoice_no:clean(paymentPick(row,paymentAliases.invoice_no))
   };
 }
 
 function paymentRowIsValid(row){
-  return !!row.account_number && !!row.payment_date && Number.isFinite(Number(row.amount)) && Number(row.amount)!==0;
+  return !!row.account_number &&
+         !!row.payment_date &&
+         Number.isFinite(Number(row.amount)) &&
+         Number(row.amount)!==0;
 }
 
 function setPaymentStatus(msg,good=true){
@@ -3249,13 +3288,21 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     const raw=await parseFile(file);
     const mapped=raw.map(mapPaymentRow);
     preparedPaymentRows=mapped.filter(paymentRowIsValid);
-    renderPaymentPreview(preparedPaymentRows,raw.length,raw.length-preparedPaymentRows.length);
+
+    renderPaymentPreview(
+      preparedPaymentRows,
+      raw.length,
+      raw.length-preparedPaymentRows.length
+    );
     document.getElementById("paymentImportBtn").disabled=preparedPaymentRows.length===0;
 
     if(preparedPaymentRows.length){
-      setPaymentStatus(`Preview ready: ${preparedPaymentRows.length} valid payment record(s).`);
+      setPaymentStatus(`Preview ready: ${preparedPaymentRows.length} individual payment row(s) found.`);
     }else{
-      setPaymentStatus("No valid payments were found. The file needs Account Number, Payment Date, and Amount columns.",false);
+      setPaymentStatus(
+        "No valid payments were found. This importer expects CustomerNo, PostingDate or DepositDate, and CashAmountApplied.",
+        false
+      );
     }
   }catch(e){
     console.error(e);

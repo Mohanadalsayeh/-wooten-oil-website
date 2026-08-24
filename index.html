@@ -168,6 +168,7 @@
 
 <link rel="stylesheet" href="assets/css/wooten-notification-pdf-bottom-breathing-room.css">
 
+<link rel="stylesheet" href="assets/css/wooten-customer-payments.css">
 </head>
 <body>
 
@@ -400,6 +401,12 @@
           </span>
           <span><strong>Fuel Request History</strong><small>View your previous fuel delivery requests</small></span>
         </button>
+        <button type="button" class="dashboard-action dashboard-action-payments" id="dashboardPayments">
+          <span class="dashboard-action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M7 9h10M7 13h5M15 13h2M7 17h4"/></svg>
+          </span>
+          <span><strong>Payment History</strong><small>View your recent customer payments</small></span>
+        </button>
         <button type="button" class="dashboard-action dashboard-action-documents" id="dashboardDocuments">
           <span class="dashboard-action-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>
@@ -534,6 +541,42 @@
       <div class="customer-documents-status" id="customerDocumentsStatus" role="status" aria-live="polite"></div>
       <div class="customer-documents-list" id="customerDocumentsList"></div>
       <div class="customer-documents-footer">Wooten Oil Co Inc. • Secure Customer Documents</div>
+    </section>
+
+    <section class="customer-account-details payment-history-panel" id="customerPaymentHistory" aria-label="Payment history">
+      <div class="details-toolbar">
+        <button type="button" class="dashboard-back" id="paymentHistoryBack">← Dashboard</button>
+        <span>Payment History</span>
+      </div>
+
+      <div class="payment-history-head">
+        <div>
+          <h3>Payment History</h3>
+          <p>Payments imported from your Wooten Oil account history.</p>
+        </div>
+        <button type="button" class="payment-history-refresh" id="paymentHistoryRefresh">Refresh</button>
+      </div>
+
+      <div class="payment-history-tools">
+        <input id="paymentHistorySearch" type="search" placeholder="Search date, amount, check #, type, memo..." autocomplete="off">
+        <select id="paymentHistorySort" aria-label="Sort payment history">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="amount_desc">Amount: high to low</option>
+          <option value="amount_asc">Amount: low to high</option>
+          <option value="reference_asc">Check / reference A–Z</option>
+        </select>
+      </div>
+
+      <div class="payment-history-results-meta" id="paymentHistoryResultsMeta"></div>
+      <div class="payment-history-status" id="paymentHistoryStatus" role="status" aria-live="polite"></div>
+      <div class="payment-history-list" id="paymentHistoryList"></div>
+
+      <div class="payment-history-total">
+        <span>Total Paid</span>
+        <strong id="paymentHistoryTotal">$0.00</strong>
+      </div>
+      <div class="payment-history-footer">Wooten Oil Co Inc. • Customer Portal</div>
     </section>
 
     <section class="customer-account-details fuel-history-panel" id="customerFuelHistory" aria-label="Fuel request history">

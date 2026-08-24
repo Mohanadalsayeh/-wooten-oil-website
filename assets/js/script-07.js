@@ -111,6 +111,18 @@
   var dashboardRequestFuel=document.getElementById('dashboardRequestFuel');
   var dashboardFuelHistory=document.getElementById('dashboardFuelHistory');
   var dashboardDocuments=document.getElementById('dashboardDocuments');
+  var dashboardPayments=document.getElementById('dashboardPayments');
+  var paymentHistory=document.getElementById('customerPaymentHistory');
+  var paymentHistoryBack=document.getElementById('paymentHistoryBack');
+  var paymentHistoryRefresh=document.getElementById('paymentHistoryRefresh');
+  var paymentHistorySearch=document.getElementById('paymentHistorySearch');
+  var paymentHistorySort=document.getElementById('paymentHistorySort');
+  var paymentHistoryResultsMeta=document.getElementById('paymentHistoryResultsMeta');
+  var paymentHistoryStatus=document.getElementById('paymentHistoryStatus');
+  var paymentHistoryList=document.getElementById('paymentHistoryList');
+  var paymentHistoryTotal=document.getElementById('paymentHistoryTotal');
+  var paymentHistoryRows=[];
+  var PAYMENT_HISTORY_ENDPOINT='/api/customer/payments';
   var customerDocuments=document.getElementById('customerDocuments');
   var customerDocumentsBack=document.getElementById('customerDocumentsBack');
   var customerDocumentsRefresh=document.getElementById('customerDocumentsRefresh');
@@ -139,11 +151,13 @@
     if(accountDetails) accountDetails.classList.remove('show');
     if(fuelHistory) fuelHistory.classList.remove('show');
     if(customerDocuments) customerDocuments.classList.remove('show');
+    if(paymentHistory) paymentHistory.classList.remove('show');
   }
   function showAccountDetails(focusPayment){
     if(dashboard) dashboard.classList.add('dashboard-hidden');
     if(fuelHistory) fuelHistory.classList.remove('show');
     if(customerDocuments) customerDocuments.classList.remove('show');
+    if(paymentHistory) paymentHistory.classList.remove('show');
     if(accountDetails) accountDetails.classList.add('show');
     setTimeout(function(){
       var target=focusPayment?document.getElementById('portalPaymentPanel'):accountDetails;
@@ -276,6 +290,7 @@
     if(dashboard) dashboard.classList.add('dashboard-hidden');
     if(accountDetails) accountDetails.classList.remove('show');
     if(fuelHistory) fuelHistory.classList.remove('show');
+    if(paymentHistory) paymentHistory.classList.remove('show');
     if(customerDocuments) customerDocuments.classList.add('show');
     await loadCustomerDocuments();
 
@@ -507,8 +522,101 @@
   function showFuelHistory(){
     if(dashboard) dashboard.classList.add('dashboard-hidden');
     if(accountDetails) accountDetails.classList.remove('show');
+    if(customerDocuments) customerDocuments.classList.remove('show');
+    if(paymentHistory) paymentHistory.classList.remove('show');
     if(fuelHistory) fuelHistory.classList.add('show');
     loadFuelHistory();
+  }
+
+
+  function paymentHistoryDate(value){
+    if(!value) return '—';
+    var s=String(value);
+    var p=s.split('-');
+    if(p.length===3){
+      var d=new Date(Number(p[0]),Number(p[1])-1,Number(p[2]));
+      if(!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    }
+    return s;
+  }
+
+  function paymentSearchText(row){
+    return [row.payment_date,row.amount,row.reference,row.payment_type,row.description]
+      .map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ');
+  }
+
+  function filteredSortedPayments(){
+    var q=String(paymentHistorySearch && paymentHistorySearch.value || '').trim().toLowerCase();
+    var rows=(paymentHistoryRows||[]).slice();
+    if(q){
+      var tokens=q.split(/\s+/).filter(Boolean);
+      rows=rows.filter(function(r){var h=paymentSearchText(r);return tokens.every(function(t){return h.indexOf(t)!==-1;});});
+    }
+    var sort=String(paymentHistorySort && paymentHistorySort.value || 'newest');
+    rows.sort(function(a,b){
+      if(sort==='oldest') return String(a.payment_date||'').localeCompare(String(b.payment_date||''));
+      if(sort==='amount_desc') return Number(b.amount||0)-Number(a.amount||0);
+      if(sort==='amount_asc') return Number(a.amount||0)-Number(b.amount||0);
+      if(sort==='reference_asc') return String(a.reference||'').localeCompare(String(b.reference||''),undefined,{numeric:true,sensitivity:'base'});
+      return String(b.payment_date||'').localeCompare(String(a.payment_date||''));
+    });
+    return rows;
+  }
+
+  function renderPaymentHistory(){
+    if(!paymentHistoryList) return;
+    var rows=filteredSortedPayments();
+    paymentHistoryList.innerHTML='';
+    if(paymentHistoryResultsMeta){
+      var total=(paymentHistoryRows||[]).length;
+      var q=String(paymentHistorySearch && paymentHistorySearch.value || '').trim();
+      paymentHistoryResultsMeta.textContent=q ? rows.length+' of '+total+' payments match your search' : (total ? total+' payment'+(total===1?'':'s') : '');
+    }
+    if(!rows.length){
+      var empty=document.createElement('div');empty.className='payment-history-empty';
+      empty.textContent=(paymentHistoryRows||[]).length?'No payments match your search.':'No payment history is available for this account yet.';
+      paymentHistoryList.appendChild(empty);return;
+    }
+    rows.forEach(function(r){
+      var card=document.createElement('article');card.className='payment-history-card';
+      var top=document.createElement('div');top.className='payment-history-card-top';
+      var amt=document.createElement('strong');amt.textContent=money(r.amount);
+      var date=document.createElement('time');date.textContent=paymentHistoryDate(r.payment_date);
+      top.appendChild(amt);top.appendChild(date);card.appendChild(top);
+      var grid=document.createElement('div');grid.className='payment-history-grid';
+      function add(label,value,full){var item=document.createElement('div');item.className='payment-history-item'+(full?' full':'');var s=document.createElement('small');s.textContent=label;var v=document.createElement('strong');v.textContent=value||'—';item.appendChild(s);item.appendChild(v);grid.appendChild(item);}
+      add('Check / Reference',r.reference||'—');
+      add('Payment Type',r.payment_type||'—');
+      add('Payment Date',paymentHistoryDate(r.payment_date));
+      if(String(r.description||'').trim()) add('Description / Memo',r.description,true);
+      card.appendChild(grid);paymentHistoryList.appendChild(card);
+    });
+  }
+
+  async function loadPaymentHistory(){
+    if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status show';paymentHistoryStatus.textContent='Loading payment history…';}
+    if(paymentHistoryRefresh) paymentHistoryRefresh.disabled=true;
+    try{
+      var response=await fetch(PAYMENT_HISTORY_ENDPOINT,{method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false) throw new Error(data.error||'Payment history could not be loaded.');
+      paymentHistoryRows=Array.isArray(data.payments)?data.payments:[];
+      if(paymentHistoryTotal) paymentHistoryTotal.textContent=money(data.total_paid||0);
+      renderPaymentHistory();
+      if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status';paymentHistoryStatus.textContent='';}
+    }catch(error){
+      paymentHistoryRows=[];renderPaymentHistory();
+      if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status show error';paymentHistoryStatus.textContent=error.message||'Payment history could not be loaded.';}
+    }finally{if(paymentHistoryRefresh) paymentHistoryRefresh.disabled=false;}
+  }
+
+  function showPaymentHistory(){
+    if(dashboard) dashboard.classList.add('dashboard-hidden');
+    if(accountDetails) accountDetails.classList.remove('show');
+    if(fuelHistory) fuelHistory.classList.remove('show');
+    if(customerDocuments) customerDocuments.classList.remove('show');
+    if(paymentHistory) paymentHistory.classList.add('show');
+    loadPaymentHistory();
   }
 
   function money(v){
@@ -1209,6 +1317,11 @@
     showDashboardView();
     window.location.href='request-fuel.html';
   });
+  if(dashboardPayments) dashboardPayments.addEventListener('click',function(){ showPaymentHistory(); });
+  if(paymentHistoryBack) paymentHistoryBack.addEventListener('click',function(){ showDashboardView(); });
+  if(paymentHistoryRefresh) paymentHistoryRefresh.addEventListener('click',function(){ loadPaymentHistory(); });
+  if(paymentHistorySearch) paymentHistorySearch.addEventListener('input',function(){ renderPaymentHistory(); });
+  if(paymentHistorySort) paymentHistorySort.addEventListener('change',function(){ renderPaymentHistory(); });
   if(dashboardDocuments) dashboardDocuments.addEventListener('click',function(){ showCustomerDocuments(); });
   if(customerDocumentsBack) customerDocumentsBack.addEventListener('click',function(){ showDashboardView(); });
   if(customerDocumentsRefresh) customerDocumentsRefresh.addEventListener('click',function(){ loadCustomerDocuments(); });

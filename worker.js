@@ -723,22 +723,28 @@ async function ensureCustomerPaymentsSchema(env) {
       reference TEXT NOT NULL DEFAULT '',
       payment_type TEXT NOT NULL DEFAULT '',
       description TEXT NOT NULL DEFAULT '',
+      source_invoice_no TEXT NOT NULL DEFAULT '',
+      source_row_key TEXT NOT NULL DEFAULT '',
       imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
 
-  await env.DB.prepare(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_payments_unique
-    ON customer_payments (
-      account_number,
-      payment_date,
-      amount,
-      reference,
-      payment_type,
-      description
-    )
-  `).run();
+  const info = await env.DB.prepare(`PRAGMA table_info(customer_payments)`).all();
+  const columns = new Set((info?.results||[]).map(r=>String(r.name||'')));
+  if(!columns.has('source_invoice_no')){
+    await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN source_invoice_no TEXT NOT NULL DEFAULT ''`).run();
+  }
+  if(!columns.has('source_row_key')){
+    await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN source_row_key TEXT NOT NULL DEFAULT ''`).run();
+  }
 
+  // The old index could collapse separate MAS 90 rows that happen to look alike.
+  await env.DB.prepare(`DROP INDEX IF EXISTS idx_customer_payments_unique`).run();
+  await env.DB.prepare(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_payments_source_row
+    ON customer_payments(source_row_key)
+    WHERE source_row_key <> ''
+  `).run();
   await env.DB.prepare(`
     CREATE INDEX IF NOT EXISTS idx_customer_payments_account_date
     ON customer_payments (account_number, payment_date DESC, id DESC)
@@ -763,103 +769,105 @@ function paymentAmount(v) {
 }
 __name(paymentAmount, "paymentAmount");
 
+async function paymentRowKey(p){
+  const raw=[p.account,p.date,p.amount.toFixed(2),p.reference,p.type,p.description,p.invoiceNo].join('|');
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+__name(paymentRowKey,"paymentRowKey");
+
 async function adminCustomerPaymentsImport({ request, env }) {
   const supplied = request.headers.get("X-Admin-Key") || "";
   if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
     return json3({ success: false, error: "Unauthorized." }, 401);
   }
-
-  if (!env.DB) {
-    return json3({ success: false, error: "Customer database is not configured." }, 503);
-  }
+  if (!env.DB) return json3({ success:false,error:"Customer database is not configured." },503);
 
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json3({ success: false, error: "Invalid request data." }, 400);
-  }
+  try { body = await request.json(); }
+  catch { return json3({ success:false,error:"Invalid request data." },400); }
 
   const payments = Array.isArray(body?.payments) ? body.payments : [];
-  if (!payments.length) {
-    return json3({ success: false, error: "No payment records were supplied." }, 400);
-  }
-  if (payments.length > 1500) {
-    return json3({ success: false, error: "Too many payment records in one upload." }, 413);
-  }
+  if (!payments.length) return json3({ success:false,error:"No payment records were supplied." },400);
+  if (payments.length > 1500) return json3({ success:false,error:"Too many payment records in one upload." },413);
 
-  try {
-    await ensureCustomerPaymentsSchema(env);
-  } catch (error) {
-    console.error("Customer payment schema setup failed", error);
-    return json3({ success: false, error: "Payment history database could not be prepared." }, 500);
+  try { await ensureCustomerPaymentsSchema(env); }
+  catch(error){
+    console.error("Customer payment schema setup failed",error);
+    return json3({success:false,error:"Payment history database could not be prepared."},500);
   }
 
-  const valid = [];
-  let skipped = 0;
-
-  for (const row of payments) {
-    const account = paymentAccount(row?.account_number);
-    const date = paymentText(row?.payment_date, 40);
-    const amount = paymentAmount(row?.amount);
-
-    if (!account || !date || !Number.isFinite(amount) || amount === 0) {
-      skipped++;
-      continue;
-    }
-
+  const valid=[];
+  let skipped=0;
+  for(const row of payments){
+    const account=paymentAccount(row?.account_number);
+    const date=paymentText(row?.payment_date,40);
+    const amount=paymentAmount(row?.amount);
+    if(!account || !date || !Number.isFinite(amount) || amount===0){ skipped++; continue; }
     valid.push({
-      account,
-      date,
-      amount,
-      reference: paymentText(row?.reference, 150),
-      type: paymentText(row?.payment_type, 100),
-      description: paymentText(row?.description, 500)
+      account,date,amount,
+      reference:paymentText(row?.reference,150),
+      type:paymentText(row?.payment_type,100),
+      description:paymentText(row?.description,500),
+      invoiceNo:paymentText(row?.invoice_no,100)
     });
   }
+  if(!valid.length) return json3({success:false,error:"No valid payment records were found."},400);
 
-  if (!valid.length) {
-    return json3({ success: false, error: "No valid payment records were found." }, 400);
-  }
-
-  let inserted = 0;
-  let duplicates = 0;
-
-  // Use INSERT OR IGNORE so re-uploading the same MAS 90 payment file is safe.
-  const insertStmt = env.DB.prepare(`
+  let inserted=0,duplicates=0;
+  const insertStmt=env.DB.prepare(`
     INSERT OR IGNORE INTO customer_payments
-      (account_number, payment_date, amount, reference, payment_type, description, imported_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      (account_number,payment_date,amount,reference,payment_type,description,source_invoice_no,source_row_key,imported_at)
+    VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
   `);
 
-  try {
-    for (let i = 0; i < valid.length; i += 200) {
-      const chunk = valid.slice(i, i + 200);
-      const before = await env.DB.prepare(`SELECT COUNT(*) AS c FROM customer_payments`).first();
-      await env.DB.batch(chunk.map(p =>
-        insertStmt.bind(p.account, p.date, p.amount, p.reference, p.type, p.description)
-      ));
-      const after = await env.DB.prepare(`SELECT COUNT(*) AS c FROM customer_payments`).first();
-
-      const added = Math.max(0, Number(after?.c || 0) - Number(before?.c || 0));
-      inserted += added;
-      duplicates += chunk.length - added;
+  try{
+    for(let i=0;i<valid.length;i+=150){
+      const chunk=valid.slice(i,i+150);
+      const stmts=[];
+      for(const p of chunk){
+        const key=await paymentRowKey(p);
+        stmts.push(insertStmt.bind(p.account,p.date,p.amount,p.reference,p.type,p.description,p.invoiceNo,key));
+      }
+      const results=await env.DB.batch(stmts);
+      for(const r of results||[]){
+        const changes=Number(r?.meta?.changes||0);
+        if(changes>0) inserted++; else duplicates++;
+      }
     }
-  } catch (error) {
-    console.error("Customer payments import failed", error);
-    return json3({ success: false, error: "Payment history import failed." }, 500);
+  }catch(error){
+    console.error("Customer payments import failed",error);
+    return json3({success:false,error:"Payment history import failed."},500);
   }
 
-  return json3({
-    success: true,
-    received: payments.length,
-    valid: valid.length,
-    inserted,
-    duplicates,
-    skipped
-  });
+  return json3({success:true,received:payments.length,valid:valid.length,inserted,duplicates,skipped});
 }
 __name(adminCustomerPaymentsImport, "adminCustomerPaymentsImport");
+
+async function customerPaymentsGet({request,env}){
+  const customer=await getCustomerFromSession(request,env);
+  if(!customer) return notificationJson({success:false,error:"Unauthorized."},401);
+  if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+
+  try{
+    await ensureCustomerPaymentsSchema(env);
+    const account=paymentAccount(customer.account_number);
+    const result=await env.DB.prepare(`
+      SELECT id,account_number,payment_date,amount,reference,payment_type,description,imported_at
+      FROM customer_payments
+      WHERE account_number=?
+      ORDER BY payment_date DESC,id DESC
+      LIMIT 5000
+    `).bind(account).all();
+    const rows=result?.results||[];
+    const totalPaid=rows.reduce((sum,r)=>sum+paymentAmount(r.amount),0);
+    return notificationJson({success:true,count:rows.length,total_paid:totalPaid,payments:rows});
+  }catch(error){
+    console.error('customerPaymentsGet failed',error);
+    return notificationJson({success:false,error:"Payment history could not be loaded."},500);
+  }
+}
+__name(customerPaymentsGet,'customerPaymentsGet');
 
 // functions/api/customer-login.js
 var SESSION_COOKIE = "wooten_customer_session";
@@ -5540,6 +5548,11 @@ var worker_default = {
 
     if (url.pathname === "/api/customer/documents") {
       if (request.method === "GET") return customerDocumentsGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payments") {
+      if (request.method === "GET") return customerPaymentsGet({ request, env });
       return methodNotAllowed();
     }
 
