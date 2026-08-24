@@ -2154,6 +2154,221 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-admin-login-customer-portal-style">
+  .admin-login-overlay{
+    padding:24px !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+
+  .admin-login-backdrop{
+    background:rgba(7,20,34,.68) !important;
+    backdrop-filter:blur(8px) !important;
+    -webkit-backdrop-filter:blur(8px) !important;
+  }
+
+  .admin-login-dialog{
+    width:min(460px,100%) !important;
+  }
+
+  .admin-login-card{
+    width:100% !important;
+    margin:0 !important;
+    padding:34px !important;
+    background:#fff !important;
+    border:0 !important;
+    border-radius:22px !important;
+    box-shadow:0 30px 80px rgba(0,0,0,.28) !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+    overflow:visible !important;
+  }
+
+  .admin-login-card::before{
+    display:none !important;
+  }
+
+  .admin-login-logo-wrap{
+    display:none !important;
+  }
+
+  .admin-login-title{
+    text-align:left !important;
+    margin:0 !important;
+  }
+
+  .admin-login-company{
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:8px !important;
+    margin:0 0 8px !important;
+    color:#6b7682 !important;
+    text-transform:uppercase !important;
+    letter-spacing:.11em !important;
+    font-size:.74rem !important;
+    line-height:1.2 !important;
+    font-weight:900 !important;
+  }
+
+  .admin-login-subtitle{
+    margin:0 0 8px !important;
+    color:#111f2f !important;
+    font-size:1.9rem !important;
+    line-height:1.12 !important;
+    letter-spacing:0 !important;
+    text-transform:none !important;
+    font-weight:900 !important;
+  }
+
+  .admin-login-accent{
+    display:none !important;
+  }
+
+  .admin-login-authorized{
+    margin:0 0 24px !important;
+    justify-content:flex-start !important;
+    color:#64707c !important;
+    font-size:1rem !important;
+    line-height:1.55 !important;
+    font-weight:400 !important;
+  }
+
+  .admin-login-authorized-icon{
+    display:none !important;
+  }
+
+  .admin-login-grid{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:16px !important;
+  }
+
+  .admin-login-field label{
+    display:block !important;
+    margin:0 0 6px !important;
+    color:#26394b !important;
+    font-size:.9rem !important;
+    line-height:1.3 !important;
+    font-weight:800 !important;
+    letter-spacing:0 !important;
+    text-transform:none !important;
+  }
+
+  .admin-login-input-wrap{
+    position:relative !important;
+  }
+
+  .admin-login-input-icon{
+    display:none !important;
+  }
+
+  .admin-login-field input{
+    width:100% !important;
+    height:50px !important;
+    box-sizing:border-box !important;
+    padding:0 14px !important;
+    border:1px solid #d6dde5 !important;
+    border-radius:11px !important;
+    background:#fff !important;
+    color:#182331 !important;
+    font-size:15px !important;
+    font-weight:400 !important;
+    box-shadow:none !important;
+    outline:none !important;
+  }
+
+  .admin-login-field input[readonly]{
+    background:#f7f9fb !important;
+    color:#465565 !important;
+    font-weight:700 !important;
+    cursor:default !important;
+  }
+
+  .admin-login-field input:focus{
+    border-color:#72869a !important;
+    box-shadow:0 0 0 3px rgba(31,78,121,.10) !important;
+  }
+
+  #adminLoginStatus{
+    border-radius:11px !important;
+    padding:12px 14px !important;
+    font-size:.88rem !important;
+    font-weight:700 !important;
+    line-height:1.45 !important;
+  }
+
+  .admin-login-actions{
+    margin-top:16px !important;
+  }
+
+  .admin-login-actions .primary{
+    width:100% !important;
+    height:50px !important;
+    border:0 !important;
+    border-radius:11px !important;
+    background:#1d2e40 !important;
+    color:#fff !important;
+    font-size:15px !important;
+    font-weight:900 !important;
+    box-shadow:none !important;
+  }
+
+  .admin-login-actions .primary:hover,
+  .admin-login-actions .primary:focus{
+    background:#132538 !important;
+    transform:none !important;
+    box-shadow:none !important;
+  }
+
+  .admin-login-security{
+    display:flex !important;
+    gap:10px !important;
+    align-items:flex-start !important;
+    margin:16px 0 0 !important;
+    padding:13px 14px !important;
+    border:1px solid #e0e5ea !important;
+    border-radius:12px !important;
+    background:#f5f7f9 !important;
+    color:#53606d !important;
+    text-align:left !important;
+    font-size:.86rem !important;
+    line-height:1.45 !important;
+  }
+
+  .admin-login-security .shield{
+    flex:0 0 auto !important;
+    width:8px !important;
+    height:8px !important;
+    margin:6px 0 0 !important;
+    border:0 !important;
+    border-radius:50% !important;
+    background:#cf2b2b !important;
+    color:transparent !important;
+    font-size:0 !important;
+    line-height:0 !important;
+  }
+
+  @media(max-width:560px){
+    .admin-login-overlay{
+      padding:12px !important;
+      align-items:flex-start !important;
+      overflow-y:auto !important;
+    }
+
+    .admin-login-card{
+      width:100% !important;
+      margin:8px 0 20px !important;
+      padding:28px 20px 24px !important;
+      border-radius:22px !important;
+    }
+
+    .admin-login-subtitle{
+      font-size:1.65rem !important;
+    }
+  }
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -2169,15 +2384,12 @@ input[type="file"]::file-selector-button{
       </div>
 
       <div class="admin-login-title">
-        <div class="admin-login-company">Wooten Oil Co Inc.</div>
-        <div class="admin-login-subtitle" id="adminLoginTitle">Admin Login</div>
+        <div class="admin-login-company">Wooten Oil Admin Portal</div>
+        <div class="admin-login-subtitle" id="adminLoginTitle">Administrator Login</div>
         <div class="admin-login-accent"></div>
       </div>
 
-      <div class="admin-login-authorized">
-        <span class="admin-login-authorized-icon">✓</span>
-        <span>Authorized Access Only</span>
-      </div>
+      <div class="admin-login-authorized">Sign in with the administrator account and your private Admin Import Key to open the Wooten Oil customer administration tools.</div>
 
       <div class="admin-login-grid">
         <div class="admin-login-field">
@@ -2192,7 +2404,7 @@ input[type="file"]::file-selector-button{
           <label for="adminKeyPrompt">Admin Import Key</label>
           <div class="admin-login-input-wrap">
             <span class="admin-login-input-icon" aria-hidden="true">⌕</span>
-            <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Admin Import Key">
+            <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Enter Admin Import Key">
           </div>
         </div>
       </div>
@@ -2200,7 +2412,7 @@ input[type="file"]::file-selector-button{
       <div id="adminLoginStatus" class="status" aria-live="polite"></div>
 
       <div class="admin-login-actions">
-        <button class="primary" type="submit">🔒&nbsp;&nbsp;Sign In</button>
+        <button class="primary" type="submit">Sign In</button>
       </div>
 
       <div class="admin-login-security">
