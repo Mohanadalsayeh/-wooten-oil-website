@@ -1,0 +1,40 @@
+.dashboard-account-card{width:min(820px,100%)!important}
+.customer-dashboard{display:block}
+.dashboard-welcome{margin-bottom:20px}
+.dashboard-welcome>span{display:block;color:#718091;font-size:.78rem;font-weight:900;text-transform:uppercase;letter-spacing:.11em;margin-bottom:5px}
+.dashboard-welcome .account-name{font-size:clamp(1.65rem,4vw,2.15rem);margin:0;color:#102b48}
+.dashboard-welcome .account-number{font-size:1rem;margin-top:5px}
+.dashboard-balances{min-width:0!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;margin:0!important}
+.dashboard-balance-card{min-width:0!important;text-align:left!important;padding:19px 18px!important;transition:transform .25s ease,box-shadow .25s ease}
+.dashboard-balance-card:hover{transform:translateY(-3px);box-shadow:0 12px 25px rgba(15,39,66,.12)}
+.dashboard-balance-card strong{font-size:clamp(1.7rem,4vw,2.05rem)!important}
+.dashboard-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+.dashboard-action{min-height:92px;border:1px solid #dce4eb;border-radius:15px;padding:15px 16px;background:#fff;color:#23384c;text-align:left;display:flex;align-items:center;gap:14px;font:inherit;cursor:pointer;box-shadow:0 5px 16px rgba(15,39,66,.05);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.dashboard-action:hover,.dashboard-action:focus-visible{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,39,66,.11);border-color:#b9c9d7;outline:none}
+.dashboard-action-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px;display:grid;place-items:center;background:#eef4f9;color:#193d60;font-size:1.25rem;font-weight:950}
+.dashboard-action strong{display:block;color:#15304b;font-size:1rem;margin-bottom:3px}
+.dashboard-action small{display:block;color:#6c7986;font-size:.78rem;line-height:1.35}
+.dashboard-action-pay .dashboard-action-icon{background:#edf7ef;color:#287342}
+.dashboard-action-fuel .dashboard-action-icon{background:#fff5e6;color:#8a5a10}
+.dashboard-action-logout .dashboard-action-icon{background:#f5f6f7;color:#5c6873}
+.dashboard-action-primary{border-color:#c8d8e5;background:#f9fcfe}
+.customer-account-details{display:none;margin-top:4px}
+.customer-account-details.show{display:block;animation:dashboardDetailsIn .24s ease both}
+.customer-dashboard.dashboard-hidden{display:none}
+.details-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e3e8ed;color:#667585;font-weight:850;font-size:.86rem}
+.dashboard-back{border:0;border-radius:9px;padding:9px 12px;background:#eef3f7;color:#20394f;font:inherit;font-weight:900;cursor:pointer}
+.dashboard-back:hover{background:#e2eaf0}
+.customer-account-details .payment-panel{scroll-margin-top:20px}
+@keyframes dashboardDetailsIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes dashboardBalanceIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.portal-account.show .dashboard-balance-card{animation:dashboardBalanceIn .35s ease both}
+.portal-account.show .dashboard-balance-card:nth-child(2){animation-delay:.06s}
+.portal-account.show .dashboard-balance-card:nth-child(3){animation-delay:.12s}
+@media(max-width:620px){
+ .dashboard-account-card{padding:28px 20px 22px!important}
+ .dashboard-balances{grid-template-columns:1fr!important}
+ .dashboard-actions{grid-template-columns:1fr}
+ .dashboard-action{min-height:82px}
+ .dashboard-welcome{padding-right:40px}
+}
+@media(prefers-reduced-motion:reduce){.portal-account.show .dashboard-balance-card,.customer-account-details.show{animation:none!important}}

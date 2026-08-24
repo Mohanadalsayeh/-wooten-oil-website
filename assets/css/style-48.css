@@ -1,0 +1,22 @@
+.contact-message-overlay{position:fixed;inset:0;background:rgba(12,18,24,.68);display:none;align-items:center;justify-content:center;padding:20px;z-index:10050}
+.contact-message-overlay.show{display:flex}
+.contact-message-dialog{width:min(620px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 28px 80px rgba(0,0,0,.28);padding:28px;position:relative}
+.contact-message-close{position:absolute;right:16px;top:13px;border:0;background:transparent;font-size:30px;line-height:1;cursor:pointer;color:#555}
+.contact-message-dialog h2{margin:0 42px 7px 0;font-size:29px;color:#111}
+.contact-message-intro{margin:0 0 20px;color:#5b6168;line-height:1.5}
+.contact-message-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.contact-message-field{display:flex;flex-direction:column;gap:7px}
+.contact-message-field.full{grid-column:1/-1}
+.contact-message-field label{font-weight:750;color:#24272b;font-size:14px}
+.contact-message-field input,.contact-message-field textarea{width:100%;box-sizing:border-box;border:1px solid #ccd1d6;border-radius:10px;padding:12px 13px;font:inherit;background:#fff;color:#111;outline:none}
+.contact-message-field input:focus,.contact-message-field textarea:focus{border-color:#a92e27;box-shadow:0 0 0 3px rgba(169,46,39,.10)}
+.contact-message-field textarea{min-height:135px;resize:vertical}
+.contact-message-actions{display:flex;gap:11px;align-items:center;flex-wrap:wrap;margin-top:20px}
+.contact-message-status{margin-top:15px;padding:12px 14px;border-radius:10px;background:#f3f5f7;color:#454b52;display:none;line-height:1.45}
+.contact-message-status.show{display:block}
+.contact-message-status.success{background:#eaf7ee;color:#176534}
+.contact-message-status.error{background:#fceced;color:#9b1c1c}
+.contact-reference{margin-top:12px;border:1px solid #ddd;border-radius:10px;padding:12px;text-align:center;background:#fafafa}
+.contact-reference small{display:block;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;font-size:11px}
+.contact-reference strong{display:block;font-size:21px;margin-top:3px;color:#111}
+@media(max-width:640px){.contact-message-dialog{padding:24px 18px}.contact-message-grid{grid-template-columns:1fr}.contact-message-field.full{grid-column:auto}.contact-message-dialog h2{font-size:25px}}

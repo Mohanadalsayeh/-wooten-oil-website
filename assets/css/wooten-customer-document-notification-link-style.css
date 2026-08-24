@@ -1,0 +1,5 @@
+.customer-document-row:target,
+.customer-document-row.notification-focus{
+  border-color:#9fb9cf !important;
+  box-shadow:0 0 0 3px rgba(31,78,121,.08) !important;
+}

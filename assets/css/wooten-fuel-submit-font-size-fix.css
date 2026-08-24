@@ -1,0 +1,12 @@
+/* Match Submit Fuel Request text size to the other .btn controls.
+   Keep the existing button shape, color, position and hover behavior unchanged. */
+#fuelRequestForm .fuel-submit,
+#fuelRequestForm .fuel-submit:hover,
+#fuelRequestForm .fuel-submit:focus,
+#fuelRequestForm .fuel-submit:focus-visible,
+#fuelRequestForm .fuel-submit:active{
+  font-family:inherit !important;
+  font-size:1rem !important;
+  font-weight:400 !important;
+  line-height:1.2 !important;
+}

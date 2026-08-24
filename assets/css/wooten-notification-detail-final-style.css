@@ -1,0 +1,22 @@
+.customer-notification-popup-message{
+  display:block !important;
+  min-height:32px !important;
+  margin:18px 0 0 !important;
+  color:#334155 !important;
+  font-size:.98rem !important;
+  line-height:1.7 !important;
+  white-space:pre-wrap !important;
+  overflow-wrap:anywhere !important;
+}
+.customer-notification-popup-message:empty::before{
+  content:"No message body.";
+  color:#94a3b8;
+  font-style:italic;
+}
+.customer-notification-attachments.show{
+  display:block !important;
+}
+.customer-notification-attachment{
+  position:relative;
+  z-index:1;
+}

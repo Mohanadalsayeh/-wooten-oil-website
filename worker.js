@@ -4894,7 +4894,7 @@ function statementBuildPdf(customer,statementDate){
   text(42,751,22,"WOOTEN OIL CO INC.",true,white);
   text(42,730,10,"513 East Sanford Avenue, Covington, TN 38019",false,[0.88,0.92,0.96]);
   text(42,714,9.5,"(901) 476-2684  |  support@wootenoil.com",false,[0.88,0.92,0.96]);
-  rightText(570,750,20,"ACCOUNT STATEMENT",true,white);
+  rightText(548,750,20,"ACCOUNT STATEMENT",true,white);
 
   // Statement meta
   text(42,657,13,"Statement Date",true,slate);

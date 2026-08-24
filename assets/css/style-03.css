@@ -1,0 +1,78 @@
+/* Upgrade 12: Service Area & Map */
+.service-area-section{padding:78px 0;background:linear-gradient(180deg,#ffffff 0%,#f6f8fa 100%);border-top:1px solid #e8edf2;border-bottom:1px solid #e8edf2}
+.service-area-head{max-width:760px;margin:0 auto 34px;text-align:center}
+.service-area-head .eyebrow{margin-bottom:8px}.service-area-head h2{margin:0 0 12px}.service-area-head p{margin:0 auto;max-width:680px;color:#586575;line-height:1.7}
+.service-area-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:26px;align-items:stretch}
+.service-map{position:relative;min-height:420px;border-radius:22px;overflow:hidden;background:#eef2f4;border:1px solid #dfe6eb;box-shadow:0 18px 45px rgba(15,39,66,.08)}
+.service-map svg{position:absolute;inset:0;width:100%;height:100%}.map-road{fill:none;stroke:#fff;stroke-width:9;stroke-linecap:round;opacity:.95}.map-road-minor{fill:none;stroke:#d5dde3;stroke-width:3;stroke-linecap:round}.map-area{fill:#dce8dc;opacity:.7}.map-water{fill:none;stroke:#cadde9;stroke-width:18;opacity:.8}.map-label{font:700 14px/1 Arial,sans-serif;fill:#53616d}.map-marker{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;color:#14283d;z-index:3}.map-pin{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#bd1e2d;border:3px solid #fff;box-shadow:0 6px 15px rgba(15,39,66,.25);display:grid;place-items:center}.map-pin:after{content:"";width:9px;height:9px;border-radius:50%;background:#fff}.map-marker span:last-child{transform:none;background:#fff;border:1px solid #dce3e8;border-radius:999px;padding:6px 10px;font-size:.76rem;font-weight:900;white-space:nowrap;box-shadow:0 5px 14px rgba(15,39,66,.10)}
+.map-marker.covington{left:37%;top:34%}.map-marker.mason{left:67%;top:68%}.map-marker.atoka{left:72%;top:24%}
+.map-badge{position:absolute;left:18px;bottom:18px;background:rgba(255,255,255,.94);border:1px solid #dce3e8;border-radius:12px;padding:10px 13px;font-size:.76rem;font-weight:800;color:#506070;box-shadow:0 8px 20px rgba(15,39,66,.08)}
+.service-area-panel{background:#102b48;color:#fff;border-radius:22px;padding:30px;box-shadow:0 18px 45px rgba(15,39,66,.12);display:flex;flex-direction:column;justify-content:center}
+.service-area-panel .mini-kicker{font-size:.75rem;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#f0c15b;margin-bottom:10px}.service-area-panel h3{font-size:1.65rem;line-height:1.18;margin:0 0 14px}.service-area-panel p{color:#d8e0e8;line-height:1.65;margin:0 0 18px}.service-area-list{display:grid;gap:10px;margin:0 0 24px;padding:0;list-style:none}.service-area-list li{display:flex;gap:10px;align-items:flex-start;color:#eef3f7}.service-area-list li:before{content:"✓";flex:0 0 22px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#102b48;font-size:.72rem;font-weight:900;margin-top:1px}.service-area-actions{display:grid;gap:10px}.service-area-actions .btn{width:100%;justify-content:center}.service-area-note{margin-top:16px!important;font-size:.82rem;color:#b9c7d4!important}
+@media(max-width:900px){.service-area-grid{grid-template-columns:1fr}.service-map{min-height:360px}.service-area-panel{padding:26px}}
+@media(max-width:600px){.service-area-section{padding:54px 0}.service-map{min-height:315px;border-radius:17px}.service-area-panel{border-radius:17px;padding:23px}.service-area-panel h3{font-size:1.42rem}.map-marker span:last-child{font-size:.68rem;padding:5px 8px}.map-pin{width:29px;height:29px}.map-badge{left:12px;bottom:12px;right:12px;text-align:center}.map-marker.covington{left:30%;top:38%}.map-marker.mason{left:66%;top:72%}.map-marker.atoka{left:72%;top:23%}}
+
+/* Customer Portal Preview */
+.customer-login-link,.customer-account-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #cfd7df;border-radius:999px;background:#fff;color:#15283c;font-weight:850;white-space:nowrap;transition:.2s ease}
+.customer-login-link:hover,.customer-login-link:focus,.customer-account-link:hover,.customer-account-link:focus{border-color:#9ba9b8;background:#f7f9fb;transform:translateY(-1px)}
+.customer-account-link,.customer-menu-logout{display:none}
+.customer-menu-logout{min-height:44px;padding:10px 14px;border:0;border-radius:999px;background:#eef2f5;color:#24384b;font:inherit;font-weight:900;cursor:pointer;white-space:nowrap}
+.customer-menu-logout:hover,.customer-menu-logout:focus{background:#e2e8ed}
+body.customer-signed-in .customer-login-link{display:none!important}
+body.customer-signed-in .customer-account-link,body.customer-signed-in .customer-menu-logout{display:inline-flex;align-items:center;justify-content:center}
+
+.portal-overlay{position:fixed;inset:0;z-index:5000;display:none;align-items:flex-start;justify-content:center;padding:24px;background:rgba(7,20,34,.68);backdrop-filter:blur(8px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+.portal-overlay:target{display:flex}
+.portal-card{position:relative;width:min(460px,100%);background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.28);padding:34px;margin:auto 0}
+.portal-close{position:absolute;right:16px;top:14px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#f1f4f7;color:#243447;font-size:26px;line-height:1;font-weight:500}
+.portal-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#6b7682;text-transform:uppercase;letter-spacing:.11em;font-size:.74rem;font-weight:900;margin-bottom:8px}
+.portal-card h2{font-size:1.9rem;line-height:1.12;color:#111f2f;margin-bottom:8px}
+.portal-card>p{color:#64707c;margin-bottom:24px}
+.portal-form{display:grid;gap:15px}
+.portal-field label{display:block;font-weight:800;font-size:.9rem;color:#26394b;margin-bottom:6px}
+.portal-field input{width:100%;height:50px;border:1px solid #d6dde5;border-radius:11px;padding:0 14px;font:inherit;background:#fff;color:#182331;outline:none}
+.portal-field input:focus{border-color:#72869a;box-shadow:0 0 0 3px rgba(31,78,121,.1)}
+.portal-row{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:.88rem;color:#53606d}
+.portal-remember{display:flex;align-items:center;gap:8px}.portal-remember input{width:16px;height:16px}
+.portal-forgot{font-weight:800;color:#294f73}
+.portal-signin{width:100%;height:50px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer;transition:.2s ease}.portal-signin:hover{background:#132538;transform:translateY(-1px)}.portal-signin:disabled{opacity:.58;cursor:not-allowed;transform:none}
+.portal-preview-note{display:flex;gap:10px;align-items:flex-start;background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.45}.portal-status{display:none;border-radius:11px;padding:12px 14px;font-size:.88rem;font-weight:700;line-height:1.45}.portal-status.show{display:block}.portal-status.error{background:#fff1f1;border:1px solid #efcaca;color:#9b2630}.portal-status.ok{background:#edf8f1;border:1px solid #cde8d6;color:#17663b}.portal-account{display:none;width:min(760px,100%)}.portal-account.show{display:block}.portal-card.portal-account-card{width:min(760px,100%)}.account-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.account-name{font-size:1.6rem;font-weight:900;color:#102b48}.account-number{color:#6c7884;font-weight:800;margin-top:3px}.account-balances{display:grid;grid-template-columns:repeat(3,minmax(145px,1fr));gap:10px;min-width:500px}.account-balance{background:#102b48;color:#fff;border-radius:15px;padding:16px 18px;min-width:145px;text-align:right}.account-balance.previous{background:#f3f6f8;color:#102b48;border:1px solid #dce4ea}.account-balance.total{background:#fff7e8;color:#102b48;border:1px solid #ecd79c}.account-balance small{display:block;color:#c9d5e1;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:.68rem}.account-balance.previous small,.account-balance.total small{color:#687887}.account-balance strong{display:block;font-size:1.65rem;margin-top:2px}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.account-item{background:#f7f9fb;border:1px solid #e0e6eb;border-radius:12px;padding:14px}.account-item small{display:block;color:#74808c;font-weight:800;margin-bottom:4px}.account-item strong{display:block;color:#23384c;overflow-wrap:anywhere}.account-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.account-actions button{min-height:44px;padding:0 16px;border-radius:10px;border:0;font:inherit;font-weight:900;cursor:pointer}.account-logout{background:#eef2f5;color:#24384b}@media(max-width:620px){.account-head{display:block}.account-balances{grid-template-columns:1fr;min-width:0;margin-top:14px}.account-balance{margin-top:0;text-align:left}.account-grid{grid-template-columns:1fr}}
+
+.payment-panel{margin-top:20px;border:1px solid #dce4eb;border-radius:16px;padding:18px;background:#fff}
+.payment-panel h3{margin:0 0 6px;color:#102b48;font-size:1.18rem}
+.payment-panel>p{margin:0 0 15px;color:#64707c;font-size:.9rem;line-height:1.5}
+.payment-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.payment-choice{position:relative;display:block}
+.payment-choice input{position:absolute;opacity:0;pointer-events:none}
+.payment-choice span{display:block;border:1px solid #d8e0e7;border-radius:12px;padding:13px 14px;font-weight:850;color:#24384b;background:#f8fafb;cursor:pointer}
+.payment-choice input:checked+span{border-color:#193d60;background:#eef4f9;box-shadow:0 0 0 2px rgba(25,61,96,.08)}
+.partial-payment-row{display:none;margin-top:12px}
+.partial-payment-row.show{display:block}
+.partial-payment-row label{display:block;font-size:.82rem;font-weight:850;color:#455565;margin-bottom:6px}
+.partial-payment-input{display:flex;align-items:center;border:1px solid #d6dde5;border-radius:11px;background:#fff;overflow:hidden}
+.partial-payment-input span{padding-left:13px;font-weight:900;color:#53606d}
+.partial-payment-input input{width:100%;height:48px;border:0;outline:0;padding:0 12px 0 5px;font:inherit;font-weight:800;color:#182331}
+.payment-notice{margin-top:14px;background:#fff8e7;border:1px solid #ecd99d;border-radius:12px;padding:13px 14px;color:#6b5318;font-size:.84rem;line-height:1.5}
+.payment-notice strong{color:#57410f}
+.payment-continue{width:100%;min-height:48px;margin-top:14px;border:0;border-radius:11px;background:#bd1e2d;color:#fff;font:inherit;font-weight:900;cursor:pointer}
+.payment-continue:hover{background:#a91926}
+.payment-coming-soon{display:none;margin-top:10px;border-radius:11px;background:#eef4f9;border:1px solid #d7e2eb;padding:11px 13px;color:#294f73;font-size:.84rem;font-weight:750;line-height:1.45}
+.payment-coming-soon.show{display:block}
+@media(max-width:620px){.payment-options{grid-template-columns:1fr}.payment-panel{padding:15px}.account-actions{justify-content:stretch}.account-actions button{width:100%}}
+
+.portal-preview-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#d59d23;margin-top:6px}
+.portal-help{text-align:center;margin-top:18px;font-size:.9rem;color:#68717d}.portal-help a{font-weight:900;color:#193d60}
+
+.portal-activate-link{display:block;width:100%;margin-top:12px;padding:12px 14px;border:1px solid #cfd8e2;border-radius:11px;background:#fff;color:#244b70;font:inherit;font-weight:900;text-align:center;cursor:pointer;transition:.2s ease}.portal-activate-link:hover{background:#f5f8fb;border-color:#9fb0c1}.portal-activation-card{display:none;width:min(520px,100%)}.portal-activation-card.show{display:block}.portal-activation-step{display:grid;gap:15px}.portal-activation-details{display:none;gap:15px}.portal-activation-details.show{display:grid}.portal-code-input{letter-spacing:.18em;font-weight:800}.portal-action-row{display:flex;gap:10px;flex-wrap:wrap}.portal-action-row button{flex:1;min-width:150px}.portal-secondary-btn{height:48px;border:1px solid #ccd6df;border-radius:11px;background:#f6f8fa;color:#233b52;font:inherit;font-weight:900;cursor:pointer}.portal-secondary-btn:hover{background:#edf2f6}.portal-primary-btn{height:48px;border:0;border-radius:11px;background:#1d2e40;color:#fff;font:inherit;font-weight:900;cursor:pointer}.portal-primary-btn:hover{background:#132538}.portal-primary-btn:disabled,.portal-secondary-btn:disabled{opacity:.58;cursor:not-allowed}.portal-activation-note{background:#f5f7f9;border:1px solid #e0e5ea;border-radius:12px;padding:13px 14px;color:#53606d;font-size:.86rem;line-height:1.5}.portal-back-link{display:inline-block;margin-top:16px;color:#294f73;font-weight:900;cursor:pointer}.portal-account-card{display:none}.portal-account-card.show{display:block}
+
+.mobile-menu-panel .mobile-login-link{display:flex;align-items:center;justify-content:center;min-height:46px;margin-top:6px;border:1px solid #d7dee5;background:#fff;color:#22384f!important}
+.mobile-menu-panel .mobile-customer-account,.mobile-menu-panel .mobile-customer-logout{display:none}
+.mobile-menu-panel .mobile-customer-account{align-items:center;justify-content:center;min-height:50px;margin-top:10px;padding:12px 14px;border:1px solid #b9c8d6;border-radius:10px;background:#eef4f9;color:#193d60!important;font-weight:900;text-align:center}
+.mobile-menu-panel .mobile-customer-logout{width:100%;min-height:50px;margin-top:8px;padding:12px 14px;border:1px solid #d7dee5;border-radius:10px;background:#f5f7f9;color:#24384b;font:inherit;font-weight:900;cursor:pointer;align-items:center;justify-content:center;text-align:center;line-height:1.2}
+.mobile-menu-panel .mobile-customer-logout:hover,.mobile-menu-panel .mobile-customer-logout:focus{background:#e9eef3;color:#111}
+.mobile-menu-panel .mobile-request-link{margin-top:8px!important;min-height:50px!important;border-radius:10px!important}
+body.customer-signed-in .mobile-menu-panel .mobile-login-link{display:none!important}
+body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.customer-signed-in .mobile-menu-panel .mobile-customer-logout{display:flex}
+@media(max-width:1100px) and (min-width:981px){.customer-login-link,.customer-account-link{padding:10px 12px;font-size:.88rem}.customer-menu-logout{padding:10px 11px;font-size:.84rem}}
+@media(max-width:980px){.customer-login-link,.customer-account-link,.customer-menu-logout{display:none!important}}
+@media(max-width:560px){.portal-overlay{padding:12px;align-items:flex-start;justify-content:center;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}.portal-card{width:100%;margin:8px 0 20px;border-radius:22px;padding:28px 20px 24px;max-height:none;overflow:visible}.portal-card.portal-account-card{width:100%;max-height:none;overflow:visible}.portal-card h2{font-size:1.65rem}.portal-row{align-items:flex-start;flex-direction:column;gap:9px}}

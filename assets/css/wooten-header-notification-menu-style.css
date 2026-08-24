@@ -1,0 +1,18 @@
+.header-notification-menu{position:absolute;top:calc(100% + 8px);right:58px;z-index:3500;width:min(390px,calc(100vw - 28px));max-height:min(520px,70vh);display:none;background:#fff;border:1px solid #dce4eb;border-radius:16px;box-shadow:0 18px 48px rgba(15,39,66,.22);overflow:hidden}
+.header-notification-menu.show{display:block;animation:headerNotifyIn .18s ease both}
+.header-notification-menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #e4eaee;background:#f9fbfc}
+.header-notification-menu-head strong{display:block;color:#17314b;font-size:.96rem}
+.header-notification-menu-head small{display:block;color:#7b8792;font-size:.72rem;margin-top:2px}
+.header-notification-menu-head button{width:34px;height:34px;border:0;border-radius:50%;background:#eef2f5;color:#34495d;font-size:1.45rem;line-height:1;cursor:pointer}
+.header-notification-list{overflow:auto;max-height:430px}
+.header-notification-item{width:100%;border:0;border-bottom:1px solid #edf1f4;background:#fff;padding:14px 16px;text-align:left;display:flex;gap:11px;cursor:pointer;font:inherit;transition:background .15s ease}
+.header-notification-item:last-child{border-bottom:0}
+.header-notification-item:hover,.header-notification-item:focus-visible{background:#f7fafc;outline:none}
+.header-notification-item.unread{background:#f3f8fc}
+.header-notification-dot{margin-top:7px;flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#bd1e2d}
+.header-notification-item:not(.unread) .header-notification-dot{background:#cbd4db}
+.header-notification-copy strong{display:block;color:#243b51;font-size:.86rem}
+.header-notification-copy p{margin:3px 0 0;color:#647381;font-size:.78rem;line-height:1.4}
+.header-notification-copy time{display:block;color:#96a1aa;font-size:.68rem;margin-top:5px}
+@keyframes headerNotifyIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.header-notification-menu{right:0;left:0;width:auto;top:calc(100% + 8px);max-height:65vh;border-radius:14px}}
