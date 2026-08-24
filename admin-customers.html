@@ -2474,6 +2474,9 @@ input[type="file"]::file-selector-button{
 @media(max-width:900px){.import-db-toolbar{grid-template-columns:1fr 1fr}.import-db-search{grid-column:1/-1}}
 @media(max-width:720px){.import-db-toolbar{grid-template-columns:1fr}.import-db-search{grid-column:auto}}
 </style>
+<style id="wooten-access-direct-import-style">
+.access-import-hint{margin-top:7px;color:#64748b;font-size:12.5px;line-height:1.45}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -2568,7 +2571,7 @@ input[type="file"]::file-selector-button{
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
       <div>
         <label for="customerFile">Customer File</label>
-        <input id="customerFile" type="file" accept=".csv,.xlsx,.xls">
+        <input id="customerFile" type="file" accept=".mdb,.accdb,.csv,.xlsx,.xls">
       </div>
     </div>
 
@@ -2643,14 +2646,15 @@ input[type="file"]::file-selector-button{
         <div>
           <div class="admin-page-label payments-label">Payments</div>
           <h3>Customer Payments Import</h3>
-          <p>Upload the Excel or CSV file that contains customer payment history. Payments are matched to customers by account number and duplicate payment rows are skipped automatically.</p>
+          <p>Upload the original Access MDB/ACCDB payment database directly, or use Excel/CSV. Payments are matched to customers by account number and duplicate payment rows are skipped automatically.</p>
         </div>
       </div>
 
       <div class="grid payments-import-grid">
         <div>
           <label for="paymentFile">Customer Payments File</label>
-          <input id="paymentFile" type="file" accept=".csv,.xlsx,.xls">
+          <input id="paymentFile" type="file" accept=".mdb,.accdb,.csv,.xlsx,.xls">
+          <div class="access-import-hint">Recommended: use the original <strong>.mdb</strong> file. Dates are read directly from Access, so no Excel conversion is needed.</div>
         </div>
       </div>
 
@@ -3116,6 +3120,57 @@ input[type="file"]::file-selector-button{
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script type="module" id="wooten-mdb-reader-module">
+try{
+  const [{Buffer},mdbModule]=await Promise.all([
+    import("https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm"),
+    import("https://cdn.jsdelivr.net/npm/mdb-reader@3.2.0/+esm")
+  ]);
+  const MDBReader=mdbModule.default;
+
+  function n(v){return String(v||"").replace(/[^a-z0-9]/gi,"").toLowerCase();}
+  function score(cols,mode){
+    const set=new Set((cols||[]).map(n));
+    const wanted=mode==="payments"
+      ?["depositdate","depositno","customerno","checkno","postingdate","customername","invoiceno","cashamountapplied","discountamountapplied"]
+      :["customerno","customername","currentbalance","addressline1","city","state","zipcode","telephoneno","emailaddress"];
+    return wanted.reduce((s,k)=>s+(set.has(k)?1:0),0);
+  }
+
+  window.wootenReadAccessFile=async(file,mode)=>{
+    const reader=new MDBReader(Buffer.from(await file.arrayBuffer()));
+    const names=reader.getTableNames();
+    if(!names?.length) throw new Error("No tables were found in this Access database.");
+
+    let best=null;
+    for(const name of names){
+      try{
+        const table=reader.getTable(name);
+        const cols=table.getColumnNames();
+        const s=score(cols,mode);
+        if(!best||s>best.score) best={name,table,cols,score:s};
+      }catch(e){}
+    }
+
+    const minimum=mode==="payments"?3:2;
+    if(!best||best.score<minimum){
+      throw new Error(mode==="payments"
+        ?"Could not find the payment table. Expected fields such as CustomerNo, PostingDate and CashAmountApplied."
+        :"Could not find the customer table. Expected fields such as CustomerNo and CustomerName.");
+    }
+
+    const rows=best.table.getData();
+    return {rows:Array.isArray(rows)?rows:[],tableName:best.name,columns:best.cols};
+  };
+
+  window.dispatchEvent(new Event("wooten-mdb-reader-ready"));
+}catch(error){
+  console.error("MDB reader failed to load",error);
+  window.wootenMdbReaderError=error;
+}
+</script>
+
 <script>
 let preparedRows=[];
 
@@ -3275,25 +3330,45 @@ function render(rows,total,skipped){
   const el=document.getElementById(id);
   if(el) el.addEventListener(id==="customerPreviewSearch"?"input":"change",()=>{if(preparedRows.length) render(preparedRows,Number(document.getElementById("mRows").textContent||preparedRows.length),Number(document.getElementById("mSkipped").textContent||0));});
 });
-async function parseFile(file){
+async function waitForAccessReader(){
+  if(window.wootenReadAccessFile) return;
+  if(window.wootenMdbReaderError) throw new Error("The Access database reader could not be loaded.");
+  await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error("The Access reader is taking too long to load. Check the internet connection and try again.")),15000);
+    window.addEventListener("wooten-mdb-reader-ready",()=>{clearTimeout(timer);resolve();},{once:true});
+  });
+}
+async function parseFile(file,mode="customers"){
   const ext=file.name.toLowerCase().split(".").pop();
+
+  if(ext==="mdb"||ext==="accdb"){
+    await waitForAccessReader();
+    const result=await window.wootenReadAccessFile(file,mode);
+    return result;
+  }
+
   if(ext==="csv"){
     const text=await file.text();
     const wb=XLSX.read(text,{type:"string"});
     const ws=wb.Sheets[wb.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+    return {rows:XLSX.utils.sheet_to_json(ws,{defval:"",raw:false}),tableName:ws?.name||"CSV"};
   }
+
   const buf=await file.arrayBuffer();
   const wb=XLSX.read(buf,{type:"array",cellText:true,cellDates:false});
   const ws=wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+  return {rows:XLSX.utils.sheet_to_json(ws,{defval:"",raw:false}),tableName:wb.SheetNames[0]||"Excel"};
 }
 
 document.getElementById("previewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("customerFile").files[0];
-  if(!file){setStatus("Choose an Excel or CSV file first.",false);return;}
+  if(!file){setStatus("Choose an Access MDB/ACCDB, Excel, or CSV file first.",false);return;}
   try{
-    const raw=await parseFile(file);
+    const parsed=await parseFile(file,"customers");
+    const raw=parsed.rows;
+    if(file.name.toLowerCase().endsWith(".mdb")||file.name.toLowerCase().endsWith(".accdb")){
+      setStatus(`Access database opened: ${parsed.tableName} • ${raw.length.toLocaleString()} row(s) found.`);
+    }
     const mapped=raw.map(mapRow);
     preparedRows=mapped.filter(r=>r.account_number && r.account_name);
     updateCustomerPreviewFilters();
@@ -3353,6 +3428,9 @@ function paymentPick(row,names){
 }
 function normalizePaymentDate(v){
   if(v===undefined||v===null||v==="") return "";
+  if(v instanceof Date && !Number.isNaN(v.getTime())){
+    return [v.getFullYear(),String(v.getMonth()+1).padStart(2,"0"),String(v.getDate()).padStart(2,"0")].join("-");
+  }
   const numeric=Number(v);
   if(Number.isFinite(numeric)&&numeric>20000&&numeric<100000){
     const d=new Date(Date.UTC(1899,11,30)+Math.round(numeric)*86400000);
@@ -3451,12 +3529,16 @@ function renderPaymentPreview(rows,total,skipped){
 document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("paymentFile").files[0];
   if(!file){
-    setPaymentStatus("Choose an Excel or CSV customer payments file first.",false);
+    setPaymentStatus("Choose an Access MDB/ACCDB, Excel, or CSV customer payments file first.",false);
     return;
   }
 
   try{
-    const raw=await parseFile(file);
+    const parsed=await parseFile(file,"payments");
+    const raw=parsed.rows;
+    if(file.name.toLowerCase().endsWith(".mdb")||file.name.toLowerCase().endsWith(".accdb")){
+      setPaymentStatus(`Access database opened: ${parsed.tableName} • ${raw.length.toLocaleString()} row(s) found.`);
+    }
     const mapped=raw.map(mapPaymentRow);
     preparedPaymentRows=mapped.filter(paymentRowIsValid);
     updatePaymentPreviewFilters();
@@ -3478,7 +3560,7 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     }
   }catch(e){
     console.error(e);
-    setPaymentStatus("Could not read the payments file. Please use Excel or CSV format.",false);
+    setPaymentStatus("Could not read the payments file. Please use MDB, ACCDB, Excel, or CSV format.",false);
   }
 });
 
