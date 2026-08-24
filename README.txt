@@ -1,17 +1,13 @@
-WOOTEN OIL — STATEMENT / INVOICE NOTIFICATION FILENAME LINK
+WOOTEN OIL — NOTIFICATION PDF FILENAME ONLY
 
-Requested behavior:
-- Normal notifications remain normal notifications.
-- The notification popup no longer shows an "Open Statement" or "Open Invoice" button.
-- For statement/invoice notifications only, the related document name appears in the popup footer.
-- The document name is clickable.
+- The whole notification popup is NOT clickable.
+- Normal notifications remain normal.
+- For a Statement/Invoice uploaded from the admin Statements & Invoices page:
+  if the PDF file exists, the actual PDF filename appears in the notification footer.
+- Only the PDF filename is clickable.
 - Hover/focus adds an underline.
-- Clicking the document name opens Statements & Invoices and highlights the matching document.
-- Existing attachment buttons still work normally.
-- The X close button still only closes the popup.
-
-The Worker now also returns document_title/document_filename for linked notifications
-so the popup can show the actual statement/invoice name.
+- Clicking the filename opens Statements & Invoices and highlights the matching document.
+- X close and normal attachment buttons keep their existing behavior.
 
 Upload:
 - index.html

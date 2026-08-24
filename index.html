@@ -2786,38 +2786,6 @@ input[type="reset"]:focus,
 </style>
 
 
-<style id="wooten-document-notification-popup-clickable-style">
-.customer-notification-popup-card.document-notification-clickable{
-  cursor:pointer;
-}
-.customer-notification-popup-card.document-notification-clickable .customer-notification-popup-body{
-  cursor:pointer;
-}
-.customer-notification-popup-card.document-notification-clickable:hover{
-  box-shadow:0 22px 60px rgba(5,23,42,.26) !important;
-}
-.customer-notification-popup-card.document-notification-clickable .customer-notification-popup-title::after{
-  content:"Click to open Statements & Invoices";
-  display:block;
-  margin-top:6px;
-  color:#5d7488;
-  font-size:.72rem;
-  font-weight:700;
-  letter-spacing:.01em;
-}
-.customer-notification-popup-card.document-notification-clickable .customer-notification-popup-close,
-.customer-notification-popup-card.document-notification-clickable .customer-notification-document-open,
-.customer-notification-popup-card.document-notification-clickable .customer-notification-attachment{
-  cursor:pointer;
-}
-@media(max-width:600px){
-  .customer-notification-popup-card.document-notification-clickable .customer-notification-popup-title::after{
-    font-size:.68rem;
-  }
-}
-</style>
-
-
 <style id="wooten-notification-document-filename-link-style">
 .customer-notification-document-link{
   display:inline-block;
@@ -2851,6 +2819,33 @@ input[type="reset"]:focus,
 }
 .customer-notification-popup-footer.document-notification-footer .customer-notification-attachments-title{
   display:none !important;
+}
+</style>
+
+
+<style id="wooten-notification-pdf-filename-only-style">
+#customerNotificationPopupCard,
+#customerNotificationPopupCard .customer-notification-popup-body{
+  cursor:default !important;
+}
+.customer-notification-document-link{
+  display:inline-block;
+  margin-top:6px;
+  color:#244f75 !important;
+  font-weight:800;
+  text-decoration:none !important;
+  text-underline-offset:3px;
+  overflow-wrap:anywhere;
+  cursor:pointer !important;
+}
+.customer-notification-document-link:hover,
+.customer-notification-document-link:focus,
+.customer-notification-document-link:focus-visible{
+  color:#244f75 !important;
+  text-decoration:underline !important;
+  text-decoration-thickness:1px !important;
+  background:transparent !important;
+  transform:none !important;
 }
 </style>
 
@@ -4930,18 +4925,10 @@ input[type="reset"]:focus,
     activeNotificationDocumentId=isDocumentNotification && linkedDocumentId>0 ? linkedDocumentId : null;
 
     if(customerNotificationPopupCard){
-      customerNotificationPopupCard.classList.toggle('document-notification-clickable',isDocumentNotification);
-      customerNotificationPopupCard.setAttribute(
-        'aria-label',
-        isDocumentNotification ? 'Open Statements and Invoices' : 'Wooten Oil Notification'
-      );
-      if(isDocumentNotification){
-        customerNotificationPopupCard.setAttribute('role','button');
-        customerNotificationPopupCard.setAttribute('tabindex','0');
-      }else{
-        customerNotificationPopupCard.removeAttribute('role');
-        customerNotificationPopupCard.removeAttribute('tabindex');
-      }
+      customerNotificationPopupCard.classList.remove('document-notification-clickable');
+      customerNotificationPopupCard.setAttribute('aria-label','Wooten Oil Notification');
+      customerNotificationPopupCard.removeAttribute('role');
+      customerNotificationPopupCard.removeAttribute('tabindex');
     }
 
     if(customerNotificationPopupAttachmentList){
@@ -4955,27 +4942,16 @@ input[type="reset"]:focus,
           '</button>';
       });
 
-      if(isDocumentNotification){
-        var documentName=String(
-          notification.document_filename ||
-          notification.document_title ||
-          ''
-        ).trim();
+      var documentFilename=String(notification.document_filename||'').trim();
+      var hasPdfDocument=isDocumentNotification && /\.pdf$/i.test(documentFilename);
 
-        if(!documentName){
-          var msg=String(notification.message||'');
-          var m=msg.match(/^(.*?)\s+is now available in your Statements & Invoices\./i);
-          documentName=(m && m[1]) ? m[1] : (/invoice/i.test(String(notification.title||'')) ? 'Invoice' : 'Statement');
-        }
-
-        var safeDocumentName=documentName.replace(/[&<>"']/g,function(c){
+      if(hasPdfDocument){
+        var safeDocumentName=documentFilename.replace(/[&<>"']/g,function(c){
           return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
         });
 
         rows.unshift(
-          '<span class="customer-notification-document-link-label">'+
-            (/invoice/i.test(String(notification.title||'')) ? 'Invoice' : 'Statement')+
-          '</span>'+
+          '<span class="customer-notification-document-link-label">PDF File</span>'+
           '<a href="#" class="customer-notification-document-link" data-document-id="'+
             String(activeNotificationDocumentId||'')+
           '">'+safeDocumentName+'</a>'
@@ -4986,8 +4962,10 @@ input[type="reset"]:focus,
     }
 
     if(customerNotificationPopupAttachments){
-      customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0 || isDocumentNotification);
-      customerNotificationPopupAttachments.classList.toggle('document-notification-footer',isDocumentNotification);
+      var documentFilename=String(notification.document_filename||'').trim();
+      var hasPdfDocument=isDocumentNotification && /\.pdf$/i.test(documentFilename);
+      customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0 || hasPdfDocument);
+      customerNotificationPopupAttachments.classList.toggle('document-notification-footer',hasPdfDocument);
     }
 
     bindCustomerNotificationAttachmentList();
@@ -5141,38 +5119,6 @@ input[type="reset"]:focus,
       window.wootenOpenCustomerDocuments(documentId);
     }
   }
-
-  if(customerNotificationPopupCard){
-    customerNotificationPopupCard.addEventListener('click',function(e){
-      var popupLooksLikeDocument=/statement|invoice/i.test(String(customerNotificationPopupTitle && customerNotificationPopupTitle.textContent || ''));
-      if(!activeNotificationDocumentId && !popupLooksLikeDocument) return;
-
-      /* Do not turn the close button or a real attachment control into the
-         document-navigation click. */
-      if(e.target && e.target.closest(
-        '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-link'
-      )){
-        return;
-      }
-
-      openNotificationLinkedDocuments();
-    });
-
-    customerNotificationPopupCard.addEventListener('keydown',function(e){
-      var popupLooksLikeDocument=/statement|invoice/i.test(String(customerNotificationPopupTitle && customerNotificationPopupTitle.textContent || ''));
-      if(!activeNotificationDocumentId && !popupLooksLikeDocument) return;
-      if(e.key==='Enter' || e.key===' '){
-        if(e.target && e.target.closest(
-          '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-link'
-        )){
-          return;
-        }
-        e.preventDefault();
-        openNotificationLinkedDocuments();
-      }
-    });
-  }
-
 
 
   async function openCustomerNotificationAttachment(button){
