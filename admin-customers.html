@@ -2079,6 +2079,81 @@ input[type="file"]::file-selector-button{
 </style>
 
 
+
+<style id="wooten-statements-invoices-compact-space">
+/* Statements & Invoices: remove unnecessary empty space above and below the panel. */
+#admin-tab-documents{
+  min-height:0 !important;
+  padding-top:18px !important;
+  padding-bottom:16px !important;
+}
+
+#admin-tab-documents > .admin-page-label{
+  margin-top:0 !important;
+}
+
+#admin-tab-documents > h2{
+  margin-top:2px !important;
+  margin-bottom:5px !important;
+}
+
+#admin-tab-documents > p:first-of-type{
+  margin-top:0 !important;
+  margin-bottom:12px !important;
+}
+
+#admin-tab-documents .doc-admin-grid{
+  margin-top:12px !important;
+}
+
+#admin-tab-documents .actions{
+  margin-top:14px !important;
+}
+
+#admin-tab-documents > .note{
+  margin-top:12px !important;
+  margin-bottom:0 !important;
+}
+
+#admin-tab-documents .statement-batch-section{
+  margin-top:18px !important;
+  padding-top:16px !important;
+}
+
+#admin-tab-documents .statement-batch-controls{
+  margin-top:14px !important;
+}
+
+#admin-tab-documents .statement-send-actions{
+  margin-top:12px !important;
+  margin-bottom:0 !important;
+}
+
+#admin-tab-documents .statement-batch-progress:last-child{
+  margin-bottom:0 !important;
+}
+
+@media(max-width:720px){
+  #admin-tab-documents{
+    padding-top:14px !important;
+    padding-bottom:12px !important;
+  }
+
+  #admin-tab-documents > p:first-of-type{
+    margin-bottom:10px !important;
+  }
+
+  #admin-tab-documents .doc-admin-grid{
+    margin-top:10px !important;
+  }
+
+  #admin-tab-documents .statement-batch-section{
+    margin-top:14px !important;
+    padding-top:13px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
