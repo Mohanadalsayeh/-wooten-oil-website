@@ -1,12 +1,10 @@
-WOOTEN OIL — NOTIFICATION PDF OPEN + FOOTER SPACING FIX
+WOOTEN OIL — PDF NOTIFICATION FOOTER MORE SPACE
 
-Fixes:
-- Reduced the extra blank space below the statement/invoice PDF filename.
-- The whole notification popup remains non-clickable.
-- Only the real PDF filename is clickable.
-- Hover/focus keeps the underline style.
-- Clicking the PDF filename now opens the actual secured PDF file directly.
-- If an older notification is missing its document ID, the secure resolver is used first.
+Adjusted the PDF file section in the notification popup:
+- More padding above and below the PDF filename
+- A little more separation between "PDF FILE" and the filename
+- Keeps the popup compact and balanced
+- Mobile spacing adjusted too
 
 Upload:
 - index.html
@@ -14,4 +12,4 @@ Upload:
 - admin-customers.html
 - worker.js
 
-No manual D1, R2, or Cloudflare configuration changes are required.
+No database or Cloudflare configuration changes are required.
