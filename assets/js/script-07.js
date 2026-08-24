@@ -531,12 +531,11 @@
 
   function paymentHistoryDate(value){
     if(!value) return '—';
-    var s=String(value);
-    var p=s.split('-');
-    if(p.length===3){
-      var d=new Date(Number(p[0]),Number(p[1])-1,Number(p[2]));
-      if(!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    }
+    var s=String(value).trim();
+    var m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(m) return m[2]+'-'+m[3]+'-'+m[1];
+    m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if(m) return String(m[1]).padStart(2,'0')+'-'+String(m[2]).padStart(2,'0')+'-'+m[3];
     return s;
   }
 
