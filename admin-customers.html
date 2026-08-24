@@ -1407,6 +1407,58 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-statement-admin-layout-polish">
+/* Keep the statement selection options on one line. */
+.statement-email-option,
+.statement-select-all{
+  white-space:nowrap !important;
+  flex-wrap:nowrap !important;
+}
+.statement-email-option span,
+.statement-select-all span{
+  white-space:nowrap !important;
+}
+.statement-email-option{
+  min-width:max-content !important;
+}
+.statement-select-all{
+  min-width:max-content !important;
+}
+
+/* Center the Current / Previous / Total columns and values. */
+.statement-list-head span:nth-child(3),
+.statement-list-head span:nth-child(4),
+.statement-list-head span:nth-child(5){
+  text-align:center !important;
+}
+.statement-customer-row .statement-current,
+.statement-customer-row .statement-previous,
+.statement-customer-row .statement-total{
+  text-align:center !important;
+}
+
+/* Give those balance columns equal visual weight. */
+.statement-list-head,
+.statement-customer-row{
+  grid-template-columns:42px minmax(180px,1.7fr) 110px 110px 110px minmax(150px,1.1fr) !important;
+}
+
+@media(max-width:950px){
+  .statement-email-option{
+    width:max-content !important;
+    max-width:100% !important;
+  }
+}
+@media(max-width:700px){
+  .statement-email-option,
+  .statement-select-all{
+    width:max-content !important;
+    max-width:100% !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
