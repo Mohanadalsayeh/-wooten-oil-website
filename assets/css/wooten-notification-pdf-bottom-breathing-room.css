@@ -1,0 +1,15 @@
+/* Add a little more breathing room below the PDF filename in the notification footer. */
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link{
+  margin-bottom:7px !important;
+}
+#customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+  padding-bottom:18px !important;
+}
+@media(max-width:600px){
+  #customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link{
+    margin-bottom:6px !important;
+  }
+  #customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+    padding-bottom:16px !important;
+  }
+}

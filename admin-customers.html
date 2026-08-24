@@ -2369,6 +2369,63 @@ input[type="file"]::file-selector-button{
   }
 </style>
 
+
+<style id="wooten-customer-payments-import-style">
+  .payments-import-section{
+    margin-top:28px;
+    padding-top:22px;
+    border-top:1px solid #dfe5eb;
+  }
+  .payments-import-heading h3{
+    margin:3px 0 7px;
+    color:var(--navy);
+    font-size:23px;
+    line-height:1.2;
+  }
+  .payments-import-heading p{
+    margin:0 0 15px;
+  }
+  .payments-label{
+    margin-top:0 !important;
+  }
+  .payments-import-grid{
+    grid-template-columns:minmax(0,1fr) !important;
+    margin-top:14px !important;
+  }
+  .payments-import-actions{
+    margin-top:14px !important;
+  }
+  .payments-import-summary{
+    margin-top:16px !important;
+  }
+  .payments-preview-wrap{
+    margin-top:16px !important;
+  }
+  .payments-preview-wrap table{
+    min-width:940px;
+  }
+  .payments-import-note{
+    margin-top:14px !important;
+    margin-bottom:0 !important;
+  }
+  @media(max-width:720px){
+    .payments-import-section{
+      margin-top:22px;
+      padding-top:18px;
+    }
+    .payments-import-heading h3{
+      font-size:21px;
+    }
+    .payments-import-actions{
+      display:grid !important;
+      grid-template-columns:1fr !important;
+    }
+    .payments-import-actions button{
+      width:100% !important;
+    }
+  }
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -2492,6 +2549,60 @@ input[type="file"]::file-selector-button{
     </div>
 
     <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
+
+    <div class="payments-import-section">
+      <div class="payments-import-heading">
+        <div>
+          <div class="admin-page-label payments-label">Payments</div>
+          <h3>Customer Payments Import</h3>
+          <p>Upload the Excel or CSV file that contains customer payment history. Payments are matched to customers by account number and duplicate payment rows are skipped automatically.</p>
+        </div>
+      </div>
+
+      <div class="grid payments-import-grid">
+        <div>
+          <label for="paymentFile">Customer Payments File</label>
+          <input id="paymentFile" type="file" accept=".csv,.xlsx,.xls">
+        </div>
+      </div>
+
+      <div class="actions payments-import-actions">
+        <button class="secondary" id="paymentPreviewBtn" type="button">Preview Payments</button>
+        <button class="primary" id="paymentImportBtn" type="button" disabled>Import Payments</button>
+      </div>
+
+      <div id="paymentImportStatus" class="status"></div>
+
+      <div class="summary payments-import-summary" id="paymentImportSummary" style="display:none">
+        <div class="metric"><b id="pmRows">0</b><span>Rows Found</span></div>
+        <div class="metric"><b id="pmValid">0</b><span>Valid Payments</span></div>
+        <div class="metric"><b id="pmSkipped">0</b><span>Skipped Rows</span></div>
+        <div class="metric"><b id="pmImported">0</b><span>Last Import</span></div>
+      </div>
+
+      <div class="tablewrap payments-preview-wrap" id="paymentPreviewWrap" style="display:none">
+        <table>
+          <thead>
+            <tr>
+              <th>Account #</th>
+              <th>Payment Date</th>
+              <th>Amount</th>
+              <th>Reference / Check #</th>
+              <th>Payment Type</th>
+              <th>Description / Memo</th>
+            </tr>
+          </thead>
+          <tbody id="paymentPreviewBody"></tbody>
+        </table>
+      </div>
+
+      <p class="note payments-import-note">
+        <strong>Accepted payment fields:</strong>
+        CustomerNo or AccountNumber, PaymentDate or Date, Amount or PaymentAmount,
+        CheckNo / Reference / ReferenceNumber, PaymentType / Method, Description / Memo.
+        Only <strong>Account Number, Payment Date, and Amount</strong> are required.
+      </p>
+    </div>
   </div>
 
 
@@ -3017,6 +3128,199 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
     console.error(e); setStatus(e.message||"Import failed.",false);
   }finally{
     btn.disabled=false; btn.textContent="Upload / Update Customers";
+  }
+});
+
+
+/* CUSTOMER PAYMENTS IMPORT */
+let preparedPaymentRows=[];
+
+const paymentAliases={
+  account_number:["customerno","customer_no","customer","accountnumber","account_number","accountno","account_no","acctnumber","acct_no","acctnum"],
+  payment_date:["paymentdate","payment_date","datepaid","paiddate","date","transactiondate","transaction_date","postdate","postingdate"],
+  amount:["amount","paymentamount","payment_amount","paidamount","paid_amount","payment","creditamount","credit_amount"],
+  reference:["checkno","check_no","checknumber","check_number","reference","referenceno","reference_no","referencenumber","reference_number","receiptno","receipt_number"],
+  payment_type:["paymenttype","payment_type","method","paymentmethod","payment_method","type","tendertype","tender_type"],
+  description:["description","memo","comment","comments","note","notes","remark","remarks","detail","details"]
+};
+
+function paymentPick(row,names){
+  const map={};
+  Object.keys(row||{}).forEach(k=>map[keyify(k)]=row[k]);
+  for(const n of names){
+    const v=map[keyify(n)];
+    if(v!==undefined && v!==null && String(v).trim()!=="") return v;
+  }
+  return "";
+}
+
+function normalizePaymentDate(v){
+  const s=clean(v);
+  if(!s) return "";
+
+  // Already ISO-ish.
+  let m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m){
+    const y=m[1], mo=String(m[2]).padStart(2,"0"), d=String(m[3]).padStart(2,"0");
+    return `${y}-${mo}-${d}`;
+  }
+
+  // Common U.S. format MM/DD/YYYY.
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    let y=m[3];
+    if(y.length===2) y=(Number(y)>=70?"19":"20")+y;
+    return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  }
+
+  // Month-name formats as produced by Excel's formatted text.
+  const parsed=new Date(s);
+  if(!Number.isNaN(parsed.getTime())){
+    const y=parsed.getFullYear();
+    const mo=String(parsed.getMonth()+1).padStart(2,"0");
+    const d=String(parsed.getDate()).padStart(2,"0");
+    return `${y}-${mo}-${d}`;
+  }
+
+  return s;
+}
+
+function mapPaymentRow(row){
+  return {
+    account_number:normalizeAccount(paymentPick(row,paymentAliases.account_number)),
+    payment_date:normalizePaymentDate(paymentPick(row,paymentAliases.payment_date)),
+    amount:normalizeMoney(paymentPick(row,paymentAliases.amount)),
+    reference:clean(paymentPick(row,paymentAliases.reference)),
+    payment_type:clean(paymentPick(row,paymentAliases.payment_type)),
+    description:clean(paymentPick(row,paymentAliases.description))
+  };
+}
+
+function paymentRowIsValid(row){
+  return !!row.account_number && !!row.payment_date && Number.isFinite(Number(row.amount)) && Number(row.amount)!==0;
+}
+
+function setPaymentStatus(msg,good=true){
+  const el=document.getElementById("paymentImportStatus");
+  el.className="status show "+(good?"ok":"bad");
+  el.textContent=msg;
+}
+
+function paymentMoney(v){
+  const n=Number(v||0);
+  return n.toLocaleString("en-US",{style:"currency",currency:"USD"});
+}
+
+function renderPaymentPreview(rows,total,skipped){
+  document.getElementById("paymentImportSummary").style.display="grid";
+  document.getElementById("paymentPreviewWrap").style.display="block";
+  document.getElementById("pmRows").textContent=total;
+  document.getElementById("pmValid").textContent=rows.length;
+  document.getElementById("pmSkipped").textContent=skipped;
+
+  const body=document.getElementById("paymentPreviewBody");
+  body.innerHTML="";
+  rows.slice(0,200).forEach(r=>{
+    const tr=document.createElement("tr");
+    [
+      r.account_number,
+      r.payment_date,
+      paymentMoney(r.amount),
+      r.reference,
+      r.payment_type,
+      r.description
+    ].forEach(v=>{
+      const td=document.createElement("td");
+      td.textContent=v||"";
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
+  const file=document.getElementById("paymentFile").files[0];
+  if(!file){
+    setPaymentStatus("Choose an Excel or CSV customer payments file first.",false);
+    return;
+  }
+
+  try{
+    const raw=await parseFile(file);
+    const mapped=raw.map(mapPaymentRow);
+    preparedPaymentRows=mapped.filter(paymentRowIsValid);
+    renderPaymentPreview(preparedPaymentRows,raw.length,raw.length-preparedPaymentRows.length);
+    document.getElementById("paymentImportBtn").disabled=preparedPaymentRows.length===0;
+
+    if(preparedPaymentRows.length){
+      setPaymentStatus(`Preview ready: ${preparedPaymentRows.length} valid payment record(s).`);
+    }else{
+      setPaymentStatus("No valid payments were found. The file needs Account Number, Payment Date, and Amount columns.",false);
+    }
+  }catch(e){
+    console.error(e);
+    setPaymentStatus("Could not read the payments file. Please use Excel or CSV format.",false);
+  }
+});
+
+document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
+  const key=document.getElementById("adminKey").value.trim();
+  if(!key){
+    window.ensureAdminLoginKey?.("Enter your Admin Import Key to import customer payments.");
+    setPaymentStatus("Enter your Admin Import Key in the Admin Login window first.",false);
+    return;
+  }
+  if(!preparedPaymentRows.length){
+    setPaymentStatus("Preview a customer payments file first.",false);
+    return;
+  }
+
+  const btn=document.getElementById("paymentImportBtn");
+  btn.disabled=true;
+  btn.textContent="Importing…";
+
+  try{
+    // Keep each request comfortably below payload and D1 batch limits.
+    const chunkSize=1000;
+    let imported=0;
+    let duplicates=0;
+    let skipped=0;
+
+    for(let i=0;i<preparedPaymentRows.length;i+=chunkSize){
+      const chunk=preparedPaymentRows.slice(i,i+chunkSize);
+      const res=await fetch("/api/admin/customer-payments-import",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "X-Admin-Key":key
+        },
+        body:JSON.stringify({payments:chunk})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok || data.success===false){
+        throw new Error(data.error||"Payment import failed.");
+      }
+      imported+=Number(data.inserted||0);
+      duplicates+=Number(data.duplicates||0);
+      skipped+=Number(data.skipped||0);
+    }
+
+    document.getElementById("pmImported").textContent=imported;
+    setPaymentStatus(
+      `Payment import complete: ${imported} new payment(s) added`+
+      (duplicates?`, ${duplicates} duplicate(s) skipped`:"")+
+      (skipped?`, ${skipped} invalid row(s) skipped`:"")+"."
+    );
+  }catch(e){
+    console.error(e);
+    if(String(e.message||"").toLowerCase().includes("unauthorized")){
+      setPaymentStatus("The Admin Import Key is not valid.",false);
+    }else{
+      setPaymentStatus(e.message||"Payment import failed.",false);
+    }
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Import Payments";
   }
 });
 

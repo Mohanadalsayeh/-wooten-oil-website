@@ -1,0 +1,18 @@
+/* Give the PDF filename area a little more breathing room without making
+   the notification popup oversized. */
+#customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+  padding-top:16px !important;
+  padding-bottom:16px !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link-label{
+  margin-bottom:6px !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link{
+  line-height:1.35 !important;
+}
+@media(max-width:600px){
+  #customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+    padding-top:14px !important;
+    padding-bottom:14px !important;
+  }
+}

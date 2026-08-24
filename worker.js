@@ -706,10 +706,160 @@ async function onRequestPost3({ request, env }) {
   });
 }
 __name(onRequestPost3, "onRequestPost");
+
 function onRequestGet3() {
   return json3({ success: false, error: "Method not allowed." }, 405);
 }
 __name(onRequestGet3, "onRequestGet");
+
+// Customer payments import
+async function ensureCustomerPaymentsSchema(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS customer_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_number TEXT NOT NULL,
+      payment_date TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      reference TEXT NOT NULL DEFAULT '',
+      payment_type TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  await env.DB.prepare(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_payments_unique
+    ON customer_payments (
+      account_number,
+      payment_date,
+      amount,
+      reference,
+      payment_type,
+      description
+    )
+  `).run();
+
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_payments_account_date
+    ON customer_payments (account_number, payment_date DESC, id DESC)
+  `).run();
+}
+__name(ensureCustomerPaymentsSchema, "ensureCustomerPaymentsSchema");
+
+function paymentText(v, max = 500) {
+  return String(v ?? "").trim().slice(0, max);
+}
+__name(paymentText, "paymentText");
+
+function paymentAccount(v) {
+  const s = String(v ?? "").replace(/\D/g, "");
+  return s ? s.padStart(7, "0") : "";
+}
+__name(paymentAccount, "paymentAccount");
+
+function paymentAmount(v) {
+  const n = Number(String(v ?? "").replace(/[$,]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+__name(paymentAmount, "paymentAmount");
+
+async function adminCustomerPaymentsImport({ request, env }) {
+  const supplied = request.headers.get("X-Admin-Key") || "";
+  if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
+    return json3({ success: false, error: "Unauthorized." }, 401);
+  }
+
+  if (!env.DB) {
+    return json3({ success: false, error: "Customer database is not configured." }, 503);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json3({ success: false, error: "Invalid request data." }, 400);
+  }
+
+  const payments = Array.isArray(body?.payments) ? body.payments : [];
+  if (!payments.length) {
+    return json3({ success: false, error: "No payment records were supplied." }, 400);
+  }
+  if (payments.length > 1500) {
+    return json3({ success: false, error: "Too many payment records in one upload." }, 413);
+  }
+
+  try {
+    await ensureCustomerPaymentsSchema(env);
+  } catch (error) {
+    console.error("Customer payment schema setup failed", error);
+    return json3({ success: false, error: "Payment history database could not be prepared." }, 500);
+  }
+
+  const valid = [];
+  let skipped = 0;
+
+  for (const row of payments) {
+    const account = paymentAccount(row?.account_number);
+    const date = paymentText(row?.payment_date, 40);
+    const amount = paymentAmount(row?.amount);
+
+    if (!account || !date || !Number.isFinite(amount) || amount === 0) {
+      skipped++;
+      continue;
+    }
+
+    valid.push({
+      account,
+      date,
+      amount,
+      reference: paymentText(row?.reference, 150),
+      type: paymentText(row?.payment_type, 100),
+      description: paymentText(row?.description, 500)
+    });
+  }
+
+  if (!valid.length) {
+    return json3({ success: false, error: "No valid payment records were found." }, 400);
+  }
+
+  let inserted = 0;
+  let duplicates = 0;
+
+  // Use INSERT OR IGNORE so re-uploading the same MAS 90 payment file is safe.
+  const insertStmt = env.DB.prepare(`
+    INSERT OR IGNORE INTO customer_payments
+      (account_number, payment_date, amount, reference, payment_type, description, imported_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `);
+
+  try {
+    for (let i = 0; i < valid.length; i += 200) {
+      const chunk = valid.slice(i, i + 200);
+      const before = await env.DB.prepare(`SELECT COUNT(*) AS c FROM customer_payments`).first();
+      await env.DB.batch(chunk.map(p =>
+        insertStmt.bind(p.account, p.date, p.amount, p.reference, p.type, p.description)
+      ));
+      const after = await env.DB.prepare(`SELECT COUNT(*) AS c FROM customer_payments`).first();
+
+      const added = Math.max(0, Number(after?.c || 0) - Number(before?.c || 0));
+      inserted += added;
+      duplicates += chunk.length - added;
+    }
+  } catch (error) {
+    console.error("Customer payments import failed", error);
+    return json3({ success: false, error: "Payment history import failed." }, 500);
+  }
+
+  return json3({
+    success: true,
+    received: payments.length,
+    valid: valid.length,
+    inserted,
+    duplicates,
+    skipped
+  });
+}
+__name(adminCustomerPaymentsImport, "adminCustomerPaymentsImport");
 
 // functions/api/customer-login.js
 var SESSION_COOKIE = "wooten_customer_session";
@@ -5325,6 +5475,13 @@ var worker_default = {
           request,
           env
         });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/customer-payments-import") {
+      if (request.method === "POST") {
+        return adminCustomerPaymentsImport({ request, env });
       }
       return methodNotAllowed();
     }

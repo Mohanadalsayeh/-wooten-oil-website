@@ -1,0 +1,30 @@
+WOOTEN OIL WEBSITE — STAGE 2 MODULAR STRUCTURE
+
+Purpose
+The old index.html carried most CSS and JavaScript inline. This refactor reduces
+the risk of one accidental edit damaging unrelated parts of the website.
+
+Changes
+- index.html now mainly contains page structure.
+- 48 inline CSS blocks moved to assets/css/
+- 12 inline JavaScript blocks moved to assets/js/
+- Original execution/order is preserved.
+- Exact pre-refactor index saved as index-stage1-backup.html.
+- request-fuel.html, admin-customers.html, and worker.js were preserved unchanged.
+
+Future editing
+- Page structure/content: index.html
+- Styling: assets/css/
+- Customer portal / notifications / history / document logic: assets/js/
+- Admin tools: admin-customers.html
+- API / D1 / R2 / authentication / PDF generation: worker.js
+
+Deployment
+After this change, upload the ENTIRE folder structure. Do not upload index.html
+by itself because it references files inside assets/css and assets/js.
+
+Rollback
+If needed, replace index.html with the contents of index-stage1-backup.html.
+
+Recommended name for this checkpoint:
+Stage 2 — Modular Structure

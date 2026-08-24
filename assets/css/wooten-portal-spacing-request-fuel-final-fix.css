@@ -1,0 +1,73 @@
+/* Customer portal: remove the global SECTION padding that was creating
+   the large empty gap between the portal title and "Welcome back". */
+#portalAccountCard .customer-dashboard{
+  padding:0 !important;
+  margin:0 !important;
+}
+
+#portalAccountCard > .portal-eyebrow{
+  margin-bottom:22px !important;
+}
+
+#portalAccountCard .dashboard-welcome{
+  margin:0 0 26px !important;
+}
+
+#portalAccountCard .dashboard-welcome > div > span{
+  display:block;
+  margin:0 0 4px !important;
+  color:#273746;
+  font-size:1rem;
+  font-weight:500;
+  line-height:1.25;
+  text-transform:none;
+  letter-spacing:0;
+}
+
+#portalAccountCard .dashboard-welcome .account-name{
+  margin:0 !important;
+  line-height:1.08 !important;
+}
+
+#portalAccountCard .dashboard-welcome .account-number{
+  margin-top:8px !important;
+  line-height:1.25 !important;
+}
+
+/* Desktop Request Fuel button: always remain red with white text
+   on hover, mouse-over, focus and keyboard focus. */
+#site-header .nav-cta.desktop-request,
+#site-header .nav-cta.desktop-request:link,
+#site-header .nav-cta.desktop-request:visited{
+  background:#c62828 !important;
+  color:#ffffff !important;
+  border-color:#c62828 !important;
+}
+
+#site-header .nav-cta.desktop-request:hover,
+#site-header .nav-cta.desktop-request:focus,
+#site-header .nav-cta.desktop-request:focus-visible,
+#site-header .nav-cta.desktop-request:active{
+  background:#b71f1f !important;
+  color:#ffffff !important;
+  border-color:#b71f1f !important;
+  text-decoration:none !important;
+}
+
+/* Keep the mobile Request Fuel item correct as well. */
+#mobile-menu .mobile-request-link,
+#mobile-menu .mobile-request-link:hover,
+#mobile-menu .mobile-request-link:focus,
+#mobile-menu .mobile-request-link:active{
+  background:#c62828 !important;
+  color:#ffffff !important;
+}
+
+@media(max-width:620px){
+  #portalAccountCard > .portal-eyebrow{
+    margin-bottom:18px !important;
+  }
+  #portalAccountCard .dashboard-welcome{
+    margin-bottom:22px !important;
+  }
+}

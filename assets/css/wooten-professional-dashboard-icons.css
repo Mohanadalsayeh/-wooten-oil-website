@@ -1,0 +1,30 @@
+.dashboard-action-icon{
+  background:#f3f6f8 !important;
+  color:#173956 !important;
+  border:1px solid #dfe7ed;
+  box-shadow:none !important;
+}
+.dashboard-action-icon svg{
+  width:24px;
+  height:24px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.dashboard-action-pay .dashboard-action-icon{
+  background:#f3f7f4 !important;
+  color:#2f6d45 !important;
+  border-color:#dfe9e2;
+}
+.dashboard-action-fuel .dashboard-action-icon{
+  background:#f7f5f0 !important;
+  color:#6f5b2e !important;
+  border-color:#e8e2d4;
+}
+.dashboard-action-logout .dashboard-action-icon{
+  background:#f5f6f7 !important;
+  color:#5a6874 !important;
+  border-color:#e2e6e9;
+}
