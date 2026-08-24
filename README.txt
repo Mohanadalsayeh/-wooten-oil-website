@@ -1,20 +1,9 @@
-WOOTEN OIL — STATEMENT ADMIN MOBILE COMPATIBILITY FIX
+WOOTEN OIL — MAS 90 DATABASE RENAME
 
-Fixed Admin > Statements & Invoices on phones:
+Changed the visible Admin Customers form heading:
+- Customer Database -> MAS 90 Database
 
-- Statement Date field now stays inside the page on iPhone/Safari.
-- Date input width/min-width is corrected for mobile browsers.
-- "Email PDF when email is on file" is positioned correctly with its checkbox.
-- Selection toolbar is reorganized for phone screens.
-- Customer table is replaced by mobile-friendly customer cards on small screens.
-- Each card clearly shows:
-  Customer name / number
-  Current balance
-  Previous balance
-  Total balance
-  Email
-- Buttons stack cleanly on phones.
-- Desktop layout remains unchanged.
+Everything else remains unchanged.
 
 Upload:
 - index.html
