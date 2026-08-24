@@ -1804,8 +1804,101 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-admin-login-popup-style">
+  .admin-access-box{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    box-shadow:0 6px 18px rgba(15,23,42,.05);min-width:min(100%,360px)
+  }
+  .admin-access-label{margin:0 0 4px;color:var(--navy);font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .admin-access-meta{margin:0;color:#6f7f8d;font-size:14px;font-weight:600}
+  .admin-access-btn{white-space:nowrap}
+
+  body.admin-login-locked{overflow:hidden}
+  body.admin-login-locked .wrap{filter:blur(2px);pointer-events:none;user-select:none}
+
+  .admin-login-watermark{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    padding:24px;z-index:120;background:
+      radial-gradient(circle at center, rgba(255,255,255,.92) 0%, rgba(244,247,251,.93) 48%, rgba(230,236,243,.96) 100%);
+  }
+  body.admin-login-locked .admin-login-watermark{display:flex}
+  .admin-login-watermark-mark{
+    text-align:center;opacity:.6;transform:translateY(-16px);
+  }
+  .admin-login-watermark-title{
+    font-size:clamp(38px,7vw,88px);font-weight:900;letter-spacing:.08em;color:#0f2f54;line-height:1.02;
+  }
+  .admin-login-watermark-subtitle{
+    margin-top:10px;font-size:clamp(13px,2.2vw,24px);font-weight:800;letter-spacing:.38em;color:#c61d27;text-transform:uppercase;
+  }
+
+  .admin-login-overlay{position:fixed;inset:0;z-index:140;display:none;align-items:center;justify-content:center;padding:18px}
+  body.admin-login-locked .admin-login-overlay{display:flex}
+  .admin-login-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.24)}
+  .admin-login-dialog{position:relative;z-index:1;width:min(100%,560px)}
+  .admin-login-card{
+    background:#ffffff;border:1px solid rgba(15,47,84,.10);border-radius:24px;padding:28px 28px 24px;
+    box-shadow:0 30px 80px rgba(15,23,42,.24)
+  }
+  .admin-login-kicker{color:var(--red);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin:0 0 8px}
+  .admin-login-card h2{margin:0 0 8px;color:var(--navy);font-size:34px;line-height:1.05}
+  .admin-login-card p{margin:0 0 18px;color:#607181;max-width:44ch}
+  .admin-login-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:0 0 10px}
+  .admin-login-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+  .admin-login-actions .primary{min-width:220px}
+  #adminLoginStatus{display:none;margin-top:4px}
+  #adminLoginStatus.show{display:block}
+
+  @media(max-width:900px){
+    .admin-access-box{min-width:0;width:100%}
+  }
+  @media(max-width:720px){
+    .admin-access-box{flex-direction:column;align-items:stretch}
+    .admin-access-btn{width:100%}
+    .admin-login-card{padding:24px 18px 18px;border-radius:20px}
+    .admin-login-card h2{font-size:30px}
+    .admin-login-actions .primary{width:100%;min-width:0}
+    .admin-login-watermark-title{font-size:clamp(28px,12vw,56px)}
+    .admin-login-watermark-subtitle{font-size:clamp(12px,4vw,18px);letter-spacing:.18em}
+  }
+</style>
+
 </head>
 <body>
+<div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
+  <div class="admin-login-watermark-mark">
+    <div class="admin-login-watermark-title">WOOTEN OIL CO INC.</div>
+    <div class="admin-login-watermark-subtitle">LOCAL PETROLEUM DELIVERY</div>
+  </div>
+</div>
+
+<div class="admin-login-overlay" id="adminLoginOverlay" aria-hidden="false">
+  <div class="admin-login-backdrop"></div>
+  <div class="admin-login-dialog" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
+    <form id="adminLoginForm" class="admin-login-card">
+      <div class="admin-login-kicker">Wooten Oil Administration</div>
+      <h2 id="adminLoginTitle">Admin Login</h2>
+      <p>Enter your login name and Admin Import Key to open the customer administration page.</p>
+      <div class="admin-login-grid">
+        <div>
+          <label for="adminLoginName">Login</label>
+          <input id="adminLoginName" type="text" autocomplete="username" placeholder="Enter your login name">
+        </div>
+        <div>
+          <label for="adminKeyPrompt">Admin Import Key</label>
+          <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Enter your admin key">
+        </div>
+      </div>
+      <div id="adminLoginStatus" class="status" aria-live="polite"></div>
+      <div class="admin-login-actions">
+        <button class="primary" type="submit">Open Administration</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="wrap">
 
   <div class="admin-header">
@@ -1814,9 +1907,15 @@ input[type="file"]::file-selector-button{
       <h1>Customer Administration</h1>
       <p>Use the tabs below to manage customers, preview the live database, messages, notifications, Gmail synchronization, and online account activation.</p>
     </div>
-    <div class="admin-key-box">
-      <label for="adminKey">Admin Import Key</label>
-      <input id="adminKey" type="password" autocomplete="off" placeholder="Enter your private admin key">
+    <div class="admin-access-box">
+      <div>
+        <div class="admin-access-label">Admin Access</div>
+        <div class="admin-access-meta" id="adminAccessMeta">Locked • Login required</div>
+      </div>
+      <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Login / Change Key</button>
+    </div>
+    <div hidden aria-hidden="true">
+      <input id="adminKey" type="password" autocomplete="off">
     </div>
   </div>
 
@@ -2376,7 +2475,7 @@ document.getElementById("previewBtn").addEventListener("click",async()=>{
 
 document.getElementById("importBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
-  if(!key){setStatus("Enter your Admin Import Key first.",false);return;}
+  if(!key){setStatus("Enter your Admin Import Key in the Admin Login window first.",false);return;}
   if(!preparedRows.length){setStatus("Preview a customer file first.",false);return;}
   const btn=document.getElementById("importBtn");
   btn.disabled=true; btn.textContent="Uploading…";
@@ -2564,7 +2663,7 @@ async function loadGmailInbox(){
 
   if(!key){
     status.className="status show bad";
-    status.textContent="Enter your Admin Import Key at the top of the page first.";
+    status.textContent="Enter your Admin Import Key in the Admin Login window first.";
     window.scrollTo({top:0,behavior:"smooth"});
     return;
   }
@@ -2623,7 +2722,7 @@ async function loadGmailPortalSyncStatus(){
   const key=document.getElementById("adminKey").value.trim();
   const status=document.getElementById("gmailPortalSyncStatus");
   const meta=document.getElementById("gmailSyncMeta");
-  if(!key){status.className="status show bad";status.textContent="Enter your Admin Import Key first.";return;}
+  if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');status.className="status show bad";status.textContent="Enter your Admin Import Key in the Admin Login window first.";return;}
   try{
     const res=await fetch("/api/admin/gmail-portal-sync/status",{headers:{"X-Admin-Key":key},cache:"no-store"});
     const data=await res.json().catch(()=>({}));
@@ -2638,7 +2737,7 @@ document.getElementById("gmailPortalSyncBtn").addEventListener("click",async()=>
   const key=document.getElementById("adminKey").value.trim();
   const btn=document.getElementById("gmailPortalSyncBtn");
   const status=document.getElementById("gmailPortalSyncStatus");
-  if(!key){status.className="status show bad";status.textContent="Enter your Admin Import Key first.";return;}
+  if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');status.className="status show bad";status.textContent="Enter your Admin Import Key in the Admin Login window first.";return;}
   btn.disabled=true;btn.textContent="Syncing…";status.className="status show";status.textContent="Checking Wooten Oil Gmail Sent messages…";
   try{
     const res=await fetch("/api/admin/gmail-portal-sync",{method:"POST",headers:{"X-Admin-Key":key},cache:"no-store"});
@@ -2777,7 +2876,7 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
 
   if(!key){
     status.className="status show bad";
-    status.textContent="Enter your Admin Import Key at the top of the page first.";
+    status.textContent="Enter your Admin Import Key in the Admin Login window first.";
     return;
   }
 
@@ -2868,7 +2967,7 @@ document.getElementById("activationBtn").addEventListener("click",async()=>{
   const result=document.getElementById("activationResult");
 
   if(!key){
-    setStatus("Enter your Admin Import Key at the top of the page first.",false);
+    setStatus("Enter your Admin Import Key in the Admin Login window first.",false);
     window.scrollTo({top:0,behavior:"smooth"});
     return;
   }
@@ -2945,7 +3044,7 @@ document.getElementById("resetAssistBtn").addEventListener("click",async()=>{
 
   if(!key){
     status.className="status show bad";
-    status.textContent="Enter your Admin Import Key at the top of the page first.";
+    status.textContent="Enter your Admin Import Key in the Admin Login window first.";
     return;
   }
 
@@ -3221,7 +3320,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
         if(!key){
           actionStatus.className="db-action-status show bad";
-          actionStatus.textContent="Enter the Admin Import Key at the top of the page first.";
+          actionStatus.textContent="Enter the Admin Import Key in the Admin Login window first.";
           return;
         }
 
@@ -3297,7 +3396,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   async function loadDatabase({silent=false}={}){
     const key=document.getElementById("adminKey").value.trim();
     if(!key){
-      setDbStatus("Enter your Admin Import Key at the top of the page first.");
+      setDbStatus("Enter your Admin Import Key in the Admin Login window first.");
       return;
     }
 
@@ -3503,7 +3602,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   async function openAdminDocument(id){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
 
     const popup=window.open('about:blank','_blank');
     try{
@@ -3527,7 +3626,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   async function loadDocs(){
     const key=document.getElementById('adminKey').value.trim();
     const acct=normalize(account.value);
-    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     account.value=acct;
     setStatus('Loading customer documents…');
@@ -3546,7 +3645,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const key=document.getElementById('adminKey').value.trim();
     const acct=normalize(account.value);
     const selected=file.files&&file.files[0];
-    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     if(!selected){setStatus('Choose a PDF statement or invoice.',false);return;}
     if(selected.size>10*1024*1024){setStatus('PDF files must be 10 MB or smaller.',false);return;}
@@ -3657,7 +3756,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   async function loadCustomers(){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     loadBtn.disabled=true;loadBtn.textContent='Loading…';
     try{
       const res=await fetch('/api/admin/statement-customers',{
@@ -3731,7 +3830,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   sendBtn.addEventListener('click',async function(){
     const key=document.getElementById('adminKey').value.trim();
     const accounts=Array.from(selected);
-    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!accounts.length){setStatus('Select at least one customer.',false);return;}
     if(!date.value){setStatus('Choose the statement date.',false);return;}
 
@@ -3792,6 +3891,132 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       sendBtn.textContent='Generate & Send Statements';
     }
   });
+})();
+</script>
+
+
+<script id="wooten-admin-login-popup-script">
+(function(){
+  const body=document.body;
+  const keyField=document.getElementById('adminKey');
+  const overlay=document.getElementById('adminLoginOverlay');
+  const form=document.getElementById('adminLoginForm');
+  const loginName=document.getElementById('adminLoginName');
+  const keyPrompt=document.getElementById('adminKeyPrompt');
+  const status=document.getElementById('adminLoginStatus');
+  const openBtn=document.getElementById('adminAccessOpenBtn');
+  const accessMeta=document.getElementById('adminAccessMeta');
+  const storageKey='wootenAdminLoginSession';
+
+  function setStatus(message,bad){
+    if(!status) return;
+    status.className='status show '+(bad===false?'ok':'bad');
+    status.textContent=message||'';
+  }
+
+  function clearStatus(){
+    if(!status) return;
+    status.className='status';
+    status.textContent='';
+  }
+
+  function updateAccessMeta(){
+    const user=(loginName.value||'').trim();
+    const hasKey=!!(keyField.value||'').trim();
+    if(!accessMeta) return;
+    if(hasKey){
+      accessMeta.textContent=user ? ('Signed in as '+user) : 'Admin key loaded';
+    }else{
+      accessMeta.textContent='Locked • Login required';
+    }
+  }
+
+  function openLogin(options){
+    const opts=options||{};
+    body.classList.add('admin-login-locked');
+    overlay.setAttribute('aria-hidden','false');
+    if(opts.message) setStatus(opts.message,true); else clearStatus();
+    window.setTimeout(()=>{
+      if(!(loginName.value||'').trim()) loginName.focus();
+      else keyPrompt.focus();
+    },40);
+  }
+
+  function closeLogin(){
+    if(!(keyField.value||'').trim()) return;
+    body.classList.remove('admin-login-locked');
+    overlay.setAttribute('aria-hidden','true');
+    clearStatus();
+  }
+
+  function saveSession(){
+    try{
+      sessionStorage.setItem(storageKey, JSON.stringify({login:(loginName.value||'').trim(), key:(keyField.value||'').trim()}));
+    }catch(_e){}
+  }
+
+  function restoreSession(){
+    try{
+      const raw=sessionStorage.getItem(storageKey);
+      if(!raw) return false;
+      const data=JSON.parse(raw)||{};
+      if(data.login) loginName.value=String(data.login);
+      if(data.key){
+        keyField.value=String(data.key);
+        keyPrompt.value=String(data.key);
+        return true;
+      }
+    }catch(_e){}
+    return false;
+  }
+
+  window.ensureAdminLoginKey=function(message){
+    if((keyField.value||'').trim()) return true;
+    openLogin({message:message||'Enter your login name and Admin Import Key to continue.'});
+    return false;
+  };
+
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    const user=(loginName.value||'').trim();
+    const key=(keyPrompt.value||'').trim();
+    if(!user){
+      setStatus('Enter your login name.',true);
+      loginName.focus();
+      return;
+    }
+    if(!key){
+      setStatus('Enter your Admin Import Key.',true);
+      keyPrompt.focus();
+      return;
+    }
+    keyField.value=key;
+    saveSession();
+    updateAccessMeta();
+    closeLogin();
+  });
+
+  openBtn.addEventListener('click',function(){
+    keyPrompt.value=(keyField.value||'').trim();
+    openLogin();
+  });
+
+  overlay.addEventListener('click',function(e){
+    if(e.target===overlay || e.target.classList.contains('admin-login-backdrop')){
+      if((keyField.value||'').trim()) closeLogin();
+    }
+  });
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape' && body.classList.contains('admin-login-locked') && (keyField.value||'').trim()){
+      closeLogin();
+    }
+  });
+
+  const restored=restoreSession();
+  updateAccessMeta();
+  if(restored){ closeLogin(); }
+  else { openLogin(); }
 })();
 </script>
 
