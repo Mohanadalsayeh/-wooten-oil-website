@@ -3402,6 +3402,7 @@ async function customerNotificationsGet({ request, env }) {
     }
 
     await ensureCustomerNotificationsTable(env);
+    await ensureCustomerDocumentsTable(env);
 
     try {
       await syncGmailSentToPortal(env, { force: false, maxMessages: 50 });
@@ -3579,6 +3580,7 @@ async function customerNotificationDetailGet({ request, env }) {
     }
 
     await ensureCustomerNotificationsTable(env);
+    await ensureCustomerDocumentsTable(env);
 
     const url = new URL(request.url);
     const idPart = url.pathname.split("/").filter(Boolean).pop() || "";
@@ -4778,6 +4780,482 @@ async function customerDocumentFileGet({request,env}){
 __name(customerDocumentFileGet,"customerDocumentFileGet");
 
 
+
+function statementNumber(value){
+  const n=Number(String(value??"").replace(/[$,]/g,""));
+  return Number.isFinite(n)?n:0;
+}
+__name(statementNumber,"statementNumber");
+
+function statementMoney(value){
+  const n=statementNumber(value);
+  const abs=Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+  return `${n<0?"-":""}$${abs}`;
+}
+__name(statementMoney,"statementMoney");
+
+function statementPdfSafeText(value){
+  return String(value??"")
+    .replace(/[^\x20-\x7E]/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+__name(statementPdfSafeText,"statementPdfSafeText");
+
+function statementPdfEscape(value){
+  return statementPdfSafeText(value)
+    .replace(/\\/g,"\\\\")
+    .replace(/\(/g,"\\(")
+    .replace(/\)/g,"\\)");
+}
+__name(statementPdfEscape,"statementPdfEscape");
+
+function statementPdfDate(value){
+  const raw=String(value||"").trim();
+  let d;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+    const [y,m,day]=raw.split("-").map(Number);
+    d=new Date(Date.UTC(y,m-1,day,12,0,0));
+  }else{
+    d=new Date(raw||Date.now());
+  }
+  if(Number.isNaN(d.getTime())) d=new Date();
+  return d.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric",timeZone:"UTC"});
+}
+__name(statementPdfDate,"statementPdfDate");
+
+function statementPdfShortDate(value){
+  const raw=String(value||"").trim();
+  let d;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+    const [y,m,day]=raw.split("-").map(Number);
+    d=new Date(Date.UTC(y,m-1,day,12,0,0));
+  }else{
+    d=new Date(raw||Date.now());
+  }
+  if(Number.isNaN(d.getTime())) d=new Date();
+  const y=d.getUTCFullYear();
+  const m=String(d.getUTCMonth()+1).padStart(2,"0");
+  const day=String(d.getUTCDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+__name(statementPdfShortDate,"statementPdfShortDate");
+
+function statementCustomerAddress(customer){
+  const street=[customer?.address1,customer?.address2,customer?.address3]
+    .map(statementPdfSafeText).filter(Boolean).join(", ");
+  const cityState=[statementPdfSafeText(customer?.city),statementPdfSafeText(customer?.state)]
+    .filter(Boolean).join(", ");
+  const cityLine=[cityState,statementPdfSafeText(customer?.zip_code)].filter(Boolean).join(" ");
+  return [street,cityLine].filter(Boolean);
+}
+__name(statementCustomerAddress,"statementCustomerAddress");
+
+function statementBuildPdf(customer,statementDate){
+  const current=statementNumber(customer?.current_balance);
+  const age1=statementNumber(customer?.aging_category_1);
+  const age2=statementNumber(customer?.aging_category_2);
+  const age3=statementNumber(customer?.aging_category_3);
+  const age4=statementNumber(customer?.aging_category_4);
+  const previous=age1+age2+age3+age4;
+  const total=current+previous;
+
+  const commands=[];
+  const add=(s)=>commands.push(s);
+  const rgb=(r,g,b)=>`${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)}`;
+
+  const navy=[0.055,0.145,0.235];
+  const blue=[0.12,0.29,0.43];
+  const red=[0.78,0.11,0.16];
+  const slate=[0.32,0.38,0.44];
+  const light=[0.965,0.975,0.983];
+  const line=[0.84,0.88,0.91];
+  const white=[1,1,1];
+
+  function text(x,y,size,value,bold=false,color=navy){
+    add(`BT /${bold?"F2":"F1"} ${size} Tf ${rgb(...color)} rg ${x} ${y} Td (${statementPdfEscape(value)}) Tj ET`);
+  }
+  function rect(x,y,w,h,fillColor,strokeColor=null,width=1){
+    if(fillColor) add(`${rgb(...fillColor)} rg ${x} ${y} ${w} ${h} re f`);
+    if(strokeColor) add(`${width} w ${rgb(...strokeColor)} RG ${x} ${y} ${w} ${h} re S`);
+  }
+  function lineTo(x1,y1,x2,y2,color=line,width=1){
+    add(`${width} w ${rgb(...color)} RG ${x1} ${y1} m ${x2} ${y2} l S`);
+  }
+  function rightText(right,y,size,value,bold=false,color=navy){
+    const s=statementPdfSafeText(value);
+    const avg=(bold?0.56:0.52)*size;
+    text(Math.max(42,right-s.length*avg),y,size,s,bold,color);
+  }
+
+  // Header
+  rect(0,700,612,92,navy);
+  rect(0,696,612,4,red);
+  text(42,751,22,"WOOTEN OIL CO INC.",true,white);
+  text(42,730,10,"513 East Sanford Avenue, Covington, TN 38019",false,[0.88,0.92,0.96]);
+  text(42,714,9.5,"(901) 476-2684  |  support@wootenoil.com",false,[0.88,0.92,0.96]);
+  rightText(570,750,20,"ACCOUNT STATEMENT",true,white);
+
+  // Statement meta
+  text(42,657,13,"Statement Date",true,slate);
+  text(42,638,12,statementPdfDate(statementDate),false,navy);
+  rightText(570,657,10,"Customer #",true,slate);
+  rightText(570,638,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
+
+  // Customer box
+  rect(42,552,528,64,light,line,0.8);
+  text(56,592,10,"BILL TO",true,slate);
+  text(56,574,13,statementPdfSafeText(customer?.account_name)||"Customer",true,navy);
+  const address=statementCustomerAddress(customer);
+  if(address[0]) text(300,590,10,address[0],false,slate);
+  if(address[1]) text(300,573,10,address[1],false,slate);
+
+  // Summary heading
+  text(42,522,15,"Account Summary",true,navy);
+  text(42,505,9.5,"Balances shown reflect the latest information available in the Wooten Oil customer portal.",false,slate);
+
+  // Summary cards
+  const cardY=438, cardH=52, cardW=168, gap=12;
+  rect(42,cardY,cardW,cardH,[0.94,0.96,0.98],line,0.8);
+  rect(42+cardW+gap,cardY,cardW,cardH,[0.975,0.978,0.982],line,0.8);
+  rect(42+(cardW+gap)*2,cardY,cardW,cardH,[0.94,0.96,0.98],line,0.8);
+
+  text(55,472,8.5,"CURRENT BALANCE",true,slate);
+  text(55,449,18,statementMoney(current),true,navy);
+
+  text(55+cardW+gap,472,8.5,"PREVIOUS BALANCE",true,slate);
+  text(55+cardW+gap,449,18,statementMoney(previous),true,previous>0?red:navy);
+
+  text(55+(cardW+gap)*2,472,8.5,"TOTAL BALANCE",true,slate);
+  text(55+(cardW+gap)*2,449,18,statementMoney(total),true,navy);
+
+  // Aging table
+  text(42,420,15,"Aging Breakdown",true,navy);
+  text(42,404,9.5,"Previous Balance is the total of all 31+ day aging categories.",false,slate);
+
+  const tableX=42, tableY=205, tableW=528, rowH=27;
+  rect(tableX,tableY+rowH*6,tableW,rowH,navy);
+  text(56,tableY+rowH*6+9,9,"AGING PERIOD",true,white);
+  rightText(556,tableY+rowH*6+9,9,"BALANCE",true,white);
+
+  const rows=[
+    ["Current (0-30 Days)",current],
+    ["31-60 Days",age1],
+    ["61-90 Days",age2],
+    ["91-120 Days",age3],
+    ["120+ Days",age4],
+    ["Previous Balance (31+ Days)",previous]
+  ];
+  rows.forEach((row,idx)=>{
+    const y=tableY+rowH*(5-idx);
+    rect(tableX,y,tableW,rowH,idx%2===0?[0.985,0.989,0.992]:white,line,0.5);
+    text(56,y+9,9.5,row[0],idx===5,idx===5?navy:slate);
+    rightText(556,y+9,10,statementMoney(row[1]),idx===5,idx===5?navy:slate);
+  });
+
+  // Total row
+  rect(tableX,tableY-rowH,tableW,rowH,[0.94,0.96,0.98],navy,0.8);
+  text(56,tableY-rowH+9,10.5,"TOTAL BALANCE",true,navy);
+  rightText(556,tableY-rowH+9,12,statementMoney(total),true,navy);
+
+  // Payment/info note
+  rect(42,112,528,54,[1.0,0.975,0.91],[0.91,0.78,0.45],0.8);
+  text(56,145,9.5,"PAYMENT NOTICE",true,[0.43,0.30,0.08]);
+  text(56,128,9,"Payments submitted through the Wooten Oil Customer Portal may take up to",false,[0.43,0.30,0.08]);
+  text(56,115,9,"24 business hours to appear on your account.",false,[0.43,0.30,0.08]);
+
+  // Footer
+  lineTo(42,82,570,82,line,0.7);
+  text(42,63,8.5,"Wooten Oil Co Inc.  |  West Tennessee Petroleum Delivery",false,slate);
+  rightText(570,63,8.5,"Thank you for your business.",false,slate);
+
+  const stream=commands.join("\n");
+  const objects=[];
+  objects[1]="<< /Type /Catalog /Pages 2 0 R >>";
+  objects[2]="<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+  objects[3]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>";
+  objects[4]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  objects[5]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+  objects[6]=`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`;
+
+  let pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+  const offsets=[0];
+  for(let i=1;i<=6;i++){
+    offsets[i]=new TextEncoder().encode(pdf).length;
+    pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;
+  }
+  const xrefOffset=new TextEncoder().encode(pdf).length;
+  pdf+="xref\n0 7\n";
+  pdf+="0000000000 65535 f \n";
+  for(let i=1;i<=6;i++){
+    pdf+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
+  }
+  pdf+=`trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+
+  return new TextEncoder().encode(pdf);
+}
+__name(statementBuildPdf,"statementBuildPdf");
+
+function statementBytesToBase64(bytes){
+  let binary="";
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binary+=String.fromCharCode(...bytes.subarray(i,Math.min(bytes.length,i+chunk)));
+  }
+  return btoa(binary);
+}
+__name(statementBytesToBase64,"statementBytesToBase64");
+
+async function adminStatementCustomersGet({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+      return notificationJson({success:false,error:"Unauthorized."},401);
+    }
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+
+    const result=await env.DB.prepare(`
+      SELECT
+        account_number,account_name,email,current_balance,
+        aging_category_1,aging_category_2,aging_category_3,aging_category_4,
+        account_status,
+        CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated
+      FROM customers
+      ORDER BY account_name COLLATE NOCASE ASC,account_number ASC
+      LIMIT 5000
+    `).all();
+
+    const customers=(result?.results||[]).map(c=>{
+      const current=statementNumber(c.current_balance);
+      const previous=
+        statementNumber(c.aging_category_1)+
+        statementNumber(c.aging_category_2)+
+        statementNumber(c.aging_category_3)+
+        statementNumber(c.aging_category_4);
+      return {
+        account_number:c.account_number,
+        account_name:c.account_name||"",
+        email:c.email||"",
+        current_balance:current,
+        previous_balance:previous,
+        total_balance:current+previous,
+        online_activated:!!c.online_activated,
+        account_status:c.account_status||""
+      };
+    });
+
+    return notificationJson({success:true,count:customers.length,customers});
+  }catch(error){
+    console.error("adminStatementCustomersGet failed",error);
+    return notificationJson({success:false,error:"Statement customer list could not be loaded."},500);
+  }
+}
+__name(adminStatementCustomersGet,"adminStatementCustomersGet");
+
+async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,total){
+  if(!customer?.email || !env.RESEND_API_KEY) return {sent:false,reason:!customer?.email?"no_email":"email_not_configured"};
+  try{
+    const fromAddress=String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim();
+    const dateLabel=statementPdfDate(statementDate);
+    const response=await fetch("https://api.resend.com/emails",{
+      method:"POST",
+      headers:{
+        "Authorization":`Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type":"application/json",
+        "User-Agent":"WootenOilCustomerPortal/1.0"
+      },
+      body:JSON.stringify({
+        from:`Wooten Oil <${fromAddress}>`,
+        to:[customer.email],
+        subject:`Wooten Oil Account Statement - ${dateLabel}`,
+        html:`
+          <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033;line-height:1.6">
+            <h2 style="color:#0b2239;margin-bottom:8px">Wooten Oil Co Inc.</h2>
+            <p>Hello ${notificationEscapeHtml(customer.account_name||"Customer")},</p>
+            <p>Your Wooten Oil account statement for <strong>${notificationEscapeHtml(dateLabel)}</strong> is attached as a PDF.</p>
+            <p><strong>Total Balance: ${notificationEscapeHtml(statementMoney(total))}</strong></p>
+            <p style="margin-top:24px;color:#64748b;font-size:13px">The same statement is also available securely in your Wooten Oil Customer Portal.</p>
+          </div>
+        `,
+        text:`Hello ${customer.account_name||"Customer"},\n\nYour Wooten Oil account statement for ${dateLabel} is attached as a PDF.\nTotal Balance: ${statementMoney(total)}\n\nThe same statement is also available securely in your Wooten Oil Customer Portal.`,
+        attachments:[{
+          filename,
+          content:statementBytesToBase64(pdfBytes)
+        }]
+      })
+    });
+    const data=await response.json().catch(()=>({}));
+    return response.ok?{sent:true,id:data.id||""}:{sent:false,reason:data?.message||data?.error||"email_failed"};
+  }catch(error){
+    console.error("statement email failed",error);
+    return {sent:false,reason:String(error?.message||error)};
+  }
+}
+__name(statementSendEmail,"statementSendEmail");
+
+async function adminGenerateStatementsPost({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+      return notificationJson({success:false,error:"Unauthorized."},401);
+    }
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+    if(!env.NOTIFICATION_ATTACHMENTS){
+      return notificationJson({success:false,error:"Statement storage is not configured."},503);
+    }
+
+    let body={};
+    try{body=await request.json();}catch{
+      return notificationJson({success:false,error:"Invalid request data."},400);
+    }
+
+    const accounts=[...new Set((Array.isArray(body.accounts)?body.accounts:[])
+      .map(normalizeNotificationAccount).filter(Boolean))];
+    if(!accounts.length) return notificationJson({success:false,error:"Select at least one customer."},400);
+    if(accounts.length>20) return notificationJson({success:false,error:"Send statements in batches of 20 customers or fewer."},413);
+
+    const statementDate=statementPdfShortDate(body.statement_date||new Date().toISOString());
+    const emailPdf=body.email_pdf!==false;
+
+    await ensureCustomerDocumentsTable(env);
+    await ensureCustomerNotificationsTable(env);
+
+    const results=[];
+
+    for(const account of accounts){
+      let objectKey="";
+      try{
+        const customer=await env.DB.prepare(`
+          SELECT
+            account_number,account_name,address1,address2,address3,city,state,zip_code,phone,email,
+            current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4
+          FROM customers
+          WHERE account_number=?
+          LIMIT 1
+        `).bind(account).first();
+
+        if(!customer){
+          results.push({account_number:account,success:false,error:"Customer not found."});
+          continue;
+        }
+
+        const current=statementNumber(customer.current_balance);
+        const previous=
+          statementNumber(customer.aging_category_1)+
+          statementNumber(customer.aging_category_2)+
+          statementNumber(customer.aging_category_3)+
+          statementNumber(customer.aging_category_4);
+        const total=current+previous;
+
+        const pdfBytes=statementBuildPdf(customer,statementDate);
+        const filename=`Wooten-Oil-Statement-${account}-${statementDate}.pdf`;
+        const title=`Statement ${statementPdfDate(statementDate)}`;
+        objectKey=`customer-documents/${account}/${crypto.randomUUID()}-${filename}`;
+
+        await env.NOTIFICATION_ATTACHMENTS.put(objectKey,pdfBytes,{
+          httpMetadata:{
+            contentType:"application/pdf",
+            contentDisposition:`inline; filename="${filename}"`
+          },
+          customMetadata:{
+            account_number:account,
+            document_type:"statement",
+            filename,
+            generated:"true"
+          }
+        });
+
+        const docResult=await env.DB.prepare(`
+          INSERT INTO portal_customer_documents
+            (account_number,document_type,title,document_date,object_key,filename,content_type,size_bytes,created_at)
+          VALUES (?,?,?,?,?,?,?, ?,CURRENT_TIMESTAMP)
+        `).bind(
+          account,"statement",title,statementDate,objectKey,filename,"application/pdf",pdfBytes.byteLength
+        ).run();
+
+        const documentId=docResult?.meta?.last_row_id||docResult?.meta?.last_insert_rowid||null;
+
+        const notificationMessage=
+          `${filename} is ready. Current Balance: ${statementMoney(current)}. `+
+          `Previous Balance: ${statementMoney(previous)}. Total Balance: ${statementMoney(total)}.`;
+
+        const notificationResult=await env.DB.prepare(`
+          INSERT INTO portal_notifications
+            (account_number,title,message,email_sent,action_type,action_id,created_at)
+          VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+        `).bind(
+          account,
+          "New Statement Available",
+          notificationMessage,
+          0,
+          "customer_documents",
+          documentId
+        ).run();
+
+        const notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
+
+        const emailResult=emailPdf
+          ? await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total)
+          : {sent:false,reason:"email_disabled"};
+
+        if(notificationId && emailResult.sent){
+          try{
+            await env.DB.prepare(`
+              UPDATE portal_notifications
+              SET email_sent=1,email_id=?
+              WHERE id=? AND account_number=?
+            `).bind(emailResult.id||"",notificationId,account).run();
+          }catch(error){
+            console.error("statement notification email status update failed",error);
+          }
+        }
+
+        results.push({
+          account_number:account,
+          account_name:customer.account_name||"",
+          email:customer.email||"",
+          success:true,
+          document_id:documentId,
+          notification_id:notificationId,
+          filename,
+          current_balance:current,
+          previous_balance:previous,
+          total_balance:total,
+          email_sent:!!emailResult.sent,
+          email_warning:emailResult.sent?"":(emailResult.reason||"")
+        });
+      }catch(error){
+        if(objectKey){
+          try{await env.NOTIFICATION_ATTACHMENTS.delete(objectKey);}catch{}
+        }
+        console.error("statement generation failed",account,error);
+        results.push({
+          account_number:account,
+          success:false,
+          error:String(error?.message||error)
+        });
+      }
+    }
+
+    const succeeded=results.filter(r=>r.success).length;
+    const failed=results.length-succeeded;
+    return notificationJson({
+      success:failed===0,
+      processed:results.length,
+      succeeded,
+      failed,
+      statement_date:statementDate,
+      results
+    },failed && !succeeded?500:200);
+
+  }catch(error){
+    console.error("adminGenerateStatementsPost failed",error);
+    return notificationJson({success:false,error:"Statements could not be generated. "+String(error?.message||error)},500);
+  }
+}
+__name(adminGenerateStatementsPost,"adminGenerateStatementsPost");
+
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -4860,6 +5338,16 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/gmail-portal-sync/status") {
       if (request.method === "GET") return adminGmailPortalSyncStatus({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-customers") {
+      if (request.method === "GET") return adminStatementCustomersGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statements/generate") {
+      if (request.method === "POST") return adminGenerateStatementsPost({ request, env });
       return methodNotAllowed();
     }
 

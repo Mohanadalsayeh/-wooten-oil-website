@@ -1308,6 +1308,105 @@ input[type="file"]::file-selector-button{
 @media(max-width:620px){.doc-admin-actions{justify-content:space-between}}
 </style>
 
+
+<style id="wooten-admin-batch-statements-style">
+.statement-batch-section{
+  margin-top:28px;
+  padding-top:24px;
+  border-top:2px solid #e5ebf0;
+}
+.statement-batch-head h3{margin:4px 0 6px;color:var(--navy);font-size:20px}
+.statement-batch-head p{margin:0;color:#687787;line-height:1.55}
+.statement-batch-controls{
+  display:grid;
+  grid-template-columns:180px minmax(240px,1fr) auto;
+  gap:12px;
+  align-items:end;
+  margin-top:18px;
+}
+.statement-batch-controls label:not(.statement-email-option){
+  display:block;margin-bottom:6px;font-size:12px;font-weight:800;color:#536273;
+  text-transform:uppercase;letter-spacing:.04em
+}
+.statement-batch-controls input[type="date"],
+.statement-batch-controls input[type="search"]{
+  width:100%;height:44px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--navy);font:inherit;padding:9px 11px;box-sizing:border-box
+}
+.statement-email-option{
+  min-height:44px;display:flex;align-items:center;gap:9px;padding:0 12px;
+  border:1px solid var(--line);border-radius:10px;background:#f8fafc;color:#435567;
+  font-size:13px
+}
+.statement-selection-toolbar{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0 10px
+}
+.statement-select-all{
+  min-height:38px;display:flex;align-items:center;gap:8px;padding:0 10px;
+  border:1px solid var(--line);border-radius:9px;background:#fff;color:#425568;font-size:13px
+}
+.statement-selected-count{margin-left:auto;color:#516273;font-size:13px;font-weight:800}
+.statement-customer-list-wrap{
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff
+}
+.statement-list-head,.statement-customer-row{
+  display:grid;grid-template-columns:42px minmax(180px,1.7fr) 110px 110px 110px minmax(150px,1.1fr);
+  gap:10px;align-items:center
+}
+.statement-list-head{
+  padding:10px 12px;background:#f4f7f9;border-bottom:1px solid var(--line);
+  color:#607181;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em
+}
+.statement-customer-list{max-height:410px;overflow:auto}
+.statement-customer-row{
+  padding:10px 12px;border-bottom:1px solid #edf1f4;color:#34495d;font-size:13px
+}
+.statement-customer-row:last-child{border-bottom:0}
+.statement-customer-row:hover{background:#fbfcfd}
+.statement-customer-row input{width:18px;height:18px}
+.statement-customer-name strong{display:block;color:var(--navy);font-size:13px}
+.statement-customer-name small{display:block;color:#83909b;margin-top:2px}
+.statement-money{text-align:right;font-variant-numeric:tabular-nums}
+.statement-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#607181}
+.statement-no-email{color:#a06a2d}
+.statement-list-empty{padding:24px;text-align:center;color:#7b8995}
+.statement-send-actions{margin-top:14px}
+.statement-batch-progress{display:grid;gap:7px;margin-top:12px}
+.statement-result-row{
+  display:flex;justify-content:space-between;gap:12px;padding:9px 11px;
+  border:1px solid #dde5eb;border-radius:9px;background:#fafcfd;font-size:12px;color:#526273
+}
+.statement-result-row.ok{border-color:#cfe4d7;background:#f6fbf8}
+.statement-result-row.bad{border-color:#f0cfcf;background:#fff8f8;color:#8a3434}
+.statement-result-row strong{color:var(--navy)}
+@media(max-width:950px){
+  .statement-batch-controls{grid-template-columns:1fr 1fr}
+  .statement-email-option{grid-column:1/-1}
+  .statement-list-head,.statement-customer-row{
+    grid-template-columns:38px minmax(170px,1.5fr) 100px 100px 100px
+  }
+  .statement-list-head span:last-child,.statement-customer-row .statement-email{display:none}
+}
+@media(max-width:700px){
+  .statement-batch-controls{grid-template-columns:1fr}
+  .statement-email-option{grid-column:auto}
+  .statement-selected-count{width:100%;margin-left:0}
+  .statement-list-head{display:none}
+  .statement-customer-row{
+    grid-template-columns:34px minmax(0,1fr) auto;
+    grid-template-areas:
+      "check customer total"
+      "check balances balances";
+  }
+  .statement-customer-row > input{grid-area:check}
+  .statement-customer-name{grid-area:customer}
+  .statement-customer-row .statement-current,
+  .statement-customer-row .statement-previous{grid-area:balances;display:inline-block;text-align:left;margin-right:12px}
+  .statement-customer-row .statement-total{grid-area:total;font-weight:900}
+  .statement-customer-row .statement-email{display:none}
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -1646,6 +1745,65 @@ input[type="file"]::file-selector-button{
     <div id="docCustomerMeta" class="doc-customer-meta" style="display:none"></div>
     <div id="docList" class="doc-admin-list"></div>
     <p class="note"><strong>Security:</strong> Documents are stored privately and can only be opened by the customer account they are assigned to. PDF limit: 10 MB per file.</p>
+
+    <div class="statement-batch-section">
+      <div class="statement-batch-head">
+        <div>
+          <div class="admin-page-label">Generate Statements</div>
+          <h3>Send Account Statements</h3>
+          <p>Select individual customers or select all. Each customer receives a professional PDF statement saved in Statements &amp; Invoices and a portal notification. If an email address is on file, the PDF is also emailed.</p>
+        </div>
+      </div>
+
+      <div class="statement-batch-controls">
+        <div>
+          <label for="statementBatchDate">Statement Date</label>
+          <input id="statementBatchDate" type="date">
+        </div>
+        <div class="statement-search-field">
+          <label for="statementCustomerSearch">Find Customer</label>
+          <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
+        </div>
+        <label class="statement-email-option">
+          <input id="statementEmailPdf" type="checkbox" checked>
+          <span>Email PDF when email is on file</span>
+        </label>
+      </div>
+
+      <div class="statement-selection-toolbar">
+        <label class="statement-select-all">
+          <input id="statementSelectAllVisible" type="checkbox">
+          <span>Select all shown</span>
+        </label>
+        <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
+        <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
+        <span class="statement-selected-count" id="statementSelectedCount">0 selected</span>
+      </div>
+
+      <div class="statement-customer-list-wrap">
+        <div class="statement-list-head">
+          <span></span>
+          <span>Customer</span>
+          <span>Current</span>
+          <span>Previous</span>
+          <span>Total</span>
+          <span>Email</span>
+        </div>
+        <div class="statement-customer-list" id="statementCustomerList">
+          <div class="statement-list-empty">Click Load Customers to begin.</div>
+        </div>
+      </div>
+
+      <div class="actions statement-send-actions">
+        <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
+        <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
+      </div>
+
+      <div id="statementBatchStatus" class="status"></div>
+      <div id="statementBatchProgress" class="statement-batch-progress"></div>
+    </div>
+
+
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -3013,6 +3171,223 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       await loadDocs();
     }catch(e){setStatus(e.message||'Upload failed.',false);}
     finally{upload.disabled=false;upload.textContent='Upload Document';}
+  });
+})();
+</script>
+
+
+<script id="wooten-admin-batch-statements-script">
+(function(){
+  const loadBtn=document.getElementById('statementLoadCustomers');
+  const sendBtn=document.getElementById('statementGenerateSend');
+  const list=document.getElementById('statementCustomerList');
+  const search=document.getElementById('statementCustomerSearch');
+  const date=document.getElementById('statementBatchDate');
+  const emailPdf=document.getElementById('statementEmailPdf');
+  const selectAllVisible=document.getElementById('statementSelectAllVisible');
+  const selectAllCustomers=document.getElementById('statementSelectAllCustomers');
+  const clearSelection=document.getElementById('statementClearSelection');
+  const selectedCount=document.getElementById('statementSelectedCount');
+  const status=document.getElementById('statementBatchStatus');
+  const progress=document.getElementById('statementBatchProgress');
+
+  if(!loadBtn||!sendBtn||!list) return;
+
+  let customers=[];
+  const selected=new Set();
+
+  function todayLocal(){
+    const d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  if(date && !date.value) date.value=todayLocal();
+
+  function money(v){
+    const n=Number(v||0);
+    return n.toLocaleString('en-US',{style:'currency',currency:'USD'});
+  }
+  function esc(v){
+    return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function visibleCustomers(){
+    const q=String(search&&search.value||'').trim().toLowerCase();
+    if(!q) return customers;
+    return customers.filter(c=>[
+      c.account_number,c.account_name,c.email
+    ].join(' ').toLowerCase().includes(q));
+  }
+  function updateCount(){
+    if(selectedCount) selectedCount.textContent=selected.size+' selected';
+    if(selectAllVisible){
+      const visible=visibleCustomers();
+      const checked=visible.length>0 && visible.every(c=>selected.has(c.account_number));
+      selectAllVisible.checked=checked;
+      selectAllVisible.indeterminate=!checked && visible.some(c=>selected.has(c.account_number));
+    }
+  }
+  function render(){
+    const visible=visibleCustomers();
+    if(!visible.length){
+      list.innerHTML='<div class="statement-list-empty">'+(customers.length?'No customers match your search.':'No customers loaded.')+'</div>';
+      updateCount();
+      return;
+    }
+    list.innerHTML=visible.map(c=>{
+      const acct=esc(c.account_number);
+      const hasEmail=!!String(c.email||'').trim();
+      return '<label class="statement-customer-row">'+
+        '<input type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'>'+
+        '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small></span>'+
+        '<span class="statement-money statement-current">'+money(c.current_balance)+'</span>'+
+        '<span class="statement-money statement-previous">'+money(c.previous_balance)+'</span>'+
+        '<span class="statement-money statement-total">'+money(c.total_balance)+'</span>'+
+        '<span class="statement-email '+(hasEmail?'':'statement-no-email')+'">'+esc(hasEmail?c.email:'No email on file')+'</span>'+
+      '</label>';
+    }).join('');
+    updateCount();
+  }
+
+  function setStatus(message,ok){
+    status.className='status show '+(ok===true?'ok':ok===false?'bad':'');
+    status.textContent=message||'';
+  }
+
+  async function loadCustomers(){
+    const key=document.getElementById('adminKey').value.trim();
+    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    loadBtn.disabled=true;loadBtn.textContent='Loading…';
+    try{
+      const res=await fetch('/api/admin/statement-customers',{
+        headers:{'X-Admin-Key':key,'Accept':'application/json'},
+        cache:'no-store'
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||data.success===false) throw new Error(data.error||'Customers could not be loaded.');
+      customers=Array.isArray(data.customers)?data.customers:[];
+      for(const account of Array.from(selected)){
+        if(!customers.some(c=>c.account_number===account)) selected.delete(account);
+      }
+      render();
+      setStatus(customers.length+' customers loaded. Select the customers who should receive a statement.',true);
+    }catch(e){
+      customers=[];selected.clear();render();
+      setStatus(e.message||'Customers could not be loaded.',false);
+    }finally{
+      loadBtn.disabled=false;loadBtn.textContent='Load Customers';
+    }
+  }
+
+  loadBtn.addEventListener('click',loadCustomers);
+  search.addEventListener('input',render);
+
+  list.addEventListener('change',function(e){
+    const box=e.target.closest('.statement-customer-check');
+    if(!box) return;
+    const acct=box.getAttribute('data-account');
+    if(box.checked) selected.add(acct); else selected.delete(acct);
+    updateCount();
+  });
+
+  selectAllVisible.addEventListener('change',function(){
+    visibleCustomers().forEach(c=>{
+      if(selectAllVisible.checked) selected.add(c.account_number);
+      else selected.delete(c.account_number);
+    });
+    render();
+  });
+
+  selectAllCustomers.addEventListener('click',function(){
+    customers.forEach(c=>selected.add(c.account_number));
+    render();
+  });
+
+  clearSelection.addEventListener('click',function(){
+    selected.clear();
+    render();
+  });
+
+  async function sendChunk(key,accounts){
+    const res=await fetch('/api/admin/statements/generate',{
+      method:'POST',
+      headers:{
+        'X-Admin-Key':key,
+        'Content-Type':'application/json',
+        'Accept':'application/json'
+      },
+      body:JSON.stringify({
+        accounts,
+        statement_date:date.value||todayLocal(),
+        email_pdf:!!emailPdf.checked
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok && !Array.isArray(data.results)) throw new Error(data.error||'Statement batch failed.');
+    return data;
+  }
+
+  sendBtn.addEventListener('click',async function(){
+    const key=document.getElementById('adminKey').value.trim();
+    const accounts=Array.from(selected);
+    if(!key){setStatus('Enter your Admin Import Key at the top first.',false);return;}
+    if(!accounts.length){setStatus('Select at least one customer.',false);return;}
+    if(!date.value){setStatus('Choose the statement date.',false);return;}
+
+    const confirmed=window.confirm(
+      'Generate and send '+accounts.length+' statement'+(accounts.length===1?'':'s')+'?\\n\\n'+
+      'Each statement will be saved as a PDF in the customer portal and a notification will be created.'
+    );
+    if(!confirmed) return;
+
+    sendBtn.disabled=true;loadBtn.disabled=true;
+    sendBtn.textContent='Generating Statements…';
+    progress.innerHTML='';
+    setStatus('Generating professional PDF statements. Please keep this page open…');
+
+    let completed=0,succeeded=0,failed=0;
+    try{
+      for(let i=0;i<accounts.length;i+=10){
+        const chunk=accounts.slice(i,i+10);
+        const data=await sendChunk(key,chunk);
+        const rows=Array.isArray(data.results)?data.results:[];
+        rows.forEach(r=>{
+          completed++;
+          if(r.success) succeeded++; else failed++;
+          const div=document.createElement('div');
+          div.className='statement-result-row '+(r.success?'ok':'bad');
+          div.innerHTML=
+            '<span><strong>'+esc(r.account_name||r.account_number||'Customer')+'</strong> '+
+            (r.success?'— '+esc(r.filename||'Statement PDF'):(r.error?'— '+esc(r.error):''))+
+            '</span>'+
+            '<span>'+(r.success?(r.email_sent?'Portal + Email':'Portal PDF'):'Failed')+'</span>';
+          progress.prepend(div);
+        });
+
+        sendBtn.textContent='Generating… '+Math.min(i+chunk.length,accounts.length)+' / '+accounts.length;
+        setStatus('Processed '+completed+' of '+accounts.length+' statements…');
+      }
+
+      setStatus(
+        succeeded+' statement'+(succeeded===1?'':'s')+' generated successfully'+
+        (failed?' • '+failed+' failed':'')+'.',
+        failed===0
+      );
+
+      if(succeeded){
+        // Keep the generated statements available in the Documents list.
+        const firstSelected=accounts[0];
+        const docAccount=document.getElementById('docAccount');
+        if(docAccount && accounts.length===1){
+          docAccount.value=firstSelected;
+          const docLoadBtn=document.getElementById('docLoadBtn');
+          if(docLoadBtn) docLoadBtn.click();
+        }
+      }
+    }catch(e){
+      setStatus(e.message||'Statement generation stopped because of an error.',false);
+    }finally{
+      sendBtn.disabled=false;loadBtn.disabled=false;
+      sendBtn.textContent='Generate & Send Statements';
+    }
   });
 })();
 </script>
