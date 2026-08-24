@@ -1,24 +1,22 @@
-WOOTEN OIL — STATEMENT/INVOICE NOTIFICATION CLICK REAL FIX
+WOOTEN OIL — STATEMENT / INVOICE NOTIFICATION FILENAME LINK
 
-Root cause:
-The notification list API had the document link, but the HTML notification
-buttons did not carry action_type/action_id. The notification detail endpoint
-also dropped those fields. That is why the popup displayed correctly but clicking
-it did nothing.
+Requested behavior:
+- Normal notifications remain normal notifications.
+- The notification popup no longer shows an "Open Statement" or "Open Invoice" button.
+- For statement/invoice notifications only, the related document name appears in the popup footer.
+- The document name is clickable.
+- Hover/focus adds an underline.
+- Clicking the document name opens Statements & Invoices and highlights the matching document.
+- Existing attachment buttons still work normally.
+- The X close button still only closes the popup.
 
-Fixed:
-- Dashboard notification items now include document action metadata.
-- Header/mobile notification items now include document action metadata.
-- Notification detail API now returns action_type/action_id.
-- Popup preserves the metadata when full detail loads.
-- Entire statement/invoice popup opens Statements & Invoices.
-- Existing older statement/invoice notifications are also supported: the Worker
-  securely locates the matching customer document and repairs the link.
+The Worker now also returns document_title/document_filename for linked notifications
+so the popup can show the actual statement/invoice name.
 
-Upload all:
+Upload:
 - index.html
 - request-fuel.html
 - admin-customers.html
 - worker.js
 
-No manual D1 command is required.
+No manual D1 or R2 changes are required.

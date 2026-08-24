@@ -2786,51 +2786,6 @@ input[type="reset"]:focus,
 </style>
 
 
-<style id="wooten-notification-document-action-style">
-.customer-notification-document-action{
-  display:none;
-  width:100%;
-  margin:0 0 9px;
-}
-.customer-notification-document-action.show{
-  display:block;
-}
-.customer-notification-document-open{
-  width:100%;
-  min-height:44px;
-  padding:10px 14px;
-  border:1px solid #bccbd7;
-  border-radius:10px;
-  background:#e8eef3;
-  color:#17314b;
-  font:inherit;
-  font-weight:800;
-  text-align:center;
-  cursor:pointer;
-}
-.customer-notification-document-open:hover,
-.customer-notification-document-open:focus,
-.customer-notification-document-open:focus-visible{
-  background:#e1e8ee !important;
-  color:#17314b !important;
-  border-color:#aebfcd !important;
-  transform:none !important;
-}
-.customer-notification-popup-footer.has-document-action{
-  min-height:0 !important;
-}
-.customer-notification-popup-footer.has-document-action .customer-notification-attachments-title,
-.customer-notification-popup-footer.has-document-action .customer-notification-attachment-list:empty{
-  display:none;
-}
-@media(max-width:600px){
-  .customer-notification-document-open{
-    min-height:46px;
-  }
-}
-</style>
-
-
 <style id="wooten-document-notification-popup-clickable-style">
 .customer-notification-popup-card.document-notification-clickable{
   cursor:pointer;
@@ -2859,6 +2814,43 @@ input[type="reset"]:focus,
   .customer-notification-popup-card.document-notification-clickable .customer-notification-popup-title::after{
     font-size:.68rem;
   }
+}
+</style>
+
+
+<style id="wooten-notification-document-filename-link-style">
+.customer-notification-document-link{
+  display:inline-block;
+  margin-top:10px;
+  color:#244f75;
+  font-weight:800;
+  text-decoration:none;
+  text-underline-offset:3px;
+  cursor:pointer;
+}
+.customer-notification-document-link:hover,
+.customer-notification-document-link:focus,
+.customer-notification-document-link:focus-visible{
+  color:#244f75 !important;
+  text-decoration:underline !important;
+  text-decoration-thickness:1px !important;
+  transform:none !important;
+  background:transparent !important;
+}
+.customer-notification-document-link-label{
+  display:block;
+  margin-top:10px;
+  color:#7c8995;
+  font-size:.74rem;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.customer-notification-popup-footer.document-notification-footer{
+  display:block !important;
+}
+.customer-notification-popup-footer.document-notification-footer .customer-notification-attachments-title{
+  display:none !important;
 }
 </style>
 
@@ -4147,11 +4139,6 @@ input[type="reset"]:focus,
     </div>
 
     <div class="customer-notification-attachments customer-notification-popup-footer" id="customerNotificationPopupAttachments">
-      <div class="customer-notification-document-action" id="customerNotificationDocumentAction">
-        <button type="button" class="customer-notification-document-open" id="customerNotificationDocumentOpen">
-          Open Statement / Invoice
-        </button>
-      </div>
       <div class="customer-notification-attachments-title">Attachments</div>
       <div class="customer-notification-attachment-list" id="customerNotificationPopupAttachmentList"></div>
     </div>
@@ -4250,8 +4237,6 @@ input[type="reset"]:focus,
   var customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
   var customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
   var customerNotificationPopupCard=document.getElementById('customerNotificationPopupCard');
-  var customerNotificationDocumentAction=document.getElementById('customerNotificationDocumentAction');
-  var customerNotificationDocumentOpen=document.getElementById('customerNotificationDocumentOpen');
   var activeNotificationDocumentId=null;
   var mobileHeaderNotifications=document.getElementById('mobileHeaderNotifications');
   var mobileHeaderCustomerName=document.getElementById('mobileHeaderCustomerName');
@@ -4924,8 +4909,6 @@ input[type="reset"]:focus,
       customerNotificationPopupCard=document.getElementById('customerNotificationPopupCard');
       customerNotificationPopupAttachments=document.getElementById('customerNotificationPopupAttachments');
       customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
-      customerNotificationDocumentAction=document.getElementById('customerNotificationDocumentAction');
-      customerNotificationDocumentOpen=document.getElementById('customerNotificationDocumentOpen');
     }
     if(!notification || !customerNotificationPopup) return;
 
@@ -4960,17 +4943,9 @@ input[type="reset"]:focus,
         customerNotificationPopupCard.removeAttribute('tabindex');
       }
     }
-    if(customerNotificationDocumentAction){
-      customerNotificationDocumentAction.classList.toggle('show',isDocumentNotification);
-    }
-    if(customerNotificationDocumentOpen){
-      customerNotificationDocumentOpen.textContent=
-        /invoice/i.test(String(notification.title||'')) ? 'Open Invoice' : 'Open Statement';
-      customerNotificationDocumentOpen.disabled=!isDocumentNotification;
-    }
 
     if(customerNotificationPopupAttachmentList){
-      customerNotificationPopupAttachmentList.innerHTML=attachments.map(function(a){
+      var rows=attachments.map(function(a){
         var name=String(a.filename||'Attachment');
         var safeName=name.replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
         var safeUrl=String(a.url||'').replace(/"/g,'%22');
@@ -4978,12 +4953,41 @@ input[type="reset"]:focus,
           '<span class="customer-notification-attachment-name">📎 '+safeName+' <small>('+formatPopupFileSize(a.size_bytes)+')</small></span>'+
           '<span class="customer-notification-attachment-open">Open</span>'+
           '</button>';
-      }).join('');
+      });
+
+      if(isDocumentNotification){
+        var documentName=String(
+          notification.document_filename ||
+          notification.document_title ||
+          ''
+        ).trim();
+
+        if(!documentName){
+          var msg=String(notification.message||'');
+          var m=msg.match(/^(.*?)\s+is now available in your Statements & Invoices\./i);
+          documentName=(m && m[1]) ? m[1] : (/invoice/i.test(String(notification.title||'')) ? 'Invoice' : 'Statement');
+        }
+
+        var safeDocumentName=documentName.replace(/[&<>"']/g,function(c){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+
+        rows.unshift(
+          '<span class="customer-notification-document-link-label">'+
+            (/invoice/i.test(String(notification.title||'')) ? 'Invoice' : 'Statement')+
+          '</span>'+
+          '<a href="#" class="customer-notification-document-link" data-document-id="'+
+            String(activeNotificationDocumentId||'')+
+          '">'+safeDocumentName+'</a>'
+        );
+      }
+
+      customerNotificationPopupAttachmentList.innerHTML=rows.join('');
     }
 
     if(customerNotificationPopupAttachments){
       customerNotificationPopupAttachments.classList.toggle('show',attachments.length>0 || isDocumentNotification);
-      customerNotificationPopupAttachments.classList.toggle('has-document-action',isDocumentNotification);
+      customerNotificationPopupAttachments.classList.toggle('document-notification-footer',isDocumentNotification);
     }
 
     bindCustomerNotificationAttachmentList();
@@ -5009,6 +5013,8 @@ input[type="reset"]:focus,
       recipient_email:item.getAttribute('data-notification-to')||'',
       action_type:item.getAttribute('data-notification-action-type')||'',
       action_id:item.getAttribute('data-notification-action-id')||'',
+      document_title:item.getAttribute('data-notification-document-title')||'',
+      document_filename:item.getAttribute('data-notification-document-filename')||'',
       attachments:(function(){
         try{
           var raw=item.getAttribute('data-notification-attachments')||'';
@@ -5070,6 +5076,12 @@ input[type="reset"]:focus,
         if((fullNotification.action_id==null || fullNotification.action_id==='') && fallback.action_id){
           fullNotification.action_id=fallback.action_id;
         }
+        if(!fullNotification.document_title && fallback.document_title){
+          fullNotification.document_title=fallback.document_title;
+        }
+        if(!fullNotification.document_filename && fallback.document_filename){
+          fullNotification.document_filename=fallback.document_filename;
+        }
       }
       if(
         fullNotification &&
@@ -5130,13 +5142,6 @@ input[type="reset"]:focus,
     }
   }
 
-  if(customerNotificationDocumentOpen){
-    customerNotificationDocumentOpen.addEventListener('click',function(e){
-      if(e){ e.preventDefault(); e.stopPropagation(); }
-      openNotificationLinkedDocuments();
-    });
-  }
-
   if(customerNotificationPopupCard){
     customerNotificationPopupCard.addEventListener('click',function(e){
       var popupLooksLikeDocument=/statement|invoice/i.test(String(customerNotificationPopupTitle && customerNotificationPopupTitle.textContent || ''));
@@ -5145,7 +5150,7 @@ input[type="reset"]:focus,
       /* Do not turn the close button or a real attachment control into the
          document-navigation click. */
       if(e.target && e.target.closest(
-        '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-open'
+        '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-link'
       )){
         return;
       }
@@ -5158,7 +5163,7 @@ input[type="reset"]:focus,
       if(!activeNotificationDocumentId && !popupLooksLikeDocument) return;
       if(e.key==='Enter' || e.key===' '){
         if(e.target && e.target.closest(
-          '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-open'
+          '.customer-notification-popup-close,.customer-notification-attachment,.customer-notification-document-link'
         )){
           return;
         }
@@ -5242,6 +5247,14 @@ input[type="reset"]:focus,
     if(customerNotificationPopupAttachmentList && !customerNotificationPopupAttachmentList.dataset.boundAttachmentClick){
       customerNotificationPopupAttachmentList.dataset.boundAttachmentClick='1';
       customerNotificationPopupAttachmentList.addEventListener('click',function(e){
+        var documentLink=e.target.closest('.customer-notification-document-link');
+        if(documentLink){
+          e.preventDefault();
+          e.stopPropagation();
+          openNotificationLinkedDocuments();
+          return;
+        }
+
         var button=e.target.closest('.customer-notification-attachment');
         if(!button) return;
         e.preventDefault();
@@ -5715,6 +5728,8 @@ input[type="reset"]:focus,
           '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
           '" data-notification-action-type="'+escapeHtml(n.action_type||'')+
           '" data-notification-action-id="'+escapeHtml(n.action_id==null?'':String(n.action_id))+
+          '" data-notification-document-title="'+escapeHtml(n.document_title||'')+
+          '" data-notification-document-filename="'+escapeHtml(n.document_filename||'')+
           '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
           '<span class="notification-dot"></span>'+
           '<span class="notification-copy">'+
@@ -5737,6 +5752,8 @@ input[type="reset"]:focus,
           '" data-notification-to="'+escapeHtml(n.recipient_email||'')+
           '" data-notification-action-type="'+escapeHtml(n.action_type||'')+
           '" data-notification-action-id="'+escapeHtml(n.action_id==null?'':String(n.action_id))+
+          '" data-notification-document-title="'+escapeHtml(n.document_title||'')+
+          '" data-notification-document-filename="'+escapeHtml(n.document_filename||'')+
           '" data-notification-attachments="'+escapeHtml(encodeURIComponent(JSON.stringify(n.attachments||[])))+'">'+
           '<span class="header-notification-dot"></span>'+
           '<span class="header-notification-copy">'+

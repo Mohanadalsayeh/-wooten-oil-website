@@ -3412,10 +3412,23 @@ async function customerNotificationsGet({ request, env }) {
     const account = normalizeNotificationAccount(customer.account_number);
 
     const result = await env.DB.prepare(`
-      SELECT id, title, message, read_at, created_at, action_type, action_id
-      FROM portal_notifications
-      WHERE account_number = ?
-      ORDER BY datetime(created_at) DESC, id DESC
+      SELECT
+        n.id,
+        n.title,
+        n.message,
+        n.read_at,
+        n.created_at,
+        n.action_type,
+        n.action_id,
+        d.title AS document_title,
+        d.filename AS document_filename
+      FROM portal_notifications n
+      LEFT JOIN portal_customer_documents d
+        ON n.action_type='customer_documents'
+       AND n.action_id=d.id
+       AND d.account_number=n.account_number
+      WHERE n.account_number = ?
+      ORDER BY datetime(n.created_at) DESC, n.id DESC
       LIMIT 50
     `).bind(account).all();
 
@@ -3450,6 +3463,8 @@ async function customerNotificationsGet({ request, env }) {
       recipient_email: String(customer.email || ""),
       action_type: String(row.action_type || ""),
       action_id: row.action_id == null ? null : Number(row.action_id),
+      document_title: String(row.document_title || ""),
+      document_filename: String(row.document_filename || ""),
       attachments: attachmentsByNotification.get(Number(row.id)) || []
     }));
 
@@ -3576,9 +3591,22 @@ async function customerNotificationDetailGet({ request, env }) {
     const account = normalizeNotificationAccount(customer.account_number);
 
     const row = await env.DB.prepare(`
-      SELECT id, title, message, read_at, created_at, action_type, action_id
-      FROM portal_notifications
-      WHERE id = ? AND account_number = ?
+      SELECT
+        n.id,
+        n.title,
+        n.message,
+        n.read_at,
+        n.created_at,
+        n.action_type,
+        n.action_id,
+        d.title AS document_title,
+        d.filename AS document_filename
+      FROM portal_notifications n
+      LEFT JOIN portal_customer_documents d
+        ON n.action_type='customer_documents'
+       AND n.action_id=d.id
+       AND d.account_number=n.account_number
+      WHERE n.id = ? AND n.account_number = ?
       LIMIT 1
     `).bind(notificationId, account).first();
 
@@ -3615,6 +3643,8 @@ async function customerNotificationDetailGet({ request, env }) {
         recipient_email: String(customer.email || ""),
         action_type: String(row.action_type || ""),
         action_id: row.action_id == null ? null : Number(row.action_id),
+        document_title: String(row.document_title || ""),
+        document_filename: String(row.document_filename || ""),
         attachments
       }
     });
