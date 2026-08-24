@@ -2090,7 +2090,7 @@ input[type="file"]::file-selector-button{
   <div class="admin-login-dialog" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
     <form id="adminLoginForm" class="admin-login-card">
       <div class="admin-login-logo-wrap">
-        <img class="admin-login-logo" src="assets/img/wooten-oil-logo-transparent.png" alt="Wooten Oil logo">
+        <img class="admin-login-logo" src="assets/img/wooten-oil-admin-login-logo.png" alt="Wooten Oil logo">
       </div>
 
       <div class="admin-login-title">
@@ -4143,7 +4143,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const status=document.getElementById('adminLoginStatus');
   const openBtn=document.getElementById('adminAccessOpenBtn');
   const accessMeta=document.getElementById('adminAccessMeta');
+  const submitBtn=form ? form.querySelector('button[type="submit"]') : null;
   const storageKey='wootenAdminLoginSession';
+  const validationUrl='/api/admin/statement-customers';
 
   function setStatus(message,bad){
     if(!status) return;
@@ -4157,16 +4159,17 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     status.textContent='';
   }
 
+  function setBusy(busy){
+    if(!submitBtn) return;
+    submitBtn.disabled=!!busy;
+    submitBtn.textContent=busy ? 'Checking…' : 'Sign In';
+  }
+
   function updateAccessMeta(){
-    const user='Admin';
     loginName.value='Admin';
     const hasKey=!!(keyField.value||'').trim();
     if(!accessMeta) return;
-    if(hasKey){
-      accessMeta.textContent=user ? ('Signed in as '+user) : 'Admin key loaded';
-    }else{
-      accessMeta.textContent='Locked • Login required';
-    }
+    accessMeta.textContent=hasKey ? 'Signed in as Admin' : 'Locked • Login required';
   }
 
   function openLogin(options){
@@ -4174,10 +4177,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     body.classList.add('admin-login-locked');
     overlay.setAttribute('aria-hidden','false');
     if(opts.message) setStatus(opts.message,true); else clearStatus();
-    window.setTimeout(()=>{
-      if(!(loginName.value||'').trim()) loginName.focus();
-      else keyPrompt.focus();
-    },40);
+    window.setTimeout(()=>{ keyPrompt.focus(); },40);
   }
 
   function closeLogin(){
@@ -4189,34 +4189,57 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   function saveSession(){
     try{
-      sessionStorage.setItem(storageKey, JSON.stringify({login:(loginName.value||'').trim(), key:(keyField.value||'').trim()}));
+      sessionStorage.setItem(storageKey, JSON.stringify({login:'Admin', key:(keyField.value||'').trim()}));
     }catch(_e){}
   }
 
-  function restoreSession(){
+  function clearSession(){
+    try{ sessionStorage.removeItem(storageKey); }catch(_e){}
+  }
+
+  async function validateAdminKey(key){
+    const response = await fetch(validationUrl, {
+      method:'GET',
+      headers:{'X-Admin-Key':key,'Accept':'application/json'},
+      cache:'no-store'
+    });
+    if(response.status===401) return {ok:false, reason:'invalid'};
+    if(response.ok || response.status===503) return {ok:true};
+    return {ok:false, reason:'server', status:response.status};
+  }
+
+  async function tryRestoreSession(){
     try{
       const raw=sessionStorage.getItem(storageKey);
       if(!raw) return false;
       const data=JSON.parse(raw)||{};
-      loginName.value='Admin';
-      if(data.key){
-        keyField.value=String(data.key);
-        keyPrompt.value=String(data.key);
-        return true;
+      const savedKey=String(data.key||'').trim();
+      if(!savedKey) return false;
+      const check=await validateAdminKey(savedKey);
+      if(!check.ok){
+        clearSession();
+        return false;
       }
-    }catch(_e){}
-    return false;
+      loginName.value='Admin';
+      keyField.value=savedKey;
+      keyPrompt.value=savedKey;
+      updateAccessMeta();
+      closeLogin();
+      return true;
+    }catch(_e){
+      clearSession();
+      return false;
+    }
   }
 
   window.ensureAdminLoginKey=function(message){
     if((keyField.value||'').trim()) return true;
-    openLogin({message:message||'Enter your login name and Admin Import Key to continue.'});
+    openLogin({message:message||'Enter the Admin Import Key to continue.'});
     return false;
   };
 
-  form.addEventListener('submit',function(e){
+  form.addEventListener('submit', async function(e){
     e.preventDefault();
-    const user='Admin';
     loginName.value='Admin';
     const key=(keyPrompt.value||'').trim();
     if(!key){
@@ -4224,16 +4247,41 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       keyPrompt.focus();
       return;
     }
-    keyField.value=key;
-    saveSession();
-    updateAccessMeta();
-    closeLogin();
+    setBusy(true);
+    clearStatus();
+    try{
+      const check=await validateAdminKey(key);
+      if(!check.ok){
+        keyField.value='';
+        if(check.reason==='invalid') setStatus('Invalid Admin Import Key.',true);
+        else setStatus('Could not verify the Admin Import Key right now. Please try again.',true);
+        keyPrompt.focus();
+        keyPrompt.select();
+        updateAccessMeta();
+        return;
+      }
+      keyField.value=key;
+      saveSession();
+      updateAccessMeta();
+      setStatus('Access granted.',false);
+      closeLogin();
+    }catch(_error){
+      keyField.value='';
+      setStatus('Could not verify the Admin Import Key right now. Please try again.',true);
+      keyPrompt.focus();
+      keyPrompt.select();
+      updateAccessMeta();
+    }finally{
+      setBusy(false);
+    }
   });
 
-  openBtn.addEventListener('click',function(){
-    keyPrompt.value=(keyField.value||'').trim();
-    openLogin();
-  });
+  if(openBtn){
+    openBtn.addEventListener('click',function(){
+      keyPrompt.value=(keyField.value||'').trim();
+      openLogin();
+    });
+  }
 
   overlay.addEventListener('click',function(e){
     if(e.target===overlay || e.target.classList.contains('admin-login-backdrop')){
@@ -4247,15 +4295,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }
   });
 
-
   loginName.value='Admin';
   loginName.setAttribute('readonly','readonly');
-
-
-  const restored=restoreSession();
   updateAccessMeta();
-  if(restored){ closeLogin(); }
-  else { openLogin(); }
+  tryRestoreSession().then(function(restored){
+    if(!restored) openLogin();
+  });
 })();
 </script>
 
