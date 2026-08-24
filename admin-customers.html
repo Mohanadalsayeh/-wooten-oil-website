@@ -1805,6 +1805,8 @@ input[type="file"]::file-selector-button{
 </style>
 
 
+
+
 <style id="wooten-admin-login-popup-style">
   .admin-access-box{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
@@ -1818,82 +1820,329 @@ input[type="file"]::file-selector-button{
   body.admin-login-locked{overflow:hidden}
   body.admin-login-locked .wrap{filter:blur(2px);pointer-events:none;user-select:none}
 
-  .admin-login-watermark{
-    position:fixed;inset:0;display:none;align-items:center;justify-content:center;
-    padding:24px;z-index:120;background:
-      radial-gradient(circle at center, rgba(255,255,255,.92) 0%, rgba(244,247,251,.93) 48%, rgba(230,236,243,.96) 100%);
+  .admin-login-overlay{
+    position:fixed;inset:0;z-index:140;display:none;
+    align-items:center;justify-content:center;padding:22px
   }
-  body.admin-login-locked .admin-login-watermark{display:flex}
-  .admin-login-watermark-mark{
-    text-align:center;opacity:.6;transform:translateY(-16px);
-  }
-  .admin-login-watermark-title{
-    font-size:clamp(38px,7vw,88px);font-weight:900;letter-spacing:.08em;color:#0f2f54;line-height:1.02;
-  }
-  .admin-login-watermark-subtitle{
-    margin-top:10px;font-size:clamp(13px,2.2vw,24px);font-weight:800;letter-spacing:.38em;color:#c61d27;text-transform:uppercase;
+  body.admin-login-locked .admin-login-overlay{display:flex}
+
+  .admin-login-backdrop{
+    position:absolute;inset:0;
+    background:rgba(7,23,39,.10);
+    backdrop-filter:blur(.8px);
+    -webkit-backdrop-filter:blur(.8px);
   }
 
-  .admin-login-overlay{position:fixed;inset:0;z-index:140;display:none;align-items:center;justify-content:center;padding:18px}
-  body.admin-login-locked .admin-login-overlay{display:flex}
-  .admin-login-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.24)}
-  .admin-login-dialog{position:relative;z-index:1;width:min(100%,560px)}
-  .admin-login-card{
-    background:#ffffff;border:1px solid rgba(15,47,84,.10);border-radius:24px;padding:28px 28px 24px;
-    box-shadow:0 30px 80px rgba(15,23,42,.24)
+  .admin-login-dialog{
+    position:relative;z-index:1;
+    width:min(100%,460px)
   }
-  .admin-login-kicker{color:var(--red);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin:0 0 8px}
-  .admin-login-card h2{margin:0 0 8px;color:var(--navy);font-size:34px;line-height:1.05}
-  .admin-login-card p{margin:0 0 18px;color:#607181;max-width:44ch}
-  .admin-login-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:0 0 10px}
-  .admin-login-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
-  .admin-login-actions .primary{min-width:220px}
-  #adminLoginStatus{display:none;margin-top:4px}
+
+  /* Design #2: bright frosted card, 50% transparent */
+  .admin-login-card{
+    position:relative;
+    overflow:hidden;
+    background:rgba(255,255,255,.50) !important;
+    border:1px solid rgba(255,255,255,.64) !important;
+    border-radius:22px;
+    padding:27px 27px 23px;
+    box-shadow:
+      0 30px 75px rgba(8,28,46,.24),
+      inset 0 1px 0 rgba(255,255,255,.76);
+    backdrop-filter:blur(18px) saturate(120%);
+    -webkit-backdrop-filter:blur(18px) saturate(120%);
+  }
+
+  .admin-login-logo-wrap{
+    display:flex;justify-content:center;
+    margin:0 0 7px;
+  }
+  .admin-login-logo{
+    display:block;
+    width:min(235px,68%);
+    height:auto;
+    mix-blend-mode:multiply;
+  }
+
+  .admin-login-title{
+    text-align:center;
+    margin:0 0 13px;
+  }
+  .admin-login-company{
+    margin:0;
+    color:#0f3158;
+    font-size:23px;
+    font-weight:900;
+    letter-spacing:.015em;
+  }
+  .admin-login-subtitle{
+    margin:6px 0 0;
+    color:#203a56;
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+  }
+  .admin-login-accent{
+    width:42px;height:2px;border-radius:999px;
+    margin:11px auto 8px;
+    background:#5eaa2d;
+  }
+
+  .admin-login-authorized{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    color:#31465a;
+    font-size:12px;
+    font-weight:800;
+    margin:0 0 17px;
+  }
+  .admin-login-authorized-icon{
+    width:18px;height:18px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    border:1px solid rgba(49,70,90,.25);
+    font-size:11px;
+  }
+
+  .admin-login-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .admin-login-field label{
+    display:none;
+  }
+
+  .admin-login-input-wrap{
+    position:relative;
+  }
+  .admin-login-input-icon{
+    position:absolute;
+    left:13px;top:50%;
+    transform:translateY(-50%);
+    width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    color:#34495d;
+    font-size:17px;
+    pointer-events:none;
+  }
+
+  .admin-login-field input{
+    width:100%;
+    height:49px;
+    box-sizing:border-box;
+    border-radius:8px;
+    border:1px solid rgba(21,53,84,.16);
+    background:rgba(255,255,255,.70);
+    color:#18334f;
+    font-size:15px;
+    padding:0 46px 0 44px;
+    box-shadow:
+      0 5px 14px rgba(10,30,48,.055),
+      inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  .admin-login-field input[readonly]{
+    color:#18334f;
+    font-weight:700;
+    cursor:default;
+  }
+  .admin-login-field input::placeholder{color:#7f8c98}
+  .admin-login-field input:focus{
+    outline:none;
+    border-color:rgba(18,65,112,.42);
+    box-shadow:0 0 0 3px rgba(18,65,112,.09);
+  }
+
+  .admin-login-eye{
+    position:absolute;
+    right:8px;top:50%;
+    transform:translateY(-50%);
+    width:34px;height:34px;
+    border:0;background:transparent;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    color:#637485;cursor:pointer;font-size:17px;
+  }
+  .admin-login-eye:hover{background:rgba(15,47,84,.055)}
+
+  #adminLoginStatus{
+    display:none;margin-top:10px
+  }
   #adminLoginStatus.show{display:block}
 
-  @media(max-width:900px){
-    .admin-access-box{min-width:0;width:100%}
+  .admin-login-actions{
+    margin-top:15px;
   }
+  .admin-login-actions .primary{
+    width:100%;
+    height:48px;
+    border-radius:7px;
+    background:linear-gradient(180deg,#104176,#0d3159) !important;
+    border-color:#0b2b50 !important;
+    color:#fff;
+    font-weight:900;
+    letter-spacing:.02em;
+    box-shadow:0 12px 25px rgba(13,49,89,.23);
+  }
+  .admin-login-actions .primary:hover,
+  .admin-login-actions .primary:focus{
+    transform:none !important;
+    filter:none !important;
+  }
+
+  .admin-login-security{
+    margin-top:17px;
+    padding-top:14px;
+    border-top:1px solid rgba(39,67,91,.17);
+    text-align:center;
+    color:#46596b;
+    font-size:12px;
+    line-height:1.45;
+  }
+  .admin-login-security .shield{
+    display:block;
+    width:24px;height:24px;
+    margin:0 auto 7px;
+    border:1px solid rgba(42,68,91,.24);
+    border-radius:50%;
+    line-height:22px;
+    font-size:12px;
+    color:#21466b;
+  }
+
   @media(max-width:720px){
-    .admin-access-box{flex-direction:column;align-items:stretch}
-    .admin-access-btn{width:100%}
-    .admin-login-card{padding:24px 18px 18px;border-radius:20px}
-    .admin-login-card h2{font-size:30px}
-    .admin-login-actions .primary{width:100%;min-width:0}
-    .admin-login-watermark-title{font-size:clamp(28px,12vw,56px)}
-    .admin-login-watermark-subtitle{font-size:clamp(12px,4vw,18px);letter-spacing:.18em}
+    .admin-login-overlay{padding:14px}
+    .admin-login-card{
+      padding:23px 17px 18px;
+      border-radius:18px;
+    }
+    .admin-login-logo{
+      width:min(210px,72%);
+    }
+    .admin-login-company{font-size:21px}
   }
 </style>
+
+
+
+
+
+
+
+<style id="wooten-admin-login-photo-background">
+  .admin-login-watermark{
+    position:fixed !important;
+    inset:0 !important;
+    z-index:120 !important;
+    display:none !important;
+    overflow:hidden !important;
+    background:#0d2236 !important;
+    padding:0 !important;
+  }
+  body.admin-login-locked .admin-login-watermark{display:block !important;}
+
+  .admin-login-site-preview{
+    position:absolute !important;
+    inset:0 !important;
+    background-image:
+      linear-gradient(rgba(11,33,51,.14), rgba(11,33,51,.14)),
+      url("assets/img/admin-login-background.webp") !important;
+    background-size:cover !important;
+    background-position:center center !important;
+    background-repeat:no-repeat !important;
+    opacity:.70 !important;
+    transform:scale(1.02);
+    transform-origin:center;
+  }
+
+  .admin-login-site-preview *{display:none !important;}
+
+  .admin-login-watermark::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg, rgba(245,248,251,.04), rgba(245,248,251,.01));
+    pointer-events:none;
+  }
+
+  .admin-login-backdrop{
+    background:rgba(8,24,40,.10) !important;
+    backdrop-filter:blur(1.2px);
+    -webkit-backdrop-filter:blur(1.2px);
+  }
+
+  .admin-login-card{
+    background:rgba(255,255,255,.80) !important;
+    border:1px solid rgba(255,255,255,.35) !important;
+    box-shadow:0 28px 80px rgba(15,23,42,.22) !important;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+
+  @media (max-width: 760px){
+    .admin-login-site-preview{
+      background-position:58% center !important;
+    }
+  }
+</style>
+
 
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
-  <div class="admin-login-watermark-mark">
-    <div class="admin-login-watermark-title">WOOTEN OIL CO INC.</div>
-    <div class="admin-login-watermark-subtitle">LOCAL PETROLEUM DELIVERY</div>
-  </div>
+  <div class="admin-login-site-preview" aria-hidden="true"></div>
 </div>
 
 <div class="admin-login-overlay" id="adminLoginOverlay" aria-hidden="false">
   <div class="admin-login-backdrop"></div>
   <div class="admin-login-dialog" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
     <form id="adminLoginForm" class="admin-login-card">
-      <div class="admin-login-kicker">Wooten Oil Administration</div>
-      <h2 id="adminLoginTitle">Admin Login</h2>
-      <p>Enter your login name and Admin Import Key to open the customer administration page.</p>
+      <div class="admin-login-logo-wrap">
+        <img class="admin-login-logo" src="assets/img/wooten-oil-logo.webp" alt="Wooten Oil logo">
+      </div>
+
+      <div class="admin-login-title">
+        <div class="admin-login-company">Wooten Oil Co Inc.</div>
+        <div class="admin-login-subtitle" id="adminLoginTitle">Admin Login</div>
+        <div class="admin-login-accent"></div>
+      </div>
+
+      <div class="admin-login-authorized">
+        <span class="admin-login-authorized-icon">✓</span>
+        <span>Authorized Access Only</span>
+      </div>
+
       <div class="admin-login-grid">
-        <div>
-          <label for="adminLoginName">Login</label>
-          <input id="adminLoginName" type="text" autocomplete="username" placeholder="Enter your login name">
+        <div class="admin-login-field">
+          <label for="adminLoginName">User Name</label>
+          <div class="admin-login-input-wrap">
+            <span class="admin-login-input-icon" aria-hidden="true">♙</span>
+            <input id="adminLoginName" type="text" value="Admin" readonly aria-readonly="true" autocomplete="username">
+          </div>
         </div>
-        <div>
+
+        <div class="admin-login-field">
           <label for="adminKeyPrompt">Admin Import Key</label>
-          <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Enter your admin key">
+          <div class="admin-login-input-wrap">
+            <span class="admin-login-input-icon" aria-hidden="true">⌕</span>
+            <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Admin Import Key">
+            <button class="admin-login-eye" id="adminKeyEye" type="button" aria-label="Show admin key" title="Show admin key">◉</button>
+          </div>
         </div>
       </div>
+
       <div id="adminLoginStatus" class="status" aria-live="polite"></div>
+
       <div class="admin-login-actions">
-        <button class="primary" type="submit">Open Administration</button>
+        <button class="primary" type="submit">🔒&nbsp;&nbsp;Sign In</button>
+      </div>
+
+      <div class="admin-login-security">
+        <span class="shield">✓</span>
+        This area is restricted to authorized administrators only.
       </div>
     </form>
   </div>
@@ -3907,6 +4156,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const openBtn=document.getElementById('adminAccessOpenBtn');
   const accessMeta=document.getElementById('adminAccessMeta');
   const storageKey='wootenAdminLoginSession';
+  const keyEye=document.getElementById('adminKeyEye');
 
   function setStatus(message,bad){
     if(!status) return;
@@ -3921,7 +4171,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   function updateAccessMeta(){
-    const user=(loginName.value||'').trim();
+    const user='Admin';
+    loginName.value='Admin';
     const hasKey=!!(keyField.value||'').trim();
     if(!accessMeta) return;
     if(hasKey){
@@ -3960,7 +4211,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const raw=sessionStorage.getItem(storageKey);
       if(!raw) return false;
       const data=JSON.parse(raw)||{};
-      if(data.login) loginName.value=String(data.login);
+      loginName.value='Admin';
       if(data.key){
         keyField.value=String(data.key);
         keyPrompt.value=String(data.key);
@@ -3978,13 +4229,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   form.addEventListener('submit',function(e){
     e.preventDefault();
-    const user=(loginName.value||'').trim();
+    const user='Admin';
+    loginName.value='Admin';
     const key=(keyPrompt.value||'').trim();
-    if(!user){
-      setStatus('Enter your login name.',true);
-      loginName.focus();
-      return;
-    }
     if(!key){
       setStatus('Enter your Admin Import Key.',true);
       keyPrompt.focus();
@@ -4012,6 +4259,20 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       closeLogin();
     }
   });
+
+
+  loginName.value='Admin';
+  loginName.setAttribute('readonly','readonly');
+
+  if(keyEye){
+    keyEye.addEventListener('click',function(){
+      const showing=keyPrompt.type==='text';
+      keyPrompt.type=showing?'password':'text';
+      keyEye.setAttribute('aria-label',showing?'Show admin key':'Hide admin key');
+      keyEye.setAttribute('title',showing?'Show admin key':'Hide admin key');
+      keyPrompt.focus();
+    });
+  }
 
   const restored=restoreSession();
   updateAccessMeta();
