@@ -2849,6 +2849,33 @@ input[type="reset"]:focus,
 }
 </style>
 
+
+<style id="wooten-notification-pdf-footer-spacing-fix">
+#customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+  padding-top:12px !important;
+  padding-bottom:8px !important;
+  min-height:0 !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-attachment-list{
+  gap:3px !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link-label{
+  margin-top:0 !important;
+  margin-bottom:2px !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link{
+  margin-top:0 !important;
+  margin-bottom:0 !important;
+  line-height:1.2 !important;
+}
+@media(max-width:600px){
+  #customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+    padding-top:10px !important;
+    padding-bottom:7px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -4952,7 +4979,7 @@ input[type="reset"]:focus,
 
         rows.unshift(
           '<span class="customer-notification-document-link-label">PDF File</span>'+
-          '<a href="#" class="customer-notification-document-link" data-document-id="'+
+          '<a href="#" class="customer-notification-document-link" title="Open PDF" data-document-id="'+
             String(activeNotificationDocumentId||'')+
           '">'+safeDocumentName+'</a>'
         );
@@ -5090,6 +5117,80 @@ input[type="reset"]:focus,
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
 
 
+
+  async function openNotificationLinkedPdf(documentId,filename){
+    var id=Number(documentId||0);
+
+    if(!id){
+      var notificationId=customerNotificationPopup && customerNotificationPopup.getAttribute('data-active-notification-id');
+      if(notificationId){
+        try{
+          var resolveResponse=await fetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
+            method:'GET',
+            credentials:'same-origin',
+            cache:'no-store',
+            headers:{'Accept':'application/json'}
+          });
+          var resolveData=await resolveResponse.json().catch(function(){return {};});
+          if(resolveResponse.ok && resolveData.success!==false && Number(resolveData.document_id)>0){
+            id=Number(resolveData.document_id);
+            activeNotificationDocumentId=id;
+          }
+        }catch(e){}
+      }
+    }
+
+    if(!id){
+      alert('The statement or invoice file could not be located.');
+      return;
+    }
+
+    var previewWindow=null;
+    try{
+      previewWindow=window.open('about:blank','_blank');
+      if(previewWindow){
+        previewWindow.document.title='Opening '+(filename||'PDF');
+        previewWindow.document.body.innerHTML=
+          '<div style="font-family:Arial,sans-serif;padding:24px;color:#17314b">Opening PDF…</div>';
+      }
+    }catch(e){previewWindow=null;}
+
+    try{
+      var response=await fetch('/api/customer/documents/'+encodeURIComponent(id)+'/file',{
+        method:'GET',
+        credentials:'same-origin',
+        cache:'no-store'
+      });
+
+      if(!response.ok){
+        var errorText=await response.text().catch(function(){return '';});
+        throw new Error(errorText || 'The PDF file could not be opened.');
+      }
+
+      var blob=await response.blob();
+      var blobUrl=URL.createObjectURL(blob);
+
+      if(previewWindow && !previewWindow.closed){
+        previewWindow.location.replace(blobUrl);
+      }else{
+        var a=document.createElement('a');
+        a.href=blobUrl;
+        a.target='_blank';
+        a.rel='noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      setTimeout(function(){URL.revokeObjectURL(blobUrl);},60000);
+    }catch(err){
+      if(previewWindow && !previewWindow.closed){
+        try{previewWindow.close();}catch(e){}
+      }
+      alert(err && err.message ? err.message : 'The PDF file could not be opened.');
+    }
+  }
+
   async function openNotificationLinkedDocuments(){
     var documentId=activeNotificationDocumentId;
 
@@ -5197,7 +5298,10 @@ input[type="reset"]:focus,
         if(documentLink){
           e.preventDefault();
           e.stopPropagation();
-          openNotificationLinkedDocuments();
+          openNotificationLinkedPdf(
+            documentLink.getAttribute('data-document-id')||activeNotificationDocumentId,
+            documentLink.textContent||'PDF'
+          );
           return;
         }
 

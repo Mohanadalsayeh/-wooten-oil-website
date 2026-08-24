@@ -1,13 +1,12 @@
-WOOTEN OIL — NOTIFICATION PDF FILENAME ONLY
+WOOTEN OIL — NOTIFICATION PDF OPEN + FOOTER SPACING FIX
 
-- The whole notification popup is NOT clickable.
-- Normal notifications remain normal.
-- For a Statement/Invoice uploaded from the admin Statements & Invoices page:
-  if the PDF file exists, the actual PDF filename appears in the notification footer.
-- Only the PDF filename is clickable.
-- Hover/focus adds an underline.
-- Clicking the filename opens Statements & Invoices and highlights the matching document.
-- X close and normal attachment buttons keep their existing behavior.
+Fixes:
+- Reduced the extra blank space below the statement/invoice PDF filename.
+- The whole notification popup remains non-clickable.
+- Only the real PDF filename is clickable.
+- Hover/focus keeps the underline style.
+- Clicking the PDF filename now opens the actual secured PDF file directly.
+- If an older notification is missing its document ID, the secure resolver is used first.
 
 Upload:
 - index.html
@@ -15,4 +14,4 @@ Upload:
 - admin-customers.html
 - worker.js
 
-No manual D1 or R2 changes are required.
+No manual D1, R2, or Cloudflare configuration changes are required.
