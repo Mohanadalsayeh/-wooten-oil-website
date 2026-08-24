@@ -2426,6 +2426,54 @@ input[type="file"]::file-selector-button{
   }
 </style>
 
+
+<style id="wooten-import-last-update-style">
+  .import-last-update{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:10px;
+    color:#6b7b8b;
+    font-size:13px;
+    line-height:1.4;
+  }
+  .import-last-update-label{
+    font-weight:700;
+  }
+  .import-last-update strong{
+    color:#28435c;
+    font-weight:800;
+  }
+  .import-last-update strong::before{
+    content:"•";
+    margin-right:8px;
+    color:#2ca55f;
+  }
+  @media(max-width:720px){
+    .import-last-update{
+      margin-top:9px;
+      display:block;
+    }
+    .import-last-update strong{
+      display:block;
+      margin-top:3px;
+    }
+    .import-last-update strong::before{
+      display:none;
+    }
+  }
+</style>
+
+<style id="wooten-admin-import-database-filter-style">
+.import-db-toolbar{display:grid;grid-template-columns:minmax(260px,1.8fr) repeat(4,minmax(145px,.8fr));gap:12px;align-items:end;margin:18px 0 10px}
+.import-db-field{min-width:0}.import-db-field label{font-size:12px;margin-bottom:6px;color:#43566a}
+.import-db-field input,.import-db-field select{width:100%;height:44px;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-size:14px;color:#172033}
+.import-db-count{grid-column:1/-1;color:#64748b;font-size:13px;font-weight:800}
+.payment-database-table{min-width:1550px!important}.payment-database-table th,.payment-database-table td{white-space:nowrap}
+@media(max-width:900px){.import-db-toolbar{grid-template-columns:1fr 1fr}.import-db-search{grid-column:1/-1}}
+@media(max-width:720px){.import-db-toolbar{grid-template-columns:1fr}.import-db-search{grid-column:auto}}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -2529,6 +2577,11 @@ input[type="file"]::file-selector-button{
       <button class="primary" id="importBtn" type="button" disabled>Upload / Update Customers</button>
     </div>
 
+    <div class="import-last-update" id="customerImportLastUpdate">
+      <span class="import-last-update-label">Last customer file update</span>
+      <strong id="customerImportLastUpdateValue">Not imported yet</strong>
+    </div>
+
     <div id="status" class="status"></div>
 
     <div class="summary" id="summary" style="display:none">
@@ -2536,6 +2589,41 @@ input[type="file"]::file-selector-button{
       <div class="metric"><b id="mValid">0</b><span>Valid Customers</span></div>
       <div class="metric"><b id="mSkipped">0</b><span>Skipped Rows</span></div>
       <div class="metric"><b id="mImported">0</b><span>Last Import</span></div>
+    </div>
+
+    <div class="import-db-toolbar" id="customerPreviewTools" style="display:none">
+      <div class="import-db-field import-db-search">
+        <label for="customerPreviewSearch">Search MAS 90 Database</label>
+        <input id="customerPreviewSearch" type="search" placeholder="Customer #, name, email, phone, city, address…" autocomplete="off">
+      </div>
+      <div class="import-db-field">
+        <label for="customerStateFilter">State</label>
+        <select id="customerStateFilter"><option value="all">All states</option></select>
+      </div>
+      <div class="import-db-field">
+        <label for="customerEmailFilter">Email</label>
+        <select id="customerEmailFilter">
+          <option value="all">All</option><option value="with">With email</option><option value="without">Without email</option>
+        </select>
+      </div>
+      <div class="import-db-field">
+        <label for="customerBalanceFilter">Balance</label>
+        <select id="customerBalanceFilter">
+          <option value="all">All balances</option><option value="positive">Balance due</option><option value="zero">Zero balance</option><option value="credit">Credit balance</option>
+        </select>
+      </div>
+      <div class="import-db-field">
+        <label for="customerPreviewSort">Sort</label>
+        <select id="customerPreviewSort">
+          <option value="account_asc">Customer # low → high</option>
+          <option value="account_desc">Customer # high → low</option>
+          <option value="name_asc">Name A → Z</option>
+          <option value="name_desc">Name Z → A</option>
+          <option value="balance_desc">Balance high → low</option>
+          <option value="balance_asc">Balance low → high</option>
+        </select>
+      </div>
+      <div class="import-db-count" id="customerPreviewCount">0 shown</div>
     </div>
 
     <div class="tablewrap" id="tablewrap" style="display:none">
@@ -2571,6 +2659,11 @@ input[type="file"]::file-selector-button{
         <button class="primary" id="paymentImportBtn" type="button" disabled>Import Payments</button>
       </div>
 
+      <div class="import-last-update" id="paymentImportLastUpdate">
+        <span class="import-last-update-label">Last payment file update</span>
+        <strong id="paymentImportLastUpdateValue">Not imported yet</strong>
+      </div>
+
       <div id="paymentImportStatus" class="status"></div>
 
       <div class="summary payments-import-summary" id="paymentImportSummary" style="display:none">
@@ -2580,18 +2673,41 @@ input[type="file"]::file-selector-button{
         <div class="metric"><b id="pmImported">0</b><span>Last Import</span></div>
       </div>
 
+      <div class="import-db-toolbar payment-db-toolbar" id="paymentPreviewTools" style="display:none">
+        <div class="import-db-field import-db-search">
+          <label for="paymentPreviewSearch">Search Payment Database</label>
+          <input id="paymentPreviewSearch" type="search" placeholder="Customer #, customer name, check #, invoice #, deposit #…" autocomplete="off">
+        </div>
+        <div class="import-db-field">
+          <label for="paymentDepositTypeFilter">Deposit Type</label>
+          <select id="paymentDepositTypeFilter"><option value="all">All types</option></select>
+        </div>
+        <div class="import-db-field">
+          <label for="paymentAmountFilter">Amount</label>
+          <select id="paymentAmountFilter">
+            <option value="all">All amounts</option><option value="positive">Positive</option><option value="zero">Zero</option><option value="negative">Negative / reversal</option>
+          </select>
+        </div>
+        <div class="import-db-field">
+          <label for="paymentPreviewSort">Sort</label>
+          <select id="paymentPreviewSort">
+            <option value="posting_desc">Posting date newest</option>
+            <option value="posting_asc">Posting date oldest</option>
+            <option value="customer_asc">Customer # low → high</option>
+            <option value="customer_desc">Customer # high → low</option>
+            <option value="amount_desc">Cash applied high → low</option>
+            <option value="amount_asc">Cash applied low → high</option>
+          </select>
+        </div>
+        <div class="import-db-count" id="paymentPreviewCount">0 shown</div>
+      </div>
+
       <div class="tablewrap payments-preview-wrap" id="paymentPreviewWrap" style="display:none">
-        <table>
-          <thead>
-            <tr>
-              <th>Account #</th>
-              <th>Payment Date</th>
-              <th>Amount</th>
-              <th>Reference / Check #</th>
-              <th>Payment Type</th>
-              <th>Description / Memo</th>
-            </tr>
-          </thead>
+        <table class="payment-database-table">
+          <thead><tr>
+            <th>Deposit Date</th><th>Deposit No</th><th>Deposit Type</th><th>Customer No</th><th>Check No</th>
+            <th>Posting Date</th><th>Customer Name</th><th>Invoice No</th><th>Cash Amount Applied</th><th>Discount Amount Applied</th>
+          </tr></thead>
           <tbody id="paymentPreviewBody"></tbody>
         </table>
       </div>
@@ -3003,6 +3119,49 @@ input[type="file"]::file-selector-button{
 <script>
 let preparedRows=[];
 
+function formatImportUpdateDate(value){
+  if(!value) return "Not imported yet";
+  let raw=String(value).trim();
+  // SQLite CURRENT_TIMESTAMP is UTC and has no timezone suffix.
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)){
+    raw=raw.replace(" ","T")+"Z";
+  }
+  const d=new Date(raw);
+  if(Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("en-US",{
+    month:"short",
+    day:"numeric",
+    year:"numeric",
+    hour:"numeric",
+    minute:"2-digit"
+  });
+}
+
+function setImportLastUpdate(kind,value){
+  const el=document.getElementById(
+    kind==="payments" ? "paymentImportLastUpdateValue" : "customerImportLastUpdateValue"
+  );
+  if(el) el.textContent=formatImportUpdateDate(value);
+}
+
+async function loadImportLastUpdates(){
+  const key=document.getElementById("adminKey")?.value.trim();
+  if(!key) return;
+  try{
+    const res=await fetch("/api/admin/import-status",{
+      headers:{"X-Admin-Key":key,"Accept":"application/json"},
+      cache:"no-store"
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok || data.success===false) return;
+    setImportLastUpdate("customers",data.customers_last_import_at||"");
+    setImportLastUpdate("payments",data.payments_last_import_at||"");
+  }catch(e){
+    console.warn("Could not load import update times",e);
+  }
+}
+
+
 const aliases={
   account_number:["customerno","customer_no","accountnum","accountnumber","account_number","acctnum","acctnumber"],
   account_name:["accountname","account_name","customername","name"],
@@ -3059,23 +3218,63 @@ function setStatus(msg,good=true){
   el.className="status show "+(good?"ok":"bad");
   el.textContent=msg;
 }
+function customerPreviewFilteredRows(){
+  const q=(document.getElementById("customerPreviewSearch")?.value||"").trim().toLowerCase();
+  const state=document.getElementById("customerStateFilter")?.value||"all";
+  const email=document.getElementById("customerEmailFilter")?.value||"all";
+  const balance=document.getElementById("customerBalanceFilter")?.value||"all";
+  const sort=document.getElementById("customerPreviewSort")?.value||"account_asc";
+  let rows=preparedRows.filter(r=>{
+    if(q && ![r.account_number,r.account_name,r.address1,r.address2,r.city,r.state,r.zip_code,r.phone,r.email].join(" ").toLowerCase().includes(q)) return false;
+    if(state!=="all" && String(r.state||"").toUpperCase()!==state) return false;
+    if(email==="with" && !String(r.email||"").trim()) return false;
+    if(email==="without" && String(r.email||"").trim()) return false;
+    const b=Number(r.current_balance||0);
+    if(balance==="positive" && !(b>0)) return false;
+    if(balance==="zero" && Math.abs(b)>=0.005) return false;
+    if(balance==="credit" && !(b<0)) return false;
+    return true;
+  });
+  rows=rows.slice().sort((a,b)=>{
+    if(sort==="account_desc") return String(b.account_number).localeCompare(String(a.account_number));
+    if(sort==="name_asc") return String(a.account_name||"").localeCompare(String(b.account_name||""));
+    if(sort==="name_desc") return String(b.account_name||"").localeCompare(String(a.account_name||""));
+    if(sort==="balance_desc") return Number(b.current_balance||0)-Number(a.current_balance||0);
+    if(sort==="balance_asc") return Number(a.current_balance||0)-Number(b.current_balance||0);
+    return String(a.account_number).localeCompare(String(b.account_number));
+  });
+  return rows;
+}
+function updateCustomerPreviewFilters(){
+  const sel=document.getElementById("customerStateFilter");
+  if(!sel) return;
+  const states=[...new Set(preparedRows.map(r=>String(r.state||"").trim().toUpperCase()).filter(Boolean))].sort();
+  sel.innerHTML='<option value="all">All states</option>'+states.map(s=>`<option value="${s}">${s}</option>`).join("");
+}
 function render(rows,total,skipped){
   document.getElementById("summary").style.display="grid";
   document.getElementById("tablewrap").style.display="block";
+  document.getElementById("customerPreviewTools").style.display="grid";
   document.getElementById("mRows").textContent=total;
-  document.getElementById("mValid").textContent=rows.length;
+  document.getElementById("mValid").textContent=preparedRows.length;
   document.getElementById("mSkipped").textContent=skipped;
+  const filtered=customerPreviewFilteredRows();
+  document.getElementById("customerPreviewCount").textContent=`${filtered.length.toLocaleString()} matching customer(s) • showing first ${Math.min(filtered.length,200).toLocaleString()}`;
   const body=document.getElementById("previewBody");
   body.innerHTML="";
-  rows.slice(0,200).forEach(r=>{
+  filtered.slice(0,200).forEach(r=>{
     const tr=document.createElement("tr");
     [r.account_number,r.account_name,r.address1,r.address2,r.city,r.state,r.zip_code,r.phone,r.email,r.current_balance,r.aging_category_1,r.aging_category_2,r.aging_category_3,r.aging_category_4].forEach(v=>{
-      const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
+      const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
     });
     body.appendChild(tr);
   });
 }
 
+["customerPreviewSearch","customerStateFilter","customerEmailFilter","customerBalanceFilter","customerPreviewSort"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener(id==="customerPreviewSearch"?"input":"change",()=>{if(preparedRows.length) render(preparedRows,Number(document.getElementById("mRows").textContent||preparedRows.length),Number(document.getElementById("mSkipped").textContent||0));});
+});
 async function parseFile(file){
   const ext=file.name.toLowerCase().split(".").pop();
   if(ext==="csv"){
@@ -3097,6 +3296,7 @@ document.getElementById("previewBtn").addEventListener("click",async()=>{
     const raw=await parseFile(file);
     const mapped=raw.map(mapRow);
     preparedRows=mapped.filter(r=>r.account_number && r.account_name);
+    updateCustomerPreviewFilters();
     render(preparedRows,raw.length,raw.length-preparedRows.length);
     document.getElementById("importBtn").disabled=preparedRows.length===0;
     setStatus(`Preview ready: ${preparedRows.length} valid customer records.`);
@@ -3120,6 +3320,7 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
     const data=await res.json().catch(()=>({}));
     if(!res.ok || data.success===false) throw new Error(data.error||"Import failed.");
     document.getElementById("mImported").textContent=data.processed||preparedRows.length;
+    setImportLastUpdate("customers",data.imported_at||"");
     setStatus(`Success: ${data.processed} customer records were added or updated.`);
   }catch(e){
     console.error(e); setStatus(e.message||"Import failed.",false);
@@ -3133,105 +3334,50 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
 let preparedPaymentRows=[];
 
 const paymentAliases={
-  account_number:[
-    "CustomerNo","AccountNumber","AccountNo","AcctNumber","AcctNo"
-  ],
-  posting_date:[
-    "PostingDate","PaymentDate","DatePaid","PaidDate","TransactionDate","PostDate"
-  ],
-  deposit_date:[
-    "DepositDate","Date"
-  ],
-  amount:[
-    "CashAmountApplied","PaymentAmount","Amount","PaidAmount","Payment"
-  ],
-  reference:[
-    "CheckNo","CheckNumber","Reference","ReferenceNo","ReferenceNumber","ReceiptNo"
-  ],
-  deposit_no:[
-    "DepositNo","DepositNumber"
-  ],
-  payment_type:[
-    "PaymentType","PaymentMethod","Method"
-  ],
-  description:[
-    "DepositDesc","Description","Memo","Comment","Comments","Notes"
-  ],
-  invoice_no:[
-    "InvoiceNo","InvoiceNumber"
-  ]
+  deposit_date:["DepositDate"],
+  deposit_no:["DepositNo","DepositNumber"],
+  deposit_type:["DepositType"],
+  account_number:["CustomerNo","AccountNumber","AccountNo","AcctNumber","AcctNo"],
+  check_no:["CheckNo","CheckNumber"],
+  posting_date:["PostingDate","PaymentDate","DatePaid","PaidDate","TransactionDate","PostDate"],
+  customer_name:["CustomerName","AccountName","Name"],
+  invoice_no:["InvoiceNo","InvoiceNumber"],
+  amount:["CashAmountApplied","PaymentAmount","Amount","PaidAmount","Payment"],
+  discount_amount:["DiscountAmountApplied","DiscountAmount","Discount"],
+  payment_type:["PaymentType","PaymentMethod","Method"],
+  description:["DepositDesc","Description","Memo","Comment","Comments","Notes"]
 };
-
 function paymentPick(row,names){
-  const map={};
-  Object.keys(row||{}).forEach(k=>map[keyify(k)]=row[k]);
-  for(const n of names){
-    const v=map[keyify(n)];
-    if(v!==undefined && v!==null && String(v).trim()!=="") return v;
-  }
-  return "";
+  const map={};Object.keys(row||{}).forEach(k=>map[keyify(k)]=row[k]);
+  for(const n of names){const v=map[keyify(n)];if(v!==undefined&&v!==null&&String(v).trim()!=="") return v;} return "";
 }
-
 function normalizePaymentDate(v){
-  if(v===undefined || v===null || v==="") return "";
-
-  // MAS 90 Excel exports store dates as Excel serial numbers.
+  if(v===undefined||v===null||v==="") return "";
   const numeric=Number(v);
-  if(Number.isFinite(numeric) && numeric>20000 && numeric<100000){
-    const excelEpoch=Date.UTC(1899,11,30);
-    const d=new Date(excelEpoch + Math.round(numeric)*86400000);
-    return [
-      d.getUTCFullYear(),
-      String(d.getUTCMonth()+1).padStart(2,"0"),
-      String(d.getUTCDate()).padStart(2,"0")
-    ].join("-");
+  if(Number.isFinite(numeric)&&numeric>20000&&numeric<100000){
+    const d=new Date(Date.UTC(1899,11,30)+Math.round(numeric)*86400000);
+    return [d.getUTCFullYear(),String(d.getUTCMonth()+1).padStart(2,"0"),String(d.getUTCDate()).padStart(2,"0")].join("-");
   }
-
-  const s=clean(v);
-  if(!s) return "";
-
-  let m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-  if(m){
-    return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-  }
-
-  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if(m){
-    let y=m[3];
-    if(y.length===2) y=(Number(y)>=70?"19":"20")+y;
-    return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
-  }
-
-  const parsed=new Date(s);
-  if(!Number.isNaN(parsed.getTime())){
-    return [
-      parsed.getFullYear(),
-      String(parsed.getMonth()+1).padStart(2,"0"),
-      String(parsed.getDate()).padStart(2,"0")
-    ].join("-");
-  }
-
-  return "";
+  const s=clean(v);if(!s) return "";
+  let m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);if(m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);if(m){let y=m[3];if(y.length===2)y=(Number(y)>=70?"19":"20")+y;return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;}
+  const d=new Date(s);return Number.isNaN(d.getTime())?"":[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
 }
-
 function mapPaymentRow(row){
-  const postingDate=paymentPick(row,paymentAliases.posting_date);
-  const depositDate=paymentPick(row,paymentAliases.deposit_date);
-  const checkNo=clean(paymentPick(row,paymentAliases.reference));
+  const depositDate=normalizePaymentDate(paymentPick(row,paymentAliases.deposit_date));
+  const postingDate=normalizePaymentDate(paymentPick(row,paymentAliases.posting_date));
   const depositNo=clean(paymentPick(row,paymentAliases.deposit_no));
-
+  const checkNo=clean(paymentPick(row,paymentAliases.check_no));
+  const amount=normalizeMoney(paymentPick(row,paymentAliases.amount));
   return {
-    account_number:normalizeAccount(paymentPick(row,paymentAliases.account_number)),
-    payment_date:normalizePaymentDate(postingDate || depositDate),
-    amount:normalizeMoney(paymentPick(row,paymentAliases.amount)),
-    reference:checkNo || (depositNo ? `Deposit ${depositNo}` : ""),
-    deposit_no:depositNo,
-    payment_type:clean(paymentPick(row,paymentAliases.payment_type)),
-    description:clean(paymentPick(row,paymentAliases.description)),
-    invoice_no:clean(paymentPick(row,paymentAliases.invoice_no))
+    deposit_date:depositDate,deposit_no:depositNo,deposit_type:clean(paymentPick(row,paymentAliases.deposit_type)),
+    account_number:normalizeAccount(paymentPick(row,paymentAliases.account_number)),check_no:checkNo,posting_date:postingDate,
+    customer_name:clean(paymentPick(row,paymentAliases.customer_name)),invoice_no:clean(paymentPick(row,paymentAliases.invoice_no)),
+    cash_amount_applied:amount,discount_amount_applied:normalizeMoney(paymentPick(row,paymentAliases.discount_amount)),
+    payment_date:postingDate||depositDate,amount:amount,reference:checkNo||(depositNo?`Deposit ${depositNo}`:""),
+    payment_type:clean(paymentPick(row,paymentAliases.payment_type)),description:clean(paymentPick(row,paymentAliases.description))
   };
 }
-
 function paymentRowIsValid(row){
   return !!row.account_number &&
          !!row.payment_date &&
@@ -3250,33 +3396,58 @@ function paymentMoney(v){
   return n.toLocaleString("en-US",{style:"currency",currency:"USD"});
 }
 
+function paymentPreviewFilteredRows(){
+  const q=(document.getElementById("paymentPreviewSearch")?.value||"").trim().toLowerCase();
+  const depType=document.getElementById("paymentDepositTypeFilter")?.value||"all";
+  const amountFilter=document.getElementById("paymentAmountFilter")?.value||"all";
+  const sort=document.getElementById("paymentPreviewSort")?.value||"posting_desc";
+  let rows=preparedPaymentRows.filter(r=>{
+    if(q && ![r.deposit_date,r.deposit_no,r.deposit_type,r.account_number,r.check_no,r.posting_date,r.customer_name,r.invoice_no,r.cash_amount_applied,r.discount_amount_applied].join(" ").toLowerCase().includes(q)) return false;
+    if(depType!=="all" && String(r.deposit_type||"")!==depType) return false;
+    const amt=Number(r.cash_amount_applied||0);
+    if(amountFilter==="positive" && !(amt>0)) return false;
+    if(amountFilter==="zero" && Math.abs(amt)>=0.005) return false;
+    if(amountFilter==="negative" && !(amt<0)) return false;
+    return true;
+  });
+  rows=rows.slice().sort((a,b)=>{
+    if(sort==="posting_asc") return String(a.posting_date||a.deposit_date).localeCompare(String(b.posting_date||b.deposit_date));
+    if(sort==="customer_asc") return String(a.account_number).localeCompare(String(b.account_number));
+    if(sort==="customer_desc") return String(b.account_number).localeCompare(String(a.account_number));
+    if(sort==="amount_desc") return Number(b.cash_amount_applied||0)-Number(a.cash_amount_applied||0);
+    if(sort==="amount_asc") return Number(a.cash_amount_applied||0)-Number(b.cash_amount_applied||0);
+    return String(b.posting_date||b.deposit_date).localeCompare(String(a.posting_date||a.deposit_date));
+  });
+  return rows;
+}
+function updatePaymentPreviewFilters(){
+  const sel=document.getElementById("paymentDepositTypeFilter");if(!sel)return;
+  const types=[...new Set(preparedPaymentRows.map(r=>String(r.deposit_type||"").trim()).filter(Boolean))].sort();
+  sel.innerHTML='<option value="all">All types</option>'+types.map(v=>`<option value="${v}">${v}</option>`).join("");
+}
 function renderPaymentPreview(rows,total,skipped){
   document.getElementById("paymentImportSummary").style.display="grid";
   document.getElementById("paymentPreviewWrap").style.display="block";
+  document.getElementById("paymentPreviewTools").style.display="grid";
   document.getElementById("pmRows").textContent=total;
-  document.getElementById("pmValid").textContent=rows.length;
+  document.getElementById("pmValid").textContent=preparedPaymentRows.length;
   document.getElementById("pmSkipped").textContent=skipped;
-
-  const body=document.getElementById("paymentPreviewBody");
-  body.innerHTML="";
-  rows.slice(0,200).forEach(r=>{
+  const filtered=paymentPreviewFilteredRows();
+  document.getElementById("paymentPreviewCount").textContent=`${filtered.length.toLocaleString()} matching payment row(s) • showing first ${Math.min(filtered.length,200).toLocaleString()}`;
+  const body=document.getElementById("paymentPreviewBody");body.innerHTML="";
+  filtered.slice(0,200).forEach(r=>{
     const tr=document.createElement("tr");
-    [
-      r.account_number,
-      r.payment_date,
-      paymentMoney(r.amount),
-      r.reference,
-      r.payment_type,
-      r.description
-    ].forEach(v=>{
-      const td=document.createElement("td");
-      td.textContent=v||"";
-      tr.appendChild(td);
+    [r.deposit_date,r.deposit_no,r.deposit_type,r.account_number,r.check_no,r.posting_date,r.customer_name,r.invoice_no,paymentMoney(r.cash_amount_applied),paymentMoney(r.discount_amount_applied)].forEach(v=>{
+      const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);
     });
     body.appendChild(tr);
   });
 }
 
+["paymentPreviewSearch","paymentDepositTypeFilter","paymentAmountFilter","paymentPreviewSort"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener(id==="paymentPreviewSearch"?"input":"change",()=>{if(preparedPaymentRows.length) renderPaymentPreview(preparedPaymentRows,Number(document.getElementById("pmRows").textContent||preparedPaymentRows.length),Number(document.getElementById("pmSkipped").textContent||0));});
+});
 document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("paymentFile").files[0];
   if(!file){
@@ -3288,6 +3459,7 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     const raw=await parseFile(file);
     const mapped=raw.map(mapPaymentRow);
     preparedPaymentRows=mapped.filter(paymentRowIsValid);
+    updatePaymentPreviewFilters();
 
     renderPaymentPreview(
       preparedPaymentRows,
@@ -3332,6 +3504,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     let imported=0;
     let duplicates=0;
     let skipped=0;
+    let latestPaymentImportAt="";
 
     for(let i=0;i<preparedPaymentRows.length;i+=chunkSize){
       const chunk=preparedPaymentRows.slice(i,i+chunkSize);
@@ -3350,9 +3523,11 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       imported+=Number(data.inserted||0);
       duplicates+=Number(data.duplicates||0);
       skipped+=Number(data.skipped||0);
+      if(data.imported_at) latestPaymentImportAt=data.imported_at;
     }
 
     document.getElementById("pmImported").textContent=imported;
+    if(latestPaymentImportAt) setImportLastUpdate("payments",latestPaymentImportAt);
     setPaymentStatus(
       `Payment import complete: ${imported} new payment(s) added`+
       (duplicates?`, ${duplicates} duplicate(s) skipped`:"")+
@@ -4863,6 +5038,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       keyPrompt.value=savedKey;
       updateAccessMeta();
       closeLogin();
+      loadImportLastUpdates();
       return true;
     }catch(_e){
       clearSession();
@@ -4903,6 +5079,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       updateAccessMeta();
       setStatus('Access granted.',false);
       closeLogin();
+      loadImportLastUpdates();
     }catch(_error){
       keyField.value='';
       setStatus('Could not verify the Admin Import Key right now. Please try again.',true);

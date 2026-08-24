@@ -699,10 +699,18 @@ async function onRequestPost3({ request, env }) {
     console.error("Customer import failed", error);
     return json3({ success: false, error: "Database import failed." }, 500);
   }
+  let importMeta=null;
+  try{
+    importMeta=await recordAdminImport(env,"customers",batch.length);
+  }catch(error){
+    console.error("Customer import timestamp could not be recorded",error);
+  }
+
   return json3({
     success: true,
     processed: batch.length,
-    skipped
+    skipped,
+    imported_at: importMeta?.last_import_at || new Date().toISOString()
   });
 }
 __name(onRequestPost3, "onRequestPost");
@@ -711,6 +719,80 @@ function onRequestGet3() {
   return json3({ success: false, error: "Method not allowed." }, 405);
 }
 __name(onRequestGet3, "onRequestGet");
+
+async function ensureAdminImportMetadataSchema(env){
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS admin_import_metadata (
+      import_type TEXT PRIMARY KEY,
+      last_import_at TEXT NOT NULL,
+      last_record_count INTEGER NOT NULL DEFAULT 0
+    )
+  `).run();
+}
+__name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
+
+async function recordAdminImport(env,type,count){
+  await ensureAdminImportMetadataSchema(env);
+  await env.DB.prepare(`
+    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count)
+    VALUES (?,CURRENT_TIMESTAMP,?)
+    ON CONFLICT(import_type) DO UPDATE SET
+      last_import_at=CURRENT_TIMESTAMP,
+      last_record_count=excluded.last_record_count
+  `).bind(String(type||""),Number(count||0)).run();
+
+  const row=await env.DB.prepare(`
+    SELECT last_import_at,last_record_count
+    FROM admin_import_metadata
+    WHERE import_type=?
+  `).bind(String(type||"")).first();
+  return row||null;
+}
+__name(recordAdminImport,"recordAdminImport");
+
+async function adminImportStatusGet({request,env}){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
+    return json3({success:false,error:"Unauthorized."},401);
+  }
+  if(!env.DB){
+    return json3({success:false,error:"Customer database is not configured."},503);
+  }
+
+  try{
+    await ensureAdminImportMetadataSchema(env);
+    const result=await env.DB.prepare(`
+      SELECT import_type,last_import_at,last_record_count
+      FROM admin_import_metadata
+      WHERE import_type IN ('customers','payments')
+    `).all();
+
+    let customersLast="",paymentsLast="";
+    let customersCount=0,paymentsCount=0;
+
+    for(const row of result?.results||[]){
+      if(row.import_type==="customers"){
+        customersLast=row.last_import_at||"";
+        customersCount=Number(row.last_record_count||0);
+      }else if(row.import_type==="payments"){
+        paymentsLast=row.last_import_at||"";
+        paymentsCount=Number(row.last_record_count||0);
+      }
+    }
+
+    return json3({
+      success:true,
+      customers_last_import_at:customersLast,
+      customers_last_record_count:customersCount,
+      payments_last_import_at:paymentsLast,
+      payments_last_record_count:paymentsCount
+    });
+  }catch(error){
+    console.error("adminImportStatusGet failed",error);
+    return json3({success:false,error:"Import update information could not be loaded."},500);
+  }
+}
+__name(adminImportStatusGet,"adminImportStatusGet");
 
 // Customer payments import
 async function ensureCustomerPaymentsSchema(env) {
@@ -723,6 +805,12 @@ async function ensureCustomerPaymentsSchema(env) {
       reference TEXT NOT NULL DEFAULT '',
       payment_type TEXT NOT NULL DEFAULT '',
       description TEXT NOT NULL DEFAULT '',
+      deposit_date TEXT NOT NULL DEFAULT '',
+      deposit_no TEXT NOT NULL DEFAULT '',
+      deposit_type TEXT NOT NULL DEFAULT '',
+      customer_name TEXT NOT NULL DEFAULT '',
+      posting_date TEXT NOT NULL DEFAULT '',
+      discount_amount REAL NOT NULL DEFAULT 0,
       source_invoice_no TEXT NOT NULL DEFAULT '',
       source_row_key TEXT NOT NULL DEFAULT '',
       imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -737,6 +825,12 @@ async function ensureCustomerPaymentsSchema(env) {
   if(!columns.has('source_row_key')){
     await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN source_row_key TEXT NOT NULL DEFAULT ''`).run();
   }
+  if(!columns.has('deposit_date')) await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN deposit_date TEXT NOT NULL DEFAULT ''`).run();
+  if(!columns.has('deposit_no')) await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN deposit_no TEXT NOT NULL DEFAULT ''`).run();
+  if(!columns.has('deposit_type')) await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN deposit_type TEXT NOT NULL DEFAULT ''`).run();
+  if(!columns.has('customer_name')) await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''`).run();
+  if(!columns.has('posting_date')) await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN posting_date TEXT NOT NULL DEFAULT ''`).run();
+  if(!columns.has('discount_amount')) await env.DB.prepare(`ALTER TABLE customer_payments ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`).run();
 
   // The old index could collapse separate MAS 90 rows that happen to look alike.
   await env.DB.prepare(`DROP INDEX IF EXISTS idx_customer_payments_unique`).run();
@@ -770,7 +864,7 @@ function paymentAmount(v) {
 __name(paymentAmount, "paymentAmount");
 
 async function paymentRowKey(p){
-  const raw=[p.account,p.date,p.amount.toFixed(2),p.reference,p.type,p.description,p.invoiceNo].join('|');
+  const raw=[p.account,p.date,p.amount.toFixed(2),p.reference,p.depositDate,p.depositNo,p.depositType,p.postingDate,p.discountAmount.toFixed(2),p.invoiceNo].join('|');
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));
   return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
@@ -809,6 +903,8 @@ async function adminCustomerPaymentsImport({ request, env }) {
       reference:paymentText(row?.reference,150),
       type:paymentText(row?.payment_type,100),
       description:paymentText(row?.description,500),
+      depositDate:paymentText(row?.deposit_date,40),depositNo:paymentText(row?.deposit_no,100),depositType:paymentText(row?.deposit_type,100),
+      customerName:paymentText(row?.customer_name,250),postingDate:paymentText(row?.posting_date,40),discountAmount:paymentAmount(row?.discount_amount_applied),
       invoiceNo:paymentText(row?.invoice_no,100)
     });
   }
@@ -817,8 +913,8 @@ async function adminCustomerPaymentsImport({ request, env }) {
   let inserted=0,duplicates=0;
   const insertStmt=env.DB.prepare(`
     INSERT OR IGNORE INTO customer_payments
-      (account_number,payment_date,amount,reference,payment_type,description,source_invoice_no,source_row_key,imported_at)
-    VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+      (account_number,payment_date,amount,reference,payment_type,description,deposit_date,deposit_no,deposit_type,customer_name,posting_date,discount_amount,source_invoice_no,source_row_key,imported_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
   `);
 
   try{
@@ -827,7 +923,7 @@ async function adminCustomerPaymentsImport({ request, env }) {
       const stmts=[];
       for(const p of chunk){
         const key=await paymentRowKey(p);
-        stmts.push(insertStmt.bind(p.account,p.date,p.amount,p.reference,p.type,p.description,p.invoiceNo,key));
+        stmts.push(insertStmt.bind(p.account,p.date,p.amount,p.reference,p.type,p.description,p.depositDate,p.depositNo,p.depositType,p.customerName,p.postingDate,p.discountAmount,p.invoiceNo,key));
       }
       const results=await env.DB.batch(stmts);
       for(const r of results||[]){
@@ -840,7 +936,22 @@ async function adminCustomerPaymentsImport({ request, env }) {
     return json3({success:false,error:"Payment history import failed."},500);
   }
 
-  return json3({success:true,received:payments.length,valid:valid.length,inserted,duplicates,skipped});
+  let importMeta=null;
+  try{
+    importMeta=await recordAdminImport(env,"payments",valid.length);
+  }catch(error){
+    console.error("Payment import timestamp could not be recorded",error);
+  }
+
+  return json3({
+    success:true,
+    received:payments.length,
+    valid:valid.length,
+    inserted,
+    duplicates,
+    skipped,
+    imported_at: importMeta?.last_import_at || new Date().toISOString()
+  });
 }
 __name(adminCustomerPaymentsImport, "adminCustomerPaymentsImport");
 
@@ -5490,6 +5601,13 @@ var worker_default = {
     if (url.pathname === "/api/admin/customer-payments-import") {
       if (request.method === "POST") {
         return adminCustomerPaymentsImport({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/import-status") {
+      if (request.method === "GET") {
+        return adminImportStatusGet({ request, env });
       }
       return methodNotAllowed();
     }
