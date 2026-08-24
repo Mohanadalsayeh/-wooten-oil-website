@@ -5016,7 +5016,9 @@ async function adminStatementCustomersGet({request,env}){
 
     const result=await env.DB.prepare(`
       SELECT
-        account_number,account_name,email,current_balance,
+        account_number,account_name,email,
+        address1,address2,address3,city,state,zip_code,
+        current_balance,
         aging_category_1,aging_category_2,aging_category_3,aging_category_4,
         account_status,
         CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated
@@ -5036,6 +5038,12 @@ async function adminStatementCustomersGet({request,env}){
         account_number:c.account_number,
         account_name:c.account_name||"",
         email:c.email||"",
+        address1:c.address1||"",
+        address2:c.address2||"",
+        address3:c.address3||"",
+        city:c.city||"",
+        state:c.state||"",
+        zip_code:c.zip_code||"",
         current_balance:current,
         previous_balance:previous,
         total_balance:current+previous,

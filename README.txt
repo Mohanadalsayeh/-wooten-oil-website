@@ -1,9 +1,9 @@
-WOOTEN OIL — MAS 90 DATABASE RENAME
+WOOTEN OIL — ADMIN DOCUMENT DATE MOBILE WIDTH FIX
 
-Changed the visible Admin Customers form heading:
-- Customer Database -> MAS 90 Database
-
-Everything else remains unchanged.
+Fixed Admin > Statements & Invoices > Customer Documents:
+- Document Date field now stays inside the form on iPhone/Safari.
+- Removed the browser minimum-width overflow.
+- Desktop layout remains unchanged.
 
 Upload:
 - index.html
