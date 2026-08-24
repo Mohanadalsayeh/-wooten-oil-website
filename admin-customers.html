@@ -1861,7 +1861,6 @@ input[type="file"]::file-selector-button{
     display:block;
     width:min(235px,68%);
     height:auto;
-    mix-blend-mode:multiply;
   }
 
   .admin-login-title{
@@ -1940,7 +1939,7 @@ input[type="file"]::file-selector-button{
     background:rgba(255,255,255,.70);
     color:#18334f;
     font-size:15px;
-    padding:0 46px 0 44px;
+    padding:0 14px 0 44px;
     box-shadow:
       0 5px 14px rgba(10,30,48,.055),
       inset 0 1px 0 rgba(255,255,255,.6);
@@ -1957,16 +1956,6 @@ input[type="file"]::file-selector-button{
     box-shadow:0 0 0 3px rgba(18,65,112,.09);
   }
 
-  .admin-login-eye{
-    position:absolute;
-    right:8px;top:50%;
-    transform:translateY(-50%);
-    width:34px;height:34px;
-    border:0;background:transparent;border-radius:8px;
-    display:flex;align-items:center;justify-content:center;
-    color:#637485;cursor:pointer;font-size:17px;
-  }
-  .admin-login-eye:hover{background:rgba(15,47,84,.055)}
 
   #adminLoginStatus{
     display:none;margin-top:10px
@@ -2101,7 +2090,7 @@ input[type="file"]::file-selector-button{
   <div class="admin-login-dialog" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
     <form id="adminLoginForm" class="admin-login-card">
       <div class="admin-login-logo-wrap">
-        <img class="admin-login-logo" src="assets/img/wooten-oil-logo.webp" alt="Wooten Oil logo">
+        <img class="admin-login-logo" src="assets/img/wooten-oil-logo-transparent.png" alt="Wooten Oil logo">
       </div>
 
       <div class="admin-login-title">
@@ -2129,7 +2118,6 @@ input[type="file"]::file-selector-button{
           <div class="admin-login-input-wrap">
             <span class="admin-login-input-icon" aria-hidden="true">⌕</span>
             <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Admin Import Key">
-            <button class="admin-login-eye" id="adminKeyEye" type="button" aria-label="Show admin key" title="Show admin key">◉</button>
           </div>
         </div>
       </div>
@@ -4156,7 +4144,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const openBtn=document.getElementById('adminAccessOpenBtn');
   const accessMeta=document.getElementById('adminAccessMeta');
   const storageKey='wootenAdminLoginSession';
-  const keyEye=document.getElementById('adminKeyEye');
 
   function setStatus(message,bad){
     if(!status) return;
@@ -4264,15 +4251,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   loginName.value='Admin';
   loginName.setAttribute('readonly','readonly');
 
-  if(keyEye){
-    keyEye.addEventListener('click',function(){
-      const showing=keyPrompt.type==='text';
-      keyPrompt.type=showing?'password':'text';
-      keyEye.setAttribute('aria-label',showing?'Show admin key':'Hide admin key');
-      keyEye.setAttribute('title',showing?'Show admin key':'Hide admin key');
-      keyPrompt.focus();
-    });
-  }
 
   const restored=restoreSession();
   updateAccessMeta();
