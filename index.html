@@ -221,6 +221,16 @@
     transform: translateY(0);
   }
 
+  .payment-history-back-to-top svg {
+    width: 25px;
+    height: 25px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   @media (min-width: 769px) {
     .payment-history-back-to-top { right: 28px; bottom: 28px; }
   }
@@ -1205,7 +1215,7 @@
 
 <script id="wooten-menu-notification-exclusive-controller" src="assets/js/wooten-menu-notification-exclusive-controller.js"></script>
 
-<button type="button" class="payment-history-back-to-top" id="paymentHistoryBackToTop" aria-label="Back to the top of payment history" title="Back to top">↑</button>
+<button type="button" class="payment-history-back-to-top" id="paymentHistoryBackToTop" aria-label="Back to the top of payment history" title="Back to top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"></path></svg></button>
 
 <script id="wooten-payment-history-mobile-navigation-script">
 (function () {
