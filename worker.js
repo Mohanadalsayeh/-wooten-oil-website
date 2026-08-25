@@ -883,7 +883,7 @@ async function adminCustomerPaymentsImport({ request, env }) {
 
   const payments = Array.isArray(body?.payments) ? body.payments : [];
   if (!payments.length) return json3({ success:false,error:"No payment records were supplied." },400);
-  if (payments.length > 1500) return json3({ success:false,error:"Too many payment records in one upload." },413);
+  if (payments.length > 750) return json3({ success:false,error:"Too many payment records in one upload." },413);
 
   try { await ensureCustomerPaymentsSchema(env); }
   catch(error){
@@ -918,13 +918,21 @@ async function adminCustomerPaymentsImport({ request, env }) {
   `);
 
   try{
-    for(let i=0;i<valid.length;i+=150){
-      const chunk=valid.slice(i,i+150);
-      const stmts=[];
-      for(const p of chunk){
-        const key=await paymentRowKey(p);
-        stmts.push(insertStmt.bind(p.account,p.date,p.amount,p.reference,p.type,p.description,p.depositDate,p.depositNo,p.depositType,p.customerName,p.postingDate,p.discountAmount,p.invoiceNo,key));
-      }
+    // Keep each D1 batch small. Large Access imports can contain 80k+ rows;
+    // smaller batches avoid D1 statement/batch limits and Worker timeouts.
+    for(let i=0;i<valid.length;i+=50){
+      const chunk=valid.slice(i,i+50);
+
+      // Hash row identities in parallel instead of one at a time.
+      const keys=await Promise.all(chunk.map(paymentRowKey));
+      const stmts=chunk.map((p,index)=>
+        insertStmt.bind(
+          p.account,p.date,p.amount,p.reference,p.type,p.description,
+          p.depositDate,p.depositNo,p.depositType,p.customerName,p.postingDate,
+          p.discountAmount,p.invoiceNo,keys[index]
+        )
+      );
+
       const results=await env.DB.batch(stmts);
       for(const r of results||[]){
         const changes=Number(r?.meta?.changes||0);
@@ -933,7 +941,10 @@ async function adminCustomerPaymentsImport({ request, env }) {
     }
   }catch(error){
     console.error("Customer payments import failed",error);
-    return json3({success:false,error:"Payment history import failed."},500);
+    return json3({
+      success:false,
+      error:"Payment history import failed on the server: "+String(error?.message||error)
+    },500);
   }
 
   let importMeta=null;
