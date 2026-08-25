@@ -883,7 +883,7 @@ async function adminCustomerPaymentsImport({ request, env }) {
 
   const payments = Array.isArray(body?.payments) ? body.payments : [];
   if (!payments.length) return json3({ success:false,error:"No payment records were supplied." },400);
-  if (payments.length > 750) return json3({ success:false,error:"Too many payment records in one upload." },413);
+  if (payments.length > 1500) return json3({ success:false,error:"Too many payment records in one upload." },413);
 
   try { await ensureCustomerPaymentsSchema(env); }
   catch(error){
@@ -918,21 +918,13 @@ async function adminCustomerPaymentsImport({ request, env }) {
   `);
 
   try{
-    // Keep each D1 batch small. Large Access imports can contain 80k+ rows;
-    // smaller batches avoid D1 statement/batch limits and Worker timeouts.
-    for(let i=0;i<valid.length;i+=50){
-      const chunk=valid.slice(i,i+50);
-
-      // Hash row identities in parallel instead of one at a time.
-      const keys=await Promise.all(chunk.map(paymentRowKey));
-      const stmts=chunk.map((p,index)=>
-        insertStmt.bind(
-          p.account,p.date,p.amount,p.reference,p.type,p.description,
-          p.depositDate,p.depositNo,p.depositType,p.customerName,p.postingDate,
-          p.discountAmount,p.invoiceNo,keys[index]
-        )
-      );
-
+    for(let i=0;i<valid.length;i+=150){
+      const chunk=valid.slice(i,i+150);
+      const stmts=[];
+      for(const p of chunk){
+        const key=await paymentRowKey(p);
+        stmts.push(insertStmt.bind(p.account,p.date,p.amount,p.reference,p.type,p.description,p.depositDate,p.depositNo,p.depositType,p.customerName,p.postingDate,p.discountAmount,p.invoiceNo,key));
+      }
       const results=await env.DB.batch(stmts);
       for(const r of results||[]){
         const changes=Number(r?.meta?.changes||0);
@@ -941,10 +933,7 @@ async function adminCustomerPaymentsImport({ request, env }) {
     }
   }catch(error){
     console.error("Customer payments import failed",error);
-    return json3({
-      success:false,
-      error:"Payment history import failed on the server: "+String(error?.message||error)
-    },500);
+    return json3({success:false,error:"Payment history import failed."},500);
   }
 
   let importMeta=null;
@@ -976,17 +965,8 @@ async function customerPaymentsGet({request,env}){
     const account=paymentAccount(customer.account_number);
     const result=await env.DB.prepare(`
       SELECT
-        id,
-        account_number,
-        payment_date,
-        posting_date,
-        deposit_date,
-        deposit_no,
-        source_invoice_no AS invoice_no,
-        amount,
-        reference,
-        description,
-        imported_at
+        id,account_number,payment_date,posting_date,deposit_date,deposit_no,
+        source_invoice_no AS invoice_no,amount,reference,description,imported_at
       FROM customer_payments
       WHERE account_number=?
       ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
@@ -3220,6 +3200,67 @@ function notificationAttachmentDisposition(contentType) {
 }
 __name(notificationAttachmentDisposition, "notificationAttachmentDisposition");
 
+function twilioConfig(env){
+  const accountSid=String(env.TWILIO_ACCOUNT_SID||"").trim();
+  const authToken=String(env.TWILIO_AUTH_TOKEN||"").trim();
+  const messagingServiceSid=String(env.TWILIO_MESSAGING_SERVICE_SID||"").trim();
+  const phoneNumber=String(env.TWILIO_PHONE_NUMBER||"").trim();
+  const missing=[];
+  if(!accountSid) missing.push("TWILIO_ACCOUNT_SID");
+  if(!authToken) missing.push("TWILIO_AUTH_TOKEN");
+  if(!messagingServiceSid&&!phoneNumber) missing.push("TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID");
+  return {configured:missing.length===0,missing,accountSid,authToken,messagingServiceSid,phoneNumber};
+}
+__name(twilioConfig,"twilioConfig");
+function twilioNormalizePhone(value){
+  const raw=String(value||"").trim();
+  if(!raw) return "";
+  if(raw.startsWith("+")){
+    const digits=raw.slice(1).replace(/\D/g,"");
+    return digits.length>=10&&digits.length<=15?`+${digits}`:"";
+  }
+  const digits=raw.replace(/\D/g,"");
+  if(digits.length===10) return `+1${digits}`;
+  if(digits.length===11&&digits.startsWith("1")) return `+${digits}`;
+  return "";
+}
+__name(twilioNormalizePhone,"twilioNormalizePhone");
+async function twilioSendSms(env,to,body){
+  const config=twilioConfig(env);
+  if(!config.configured) throw new Error(`Twilio is not configured. Missing: ${config.missing.join(", ")}.`);
+  const normalizedTo=twilioNormalizePhone(to);
+  if(!normalizedTo) throw new Error("Customer phone number is not a valid U.S./E.164 number.");
+  const text=String(body||"").trim();
+  if(!text) throw new Error("SMS message is empty.");
+  const params=new URLSearchParams();
+  params.set("To",normalizedTo);
+  params.set("Body",text.slice(0,1500));
+  if(config.messagingServiceSid) params.set("MessagingServiceSid",config.messagingServiceSid);
+  else params.set("From",config.phoneNumber);
+  const response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Messages.json`,{
+    method:"POST",
+    headers:{"Authorization":`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,"Content-Type":"application/x-www-form-urlencoded"},
+    body:params.toString()
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(String(data?.message||`Twilio request failed with status ${response.status}.`));
+  return {sid:String(data?.sid||""),status:String(data?.status||""),to:normalizedTo};
+}
+__name(twilioSendSms,"twilioSendSms");
+async function adminTwilioStatusGet({request,env}){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY) return notificationJson({success:false,error:"Unauthorized."},401);
+  const config=twilioConfig(env);
+  return notificationJson({
+    success:true,
+    configured:config.configured,
+    missing:config.missing,
+    account_sid_masked:config.accountSid?`${config.accountSid.slice(0,4)}…${config.accountSid.slice(-4)}`:"",
+    sender_label:config.messagingServiceSid?`Messaging Service ${config.messagingServiceSid.slice(0,6)}…`:(config.phoneNumber||"")
+  });
+}
+__name(adminTwilioStatusGet,"adminTwilioStatusGet");
+
 async function adminSendCustomerNotification({ request, env }) {
   try {
     const supplied = request.headers.get("X-Admin-Key") || "";
@@ -3247,6 +3288,10 @@ async function adminSendCustomerNotification({ request, env }) {
     const sendEmail = sendAllWithEmail
       ? true
       : (body?.send_email !== false && body?.sendEmail !== false);
+    const sendSms=body?.send_sms===true||body?.sendSms===true;
+    if(sendAllWithEmail&&sendSms){
+      return notificationJson({success:false,error:"Bulk SMS is disabled until A2P registration and customer opt-in are fully configured."},400);
+    }
 
     const rawAttachments = Array.isArray(body?.attachments) ? body.attachments : [];
     if (sendAllWithEmail && rawAttachments.length) {
@@ -3492,7 +3537,7 @@ async function adminSendCustomerNotification({ request, env }) {
 
     /* SINGLE CUSTOMER SEND — existing behavior preserved. */
     const customer = await env.DB.prepare(`
-      SELECT account_number, account_name, email
+      SELECT account_number, account_name, email, phone
       FROM customers
       WHERE account_number = ?
       LIMIT 1
@@ -3654,6 +3699,24 @@ async function adminSendCustomerNotification({ request, env }) {
       }
     }
 
+    let smsSent=false;
+    let smsSid="";
+    if(sendSms){
+      if(!customer.phone){
+        warning=warning?`${warning} SMS was not sent because this customer has no phone number on file.`:"Portal notification was saved, but SMS was not sent because this customer has no phone number on file.";
+      }else{
+        try{
+          const smsResult=await twilioSendSms(env,customer.phone,`Wooten Oil: ${title}\n${message}`);
+          smsSent=true;
+          smsSid=smsResult.sid||"";
+        }catch(error){
+          const smsError=String(error?.message||error);
+          warning=warning?`${warning} SMS was not sent: ${smsError}`:`Portal notification was saved, but SMS was not sent: ${smsError}`;
+          console.error("Twilio customer notification SMS failed",error);
+        }
+      }
+    }
+
     return notificationJson({
       success: true,
       saved_to_portal: true,
@@ -3661,7 +3724,10 @@ async function adminSendCustomerNotification({ request, env }) {
       account_number: customer.account_number,
       account_name: customer.account_name,
       email: customer.email || "",
+      phone: customer.phone || "",
       email_sent: emailSent,
+      sms_sent: smsSent,
+      sms_sid: smsSid,
       attachment_count: savedAttachments.length,
       warning
     });
@@ -5945,6 +6011,11 @@ var worker_default = {
       if (request.method === "POST") {
         return adminSendCustomerNotification({ request, env });
       }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/twilio/status") {
+      if (request.method === "GET") return adminTwilioStatusGet({ request, env });
       return methodNotAllowed();
     }
 

@@ -2895,6 +2895,12 @@ input[type="file"]::file-selector-button{
   line-height:1.45;
 }
 </style>
+<style id="wooten-twilio-admin-style">
+.twilio-status-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 18px;padding:13px 14px;border:1px solid #dbe3eb;border-radius:12px;background:#f8fafc}
+.twilio-status-title{color:#0b2239;font-size:13px;font-weight:800}.twilio-status-meta{margin-top:3px;color:#64748b;font-size:12.5px;line-height:1.4}.twilio-status-meta.ok{color:#287342}.twilio-status-meta.bad{color:#a52632}.twilio-status-card button{flex:0 0 auto}
+.notify-delivery-options{display:grid;gap:9px;margin-top:14px}.notify-sms-note{margin-left:26px;color:#64748b;font-size:12px;line-height:1.45}
+@media(max-width:620px){.twilio-status-card{align-items:flex-start}.twilio-status-card button{min-width:110px}}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -3413,7 +3419,15 @@ input[type="file"]::file-selector-button{
   <div class="card admin-tab-panel" id="admin-tab-notifications" role="tabpanel" aria-labelledby="admin-tab-btn-notifications" data-admin-panel="notifications">
     <div class="admin-page-label">Notifications</div>
     <h2>Send Customer Notification</h2>
-    <p>Send a private portal notification to one customer, or send the same notification to every customer who has an email address on file.</p>
+    <p>Send a private portal notification to one customer, with optional email and SMS delivery.</p>
+
+    <div class="twilio-status-card">
+      <div>
+        <div class="twilio-status-title">Twilio SMS</div>
+        <div class="twilio-status-meta" id="twilioStatusMeta">Status not checked</div>
+      </div>
+      <button class="secondary" id="twilioStatusBtn" type="button">Check Twilio</button>
+    </div>
 
     <div class="notify-card">
       <div class="notify-audience">
@@ -3454,10 +3468,19 @@ input[type="file"]::file-selector-button{
         </div>
       </div>
 
-      <label class="notify-options">
-        <input id="notifySendEmail" type="checkbox" checked>
-        Send the same message to the customer's email address
-      </label>
+      <div class="notify-delivery-options">
+        <label class="notify-options">
+          <input id="notifySendEmail" type="checkbox" checked>
+          Send the same message to the customer's email address
+        </label>
+        <label class="notify-options">
+          <input id="notifySendSms" type="checkbox">
+          Send the same message by SMS (Twilio)
+        </label>
+        <div class="notify-sms-note" id="notifySmsNote">
+          SMS is available for one-customer notifications. The phone number comes from the MAS 90 customer record.
+        </div>
+      </div>
 
       <div class="actions">
         <button class="primary" id="sendCustomerNotificationBtn" type="button">Send Notification</button>
@@ -4108,70 +4131,26 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
 
   try{
     // Keep each request comfortably below payload and D1 batch limits.
-    const chunkSize=500;
+    const chunkSize=1000;
     let imported=0;
     let duplicates=0;
     let skipped=0;
     let latestPaymentImportAt="";
 
-    const totalChunks=Math.ceil(preparedPaymentRows.length/chunkSize);
-
     for(let i=0;i<preparedPaymentRows.length;i+=chunkSize){
       const chunk=preparedPaymentRows.slice(i,i+chunkSize);
-      const chunkNo=Math.floor(i/chunkSize)+1;
-
-      btn.textContent=`Importing ${chunkNo}/${totalChunks}…`;
-      setPaymentStatus(
-        `Importing payments… ${Math.min(i,preparedPaymentRows.length).toLocaleString()} of ${preparedPaymentRows.length.toLocaleString()} processed.`,
-        true
-      );
-
-      let data=null;
-      let lastError=null;
-
-      for(let attempt=1;attempt<=3;attempt++){
-        try{
-          const res=await fetch("/api/admin/customer-payments-import",{
-            method:"POST",
-            headers:{
-              "Content-Type":"application/json",
-              "X-Admin-Key":key
-            },
-            body:JSON.stringify({payments:chunk})
-          });
-
-          data=await res.json().catch(()=>({}));
-
-          if(!res.ok || data.success===false){
-            const message=data.error || `Payment import failed with HTTP ${res.status}.`;
-            // Authentication / bad request should not be retried.
-            if(res.status===400 || res.status===401 || res.status===413){
-              throw new Error(message);
-            }
-            throw new Error(message);
-          }
-
-          lastError=null;
-          break;
-        }catch(err){
-          lastError=err;
-          if(attempt<3){
-            setPaymentStatus(
-              `Importing payments… temporary error on batch ${chunkNo}. Retrying (${attempt}/3)…`,
-              true
-            );
-            await new Promise(resolve=>setTimeout(resolve,750*attempt));
-          }
-        }
+      const res=await fetch("/api/admin/customer-payments-import",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "X-Admin-Key":key
+        },
+        body:JSON.stringify({payments:chunk})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok || data.success===false){
+        throw new Error(data.error||"Payment import failed.");
       }
-
-      if(lastError || !data){
-        throw new Error(
-          `Payment import stopped at batch ${chunkNo} of ${totalChunks}. `+
-          (lastError?.message||"Please try again.")
-        );
-      }
-
       imported+=Number(data.inserted||0);
       duplicates+=Number(data.duplicates||0);
       skipped+=Number(data.skipped||0);
@@ -4190,11 +4169,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     if(String(e.message||"").toLowerCase().includes("unauthorized")){
       setPaymentStatus("The Admin Import Key is not valid.",false);
     }else{
-      setPaymentStatus(
-        (e.message||"Payment import failed.")+
-        (imported ? ` ${imported.toLocaleString()} row(s) were imported before the error.` : ""),
-        false
-      );
+      setPaymentStatus(e.message||"Payment import failed.",false);
     }
   }finally{
     btn.disabled=false;
@@ -4780,6 +4755,7 @@ document.getElementById("gmailPortalSyncStatusBtn").addEventListener("click",loa
 /* Send Customer Notification */
 const notifyAudienceOne=document.getElementById("notifyAudienceOne");
 const notifyAudienceAll=document.getElementById("notifyAudienceAll");
+const notifySendSms=document.getElementById("notifySendSms");
 const notifyAccountInput=document.getElementById("notifyAccount");
 const notifySendEmailInput=document.getElementById("notifySendEmail");
 const notifyBroadcastWarning=document.getElementById("notifyBroadcastWarning");
@@ -4855,8 +4831,49 @@ if(notifyAttachmentsInput){
   notifyAttachmentsInput.addEventListener("change",renderNotifyAttachmentList);
 }
 
+async function loadTwilioStatus(){
+  const meta=document.getElementById("twilioStatusMeta");
+  const btn=document.getElementById("twilioStatusBtn");
+  const key=document.getElementById("adminKey").value.trim();
+  if(!key){
+    meta.className="twilio-status-meta bad";
+    meta.textContent="Admin login required.";
+    window.ensureAdminLoginKey?.("Enter your Admin Import Key to check Twilio.");
+    return;
+  }
+  btn.disabled=true;
+  meta.className="twilio-status-meta";
+  meta.textContent="Checking Twilio configuration…";
+  try{
+    const res=await fetch("/api/admin/twilio/status",{headers:{"X-Admin-Key":key,"Accept":"application/json"},cache:"no-store"});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.success===false) throw new Error(data.error||"Could not check Twilio.");
+    if(data.configured){
+      meta.className="twilio-status-meta ok";
+      meta.textContent=`Connected • ${data.sender_label||"Sender configured"}${data.account_sid_masked?` • ${data.account_sid_masked}`:""}`;
+    }else{
+      meta.className="twilio-status-meta bad";
+      meta.textContent=`Not configured${data.missing?.length?` • Missing: ${data.missing.join(", ")}`:""}`;
+    }
+  }catch(error){
+    meta.className="twilio-status-meta bad";
+    meta.textContent=error.message||"Could not check Twilio.";
+  }finally{btn.disabled=false;}
+}
+document.getElementById("twilioStatusBtn")?.addEventListener("click",loadTwilioStatus);
+
 function updateNotificationAudience(){
   const sendAll=notifyAudienceAll.checked;
+  if(notifySendSms){
+    notifySendSms.disabled=sendAll;
+    if(sendAll) notifySendSms.checked=false;
+  }
+  const smsNote=document.getElementById("notifySmsNote");
+  if(smsNote){
+    smsNote.textContent=sendAll
+      ? "Bulk SMS is disabled here. Use one-customer SMS until Twilio A2P registration and customer opt-in are fully configured."
+      : "SMS is available for one-customer notifications. The phone number comes from the MAS 90 customer record.";
+  }
 
   if(sendAll){
     notifySingleEmailChoice=notifySendEmailInput.checked;
@@ -4897,6 +4914,7 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
   const title=document.getElementById("notifySubject").value.trim();
   const message=document.getElementById("notifyMessage").value.trim();
   const sendEmail=sendAll ? true : notifySendEmailInput.checked;
+  const sendSms=!sendAll && !!notifySendSms?.checked;
   const btn=sendCustomerNotificationBtn;
   const status=document.getElementById("notifyStatus");
 
@@ -4943,6 +4961,7 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
         title,
         message,
         send_email:sendEmail,
+        send_sms:sendSms,
         send_all_with_email:sendAll,
         attachments
       })
@@ -4968,11 +4987,13 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
       status.textContent=
         `Portal notification #${data.notification_id||"saved"} saved for ${data.account_name||"customer"} (${data.account_number||account}).`+
         (data.email_sent?" Email sent too.":"")+
+        (data.sms_sent?" SMS sent too.":"")+
         (data.warning?` ${data.warning}`:"");
     }
 
     document.getElementById("notifySubject").value="";
     document.getElementById("notifyMessage").value="";
+    if(notifySendSms) notifySendSms.checked=false;
     if(notifyAttachmentsInput){
       notifyAttachmentsInput.value="";
       renderNotifyAttachmentList();
