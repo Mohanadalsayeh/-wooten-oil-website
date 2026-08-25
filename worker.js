@@ -3707,7 +3707,7 @@ async function adminSendCustomerNotification({ request, env }) {
       }else{
         try{
           const smsBody =
-            `WOOTEN OIL\n\n` +
+            `WOOTEN OIL CO INC\n\n` +
             `${title.trim()}\n\n` +
             `${message.trim()}\n\n` +
             `Please do not reply to this message.`;
