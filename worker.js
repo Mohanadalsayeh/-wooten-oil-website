@@ -3706,7 +3706,12 @@ async function adminSendCustomerNotification({ request, env }) {
         warning=warning?`${warning} SMS was not sent because this customer has no phone number on file.`:"Portal notification was saved, but SMS was not sent because this customer has no phone number on file.";
       }else{
         try{
-          const smsResult=await twilioSendSms(env,customer.phone,`Wooten Oil: ${title}\n${message}`);
+          const smsBody =
+            `WOOTEN OIL\n\n` +
+            `${title.trim()}\n\n` +
+            `${message.trim()}\n\n` +
+            `Please do not reply to this message.`;
+          const smsResult=await twilioSendSms(env,customer.phone,smsBody);
           smsSent=true;
           smsSid=smsResult.sid||"";
         }catch(error){
