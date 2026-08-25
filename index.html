@@ -231,6 +231,23 @@
     stroke-linejoin: round;
   }
 
+  .dashboard-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .dashboard-back .dashboard-back-chevron {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   @media (min-width: 769px) {
     .payment-history-back-to-top { right: 28px; bottom: 28px; }
   }
@@ -494,7 +511,7 @@
 
     <section class="customer-account-details account-statement-panel" id="customerAccountDetails" aria-label="Account statement">
       <div class="details-toolbar">
-        <button type="button" class="dashboard-back" id="dashboardBack">‹ Dashboard</button>
+        <button type="button" class="dashboard-back" id="dashboardBack"><svg class="dashboard-back-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>Dashboard</span></button>
         <span>Account Summary</span>
       </div>
 
@@ -585,7 +602,7 @@
 
     <section class="customer-account-details customer-documents-panel" id="customerDocuments" aria-label="Statements and invoices">
       <div class="details-toolbar">
-        <button type="button" class="dashboard-back" id="customerDocumentsBack">‹ Dashboard</button>
+        <button type="button" class="dashboard-back" id="customerDocumentsBack"><svg class="dashboard-back-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>Dashboard</span></button>
         <span>Statements &amp; Invoices</span>
       </div>
 
@@ -615,7 +632,7 @@
 
     <section class="customer-account-details payment-history-panel" id="customerPaymentHistory" aria-label="Payment history">
       <div class="details-toolbar">
-        <button type="button" class="dashboard-back" id="paymentHistoryBack">‹ Dashboard</button>
+        <button type="button" class="dashboard-back" id="paymentHistoryBack"><svg class="dashboard-back-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>Dashboard</span></button>
         <span>Payment History</span>
       </div>
 
@@ -654,7 +671,7 @@
 
     <section class="customer-account-details fuel-history-panel" id="customerFuelHistory" aria-label="Fuel request history">
       <div class="details-toolbar">
-        <button type="button" class="dashboard-back" id="fuelHistoryBack">‹ Dashboard</button>
+        <button type="button" class="dashboard-back" id="fuelHistoryBack"><svg class="dashboard-back-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>Dashboard</span></button>
         <span>Fuel Request History</span>
       </div>
 
