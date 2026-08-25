@@ -975,10 +975,21 @@ async function customerPaymentsGet({request,env}){
     await ensureCustomerPaymentsSchema(env);
     const account=paymentAccount(customer.account_number);
     const result=await env.DB.prepare(`
-      SELECT id,account_number,payment_date,amount,reference,payment_type,description,imported_at
+      SELECT
+        id,
+        account_number,
+        payment_date,
+        posting_date,
+        deposit_date,
+        deposit_no,
+        source_invoice_no AS invoice_no,
+        amount,
+        reference,
+        description,
+        imported_at
       FROM customer_payments
       WHERE account_number=?
-      ORDER BY payment_date DESC,id DESC
+      ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
       LIMIT 5000
     `).bind(account).all();
     const rows=result?.results||[];
