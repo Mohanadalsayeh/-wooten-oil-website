@@ -26,3 +26,60 @@
   .customer-document-row{grid-template-columns:auto minmax(0,1fr)}
   .customer-document-open{grid-column:1/-1;width:100%}
 }
+
+/* Statements & Invoices: remove the global site SECTION spacing inside the customer portal. */
+#customerDocuments.customer-documents-panel{
+  margin-top:0 !important;
+  padding:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#customerDocuments .details-toolbar{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  margin-bottom:14px !important;
+}
+
+#customerDocuments .customer-documents-head{
+  margin-top:0 !important;
+  margin-bottom:14px !important;
+}
+
+#customerDocuments .customer-documents-footer{
+  margin-top:14px !important;
+  margin-bottom:0 !important;
+  padding-bottom:4px !important;
+}
+
+/* Make the white portal card wrap the document content instead of reserving blank top/bottom room. */
+#portalAccountCard:has(#customerDocuments.show){
+  min-height:0 !important;
+  height:auto !important;
+  padding-top:24px !important;
+  padding-bottom:16px !important;
+}
+
+#portalAccountCard:has(#customerDocuments.show) > .portal-eyebrow{
+  margin-bottom:16px !important;
+}
+
+.portal-overlay:has(#customerDocuments.show){
+  align-items:flex-start !important;
+  padding-top:12px !important;
+  padding-bottom:12px !important;
+}
+
+@media(max-width:700px){
+  #portalAccountCard:has(#customerDocuments.show){
+    padding-top:18px !important;
+    padding-bottom:12px !important;
+  }
+  #portalAccountCard:has(#customerDocuments.show) > .portal-eyebrow{
+    margin-bottom:12px !important;
+  }
+  .portal-overlay:has(#customerDocuments.show){
+    padding-top:8px !important;
+    padding-bottom:8px !important;
+  }
+}
