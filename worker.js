@@ -4887,19 +4887,102 @@ async function adminClearDatabasePost({request,env}){
       LIMIT 1
     `).first();
 
+    const passwordAction=String(body?.password_action||"keep").trim().toLowerCase();
+    if(passwordAction!=="keep" && passwordAction!=="clear"){
+      return json3({success:false,error:"Unknown customer password option."},400);
+    }
+
     let deleted=0;
+    let passwordsPreserved=false;
+
     if(exists?.name){
       const count=await env.DB.prepare(`SELECT COUNT(*) AS total FROM customers`).first();
       deleted=Number(count?.total||0);
-      await env.DB.batch([
-        env.DB.prepare(`DELETE FROM customers`),
-        env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='customers'`)
-      ]);
+
+      if(passwordAction==="clear"){
+        await env.DB.batch([
+          env.DB.prepare(`DELETE FROM customers`),
+          env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='customers'`)
+        ]);
+      }else{
+        // Preserve online-account/login fields in-place, but clear imported MAS 90 data.
+        // We dynamically inspect the actual customers schema so this remains compatible
+        // with older/newer portal versions.
+        const info=await env.DB.prepare(`PRAGMA table_info(customers)`).all();
+        const columns=(info?.results||[]).map(r=>String(r.name||"")).filter(Boolean);
+
+        const preserveNames=new Set([
+          "id",
+          "account_number",
+          "customer_no",
+          "customer_number",
+          "password_hash",
+          "password_salt",
+          "password",
+          "password_set_at",
+          "password_updated_at",
+          "online_account",
+          "online_account_enabled",
+          "online_enabled",
+          "account_active",
+          "account_status",
+          "login_enabled",
+          "email_verified",
+          "first_login",
+          "first_login_completed",
+          "activation_code",
+          "activation_token",
+          "password_reset_code",
+          "password_reset_expires",
+          "reset_code",
+          "reset_expires",
+          "created_at"
+        ]);
+
+        const preservePatterns=[
+          /password/i,
+          /login/i,
+          /activation/i,
+          /reset/i,
+          /online.*account/i,
+          /account.*online/i
+        ];
+
+        const clearable=columns.filter(name=>{
+          const lower=name.toLowerCase();
+          if(preserveNames.has(lower)) return false;
+          if(preservePatterns.some(rx=>rx.test(name))) return false;
+          if(lower==="account_number" || lower==="customerno") return false;
+          return true;
+        });
+
+        if(clearable.length){
+          const assignments=clearable.map(name=>{
+            const safe=`"${name.replace(/"/g,'""')}"`;
+            // Numeric MAS90 values should reset to zero, text/date values to blank.
+            const infoRow=(info?.results||[]).find(r=>String(r.name||"")===name);
+            const type=String(infoRow?.type||"").toUpperCase();
+            const numeric=/(INT|REAL|NUM|DEC|DOUBLE|FLOAT)/.test(type);
+            return `${safe}=${numeric?"0":"''"}`;
+          }).join(",");
+
+          await env.DB.prepare(`UPDATE customers SET ${assignments}`).run();
+        }
+
+        await env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='customers'`).run();
+        passwordsPreserved=true;
+      }
     }else{
       await env.DB.prepare(`DELETE FROM admin_import_metadata WHERE import_type='customers'`).run();
     }
 
-    return json3({success:true,database:"customers",deleted});
+    return json3({
+      success:true,
+      database:"customers",
+      deleted,
+      passwords_preserved:passwordsPreserved,
+      password_action:passwordAction
+    });
   }catch(error){
     console.error("adminClearDatabasePost failed",error);
     return json3({success:false,error:"Database could not be cleared. "+String(error?.message||error)},500);

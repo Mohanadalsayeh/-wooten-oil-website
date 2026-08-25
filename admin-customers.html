@@ -2685,6 +2685,216 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+
+<style id="wooten-live-data-layout-fix-v2">
+/* Keep all Live Customer Data content inside the panel width */
+#admin-tab-database{
+  overflow:hidden !important;
+}
+
+#admin-tab-database .db-toolbar,
+#livePaymentDatabaseSection .live-payment-toolbar{
+  width:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+
+/* CUSTOMER DATABASE: 5 equal, stable fields */
+#admin-tab-database .db-toolbar{
+  display:grid !important;
+  grid-template-columns:1.65fr .9fr .9fr .9fr .95fr !important;
+  gap:14px !important;
+  align-items:end !important;
+}
+
+#admin-tab-database .db-toolbar > *{
+  min-width:0 !important;
+  max-width:100% !important;
+}
+
+#admin-tab-database .db-toolbar input,
+#admin-tab-database .db-toolbar select{
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  height:58px !important;
+  box-sizing:border-box !important;
+}
+
+#admin-tab-database .db-actions{
+  grid-column:1 / -1 !important;
+  display:grid !important;
+  grid-template-columns:175px 130px 245px !important;
+  justify-content:end !important;
+  gap:14px !important;
+  margin-top:6px !important;
+}
+
+#admin-tab-database .db-actions button{
+  width:100% !important;
+  min-width:0 !important;
+  height:58px !important;
+  box-sizing:border-box !important;
+}
+
+/* PAYMENT DATABASE:
+   Put the long search field on its own full-width row.
+   Put the five filters evenly on the row below.
+*/
+#livePaymentDatabaseSection .live-payment-toolbar{
+  display:grid !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:14px !important;
+  align-items:end !important;
+}
+
+#livePaymentDatabaseSection .live-payment-search{
+  grid-column:1 / -1 !important;
+}
+
+#livePaymentDatabaseSection .live-payment-toolbar > *{
+  min-width:0 !important;
+  max-width:100% !important;
+}
+
+#livePaymentDatabaseSection .live-payment-toolbar input,
+#livePaymentDatabaseSection .live-payment-toolbar select{
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  height:58px !important;
+  box-sizing:border-box !important;
+}
+
+#livePaymentDatabaseSection .live-payment-actions{
+  grid-column:1 / -1 !important;
+  display:grid !important;
+  grid-template-columns:180px 115px 150px 240px !important;
+  justify-content:end !important;
+  gap:14px !important;
+  margin-top:6px !important;
+}
+
+#livePaymentDatabaseSection .live-payment-actions button{
+  width:100% !important;
+  min-width:0 !important;
+  height:58px !important;
+  box-sizing:border-box !important;
+}
+
+/* Make date inputs and selects visually consistent */
+#livePaymentDatabaseSection input[type="date"]{
+  padding-left:14px !important;
+  padding-right:12px !important;
+}
+
+/* Medium desktop / laptop */
+@media(max-width:1180px){
+  #admin-tab-database .db-toolbar{
+    grid-template-columns:1.4fr 1fr 1fr !important;
+  }
+  #admin-tab-database .db-toolbar > :nth-child(4),
+  #admin-tab-database .db-toolbar > :nth-child(5){
+    grid-column:auto !important;
+  }
+
+  #livePaymentDatabaseSection .live-payment-toolbar{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  }
+  #livePaymentDatabaseSection .live-payment-search{
+    grid-column:1 / -1 !important;
+  }
+}
+
+/* Tablet */
+@media(max-width:850px){
+  #admin-tab-database .db-toolbar,
+  #livePaymentDatabaseSection .live-payment-toolbar{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+
+  #admin-tab-database .db-toolbar > :first-child,
+  #livePaymentDatabaseSection .live-payment-search{
+    grid-column:1 / -1 !important;
+  }
+
+  #admin-tab-database .db-actions,
+  #livePaymentDatabaseSection .live-payment-actions{
+    grid-template-columns:1fr 1fr !important;
+    justify-content:stretch !important;
+  }
+}
+
+/* Mobile */
+@media(max-width:620px){
+  #admin-tab-database .db-toolbar,
+  #livePaymentDatabaseSection .live-payment-toolbar{
+    grid-template-columns:1fr !important;
+  }
+
+  #admin-tab-database .db-toolbar > :first-child,
+  #livePaymentDatabaseSection .live-payment-search{
+    grid-column:auto !important;
+  }
+
+  #admin-tab-database .db-actions,
+  #livePaymentDatabaseSection .live-payment-actions{
+    grid-template-columns:1fr !important;
+  }
+
+  #admin-tab-database .db-actions button,
+  #livePaymentDatabaseSection .live-payment-actions button{
+    height:52px !important;
+  }
+}
+</style>
+
+<style id="wooten-clear-customer-password-choice-style">
+.database-clear-password-choice{
+  margin:0 0 18px;
+  padding:14px;
+  border:1px solid #d9e2ea;
+  border-radius:12px;
+  background:#f8fafc;
+}
+.database-clear-choice-title{
+  margin-bottom:9px;
+  color:#22384c;
+  font-size:13px;
+  font-weight:900;
+}
+.database-clear-radio{
+  display:flex !important;
+  align-items:flex-start;
+  gap:10px;
+  margin:0 !important;
+  padding:10px 8px;
+  border-radius:9px;
+  cursor:pointer;
+}
+.database-clear-radio + .database-clear-radio{margin-top:4px !important}
+.database-clear-radio:hover{background:#eef3f7}
+.database-clear-radio input{
+  width:18px !important;
+  height:18px !important;
+  min-height:18px !important;
+  margin:2px 0 0 !important;
+  flex:0 0 auto;
+}
+.database-clear-radio span{display:block}
+.database-clear-radio strong{
+  display:block;
+  color:#172a3d;
+  font-size:13px;
+}
+.database-clear-radio small{
+  display:block;
+  margin-top:2px;
+  color:#64748b;
+  font-size:12px;
+  line-height:1.45;
+}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -4125,6 +4335,7 @@ function initDatabaseClearControls(){
   const title=document.getElementById("databaseClearTitle");
   const message=document.getElementById("databaseClearMessage");
   const warning=document.getElementById("databaseClearWarning");
+  const passwordChoice=document.getElementById("databaseClearPasswordChoice");
   const keyInput=document.getElementById("databaseClearAdminKey");
   const status=document.getElementById("databaseClearStatus");
   const cancelBtn=document.getElementById("databaseClearCancelBtn");
@@ -4149,13 +4360,17 @@ function initDatabaseClearControls(){
 
     if(kind==="customers"){
       title.textContent="Clear Customer Database";
-      message.textContent="This will permanently delete every customer record stored in the server customer database.";
-      warning.innerHTML="<strong>This cannot be undone.</strong> Clearing the customer database also removes customer login/password data stored with those customer records. Re-importing the MAS 90 customer file restores the customer data, but online passwords may need to be set again.";
+      message.textContent="Choose whether to preserve or remove existing customer login passwords, then enter the Admin Import Key.";
+      warning.innerHTML="<strong>This cannot be undone.</strong> The MAS 90 customer data will be cleared from the server.";
+      if(passwordChoice) passwordChoice.style.display="block";
+      const keepRadio=passwordChoice?.querySelector('input[value="keep"]');
+      if(keepRadio) keepRadio.checked=true;
       confirmBtn.textContent="OK — Clear Customer Database";
     }else{
       title.textContent="Clear Customer Payments Database";
       message.textContent="This will permanently delete every customer payment record stored on the server.";
       warning.innerHTML="<strong>This cannot be undone.</strong> Make sure the original Customer Payments MDB/Access file is available so the payment history can be imported again.";
+      if(passwordChoice) passwordChoice.style.display="none";
       confirmBtn.textContent="OK — Clear Payment Database";
     }
 
@@ -4169,6 +4384,7 @@ function initDatabaseClearControls(){
     modal.setAttribute("aria-hidden","true");
     keyInput.value="";
     target="";
+    if(passwordChoice) passwordChoice.style.display="none";
     setClearStatus("");
   }
 
@@ -4190,8 +4406,16 @@ function initDatabaseClearControls(){
     if(!target) return;
 
     const label=target==="customers"?"Customer Database":"Customer Payments Database";
+    const passwordAction=target==="customers"
+      ? (document.querySelector('input[name="customerPasswordAction"]:checked')?.value||"keep")
+      : "";
+    const passwordText=target==="customers"
+      ? (passwordAction==="keep"
+          ? "\n\nCustomer login passwords will be KEPT."
+          : "\n\nCustomer login passwords will also be CLEARED.")
+      : "";
     const ok=window.confirm(
-      `FINAL CONFIRMATION\n\nAre you sure you want to permanently clear the ${label} from the server?\n\nClick OK to delete all records or Cancel to stop.`
+      `FINAL CONFIRMATION\n\nAre you sure you want to permanently clear the ${label} from the server?${passwordText}\n\nClick OK to continue or Cancel to stop.`
     );
     if(!ok) return;
 
@@ -4207,12 +4431,15 @@ function initDatabaseClearControls(){
           "X-Admin-Key":key,
           "Accept":"application/json"
         },
-        body:JSON.stringify({database:target})
+        body:JSON.stringify({database:target,password_action:passwordAction})
       });
       const data=await res.json().catch(()=>({}));
       if(!res.ok||data.success===false) throw new Error(data.error||"Database could not be cleared.");
 
-      setClearStatus(`${label} cleared successfully. ${Number(data.deleted||0).toLocaleString()} record(s) removed.`,true);
+      const extra=target==="customers"
+        ? (data.passwords_preserved ? " Customer login passwords were preserved." : " Customer login passwords were cleared.")
+        : "";
+      setClearStatus(`${label} cleared successfully. ${Number(data.deleted||0).toLocaleString()} record(s) removed.${extra}`,true);
 
       if(target==="customers"){
         const body=document.getElementById("dbTableBody");
@@ -5832,6 +6059,24 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     <div class="database-clear-warning" id="databaseClearWarning">
       <strong>This cannot be undone.</strong>
       Make sure the original MAS 90 / Access file is available before continuing.
+    </div>
+
+    <div class="database-clear-password-choice" id="databaseClearPasswordChoice" style="display:none">
+      <div class="database-clear-choice-title">Customer login passwords</div>
+      <label class="database-clear-radio">
+        <input type="radio" name="customerPasswordAction" value="keep" checked>
+        <span>
+          <strong>Keep login passwords</strong>
+          <small>Clear MAS 90 customer data but preserve existing online login/password information where possible.</small>
+        </span>
+      </label>
+      <label class="database-clear-radio">
+        <input type="radio" name="customerPasswordAction" value="clear">
+        <span>
+          <strong>Clear login passwords too</strong>
+          <small>Remove customer data and their online login/password information.</small>
+        </span>
+      </label>
     </div>
 
     <label for="databaseClearAdminKey">Admin Import Key</label>
