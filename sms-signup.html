@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Text Message Sign-Up | Wooten Oil Co Inc.</title>
+  <meta name="description" content="Opt in to transactional text messages from Wooten Oil Co Inc.">
+  <style>
+    :root{--navy:#0c2942;--blue:#174f78;--red:#c92d35;--line:#d9e3eb;--muted:#667b8f;--bg:#f3f7fa}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--navy);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}.top{background:var(--navy);color:#fff;padding:22px}.brand{display:block;max-width:760px;margin:auto;font-weight:800;letter-spacing:.04em}.wrap{max-width:760px;margin:34px auto;padding:0 18px}.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:clamp(24px,5vw,46px);box-shadow:0 18px 45px rgba(12,41,66,.08)}h1{margin:0 0 8px;font-size:clamp(30px,5vw,44px);line-height:1.1}p{color:var(--muted)}label{display:block;margin:18px 0 7px;font-weight:750}input[type=text],input[type=tel]{width:100%;min-height:50px;border:1px solid #bdcbd7;border-radius:10px;padding:12px 14px;font:inherit}.consent{display:flex;align-items:flex-start;gap:12px;margin:24px 0;padding:18px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}.consent input{width:21px;height:21px;flex:0 0 auto;margin-top:3px}.consent label{margin:0;font-weight:500}.links a{color:var(--blue)}button{width:100%;min-height:52px;border:0;border-radius:10px;background:var(--navy);color:#fff;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.62}.status{margin-top:16px;padding:0;color:var(--navy);font-weight:700}.fine{font-size:14px}.home{display:inline-block;margin-top:20px;color:var(--blue);font-weight:700;text-decoration:none}.hp{position:absolute;left:-9999px}
+  </style>
+</head>
+<body>
+  <header class="top"><span class="brand">WOOTEN OIL CO INC. · LOCAL PETROLEUM DELIVERY</span></header>
+  <main class="wrap">
+    <section class="card">
+      <h1>Text Message Sign-Up</h1>
+      <p>Enroll to receive low-volume transactional messages related to your Wooten Oil account and service requests.</p>
+      <form id="smsConsentForm">
+        <label for="name">Full name *</label>
+        <input id="name" name="name" type="text" maxlength="120" autocomplete="name" required>
+        <label for="account">Wooten Oil customer number <span class="fine">(optional)</span></label>
+        <input id="account" name="account_number" type="text" inputmode="numeric" maxlength="20" autocomplete="off">
+        <label for="phone">Mobile phone number *</label>
+        <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(901) 555-0123" required>
+        <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <div class="consent">
+          <input id="consent" name="consent" type="checkbox" required>
+          <label for="consent">I agree to receive transactional text messages from Wooten Oil Co Inc., including fuel-request confirmations, delivery updates, account notifications, and verification codes. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe or HELP for help. Consent is not a condition of purchase.</label>
+        </div>
+        <p class="links fine">By enrolling, you acknowledge our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="/sms-terms" target="_blank" rel="noopener">SMS Terms and Conditions</a>.</p>
+        <button id="submitButton" type="submit">Agree and Sign Up</button>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </form>
+      <a class="home" href="/">← Return to Wooten Oil</a>
+    </section>
+  </main>
+  <script>
+    document.getElementById('smsConsentForm').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = document.getElementById('submitButton');
+      const status = document.getElementById('status');
+      button.disabled = true; status.textContent = 'Saving your preference…';
+      try {
+        const response = await fetch('/api/sms-consent', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.name.value,account_number:form.account_number.value,phone:form.phone.value,consent:form.consent.checked,website:form.website.value})});
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Unable to save your preference.');
+        status.textContent = data.message; form.reset();
+      } catch (error) { status.textContent = error.message || 'Unable to save your preference. Please call (901) 476-2684.'; }
+      finally { button.disabled = false; }
+    });
+  </script>
+</body>
+</html>

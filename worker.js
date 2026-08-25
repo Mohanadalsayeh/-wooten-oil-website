@@ -5869,9 +5869,97 @@ async function adminGenerateStatementsPost({request,env}){
 __name(adminGenerateStatementsPost,"adminGenerateStatementsPost");
 
 
+const SMS_CONSENT_DISCLOSURE_VERSION = "2026-08-25";
+const SMS_CONSENT_DISCLOSURE = "I agree to receive transactional text messages from Wooten Oil Co Inc., including fuel-request confirmations, delivery updates, account notifications, and verification codes. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe or HELP for help. Consent is not a condition of purchase.";
+
+function smsConsentResponse(payload, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
+}
+
+function smsConsentPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return "";
+}
+
+async function smsConsentPost({ request, env }) {
+  if (!env.DB) return smsConsentResponse({ success: false, error: "Consent service is temporarily unavailable." }, 503);
+  let body;
+  try { body = await request.json(); }
+  catch { return smsConsentResponse({ success: false, error: "Invalid request." }, 400); }
+
+  if (String(body?.website || "").trim()) {
+    return smsConsentResponse({ success: true, message: "Your preference was recorded." });
+  }
+
+  const name = String(body?.name || "").trim().slice(0, 120);
+  const accountNumber = String(body?.account_number || "").replace(/\D/g, "").slice(0, 20);
+  const phone = smsConsentPhone(body?.phone);
+  if (!name) return smsConsentResponse({ success: false, error: "Please enter your name." }, 400);
+  if (!phone) return smsConsentResponse({ success: false, error: "Please enter a valid U.S. mobile phone number." }, 400);
+  if (body?.consent !== true) return smsConsentResponse({ success: false, error: "You must actively check the consent box to enroll." }, 400);
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS sms_consents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_name TEXT NOT NULL,
+      account_number TEXT,
+      phone_e164 TEXT NOT NULL,
+      consented_at TEXT NOT NULL,
+      consent_source TEXT NOT NULL,
+      disclosure_version TEXT NOT NULL,
+      disclosure_text TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      revoked_at TEXT
+    )
+  `).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_sms_consents_phone ON sms_consents(phone_e164, consented_at DESC)").run();
+
+  const consentedAt = new Date().toISOString();
+  const ipAddress = String(request.headers.get("CF-Connecting-IP") || "").slice(0, 64);
+  const userAgent = String(request.headers.get("User-Agent") || "").slice(0, 500);
+  await env.DB.prepare(`
+    INSERT INTO sms_consents
+      (customer_name, account_number, phone_e164, consented_at, consent_source,
+       disclosure_version, disclosure_text, ip_address, user_agent, revoked_at)
+    VALUES (?, ?, ?, ?, 'website_sms_signup', ?, ?, ?, ?, NULL)
+  `).bind(name, accountNumber || null, phone, consentedAt,
+    SMS_CONSENT_DISCLOSURE_VERSION, SMS_CONSENT_DISCLOSURE, ipAddress || null, userAgent || null).run();
+
+  return smsConsentResponse({
+    success: true,
+    message: "You are enrolled in Wooten Oil transactional text messages. Reply STOP at any time to unsubscribe."
+  });
+}
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (request.method === "GET" && ["/privacy", "/privacy/"].includes(url.pathname)) {
+      url.pathname = "/privacy.html";
+      return env.ASSETS.fetch(new Request(url.toString(), request));
+    }
+    if (request.method === "GET" && ["/sms-terms", "/sms-terms/"].includes(url.pathname)) {
+      url.pathname = "/sms-terms.html";
+      return env.ASSETS.fetch(new Request(url.toString(), request));
+    }
+    if (request.method === "GET" && ["/sms-signup", "/sms-signup/"].includes(url.pathname)) {
+      url.pathname = "/sms-signup.html";
+      return env.ASSETS.fetch(new Request(url.toString(), request));
+    }
+    if (url.pathname === "/api/sms-consent") {
+      if (request.method === "POST") return smsConsentPost({ request, env });
+      return methodNotAllowed();
+    }
     if (url.pathname === "/api/fuel-request") {
       if (request.method === "POST") {
         return onRequestPost({
