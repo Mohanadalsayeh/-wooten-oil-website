@@ -540,8 +540,16 @@
   }
 
   function paymentSearchText(row){
-    return [row.payment_date,row.amount,row.reference,row.payment_type,row.description]
-      .map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ');
+    return [
+      row.payment_date,
+      row.posting_date,
+      row.deposit_date,
+      row.amount,
+      row.reference,
+      row.invoice_no,
+      row.deposit_no,
+      row.description
+    ].map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ');
   }
 
   function filteredSortedPayments(){
@@ -584,9 +592,11 @@
       top.appendChild(amt);top.appendChild(date);card.appendChild(top);
       var grid=document.createElement('div');grid.className='payment-history-grid';
       function add(label,value,full){var item=document.createElement('div');item.className='payment-history-item'+(full?' full':'');var s=document.createElement('small');s.textContent=label;var v=document.createElement('strong');v.textContent=value||'—';item.appendChild(s);item.appendChild(v);grid.appendChild(item);}
-      add('Check / Reference',r.reference||'—');
-      add('Payment Type',r.payment_type||'—');
-      add('Payment Date',paymentHistoryDate(r.payment_date));
+      add('Check No',r.reference||'—');
+      add('Invoice No',r.invoice_no||'—');
+      add('Deposit No',r.deposit_no||'—');
+      add('Deposit Date',paymentHistoryDate(r.deposit_date));
+      add('Posting Date',paymentHistoryDate(r.posting_date||r.payment_date));
       if(String(r.description||'').trim()) add('Description / Memo',r.description,true);
       card.appendChild(grid);paymentHistoryList.appendChild(card);
     });
