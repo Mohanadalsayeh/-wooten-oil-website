@@ -108,3 +108,71 @@
     grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   }
 }
+
+
+/* Payment History: remove wasted space above the toolbar/title.
+   The actual panel id is #customerPaymentHistory. */
+#customerPaymentHistory{
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  margin-top:0 !important;
+  min-height:0 !important;
+}
+
+#customerPaymentHistory.show{
+  display:block !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#customerPaymentHistory .details-toolbar{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  margin-bottom:14px !important;
+}
+
+#customerPaymentHistory .payment-history-head{
+  margin-top:0 !important;
+}
+
+/* Compact the outer customer portal card only while Payment History is open. */
+#portalAccountCard:has(#customerPaymentHistory.show){
+  padding-top:24px !important;
+  padding-bottom:18px !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#portalAccountCard:has(#customerPaymentHistory.show) > .portal-eyebrow{
+  margin-bottom:16px !important;
+}
+
+/* Keep the overlay close to the top instead of vertically reserving space. */
+.portal-overlay:has(#customerPaymentHistory.show){
+  align-items:flex-start !important;
+  padding-top:12px !important;
+  padding-bottom:12px !important;
+}
+
+@media(max-width:700px){
+  #portalAccountCard:has(#customerPaymentHistory.show){
+    padding-top:18px !important;
+    padding-bottom:12px !important;
+  }
+
+  #portalAccountCard:has(#customerPaymentHistory.show) > .portal-eyebrow{
+    margin-bottom:12px !important;
+  }
+
+  #customerPaymentHistory .details-toolbar{
+    margin-bottom:10px !important;
+  }
+
+  #customerPaymentHistory .payment-history-head{
+    margin-top:0 !important;
+  }
+
+  .portal-overlay:has(#customerPaymentHistory.show){
+    padding-top:8px !important;
+  }
+}
