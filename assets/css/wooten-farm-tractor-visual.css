@@ -1,0 +1,37 @@
+/* Farm panel background: 50% transparent tractor image behind the copy card. */
+#farm .visual{
+  isolation:isolate;
+  background:linear-gradient(135deg,#dce6ef,#8ea6bc);
+}
+
+#farm .visual::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  background-image:url("../img/wooten-farm-tractor-background.webp");
+  background-size:cover;
+  background-position:center 46%;
+  background-repeat:no-repeat;
+  opacity:1;
+}
+
+#farm .visual::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:linear-gradient(160deg,rgba(15,39,66,.05),rgba(15,39,66,.22));
+}
+
+#farm .visual-content{
+  z-index:2;
+  background:rgba(15,39,66,.5);
+}
+
+@media(max-width:700px){
+  #farm .visual::before{
+    background-position:center 44%;
+  }
+}
