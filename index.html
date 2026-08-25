@@ -1221,8 +1221,16 @@
   if (!panel || !list || !moreWrap || !moreButton || !topButton) return;
 
   function paymentRows() {
-    return Array.prototype.filter.call(list.children, function (node) {
-      return node.nodeType === 1;
+    var bestContainer = list;
+    var bestCount = list.children.length;
+    Array.prototype.forEach.call(list.querySelectorAll('*'), function (candidate) {
+      if (candidate.children.length > bestCount) {
+        bestContainer = candidate;
+        bestCount = candidate.children.length;
+      }
+    });
+    return Array.prototype.filter.call(bestContainer.children, function (node) {
+      return node.nodeType === 1 && !node.matches('script, style, template');
     });
   }
 
@@ -1248,7 +1256,7 @@
   var listObserver = new MutationObserver(function () {
     applyPageLimit(true);
   });
-  listObserver.observe(list, { childList: true });
+  listObserver.observe(list, { childList: true, subtree: true });
   applyPageLimit(true);
 
   function panelIsOpen() {
@@ -1261,16 +1269,22 @@
   }
 
   function updateTopButton() {
-    topButton.classList.toggle('is-visible', panelIsOpen() && scrollAmount() > 500);
+    topButton.classList.toggle('is-visible', panelIsOpen());
   }
 
   window.addEventListener('scroll', updateTopButton, { passive: true });
   panel.addEventListener('scroll', updateTopButton, { passive: true });
+  document.addEventListener('scroll', updateTopButton, { passive: true, capture: true });
 
   topButton.addEventListener('click', function () {
     var behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    panel.scrollTo({ top: 0, behavior: behavior });
+    var current = panel;
+    while (current) {
+      if (current.scrollTop) current.scrollTo({ top: 0, behavior: behavior });
+      current = current.parentElement;
+    }
     window.scrollTo({ top: 0, behavior: behavior });
+    panel.scrollIntoView({ behavior: behavior, block: 'start' });
     setTimeout(function () {
       var toolbar = panel.querySelector('.details-toolbar');
       if (toolbar) toolbar.setAttribute('tabindex', '-1');
@@ -1279,6 +1293,8 @@
   });
 
   new MutationObserver(updateTopButton).observe(panel, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+  new MutationObserver(updateTopButton).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class', 'style', 'hidden'] });
+  window.setTimeout(function () { applyPageLimit(true); updateTopButton(); }, 500);
 })();
 </script>
 </body>
