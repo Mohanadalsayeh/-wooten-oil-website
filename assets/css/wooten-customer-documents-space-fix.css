@@ -1,0 +1,92 @@
+/* Statements & Invoices: remove unused space above and below the content. */
+#customerDocuments.customer-documents-panel{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#customerDocuments.customer-documents-panel.show{
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+#customerDocuments .details-toolbar{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  margin-bottom:14px !important;
+}
+
+#customerDocuments .customer-documents-head{
+  margin-top:0 !important;
+  margin-bottom:14px !important;
+}
+
+#customerDocuments .customer-documents-tools{
+  margin-top:0 !important;
+  margin-bottom:10px !important;
+}
+
+#customerDocuments .customer-documents-list{
+  flex:0 1 auto !important;
+  min-height:0 !important;
+}
+
+#customerDocuments .customer-documents-footer{
+  flex:0 0 auto !important;
+  margin-top:12px !important;
+  padding:8px 10px !important;
+}
+
+#portalAccountCard:has(#customerDocuments.show){
+  padding-top:24px !important;
+  padding-bottom:14px !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#portalAccountCard:has(#customerDocuments.show) > .portal-eyebrow{
+  margin-bottom:16px !important;
+}
+
+#portalAccountCard:has(#customerDocuments.show) .portal-card-inner,
+#portalAccountCard:has(#customerDocuments.show) .customer-account-details{
+  min-height:0 !important;
+  height:auto !important;
+}
+
+.portal-overlay:has(#customerDocuments.show){
+  align-items:flex-start !important;
+  padding-top:12px !important;
+  padding-bottom:12px !important;
+}
+
+@media(max-width:700px){
+  #portalAccountCard:has(#customerDocuments.show){
+    padding-top:18px !important;
+    padding-bottom:10px !important;
+  }
+
+  #portalAccountCard:has(#customerDocuments.show) > .portal-eyebrow{
+    margin-bottom:12px !important;
+  }
+
+  #customerDocuments .details-toolbar{
+    margin-bottom:10px !important;
+  }
+
+  #customerDocuments .customer-documents-head{
+    margin-bottom:12px !important;
+  }
+
+  #customerDocuments .customer-documents-footer{
+    margin-top:10px !important;
+    padding:7px 8px !important;
+  }
+
+  .portal-overlay:has(#customerDocuments.show){
+    padding-top:8px !important;
+    padding-bottom:8px !important;
+  }
+}
