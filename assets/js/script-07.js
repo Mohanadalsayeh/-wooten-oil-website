@@ -33,6 +33,16 @@
 
   
   var activePortalCustomer=null;
+  var pendingDocumentToken=(new URLSearchParams(window.location.search)).get('document_token')||'';
+
+  function openPendingDocument(){
+    if(!pendingDocumentToken) return false;
+    var token=pendingDocumentToken;
+    pendingDocumentToken='';
+    try{ window.history.replaceState(null,'',window.location.pathname+'#customer-login'); }catch(e){}
+    window.location.assign('/open-document/'+encodeURIComponent(token));
+    return true;
+  }
 
   function customerFuelAddress(c){
     var street=[clean(c && c.address1),clean(c && c.address2),clean(c && c.address3)].filter(Boolean).join(', ');
@@ -814,6 +824,7 @@
       if(d.customer){ showAccount(d.customer); }
       else if(!(await loadCurrentAccount(false))){ throw new Error('Signed in, but the account information could not be loaded.'); }
       document.getElementById('portal-password').value='';
+      if(openPendingDocument()) return;
     }catch(err){
       setStatus(status,err.message || 'Sign in failed. Please try again.',false);
     }finally{
@@ -1596,6 +1607,7 @@
     /* Always force the first screen to the current Customer Dashboard.
        This clears any Account Details / Fuel History state restored by bfcache. */
     if(accountCard) accountCard.classList.add('show');
+    if(openPendingDocument()) return;
     showDashboardView();
   }
 

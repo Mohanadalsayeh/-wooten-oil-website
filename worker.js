@@ -3247,6 +3247,84 @@ async function twilioSendSms(env,to,body){
   return {sid:String(data?.sid||""),status:String(data?.status||""),to:normalizedTo};
 }
 __name(twilioSendSms,"twilioSendSms");
+
+async function ensurePortalDocumentLinksTable(env){
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS portal_document_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_hash TEXT NOT NULL UNIQUE,
+      attachment_id INTEGER NOT NULL,
+      account_number TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_portal_document_links_account
+    ON portal_document_links(account_number, attachment_id)
+  `).run();
+}
+__name(ensurePortalDocumentLinksTable,"ensurePortalDocumentLinksTable");
+
+async function createPortalDocumentLink({request,env,attachmentId,accountNumber}){
+  await ensurePortalDocumentLinksTable(env);
+  const token=randomToken();
+  const tokenHash=await sha256(token);
+  await env.DB.prepare(`
+    INSERT INTO portal_document_links
+      (token_hash, attachment_id, account_number, created_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+  `).bind(tokenHash,attachmentId,accountNumber).run();
+  return `${new URL(request.url).origin}/open-document/${encodeURIComponent(token)}`;
+}
+__name(createPortalDocumentLink,"createPortalDocumentLink");
+
+async function portalDocumentLinkGet({request,env}){
+  try{
+    if(!env.DB||!env.NOTIFICATION_ATTACHMENTS){
+      return new Response("Document storage is not configured.",{status:503});
+    }
+    const url=new URL(request.url);
+    const token=decodeURIComponent(url.pathname.split("/").filter(Boolean).pop()||"");
+    if(!/^[a-f0-9]{64}$/i.test(token)) return new Response("Document link is invalid.",{status:404});
+
+    await ensureCustomerNotificationsTable(env);
+    await ensurePortalDocumentLinksTable(env);
+    const row=await env.DB.prepare(`
+      SELECT l.account_number, a.object_key, a.filename, a.content_type
+      FROM portal_document_links l
+      INNER JOIN portal_notification_attachments a ON a.id=l.attachment_id
+      WHERE l.token_hash=? AND a.account_number=l.account_number
+      LIMIT 1
+    `).bind(await sha256(token)).first();
+    if(!row) return new Response("Document link was not found.",{status:404});
+
+    const customer=await getCustomerFromSession(request,env);
+    if(!customer){
+      const loginUrl=new URL("/",url.origin);
+      loginUrl.searchParams.set("document_token",token);
+      loginUrl.hash="customer-login";
+      return Response.redirect(loginUrl.toString(),302);
+    }
+    if(normalizeNotificationAccount(customer.account_number)!==normalizeNotificationAccount(row.account_number)){
+      return new Response("This document belongs to a different customer account.",{status:403});
+    }
+
+    const object=await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);
+    if(!object) return new Response("Document file is unavailable.",{status:404});
+    const filename=notificationSafeFilename(row.filename||"document.pdf");
+    const headers=new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("Content-Type",row.content_type||"application/pdf");
+    headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    headers.set("Cache-Control","private, no-store");
+    headers.set("X-Content-Type-Options","nosniff");
+    return new Response(object.body,{status:200,headers});
+  }catch(error){
+    console.error("portalDocumentLinkGet failed",error);
+    return new Response("Document could not be opened.",{status:500});
+  }
+}
+__name(portalDocumentLinkGet,"portalDocumentLinkGet");
 async function adminTwilioStatusGet({request,env}){
   const supplied=request.headers.get("X-Admin-Key")||"";
   if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY) return notificationJson({success:false,error:"Unauthorized."},401);
@@ -3706,10 +3784,22 @@ async function adminSendCustomerNotification({ request, env }) {
         warning=warning?`${warning} SMS was not sent because this customer has no phone number on file.`:"Portal notification was saved, but SMS was not sent because this customer has no phone number on file.";
       }else{
         try{
+          const pdfAttachment=savedAttachments.find((attachment)=>
+            attachment.id && String(attachment.content_type||"").toLowerCase()==="application/pdf"
+          );
+          const documentLink=pdfAttachment
+            ? await createPortalDocumentLink({
+                request,
+                env,
+                attachmentId:pdfAttachment.id,
+                accountNumber:customer.account_number
+              })
+            : "";
           const smsBody =
             `WOOTEN OIL CO INC\n\n` +
             `${title.trim()}\n\n` +
             `${message.trim()}\n\n` +
+            (documentLink ? `${documentLink}\n\n` : "") +
             `Please do not reply to this message.`;
           const smsResult=await twilioSendSms(env,customer.phone,smsBody);
           smsSent=true;
@@ -6036,6 +6126,11 @@ var worker_default = {
 
     if (/^\/api\/customer\/documents\/\d+\/file$/.test(url.pathname)) {
       if (request.method === "GET") return customerDocumentFileGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname.startsWith("/open-document/")) {
+      if (request.method === "GET") return portalDocumentLinkGet({ request, env });
       return methodNotAllowed();
     }
 
