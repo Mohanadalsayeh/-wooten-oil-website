@@ -3664,6 +3664,11 @@ input[type="file"]::file-selector-button{
 
 
   <div class="card admin-tab-panel" id="admin-tab-documents" role="tabpanel" aria-labelledby="admin-tab-btn-documents" data-admin-panel="documents">
+    <nav class="admin-subtabs" role="tablist" aria-label="Statements and invoices sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-document-section="customer-documents">Customer Documents</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements">Send Account Statements</button>
+    </nav>
+    <div id="documentSectionCustomerDocuments">
     <div class="admin-page-label">Statements &amp; Invoices</div>
     <h2>Customer Documents</h2>
     <p>Upload secure PDF statements and invoices to a customer's online account. Customers can open them from My Account → Statements &amp; Invoices.</p>
@@ -3694,6 +3699,25 @@ input[type="file"]::file-selector-button{
       </div>
     </div>
 
+    <div class="statement-delivery-options" role="group" aria-labelledby="docSendingOptionsTitle">
+      <div class="statement-delivery-heading" id="docSendingOptionsTitle">
+        <strong>Sending Options</strong>
+        <span>Checked boxes are the delivery methods used when this document is uploaded.</span>
+      </div>
+      <label class="statement-email-option">
+        <input id="docPortalNotification" type="checkbox" checked>
+        <span>Customer Portal</span>
+      </label>
+      <label class="statement-email-option">
+        <input id="docEmailPdf" type="checkbox" checked>
+        <span>Email PDF</span>
+      </label>
+      <label class="statement-email-option">
+        <input id="docSmsLink" type="checkbox" checked>
+        <span>SMS secure PDF link</span>
+      </label>
+    </div>
+
     <div class="actions">
       <button class="primary" id="docUploadBtn" type="button">Upload Document</button>
       <button class="secondary" id="docLoadBtn" type="button">View Customer Documents</button>
@@ -3702,8 +3726,9 @@ input[type="file"]::file-selector-button{
     <div id="docCustomerMeta" class="doc-customer-meta" style="display:none"></div>
     <div id="docList" class="doc-admin-list"></div>
     <p class="note"><strong>Security:</strong> Documents are stored privately and can only be opened by the customer account they are assigned to. PDF limit: 10 MB per file.</p>
+    </div>
 
-    <div class="statement-batch-section">
+    <div class="statement-batch-section" id="documentSectionSendStatements" hidden>
       <div class="statement-batch-head">
         <div>
           <div class="admin-page-label">Generate Statements</div>
@@ -5965,6 +5990,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-customer-documents-script">
 (function(){
+  const sectionButtons=Array.from(document.querySelectorAll('[data-document-section]'));
+  const customerDocumentsSection=document.getElementById('documentSectionCustomerDocuments');
+  const sendStatementsSection=document.getElementById('documentSectionSendStatements');
+  sectionButtons.forEach(button=>button.addEventListener('click',function(){
+    const showDocuments=button.dataset.documentSection==='customer-documents';
+    customerDocumentsSection.hidden=!showDocuments;
+    sendStatementsSection.hidden=showDocuments;
+    sectionButtons.forEach(item=>item.setAttribute('aria-selected',item===button?'true':'false'));
+  }));
   const account=document.getElementById('docAccount');
   const type=document.getElementById('docType');
   const date=document.getElementById('docDate');
@@ -5975,6 +6009,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const status=document.getElementById('docStatus');
   const meta=document.getElementById('docCustomerMeta');
   const list=document.getElementById('docList');
+  const portalNotification=document.getElementById('docPortalNotification');
+  const emailPdf=document.getElementById('docEmailPdf');
+  const smsLink=document.getElementById('docSmsLink');
   if(!account||!upload||!load||!status||!list) return;
 
   function normalize(v){
@@ -6084,6 +6121,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     if(!selected){setStatus('Choose a PDF statement or invoice.',false);return;}
+    if(!portalNotification.checked&&!emailPdf.checked&&!smsLink.checked){setStatus('Select at least one Sending Option.',false);return;}
     if(selected.size>10*1024*1024){setStatus('PDF files must be 10 MB or smaller.',false);return;}
     account.value=acct; upload.disabled=true; upload.textContent='Uploading…';
     try{
@@ -6092,6 +6130,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       fd.append('document_type',type.value);
       fd.append('document_date',date.value||'');
       fd.append('title',title.value||'');
+      fd.append('portal_notification',portalNotification.checked?'1':'0');
+      fd.append('email_pdf',emailPdf.checked?'1':'0');
+      fd.append('sms_link',smsLink.checked?'1':'0');
       fd.append('file',selected,selected.name);
       const res=await fetch('/api/admin/customer-documents/upload',{
         method:'POST',headers:{'X-Admin-Key':key},body:fd

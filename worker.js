@@ -5849,6 +5849,31 @@ async function adminCustomerDocumentsGet({request,env}){
 }
 __name(adminCustomerDocumentsGet,"adminCustomerDocumentsGet");
 
+async function adminCustomerDocumentSendEmail(env,customer,pdfBytes,filename,title,type,documentDate){
+  if(!customer?.email||!env.RESEND_API_KEY) return {sent:false,reason:!customer?.email?"no_email":"email_not_configured"};
+  try{
+    const fromAddress=String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim();
+    const typeLabel=type==="invoice"?"Invoice":"Statement";
+    const dateLabel=documentDate?statementPdfDate(documentDate):"";
+    const response=await fetch("https://api.resend.com/emails",{
+      method:"POST",
+      headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},
+      body:JSON.stringify({
+        from:`Wooten Oil <${fromAddress}>`,to:[customer.email],subject:`Wooten Oil ${typeLabel} - ${title}`,
+        html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033;line-height:1.6"><h2 style="color:#0b2239">Wooten Oil Co Inc.</h2><p>Hello ${notificationEscapeHtml(customer.account_name||"Customer")},</p><p>Your <strong>${notificationEscapeHtml(title)}</strong>${dateLabel?` dated ${notificationEscapeHtml(dateLabel)}`:""} is attached as a PDF.</p><p style="margin-top:24px;color:#64748b;font-size:13px">This document is also available securely in your Wooten Oil Customer Portal when portal delivery is selected.</p></div>`,
+        text:`Hello ${customer.account_name||"Customer"},\n\nYour ${title}${dateLabel?` dated ${dateLabel}`:""} is attached as a PDF.\n\nWooten Oil Co Inc.`,
+        attachments:[{filename,content:statementBytesToBase64(pdfBytes)}]
+      })
+    });
+    const data=await response.json().catch(()=>({}));
+    return response.ok?{sent:true,id:data.id||""}:{sent:false,reason:data?.message||data?.error||"email_failed"};
+  }catch(error){
+    console.error("customer document email failed",error);
+    return {sent:false,reason:String(error?.message||error)};
+  }
+}
+__name(adminCustomerDocumentSendEmail,"adminCustomerDocumentSendEmail");
+
 async function adminCustomerDocumentUpload({request,env}){
   try{
     const supplied=request.headers.get("X-Admin-Key")||"";
@@ -5866,9 +5891,21 @@ async function adminCustomerDocumentUpload({request,env}){
     const documentDate=String(form.get("document_date")||"").trim().slice(0,10);
     const file=form.get("file");
     const rawTitle=String(form.get("title")||"").trim();
+    const portalRequested=String(form.get("portal_notification")||"")==="1";
+    const emailRequested=String(form.get("email_pdf")||"")==="1";
+    const smsRequested=String(form.get("sms_link")||"")==="1";
 
     if(!account) return notificationJson({success:false,error:"Enter a valid Customer Number."},400);
-    const customer=await env.DB.prepare(`SELECT account_number,account_name FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
+    if(!portalRequested&&!emailRequested&&!smsRequested) return notificationJson({success:false,error:"Select at least one Sending Option."},400);
+    await ensureAdminContactPreferencesTable(env);
+    const customer=await env.DB.prepare(`
+      SELECT c.account_number,c.account_name,c.email,c.phone,
+        COALESCE(p.email_enabled,1) AS contact_email_enabled,
+        COALESCE(p.sms_enabled,1) AS contact_sms_enabled,
+        COALESCE(p.portal_enabled,1) AS contact_portal_enabled
+      FROM customers c LEFT JOIN admin_customer_contact_preferences p ON p.account_number=c.account_number
+      WHERE c.account_number=? LIMIT 1
+    `).bind(account).first();
     if(!customer) return notificationJson({success:false,error:"Customer was not found."},404);
 
     if(!(file instanceof File)) return notificationJson({success:false,error:"Choose a PDF statement or invoice."},400);
@@ -5879,12 +5916,13 @@ async function adminCustomerDocumentUpload({request,env}){
     }
     if(file.size<=0) return notificationJson({success:false,error:"The selected PDF is empty."},400);
     if(file.size>10*1024*1024) return notificationJson({success:false,error:"PDF files must be 10 MB or smaller."},413);
+    const pdfBytes=new Uint8Array(await file.arrayBuffer());
 
     await ensureCustomerDocumentsTable(env);
     const title=customerDocumentTitle(type,rawTitle,filename);
     const objectKey=`customer-documents/${account}/${crypto.randomUUID()}-${filename}`;
 
-    await env.NOTIFICATION_ATTACHMENTS.put(objectKey,file.stream(),{
+    await env.NOTIFICATION_ATTACHMENTS.put(objectKey,pdfBytes,{
       httpMetadata:{
         contentType:"application/pdf",
         contentDisposition:`inline; filename="${filename.replace(/"/g,"")}"`
@@ -5907,30 +5945,87 @@ async function adminCustomerDocumentUpload({request,env}){
 
       const documentId=result?.meta?.last_row_id||result?.meta?.last_insert_rowid||null;
 
-      /* Create a portal notification linked to the Statements & Invoices screen. */
       await ensureCustomerNotificationsTable(env);
       const notificationTitle=type==="invoice" ? "New Invoice Available" : "New Statement Available";
-      const notificationMessage=type==="invoice"
-        ? `${title} is now available in your Statements & Invoices.`
-        : `${title} is now available in your Statements & Invoices.`;
+      const notificationMessage=`${title} is now available in your Statements & Invoices.`;
+      const portalEnabled=portalRequested&&Number(customer.contact_portal_enabled)!==0;
+      const emailEnabled=emailRequested&&Number(customer.contact_email_enabled)!==0;
+      const smsEnabled=smsRequested&&Number(customer.contact_sms_enabled)!==0;
 
-      const notificationResult=await env.DB.prepare(`
-        INSERT INTO portal_notifications
-          (account_number,title,message,email_sent,action_type,action_id,created_at)
-        VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+      let notificationId=null;
+      if(portalEnabled){
+        const notificationResult=await env.DB.prepare(`
+          INSERT INTO portal_notifications
+            (account_number,title,message,email_sent,action_type,action_id,created_at)
+          VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+        `).bind(account,notificationTitle,notificationMessage,0,"customer_documents",documentId).run();
+        notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
+      }
+
+      const emailResult=emailEnabled
+        ? await adminCustomerDocumentSendEmail(env,customer,pdfBytes,filename,title,type,documentDate)
+        : {sent:false,reason:emailRequested?"email_delivery_not_selected_for_customer":"email_not_requested"};
+
+      let smsResult={sent:false,reason:smsRequested?"sms_delivery_not_selected_for_customer":"sms_not_requested",sid:"",status:"",code:"",body:"",to:twilioNormalizePhone(customer.phone||"")};
+      if(smsEnabled&&customer.phone){
+        let smsBody="";
+        try{
+          const secureLink=await createPortalStatementLink({request,env,documentId,accountNumber:account});
+          const typeLabel=type==="invoice"?"Invoice":"Statement";
+          smsBody=`WOOTEN OIL CO INC\n\n${title}\n\nYour new ${typeLabel.toLowerCase()} is ready. View or download it here:\n\n${secureLink}\n\nPlease do not reply to this message.`;
+          const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
+          smsResult={sent:true,reason:"",sid:sent.sid||"",status:"pending",code:"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone)};
+        }catch(error){
+          const code=String(error?.twilioCode||"");
+          const status=code==="21610"?"opted_out":"failed";
+          smsResult={sent:false,reason:String(error?.message||error),sid:"",status,code,body:smsBody,to:twilioNormalizePhone(customer.phone)};
+          if(status==="opted_out") await twilioRememberOptOut(env,customer.phone,true,"STOP");
+        }
+      }else if(smsEnabled&&!customer.phone){
+        smsResult.reason="no_phone";
+      }
+
+      if(notificationId){
+        await env.DB.prepare(`
+          UPDATE portal_notifications SET email_sent=?,email_id=?,sms_sent=?,sms_sid=?,sms_error=?,sms_status=?,sms_error_code=?,sms_updated_at=CURRENT_TIMESTAMP
+          WHERE id=? AND account_number=?
+        `).bind(emailResult.sent?1:0,emailResult.id||"",smsResult.sent?1:0,smsResult.sid||"",smsResult.sent?"":smsResult.reason||"",smsResult.status||"",smsResult.code||"",notificationId,account).run();
+      }
+
+      await ensureAdminCommunicationLogTable(env);
+      const logStatus=smsResult.status||"";
+      const logErrors=[emailRequested&&!emailResult.sent?emailResult.reason:"",smsRequested&&!smsResult.sent?smsResult.reason:""].filter(Boolean).join(" | ");
+      await env.DB.prepare(`
+        INSERT INTO admin_communication_log
+          (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,
+           sms_status,sms_error_code,sms_error_message,sms_to,sms_body,sms_updated_at,sms_failed_at,sms_opted_out_at,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,
+          CASE WHEN ?='failed' THEN CURRENT_TIMESTAMP ELSE NULL END,
+          CASE WHEN ?='opted_out' THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP)
+        ON CONFLICT(source_type,source_id) DO UPDATE SET
+          portal_sent=excluded.portal_sent,email_sent=excluded.email_sent,sms_sent=excluded.sms_sent,email_id=excluded.email_id,
+          sms_sid=excluded.sms_sid,error_text=excluded.error_text,sms_status=excluded.sms_status,sms_error_code=excluded.sms_error_code,
+          sms_error_message=excluded.sms_error_message,sms_to=excluded.sms_to,sms_body=excluded.sms_body,sms_updated_at=excluded.sms_updated_at
       `).bind(
-        account,
-        notificationTitle,
-        notificationMessage,
-        0,
-        "customer_documents",
-        documentId
+        account,type,title,notificationMessage,notificationId?"notification":"document",notificationId||documentId,
+        portalEnabled?1:0,emailResult.sent?1:0,smsResult.sent?1:0,emailResult.id||"",smsResult.sid||"",logErrors,
+        logStatus,smsResult.code||"",smsResult.sent?"":smsResult.reason||"",smsResult.to||"",smsResult.body||"",logStatus,logStatus
       ).run();
+
+      const delivered=[];
+      if(portalEnabled) delivered.push("Customer Portal");
+      if(emailResult.sent) delivered.push("Email PDF");
+      if(smsResult.sent) delivered.push("SMS link");
+      const skipped=[];
+      if(portalRequested&&!portalEnabled) skipped.push("Portal");
+      if(emailRequested&&!emailResult.sent) skipped.push("Email");
+      if(smsRequested&&!smsResult.sent) skipped.push("SMS");
 
       return notificationJson({
         success:true,
-        message:`${type==="invoice"?"Invoice":"Statement"} uploaded successfully and the customer was notified.`,
-        notification_id:notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null,
+        message:`${type==="invoice"?"Invoice":"Statement"} uploaded successfully.${delivered.length?` Sent by: ${delivered.join(", ")}.`:""}${skipped.length?` Skipped: ${skipped.join(", ")}.`:""}`,
+        notification_id:notificationId,
+        portal_sent:portalEnabled,email_sent:emailResult.sent,sms_sent:smsResult.sent,sms_status:smsResult.status||"",
         document:{
           id:documentId,
           account_number:account,
