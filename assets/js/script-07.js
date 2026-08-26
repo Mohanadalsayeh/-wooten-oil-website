@@ -250,22 +250,13 @@
     });
   }
 
-  async function openCustomerDocument(id){
-    var popup=window.open('about:blank','_blank');
-    try{
-      var response=await fetch('/api/customer/documents/'+encodeURIComponent(id)+'/file',{
-        method:'GET',credentials:'same-origin',cache:'no-store'
-      });
-      if(!response.ok) throw new Error(await response.text() || 'Document could not be opened.');
-      var blob=await response.blob();
-      var url=URL.createObjectURL(blob);
-      if(popup) popup.location=url;
-      else window.location.href=url;
-      setTimeout(function(){URL.revokeObjectURL(url);},60000);
-    }catch(error){
-      if(popup) popup.close();
-      alert(error.message || 'Document could not be opened.');
+  function openCustomerDocument(id){
+    var documentId=Number(id||0);
+    if(!Number.isInteger(documentId) || documentId<=0){
+      alert('Document could not be opened.');
+      return;
     }
+    window.location.assign('/api/customer/documents/'+encodeURIComponent(documentId)+'/file');
   }
 
   async function loadCustomerDocuments(){
@@ -1076,7 +1067,11 @@
 
 
 
+  var notificationPdfOpening=false;
+
   async function openNotificationLinkedPdf(documentId,filename){
+    if(notificationPdfOpening) return;
+    notificationPdfOpening=true;
     var id=Number(documentId||0);
 
     if(!id){
@@ -1099,54 +1094,15 @@
     }
 
     if(!id){
+      notificationPdfOpening=false;
       alert('The statement or invoice file could not be located.');
       return;
     }
 
-    var previewWindow=null;
-    try{
-      previewWindow=window.open('about:blank','_blank');
-      if(previewWindow){
-        previewWindow.document.title='Opening '+(filename||'PDF');
-        previewWindow.document.body.innerHTML=
-          '<div style="font-family:Arial,sans-serif;padding:24px;color:#17314b">Opening PDF…</div>';
-      }
-    }catch(e){previewWindow=null;}
-
-    try{
-      var response=await fetch('/api/customer/documents/'+encodeURIComponent(id)+'/file',{
-        method:'GET',
-        credentials:'same-origin',
-        cache:'no-store'
-      });
-
-      if(!response.ok){
-        var errorText=await response.text().catch(function(){return '';});
-        throw new Error(errorText || 'The PDF file could not be opened.');
-      }
-
-      var blob=await response.blob();
-      var blobUrl=URL.createObjectURL(blob);
-
-      if(previewWindow && !previewWindow.closed){
-        previewWindow.location.replace(blobUrl);
-      }else{
-        var a=document.createElement('a');
-        a.href=blobUrl;
-        a.target='_blank';
-        a.rel='noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-
-      setTimeout(function(){URL.revokeObjectURL(blobUrl);},60000);
-    }catch(err){
-      if(previewWindow && !previewWindow.closed){
-        try{previewWindow.close();}catch(e){}
-      }
-      alert(err && err.message ? err.message : 'The PDF file could not be opened.');
-    }
+    /* Use one authenticated, normal URL in the current tab. Android Chrome can
+       open duplicate tabs and fail to render PDFs when a blank tab is replaced
+       with a temporary blob URL after an asynchronous fetch. */
+    window.location.assign('/api/customer/documents/'+encodeURIComponent(id)+'/file');
   }
 
   async function openNotificationLinkedDocuments(){

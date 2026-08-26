@@ -1,6 +1,7 @@
 (function(){
   var NOTIFICATIONS_ENDPOINT='/api/customer/notifications';
   var NOTIFICATIONS_READ_ENDPOINT='/api/customer/notifications/read';
+  var NOTIFICATIONS_CLEAR_ENDPOINT='/api/customer/notifications/clear';
   var cachedItems=[];
   window.wootenNotificationCache=window.wootenNotificationCache||[];
 
@@ -26,7 +27,8 @@
       list:document.getElementById('dashboardNotificationList'),
       headerList:document.getElementById('headerNotificationList'),
       badge:document.getElementById('dashboardNotificationBadge'),
-      headerBadge:document.getElementById('mobileHeaderNotificationBadge')
+      headerBadge:document.getElementById('mobileHeaderNotificationBadge'),
+      clearButton:document.getElementById('clearCustomerNotifications')
     };
   }
 
@@ -61,6 +63,8 @@
       els.headerBadge.textContent=badgeText;
       els.headerBadge.style.display=unread?'block':'none';
     }
+
+    if(els.clearButton) els.clearButton.disabled=!items.length;
 
     var empty='<div class="notification-empty">No notifications yet.</div>';
 
@@ -198,6 +202,45 @@
     }
   };
 
+  window.wootenClearCustomerNotifications=async function(){
+    if(!cachedItems.length) return false;
+
+    var confirmed=window.confirm(
+      'Clear all notifications from this menu? Your statements and invoices will remain available in your account.'
+    );
+    if(!confirmed) return false;
+
+    var button=document.getElementById('clearCustomerNotifications');
+    var originalText=button?button.textContent:'Clear notifications';
+    if(button){
+      button.disabled=true;
+      button.textContent='Clearing...';
+    }
+
+    try{
+      var response=await fetch(NOTIFICATIONS_CLEAR_ENDPOINT,{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Accept':'application/json'}
+      });
+      var data=await response.json().catch(function(){return {};});
+
+      if(!response.ok || data.success===false){
+        throw new Error(data.error||'Unable to clear notifications.');
+      }
+
+      renderItems([]);
+      return true;
+    }catch(error){
+      console.error('Could not clear notifications',error);
+      window.alert(error && error.message ? error.message : 'Unable to clear notifications.');
+      await window.wootenRenderCustomerNotifications();
+      return false;
+    }finally{
+      if(button) button.textContent=originalText;
+    }
+  };
+
   window.wootenAddCustomerNotification=function(){
     return window.wootenRenderCustomerNotifications();
   };
@@ -223,6 +266,16 @@
       e.preventDefault();
       e.stopPropagation();
       openNotificationItem(item);
+    });
+  }
+
+  var clearButton=document.getElementById('clearCustomerNotifications');
+  if(clearButton && !clearButton.dataset.notificationClearBound){
+    clearButton.dataset.notificationClearBound='1';
+    clearButton.addEventListener('click',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      window.wootenClearCustomerNotifications();
     });
   }
 

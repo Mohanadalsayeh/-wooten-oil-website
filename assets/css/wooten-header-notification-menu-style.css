@@ -14,5 +14,9 @@
 .header-notification-copy strong{display:block;color:#243b51;font-size:.86rem}
 .header-notification-copy p{margin:3px 0 0;color:#647381;font-size:.78rem;line-height:1.4}
 .header-notification-copy time{display:block;color:#96a1aa;font-size:.68rem;margin-top:5px}
+.header-notification-menu-footer{padding:10px 12px;border-top:1px solid #e4eaee;background:#f9fbfc}
+.header-notification-menu-footer button{display:block;width:100%;min-height:42px;border:1px solid #d9e1e7;border-radius:10px;background:#fff;color:#a12622;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.header-notification-menu-footer button:hover,.header-notification-menu-footer button:focus-visible{background:#fff4f3;border-color:#d8aaa7;color:#821f1b;outline:none}
+.header-notification-menu-footer button:disabled{background:#f2f4f6;border-color:#e2e7eb;color:#98a1a9;cursor:not-allowed}
 @keyframes headerNotifyIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:600px){.header-notification-menu{right:0;left:0;width:auto;top:calc(100% + 8px);max-height:65vh;border-radius:14px}}

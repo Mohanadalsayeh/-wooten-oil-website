@@ -3106,6 +3106,15 @@ async function ensureCustomerNotificationsTable(env) {
     if(!cols.includes("action_id")){
       await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN action_id INTEGER`).run();
     }
+    if(!cols.includes("sms_sent")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_sent INTEGER NOT NULL DEFAULT 0`).run();
+    }
+    if(!cols.includes("sms_sid")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_sid TEXT`).run();
+    }
+    if(!cols.includes("sms_error")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_error TEXT`).run();
+    }
   }catch(error){
     console.error("portal notification action columns check failed",error);
   }
@@ -3129,6 +3138,123 @@ async function ensureCustomerNotificationsTable(env) {
   `).run();
 }
 __name(ensureCustomerNotificationsTable, "ensureCustomerNotificationsTable");
+
+async function ensureAdminCommunicationLogTable(env){
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS admin_communication_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_number TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT,
+      source_type TEXT NOT NULL,
+      source_id INTEGER NOT NULL,
+      portal_sent INTEGER NOT NULL DEFAULT 0,
+      email_sent INTEGER NOT NULL DEFAULT 0,
+      sms_sent INTEGER NOT NULL DEFAULT 0,
+      email_id TEXT,
+      sms_sid TEXT,
+      error_text TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(source_type,source_id)
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_admin_communication_log_account_created
+    ON admin_communication_log(account_number,created_at DESC,id DESC)
+  `).run();
+}
+__name(ensureAdminCommunicationLogTable,"ensureAdminCommunicationLogTable");
+
+async function backfillAdminCommunicationLog(env){
+  await ensureCustomerNotificationsTable(env);
+  await ensureCustomerDocumentsTable(env);
+  await ensureAdminCommunicationLogTable(env);
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO admin_communication_log
+      (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
+    SELECT
+      n.account_number,
+      CASE WHEN d.document_type IN ('statement','invoice') THEN d.document_type ELSE 'notification' END,
+      n.title,
+      n.message,
+      'notification',n.id,1,COALESCE(n.email_sent,0),COALESCE(n.sms_sent,0),
+      COALESCE(n.email_id,''),COALESCE(n.sms_sid,''),COALESCE(n.sms_error,''),n.created_at
+    FROM portal_notifications n
+    LEFT JOIN portal_customer_documents d
+      ON n.action_type='customer_documents' AND n.action_id=d.id
+  `).run();
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO admin_communication_log
+      (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,created_at)
+    SELECT
+      d.account_number,
+      CASE WHEN d.document_type='invoice' THEN 'invoice' ELSE 'statement' END,
+      d.title,d.filename,'document',d.id,1,0,0,d.created_at
+    FROM portal_customer_documents d
+    WHERE NOT EXISTS (
+      SELECT 1 FROM portal_notifications n
+      WHERE n.action_type='customer_documents' AND n.action_id=d.id
+    )
+  `).run();
+}
+__name(backfillAdminCommunicationLog,"backfillAdminCommunicationLog");
+
+async function adminCommunicationLogGet({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY){
+      return notificationJson({success:false,error:"Unauthorized."},401);
+    }
+    if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+    await backfillAdminCommunicationLog(env);
+    const url=new URL(request.url);
+    const account=normalizeNotificationAccount(url.searchParams.get("account_number")||"");
+    const from=String(url.searchParams.get("from")||"").trim();
+    const to=String(url.searchParams.get("to")||"").trim();
+    const type=String(url.searchParams.get("type")||"all").trim().toLowerCase();
+    const q=String(url.searchParams.get("q")||"").trim().toLowerCase();
+    const clauses=[];
+    const binds=[];
+    if(from){clauses.push("date(l.created_at)>=date(?)");binds.push(from);}
+    if(to){clauses.push("date(l.created_at)<=date(?)");binds.push(to);}
+    if(["notification","statement","invoice"].includes(type)){clauses.push("l.event_type=?");binds.push(type);}
+    if(account){clauses.push("l.account_number=?");binds.push(account);}
+    if(q){clauses.push("(lower(l.account_number) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ?)");binds.push(`%${q}%`,`%${q}%`);}
+    const where=clauses.length?`WHERE ${clauses.join(" AND ")}`:"";
+    if(account){
+      const result=await env.DB.prepare(`
+        SELECT l.*,COALESCE(c.account_name,'Customer') AS account_name,c.phone,c.email
+        FROM admin_communication_log l
+        LEFT JOIN customers c ON c.account_number=l.account_number
+        ${where}
+        ORDER BY l.created_at DESC,l.id DESC
+        LIMIT 500
+      `).bind(...binds).all();
+      return notificationJson({success:true,account_number:account,entries:result?.results||[]});
+    }
+    const result=await env.DB.prepare(`
+      SELECT
+        l.account_number,COALESCE(c.account_name,'Customer') AS account_name,c.phone,c.email,
+        COUNT(*) AS total_count,
+        SUM(CASE WHEN l.event_type='notification' THEN 1 ELSE 0 END) AS notification_count,
+        SUM(CASE WHEN l.event_type='statement' THEN 1 ELSE 0 END) AS statement_count,
+        SUM(CASE WHEN l.event_type='invoice' THEN 1 ELSE 0 END) AS invoice_count,
+        MAX(l.created_at) AS last_sent_at
+      FROM admin_communication_log l
+      LEFT JOIN customers c ON c.account_number=l.account_number
+      ${where}
+      GROUP BY l.account_number,c.account_name,c.phone,c.email
+      ORDER BY last_sent_at DESC,l.account_number ASC
+      LIMIT 5000
+    `).bind(...binds).all();
+    return notificationJson({success:true,customers:result?.results||[]});
+  }catch(error){
+    console.error("adminCommunicationLogGet failed",error);
+    return notificationJson({success:false,error:"Communication log could not be loaded. "+String(error?.message||error)},500);
+  }
+}
+__name(adminCommunicationLogGet,"adminCommunicationLogGet");
 
 function notificationJson(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -3358,6 +3484,7 @@ async function portalDocumentLinkGet({request,env}){
     headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     headers.set("Cache-Control","private, no-store");
     headers.set("X-Content-Type-Options","nosniff");
+    headers.set("Content-Length",String(Number(object.size||row.size_bytes||0)));
     return new Response(object.body,{status:200,headers});
   }catch(error){
     console.error("portalDocumentLinkGet failed",error);
@@ -3819,6 +3946,7 @@ async function adminSendCustomerNotification({ request, env }) {
 
     let smsSent=false;
     let smsSid="";
+    let smsError="";
     if(sendSms){
       if(!customer.phone){
         warning=warning?`${warning} SMS was not sent because this customer has no phone number on file.`:"Portal notification was saved, but SMS was not sent because this customer has no phone number on file.";
@@ -3845,10 +3973,34 @@ async function adminSendCustomerNotification({ request, env }) {
           smsSent=true;
           smsSid=smsResult.sid||"";
         }catch(error){
-          const smsError=String(error?.message||error);
+          smsError=String(error?.message||error);
           warning=warning?`${warning} SMS was not sent: ${smsError}`:`Portal notification was saved, but SMS was not sent: ${smsError}`;
           console.error("Twilio customer notification SMS failed",error);
         }
+      }
+    }
+
+    if(notificationId){
+      try{
+        await env.DB.prepare(`
+          UPDATE portal_notifications
+          SET sms_sent=?,sms_sid=?,sms_error=?
+          WHERE id=? AND account_number=?
+        `).bind(smsSent?1:0,smsSid,smsError,notificationId,customer.account_number).run();
+        await ensureAdminCommunicationLogTable(env);
+        await env.DB.prepare(`
+          INSERT INTO admin_communication_log
+            (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+          ON CONFLICT(source_type,source_id) DO UPDATE SET
+            portal_sent=excluded.portal_sent,email_sent=excluded.email_sent,sms_sent=excluded.sms_sent,
+            email_id=excluded.email_id,sms_sid=excluded.sms_sid,error_text=excluded.error_text
+        `).bind(
+          customer.account_number,"notification",title,message,"notification",notificationId,
+          1,emailSent?1:0,smsSent?1:0,emailId,smsSid,smsError
+        ).run();
+      }catch(error){
+        console.error("notification communication log update failed",error);
       }
     }
 
@@ -4263,6 +4415,70 @@ async function customerNotificationsReadPost({ request, env }) {
   }
 }
 __name(customerNotificationsReadPost, "customerNotificationsReadPost");
+
+async function customerNotificationsClearPost({ request, env }) {
+  try {
+    if (!env.DB) {
+      return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
+    }
+
+    const customer = await getCustomerFromSession(request, env);
+    if (!customer) {
+      return notificationJson({ success: false, authenticated: false }, 401);
+    }
+
+    await ensureCustomerNotificationsTable(env);
+    await ensurePortalDocumentLinksTable(env);
+    const account = normalizeNotificationAccount(customer.account_number);
+
+    const attachmentResult = await env.DB.prepare(`
+      SELECT id, object_key
+      FROM portal_notification_attachments
+      WHERE account_number = ?
+    `).bind(account).all();
+    const attachments = attachmentResult?.results || [];
+
+    await env.DB.prepare(`
+      DELETE FROM portal_document_links
+      WHERE account_number = ?
+        AND attachment_id IN (
+          SELECT id FROM portal_notification_attachments WHERE account_number = ?
+        )
+    `).bind(account, account).run();
+
+    await env.DB.prepare(`
+      DELETE FROM portal_notification_attachments
+      WHERE account_number = ?
+    `).bind(account).run();
+
+    const deleted = await env.DB.prepare(`
+      DELETE FROM portal_notifications
+      WHERE account_number = ?
+    `).bind(account).run();
+
+    if (env.NOTIFICATION_ATTACHMENTS) {
+      for (const attachment of attachments) {
+        const key = String(attachment?.object_key || "").trim();
+        if (!key) continue;
+        try { await env.NOTIFICATION_ATTACHMENTS.delete(key); } catch (error) {
+          console.error("Notification attachment cleanup failed", key, error);
+        }
+      }
+    }
+
+    return notificationJson({
+      success: true,
+      cleared: Number(deleted?.meta?.changes || deleted?.changes || 0)
+    });
+  } catch (error) {
+    console.error("customerNotificationsClearPost failed", error);
+    return notificationJson({
+      success: false,
+      error: String(error?.message || error)
+    }, 500);
+  }
+}
+__name(customerNotificationsClearPost, "customerNotificationsClearPost");
 
 // worker.js
 
@@ -4832,6 +5048,81 @@ async function adminCustomerOnlineDeactivate({ request, env }) {
 }
 __name(adminCustomerOnlineDeactivate, "adminCustomerOnlineDeactivate");
 
+async function ensureAdminContactPreferencesTable(env) {
+  if (!env?.DB) throw new Error("Customer database is not configured.");
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS admin_customer_contact_preferences (
+      account_number TEXT PRIMARY KEY,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      sms_enabled INTEGER NOT NULL DEFAULT 1,
+      portal_enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+}
+__name(ensureAdminContactPreferencesTable, "ensureAdminContactPreferencesTable");
+
+async function adminCustomerContactPreferencesPost({ request, env }) {
+  try {
+    const supplied = request.headers.get("X-Admin-Key") || "";
+    if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
+      return notificationJson({ success: false, error: "Unauthorized." }, 401);
+    }
+    if (!env.DB) return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
+
+    let body = {};
+    try { body = await request.json(); } catch {
+      return notificationJson({ success: false, error: "Invalid request data." }, 400);
+    }
+
+    const account = normalizeNotificationAccount(body.account_number || "");
+    const channel = String(body.channel || "").trim().toLowerCase();
+    const enabled = body.enabled === true || body.enabled === 1;
+    if (!account) return notificationJson({ success: false, error: "Customer Number is required." }, 400);
+    if (!["email", "sms", "portal"].includes(channel)) {
+      return notificationJson({ success: false, error: "Choose Email, Phone/SMS, or Portal." }, 400);
+    }
+
+    const customer = await env.DB.prepare(`
+      SELECT account_number, account_name, email, phone
+      FROM customers WHERE account_number = ? LIMIT 1
+    `).bind(account).first();
+    if (!customer) return notificationJson({ success: false, error: "Customer was not found." }, 404);
+    if (channel === "email" && !String(customer.email || "").trim()) {
+      return notificationJson({ success: false, error: "This customer does not have an email address." }, 400);
+    }
+    if (channel === "sms" && !String(customer.phone || "").trim()) {
+      return notificationJson({ success: false, error: "This customer does not have a phone number." }, 400);
+    }
+
+    await ensureAdminContactPreferencesTable(env);
+    await env.DB.prepare(`
+      INSERT INTO admin_customer_contact_preferences
+        (account_number, email_enabled, sms_enabled, portal_enabled, updated_at)
+      VALUES (?, 1, 1, 1, CURRENT_TIMESTAMP)
+      ON CONFLICT(account_number) DO NOTHING
+    `).bind(account).run();
+
+    const column = channel === "email" ? "email_enabled" : channel === "sms" ? "sms_enabled" : "portal_enabled";
+    await env.DB.prepare(`
+      UPDATE admin_customer_contact_preferences
+      SET ${column} = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE account_number = ?
+    `).bind(enabled ? 1 : 0, account).run();
+
+    return notificationJson({
+      success: true,
+      account_number: account,
+      channel,
+      enabled
+    });
+  } catch (error) {
+    console.error("adminCustomerContactPreferencesPost failed", error);
+    return notificationJson({ success: false, error: "Contact preference could not be updated. " + String(error?.message || error) }, 500);
+  }
+}
+__name(adminCustomerContactPreferencesPost, "adminCustomerContactPreferencesPost");
+
 async function adminCustomersDatabaseGet({ request, env }) {
   try {
     const supplied = request.headers.get("X-Admin-Key") || "";
@@ -4848,11 +5139,13 @@ async function adminCustomersDatabaseGet({ request, env }) {
       });
     }
 
+    await ensureAdminContactPreferencesTable(env);
     const url = new URL(request.url);
     const page = Math.max(1, Math.min(100000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
     const pageSize = Math.max(10, Math.min(100, Number.parseInt(url.searchParams.get("page_size") || "50", 10) || 50));
     const search = String(url.searchParams.get("search") || "").trim().slice(0, 160);
     const email = String(url.searchParams.get("email") || "all");
+    const phone = String(url.searchParams.get("phone") || "all");
     const online = String(url.searchParams.get("online") || "all");
     const status = String(url.searchParams.get("status") || "all");
     const sort = String(url.searchParams.get("sort") || "account_asc");
@@ -4878,6 +5171,12 @@ async function adminCustomersDatabaseGet({ request, env }) {
       where.push(`email IS NOT NULL AND trim(email) <> ''`);
     } else if (email === "without") {
       where.push(`email IS NULL OR trim(email) = ''`);
+    }
+
+    if (phone === "with") {
+      where.push(`phone IS NOT NULL AND trim(phone) <> ''`);
+    } else if (phone === "without") {
+      where.push(`phone IS NULL OR trim(phone) = ''`);
     }
 
     if (online === "activated") {
@@ -4930,6 +5229,9 @@ async function adminCustomersDatabaseGet({ request, env }) {
         aging_category_3,
         aging_category_4,
         account_status,
+        COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
+        COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
+        COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled,
         CASE
           WHEN password_hash IS NOT NULL AND trim(password_hash) <> '' THEN 1
           ELSE 0
@@ -5510,7 +5812,7 @@ async function customerDocumentFileGet({request,env}){
     headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     headers.set("Cache-Control","private, no-store");
     headers.set("X-Content-Type-Options","nosniff");
-    headers.set("Content-Security-Policy","default-src 'none'; sandbox");
+    headers.set("Content-Length",String(Number(object.size||row.size_bytes||0)));
     return new Response(object.body,{status:200,headers});
   }catch(error){
     console.error("customerDocumentFileGet failed",error);
@@ -5754,6 +6056,7 @@ async function adminStatementCustomersGet({request,env}){
     }
     if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
 
+    await ensureAdminContactPreferencesTable(env);
     const result=await env.DB.prepare(`
       SELECT
         account_number,account_name,email,phone,
@@ -5761,6 +6064,9 @@ async function adminStatementCustomersGet({request,env}){
         current_balance,
         aging_category_1,aging_category_2,aging_category_3,aging_category_4,
         account_status,
+        COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
+        COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
+        COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled,
         CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated
       FROM customers
       ORDER BY account_name COLLATE NOCASE ASC,account_number ASC
@@ -5788,6 +6094,9 @@ async function adminStatementCustomersGet({request,env}){
         current_balance:current,
         previous_balance:previous,
         total_balance:current+previous,
+        contact_email_enabled:Number(c.contact_email_enabled)!==0,
+        contact_sms_enabled:Number(c.contact_sms_enabled)!==0,
+        contact_portal_enabled:Number(c.contact_portal_enabled)!==0,
         online_activated:!!c.online_activated,
         account_status:c.account_status||""
       };
@@ -5870,6 +6179,7 @@ async function adminGenerateStatementsPost({request,env}){
 
     await ensureCustomerDocumentsTable(env);
     await ensureCustomerNotificationsTable(env);
+    await ensureAdminContactPreferencesTable(env);
 
     const results=[];
 
@@ -5879,7 +6189,10 @@ async function adminGenerateStatementsPost({request,env}){
         const customer=await env.DB.prepare(`
           SELECT
             account_number,account_name,address1,address2,address3,city,state,zip_code,phone,email,
-            current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4
+            current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,
+            COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
+            COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
+            COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled
           FROM customers
           WHERE account_number=?
           LIMIT 1
@@ -5930,8 +6243,12 @@ async function adminGenerateStatementsPost({request,env}){
           `${filename} is ready. Current Balance: ${statementMoney(current)}. `+
           `Previous Balance: ${statementMoney(previous)}. Total Balance: ${statementMoney(total)}.`;
 
+        const customerPortalNotification=portalNotification && Number(customer.contact_portal_enabled)!==0;
+        const customerEmailPdf=emailPdf && Number(customer.contact_email_enabled)!==0;
+        const customerSmsLink=smsLink && Number(customer.contact_sms_enabled)!==0;
+
         let notificationId=null;
-        if(portalNotification){
+        if(customerPortalNotification){
           const notificationResult=await env.DB.prepare(`
             INSERT INTO portal_notifications
               (account_number,title,message,email_sent,action_type,action_id,created_at)
@@ -5947,9 +6264,9 @@ async function adminGenerateStatementsPost({request,env}){
           notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
         }
 
-        const emailResult=emailPdf
+        const emailResult=customerEmailPdf
           ? await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total)
-          : {sent:false,reason:"email_disabled"};
+          : {sent:false,reason:emailPdf?"email_not_selected":"email_disabled"};
 
         if(notificationId && emailResult.sent){
           try{
@@ -5963,8 +6280,8 @@ async function adminGenerateStatementsPost({request,env}){
           }
         }
 
-        let smsResult={sent:false,reason:smsLink?"no_phone":"sms_disabled"};
-        if(smsLink && customer.phone){
+        let smsResult={sent:false,reason:customerSmsLink?"no_phone":(smsLink?"sms_not_selected":"sms_disabled")};
+        if(customerSmsLink && customer.phone){
           try{
             const secureLink=await createPortalStatementLink({
               request,
@@ -5987,6 +6304,35 @@ async function adminGenerateStatementsPost({request,env}){
             smsResult={sent:false,reason:String(error?.message||error)};
             console.error("statement SMS failed",account,error);
           }
+        }
+
+        try{
+          if(notificationId){
+            await env.DB.prepare(`
+              UPDATE portal_notifications
+              SET sms_sent=?,sms_sid=?,sms_error=?
+              WHERE id=? AND account_number=?
+            `).bind(
+              smsResult.sent?1:0,smsResult.sid||"",smsResult.sent?"":(smsResult.reason||""),notificationId,account
+            ).run();
+          }
+          await ensureAdminCommunicationLogTable(env);
+          const logSourceType=notificationId?"notification":"document";
+          const logSourceId=notificationId||documentId;
+          await env.DB.prepare(`
+            INSERT INTO admin_communication_log
+              (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+            ON CONFLICT(source_type,source_id) DO UPDATE SET
+              portal_sent=excluded.portal_sent,email_sent=excluded.email_sent,sms_sent=excluded.sms_sent,
+              email_id=excluded.email_id,sms_sid=excluded.sms_sid,error_text=excluded.error_text
+          `).bind(
+            account,"statement",title,notificationMessage,logSourceType,logSourceId,
+            notificationId?1:0,emailResult.sent?1:0,smsResult.sent?1:0,emailResult.id||"",smsResult.sid||"",
+            [emailResult.sent?"":(emailResult.reason||""),smsResult.sent?"":(smsResult.reason||"")].filter(Boolean).join(" | ")
+          ).run();
+        }catch(error){
+          console.error("statement communication log update failed",error);
         }
 
         results.push({
@@ -6088,6 +6434,13 @@ var worker_default = {
       return methodNotAllowed();
     }
 
+    if (url.pathname === "/api/admin/customer-contact-preferences") {
+      if (request.method === "POST") {
+        return adminCustomerContactPreferencesPost({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
     if (url.pathname === "/api/admin/customers-import") {
       if (request.method === "POST") {
         return onRequestPost3({
@@ -6154,6 +6507,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-customers") {
       if (request.method === "GET") return adminStatementCustomersGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/communication-log") {
+      if (request.method === "GET") return adminCommunicationLogGet({ request, env });
       return methodNotAllowed();
     }
 
@@ -6240,6 +6598,13 @@ var worker_default = {
     if (url.pathname === "/api/customer/notifications/read") {
       if (request.method === "POST") {
         return customerNotificationsReadPost({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/notifications/clear") {
+      if (request.method === "POST") {
+        return customerNotificationsClearPost({ request, env });
       }
       return methodNotAllowed();
     }

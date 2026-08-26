@@ -2184,6 +2184,32 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+<style id="wooten-admin-communication-log-style">
+.communication-log-section{margin-top:24px;padding:20px;border:1px solid #d8e1ea;border-radius:16px;background:#f8fafc}
+.communication-log-filters{display:grid;grid-template-columns:150px 150px 190px minmax(230px,1fr);gap:12px;margin-top:16px}
+.communication-log-filters label{display:block;margin-bottom:6px;font-size:12px;font-weight:900;color:#40566b}
+.communication-log-filters input,.communication-log-filters select{width:100%;min-height:44px;border:1px solid #cbd7e2;border-radius:10px;background:#fff;padding:0 11px;font:inherit;color:#17324d}
+.communication-log-actions{margin-top:12px}
+.communication-log-customers{display:grid;gap:9px;margin-top:14px}
+.communication-customer-row{width:100%;display:grid;grid-template-columns:minmax(220px,1fr) repeat(4,90px) 170px;gap:12px;align-items:center;border:1px solid #d8e1ea;border-radius:12px;background:#fff;padding:13px 14px;text-align:left;cursor:pointer;color:#253b51;font:inherit}
+.communication-customer-row:hover{border-color:#9eb4c8;background:#f9fcff}
+.communication-customer-name strong{display:block;color:#102b48}.communication-customer-name small{display:block;color:#758494;margin-top:3px}
+.communication-count{text-align:center}.communication-count strong{display:block;color:#102b48}.communication-count small{color:#758494}
+.communication-last{font-size:12px;color:#627487;text-align:right}
+.communication-log-detail[hidden]{display:none}.communication-log-detail{margin-top:14px}
+.communication-log-detail-head{display:flex;align-items:center;gap:14px;padding:13px;border:1px solid #d8e1ea;border-radius:12px;background:#fff}
+.communication-log-detail-head strong,.communication-log-detail-head small{display:block}.communication-log-detail-head small{color:#718193;margin-top:3px}
+.communication-log-entries{display:grid;gap:10px;margin-top:12px}
+.communication-entry{border:1px solid #d8e1ea;border-left:5px solid #173650;border-radius:12px;background:#fff;padding:14px}
+.communication-entry.statement{border-left-color:#246b9e}.communication-entry.invoice{border-left-color:#8b5b23}.communication-entry.notification{border-left-color:#c7313c}
+.communication-entry-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.communication-entry-head strong{color:#102b48}.communication-entry-time{font-size:12px;color:#718193;white-space:nowrap}
+.communication-entry p{margin:8px 0;color:#556779;white-space:pre-wrap}
+.communication-channels{display:flex;flex-wrap:wrap;gap:7px}.communication-channel{border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;background:#edf2f7;color:#536475}.communication-channel.sent{background:#ddf4e8;color:#17633f}.communication-channel.failed{background:#fde8e8;color:#9b3030}
+.communication-log-empty{padding:24px;text-align:center;border:1px dashed #c7d3de;border-radius:12px;background:#fff;color:#718193}
+@media(max-width:900px){.communication-log-filters{grid-template-columns:1fr 1fr}.communication-customer-row{grid-template-columns:1fr repeat(2,75px)}.communication-customer-row .communication-count:nth-of-type(4),.communication-customer-row .communication-count:nth-of-type(5){display:none}.communication-last{grid-column:1/-1;text-align:left}}
+@media(max-width:600px){.communication-log-section{padding:14px}.communication-log-filters{grid-template-columns:1fr}.communication-customer-row{grid-template-columns:1fr 70px}.communication-customer-row .communication-count{display:none}.communication-customer-row .communication-count:first-of-type{display:block}.communication-log-detail-head{align-items:flex-start;flex-direction:column}.communication-entry-head{display:block}.communication-entry-time{margin-top:5px}}
+</style>
+
 
 <style id="wooten-admin-login-customer-portal-style">
   .admin-login-overlay{
@@ -2729,10 +2755,10 @@ input[type="file"]::file-selector-button{
   box-sizing:border-box !important;
 }
 
-/* CUSTOMER DATABASE: 5 equal, stable fields */
+/* CUSTOMER DATABASE: search plus five stable filters */
 #admin-tab-database .db-toolbar{
   display:grid !important;
-  grid-template-columns:1.65fr .9fr .9fr .9fr .95fr !important;
+  grid-template-columns:1.55fr .8fr .8fr .9fr .9fr .95fr !important;
   gap:14px !important;
   align-items:end !important;
 }
@@ -2930,6 +2956,21 @@ input[type="file"]::file-selector-button{
 .twilio-status-title{color:#0b2239;font-size:13px;font-weight:800}.twilio-status-meta{margin-top:3px;color:#64748b;font-size:12.5px;line-height:1.4}.twilio-status-meta.ok{color:#287342}.twilio-status-meta.bad{color:#a52632}.twilio-status-card button{flex:0 0 auto}
 .notify-delivery-options{display:grid;gap:9px;margin-top:14px}.notify-sms-note{margin-left:26px;color:#64748b;font-size:12px;line-height:1.45}
 @media(max-width:620px){.twilio-status-card{align-items:flex-start}.twilio-status-card button{min-width:110px}}
+</style>
+<style id="wooten-live-customer-contact-icons-style">
+.db-table{min-width:1240px !important}
+.db-contact-cell{min-width:142px}
+.db-contact-icons{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.db-contact-toggle{width:36px;height:36px;padding:0;border:1px solid #d5dde5;border-radius:10px;background:#f3f5f7;color:#919ba5;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .14s ease,background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease}
+.db-contact-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.db-contact-toggle:hover,.db-contact-toggle:focus-visible{transform:translateY(-1px);border-color:#9aaabd;outline:none;box-shadow:0 4px 10px rgba(15,39,66,.1)}
+.db-contact-toggle.active[data-channel="email"]{background:#e8f2ff;border-color:#9bc4f4;color:#1769aa}
+.db-contact-toggle.active[data-channel="sms"]{background:#e8f8ef;border-color:#9dd9b5;color:#238451}
+.db-contact-toggle.active[data-channel="portal"]{background:#f0ecff;border-color:#b9abea;color:#6548b8}
+.db-contact-toggle.saving{opacity:.55;pointer-events:none}
+.db-contact-help{margin:8px 0 0;color:#667789;font-size:12px;line-height:1.45}
+.statement-contact-selection-note{margin:10px 0 0;padding:10px 12px;border:1px solid #dbe5ec;border-radius:10px;background:#f7fafc;color:#526477;font-size:12px;line-height:1.5}
+@media(max-width:720px){.db-contact-cell{min-width:128px}.db-contact-toggle{width:34px;height:34px}}
 </style>
 </head>
 <body>
@@ -3181,7 +3222,7 @@ input[type="file"]::file-selector-button{
   <div class="card admin-tab-panel" id="admin-tab-database" role="tabpanel" aria-labelledby="admin-tab-btn-database" data-admin-panel="database">
     <div class="admin-page-label">Database</div>
     <h2>Live Customer Database</h2>
-    <p>Read-only view of customer records stored on the server. Enter the Admin Import Key above, then load the database. Search, filter, sort, and page through the live D1 records without changing them.</p>
+    <p>View customer records stored on the server and choose how each customer receives statements. Customer account data remains read-only; only the Contact delivery selections can be changed.</p>
 
     <div class="db-toolbar">
       <div class="db-field db-search">
@@ -3195,6 +3236,15 @@ input[type="file"]::file-selector-button{
           <option value="all">All customers</option>
           <option value="with">With email</option>
           <option value="without">Without email</option>
+        </select>
+      </div>
+
+      <div class="db-field">
+        <label for="dbPhoneFilter">Phone</label>
+        <select id="dbPhoneFilter">
+          <option value="all">All customers</option>
+          <option value="with">With phone</option>
+          <option value="without">Without phone</option>
         </select>
       </div>
 
@@ -3248,6 +3298,7 @@ input[type="file"]::file-selector-button{
         <thead>
           <tr>
             <th>Customer #</th>
+            <th>Contact</th>
             <th>Customer / Company</th>
             <th>Email</th>
             <th>Phone</th>
@@ -3260,6 +3311,7 @@ input[type="file"]::file-selector-button{
         <tbody id="dbTableBody"></tbody>
       </table>
     </div>
+    <p class="db-contact-help"><strong>Contact icons:</strong> Colored means selected for statement delivery; gray means skipped. Email and Phone appear only when that information is on file. Portal is available for every customer.</p>
 
     <div class="db-pagination" id="dbPagination" style="display:none">
       <button class="secondary" id="dbPrevBtn" type="button">Previous</button>
@@ -3567,6 +3619,7 @@ input[type="file"]::file-selector-button{
           <div class="admin-page-label">Generate Statements</div>
           <h3>Send Account Statements</h3>
           <p>Select individual customers or select all customers with phone numbers on file. Send each generated PDF through the secure customer portal, email, SMS, or all three.</p>
+          <p class="statement-contact-selection-note"><strong>Customer delivery selections:</strong> The colored Email, Phone, and Portal icons in Live Customer Data determine which enabled methods each customer receives. Gray icons are skipped.</p>
         </div>
       </div>
 
@@ -3633,6 +3686,34 @@ input[type="file"]::file-selector-button{
 
       <div id="statementBatchStatus" class="status"></div>
       <div id="statementBatchProgress" class="statement-batch-progress"></div>
+    </div>
+
+    <div class="communication-log-section">
+      <div class="statement-batch-head">
+        <div>
+          <div class="admin-page-label">Communication History</div>
+          <h3>Statements, Invoices &amp; Notifications Log</h3>
+          <p>Review every recorded send. Select a customer to see repeated notifications, statements, and invoices within the selected period.</p>
+        </div>
+      </div>
+      <div class="communication-log-filters">
+        <div><label for="communicationLogFrom">From</label><input id="communicationLogFrom" type="date"></div>
+        <div><label for="communicationLogTo">To</label><input id="communicationLogTo" type="date"></div>
+        <div><label for="communicationLogType">Type</label><select id="communicationLogType"><option value="all">All activity</option><option value="notification">Notifications</option><option value="statement">Statements</option><option value="invoice">Invoices</option></select></div>
+        <div><label for="communicationLogSearch">Find Customer</label><input id="communicationLogSearch" type="search" placeholder="Customer # or name…"></div>
+      </div>
+      <div class="actions communication-log-actions">
+        <button class="primary" id="communicationLogLoad" type="button">Load Communication Log</button>
+      </div>
+      <div id="communicationLogStatus" class="status"></div>
+      <div id="communicationLogCustomers" class="communication-log-customers"></div>
+      <div id="communicationLogDetail" class="communication-log-detail" hidden>
+        <div class="communication-log-detail-head">
+          <button class="secondary" id="communicationLogBack" type="button">Back to Customers</button>
+          <div><strong id="communicationLogCustomerName"></strong><small id="communicationLogCustomerMeta"></small></div>
+        </div>
+        <div id="communicationLogEntries" class="communication-log-entries"></div>
+      </div>
     </div>
 
 
@@ -5209,6 +5290,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 (function(){
   const search=document.getElementById("dbSearch");
   const emailFilter=document.getElementById("dbEmailFilter");
+  const phoneFilter=document.getElementById("dbPhoneFilter");
   const onlineFilter=document.getElementById("dbOnlineFilter");
   const statusFilter=document.getElementById("dbStatusFilter");
   const sort=document.getElementById("dbSort");
@@ -5267,6 +5349,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       page_size:String(pageSize),
       search:search.value.trim(),
       email:emailFilter.value,
+      phone:phoneFilter.value,
       online:onlineFilter.value,
       status:statusFilter.value,
       sort:sort.value
@@ -5276,10 +5359,29 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   let currentRows=[];
 
+  function contactIcon(row,channel,enabled,label){
+    const icons={
+      email:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>',
+      sms:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M10 6h4M10 18h4"></path></svg>',
+      portal:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M8 22h8M12 18v4"></path><circle cx="12" cy="10" r="2.2"></circle></svg>'
+    };
+    return '<button type="button" class="db-contact-toggle '+(enabled?'active':'')+'" data-contact-account="'+esc(row.account_number||'')+'" data-channel="'+channel+'" aria-pressed="'+(enabled?'true':'false')+'" title="'+esc(label+': '+(enabled?'selected':'not selected'))+'" aria-label="'+esc(label+': '+(enabled?'selected':'not selected'))+'">'+icons[channel]+'</button>';
+  }
+
+  function contactIcons(row){
+    const hasEmail=!!String(row.email||'').trim();
+    const hasPhone=!!String(row.phone||'').trim();
+    return '<div class="db-contact-icons">'+
+      (hasEmail?contactIcon(row,'email',Number(row.contact_email_enabled)!==0,'Email'):'')+
+      (hasPhone?contactIcon(row,'sms',Number(row.contact_sms_enabled)!==0,'Phone / SMS'):'')+
+      contactIcon(row,'portal',Number(row.contact_portal_enabled)!==0,'Customer Portal')+
+    '</div>';
+  }
+
   function renderRows(rows){
     currentRows=rows;
     if(!rows.length){
-      tbody.innerHTML='<tr><td colspan="8"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
+      tbody.innerHTML='<tr><td colspan="9"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
       return;
     }
 
@@ -5296,6 +5398,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
       return `<tr>
         <td class="account">${esc(acct)}</td>
+        <td class="db-contact-cell">${contactIcons(row)}</td>
         <td class="db-company">${esc(row.account_name||"")}</td>
         <td class="email-cell db-email" title="${esc(row.email||"")}">${esc(row.email||"—")}</td>
         <td>${esc(row.phone||"—")}</td>
@@ -5473,11 +5576,54 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   tbody.addEventListener("click",e=>{
+    const contactBtn=e.target.closest(".db-contact-toggle");
+    if(contactBtn){
+      e.preventDefault();
+      updateContactPreference(contactBtn);
+      return;
+    }
     const btn=e.target.closest("[data-db-row]");
     if(!btn) return;
     const index=Number(btn.getAttribute("data-db-row"));
     if(Number.isInteger(index) && currentRows[index]) renderCustomerDetails(currentRows[index]);
   });
+
+  async function updateContactPreference(button){
+    if(!button || button.classList.contains('saving')) return;
+    const key=document.getElementById("adminKey").value.trim();
+    if(!key){
+      window.ensureAdminLoginKey('Enter your Admin Import Key to change contact selections.');
+      setDbStatus('Enter your Admin Import Key in the Admin Login window first.');
+      return;
+    }
+
+    const account=button.getAttribute('data-contact-account')||'';
+    const channel=button.getAttribute('data-channel')||'';
+    const enabled=!button.classList.contains('active');
+    button.classList.add('saving');
+    try{
+      const response=await fetch('/api/admin/customer-contact-preferences',{
+        method:'POST',
+        headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({account_number:account,channel,enabled})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok || data.success===false) throw new Error(data.error||'Contact selection could not be saved.');
+
+      const row=currentRows.find(item=>String(item.account_number)===String(account));
+      if(row) row[channel==='email'?'contact_email_enabled':channel==='sms'?'contact_sms_enabled':'contact_portal_enabled']=enabled?1:0;
+      button.classList.toggle('active',enabled);
+      button.setAttribute('aria-pressed',enabled?'true':'false');
+      const label=channel==='email'?'Email':channel==='sms'?'Phone / SMS':'Customer Portal';
+      button.title=label+': '+(enabled?'selected':'not selected');
+      button.setAttribute('aria-label',button.title);
+      setDbStatus(label+' delivery '+(enabled?'selected':'turned off')+' for Customer # '+account+'.',true);
+    }catch(error){
+      setDbStatus(error.message||'Contact selection could not be saved.');
+    }finally{
+      button.classList.remove('saving');
+    }
+  }
 
   document.getElementById("dbCustomerModalClose").addEventListener("click",closeCustomerDetails);
   document.getElementById("dbCustomerModal").addEventListener("click",e=>{
@@ -5553,6 +5699,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   loadBtn.addEventListener("click",()=>{page=1;loadDatabase();});
   refreshBtn.addEventListener("click",()=>loadDatabase());
   emailFilter.addEventListener("change",filtersChanged);
+  phoneFilter.addEventListener("change",filtersChanged);
   onlineFilter.addEventListener("change",filtersChanged);
   statusFilter.addEventListener("change",filtersChanged);
   sort.addEventListener("change",filtersChanged);
@@ -6014,6 +6161,102 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       sendBtn.textContent='Generate & Send Statements';
     }
   });
+})();
+</script>
+
+
+<script id="wooten-admin-communication-log-script">
+(function(){
+  const loadBtn=document.getElementById('communicationLogLoad');
+  const backBtn=document.getElementById('communicationLogBack');
+  const from=document.getElementById('communicationLogFrom');
+  const to=document.getElementById('communicationLogTo');
+  const type=document.getElementById('communicationLogType');
+  const search=document.getElementById('communicationLogSearch');
+  const status=document.getElementById('communicationLogStatus');
+  const customersEl=document.getElementById('communicationLogCustomers');
+  const detailEl=document.getElementById('communicationLogDetail');
+  const entriesEl=document.getElementById('communicationLogEntries');
+  const customerNameEl=document.getElementById('communicationLogCustomerName');
+  const customerMetaEl=document.getElementById('communicationLogCustomerMeta');
+  if(!loadBtn||!customersEl||!detailEl) return;
+
+  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  const now=new Date();
+  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
+  if(!to.value) to.value=dateValue(now);
+  if(!from.value) from.value=dateValue(earlier);
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+  function formatDate(v){
+    const d=new Date(String(v||'').replace(' ','T')+'Z');
+    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+  function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
+  function params(account){
+    const p=new URLSearchParams();
+    if(from.value)p.set('from',from.value);if(to.value)p.set('to',to.value);
+    if(type.value)p.set('type',type.value);if(search.value.trim())p.set('q',search.value.trim());
+    if(account)p.set('account_number',account);
+    return p;
+  }
+  async function requestLog(account){
+    const key=document.getElementById('adminKey').value.trim();
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
+    const res=await fetch('/api/admin/communication-log?'+params(account).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
+    return data;
+  }
+  function renderCustomers(rows){
+    detailEl.hidden=true;customersEl.hidden=false;
+    if(!rows.length){customersEl.innerHTML='<div class="communication-log-empty">No recorded activity was found for this period.</div>';return;}
+    customersEl.innerHTML=rows.map(r=>
+      '<button class="communication-customer-row" type="button" data-account="'+esc(r.account_number)+'" data-name="'+esc(r.account_name)+'" data-phone="'+esc(r.phone||'')+'" data-email="'+esc(r.email||'')+'">'+
+        '<span class="communication-customer-name"><strong>'+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(r.account_number)+'</small></span>'+
+        '<span class="communication-count"><strong>'+Number(r.total_count||0)+'</strong><small>Total</small></span>'+
+        '<span class="communication-count"><strong>'+Number(r.notification_count||0)+'</strong><small>Notices</small></span>'+
+        '<span class="communication-count"><strong>'+Number(r.statement_count||0)+'</strong><small>Statements</small></span>'+
+        '<span class="communication-count"><strong>'+Number(r.invoice_count||0)+'</strong><small>Invoices</small></span>'+
+        '<span class="communication-last">Last sent<br><strong>'+esc(formatDate(r.last_sent_at))+'</strong></span>'+
+      '</button>'
+    ).join('');
+  }
+  function channel(label,sent,attempted){
+    if(!attempted&&!sent)return '';
+    return '<span class="communication-channel '+(sent?'sent':'failed')+'">'+esc(label)+' '+(sent?'Sent':'Failed')+'</span>';
+  }
+  function renderEntries(rows){
+    if(!rows.length){entriesEl.innerHTML='<div class="communication-log-empty">No activity was found for this customer in the selected period.</div>';return;}
+    entriesEl.innerHTML=rows.map(r=>{
+      const error=String(r.error_text||'');
+      const emailAttempted=!!r.email_sent||/email/i.test(error);
+      const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
+      return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
+        '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+esc(r.title||'Customer Communication')+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
+        '<p>'+esc(r.detail||'')+'</p><div class="communication-channels">'+
+        channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
+        '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
+    }).join('');
+  }
+  async function loadCustomers(){
+    loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
+    try{const data=await requestLog('');renderCustomers(Array.isArray(data.customers)?data.customers:[]);setStatus((data.customers||[]).length+' customer record(s) found.',true);}
+    catch(e){setStatus(e.message||'Communication log could not be loaded.',false);}
+    finally{loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
+  }
+  loadBtn.addEventListener('click',loadCustomers);
+  customersEl.addEventListener('click',async function(e){
+    const row=e.target.closest('.communication-customer-row');if(!row)return;
+    const account=row.getAttribute('data-account');
+    customerNameEl.textContent=row.getAttribute('data-name')||'Customer';
+    customerMetaEl.textContent='Customer # '+account+' • '+(row.getAttribute('data-phone')||'No phone')+' • '+(row.getAttribute('data-email')||'No email');
+    customersEl.hidden=true;detailEl.hidden=false;entriesEl.innerHTML='<div class="communication-log-empty">Loading customer history…</div>';
+    try{const data=await requestLog(account);renderEntries(Array.isArray(data.entries)?data.entries:[]);}
+    catch(err){entriesEl.innerHTML='<div class="communication-log-empty">'+esc(err.message||'History could not be loaded.')+'</div>';}
+  });
+  backBtn.addEventListener('click',function(){detailEl.hidden=true;customersEl.hidden=false;});
+  [from,to,type].forEach(el=>el&&el.addEventListener('change',loadCustomers));
+  let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(loadCustomers,350);});
 })();
 </script>
 
