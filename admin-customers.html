@@ -2261,6 +2261,7 @@ input[type="file"]::file-selector-button{
 .communication-entry-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.communication-entry-head strong{color:#102b48}.communication-entry-time{font-size:12px;color:#718193;white-space:nowrap}
 .communication-entry p{margin:8px 0;color:#556779;white-space:pre-wrap}
 .communication-channels{display:flex;flex-wrap:wrap;gap:7px}.communication-channel{border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;background:#edf2f7;color:#536475}.communication-channel.sent{background:#ddf4e8;color:#17633f}.communication-channel.failed{background:#fde8e8;color:#9b3030}
+.sms-delivery{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}.sms-status{border-radius:999px;padding:5px 10px;font-size:11px;font-weight:900}.sms-status.delivered{background:#d9f3e6;color:#17633f}.sms-status.pending{background:#fff0c7;color:#725300}.sms-status.failed{background:#fde3e3;color:#9b3030}.sms-status.opted_out{background:#e8ebef;color:#4d5967}.sms-error-detail{width:100%;margin:0!important;color:#9b3030!important;font-size:12px}.sms-resend{border:1px solid #b92d36;border-radius:8px;background:#fff;color:#9b2029;padding:6px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}.sms-resend:hover{background:#fff1f2}.sms-resend:disabled{opacity:.6;cursor:wait}
 .communication-log-empty{padding:24px;text-align:center;border:1px dashed #c7d3de;border-radius:12px;background:#fff;color:#718193}
 @media(max-width:900px){.communication-log-filters{grid-template-columns:1fr 1fr}.communication-customer-row{grid-template-columns:1fr repeat(2,75px)}.communication-customer-row .communication-count:nth-of-type(4),.communication-customer-row .communication-count:nth-of-type(5){display:none}.communication-last{grid-column:1/-1;text-align:left}}
 @media(max-width:600px){.communication-log-section{padding:14px}.communication-log-filters{grid-template-columns:1fr}.communication-customer-row{grid-template-columns:1fr 70px}.communication-customer-row .communication-count{display:none}.communication-customer-row .communication-count:first-of-type{display:block}.communication-log-detail-head{align-items:flex-start;flex-direction:column}.communication-entry-head{display:block}.communication-entry-time{margin-top:5px}}
@@ -6618,11 +6619,17 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const error=String(r.error_text||'');
       const emailAttempted=!!r.email_sent||/email/i.test(error);
       const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
+      const smsStatus=String(r.sms_status||((r.sms_sent&&r.sms_sid)?'pending':'')).toLowerCase();
+      const smsLabel={delivered:'Delivered',failed:'Failed',pending:'Pending',opted_out:'Opted Out'}[smsStatus]||'';
+      const smsError=String(r.sms_error_message||'');
+      const smsDelivery=smsLabel?'<div class="sms-delivery"><span class="sms-status '+esc(smsStatus)+'">SMS '+esc(smsLabel)+'</span>'+
+        (smsStatus==='failed'?'<button class="sms-resend" type="button" data-sms-resend="'+Number(r.id||0)+'">Resend SMS</button>':'')+
+        (smsError?'<p class="sms-error-detail">'+(r.sms_error_code?'Twilio '+esc(r.sms_error_code)+': ':'')+esc(smsError)+'</p>':'')+'</div>':'';
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+esc(r.title||'Customer Communication')+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
         '<p>'+esc(r.detail||'')+'</p><div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
-        '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
+        '</div>'+smsDelivery+(error&&!smsError?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
   }
   function childHtml(account,state){
@@ -6694,6 +6701,22 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   loadBtn.addEventListener('click',()=>loadCustomers(true));
   customersEl.addEventListener('click',function(e){
+    const resend=e.target.closest('[data-sms-resend]');
+    if(resend){
+      e.preventDefault();e.stopPropagation();
+      const id=Number(resend.getAttribute('data-sms-resend')||0);
+      const node=resend.closest('[data-tree-node]');
+      const account=node?node.getAttribute('data-tree-node'):'';
+      const state=openNodes.get(account);
+      const key=document.getElementById('adminKey').value.trim();
+      if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to resend this SMS.');return;}
+      resend.disabled=true;resend.textContent='Resending…';
+      fetch('/api/admin/communication-log/resend',{method:'POST',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({id:id})})
+        .then(async response=>{const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'SMS could not be resent.');return data;})
+        .then(()=>{setStatus('SMS resend was accepted by Twilio and is pending delivery.',true);return loadNode(account,state&&state.page||1);})
+        .catch(error=>{setStatus(error.message||'SMS could not be resent.',false);resend.disabled=false;resend.textContent='Resend SMS';});
+      return;
+    }
     const pager=e.target.closest('[data-tree-action]');
     if(pager){
       e.preventDefault();e.stopPropagation();

@@ -3115,6 +3115,15 @@ async function ensureCustomerNotificationsTable(env) {
     if(!cols.includes("sms_error")){
       await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_error TEXT`).run();
     }
+    if(!cols.includes("sms_status")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_status TEXT`).run();
+    }
+    if(!cols.includes("sms_error_code")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_error_code TEXT`).run();
+    }
+    if(!cols.includes("sms_updated_at")){
+      await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_updated_at TEXT`).run();
+    }
   }catch(error){
     console.error("portal notification action columns check failed",error);
   }
@@ -3159,9 +3168,36 @@ async function ensureAdminCommunicationLogTable(env){
       UNIQUE(source_type,source_id)
     )
   `).run();
+  const info=await env.DB.prepare(`PRAGMA table_info(admin_communication_log)`).all();
+  const cols=(info?.results||[]).map(row=>String(row.name||"").toLowerCase());
+  const additions=[
+    ["sms_status","TEXT"],["sms_error_code","TEXT"],["sms_error_message","TEXT"],
+    ["sms_to","TEXT"],["sms_body","TEXT"],["sms_updated_at","TEXT"],
+    ["sms_delivered_at","TEXT"],["sms_failed_at","TEXT"],["sms_opted_out_at","TEXT"],
+    ["resend_of_id","INTEGER"],["attempt_no","INTEGER NOT NULL DEFAULT 1"]
+  ];
+  for(const [name,type] of additions){
+    if(!cols.includes(name)) await env.DB.prepare(`ALTER TABLE admin_communication_log ADD COLUMN ${name} ${type}`).run();
+  }
   await env.DB.prepare(`
     CREATE INDEX IF NOT EXISTS idx_admin_communication_log_account_created
     ON admin_communication_log(account_number,created_at DESC,id DESC)
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_admin_communication_log_sms_sid
+    ON admin_communication_log(sms_sid)
+  `).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS sms_contact_preferences (
+      phone_e164 TEXT PRIMARY KEY,
+      opted_out INTEGER NOT NULL DEFAULT 0,
+      opt_out_type TEXT,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    UPDATE admin_communication_log SET sms_status='pending'
+    WHERE COALESCE(sms_status,'')='' AND sms_sent=1 AND COALESCE(sms_sid,'')<>''
   `).run();
 }
 __name(ensureAdminCommunicationLogTable,"ensureAdminCommunicationLogTable");
@@ -3281,6 +3317,57 @@ async function adminCommunicationLogGet({request,env}){
 }
 __name(adminCommunicationLogGet,"adminCommunicationLogGet");
 
+async function adminCommunicationLogResend({request,env}){
+  try{
+    const supplied=request.headers.get("X-Admin-Key")||"";
+    if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY) return notificationJson({success:false,error:"Unauthorized."},401);
+    const body=await request.json().catch(()=>({}));
+    const id=Number.parseInt(body.id,10);
+    if(!id) return notificationJson({success:false,error:"A communication log ID is required."},400);
+    await ensureAdminCommunicationLogTable(env);
+    const original=await env.DB.prepare(`SELECT * FROM admin_communication_log WHERE id=? LIMIT 1`).bind(id).first();
+    if(!original) return notificationJson({success:false,error:"Communication record was not found."},404);
+    if(String(original.sms_status||"")!=="failed") return notificationJson({success:false,error:"Only a failed SMS can be resent."},409);
+    const to=twilioNormalizePhone(original.sms_to||"");
+    if(!to||!String(original.sms_body||"").trim()) return notificationJson({success:false,error:"This older record does not contain the phone number and message needed for resend."},409);
+    const preference=await env.DB.prepare(`SELECT opted_out FROM sms_contact_preferences WHERE phone_e164=?`).bind(to).first();
+    if(Number(preference?.opted_out||0)===1) return notificationJson({success:false,error:"This customer has opted out of SMS messages."},409);
+    const rootId=Number(original.resend_of_id||original.id);
+    const attemptRow=await env.DB.prepare(`SELECT MAX(attempt_no) AS attempt FROM admin_communication_log WHERE id=? OR resend_of_id=?`).bind(rootId,rootId).first();
+    const attempt=Math.max(1,Number(attemptRow?.attempt||1))+1;
+    let sent=null,error=null,status="failed",code="";
+    try{
+      sent=await twilioSendSms(env,to,original.sms_body,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
+      status="pending";
+    }catch(caught){
+      error=caught;
+      code=String(caught?.twilioCode||"");
+      status=code==="21610"?"opted_out":"failed";
+      if(status==="opted_out") await twilioRememberOptOut(env,to,true,"STOP");
+    }
+    const errorMessage=error?twilioErrorDescription(code,String(error?.message||error)):"";
+    const sourceType=`sms_resend_${crypto.randomUUID()}`;
+    const inserted=await env.DB.prepare(`
+      INSERT INTO admin_communication_log
+        (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,sms_sid,error_text,
+         sms_status,sms_error_code,sms_error_message,sms_to,sms_body,sms_updated_at,sms_failed_at,sms_opted_out_at,resend_of_id,attempt_no,created_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,
+        CASE WHEN ?='failed' THEN CURRENT_TIMESTAMP ELSE NULL END,
+        CASE WHEN ?='opted_out' THEN CURRENT_TIMESTAMP ELSE NULL END,?,?,CURRENT_TIMESTAMP)
+    `).bind(
+      original.account_number,original.event_type,original.title,original.detail,sourceType,rootId,0,0,sent?1:0,
+      sent?.sid||"",errorMessage,status,code,errorMessage,to,original.sms_body,status,status,rootId,attempt
+    ).run();
+    const newId=inserted?.meta?.last_row_id||inserted?.meta?.last_insert_rowid||null;
+    if(error) return notificationJson({success:false,error:errorMessage,status,log_id:newId},422);
+    return notificationJson({success:true,status:"pending",sms_sid:sent.sid||"",log_id:newId,attempt_no:attempt});
+  }catch(error){
+    console.error("adminCommunicationLogResend failed",error);
+    return notificationJson({success:false,error:"The SMS could not be resent. "+String(error?.message||error)},500);
+  }
+}
+__name(adminCommunicationLogResend,"adminCommunicationLogResend");
+
 function notificationJson(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -3376,11 +3463,46 @@ function twilioNormalizePhone(value){
   return "";
 }
 __name(twilioNormalizePhone,"twilioNormalizePhone");
-async function twilioSendSms(env,to,body){
+function twilioCallbackUrl(request,path){
+  const url=new URL(request.url);
+  return `${url.origin}${path}`;
+}
+__name(twilioCallbackUrl,"twilioCallbackUrl");
+function twilioDeliveryStatus(value,errorCode=""){
+  const status=String(value||"").trim().toLowerCase();
+  if(String(errorCode||"")==="21610") return "opted_out";
+  if(status==="delivered") return "delivered";
+  if(status==="failed"||status==="undelivered") return "failed";
+  if(status==="opted_out") return "opted_out";
+  return "pending";
+}
+__name(twilioDeliveryStatus,"twilioDeliveryStatus");
+function twilioErrorDescription(code,fallback=""){
+  const messages={
+    "21610":"The customer has opted out of SMS messages.","21211":"The destination phone number is invalid.",
+    "21614":"The destination is not a mobile number.","30003":"The destination handset is unavailable.",
+    "30004":"The message was blocked by the destination carrier.","30005":"The destination number is unknown or inactive.",
+    "30006":"The destination is a landline or cannot receive SMS.","30007":"The message was filtered by the carrier.",
+    "30008":"The carrier could not deliver the message.","30017":"The carrier network is congested.",
+    "30034":"The message requires an approved A2P campaign."
+  };
+  return String(fallback||messages[String(code||"")]||(`Twilio delivery error ${code||"unknown"}.`));
+}
+__name(twilioErrorDescription,"twilioErrorDescription");
+async function twilioSendSms(env,to,body,options={}){
   const config=twilioConfig(env);
   if(!config.configured) throw new Error(`Twilio is not configured. Missing: ${config.missing.join(", ")}.`);
   const normalizedTo=twilioNormalizePhone(to);
   if(!normalizedTo) throw new Error("Customer phone number is not a valid U.S./E.164 number.");
+  if(env?.DB){
+    await ensureAdminCommunicationLogTable(env);
+    const preference=await env.DB.prepare(`SELECT opted_out FROM sms_contact_preferences WHERE phone_e164=?`).bind(normalizedTo).first();
+    if(Number(preference?.opted_out||0)===1){
+      const optedOutError=new Error("The customer has opted out of SMS messages.");
+      optedOutError.twilioCode="21610";
+      throw optedOutError;
+    }
+  }
   const text=String(body||"").trim();
   if(!text) throw new Error("SMS message is empty.");
   const params=new URLSearchParams();
@@ -3388,16 +3510,96 @@ async function twilioSendSms(env,to,body){
   params.set("Body",text.slice(0,1500));
   if(config.messagingServiceSid) params.set("MessagingServiceSid",config.messagingServiceSid);
   else params.set("From",config.phoneNumber);
+  if(options.statusCallbackUrl) params.set("StatusCallback",String(options.statusCallbackUrl));
   const response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Messages.json`,{
     method:"POST",
     headers:{"Authorization":`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,"Content-Type":"application/x-www-form-urlencoded"},
     body:params.toString()
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(String(data?.message||`Twilio request failed with status ${response.status}.`));
+  if(!response.ok){
+    const error=new Error(String(data?.message||`Twilio request failed with status ${response.status}.`));
+    error.twilioCode=String(data?.code||"");
+    error.twilioStatus=response.status;
+    throw error;
+  }
   return {sid:String(data?.sid||""),status:String(data?.status||""),to:normalizedTo};
 }
 __name(twilioSendSms,"twilioSendSms");
+
+async function twilioValidateWebhook(request,params,env){
+  const supplied=String(request.headers.get("X-Twilio-Signature")||"");
+  const token=String(env.TWILIO_AUTH_TOKEN||"");
+  if(!supplied||!token) return false;
+  const entries=[...params.entries()].sort((a,b)=>a[0]===b[0]?a[1].localeCompare(b[1]):a[0].localeCompare(b[0]));
+  let signed=request.url;
+  for(const [key,value] of entries) signed+=key+value;
+  const cryptoKey=await crypto.subtle.importKey("raw",new TextEncoder().encode(token),{name:"HMAC",hash:"SHA-1"},false,["sign"]);
+  const digest=new Uint8Array(await crypto.subtle.sign("HMAC",cryptoKey,new TextEncoder().encode(signed)));
+  const expected=btoa(String.fromCharCode(...digest));
+  if(expected.length!==supplied.length) return false;
+  let difference=0;
+  for(let index=0;index<expected.length;index++) difference|=expected.charCodeAt(index)^supplied.charCodeAt(index);
+  return difference===0;
+}
+__name(twilioValidateWebhook,"twilioValidateWebhook");
+async function twilioRememberOptOut(env,phone,optedOut,type=""){
+  const normalized=twilioNormalizePhone(phone);
+  if(!normalized) return;
+  await ensureAdminCommunicationLogTable(env);
+  await env.DB.prepare(`
+    INSERT INTO sms_contact_preferences(phone_e164,opted_out,opt_out_type,updated_at)
+    VALUES(?,?,?,CURRENT_TIMESTAMP)
+    ON CONFLICT(phone_e164) DO UPDATE SET opted_out=excluded.opted_out,opt_out_type=excluded.opt_out_type,updated_at=CURRENT_TIMESTAMP
+  `).bind(normalized,optedOut?1:0,String(type||"")).run();
+}
+__name(twilioRememberOptOut,"twilioRememberOptOut");
+async function twilioMessageStatusPost({request,env}){
+  const params=new URLSearchParams(await request.text());
+  if(!await twilioValidateWebhook(request,params,env)) return notificationJson({success:false,error:"Invalid Twilio signature."},403);
+  await ensureCustomerNotificationsTable(env);
+  await ensureAdminCommunicationLogTable(env);
+  const sid=String(params.get("MessageSid")||params.get("SmsSid")||"");
+  const code=String(params.get("ErrorCode")||"");
+  const status=twilioDeliveryStatus(params.get("MessageStatus")||params.get("SmsStatus"),code);
+  const errorMessage=(status==="failed"||status==="opted_out")?twilioErrorDescription(code,params.get("ErrorMessage")||""):"";
+  const current=await env.DB.prepare(`SELECT sms_status,sms_to FROM admin_communication_log WHERE sms_sid=? LIMIT 1`).bind(sid).first();
+  const currentStatus=String(current?.sms_status||"");
+  if(currentStatus==="opted_out"||(status==="pending"&&["delivered","failed","opted_out"].includes(currentStatus))) return new Response(null,{status:204});
+  if(code==="21610"){
+    if(current?.sms_to) await twilioRememberOptOut(env,current.sms_to,true,"STOP");
+  }
+  await env.DB.prepare(`
+    UPDATE admin_communication_log SET
+      sms_status=?,sms_error_code=?,sms_error_message=?,sms_updated_at=CURRENT_TIMESTAMP,
+      sms_delivered_at=CASE WHEN ?='delivered' THEN CURRENT_TIMESTAMP ELSE sms_delivered_at END,
+      sms_failed_at=CASE WHEN ?='failed' THEN CURRENT_TIMESTAMP ELSE sms_failed_at END,
+      sms_opted_out_at=CASE WHEN ?='opted_out' THEN CURRENT_TIMESTAMP ELSE sms_opted_out_at END,
+      error_text=CASE WHEN ?<>'' THEN ? ELSE error_text END
+    WHERE sms_sid=? AND COALESCE(sms_status,'')<>'delivered'
+  `).bind(status,code,errorMessage,status,status,status,errorMessage,errorMessage,sid).run();
+  await env.DB.prepare(`
+    UPDATE portal_notifications SET sms_status=?,sms_error_code=?,sms_error=?,sms_updated_at=CURRENT_TIMESTAMP
+    WHERE sms_sid=?
+  `).bind(status,code,errorMessage,sid).run();
+  return new Response(null,{status:204});
+}
+__name(twilioMessageStatusPost,"twilioMessageStatusPost");
+async function twilioIncomingMessagePost({request,env}){
+  const params=new URLSearchParams(await request.text());
+  if(!await twilioValidateWebhook(request,params,env)) return notificationJson({success:false,error:"Invalid Twilio signature."},403);
+  const phone=String(params.get("From")||"");
+  const optType=String(params.get("OptOutType")||"").trim().toUpperCase();
+  const body=String(params.get("Body")||"").trim().toUpperCase();
+  const action=optType||(["STOP","STOPALL","UNSUBSCRIBE","CANCEL","END","QUIT"].includes(body)?"STOP":["START","YES","UNSTOP"].includes(body)?"START":"");
+  if(action==="STOP"){
+    await twilioRememberOptOut(env,phone,true,"STOP");
+    const normalized=twilioNormalizePhone(phone);
+    await env.DB.prepare(`UPDATE admin_communication_log SET sms_status='opted_out',sms_opted_out_at=CURRENT_TIMESTAMP,sms_updated_at=CURRENT_TIMESTAMP WHERE id=(SELECT id FROM admin_communication_log WHERE sms_to=? ORDER BY created_at DESC,id DESC LIMIT 1)`).bind(normalized).run();
+  }else if(action==="START") await twilioRememberOptOut(env,phone,false,"START");
+  return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>',{status:200,headers:{"Content-Type":"text/xml; charset=utf-8"}});
+}
+__name(twilioIncomingMessagePost,"twilioIncomingMessagePost");
 
 async function ensurePortalDocumentLinksTable(env){
   await env.DB.prepare(`
@@ -3972,6 +4174,9 @@ async function adminSendCustomerNotification({ request, env }) {
     let smsSent=false;
     let smsSid="";
     let smsError="";
+    let smsErrorCode="";
+    let smsBodyStored="";
+    const smsTo=twilioNormalizePhone(customer.phone||"");
     if(sendSms){
       if(!customer.phone){
         warning=warning?`${warning} SMS was not sent because this customer has no phone number on file.`:"Portal notification was saved, but SMS was not sent because this customer has no phone number on file.";
@@ -3994,11 +4199,14 @@ async function adminSendCustomerNotification({ request, env }) {
             `${message.trim()}\n\n` +
             (documentLink ? `${documentLink}\n\n` : "") +
             `Please do not reply to this message.`;
-          const smsResult=await twilioSendSms(env,customer.phone,smsBody);
+          smsBodyStored=smsBody;
+          const smsResult=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
           smsSent=true;
           smsSid=smsResult.sid||"";
         }catch(error){
+          smsErrorCode=String(error?.twilioCode||"");
           smsError=String(error?.message||error);
+          if(smsErrorCode==="21610") await twilioRememberOptOut(env,smsTo,true,"STOP");
           warning=warning?`${warning} SMS was not sent: ${smsError}`:`Portal notification was saved, but SMS was not sent: ${smsError}`;
           console.error("Twilio customer notification SMS failed",error);
         }
@@ -4009,20 +4217,27 @@ async function adminSendCustomerNotification({ request, env }) {
       try{
         await env.DB.prepare(`
           UPDATE portal_notifications
-          SET sms_sent=?,sms_sid=?,sms_error=?
+          SET sms_sent=?,sms_sid=?,sms_error=?,sms_status=?,sms_error_code=?,sms_updated_at=CURRENT_TIMESTAMP
           WHERE id=? AND account_number=?
-        `).bind(smsSent?1:0,smsSid,smsError,notificationId,customer.account_number).run();
+        `).bind(smsSent?1:0,smsSid,smsError,smsSent?"pending":(smsErrorCode==="21610"?"opted_out":(sendSms&&customer.phone)?"failed":""),smsErrorCode,notificationId,customer.account_number).run();
         await ensureAdminCommunicationLogTable(env);
         await env.DB.prepare(`
           INSERT INTO admin_communication_log
-            (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+            (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,
+             sms_status,sms_error_code,sms_error_message,sms_to,sms_body,sms_updated_at,sms_failed_at,sms_opted_out_at,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,
+            CASE WHEN ?='failed' THEN CURRENT_TIMESTAMP ELSE NULL END,
+            CASE WHEN ?='opted_out' THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP)
           ON CONFLICT(source_type,source_id) DO UPDATE SET
             portal_sent=excluded.portal_sent,email_sent=excluded.email_sent,sms_sent=excluded.sms_sent,
-            email_id=excluded.email_id,sms_sid=excluded.sms_sid,error_text=excluded.error_text
+            email_id=excluded.email_id,sms_sid=excluded.sms_sid,error_text=excluded.error_text,
+            sms_status=excluded.sms_status,sms_error_code=excluded.sms_error_code,sms_error_message=excluded.sms_error_message,
+            sms_to=excluded.sms_to,sms_body=excluded.sms_body,sms_updated_at=excluded.sms_updated_at
         `).bind(
           customer.account_number,"notification",title,message,"notification",notificationId,
-          1,emailSent?1:0,smsSent?1:0,emailId,smsSid,smsError
+          1,emailSent?1:0,smsSent?1:0,emailId,smsSid,smsError,
+          smsSent?"pending":(smsErrorCode==="21610"?"opted_out":(sendSms&&customer.phone)?"failed":""),smsErrorCode,smsError,smsTo,smsBodyStored,
+          smsSent?"pending":(smsErrorCode==="21610"?"opted_out":"failed"),smsSent?"pending":(smsErrorCode==="21610"?"opted_out":"failed")
         ).run();
       }catch(error){
         console.error("notification communication log update failed",error);
@@ -6305,8 +6520,9 @@ async function adminGenerateStatementsPost({request,env}){
           }
         }
 
-        let smsResult={sent:false,reason:customerSmsLink?"no_phone":(smsLink?"sms_not_selected":"sms_disabled")};
+        let smsResult={sent:false,reason:customerSmsLink?"no_phone":(smsLink?"sms_not_selected":"sms_disabled"),body:"",to:twilioNormalizePhone(customer.phone||""),code:""};
         if(customerSmsLink && customer.phone){
+          let smsBody="";
           try{
             const secureLink=await createPortalStatementLink({
               request,
@@ -6317,16 +6533,18 @@ async function adminGenerateStatementsPost({request,env}){
             const statementMonth=new Date(`${statementDate}T12:00:00Z`).toLocaleDateString(
               "en-US",{month:"long",timeZone:"UTC"}
             );
-            const smsBody=
+            smsBody=
               `WOOTEN OIL CO INC\n\n`+
               `${statementMonth} Statement\n\n`+
               `Your new statement is ready. View or download it here:\n\n`+
               `${secureLink}\n\n`+
               `Please do not reply to this message.`;
-            const sent=await twilioSendSms(env,customer.phone,smsBody);
-            smsResult={sent:true,sid:sent.sid||""};
+            const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
+            smsResult={sent:true,sid:sent.sid||"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone),code:""};
           }catch(error){
-            smsResult={sent:false,reason:String(error?.message||error)};
+            const code=String(error?.twilioCode||"");
+            smsResult={sent:false,reason:String(error?.message||error),body:smsBody,to:twilioNormalizePhone(customer.phone),code};
+            if(code==="21610") await twilioRememberOptOut(env,customer.phone,true,"STOP");
             console.error("statement SMS failed",account,error);
           }
         }
@@ -6335,10 +6553,11 @@ async function adminGenerateStatementsPost({request,env}){
           if(notificationId){
             await env.DB.prepare(`
               UPDATE portal_notifications
-              SET sms_sent=?,sms_sid=?,sms_error=?
+              SET sms_sent=?,sms_sid=?,sms_error=?,sms_status=?,sms_error_code=?,sms_updated_at=CURRENT_TIMESTAMP
               WHERE id=? AND account_number=?
             `).bind(
-              smsResult.sent?1:0,smsResult.sid||"",smsResult.sent?"":(smsResult.reason||""),notificationId,account
+              smsResult.sent?1:0,smsResult.sid||"",smsResult.sent?"":(smsResult.reason||""),
+              smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":(customerSmsLink&&customer.phone)?"failed":""),smsResult.code||"",notificationId,account
             ).run();
           }
           await ensureAdminCommunicationLogTable(env);
@@ -6346,15 +6565,23 @@ async function adminGenerateStatementsPost({request,env}){
           const logSourceId=notificationId||documentId;
           await env.DB.prepare(`
             INSERT INTO admin_communication_log
-              (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+              (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,
+               sms_status,sms_error_code,sms_error_message,sms_to,sms_body,sms_updated_at,sms_failed_at,sms_opted_out_at,created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,
+              CASE WHEN ?='failed' THEN CURRENT_TIMESTAMP ELSE NULL END,
+              CASE WHEN ?='opted_out' THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP)
             ON CONFLICT(source_type,source_id) DO UPDATE SET
               portal_sent=excluded.portal_sent,email_sent=excluded.email_sent,sms_sent=excluded.sms_sent,
-              email_id=excluded.email_id,sms_sid=excluded.sms_sid,error_text=excluded.error_text
+              email_id=excluded.email_id,sms_sid=excluded.sms_sid,error_text=excluded.error_text,
+              sms_status=excluded.sms_status,sms_error_code=excluded.sms_error_code,sms_error_message=excluded.sms_error_message,
+              sms_to=excluded.sms_to,sms_body=excluded.sms_body,sms_updated_at=excluded.sms_updated_at
           `).bind(
             account,"statement",title,notificationMessage,logSourceType,logSourceId,
             notificationId?1:0,emailResult.sent?1:0,smsResult.sent?1:0,emailResult.id||"",smsResult.sid||"",
-            [emailResult.sent?"":(emailResult.reason||""),smsResult.sent?"":(smsResult.reason||"")].filter(Boolean).join(" | ")
+            [emailResult.sent?"":(emailResult.reason||""),smsResult.sent?"":(smsResult.reason||"")].filter(Boolean).join(" | "),
+            smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":(customerSmsLink&&customer.phone)?"failed":""),smsResult.code||"",smsResult.sent?"":(smsResult.reason||""),
+            smsResult.to||"",smsResult.body||"",
+            smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":"failed"),smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":"failed")
           ).run();
         }catch(error){
           console.error("statement communication log update failed",error);
@@ -6537,6 +6764,21 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/communication-log") {
       if (request.method === "GET") return adminCommunicationLogGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/communication-log/resend") {
+      if (request.method === "POST") return adminCommunicationLogResend({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/twilio/message-status") {
+      if (request.method === "POST") return twilioMessageStatusPost({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/twilio/incoming-message") {
+      if (request.method === "POST") return twilioIncomingMessagePost({ request, env });
       return methodNotAllowed();
     }
 
