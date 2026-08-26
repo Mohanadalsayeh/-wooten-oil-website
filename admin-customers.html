@@ -2111,7 +2111,8 @@ input[type="file"]::file-selector-button{
 /* Statements & Invoices: remove unnecessary empty space above and below the panel. */
 #admin-tab-documents{
   min-height:0 !important;
-  padding-top:18px !important;
+  /* Match the Database panel so both sub-tab bars begin in the same position. */
+  padding-top:28px !important;
   padding-bottom:16px !important;
 }
 
@@ -2200,7 +2201,7 @@ input[type="file"]::file-selector-button{
 
 @media(max-width:720px){
   #admin-tab-documents{
-    padding-top:14px !important;
+    padding-top:20px !important;
     padding-bottom:12px !important;
   }
 
