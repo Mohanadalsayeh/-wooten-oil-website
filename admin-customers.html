@@ -2175,12 +2175,24 @@ input[type="file"]::file-selector-button{
   border-radius:12px;
   background:#fff;
 }
+.statement-delivery-heading{
+  flex:1 0 100%;
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  padding:0 2px 2px;
+  color:#17324d;
+}
+.statement-delivery-heading strong{font-size:13px;font-weight:900}
+.statement-delivery-heading span{font-size:12px;color:#68798a}
 .statement-delivery-options .statement-email-option{
   flex:1 1 190px;
   margin:0;
 }
 @media(max-width:700px){
   .statement-delivery-options{display:grid;grid-template-columns:1fr;padding:10px}
+  .statement-delivery-heading{display:block;padding:2px 2px 4px}
+  .statement-delivery-heading span{display:block;margin-top:3px;line-height:1.4}
 }
 </style>
 
@@ -2193,6 +2205,19 @@ input[type="file"]::file-selector-button{
 .communication-log-customers{display:grid;gap:9px;margin-top:14px}
 .communication-customer-row{width:100%;display:grid;grid-template-columns:minmax(220px,1fr) repeat(4,90px) 170px;gap:12px;align-items:center;border:1px solid #d8e1ea;border-radius:12px;background:#fff;padding:13px 14px;text-align:left;cursor:pointer;color:#253b51;font:inherit}
 .communication-customer-row:hover{border-color:#9eb4c8;background:#f9fcff}
+.communication-tree-node{border:1px solid transparent;border-radius:14px;overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease}
+.communication-tree-node.is-open{border-color:#b8c9d8;box-shadow:0 7px 18px rgba(15,39,66,.07)}
+.communication-tree-node .communication-customer-row{grid-template-columns:24px minmax(220px,1fr) repeat(4,90px) 170px;border:0;border-radius:12px}
+.communication-tree-node.is-open .communication-customer-row{border-radius:12px 12px 0 0;background:#f4f8fb}
+.communication-tree-chevron{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:#6a7b8d;transition:transform .18s ease}
+.communication-tree-chevron svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.communication-tree-node.is-open .communication-tree-chevron{transform:rotate(90deg);color:#17324d}
+.communication-tree-children{padding:14px 16px 16px 54px;border-top:1px solid #dbe4eb;background:#fff}
+.communication-tree-children .communication-log-entries{margin-top:0}
+.communication-tree-children .communication-pagination{margin-top:12px}
+.communication-tree-summary{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;color:#667789;font-size:12px}
+@media(max-width:900px){.communication-tree-node .communication-customer-row{grid-template-columns:22px minmax(170px,1fr) repeat(2,72px)}.communication-tree-node .communication-count:nth-of-type(4),.communication-tree-node .communication-count:nth-of-type(5),.communication-tree-node .communication-last{display:none}.communication-tree-children{padding-left:34px}}
+@media(max-width:620px){.communication-tree-node .communication-customer-row{grid-template-columns:22px 1fr 62px;padding:12px 10px}.communication-tree-node .communication-count{display:none}.communication-tree-node .communication-count:nth-last-of-type(5){display:block}.communication-tree-children{padding:12px 10px}.communication-tree-summary{display:block}}
 .communication-customer-name strong{display:block;color:#102b48}.communication-customer-name small{display:block;color:#758494;margin-top:3px}
 .communication-count{text-align:center}.communication-count strong{display:block;color:#102b48}.communication-count small{color:#758494}
 .communication-last{font-size:12px;color:#627487;text-align:right}
@@ -3054,6 +3079,7 @@ input[type="file"]::file-selector-button{
       <button class="admin-tab" id="admin-tab-btn-gmail" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-gmail" data-admin-tab="gmail">Gmail Sync</button>
       <button class="admin-tab" id="admin-tab-btn-notifications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-notifications" data-admin-tab="notifications">Notifications</button>
       <button class="admin-tab" id="admin-tab-btn-documents" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-documents" data-admin-tab="documents">Statements &amp; Invoices</button>
+      <button class="admin-tab" id="admin-tab-btn-communication" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-communication" data-admin-tab="communication">Communication History</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation">Account Activation</button>
     </nav>
   </div>
@@ -3636,10 +3662,20 @@ input[type="file"]::file-selector-button{
           <label for="statementCustomerScope">Customers to Show</label>
           <select id="statementCustomerScope">
             <option value="all">All customers</option>
-            <option value="phone">Phone numbers on file only</option>
+            <option value="phone_with">With phone numbers</option>
+            <option value="phone_without">Without phone numbers</option>
+            <option value="email_with">With email addresses</option>
+            <option value="email_without">Without email addresses</option>
+            <option value="both">With phone numbers and emails</option>
+            <option value="neither">Without phone numbers and emails</option>
+            <option value="missing_either">Missing a phone number or email</option>
           </select>
         </div>
-        <div class="statement-delivery-options" aria-label="Statement delivery methods">
+        <div class="statement-delivery-options" role="group" aria-labelledby="statementSendingOptionsTitle">
+          <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
+            <strong>Sending Options</strong>
+            <span>Checked boxes are the delivery methods used when statements are sent.</span>
+          </div>
           <label class="statement-email-option">
             <input id="statementPortalNotification" type="checkbox" checked>
             <span>Customer Portal</span>
@@ -3688,6 +3724,9 @@ input[type="file"]::file-selector-button{
       <div id="statementBatchProgress" class="statement-batch-progress"></div>
     </div>
 
+  </div>
+
+  <div class="card admin-tab-panel" id="admin-tab-communication" role="tabpanel" aria-labelledby="admin-tab-btn-communication" data-admin-panel="communication">
     <div class="communication-log-section">
       <div class="statement-batch-head">
         <div>
@@ -3706,13 +3745,23 @@ input[type="file"]::file-selector-button{
         <button class="primary" id="communicationLogLoad" type="button">Load Communication Log</button>
       </div>
       <div id="communicationLogStatus" class="status"></div>
-      <div id="communicationLogCustomers" class="communication-log-customers"></div>
+      <div id="communicationLogCustomers" class="communication-log-customers" data-tree-mode="true"></div>
+      <div class="db-pagination communication-pagination" id="communicationLogCustomersPagination" hidden>
+        <button class="secondary" id="communicationLogCustomersPrev" type="button">Previous 20</button>
+        <div class="db-page-info" id="communicationLogCustomersPageInfo">Page 1 of 1</div>
+        <button class="secondary" id="communicationLogCustomersNext" type="button">Next 20</button>
+      </div>
       <div id="communicationLogDetail" class="communication-log-detail" hidden>
         <div class="communication-log-detail-head">
           <button class="secondary" id="communicationLogBack" type="button">Back to Customers</button>
           <div><strong id="communicationLogCustomerName"></strong><small id="communicationLogCustomerMeta"></small></div>
         </div>
         <div id="communicationLogEntries" class="communication-log-entries"></div>
+        <div class="db-pagination communication-pagination" id="communicationLogEntriesPagination" hidden>
+          <button class="secondary" id="communicationLogEntriesPrev" type="button">Previous 20</button>
+          <div class="db-page-info" id="communicationLogEntriesPageInfo">Page 1 of 1</div>
+          <button class="secondary" id="communicationLogEntriesNext" type="button">Next 20</button>
+        </div>
       </div>
     </div>
 
@@ -5956,10 +6005,32 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
   function eligibleCustomers(){
-    if(customerScope && customerScope.value==='phone'){
-      return customers.filter(c=>String(c.phone||'').replace(/\D/g,'').length>=10);
-    }
-    return customers;
+    const scope=customerScope?customerScope.value:'all';
+    return customers.filter(c=>{
+      const hasPhone=!!String(c.phone||'').trim();
+      const hasEmail=!!String(c.email||'').trim();
+      if(scope==='phone_with')return hasPhone;
+      if(scope==='phone_without')return !hasPhone;
+      if(scope==='email_with')return hasEmail;
+      if(scope==='email_without')return !hasEmail;
+      if(scope==='both')return hasPhone&&hasEmail;
+      if(scope==='neither')return !hasPhone&&!hasEmail;
+      if(scope==='missing_either')return !hasPhone||!hasEmail;
+      return true;
+    });
+  }
+  function scopeSelectLabel(){
+    const labels={
+      all:'Select All Customers',
+      phone_with:'Select All With Phone',
+      phone_without:'Select All Without Phone',
+      email_with:'Select All With Email',
+      email_without:'Select All Without Email',
+      both:'Select All With Phone & Email',
+      neither:'Select All Without Phone & Email',
+      missing_either:'Select All Missing Contact Info'
+    };
+    return labels[customerScope?customerScope.value:'all']||labels.all;
   }
   function visibleCustomers(){
     const q=String(search&&search.value||'').trim().toLowerCase();
@@ -5988,7 +6059,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     list.innerHTML=visible.map(c=>{
       const acct=esc(c.account_number);
       const hasEmail=!!String(c.email||'').trim();
-      const hasPhone=String(c.phone||'').replace(/\D/g,'').length>=10;
+      const hasPhone=!!String(c.phone||'').trim();
       return '<label class="statement-customer-row">'+
         '<input type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'>'+
         '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small><small class="statement-customer-address">'+esc(customerAddress(c)||'No address on file')+'</small></span>'+
@@ -6037,7 +6108,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   if(customerScope) customerScope.addEventListener('change',function(){
     const eligible=new Set(eligibleCustomers().map(c=>c.account_number));
     for(const account of Array.from(selected)) if(!eligible.has(account)) selected.delete(account);
-    if(selectAllCustomers) selectAllCustomers.textContent=customerScope.value==='phone'?'Select All With Phone':'Select All Customers';
+    if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
     render();
   });
 
@@ -6167,6 +6238,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-communication-log-script">
 (function(){
+  const treeModeHost=document.getElementById('communicationLogCustomers');
+  if(treeModeHost&&treeModeHost.dataset.treeMode==='true')return;
   const loadBtn=document.getElementById('communicationLogLoad');
   const backBtn=document.getElementById('communicationLogBack');
   const from=document.getElementById('communicationLogFrom');
@@ -6179,7 +6252,20 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const entriesEl=document.getElementById('communicationLogEntries');
   const customerNameEl=document.getElementById('communicationLogCustomerName');
   const customerMetaEl=document.getElementById('communicationLogCustomerMeta');
+  const customersPagination=document.getElementById('communicationLogCustomersPagination');
+  const customersPrev=document.getElementById('communicationLogCustomersPrev');
+  const customersNext=document.getElementById('communicationLogCustomersNext');
+  const customersPageInfo=document.getElementById('communicationLogCustomersPageInfo');
+  const entriesPagination=document.getElementById('communicationLogEntriesPagination');
+  const entriesPrev=document.getElementById('communicationLogEntriesPrev');
+  const entriesNext=document.getElementById('communicationLogEntriesNext');
+  const entriesPageInfo=document.getElementById('communicationLogEntriesPageInfo');
   if(!loadBtn||!customersEl||!detailEl) return;
+
+  let customerPage=1;
+  let detailPage=1;
+  let activeAccount='';
+  let customerTotal=0;
 
   function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   const now=new Date();
@@ -6192,20 +6278,31 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
   }
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
-  function params(account){
+  function params(account,page){
     const p=new URLSearchParams();
     if(from.value)p.set('from',from.value);if(to.value)p.set('to',to.value);
     if(type.value)p.set('type',type.value);if(search.value.trim())p.set('q',search.value.trim());
     if(account)p.set('account_number',account);
+    p.set('page',String(page||1));
+    p.set('page_size','20');
     return p;
   }
-  async function requestLog(account){
+  async function requestLog(account,page){
     const key=document.getElementById('adminKey').value.trim();
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
-    const res=await fetch('/api/admin/communication-log?'+params(account).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
+    const res=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
     return data;
+  }
+  function renderPagination(container,prev,next,info,data){
+    const total=Number(data&&data.total||0);
+    const page=Math.max(1,Number(data&&data.page||1));
+    const pages=Math.max(1,Number(data&&data.pages||1));
+    if(container) container.hidden=total<=20;
+    if(prev) prev.disabled=page<=1;
+    if(next) next.disabled=page>=pages;
+    if(info) info.textContent='Page '+page+' of '+pages+' • '+total+' record'+(total===1?'':'s');
   }
   function renderCustomers(rows){
     detailEl.hidden=true;customersEl.hidden=false;
@@ -6238,25 +6335,213 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
   }
-  async function loadCustomers(){
+  async function loadCustomers(resetPage){
+    if(resetPage===true) customerPage=1;
     loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
-    try{const data=await requestLog('');renderCustomers(Array.isArray(data.customers)?data.customers:[]);setStatus((data.customers||[]).length+' customer record(s) found.',true);}
+    try{
+      const data=await requestLog('',customerPage);
+      customerPage=Number(data.page||customerPage);
+      customerTotal=Number(data.total||0);
+      renderCustomers(Array.isArray(data.customers)?data.customers:[]);
+      renderPagination(customersPagination,customersPrev,customersNext,customersPageInfo,data);
+      setStatus('Showing '+(data.customers||[]).length+' of '+Number(data.total||0)+' customer communication record(s).',true);
+    }
     catch(e){setStatus(e.message||'Communication log could not be loaded.',false);}
     finally{loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
   }
-  loadBtn.addEventListener('click',loadCustomers);
+  async function loadCustomerEntries(){
+    if(!activeAccount)return;
+    entriesEl.innerHTML='<div class="communication-log-empty">Loading customer history…</div>';
+    try{
+      const data=await requestLog(activeAccount,detailPage);
+      detailPage=Number(data.page||detailPage);
+      renderEntries(Array.isArray(data.entries)?data.entries:[]);
+      renderPagination(entriesPagination,entriesPrev,entriesNext,entriesPageInfo,data);
+    }catch(err){
+      entriesEl.innerHTML='<div class="communication-log-empty">'+esc(err.message||'History could not be loaded.')+'</div>';
+      if(entriesPagination)entriesPagination.hidden=true;
+    }
+  }
+  loadBtn.addEventListener('click',function(){loadCustomers(true);});
   customersEl.addEventListener('click',async function(e){
     const row=e.target.closest('.communication-customer-row');if(!row)return;
     const account=row.getAttribute('data-account');
+    activeAccount=account;
+    detailPage=1;
     customerNameEl.textContent=row.getAttribute('data-name')||'Customer';
     customerMetaEl.textContent='Customer # '+account+' • '+(row.getAttribute('data-phone')||'No phone')+' • '+(row.getAttribute('data-email')||'No email');
-    customersEl.hidden=true;detailEl.hidden=false;entriesEl.innerHTML='<div class="communication-log-empty">Loading customer history…</div>';
-    try{const data=await requestLog(account);renderEntries(Array.isArray(data.entries)?data.entries:[]);}
-    catch(err){entriesEl.innerHTML='<div class="communication-log-empty">'+esc(err.message||'History could not be loaded.')+'</div>';}
+    customersEl.hidden=true;detailEl.hidden=false;
+    if(customersPagination)customersPagination.hidden=true;
+    await loadCustomerEntries();
   });
-  backBtn.addEventListener('click',function(){detailEl.hidden=true;customersEl.hidden=false;});
-  [from,to,type].forEach(el=>el&&el.addEventListener('change',loadCustomers));
-  let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(loadCustomers,350);});
+  backBtn.addEventListener('click',function(){
+    detailEl.hidden=true;customersEl.hidden=false;activeAccount='';
+    if(customersPagination)customersPagination.hidden=customerTotal<=20;
+  });
+  if(customersPrev)customersPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;loadCustomers(false);}});
+  if(customersNext)customersNext.addEventListener('click',function(){customerPage++;loadCustomers(false);});
+  if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){detailPage--;loadCustomerEntries();}});
+  if(entriesNext)entriesNext.addEventListener('click',function(){detailPage++;loadCustomerEntries();});
+  [from,to,type].forEach(el=>el&&el.addEventListener('change',function(){loadCustomers(true);}));
+  let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(function(){loadCustomers(true);},350);});
+})();
+</script>
+
+<script id="wooten-admin-communication-tree-script">
+(function(){
+  const loadBtn=document.getElementById('communicationLogLoad');
+  const from=document.getElementById('communicationLogFrom');
+  const to=document.getElementById('communicationLogTo');
+  const type=document.getElementById('communicationLogType');
+  const search=document.getElementById('communicationLogSearch');
+  const status=document.getElementById('communicationLogStatus');
+  const customersEl=document.getElementById('communicationLogCustomers');
+  const pagination=document.getElementById('communicationLogCustomersPagination');
+  const prev=document.getElementById('communicationLogCustomersPrev');
+  const next=document.getElementById('communicationLogCustomersNext');
+  const pageInfo=document.getElementById('communicationLogCustomersPageInfo');
+  if(!loadBtn||!customersEl||customersEl.dataset.treeMode!=='true')return;
+
+  let customerPage=1;
+  let customers=[];
+  let totalCustomers=0;
+  const openNodes=new Map();
+
+  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  const now=new Date();
+  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
+  if(!to.value)to.value=dateValue(now);
+  if(!from.value)from.value=dateValue(earlier);
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+  function formatDate(v){
+    const d=new Date(String(v||'').replace(' ','T')+'Z');
+    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+  function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
+  function params(account,page){
+    const p=new URLSearchParams();
+    if(from.value)p.set('from',from.value);
+    if(to.value)p.set('to',to.value);
+    if(type.value)p.set('type',type.value);
+    if(search.value.trim())p.set('q',search.value.trim());
+    if(account)p.set('account_number',account);
+    p.set('page',String(page||1));
+    p.set('page_size','20');
+    return p;
+  }
+  async function requestLog(account,page){
+    const key=document.getElementById('adminKey').value.trim();
+    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
+    const response=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
+    return data;
+  }
+  function channel(label,sent,attempted){
+    if(!attempted&&!sent)return '';
+    return '<span class="communication-channel '+(sent?'sent':'failed')+'">'+esc(label)+' '+(sent?'Sent':'Failed')+'</span>';
+  }
+  function entriesHtml(rows){
+    if(!rows.length)return '<div class="communication-log-empty">No activity was found for this customer in the selected period.</div>';
+    return rows.map(r=>{
+      const error=String(r.error_text||'');
+      const emailAttempted=!!r.email_sent||/email/i.test(error);
+      const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
+      return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
+        '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+esc(r.title||'Customer Communication')+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
+        '<p>'+esc(r.detail||'')+'</p><div class="communication-channels">'+
+        channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
+        '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
+    }).join('');
+  }
+  function childHtml(account,state){
+    if(state.loading)return '<div class="communication-log-empty">Loading customer history…</div>';
+    if(state.error)return '<div class="communication-log-empty">'+esc(state.error)+'</div>';
+    const start=state.total?((state.page-1)*20)+1:0;
+    const end=Math.min(state.page*20,state.total);
+    return '<div class="communication-tree-summary"><span>Showing '+start+'–'+end+' of '+state.total+' communication logs</span><span>Page '+state.page+' of '+state.pages+'</span></div>'+
+      '<div class="communication-log-entries">'+entriesHtml(state.entries||[])+'</div>'+
+      (state.total>20?'<div class="db-pagination communication-pagination">'+
+        '<button class="secondary" type="button" data-tree-action="prev" data-account="'+esc(account)+'" '+(state.page<=1?'disabled':'')+'>Previous 20</button>'+
+        '<div class="db-page-info">Page '+state.page+' of '+state.pages+'</div>'+
+        '<button class="secondary" type="button" data-tree-action="next" data-account="'+esc(account)+'" '+(state.page>=state.pages?'disabled':'')+'>Next 20</button>'+
+      '</div>':'');
+  }
+  function renderCustomers(){
+    if(!customers.length){customersEl.innerHTML='<div class="communication-log-empty">No recorded activity was found for this period.</div>';return;}
+    customersEl.innerHTML=customers.map(r=>{
+      const account=String(r.account_number||'');
+      const state=openNodes.get(account);
+      const open=!!state;
+      return '<div class="communication-tree-node '+(open?'is-open':'')+'" data-tree-node="'+esc(account)+'">'+
+        '<button class="communication-customer-row" type="button" data-tree-customer="'+esc(account)+'" aria-expanded="'+(open?'true':'false')+'" data-name="'+esc(r.account_name||'Customer')+'">'+
+          '<span class="communication-tree-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></span>'+
+          '<span class="communication-customer-name"><strong>'+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(account)+'</small></span>'+
+          '<span class="communication-count"><strong>'+Number(r.total_count||0)+'</strong><small>Total</small></span>'+
+          '<span class="communication-count"><strong>'+Number(r.notification_count||0)+'</strong><small>Notices</small></span>'+
+          '<span class="communication-count"><strong>'+Number(r.statement_count||0)+'</strong><small>Statements</small></span>'+
+          '<span class="communication-count"><strong>'+Number(r.invoice_count||0)+'</strong><small>Invoices</small></span>'+
+          '<span class="communication-last">Last sent<br><strong>'+esc(formatDate(r.last_sent_at))+'</strong></span>'+
+        '</button>'+
+        '<div class="communication-tree-children" '+(open?'':'hidden')+'>'+ (open?childHtml(account,state):'') +'</div>'+
+      '</div>';
+    }).join('');
+  }
+  function renderMainPagination(data){
+    const page=Math.max(1,Number(data.page||1));
+    const pages=Math.max(1,Number(data.pages||1));
+    if(pagination)pagination.hidden=Number(data.total||0)<=20;
+    if(prev)prev.disabled=page<=1;
+    if(next)next.disabled=page>=pages;
+    if(pageInfo)pageInfo.textContent='Page '+page+' of '+pages+' • '+Number(data.total||0)+' customers';
+  }
+  async function loadCustomers(reset){
+    if(reset){customerPage=1;openNodes.clear();}
+    loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
+    try{
+      const data=await requestLog('',customerPage);
+      customerPage=Number(data.page||customerPage);
+      totalCustomers=Number(data.total||0);
+      customers=Array.isArray(data.customers)?data.customers:[];
+      renderCustomers();renderMainPagination(data);
+      setStatus('Showing '+customers.length+' of '+totalCustomers+' customers. Click a customer to expand their communication history.',true);
+    }catch(error){setStatus(error.message||'Communication log could not be loaded.',false);}
+    finally{loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
+  }
+  async function loadNode(account,page){
+    const current=openNodes.get(account);
+    if(!current)return;
+    openNodes.set(account,{loading:true,page:page||1,pages:current.pages||1,total:current.total||0,entries:[]});
+    renderCustomers();
+    try{
+      const data=await requestLog(account,page||1);
+      openNodes.set(account,{loading:false,page:Number(data.page||1),pages:Number(data.pages||1),total:Number(data.total||0),entries:Array.isArray(data.entries)?data.entries:[]});
+    }catch(error){
+      openNodes.set(account,{loading:false,page:1,pages:1,total:0,entries:[],error:error.message||'History could not be loaded.'});
+    }
+    renderCustomers();
+  }
+  loadBtn.addEventListener('click',()=>loadCustomers(true));
+  customersEl.addEventListener('click',function(e){
+    const pager=e.target.closest('[data-tree-action]');
+    if(pager){
+      e.preventDefault();e.stopPropagation();
+      const account=pager.getAttribute('data-account');
+      const state=openNodes.get(account);if(!state)return;
+      const nextPage=pager.getAttribute('data-tree-action')==='next'?state.page+1:state.page-1;
+      if(nextPage>=1&&nextPage<=state.pages)loadNode(account,nextPage);
+      return;
+    }
+    const row=e.target.closest('[data-tree-customer]');if(!row)return;
+    const account=row.getAttribute('data-tree-customer');
+    if(openNodes.has(account)){openNodes.delete(account);renderCustomers();return;}
+    openNodes.set(account,{loading:true,page:1,pages:1,total:0,entries:[]});
+    loadNode(account,1);
+  });
+  if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage--;openNodes.clear();loadCustomers(false);}});
+  if(next)next.addEventListener('click',function(){customerPage++;openNodes.clear();loadCustomers(false);});
+  [from,to,type].forEach(el=>el&&el.addEventListener('change',()=>loadCustomers(true)));
+  let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(()=>loadCustomers(true),350);});
 })();
 </script>
 

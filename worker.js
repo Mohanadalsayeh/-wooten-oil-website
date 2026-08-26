@@ -3214,6 +3214,8 @@ async function adminCommunicationLogGet({request,env}){
     const to=String(url.searchParams.get("to")||"").trim();
     const type=String(url.searchParams.get("type")||"all").trim().toLowerCase();
     const q=String(url.searchParams.get("q")||"").trim().toLowerCase();
+    const page=Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get("page")||"1",10)||1));
+    const pageSize=20;
     const clauses=[];
     const binds=[];
     if(from){clauses.push("date(l.created_at)>=date(?)");binds.push(from);}
@@ -3223,16 +3225,39 @@ async function adminCommunicationLogGet({request,env}){
     if(q){clauses.push("(lower(l.account_number) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ?)");binds.push(`%${q}%`,`%${q}%`);}
     const where=clauses.length?`WHERE ${clauses.join(" AND ")}`:"";
     if(account){
+      const countRow=await env.DB.prepare(`
+        SELECT COUNT(*) AS total
+        FROM admin_communication_log l
+        LEFT JOIN customers c ON c.account_number=l.account_number
+        ${where}
+      `).bind(...binds).first();
+      const total=Number(countRow?.total||0);
+      const pages=Math.max(1,Math.ceil(total/pageSize));
+      const safePage=Math.min(page,pages);
+      const offset=(safePage-1)*pageSize;
       const result=await env.DB.prepare(`
         SELECT l.*,COALESCE(c.account_name,'Customer') AS account_name,c.phone,c.email
         FROM admin_communication_log l
         LEFT JOIN customers c ON c.account_number=l.account_number
         ${where}
         ORDER BY l.created_at DESC,l.id DESC
-        LIMIT 500
-      `).bind(...binds).all();
-      return notificationJson({success:true,account_number:account,entries:result?.results||[]});
+        LIMIT ? OFFSET ?
+      `).bind(...binds,pageSize,offset).all();
+      return notificationJson({success:true,account_number:account,page:safePage,page_size:pageSize,total,pages,entries:result?.results||[]});
     }
+    const countRow=await env.DB.prepare(`
+      SELECT COUNT(*) AS total FROM (
+        SELECT l.account_number
+        FROM admin_communication_log l
+        LEFT JOIN customers c ON c.account_number=l.account_number
+        ${where}
+        GROUP BY l.account_number,c.account_name,c.phone,c.email
+      ) grouped_customers
+    `).bind(...binds).first();
+    const total=Number(countRow?.total||0);
+    const pages=Math.max(1,Math.ceil(total/pageSize));
+    const safePage=Math.min(page,pages);
+    const offset=(safePage-1)*pageSize;
     const result=await env.DB.prepare(`
       SELECT
         l.account_number,COALESCE(c.account_name,'Customer') AS account_name,c.phone,c.email,
@@ -3246,9 +3271,9 @@ async function adminCommunicationLogGet({request,env}){
       ${where}
       GROUP BY l.account_number,c.account_name,c.phone,c.email
       ORDER BY last_sent_at DESC,l.account_number ASC
-      LIMIT 5000
-    `).bind(...binds).all();
-    return notificationJson({success:true,customers:result?.results||[]});
+      LIMIT ? OFFSET ?
+    `).bind(...binds,pageSize,offset).all();
+    return notificationJson({success:true,page:safePage,page_size:pageSize,total,pages,customers:result?.results||[]});
   }catch(error){
     console.error("adminCommunicationLogGet failed",error);
     return notificationJson({success:false,error:"Communication log could not be loaded. "+String(error?.message||error)},500);
