@@ -2154,6 +2154,36 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+<style id="wooten-statement-delivery-options-style">
+#statementCustomerScope{
+  width:100%;
+  min-height:46px;
+  border:1px solid #ccd7e2;
+  border-radius:10px;
+  background:#fff;
+  color:#17324d;
+  padding:0 12px;
+  font:inherit;
+}
+.statement-delivery-options{
+  grid-column:1/-1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:12px;
+  border:1px solid #d6e0ea;
+  border-radius:12px;
+  background:#fff;
+}
+.statement-delivery-options .statement-email-option{
+  flex:1 1 190px;
+  margin:0;
+}
+@media(max-width:700px){
+  .statement-delivery-options{display:grid;grid-template-columns:1fr;padding:10px}
+}
+</style>
+
 
 <style id="wooten-admin-login-customer-portal-style">
   .admin-login-overlay{
@@ -3536,7 +3566,7 @@ input[type="file"]::file-selector-button{
         <div>
           <div class="admin-page-label">Generate Statements</div>
           <h3>Send Account Statements</h3>
-          <p>Select individual customers or select all. Each customer receives a professional PDF statement saved in Statements &amp; Invoices and a portal notification. If an email address is on file, the PDF is also emailed.</p>
+          <p>Select individual customers or select all customers with phone numbers on file. Send each generated PDF through the secure customer portal, email, SMS, or all three.</p>
         </div>
       </div>
 
@@ -3549,10 +3579,27 @@ input[type="file"]::file-selector-button{
           <label for="statementCustomerSearch">Find Customer</label>
           <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
         </div>
-        <label class="statement-email-option">
-          <input id="statementEmailPdf" type="checkbox" checked>
-          <span>Email PDF when email is on file</span>
-        </label>
+        <div>
+          <label for="statementCustomerScope">Customers to Show</label>
+          <select id="statementCustomerScope">
+            <option value="all">All customers</option>
+            <option value="phone">Phone numbers on file only</option>
+          </select>
+        </div>
+        <div class="statement-delivery-options" aria-label="Statement delivery methods">
+          <label class="statement-email-option">
+            <input id="statementPortalNotification" type="checkbox" checked>
+            <span>Customer Portal</span>
+          </label>
+          <label class="statement-email-option">
+            <input id="statementEmailPdf" type="checkbox" checked>
+            <span>Email PDF</span>
+          </label>
+          <label class="statement-email-option">
+            <input id="statementSmsLink" type="checkbox" checked>
+            <span>SMS secure PDF link</span>
+          </label>
+        </div>
       </div>
 
       <div class="statement-selection-toolbar">
@@ -3572,7 +3619,7 @@ input[type="file"]::file-selector-button{
           <span>Current</span>
           <span>Previous</span>
           <span>Total</span>
-          <span>Email</span>
+          <span>Phone / Email</span>
         </div>
         <div class="statement-customer-list" id="statementCustomerList">
           <div class="statement-list-empty">Click Load Customers to begin.</div>
@@ -5727,6 +5774,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const search=document.getElementById('statementCustomerSearch');
   const date=document.getElementById('statementBatchDate');
   const emailPdf=document.getElementById('statementEmailPdf');
+  const portalNotification=document.getElementById('statementPortalNotification');
+  const smsLink=document.getElementById('statementSmsLink');
+  const customerScope=document.getElementById('statementCustomerScope');
   const selectAllVisible=document.getElementById('statementSelectAllVisible');
   const selectAllCustomers=document.getElementById('statementSelectAllCustomers');
   const clearSelection=document.getElementById('statementClearSelection');
@@ -5758,11 +5808,18 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function esc(v){
     return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
+  function eligibleCustomers(){
+    if(customerScope && customerScope.value==='phone'){
+      return customers.filter(c=>String(c.phone||'').replace(/\D/g,'').length>=10);
+    }
+    return customers;
+  }
   function visibleCustomers(){
     const q=String(search&&search.value||'').trim().toLowerCase();
-    if(!q) return customers;
-    return customers.filter(c=>[
-      c.account_number,c.account_name,c.email
+    const eligible=eligibleCustomers();
+    if(!q) return eligible;
+    return eligible.filter(c=>[
+      c.account_number,c.account_name,c.email,c.phone
     ].join(' ').toLowerCase().includes(q));
   }
   function updateCount(){
@@ -5784,13 +5841,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     list.innerHTML=visible.map(c=>{
       const acct=esc(c.account_number);
       const hasEmail=!!String(c.email||'').trim();
+      const hasPhone=String(c.phone||'').replace(/\D/g,'').length>=10;
       return '<label class="statement-customer-row">'+
         '<input type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'>'+
         '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small><small class="statement-customer-address">'+esc(customerAddress(c)||'No address on file')+'</small></span>'+
         '<span class="statement-money statement-current">'+money(c.current_balance)+'</span>'+
         '<span class="statement-money statement-previous">'+money(c.previous_balance)+'</span>'+
         '<span class="statement-money statement-total">'+money(c.total_balance)+'</span>'+
-        '<span class="statement-email '+(hasEmail?'':'statement-no-email')+'">'+esc(hasEmail?c.email:'No email on file')+'</span>'+
+        '<span class="statement-email '+(hasPhone||hasEmail?'':'statement-no-email')+'">'+
+          esc(hasPhone?c.phone:'No phone on file')+'<br>'+esc(hasEmail?c.email:'No email on file')+'</span>'+
       '</label>';
     }).join('');
     updateCount();
@@ -5828,6 +5887,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   loadBtn.addEventListener('click',loadCustomers);
   search.addEventListener('input',render);
+  if(customerScope) customerScope.addEventListener('change',function(){
+    const eligible=new Set(eligibleCustomers().map(c=>c.account_number));
+    for(const account of Array.from(selected)) if(!eligible.has(account)) selected.delete(account);
+    if(selectAllCustomers) selectAllCustomers.textContent=customerScope.value==='phone'?'Select All With Phone':'Select All Customers';
+    render();
+  });
 
   list.addEventListener('change',function(e){
     const box=e.target.closest('.statement-customer-check');
@@ -5846,7 +5911,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 
   selectAllCustomers.addEventListener('click',function(){
-    customers.forEach(c=>selected.add(c.account_number));
+    eligibleCustomers().forEach(c=>selected.add(c.account_number));
     render();
   });
 
@@ -5866,7 +5931,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       body:JSON.stringify({
         accounts,
         statement_date:date.value||todayLocal(),
-        email_pdf:!!emailPdf.checked
+        portal_notification:!!portalNotification.checked,
+        email_pdf:!!emailPdf.checked,
+        sms_link:!!smsLink.checked
       })
     });
     const data=await res.json().catch(()=>({}));
@@ -5880,10 +5947,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!accounts.length){setStatus('Select at least one customer.',false);return;}
     if(!date.value){setStatus('Choose the statement date.',false);return;}
+    if(!portalNotification.checked&&!emailPdf.checked&&!smsLink.checked){setStatus('Choose at least one delivery method: Portal, Email, or SMS.',false);return;}
 
     const confirmed=window.confirm(
       'Generate and send '+accounts.length+' statement'+(accounts.length===1?'':'s')+'?\\n\\n'+
-      'Each statement will be saved as a PDF in the customer portal and a notification will be created.'
+      'Delivery: '+[
+        portalNotification.checked?'Customer Portal':'',
+        emailPdf.checked?'Email PDF':'',
+        smsLink.checked?'SMS secure link':''
+      ].filter(Boolean).join(' + ')+'.'
     );
     if(!confirmed) return;
 
@@ -5903,11 +5975,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
           if(r.success) succeeded++; else failed++;
           const div=document.createElement('div');
           div.className='statement-result-row '+(r.success?'ok':'bad');
+          const delivered=[];
+          if(r.portal_notified) delivered.push('Portal');
+          if(r.email_sent) delivered.push('Email');
+          if(r.sms_sent) delivered.push('SMS');
           div.innerHTML=
             '<span><strong>'+esc(r.account_name||r.account_number||'Customer')+'</strong> '+
             (r.success?'— '+esc(r.filename||'Statement PDF'):(r.error?'— '+esc(r.error):''))+
             '</span>'+
-            '<span>'+(r.success?(r.email_sent?'Portal + Email':'Portal PDF'):'Failed')+'</span>';
+            '<span>'+(r.success?(delivered.join(' + ')||'PDF generated'):'Failed')+'</span>';
           progress.prepend(div);
         });
 

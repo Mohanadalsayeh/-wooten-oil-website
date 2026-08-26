@@ -3278,6 +3278,35 @@ async function createPortalDocumentLink({request,env,attachmentId,accountNumber}
 }
 __name(createPortalDocumentLink,"createPortalDocumentLink");
 
+async function ensurePortalStatementLinksTable(env){
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS portal_statement_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_hash TEXT NOT NULL UNIQUE,
+      document_id INTEGER NOT NULL,
+      account_number TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_portal_statement_links_account
+    ON portal_statement_links(account_number, document_id)
+  `).run();
+}
+__name(ensurePortalStatementLinksTable,"ensurePortalStatementLinksTable");
+
+async function createPortalStatementLink({request,env,documentId,accountNumber}){
+  await ensurePortalStatementLinksTable(env);
+  const token=randomToken();
+  await env.DB.prepare(`
+    INSERT INTO portal_statement_links
+      (token_hash, document_id, account_number, created_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+  `).bind(await sha256(token),documentId,accountNumber).run();
+  return `${new URL(request.url).origin}/open-document/${encodeURIComponent(token)}`;
+}
+__name(createPortalStatementLink,"createPortalStatementLink");
+
 async function portalDocumentLinkGet({request,env}){
   try{
     if(!env.DB||!env.NOTIFICATION_ATTACHMENTS){
@@ -3289,13 +3318,24 @@ async function portalDocumentLinkGet({request,env}){
 
     await ensureCustomerNotificationsTable(env);
     await ensurePortalDocumentLinksTable(env);
-    const row=await env.DB.prepare(`
+    let row=await env.DB.prepare(`
       SELECT l.account_number, a.object_key, a.filename, a.content_type
       FROM portal_document_links l
       INNER JOIN portal_notification_attachments a ON a.id=l.attachment_id
       WHERE l.token_hash=? AND a.account_number=l.account_number
       LIMIT 1
     `).bind(await sha256(token)).first();
+    if(!row){
+      await ensureCustomerDocumentsTable(env);
+      await ensurePortalStatementLinksTable(env);
+      row=await env.DB.prepare(`
+        SELECT l.account_number, d.object_key, d.filename, d.content_type
+        FROM portal_statement_links l
+        INNER JOIN portal_customer_documents d ON d.id=l.document_id
+        WHERE l.token_hash=? AND d.account_number=l.account_number
+        LIMIT 1
+      `).bind(await sha256(token)).first();
+    }
     if(!row) return new Response("Document link was not found.",{status:404});
 
     const customer=await getCustomerFromSession(request,env);
@@ -5716,7 +5756,7 @@ async function adminStatementCustomersGet({request,env}){
 
     const result=await env.DB.prepare(`
       SELECT
-        account_number,account_name,email,
+        account_number,account_name,email,phone,
         address1,address2,address3,city,state,zip_code,
         current_balance,
         aging_category_1,aging_category_2,aging_category_3,aging_category_4,
@@ -5738,6 +5778,7 @@ async function adminStatementCustomersGet({request,env}){
         account_number:c.account_number,
         account_name:c.account_name||"",
         email:c.email||"",
+        phone:c.phone||"",
         address1:c.address1||"",
         address2:c.address2||"",
         address3:c.address3||"",
@@ -5824,6 +5865,8 @@ async function adminGenerateStatementsPost({request,env}){
 
     const statementDate=statementPdfShortDate(body.statement_date||new Date().toISOString());
     const emailPdf=body.email_pdf!==false;
+    const portalNotification=body.portal_notification!==false;
+    const smsLink=body.sms_link===true;
 
     await ensureCustomerDocumentsTable(env);
     await ensureCustomerNotificationsTable(env);
@@ -5887,20 +5930,22 @@ async function adminGenerateStatementsPost({request,env}){
           `${filename} is ready. Current Balance: ${statementMoney(current)}. `+
           `Previous Balance: ${statementMoney(previous)}. Total Balance: ${statementMoney(total)}.`;
 
-        const notificationResult=await env.DB.prepare(`
-          INSERT INTO portal_notifications
-            (account_number,title,message,email_sent,action_type,action_id,created_at)
-          VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
-        `).bind(
-          account,
-          "New Statement Available",
-          notificationMessage,
-          0,
-          "customer_documents",
-          documentId
-        ).run();
-
-        const notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
+        let notificationId=null;
+        if(portalNotification){
+          const notificationResult=await env.DB.prepare(`
+            INSERT INTO portal_notifications
+              (account_number,title,message,email_sent,action_type,action_id,created_at)
+            VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+          `).bind(
+            account,
+            "New Statement Available",
+            notificationMessage,
+            0,
+            "customer_documents",
+            documentId
+          ).run();
+          notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
+        }
 
         const emailResult=emailPdf
           ? await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total)
@@ -5918,6 +5963,32 @@ async function adminGenerateStatementsPost({request,env}){
           }
         }
 
+        let smsResult={sent:false,reason:smsLink?"no_phone":"sms_disabled"};
+        if(smsLink && customer.phone){
+          try{
+            const secureLink=await createPortalStatementLink({
+              request,
+              env,
+              documentId,
+              accountNumber:account
+            });
+            const statementMonth=new Date(`${statementDate}T12:00:00Z`).toLocaleDateString(
+              "en-US",{month:"long",timeZone:"UTC"}
+            );
+            const smsBody=
+              `WOOTEN OIL CO INC\n\n`+
+              `${statementMonth} Statement\n\n`+
+              `Your new statement is ready. View or download it here:\n\n`+
+              `${secureLink}\n\n`+
+              `Please do not reply to this message.`;
+            const sent=await twilioSendSms(env,customer.phone,smsBody);
+            smsResult={sent:true,sid:sent.sid||""};
+          }catch(error){
+            smsResult={sent:false,reason:String(error?.message||error)};
+            console.error("statement SMS failed",account,error);
+          }
+        }
+
         results.push({
           account_number:account,
           account_name:customer.account_name||"",
@@ -5929,8 +6000,12 @@ async function adminGenerateStatementsPost({request,env}){
           current_balance:current,
           previous_balance:previous,
           total_balance:total,
+          portal_notified:!!notificationId,
           email_sent:!!emailResult.sent,
-          email_warning:emailResult.sent?"":(emailResult.reason||"")
+          email_warning:emailResult.sent?"":(emailResult.reason||""),
+          sms_sent:!!smsResult.sent,
+          sms_sid:smsResult.sid||"",
+          sms_warning:smsResult.sent?"":(smsResult.reason||"")
         });
       }catch(error){
         if(objectKey){
