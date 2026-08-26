@@ -2147,6 +2147,44 @@ input[type="file"]::file-selector-button{
   padding-top:16px !important;
 }
 
+#documentSectionSendStatements{
+  border-top:0 !important;
+}
+
+/* Keep both Statements & Invoices sub-page headers perfectly aligned. */
+#admin-tab-documents #documentSectionCustomerDocuments,
+#admin-tab-documents #documentSectionSendStatements{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  border-top:0 !important;
+}
+
+#admin-tab-documents .documents-form-heading{
+  margin:0 0 18px;
+  padding:0;
+}
+
+#admin-tab-documents .documents-form-heading .admin-page-label{
+  margin:0 0 8px;
+}
+
+#admin-tab-documents .documents-form-heading h2{
+  margin:0 0 6px;
+  color:var(--navy);
+  font-size:24px;
+  line-height:1.2;
+}
+
+#admin-tab-documents .documents-form-heading p{
+  margin:0;
+  color:#687787;
+  line-height:1.55;
+}
+
+#admin-tab-documents .documents-form-heading p + p{
+  margin-top:6px;
+}
+
 #admin-tab-documents .statement-batch-controls{
   margin-top:14px !important;
 }
@@ -3671,9 +3709,11 @@ input[type="file"]::file-selector-button{
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements">Send Account Statements</button>
     </nav>
     <div id="documentSectionCustomerDocuments">
-    <div class="admin-page-label">Send Documents</div>
-    <h2>Customer Documents</h2>
-    <p>Upload secure PDF statements and invoices to a customer's online account. Customers can open them from My Account → Statements &amp; Invoices.</p>
+    <div class="documents-form-heading">
+      <div class="admin-page-label">Send Documents</div>
+      <h2>Customer Documents</h2>
+      <p>Upload secure PDF statements and invoices to a customer's online account. Customers can open them from My Account → Statements &amp; Invoices.</p>
+    </div>
 
     <div class="doc-admin-grid">
       <div>
@@ -3731,10 +3771,10 @@ input[type="file"]::file-selector-button{
     </div>
 
     <div class="statement-batch-section" id="documentSectionSendStatements" hidden>
-      <div class="statement-batch-head">
+      <div class="statement-batch-head documents-form-heading">
         <div>
           <div class="admin-page-label">Generate Statements</div>
-          <h3>Send Account Statements</h3>
+          <h2>Send Account Statements</h2>
           <p>Select individual customers or select all customers with phone numbers on file. Send each generated PDF through the secure customer portal, email, SMS, or all three.</p>
           <p class="statement-contact-selection-note"><strong>Customer delivery selections:</strong> The colored Email, Phone, and Portal icons in Live Customer Data determine which enabled methods each customer receives. Gray icons are skipped.</p>
         </div>
