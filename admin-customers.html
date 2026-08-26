@@ -303,6 +303,10 @@
   .admin-tab-panel.is-active{display:block}
   .admin-tab-panel>h2{margin:0 0 8px;color:var(--navy);font-size:24px}
   .admin-tab-panel>p:first-of-type{margin-top:0}
+  .admin-subtabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px;padding:7px;border:1px solid var(--line);border-radius:13px;background:#f2f6f9}
+  .admin-subtab{min-height:40px;padding:8px 15px;border:1px solid transparent;border-radius:9px;background:transparent;color:#526477;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+  .admin-subtab:hover,.admin-subtab:focus-visible{background:#e8eef3;color:var(--navy);outline:none}
+  .admin-subtab[aria-selected="true"]{border-color:#d4dee7;background:#fff;color:var(--navy);box-shadow:0 2px 7px rgba(15,39,66,.08)}
   .admin-page-label{display:inline-flex;align-items:center;gap:7px;margin-bottom:10px;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
   .admin-page-label::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--red)}
   @media(max-width:800px){.admin-header{grid-template-columns:1fr;align-items:stretch}.admin-key-box{max-width:none}}
@@ -2155,7 +2159,7 @@ input[type="file"]::file-selector-button{
 </style>
 
 <style id="wooten-statement-delivery-options-style">
-#statementCustomerScope{
+.statement-contact-filter-select{
   width:100%;
   min-height:46px;
   border:1px solid #ccd7e2;
@@ -2165,6 +2169,9 @@ input[type="file"]::file-selector-button{
   padding:0 12px;
   font:inherit;
 }
+.statement-contact-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.statement-contact-filter-item small{display:block;margin:0 0 4px;color:#758596;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.statement-customer-pagination{margin:10px 0 0}
 .statement-delivery-options{
   grid-column:1/-1;
   display:flex;
@@ -2193,6 +2200,7 @@ input[type="file"]::file-selector-button{
   .statement-delivery-options{display:grid;grid-template-columns:1fr;padding:10px}
   .statement-delivery-heading{display:block;padding:2px 2px 4px}
   .statement-delivery-heading span{display:block;margin-top:3px;line-height:1.4}
+  .statement-contact-filters{grid-template-columns:1fr 1fr}
 }
 </style>
 
@@ -3074,17 +3082,19 @@ input[type="file"]::file-selector-button{
   <div class="admin-tabs-shell">
     <nav class="admin-tabs" role="tablist" aria-label="Wooten Oil admin pages">
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-customers" data-admin-tab="customers">Database</button>
-      <button class="admin-tab" id="admin-tab-btn-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-database" data-admin-tab="database">Live Customer Data</button>
-      <button class="admin-tab" id="admin-tab-btn-messages" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-messages" data-admin-tab="messages">Customer Messages</button>
-      <button class="admin-tab" id="admin-tab-btn-gmail" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-gmail" data-admin-tab="gmail">Gmail Sync</button>
       <button class="admin-tab" id="admin-tab-btn-notifications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-notifications" data-admin-tab="notifications">Notifications</button>
       <button class="admin-tab" id="admin-tab-btn-documents" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-documents" data-admin-tab="documents">Statements &amp; Invoices</button>
       <button class="admin-tab" id="admin-tab-btn-communication" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-communication" data-admin-tab="communication">Communication History</button>
+      <button class="admin-tab" id="admin-tab-btn-settings" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-settings" data-admin-tab="settings">Communications Settings</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation">Account Activation</button>
     </nav>
   </div>
 
   <div class="card admin-tab-panel is-active" id="admin-tab-customers" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="customers">
+    <nav class="admin-subtabs" role="tablist" aria-label="Database sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="database" data-admin-parent="customers">Live Customer Data</button>
+    </nav>
     <div class="admin-page-label">Customers</div>
     <h2>MAS 90 Database</h2>
     <p>Upload a customer list from Excel or CSV. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
@@ -3245,7 +3255,11 @@ input[type="file"]::file-selector-button{
 
 
   
-  <div class="card admin-tab-panel" id="admin-tab-database" role="tabpanel" aria-labelledby="admin-tab-btn-database" data-admin-panel="database">
+  <div class="card admin-tab-panel" id="admin-tab-database" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="database">
+    <nav class="admin-subtabs" role="tablist" aria-label="Database sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="database" data-admin-parent="customers">Live Customer Data</button>
+    </nav>
     <div class="admin-page-label">Database</div>
     <h2>Live Customer Database</h2>
     <p>View customer records stored on the server and choose how each customer receives statements. Customer account data remains read-only; only the Contact delivery selections can be changed.</p>
@@ -3451,7 +3465,11 @@ input[type="file"]::file-selector-button{
     </div>
   </div>
 
-  <div class="card admin-tab-panel" id="admin-tab-messages" role="tabpanel" aria-labelledby="admin-tab-btn-messages" data-admin-panel="messages">
+  <div class="card admin-tab-panel" id="admin-tab-messages" role="tabpanel" aria-labelledby="admin-tab-btn-communication" data-admin-panel="messages">
+    <nav class="admin-subtabs" role="tablist" aria-label="Communication history sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="communication" data-admin-parent="communication">Statements, Invoices &amp; Notifications Log</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="messages" data-admin-parent="communication">Customer Messages Log</button>
+    </nav>
     <div class="admin-page-label">Customer Messages</div>
     <h2>Customer Messages</h2>
     <p>View Fuel Delivery Requests and Website Messages received by support@wootenoil.com.</p>
@@ -3502,11 +3520,37 @@ input[type="file"]::file-selector-button{
     </div>
 
     <div id="mobileInboxCards" class="mobile-inbox-cards" style="display:none"></div>
+    <div class="db-pagination" id="inboxPagination" hidden>
+      <button class="secondary" id="inboxPrevBtn" type="button">Previous 20</button>
+      <div class="db-page-info" id="inboxPageInfo">Page 1 of 1</div>
+      <button class="secondary" id="inboxNextBtn" type="button">Next 20</button>
+    </div>
   </div>
 
 
 
-  <div class="card admin-tab-panel" id="admin-tab-gmail" role="tabpanel" aria-labelledby="admin-tab-btn-gmail" data-admin-panel="gmail">
+  <div class="card admin-tab-panel" id="admin-tab-settings" role="tabpanel" aria-labelledby="admin-tab-btn-settings" data-admin-panel="settings">
+    <nav class="admin-subtabs" role="tablist" aria-label="Communications settings sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="settings" data-admin-parent="settings">Twilio SMS</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="gmail" data-admin-parent="settings">Gmail Sync</button>
+    </nav>
+    <div class="admin-page-label">Communications Settings</div>
+    <h2>Twilio SMS Configuration</h2>
+    <p>Check that the Twilio account, authentication token, and Messaging Service are available to the website.</p>
+    <div class="twilio-status-card">
+      <div>
+        <div class="twilio-status-title">Twilio SMS</div>
+        <div class="twilio-status-meta" id="twilioStatusMeta">Status not checked</div>
+      </div>
+      <button class="secondary" id="twilioStatusBtn" type="button">Check Twilio</button>
+    </div>
+  </div>
+
+  <div class="card admin-tab-panel" id="admin-tab-gmail" role="tabpanel" aria-labelledby="admin-tab-btn-settings" data-admin-panel="gmail">
+    <nav class="admin-subtabs" role="tablist" aria-label="Communications settings sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="settings" data-admin-parent="settings">Twilio SMS</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="gmail" data-admin-parent="settings">Gmail Sync</button>
+    </nav>
     <div class="admin-page-label">Gmail Sync</div>
     <h2>Gmail → Customer Portal Sync</h2>
     <p>Messages sent directly from the connected Wooten Oil Gmail mailbox are matched to customer email addresses and copied into each matching customer's portal notification bell.</p>
@@ -3528,14 +3572,6 @@ input[type="file"]::file-selector-button{
     <div class="admin-page-label">Notifications</div>
     <h2>Send Customer Notification</h2>
     <p>Send a private portal notification to one customer, with optional email and SMS delivery.</p>
-
-    <div class="twilio-status-card">
-      <div>
-        <div class="twilio-status-title">Twilio SMS</div>
-        <div class="twilio-status-meta" id="twilioStatusMeta">Status not checked</div>
-      </div>
-      <button class="secondary" id="twilioStatusBtn" type="button">Check Twilio</button>
-    </div>
 
     <div class="notify-card">
       <div class="notify-audience">
@@ -3659,17 +3695,25 @@ input[type="file"]::file-selector-button{
           <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
         </div>
         <div>
-          <label for="statementCustomerScope">Customers to Show</label>
-          <select id="statementCustomerScope">
-            <option value="all">All customers</option>
-            <option value="phone_with">With phone numbers</option>
-            <option value="phone_without">Without phone numbers</option>
-            <option value="email_with">With email addresses</option>
-            <option value="email_without">Without email addresses</option>
-            <option value="both">With phone numbers and emails</option>
-            <option value="neither">Without phone numbers and emails</option>
-            <option value="missing_either">Missing a phone number or email</option>
-          </select>
+          <label>Customers to Show</label>
+          <div class="statement-contact-filters">
+            <div class="statement-contact-filter-item">
+              <small>Phone</small>
+              <select class="statement-contact-filter-select" id="statementPhoneScope" aria-label="Filter customers by phone number">
+                <option value="all">All</option>
+                <option value="with">With phone</option>
+                <option value="without">Without phone</option>
+              </select>
+            </div>
+            <div class="statement-contact-filter-item">
+              <small>Email</small>
+              <select class="statement-contact-filter-select" id="statementEmailScope" aria-label="Filter customers by email address">
+                <option value="all">All</option>
+                <option value="with">With email</option>
+                <option value="without">Without email</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div class="statement-delivery-options" role="group" aria-labelledby="statementSendingOptionsTitle">
           <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
@@ -3715,6 +3759,12 @@ input[type="file"]::file-selector-button{
         </div>
       </div>
 
+      <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
+        <button class="secondary" id="statementCustomerPrev" type="button">Previous 20</button>
+        <div class="db-page-info" id="statementCustomerPageInfo">Page 1 of 1</div>
+        <button class="secondary" id="statementCustomerNext" type="button">Next 20</button>
+      </div>
+
       <div class="actions statement-send-actions">
         <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
         <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
@@ -3727,6 +3777,10 @@ input[type="file"]::file-selector-button{
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-communication" role="tabpanel" aria-labelledby="admin-tab-btn-communication" data-admin-panel="communication">
+    <nav class="admin-subtabs" role="tablist" aria-label="Communication history sections">
+      <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="communication" data-admin-parent="communication">Statements, Invoices &amp; Notifications Log</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="messages" data-admin-parent="communication">Customer Messages Log</button>
+    </nav>
     <div class="communication-log-section">
       <div class="statement-batch-head">
         <div>
@@ -4676,6 +4730,8 @@ if(document.readyState==="loading"){
 
 
 let inboxMessages=[];
+let inboxPage=1;
+const inboxPageSize=20;
 
 function renderInboxMessages(){
   const body=document.getElementById("inboxBody");
@@ -4684,6 +4740,10 @@ function renderInboxMessages(){
   const search=(document.getElementById("inboxSearch")?.value||"").trim().toLowerCase();
   const typeFilter=document.getElementById("inboxTypeFilter")?.value||"";
   const count=document.getElementById("inboxFilterCount");
+  const pagination=document.getElementById("inboxPagination");
+  const prevBtn=document.getElementById("inboxPrevBtn");
+  const nextBtn=document.getElementById("inboxNextBtn");
+  const pageInfo=document.getElementById("inboxPageInfo");
 
   const sortBy=document.getElementById("inboxSort")?.value||"newest";
 
@@ -4736,10 +4796,15 @@ function renderInboxMessages(){
     }
   });
 
+  const pageCount=Math.max(1,Math.ceil(filtered.length/inboxPageSize));
+  inboxPage=Math.min(inboxPage,pageCount);
+  const pageStart=(inboxPage-1)*inboxPageSize;
+  const pageMessages=filtered.slice(pageStart,pageStart+inboxPageSize);
+
   body.innerHTML="";
   mobileCards.innerHTML="";
 
-  filtered.forEach(message=>{
+  pageMessages.forEach(message=>{
     const raw=message.date||"";
     const d=new Date(raw);
     const receivedText=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
@@ -4825,8 +4890,15 @@ function renderInboxMessages(){
   });
 
   if(count){
-    count.textContent=`Showing ${filtered.length} of ${inboxMessages.length}`;
+    const first=filtered.length?pageStart+1:0;
+    const last=Math.min(pageStart+inboxPageSize,filtered.length);
+    count.textContent=`Showing ${first}–${last} of ${filtered.length} matching message${filtered.length===1?"":"s"}`;
   }
+
+  if(pagination) pagination.hidden=filtered.length<=inboxPageSize;
+  if(prevBtn) prevBtn.disabled=inboxPage<=1;
+  if(nextBtn) nextBtn.disabled=inboxPage>=pageCount;
+  if(pageInfo) pageInfo.textContent=`Page ${inboxPage} of ${pageCount}`;
 
   /* Desktop only; CSS forces it hidden on phones. */
   wrap.style.display=filtered.length?"block":"none";
@@ -4865,6 +4937,7 @@ async function loadGmailInbox(){
     }
 
     inboxMessages=Array.isArray(data.messages)?data.messages:[];
+    inboxPage=1;
     renderInboxMessages();
 
     status.className="status show ok";
@@ -4883,9 +4956,21 @@ async function loadGmailInbox(){
 
 document.getElementById("loadInboxBtn").addEventListener("click",loadGmailInbox);
 document.getElementById("refreshInboxBtn").addEventListener("click",loadGmailInbox);
-document.getElementById("inboxSearch").addEventListener("input",renderInboxMessages);
-document.getElementById("inboxTypeFilter").addEventListener("change",renderInboxMessages);
-document.getElementById("inboxSort").addEventListener("change",renderInboxMessages);
+document.getElementById("inboxSearch").addEventListener("input",()=>{inboxPage=1;renderInboxMessages();});
+document.getElementById("inboxTypeFilter").addEventListener("change",()=>{inboxPage=1;renderInboxMessages();});
+document.getElementById("inboxSort").addEventListener("change",()=>{inboxPage=1;renderInboxMessages();});
+document.getElementById("inboxPrevBtn")?.addEventListener("click",()=>{if(inboxPage>1){inboxPage--;renderInboxMessages();}});
+document.getElementById("inboxNextBtn")?.addEventListener("click",()=>{
+  const search=(document.getElementById("inboxSearch")?.value||"").trim().toLowerCase();
+  const typeFilter=document.getElementById("inboxTypeFilter")?.value||"";
+  const total=inboxMessages.filter(message=>{
+    if(typeFilter&&message.type!==typeFilter)return false;
+    if(!search)return true;
+    return [message.customer_name,message.account_number,message.customer_email,message.type,message.subject,message.from,message.snippet]
+      .map(v=>String(v||"").toLowerCase()).join(" ").includes(search);
+  }).length;
+  if(inboxPage<Math.max(1,Math.ceil(total/inboxPageSize))){inboxPage++;renderInboxMessages();}
+});
 
 function normalizeActivationAccount(v){
   let s=String(v??"").trim();
@@ -5770,23 +5855,43 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 (function(){
   const tabs=Array.from(document.querySelectorAll("[data-admin-tab]"));
   const panels=Array.from(document.querySelectorAll("[data-admin-panel]"));
-  const valid=new Set(tabs.map(t=>t.dataset.adminTab));
+  const subtabs=Array.from(document.querySelectorAll("[data-admin-subtab]"));
+  const validParents=new Set(tabs.map(t=>t.dataset.adminTab));
+  const validPanels=new Set(panels.map(p=>p.dataset.adminPanel));
+  const groups={
+    customers:["customers","database"],
+    communication:["communication","messages"],
+    settings:["settings","gmail"]
+  };
+  const selectedChild={customers:"customers",communication:"communication",settings:"settings"};
+
+  function parentFor(name){
+    return Object.keys(groups).find(parent=>groups[parent].includes(name))||name;
+  }
 
   function showAdminPage(name,{updateHash=true,focusTab=false}={}){
-    if(!valid.has(name)) name="customers";
+    if(!validPanels.has(name)&&!validParents.has(name)) name="customers";
+    const parent=parentFor(name);
+    if(groups[parent]&&groups[parent].includes(name)) selectedChild[parent]=name;
+    const activePanel=groups[parent]?(selectedChild[parent]||groups[parent][0]):parent;
     tabs.forEach(tab=>{
-      const active=tab.dataset.adminTab===name;
+      const active=tab.dataset.adminTab===parent;
       tab.setAttribute("aria-selected",active?"true":"false");
       tab.tabIndex=active?0:-1;
       if(active&&focusTab) tab.focus({preventScroll:true});
     });
     panels.forEach(panel=>{
-      const active=panel.dataset.adminPanel===name;
+      const active=panel.dataset.adminPanel===activePanel;
       panel.classList.toggle("is-active",active);
       panel.hidden=!active;
     });
-    if(updateHash){try{history.replaceState(null,"","#"+name);}catch{}}
-    try{sessionStorage.setItem("wootenAdminTab",name);}catch{}
+    subtabs.forEach(subtab=>{
+      const active=subtab.dataset.adminParent===parent&&subtab.dataset.adminSubtab===activePanel;
+      subtab.setAttribute("aria-selected",active?"true":"false");
+      subtab.tabIndex=active?0:-1;
+    });
+    if(updateHash){try{history.replaceState(null,"","#"+activePanel);}catch{}}
+    try{sessionStorage.setItem("wootenAdminTab",activePanel);}catch{}
   }
 
   tabs.forEach((tab,index)=>{
@@ -5803,13 +5908,24 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     });
   });
 
+  subtabs.forEach(subtab=>{
+    subtab.addEventListener("click",()=>{
+      const parent=subtab.dataset.adminParent;
+      const child=subtab.dataset.adminSubtab;
+      if(groups[parent]&&groups[parent].includes(child)){
+        selectedChild[parent]=child;
+        showAdminPage(child);
+      }
+    });
+  });
+
   window.addEventListener("hashchange",()=>{
     const name=location.hash.replace(/^#/,"");
-    if(valid.has(name)) showAdminPage(name,{updateHash:false});
+    if(validPanels.has(name)||validParents.has(name)) showAdminPage(name,{updateHash:false});
   });
 
   let initial=location.hash.replace(/^#/,"");
-  if(!valid.has(initial)){
+  if(!validPanels.has(initial)&&!validParents.has(initial)){
     try{initial=sessionStorage.getItem("wootenAdminTab")||"customers";}catch{initial="customers";}
   }
   showAdminPage(initial,{updateHash:false});
@@ -5972,18 +6088,25 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const emailPdf=document.getElementById('statementEmailPdf');
   const portalNotification=document.getElementById('statementPortalNotification');
   const smsLink=document.getElementById('statementSmsLink');
-  const customerScope=document.getElementById('statementCustomerScope');
+  const phoneScope=document.getElementById('statementPhoneScope');
+  const emailScope=document.getElementById('statementEmailScope');
   const selectAllVisible=document.getElementById('statementSelectAllVisible');
   const selectAllCustomers=document.getElementById('statementSelectAllCustomers');
   const clearSelection=document.getElementById('statementClearSelection');
   const selectedCount=document.getElementById('statementSelectedCount');
   const status=document.getElementById('statementBatchStatus');
   const progress=document.getElementById('statementBatchProgress');
+  const customerPagination=document.getElementById('statementCustomerPagination');
+  const customerPrev=document.getElementById('statementCustomerPrev');
+  const customerNext=document.getElementById('statementCustomerNext');
+  const customerPageInfo=document.getElementById('statementCustomerPageInfo');
 
   if(!loadBtn||!sendBtn||!list) return;
 
   let customers=[];
   const selected=new Set();
+  let customerPage=1;
+  const customerPageSize=20;
 
   function todayLocal(){
     const d=new Date();
@@ -6005,40 +6128,52 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
   function eligibleCustomers(){
-    const scope=customerScope?customerScope.value:'all';
     return customers.filter(c=>{
       const hasPhone=!!String(c.phone||'').trim();
       const hasEmail=!!String(c.email||'').trim();
-      if(scope==='phone_with')return hasPhone;
-      if(scope==='phone_without')return !hasPhone;
-      if(scope==='email_with')return hasEmail;
-      if(scope==='email_without')return !hasEmail;
-      if(scope==='both')return hasPhone&&hasEmail;
-      if(scope==='neither')return !hasPhone&&!hasEmail;
-      if(scope==='missing_either')return !hasPhone||!hasEmail;
-      return true;
+      const phoneChoice=phoneScope?phoneScope.value:'all';
+      const emailChoice=emailScope?emailScope.value:'all';
+      const phoneMatch=phoneChoice==='all'||(phoneChoice==='with'?hasPhone:!hasPhone);
+      const emailMatch=emailChoice==='all'||(emailChoice==='with'?hasEmail:!hasEmail);
+      return phoneMatch&&emailMatch;
     });
   }
   function scopeSelectLabel(){
-    const labels={
-      all:'Select All Customers',
-      phone_with:'Select All With Phone',
-      phone_without:'Select All Without Phone',
-      email_with:'Select All With Email',
-      email_without:'Select All Without Email',
-      both:'Select All With Phone & Email',
-      neither:'Select All Without Phone & Email',
-      missing_either:'Select All Missing Contact Info'
-    };
-    return labels[customerScope?customerScope.value:'all']||labels.all;
+    const phoneChoice=phoneScope?phoneScope.value:'all';
+    const emailChoice=emailScope?emailScope.value:'all';
+    if(phoneChoice==='all'&&emailChoice==='all')return 'Select All Customers';
+    const parts=[];
+    if(phoneChoice==='with')parts.push('With Phone');
+    if(phoneChoice==='without')parts.push('Without Phone');
+    if(emailChoice==='with')parts.push('With Email');
+    if(emailChoice==='without')parts.push('Without Email');
+    return 'Select All '+parts.join(' & ');
   }
-  function visibleCustomers(){
+  function filteredCustomers(){
     const q=String(search&&search.value||'').trim().toLowerCase();
     const eligible=eligibleCustomers();
     if(!q) return eligible;
     return eligible.filter(c=>[
       c.account_number,c.account_name,c.email,c.phone
     ].join(' ').toLowerCase().includes(q));
+  }
+  function visibleCustomers(){
+    const filtered=filteredCustomers();
+    const pages=Math.max(1,Math.ceil(filtered.length/customerPageSize));
+    customerPage=Math.min(customerPage,pages);
+    const start=(customerPage-1)*customerPageSize;
+    return filtered.slice(start,start+customerPageSize);
+  }
+  function updatePagination(){
+    const filtered=filteredCustomers();
+    const pages=Math.max(1,Math.ceil(filtered.length/customerPageSize));
+    customerPage=Math.min(customerPage,pages);
+    const start=filtered.length?((customerPage-1)*customerPageSize)+1:0;
+    const end=Math.min(customerPage*customerPageSize,filtered.length);
+    if(customerPagination)customerPagination.hidden=filtered.length<=customerPageSize;
+    if(customerPrev)customerPrev.disabled=customerPage<=1;
+    if(customerNext)customerNext.disabled=customerPage>=pages;
+    if(customerPageInfo)customerPageInfo.textContent='Showing '+start+'–'+end+' of '+filtered.length+' • Page '+customerPage+' of '+pages;
   }
   function updateCount(){
     if(selectedCount) selectedCount.textContent=selected.size+' selected';
@@ -6048,6 +6183,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       selectAllVisible.checked=checked;
       selectAllVisible.indeterminate=!checked && visible.some(c=>selected.has(c.account_number));
     }
+    updatePagination();
   }
   function render(){
     const visible=visibleCustomers();
@@ -6090,6 +6226,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const data=await res.json().catch(()=>({}));
       if(!res.ok||data.success===false) throw new Error(data.error||'Customers could not be loaded.');
       customers=Array.isArray(data.customers)?data.customers:[];
+      customerPage=1;
       for(const account of Array.from(selected)){
         if(!customers.some(c=>c.account_number===account)) selected.delete(account);
       }
@@ -6104,13 +6241,18 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   loadBtn.addEventListener('click',loadCustomers);
-  search.addEventListener('input',render);
-  if(customerScope) customerScope.addEventListener('change',function(){
+  search.addEventListener('input',function(){customerPage=1;render();});
+  function contactFiltersChanged(){
+    customerPage=1;
     const eligible=new Set(eligibleCustomers().map(c=>c.account_number));
     for(const account of Array.from(selected)) if(!eligible.has(account)) selected.delete(account);
     if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
     render();
-  });
+  }
+  if(phoneScope)phoneScope.addEventListener('change',contactFiltersChanged);
+  if(emailScope)emailScope.addEventListener('change',contactFiltersChanged);
+  if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;render();}});
+  if(customerNext)customerNext.addEventListener('click',function(){const pages=Math.max(1,Math.ceil(filteredCustomers().length/customerPageSize));if(customerPage<pages){customerPage++;render();}});
 
   list.addEventListener('change',function(e){
     const box=e.target.closest('.statement-customer-check');

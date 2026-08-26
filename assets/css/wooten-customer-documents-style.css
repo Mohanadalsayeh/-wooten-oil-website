@@ -1,6 +1,10 @@
 .dashboard-action-documents .dashboard-action-icon{background:#eef6f3 !important;color:#286955 !important}
 .customer-documents-panel{display:none}
 .customer-documents-panel.show{display:block}
+#portalAccountCard:has(#customerDocuments.show){min-height:0!important;height:auto!important;padding-top:16px!important;padding-bottom:10px!important}
+#portalAccountCard:has(#customerDocuments.show)>.portal-eyebrow{display:none!important}
+#customerDocuments.customer-documents-panel{min-height:0!important;margin-top:0!important;padding-top:0!important;padding-bottom:0!important}
+#customerDocuments .details-toolbar{margin:0 0 10px!important;padding-top:0!important}
 .customer-documents-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 16px}
 .customer-documents-head h3{margin:0 0 4px;color:#17314b;font-size:1.3rem}
 .customer-documents-head p{margin:0;color:#76838f;font-size:.9rem}
@@ -18,11 +22,16 @@
 .customer-document-main strong{display:block;color:#20374d;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .customer-document-main small{display:block;margin-top:4px;color:#82909c;font-size:.75rem}
 .customer-document-open{min-height:38px;padding:0 14px;border:1px solid #ccd8e1;border-radius:9px;background:#fff;color:#244f75;font:inherit;cursor:pointer}
-.customer-documents-footer{margin-top:14px;padding:9px 10px;border-top:1px solid #e2e8ed;text-align:center;color:#8b96a0;font-size:.73rem}
+.customer-documents-footer{margin-top:8px;padding:6px 10px;border-top:1px solid #e2e8ed;text-align:center;color:#8b96a0;font-size:.73rem}
+.portal-overlay:has(#customerDocuments.show){align-items:flex-start!important;padding-top:8px!important;padding-bottom:8px!important}
 @media(max-width:620px){
+  #portalAccountCard:has(#customerDocuments.show){padding:12px 14px 8px!important}
+  #customerDocuments .details-toolbar{margin-bottom:8px!important}
   .customer-documents-head{display:block}
-  .customer-documents-refresh{margin-top:10px}
+  .customer-documents-head{margin-bottom:10px}
+  .customer-documents-refresh{margin-top:7px}
   .customer-documents-tools{grid-template-columns:1fr}
+  .customer-documents-tools{margin-bottom:8px}
   .customer-document-row{grid-template-columns:auto minmax(0,1fr)}
   .customer-document-open{grid-column:1/-1;width:100%}
 }

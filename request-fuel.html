@@ -1394,13 +1394,13 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 
 
 <style id="wooten-header-notification-menu-style">
-.header-notification-menu{position:absolute;top:calc(100% + 8px);right:58px;z-index:3500;width:min(390px,calc(100vw - 28px));max-height:min(520px,70vh);display:none;background:#fff;border:1px solid #dce4eb;border-radius:16px;box-shadow:0 18px 48px rgba(15,39,66,.22);overflow:hidden}
-.header-notification-menu.show{display:block;animation:headerNotifyIn .18s ease both}
+.header-notification-menu{position:absolute;top:calc(100% + 8px);right:58px;z-index:3500;width:min(390px,calc(100vw - 28px));height:auto;max-height:min(520px,calc(100vh - 150px));max-height:min(520px,calc(100dvh - 150px));display:none;flex-direction:column;background:#fff;border:1px solid #dce4eb;border-radius:16px;box-shadow:0 18px 48px rgba(15,39,66,.22);overflow:hidden}
+.header-notification-menu.show{display:flex;animation:headerNotifyIn .18s ease both}
 .header-notification-menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #e4eaee;background:#f9fbfc}
 .header-notification-menu-head strong{display:block;color:#17314b;font-size:.96rem}
 .header-notification-menu-head small{display:block;color:#7b8792;font-size:.72rem;margin-top:2px}
 .header-notification-menu-head button{width:34px;height:34px;border:0;border-radius:50%;background:#eef2f5;color:#34495d;font-size:1.45rem;line-height:1;cursor:pointer}
-.header-notification-list{overflow:auto;max-height:430px}
+.header-notification-list{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .header-notification-item{width:100%;border:0;border-bottom:1px solid #edf1f4;background:#fff;padding:14px 16px;text-align:left;display:flex;gap:11px;cursor:pointer;font:inherit;transition:background .15s ease}
 .header-notification-item:last-child{border-bottom:0}
 .header-notification-item:hover,.header-notification-item:focus-visible{background:#f7fafc;outline:none}
@@ -1410,8 +1410,12 @@ body.customer-signed-in .mobile-customer-header{display:flex}
 .header-notification-copy strong{display:block;color:#243b51;font-size:.86rem}
 .header-notification-copy p{margin:3px 0 0;color:#647381;font-size:.78rem;line-height:1.4}
 .header-notification-copy time{display:block;color:#96a1aa;font-size:.68rem;margin-top:5px}
+.header-notification-menu-footer{position:relative;z-index:2;flex:0 0 auto;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #e4eaee;background:#f9fbfc;box-shadow:0 -6px 14px rgba(15,39,66,.04)}
+.header-notification-menu-footer button{display:block;width:100%;min-height:42px;border:1px solid #d9e1e7;border-radius:10px;background:#fff;color:#a12622;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+.header-notification-menu-footer button:hover,.header-notification-menu-footer button:focus-visible{background:#fff4f3;border-color:#d8aaa7;color:#821f1b;outline:none}
+.header-notification-menu-footer button:disabled{background:#f2f4f6;border-color:#e2e7eb;color:#98a1a9;cursor:not-allowed}
 @keyframes headerNotifyIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:600px){.header-notification-menu{right:0;left:0;width:auto;top:calc(100% + 8px);max-height:65vh;border-radius:14px}}
+@media(max-width:600px){.header-notification-menu{right:0;left:0;width:auto;top:calc(100% + 8px);height:auto;max-height:min(520px,72vh,calc(100dvh - 125px));border-radius:14px}}
 </style>
 
 
@@ -2429,7 +2433,7 @@ body.request-fuel-page .fuel-field{
         <li><a class="nav-link" href="index.html#services">Services</a></li>
         <li><a class="nav-link" href="index.html#farm">Farm Fuel</a></li>
         <li><a class="nav-link" href="index.html#stations">Gas Stations</a></li>
-        <li><a class="nav-link" href="index.html#oil-card">Oil Card</a></li>
+        <li><a class="nav-link" href="index.html#oil-card">Fleet Cards</a></li>
       </ul>
     </nav>
     <a class="customer-login-link" href="index.html#customer-login">Customer Login</a>
@@ -2457,6 +2461,9 @@ body.request-fuel-page .fuel-field{
       <div class="header-notification-list" id="headerNotificationList">
         <div class="notification-empty">No notifications yet.</div>
       </div>
+      <div class="header-notification-menu-footer">
+        <button type="button" id="clearCustomerNotifications">Clear notifications</button>
+      </div>
     </div>
 
     <nav id="mobile-menu" class="mobile-menu-panel" aria-label="Mobile navigation">
@@ -2466,7 +2473,7 @@ body.request-fuel-page .fuel-field{
       <a class="mobile-only-main-link" href="index.html#services">Services</a>
       <a class="mobile-only-main-link" href="index.html#farm">Farm Fuel</a>
       <a class="mobile-only-main-link" href="index.html#stations">Gas Stations</a>
-      <a class="mobile-only-main-link" href="index.html#oil-card">Oil Card</a>
+      <a class="mobile-only-main-link" href="index.html#oil-card">Fleet Cards</a>
       <a href="index.html#locations">Locations</a>
       <a href="index.html#contact">Contact</a>
       <a class="mobile-login-link" href="index.html#customer-login">Customer Login</a>
@@ -4502,6 +4509,7 @@ body.request-fuel-page .fuel-field{
 (function(){
   var NOTIFICATIONS_ENDPOINT='/api/customer/notifications';
   var NOTIFICATIONS_READ_ENDPOINT='/api/customer/notifications/read';
+  var NOTIFICATIONS_CLEAR_ENDPOINT='/api/customer/notifications/clear';
   var cachedItems=[];
   window.wootenNotificationCache=window.wootenNotificationCache||[];
 
@@ -4691,6 +4699,48 @@ body.request-fuel-page .fuel-field{
     }
   };
 
+  window.wootenClearCustomerNotifications=async function(){
+    if(!cachedItems.length) return false;
+
+    var confirmed=window.confirm(
+      'Clear all notifications from this menu? Your statements and invoices will remain available in your account.'
+    );
+    if(!confirmed) return false;
+
+    var button=document.getElementById('clearCustomerNotifications');
+    var originalText=button?button.textContent:'Clear notifications';
+    if(button){
+      button.disabled=true;
+      button.textContent='Clearing...';
+    }
+
+    try{
+      var response=await fetch(NOTIFICATIONS_CLEAR_ENDPOINT,{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Accept':'application/json'}
+      });
+      var data=await response.json().catch(function(){return {};});
+
+      if(!response.ok || data.success===false){
+        throw new Error(data.error||'Unable to clear notifications.');
+      }
+
+      renderItems([]);
+      return true;
+    }catch(error){
+      console.error('Could not clear notifications',error);
+      window.alert(error && error.message ? error.message : 'Unable to clear notifications.');
+      await window.wootenRenderCustomerNotifications();
+      return false;
+    }finally{
+      if(button){
+        button.disabled=false;
+        button.textContent=originalText;
+      }
+    }
+  };
+
   window.wootenAddCustomerNotification=function(){
     return window.wootenRenderCustomerNotifications();
   };
@@ -4716,6 +4766,16 @@ body.request-fuel-page .fuel-field{
       e.preventDefault();
       e.stopPropagation();
       openNotificationItem(item);
+    });
+  }
+
+  var clearButton=document.getElementById('clearCustomerNotifications');
+  if(clearButton && !clearButton.dataset.notificationClearBound){
+    clearButton.dataset.notificationClearBound='1';
+    clearButton.addEventListener('click',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      window.wootenClearCustomerNotifications();
     });
   }
 
