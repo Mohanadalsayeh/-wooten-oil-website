@@ -3072,7 +3072,7 @@ input[type="file"]::file-selector-button{
         <div class="admin-access-label">Admin Access</div>
         <div class="admin-access-meta" id="adminAccessMeta">Locked • Login required</div>
       </div>
-      <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Login / Change Key</button>
+      <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
     </div>
     <div hidden aria-hidden="true">
       <input id="adminKey" type="password" autocomplete="off">
@@ -6724,6 +6724,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function updateAccessMeta(){
     loginName.value='Admin';
     const hasKey=!!(keyField.value||'').trim();
+    if(openBtn) openBtn.textContent='Logout / Change Key';
     if(!accessMeta) return;
     accessMeta.textContent=hasKey ? 'Signed in as Admin' : 'Locked • Login required';
   }
@@ -6836,8 +6837,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   if(openBtn){
     openBtn.addEventListener('click',function(){
-      keyPrompt.value=(keyField.value||'').trim();
+      clearSession();
+      keyField.value='';
+      keyPrompt.value='';
+      updateAccessMeta();
       openLogin();
+      setStatus('Signed out. Enter the Admin Import Key to sign in again or use a different key.',false);
     });
   }
 

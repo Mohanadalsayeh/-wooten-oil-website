@@ -4,7 +4,8 @@
 #portalAccountCard:has(#customerDocuments.show){min-height:0!important;height:auto!important;padding-top:16px!important;padding-bottom:10px!important}
 #portalAccountCard:has(#customerDocuments.show)>.portal-eyebrow{display:none!important}
 #customerDocuments.customer-documents-panel{min-height:0!important;margin-top:0!important;padding-top:0!important;padding-bottom:0!important}
-#customerDocuments .details-toolbar{margin:0 0 10px!important;padding-top:0!important}
+#customerDocuments .details-toolbar{min-height:56px!important;margin:0 0 14px!important;padding:4px 64px 14px 0!important;box-sizing:border-box!important}
+#customerDocuments .details-toolbar>span{margin-left:auto!important;padding-right:4px!important;white-space:nowrap!important}
 .customer-documents-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 16px}
 .customer-documents-head h3{margin:0 0 4px;color:#17314b;font-size:1.3rem}
 .customer-documents-head p{margin:0;color:#76838f;font-size:.9rem}
@@ -26,7 +27,8 @@
 .portal-overlay:has(#customerDocuments.show){align-items:flex-start!important;padding-top:8px!important;padding-bottom:8px!important}
 @media(max-width:620px){
   #portalAccountCard:has(#customerDocuments.show){padding:12px 14px 8px!important}
-  #customerDocuments .details-toolbar{margin-bottom:8px!important}
+  #customerDocuments .details-toolbar{min-height:52px!important;margin-bottom:10px!important;padding:2px 52px 10px 0!important}
+  #customerDocuments .details-toolbar>span{max-width:42%;overflow:hidden;text-overflow:ellipsis;font-size:.72rem!important}
   .customer-documents-head{display:block}
   .customer-documents-head{margin-bottom:10px}
   .customer-documents-refresh{margin-top:7px}
