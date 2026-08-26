@@ -3272,7 +3272,16 @@ async function adminCommunicationLogGet({request,env}){
       const safePage=Math.min(page,pages);
       const offset=(safePage-1)*pageSize;
       const result=await env.DB.prepare(`
-        SELECT l.*,COALESCE(c.account_name,'Customer') AS account_name,c.phone,c.email
+        SELECT l.*,COALESCE(c.account_name,'Customer') AS account_name,c.phone,c.email,
+          CASE
+            WHEN l.event_type IN ('statement','invoice') AND l.source_type='document' THEN l.source_id
+            WHEN l.event_type IN ('statement','invoice') AND l.source_type='notification' THEN (
+              SELECT n.action_id FROM portal_notifications n
+              WHERE n.id=l.source_id AND n.action_type='customer_documents'
+              LIMIT 1
+            )
+            ELSE NULL
+          END AS document_id
         FROM admin_communication_log l
         LEFT JOIN customers c ON c.account_number=l.account_number
         ${where}

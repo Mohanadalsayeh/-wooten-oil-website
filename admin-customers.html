@@ -2300,6 +2300,7 @@ input[type="file"]::file-selector-button{
 .communication-entry-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.communication-entry-head strong{color:#102b48}.communication-entry-time{font-size:12px;color:#718193;white-space:nowrap}
 .communication-entry p{margin:8px 0;color:#556779;white-space:pre-wrap}
 .communication-channels{display:flex;flex-wrap:wrap;gap:7px}.communication-channel{border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;background:#edf2f7;color:#536475}.communication-channel.sent{background:#ddf4e8;color:#17633f}.communication-channel.failed{background:#fde8e8;color:#9b3030}
+.communication-document-link{display:inline-flex;align-items:center;gap:7px;margin-top:10px;border:1px solid #8eb3ce;border-radius:8px;background:#eef7fd;color:#174f78;padding:7px 11px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}.communication-document-link:hover{border-color:#246b9e;background:#e1f1fb}.communication-document-link svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sms-delivery{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}.sms-status{border-radius:999px;padding:5px 10px;font-size:11px;font-weight:900}.sms-status.delivered{background:#d9f3e6;color:#17633f}.sms-status.pending{background:#fff0c7;color:#725300}.sms-status.failed{background:#fde3e3;color:#9b3030}.sms-status.opted_out{background:#e8ebef;color:#4d5967}.sms-error-detail{width:100%;margin:0!important;color:#9b3030!important;font-size:12px}.sms-resend{border:1px solid #b92d36;border-radius:8px;background:#fff;color:#9b2029;padding:6px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}.sms-resend:hover{background:#fff1f2}.sms-resend:disabled{opacity:.6;cursor:wait}
 .communication-log-empty{padding:24px;text-align:center;border:1px dashed #c7d3de;border-radius:12px;background:#fff;color:#718193}
 @media(max-width:900px){.communication-log-filters{grid-template-columns:1fr 1fr}.communication-customer-row{grid-template-columns:1fr repeat(2,75px)}.communication-customer-row .communication-count:nth-of-type(4),.communication-customer-row .communication-count:nth-of-type(5){display:none}.communication-last{grid-column:1/-1;text-align:left}}
@@ -6150,6 +6151,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       setStatus(e.message||'Document could not be opened.',false);
     }
   }
+  window.openAdminCustomerDocument=openAdminDocument;
 
   async function loadDocs(){
     const key=document.getElementById('adminKey').value.trim();
@@ -6598,11 +6600,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const error=String(r.error_text||'');
       const emailAttempted=!!r.email_sent||/email/i.test(error);
       const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
+      const documentLink=Number(r.document_id||0)>0?'<button class="communication-document-link" type="button" data-open-document="'+Number(r.document_id)+'">Open PDF</button>':'';
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+esc(r.title||'Customer Communication')+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
         '<p>'+esc(r.detail||'')+'</p><div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
-        '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
+        '</div>'+documentLink+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
   }
   async function loadCustomers(resetPage){
@@ -6723,11 +6726,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const smsDelivery=smsLabel?'<div class="sms-delivery"><span class="sms-status '+esc(smsStatus)+'">SMS '+esc(smsLabel)+'</span>'+
         (smsStatus==='failed'?'<button class="sms-resend" type="button" data-sms-resend="'+Number(r.id||0)+'">Resend SMS</button>':'')+
         (smsError?'<p class="sms-error-detail">'+(r.sms_error_code?'Twilio '+esc(r.sms_error_code)+': ':'')+esc(smsError)+'</p>':'')+'</div>':'';
+      const documentLink=Number(r.document_id||0)>0?'<button class="communication-document-link" type="button" data-open-document="'+Number(r.document_id)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8M8 17h6"></path></svg>Open PDF</button>':'';
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+esc(r.title||'Customer Communication')+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
         '<p>'+esc(r.detail||'')+'</p><div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
-        '</div>'+smsDelivery+(error&&!smsError?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
+        '</div>'+documentLink+smsDelivery+(error&&!smsError?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
   }
   function childHtml(account,state){
@@ -6799,6 +6803,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   loadBtn.addEventListener('click',()=>loadCustomers(true));
   customersEl.addEventListener('click',function(e){
+    const documentButton=e.target.closest('[data-open-document]');
+    if(documentButton){
+      e.preventDefault();e.stopPropagation();
+      const id=Number(documentButton.getAttribute('data-open-document')||0);
+      if(id&&typeof window.openAdminCustomerDocument==='function')window.openAdminCustomerDocument(id);
+      return;
+    }
     const resend=e.target.closest('[data-sms-resend]');
     if(resend){
       e.preventDefault();e.stopPropagation();
