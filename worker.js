@@ -6386,6 +6386,11 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
       const avg=(bold?0.56:0.52)*size;
       pText(Math.max(42,right-safe.length*avg),y,size,safe,bold,color);
     };
+    const pCenter=(center,y,size,value,bold=false,color=navy)=>{
+      const safe=statementPdfSafeText(value);
+      const avg=(bold?0.56:0.52)*size;
+      pText(center-(safe.length*avg/2),y,size,safe,bold,color);
+    };
 
     pRect(0,700,612,92,navy);
     pRect(0,696,612,4,red);
@@ -6405,14 +6410,17 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     ];
     const headerY=600,rowH=24,tableRight=570;
     pRect(42,headerY,528,28,navy);
-    columns.forEach(col=>pText(col.x+5,headerY+10,7.5,col.label,true,white));
+    columns.forEach(col=>{
+      if(col.label==="AMOUNT")pCenter(337.5,headerY+10,7.5,col.label,true,white);
+      else pText(col.x+5,headerY+10,7.5,col.label,true,white);
+    });
     payments.forEach((payment,index)=>{
       const y=headerY-rowH*(index+1);
       pRect(42,y,528,rowH,index%2===0?[0.975,0.981,0.987]:white,line,0.45);
       pText(47,y+8,8,clip(payment.payment_date||"-",12),false,slate);
       pText(130,y+8,8,clip(payment.check_number||"-",11),false,slate);
       pText(207,y+8,8,clip(payment.invoice_number||"-",14),false,slate);
-      pRight(365,y+8,8.5,statementMoney(payment.amount),true,navy);
+      pCenter(337.5,y+8,8.5,statementMoney(payment.amount),true,navy);
       pText(380,y+8,8,clip(payment.posting_date||"-",12),false,slate);
       pText(477,y+8,8,clip(payment.deposit_date||"-",12),false,slate);
     });
