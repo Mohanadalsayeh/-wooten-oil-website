@@ -3786,6 +3786,18 @@ input[type="file"]::file-selector-button{
           <label for="statementBatchDate">Statement Date</label>
           <input id="statementBatchDate" type="date">
         </div>
+        <div>
+          <label for="statementPaymentCount">Last Payments to Show</label>
+          <select class="statement-contact-filter-select" id="statementPaymentCount">
+            <option value="0">None</option>
+            <option value="1" selected>1 payment</option>
+            <option value="2">2 payments</option>
+            <option value="3">3 payments</option>
+            <option value="5">5 payments</option>
+            <option value="10">10 payments</option>
+            <option value="20">20 payments</option>
+          </select>
+        </div>
         <div class="statement-search-field">
           <label for="statementCustomerSearch">Find Customer</label>
           <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
@@ -6199,6 +6211,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const list=document.getElementById('statementCustomerList');
   const search=document.getElementById('statementCustomerSearch');
   const date=document.getElementById('statementBatchDate');
+  const paymentCount=document.getElementById('statementPaymentCount');
   const emailPdf=document.getElementById('statementEmailPdf');
   const portalNotification=document.getElementById('statementPortalNotification');
   const smsLink=document.getElementById('statementSmsLink');
@@ -6405,6 +6418,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       body:JSON.stringify({
         accounts,
         statement_date:date.value||todayLocal(),
+        payment_count:Number(paymentCount&&paymentCount.value||0),
         portal_notification:!!portalNotification.checked,
         email_pdf:!!emailPdf.checked,
         sms_link:!!smsLink.checked

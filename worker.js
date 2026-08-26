@@ -6228,7 +6228,7 @@ function statementCustomerAddress(customer){
 }
 __name(statementCustomerAddress,"statementCustomerAddress");
 
-function statementBuildPdf(customer,statementDate){
+function statementBuildPdf(customer,statementDate,recentPayments=[]){
   const current=statementNumber(customer?.current_balance);
   const age1=statementNumber(customer?.aging_category_1);
   const age2=statementNumber(customer?.aging_category_2);
@@ -6236,6 +6236,8 @@ function statementBuildPdf(customer,statementDate){
   const age4=statementNumber(customer?.aging_category_4);
   const previous=age1+age2+age3+age4;
   const total=current+previous;
+  const payments=Array.isArray(recentPayments)?recentPayments.slice(0,20):[];
+  const latestPayment=payments[0]||null;
 
   const commands=[];
   const add=(s)=>commands.push(s);
@@ -6337,37 +6339,110 @@ function statementBuildPdf(customer,statementDate){
 
   // Payment/info note
   rect(42,112,528,54,[1.0,0.975,0.91],[0.91,0.78,0.45],0.8);
-  text(56,145,9.5,"PAYMENT NOTICE",true,[0.43,0.30,0.08]);
-  text(56,128,9,"Payments submitted through the Wooten Oil Customer Portal may take up to",false,[0.43,0.30,0.08]);
-  text(56,115,9,"24 business hours to appear on your account.",false,[0.43,0.30,0.08]);
+  text(56,148,9.5,"PAYMENT NOTICE",true,[0.43,0.30,0.08]);
+  text(56,133,8.5,"Portal payments may take up to 24 business hours",false,[0.43,0.30,0.08]);
+  text(56,120,8.5,"to appear on your account.",false,[0.43,0.30,0.08]);
+
+  if(latestPayment){
+    lineTo(410,120,410,158,[0.88,0.72,0.35],0.7);
+    text(424,148,8.5,"LAST PAYMENT",true,[0.43,0.30,0.08]);
+    text(424,133,10,statementMoney(latestPayment.amount),true,navy);
+    text(424,120,8.5,statementPdfDate(latestPayment.posting_date||latestPayment.payment_date),false,slate);
+  }
 
   // Footer
   lineTo(42,82,570,82,line,0.7);
   text(42,63,8.5,"Wooten Oil Co Inc.  |  West Tennessee Petroleum Delivery",false,slate);
   rightText(570,63,8.5,"Thank you for your business.",false,slate);
 
-  const stream=commands.join("\n");
+  const pageStreams=[commands.join("\n")];
+
+  if(payments.length){
+    const paymentCommands=[];
+    const pAdd=(s)=>paymentCommands.push(s);
+    const clip=(value,max)=>{
+      const safe=statementPdfSafeText(value);
+      return safe.length>max?safe.slice(0,Math.max(0,max-3))+"...":safe;
+    };
+    const pText=(x,y,size,value,bold=false,color=navy)=>{
+      pAdd(`BT /${bold?"F2":"F1"} ${size} Tf ${rgb(...color)} rg ${x} ${y} Td (${statementPdfEscape(value)}) Tj ET`);
+    };
+    const pRect=(x,y,w,h,fillColor,strokeColor=null,width=1)=>{
+      if(fillColor) pAdd(`${rgb(...fillColor)} rg ${x} ${y} ${w} ${h} re f`);
+      if(strokeColor) pAdd(`${width} w ${rgb(...strokeColor)} RG ${x} ${y} ${w} ${h} re S`);
+    };
+    const pLine=(x1,y1,x2,y2,color=line,width=1)=>pAdd(`${width} w ${rgb(...color)} RG ${x1} ${y1} m ${x2} ${y2} l S`);
+    const pRight=(right,y,size,value,bold=false,color=navy)=>{
+      const safe=statementPdfSafeText(value);
+      const avg=(bold?0.56:0.52)*size;
+      pText(Math.max(42,right-safe.length*avg),y,size,safe,bold,color);
+    };
+
+    pRect(0,700,612,92,navy);
+    pRect(0,696,612,4,red);
+    pText(42,751,22,"WOOTEN OIL CO INC.",true,white);
+    pText(42,730,10,"RECENT PAYMENTS",true,[0.88,0.92,0.96]);
+    pRight(570,750,12,`Customer # ${statementPdfSafeText(customer?.account_number)||"-"}`,true,white);
+    pText(42,658,15,statementPdfSafeText(customer?.account_name)||"Customer",true,navy);
+    pText(42,638,9.5,`${payments.length} most recent payment${payments.length===1?"":"s"} included with statement dated ${statementPdfDate(statementDate)}.`,false,slate);
+
+    const columns=[
+      {x:42,label:"PAYMENT DATE"},
+      {x:125,label:"CHECK #"},
+      {x:202,label:"INVOICE #"},
+      {x:300,label:"AMOUNT"},
+      {x:375,label:"POSTED DATE"},
+      {x:472,label:"DEPOSIT DATE"}
+    ];
+    const headerY=600,rowH=24,tableRight=570;
+    pRect(42,headerY,528,28,navy);
+    columns.forEach(col=>pText(col.x+5,headerY+10,7.5,col.label,true,white));
+    payments.forEach((payment,index)=>{
+      const y=headerY-rowH*(index+1);
+      pRect(42,y,528,rowH,index%2===0?[0.975,0.981,0.987]:white,line,0.45);
+      pText(47,y+8,8,clip(payment.payment_date||"-",12),false,slate);
+      pText(130,y+8,8,clip(payment.check_number||"-",11),false,slate);
+      pText(207,y+8,8,clip(payment.invoice_number||"-",14),false,slate);
+      pRight(365,y+8,8.5,statementMoney(payment.amount),true,navy);
+      pText(380,y+8,8,clip(payment.posting_date||"-",12),false,slate);
+      pText(477,y+8,8,clip(payment.deposit_date||"-",12),false,slate);
+    });
+    const tableBottom=headerY-rowH*payments.length;
+    [125,202,300,375,472].forEach(x=>pLine(x,tableBottom,x,headerY+28,line,0.45));
+    pLine(42,82,570,82,line,0.7);
+    pText(42,63,8.5,"Wooten Oil Co Inc.  |  West Tennessee Petroleum Delivery",false,slate);
+    pRight(570,63,8.5,"Payment History",false,slate);
+    pageStreams.push(paymentCommands.join("\n"));
+  }
+
   const objects=[];
   objects[1]="<< /Type /Catalog /Pages 2 0 R >>";
-  objects[2]="<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+  objects[2]=pageStreams.length===2
+    ?"<< /Type /Pages /Kids [3 0 R 7 0 R] /Count 2 >>"
+    :"<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
   objects[3]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>";
   objects[4]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
   objects[5]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
-  objects[6]=`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`;
+  objects[6]=`<< /Length ${new TextEncoder().encode(pageStreams[0]).length} >>\nstream\n${pageStreams[0]}\nendstream`;
+  if(pageStreams.length===2){
+    objects[7]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 8 0 R >>";
+    objects[8]=`<< /Length ${new TextEncoder().encode(pageStreams[1]).length} >>\nstream\n${pageStreams[1]}\nendstream`;
+  }
 
   let pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
   const offsets=[0];
-  for(let i=1;i<=6;i++){
+  const objectCount=pageStreams.length===2?8:6;
+  for(let i=1;i<=objectCount;i++){
     offsets[i]=new TextEncoder().encode(pdf).length;
     pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;
   }
   const xrefOffset=new TextEncoder().encode(pdf).length;
-  pdf+="xref\n0 7\n";
+  pdf+=`xref\n0 ${objectCount+1}\n`;
   pdf+="0000000000 65535 f \n";
-  for(let i=1;i<=6;i++){
+  for(let i=1;i<=objectCount;i++){
     pdf+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
   }
-  pdf+=`trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  pdf+=`trailer\n<< /Size ${objectCount+1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
 
   return new TextEncoder().encode(pdf);
 }
@@ -6508,6 +6583,7 @@ async function adminGenerateStatementsPost({request,env}){
     if(accounts.length>20) return notificationJson({success:false,error:"Send statements in batches of 20 customers or fewer."},413);
 
     const statementDate=statementPdfShortDate(body.statement_date||new Date().toISOString());
+    const paymentCount=Math.max(0,Math.min(20,Number.parseInt(body.payment_count,10)||0));
     const emailPdf=body.email_pdf!==false;
     const portalNotification=body.portal_notification!==false;
     const smsLink=body.sms_link===true;
@@ -6515,6 +6591,7 @@ async function adminGenerateStatementsPost({request,env}){
     await ensureCustomerDocumentsTable(env);
     await ensureCustomerNotificationsTable(env);
     await ensureAdminContactPreferencesTable(env);
+    await ensureCustomerPaymentsSchema(env);
 
     const results=[];
 
@@ -6546,7 +6623,25 @@ async function adminGenerateStatementsPost({request,env}){
           statementNumber(customer.aging_category_4);
         const total=current+previous;
 
-        const pdfBytes=statementBuildPdf(customer,statementDate);
+        let recentPayments=[];
+        if(paymentCount>0){
+          const paymentResult=await env.DB.prepare(`
+            SELECT
+              payment_date,
+              reference AS check_number,
+              source_invoice_no AS invoice_number,
+              amount,
+              posting_date,
+              deposit_date
+            FROM customer_payments
+            WHERE account_number=?
+            ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
+            LIMIT ?
+          `).bind(account,paymentCount).all();
+          recentPayments=paymentResult?.results||[];
+        }
+
+        const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments);
         const filename=`Wooten-Oil-Statement-${account}-${statementDate}.pdf`;
         const title=`Statement ${statementPdfDate(statementDate)}`;
         objectKey=`customer-documents/${account}/${crypto.randomUUID()}-${filename}`;
