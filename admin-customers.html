@@ -1286,6 +1286,26 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+<style id="wooten-customer-detail-form-typography-alignment">
+.db-customer-head-copy{min-width:0}
+.db-customer-head-kicker{margin:0 0 3px;color:#6b7b8c;font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}
+.db-customer-head h3{font-size:23px!important;font-weight:850!important}
+.db-customer-head-account{display:block;margin-top:4px;color:#5f7183;font-size:14px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.db-section-title{font-size:14px!important;font-weight:800!important}
+.db-detail-label{font-size:12px!important;font-weight:800!important;letter-spacing:.045em!important;text-align:left!important}
+.db-detail-value{font-size:15px!important;font-weight:650!important;line-height:1.4!important;text-align:left!important}
+.db-aging-box{text-align:left!important}
+.db-aging-box .db-detail-label,.db-aging-box .db-detail-value{text-align:left!important}
+.db-aging-box .db-detail-value{font-size:15px!important;font-weight:700!important}
+@media(max-width:620px){
+  .db-customer-head{align-items:flex-start!important}
+  .db-customer-head h3{font-size:21px!important}
+  .db-customer-head-account{font-size:13px}
+  .db-detail-label{font-size:11px!important}
+  .db-detail-value,.db-aging-box .db-detail-value{font-size:14px!important}
+}
+</style>
+
 
 <style id="wooten-admin-customer-documents-style">
 .doc-admin-grid{display:grid;grid-template-columns:1.1fr 1fr 1fr 1.5fr;gap:14px;margin-top:18px}
@@ -3458,7 +3478,11 @@ input[type="file"]::file-selector-button{
   <div class="db-customer-modal" id="dbCustomerModal" aria-hidden="true">
     <div class="db-customer-card" role="dialog" aria-modal="true" aria-labelledby="dbCustomerModalTitle">
       <div class="db-customer-head">
-        <h3 id="dbCustomerModalTitle">Customer Details</h3>
+        <div class="db-customer-head-copy">
+          <div class="db-customer-head-kicker">Live Customer Database</div>
+          <h3 id="dbCustomerModalTitle">Customer Details</h3>
+          <span class="db-customer-head-account" id="dbCustomerModalAccount">Customer account</span>
+        </div>
         <button class="secondary db-customer-close" id="dbCustomerModalClose" type="button" aria-label="Close">&times;</button>
       </div>
       <div class="db-customer-body" id="dbCustomerModalBody"></div>
@@ -5549,8 +5573,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const modal=document.getElementById("dbCustomerModal");
     const body=document.getElementById("dbCustomerModalBody");
     const title=document.getElementById("dbCustomerModalTitle");
+    const accountHeading=document.getElementById("dbCustomerModalAccount");
 
-    title.textContent=(row.account_name||"Customer")+" — "+(row.account_number||"");
+    title.textContent="Customer Details";
+    if(accountHeading) accountHeading.textContent=(row.account_name||"Customer")+" — Customer # "+(row.account_number||"—");
     const statusText=String(row.account_status||"Active").trim()||"Active";
     const isActive=statusText.toLowerCase()==="active";
     const onlineActivated=!!row.online_activated;
@@ -5590,7 +5616,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         <div class="db-section-title">Account Balance & Aging</div>
         <div class="db-aging-grid">
           <div class="db-aging-box current-balance">
-            <div class="db-detail-label">Current</div>
+            <div class="db-detail-label">Current Balance</div>
             <div class="db-detail-value" title="${money(row.current_balance)}">${money(row.current_balance)}</div>
           </div>
           <div class="db-aging-box">
