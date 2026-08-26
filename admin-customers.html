@@ -1330,8 +1330,6 @@ input[type="file"]::file-selector-button{
 
 <style id="wooten-admin-document-open-style">
 .doc-admin-actions{display:flex;align-items:center;gap:9px;justify-content:flex-end}
-.doc-admin-open{min-height:36px;padding:0 12px;border:1px solid #ccd8e1;border-radius:9px;background:#fff;color:#244f75;font:inherit;cursor:pointer;white-space:nowrap}
-.doc-admin-open:hover,.doc-admin-open:focus{background:#fff;color:#244f75;transform:none}
 @media(max-width:620px){.doc-admin-actions{justify-content:space-between}}
 </style>
 
@@ -6110,20 +6108,21 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const badge=document.createElement('div'); badge.className='doc-admin-badge'; badge.textContent=d.document_type||'document';
       const main=document.createElement('div'); main.className='doc-admin-main';
       const strong=document.createElement('strong'); strong.textContent=d.title||d.filename||'Document';
-      const small=document.createElement('small'); small.textContent=formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '+(d.filename||'PDF');
+      const small=document.createElement('small');
+      small.appendChild(document.createTextNode(formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '));
+      const filenameLink=document.createElement('button');
+      filenameLink.type='button';
+      filenameLink.className='communication-pdf-link';
+      filenameLink.textContent=d.filename||'PDF';
+      filenameLink.addEventListener('click',function(){openAdminDocument(d.id);});
+      small.appendChild(filenameLink);
       main.append(strong,small);
       const actions=document.createElement('div');
       actions.className='doc-admin-actions';
 
-      const open=document.createElement('button');
-      open.type='button';
-      open.className='doc-admin-open';
-      open.textContent='Open PDF';
-      open.addEventListener('click',function(){openAdminDocument(d.id);});
-
       const id=document.createElement('small');
       id.textContent='Document #'+d.id;
-      actions.append(open,id);
+      actions.append(id);
 
       row.append(badge,main,actions); list.appendChild(row);
     });
