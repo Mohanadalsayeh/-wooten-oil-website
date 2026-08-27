@@ -2535,6 +2535,41 @@ input[type="file"]::file-selector-button{
 
 
 <style id="wooten-customer-payments-import-style">
+  .import-progress{
+    margin-top:14px;
+    padding:14px 16px;
+    border:1px solid #cdd9e4;
+    border-radius:12px;
+    background:#f7fafc;
+  }
+  .import-progress[hidden]{display:none !important}
+  .import-progress-head,.import-progress-detail{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+  }
+  .import-progress-head strong{color:var(--navy);font-size:15px}
+  .import-progress-head span{color:#17324d;font-weight:900;font-variant-numeric:tabular-nums}
+  .import-progress-track{
+    height:16px;
+    margin:10px 0 8px;
+    overflow:hidden;
+    border:1px solid #c4d1dc;
+    border-radius:999px;
+    background:#e5edf3;
+  }
+  .import-progress-track span{
+    display:block;
+    width:0;
+    height:100%;
+    border-radius:inherit;
+    background:linear-gradient(90deg,#d62828,#ef4444);
+    transition:width .25s ease;
+  }
+  .import-progress.is-complete .import-progress-track span{background:linear-gradient(90deg,#16804b,#24a666)}
+  .import-progress.is-failed .import-progress-track span{background:#b42318}
+  .import-progress-detail{color:#607286;font-size:13px;font-weight:700}
   .payments-import-section{
     margin-top:28px;
     padding-top:22px;
@@ -2573,6 +2608,7 @@ input[type="file"]::file-selector-button{
     margin-bottom:0 !important;
   }
   @media(max-width:720px){
+    .import-progress-detail{align-items:flex-start;flex-direction:column;gap:3px}
     .payments-import-section{
       margin-top:22px;
       padding-top:18px;
@@ -3193,6 +3229,12 @@ input[type="file"]::file-selector-button{
 
     <div id="status" class="status"></div>
 
+    <div class="import-progress" id="customerImportProgress" hidden>
+      <div class="import-progress-head"><strong id="customerImportProgressTitle">Customer import</strong><span id="customerImportProgressPercent">0%</span></div>
+      <div class="import-progress-track" id="customerImportProgressTrack" role="progressbar" aria-label="Customer import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="customerImportProgressBar"></span></div>
+      <div class="import-progress-detail"><span id="customerImportProgressCount">Imported 0 of 0</span><span id="customerImportProgressBatch">Waiting to start</span></div>
+    </div>
+
     <div class="summary" id="summary" style="display:none">
       <div class="metric"><b id="mRows">0</b><span>Rows Found</span></div>
       <div class="metric"><b id="mValid">0</b><span>Valid Customers</span></div>
@@ -3275,6 +3317,12 @@ input[type="file"]::file-selector-button{
       </div>
 
       <div id="paymentImportStatus" class="status"></div>
+
+      <div class="import-progress" id="paymentImportProgress" hidden>
+        <div class="import-progress-head"><strong id="paymentImportProgressTitle">Payment import</strong><span id="paymentImportProgressPercent">0%</span></div>
+        <div class="import-progress-track" id="paymentImportProgressTrack" role="progressbar" aria-label="Payment import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="paymentImportProgressBar"></span></div>
+        <div class="import-progress-detail"><span id="paymentImportProgressCount">Imported 0 of 0</span><span id="paymentImportProgressBatch">Waiting to start</span></div>
+      </div>
 
       <div class="summary payments-import-summary" id="paymentImportSummary" style="display:none">
         <div class="metric"><b id="pmRows">0</b><span>Rows Found</span></div>
@@ -4228,6 +4276,23 @@ function setStatus(msg,good=true){
   el.className="status show "+(good?"ok":"bad");
   el.textContent=msg;
 }
+function updateImportProgress(kind,{processed=0,total=0,imported=0,batch=0,batches=0,state="running",label=""}={}){
+  const prefix=kind==="payments"?"paymentImport":"customerImport";
+  const box=document.getElementById(prefix+"Progress");
+  const safeTotal=Math.max(0,Number(total)||0);
+  const safeProcessed=Math.max(0,Math.min(safeTotal,Number(processed)||0));
+  const percent=safeTotal?Math.round((safeProcessed/safeTotal)*100):0;
+  box.hidden=false;
+  box.classList.toggle("is-complete",state==="complete");
+  box.classList.toggle("is-failed",state==="failed");
+  document.getElementById(prefix+"ProgressTitle").textContent=label||(kind==="payments"?"Importing customer payments":"Importing customers");
+  document.getElementById(prefix+"ProgressPercent").textContent=percent+"%";
+  document.getElementById(prefix+"ProgressBar").style.width=percent+"%";
+  const track=document.getElementById(prefix+"ProgressTrack");
+  track.setAttribute("aria-valuenow",String(percent));
+  document.getElementById(prefix+"ProgressCount").textContent=`Imported ${Number(imported||0).toLocaleString()} • Processed ${safeProcessed.toLocaleString()} of ${safeTotal.toLocaleString()}`;
+  document.getElementById(prefix+"ProgressBatch").textContent=batches?`Batch ${Math.min(batch,batches)} of ${batches}`:"Preparing batches";
+}
 function customerPreviewFilteredRows(){
   const q=(document.getElementById("customerPreviewSearch")?.value||"").trim().toLowerCase();
   const state=document.getElementById("customerStateFilter")?.value||"all";
@@ -4318,6 +4383,8 @@ async function parseFile(file,mode="customers"){
 document.getElementById("previewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("customerFile").files[0];
   if(!file){setStatus("Choose an Access MDB/ACCDB, Excel, or CSV file first.",false);return;}
+  document.getElementById("customerImportProgress").hidden=true;
+  document.getElementById("mImported").textContent="0";
   try{
     const parsed=await parseFile(file,"customers");
     const raw=parsed.rows;
@@ -4340,20 +4407,41 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
   if(!key){setStatus("Enter your Admin Import Key in the Admin Login window first.",false);return;}
   if(!preparedRows.length){setStatus("Preview a customer file first.",false);return;}
   const btn=document.getElementById("importBtn");
-  btn.disabled=true; btn.textContent="Uploading…";
+  const chunkSize=500;
+  const total=preparedRows.length;
+  const batches=Math.ceil(total/chunkSize);
+  let processed=0;
+  let imported=0;
+  let currentBatch=0;
+  let latestCustomerImportAt="";
+  btn.disabled=true; btn.textContent="Importing batch 1 of "+batches;
+  updateImportProgress("customers",{processed:0,total,imported:0,batch:1,batches,label:"Importing customers"});
   try{
-    const res=await fetch("/api/admin/customers-import",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Admin-Key":key},
-      body:JSON.stringify({customers:preparedRows})
-    });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok || data.success===false) throw new Error(data.error||"Import failed.");
-    document.getElementById("mImported").textContent=data.processed||preparedRows.length;
-    setImportLastUpdate("customers",data.imported_at||"");
-    setStatus(`Success: ${data.processed} customer records were added or updated.`);
+    for(let i=0;i<total;i+=chunkSize){
+      currentBatch=Math.floor(i/chunkSize)+1;
+      btn.textContent=`Importing batch ${currentBatch} of ${batches}`;
+      const chunk=preparedRows.slice(i,i+chunkSize);
+      const res=await fetch("/api/admin/customers-import",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-Admin-Key":key},
+        body:JSON.stringify({customers:chunk})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok || data.success===false) throw new Error(data.error||`Customer import failed during batch ${currentBatch}.`);
+      processed+=chunk.length;
+      imported+=Number(data.processed||chunk.length);
+      if(data.imported_at)latestCustomerImportAt=data.imported_at;
+      document.getElementById("mImported").textContent=imported;
+      updateImportProgress("customers",{processed,total,imported,batch:currentBatch,batches,label:"Importing customers"});
+      setStatus(`Importing customers: ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches}.`);
+    }
+    if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt);
+    updateImportProgress("customers",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Customer import complete"});
+    setStatus(`Success: ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}.`);
   }catch(e){
-    console.error(e); setStatus(e.message||"Import failed.",false);
+    console.error(e);
+    updateImportProgress("customers",{processed,total,imported,batch:currentBatch||1,batches,state:"failed",label:"Customer import stopped"});
+    setStatus((e.message||"Import failed.")+` ${imported.toLocaleString()} customer(s) completed before the error.`,false);
   }finally{
     btn.disabled=false; btn.textContent="Upload / Update Customers";
   }
@@ -4499,6 +4587,8 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     setPaymentStatus("Choose an Access MDB/ACCDB, Excel, or CSV customer payments file first.",false);
     return;
   }
+  document.getElementById("paymentImportProgress").hidden=true;
+  document.getElementById("pmImported").textContent="0";
 
   try{
     const parsed=await parseFile(file,"payments");
@@ -4544,18 +4634,24 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
   }
 
   const btn=document.getElementById("paymentImportBtn");
+  const chunkSize=1000;
+  const total=preparedPaymentRows.length;
+  const batches=Math.ceil(total/chunkSize);
+  let processed=0;
+  let imported=0;
+  let duplicates=0;
+  let skipped=0;
+  let currentBatch=0;
+  let latestPaymentImportAt="";
   btn.disabled=true;
-  btn.textContent="Importing…";
+  btn.textContent="Importing batch 1 of "+batches;
+  updateImportProgress("payments",{processed:0,total,imported:0,batch:1,batches,label:"Importing customer payments"});
 
   try{
     // Keep each request comfortably below payload and D1 batch limits.
-    const chunkSize=1000;
-    let imported=0;
-    let duplicates=0;
-    let skipped=0;
-    let latestPaymentImportAt="";
-
     for(let i=0;i<preparedPaymentRows.length;i+=chunkSize){
+      currentBatch=Math.floor(i/chunkSize)+1;
+      btn.textContent=`Importing batch ${currentBatch} of ${batches}`;
       const chunk=preparedPaymentRows.slice(i,i+chunkSize);
       const res=await fetch("/api/admin/customer-payments-import",{
         method:"POST",
@@ -4572,11 +4668,16 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       imported+=Number(data.inserted||0);
       duplicates+=Number(data.duplicates||0);
       skipped+=Number(data.skipped||0);
+      processed+=chunk.length;
       if(data.imported_at) latestPaymentImportAt=data.imported_at;
+      document.getElementById("pmImported").textContent=imported;
+      updateImportProgress("payments",{processed,total,imported,batch:currentBatch,batches,label:"Importing customer payments"});
+      setPaymentStatus(`Importing payments: ${imported.toLocaleString()} added • ${processed.toLocaleString()} of ${total.toLocaleString()} processed • batch ${currentBatch} of ${batches}.`);
     }
 
     document.getElementById("pmImported").textContent=imported;
     if(latestPaymentImportAt) setImportLastUpdate("payments",latestPaymentImportAt);
+    updateImportProgress("payments",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Payment import complete"});
     setPaymentStatus(
       `Payment import complete: ${imported} new payment(s) added`+
       (duplicates?`, ${duplicates} duplicate(s) skipped`:"")+
@@ -4584,10 +4685,11 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     );
   }catch(e){
     console.error(e);
+    updateImportProgress("payments",{processed,total,imported,batch:currentBatch||1,batches,state:"failed",label:"Payment import stopped"});
     if(String(e.message||"").toLowerCase().includes("unauthorized")){
       setPaymentStatus("The Admin Import Key is not valid.",false);
     }else{
-      setPaymentStatus(e.message||"Payment import failed.",false);
+      setPaymentStatus((e.message||"Payment import failed.")+` ${imported.toLocaleString()} payment(s) were added before the error.`,false);
     }
   }finally{
     btn.disabled=false;
