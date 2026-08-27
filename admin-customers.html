@@ -1440,7 +1440,7 @@ input[type="file"]::file-selector-button{
 .schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 .schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
 .schedule-shared{margin-top:14px}.schedule-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.schedule-option{display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #d7e1ea;border-radius:10px;background:#fff;padding:8px 11px;font-weight:800;color:#344c62}.schedule-option input{width:18px;height:18px}
-.schedule-preview-inline{margin-top:14px}.schedule-preview-inline:empty{display:none}.schedule-preview-summary{padding-top:12px;border-top:1px solid #d9e2e9}.schedule-preview-summary>strong{display:block;color:#17324d}.schedule-preview-summary>p{margin:4px 0 9px;color:#68798a;font-size:12px}.schedule-preview-list{display:grid;gap:7px;max-height:430px;overflow:auto;padding-right:3px}.schedule-preview-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row strong{color:#17324d}.schedule-preview-balance{align-self:center;color:#17324d;font-weight:900}.schedule-customer-cycle{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.schedule-customer-cycle select,.schedule-customer-cycle button{min-height:36px;border-radius:8px;font:inherit}.schedule-customer-cycle select{border:1px solid #c9d5df;background:#fff;padding:5px 8px;color:#17324d}.schedule-customer-cycle button{border:0;background:#e8eef3;color:#17324d;padding:5px 10px;font-weight:900;cursor:pointer}.schedule-customer-cycle button:hover{background:#dbe6ee}.schedule-customer-cycle button:disabled{cursor:wait;opacity:.65}
+.schedule-preview-inline{margin-top:14px}.schedule-preview-inline:empty{display:none}.schedule-preview-summary{padding-top:12px;border-top:1px solid #d9e2e9}.schedule-preview-summary>strong{display:block;color:#17324d}.schedule-preview-summary>p{margin:4px 0 9px;color:#68798a;font-size:12px}.schedule-preview-search{width:100%;min-height:40px;margin:0 0 9px;padding:8px 11px;border:1px solid #c9d5df;border-radius:9px;background:#fff;color:#17324d;font:inherit;box-sizing:border-box}.schedule-preview-search:focus{outline:none;border-color:#6f91af;box-shadow:0 0 0 3px rgba(31,78,121,.10)}.schedule-preview-list{display:grid;gap:7px;max-height:430px;overflow:auto;padding-right:3px}.schedule-preview-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row strong{color:#17324d}.schedule-preview-balance{align-self:center;color:#17324d;font-weight:900}.schedule-customer-cycle{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.schedule-customer-cycle select,.schedule-customer-cycle button{min-height:36px;border-radius:8px;font:inherit}.schedule-customer-cycle select{border:1px solid #c9d5df;background:#fff;padding:5px 8px;color:#17324d}.schedule-customer-cycle button{border:0;background:#e8eef3;color:#17324d;padding:5px 10px;font-weight:900;cursor:pointer}.schedule-customer-cycle button:hover{background:#dbe6ee}.schedule-customer-cycle button:disabled{cursor:wait;opacity:.65}
 .schedule-report{display:grid;gap:10px;margin-top:14px}.schedule-run{border:1px solid #d7e1ea;border-radius:12px;background:#fff;overflow:hidden}.schedule-run summary{cursor:pointer;list-style:none;padding:12px 14px}.schedule-run summary::-webkit-details-marker{display:none}.schedule-run-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.schedule-run-title strong{color:#17324d}.schedule-run-title span{color:#6d7e8f;font-size:12px}.schedule-run-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.schedule-run-metric{border-radius:999px;background:#edf3f7;color:#465d70;padding:4px 8px;font-size:11px;font-weight:900}.schedule-run-metric.good{background:#ddf4e8;color:#17633f}.schedule-run-metric.bad{background:#fde8e8;color:#9b3030}.schedule-run-detail{border-top:1px solid #e0e7ed;padding:10px 14px}.schedule-result-row{display:grid;grid-template-columns:minmax(180px,1fr) repeat(3,90px);gap:8px;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:12px}.schedule-result-row:last-child{border-bottom:0}.schedule-result-row strong{color:#17324d}.schedule-empty{padding:16px;border:1px dashed #c9d5df;border-radius:10px;background:#fff;color:#718193;text-align:center}
 @media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-list{max-height:520px}}
 </style>
@@ -2947,9 +2947,9 @@ input[type="file"]::file-selector-button{
 #admin-tab-database .db-actions{
   grid-column:1 / -1 !important;
   display:grid !important;
-  grid-template-columns:175px 130px 245px !important;
+  grid-template-columns:245px 145px 245px !important;
   justify-content:end !important;
-  gap:14px !important;
+  gap:16px !important;
   margin-top:6px !important;
 }
 
@@ -4006,6 +4006,22 @@ input[type="file"]::file-selector-button{
         <p>Automatically generate and deliver monthly, mid-month, and weekly statements. All schedule times are shown in Central Time.</p>
       </div>
 
+      <section class="schedule-card schedule-shared">
+        <h3>Statement &amp; Delivery Settings</h3>
+        <p>These settings apply to monthly, mid-month, and weekly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
+        <div class="schedule-fields">
+          <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
+          <label class="schedule-enabled" style="margin:20px 0 0"><input id="schedulePositiveOnly" type="checkbox" checked> Only accounts with a positive balance</label>
+        </div>
+        <div class="schedule-options" role="group" aria-label="Scheduled statement delivery methods">
+          <label class="schedule-option"><input id="schedulePortal" type="checkbox" checked> Customer Portal</label>
+          <label class="schedule-option"><input id="scheduleEmail" type="checkbox" checked> Email PDF</label>
+          <label class="schedule-option"><input id="scheduleSms" type="checkbox" checked> SMS secure PDF link</label>
+        </div>
+        <div class="actions"><button class="primary" id="scheduleSave" type="button">Save Schedule</button><button class="secondary" id="scheduleRefresh" type="button">Refresh Report</button></div>
+        <p class="note"><strong>Cloudflare requirement:</strong> After deployment, add an hourly Cron Trigger (<code>0 * * * *</code>) to this Worker. The Worker checks the saved Central Time schedule and prevents duplicate monthly, mid-month, or weekly runs.</p>
+      </section>
+
       <div class="statement-scheduling-grid">
         <section class="schedule-card">
           <h3>A — Monthly Cycle</h3>
@@ -4043,22 +4059,6 @@ input[type="file"]::file-selector-button{
           <div id="schedulePreviewWeeklyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
       </div>
-
-      <section class="schedule-card schedule-shared">
-        <h3>Statement &amp; Delivery Settings</h3>
-        <p>These settings apply to monthly, mid-month, and weekly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
-        <div class="schedule-fields">
-          <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
-          <label class="schedule-enabled" style="margin:20px 0 0"><input id="schedulePositiveOnly" type="checkbox" checked> Only accounts with a positive balance</label>
-        </div>
-        <div class="schedule-options" role="group" aria-label="Scheduled statement delivery methods">
-          <label class="schedule-option"><input id="schedulePortal" type="checkbox" checked> Customer Portal</label>
-          <label class="schedule-option"><input id="scheduleEmail" type="checkbox" checked> Email PDF</label>
-          <label class="schedule-option"><input id="scheduleSms" type="checkbox" checked> SMS secure PDF link</label>
-        </div>
-        <div class="actions"><button class="primary" id="scheduleSave" type="button">Save Schedule</button><button class="secondary" id="scheduleRefresh" type="button">Refresh Report</button></div>
-        <p class="note"><strong>Cloudflare requirement:</strong> After deployment, add an hourly Cron Trigger (<code>0 * * * *</code>) to this Worker. The Worker checks the saved Central Time schedule and prevents duplicate monthly, mid-month, or weekly runs.</p>
-      </section>
 
       <div id="scheduleStatus" class="status"></div>
       <div class="statement-batch-head" style="margin-top:22px"><h3>Statement Run Report</h3><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs.</p></div>
@@ -7009,14 +7009,33 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       if(saveFirst)await saveSettings(false);setStatus('Loading scheduled customers…');
       const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
       const title=type==='weekly'?'C — Weekly Cycle Customers':type==='midmonth'?'B — Mid-Month Customers':'A — Monthly Cycle Customers';
-      const rows=(data.customers||[]).slice(0,100).map(row=>{
+      const previewCustomers=(data.customers||[]).slice(0,100);
+      const rows=previewCustomers.map(row=>{
         const cycle=String(row.statement_cycle||'B').toUpperCase();
-        return '<div class="schedule-preview-row" data-schedule-customer="'+esc(row.account_number||'')+'"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||row.account_number||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Mid-Month</option><option value="C" '+(cycle==='C'?'selected':'')+'>C — Weekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
+        const searchText=String(row.account_name||'')+' '+String(row.account_number||'');
+        return '<div class="schedule-preview-row" data-schedule-customer="'+esc(row.account_number||'')+'" data-schedule-search="'+esc(searchText.toLowerCase())+'"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||row.account_number||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Mid-Month</option><option value="C" '+(cycle==='C'?'selected':'')+'>C — Weekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
       }).join('');
-      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p>'+Number(data.count||0)+' customer(s) match the saved schedule'+(Number(data.count||0)>100?' • showing first 100':'')+'. Change an individual customer’s cycle below.</p><div class="schedule-preview-list">'+(rows||'<div class="schedule-empty">No customers match this schedule.</div>')+'</div></div>';
+      const total=Number(data.count||0),loadedCount=previewCustomers.length;
+      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count data-total="'+total+'" data-loaded="'+loadedCount+'">'+total+' customer(s) match the saved schedule'+(total>100?' • showing first 100':'')+'. Change an individual customer’s cycle below.</p><input class="schedule-preview-search" type="search" data-schedule-preview-search placeholder="Search customer name or number…" aria-label="Search '+title+'"><div class="schedule-preview-list">'+(rows||'<div class="schedule-empty">No customers match this schedule.</div>')+'<div class="schedule-empty" data-schedule-search-empty hidden>No previewed customers match this search.</div></div></div>';
       setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'weekly C':type==='midmonth'?'mid-month B':'monthly A')+' schedule.',true);
     }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
   }
+  panel.addEventListener('input',event=>{
+    const input=event.target.closest('[data-schedule-preview-search]');
+    if(!input)return;
+    const summary=input.closest('.schedule-preview-summary');
+    const query=input.value.trim().toLowerCase();
+    const rows=[...summary.querySelectorAll('.schedule-preview-row')];
+    let visible=0;
+    rows.forEach(row=>{const match=!query||String(row.dataset.scheduleSearch||'').includes(query);row.hidden=!match;if(match)visible++;});
+    const empty=summary.querySelector('[data-schedule-search-empty]');
+    if(empty)empty.hidden=!query||visible>0;
+    const count=summary.querySelector('[data-schedule-preview-count]');
+    if(count){
+      const total=Number(count.dataset.total||0),loadedCount=Number(count.dataset.loaded||rows.length);
+      count.textContent=query?visible+' of '+loadedCount+' previewed customer(s) match this search.':total+' customer(s) match the saved schedule'+(total>loadedCount?' • showing first '+loadedCount:'')+'. Change an individual customer’s cycle below.';
+    }
+  });
   panel.addEventListener('click',async event=>{
     const button=event.target.closest('[data-save-statement-cycle]');
     if(!button)return;
