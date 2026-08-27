@@ -27,5 +27,16 @@ many records finished before the error.
 Live databases
 --------------
 - Load Database is renamed Load Customers Database.
+- The Load Customers Database button is wider for the longer label.
 - Live customer and payment pages show temporary loading bars.
 - Each returned page is rendered in 10-row browser batches before the bar hides.
+
+Other admin loading bars
+------------------------
+- Load Communication Log renders customer summaries in 5-row batches.
+- Load Inbox is renamed Load Outbox and renders messages in 20-row batches.
+- Send Account Statements loads customers in 200-row batches.
+- Generate & Send Statements keeps its confirmation prompt, sends 10 customers per
+  batch, and shows a progress bar until all selected customers are processed.
+- After the sending progress bar closes, a persistent status report shows selected,
+  processed, successful, failed, Portal, Email, SMS, batch, and statement-date totals.

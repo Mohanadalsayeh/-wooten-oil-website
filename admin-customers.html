@@ -1012,7 +1012,7 @@ input[type="file"]::file-selector-button{
 }
 
 #admin-tab-database #dbLoadBtn{
-  min-width:140px !important;
+  min-width:210px !important;
 }
 
 #admin-tab-database #dbRefreshBtn{
@@ -2550,6 +2550,14 @@ input[type="file"]::file-selector-button{
   .preview-progress-track span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1e6fa8,#3c9bd7);transition:width .2s ease}
   .preview-progress.is-indeterminate .preview-progress-track span{width:34%;animation:wooten-preview-loading 1s ease-in-out infinite}
   @keyframes wooten-preview-loading{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
+  .statement-send-report{margin-top:14px;padding:16px;border:1px solid #cedae4;border-radius:12px;background:#f8fafc}
+  .statement-send-report[hidden]{display:none !important}
+  .statement-send-report-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px}
+  .statement-send-report-head h3{margin:0;color:var(--navy);font-size:18px}.statement-send-report-head p{margin:4px 0 0;color:#65778a;font-size:13px}
+  .statement-send-report-status{border-radius:999px;padding:5px 10px;background:#dff4e9;color:#17633f;font-size:12px;font-weight:900}.statement-send-report-status.failed{background:#fde8e8;color:#9b3030}
+  .statement-send-report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+  .statement-send-report-metric{padding:10px;border:1px solid #dbe4eb;border-radius:9px;background:#fff}.statement-send-report-metric strong{display:block;color:#17324d;font-size:20px}.statement-send-report-metric span{display:block;margin-top:2px;color:#6a7b8d;font-size:12px;font-weight:800}
+  @media(max-width:760px){.statement-send-report-head{flex-direction:column}.statement-send-report-grid{grid-template-columns:1fr 1fr}}
   .import-progress{
     margin-top:14px;
     padding:14px 16px;
@@ -3637,10 +3645,14 @@ input[type="file"]::file-selector-button{
     <h2>Customer Messages</h2>
     <p>View Fuel Delivery Requests and Website Messages received by support@wootenoil.com.</p>
     <div class="actions">
-      <button class="primary" id="loadInboxBtn" type="button">Load Inbox</button>
+      <button class="primary" id="loadInboxBtn" type="button">Load Outbox</button>
       <button class="secondary" id="refreshInboxBtn" type="button">Refresh</button>
     </div>
     <div id="inboxStatus" class="status"></div>
+    <div class="preview-progress" id="inboxLoadProgress" hidden>
+      <div class="preview-progress-head"><strong id="inboxLoadProgressLabel">Loading outbox…</strong><span id="inboxLoadProgressCount">Preparing</span></div>
+      <div class="preview-progress-track" id="inboxLoadProgressTrack" role="progressbar" aria-label="Customer message outbox loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="inboxLoadProgressBar"></span></div>
+    </div>
     <div class="inbox-tools">
       <input id="inboxSearch" type="search" placeholder="Search name, account #, email, subject or message">
       <select id="inboxTypeFilter">
@@ -3975,6 +3987,15 @@ input[type="file"]::file-selector-button{
       </div>
 
       <div id="statementBatchStatus" class="status"></div>
+      <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
+        <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="statementCustomerLoadProgressTrack" role="progressbar" aria-label="Statement customer loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementCustomerLoadProgressBar"></span></div>
+      </div>
+      <div class="preview-progress" id="statementSendProgress" hidden>
+        <div class="preview-progress-head"><strong id="statementSendProgressLabel">Generating and sending statements…</strong><span id="statementSendProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="statementSendProgressTrack" role="progressbar" aria-label="Statement generation and sending progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementSendProgressBar"></span></div>
+      </div>
+      <section class="statement-send-report" id="statementSendReport" hidden aria-live="polite"></section>
       <div id="statementBatchProgress" class="statement-batch-progress"></div>
     </div>
 
@@ -4069,6 +4090,10 @@ input[type="file"]::file-selector-button{
         <button class="primary" id="communicationLogLoad" type="button">Load Communication Log</button>
       </div>
       <div id="communicationLogStatus" class="status"></div>
+      <div class="preview-progress" id="communicationLogLoadProgress" hidden>
+        <div class="preview-progress-head"><strong id="communicationLogLoadProgressLabel">Loading communication log…</strong><span id="communicationLogLoadProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="communicationLogLoadProgressTrack" role="progressbar" aria-label="Communication log loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="communicationLogLoadProgressBar"></span></div>
+      </div>
       <div id="communicationLogCustomers" class="communication-log-customers" data-tree-mode="true"></div>
       <div class="db-pagination communication-pagination" id="communicationLogCustomersPagination" hidden>
         <button class="secondary" id="communicationLogCustomersPrev" type="button">Previous 20</button>
@@ -4405,6 +4430,33 @@ async function renderDatabaseRowsInBatches(rows,render,kind,batchSize=10){
     updateDatabaseLoadProgress(kind,processed,source.length);
     await new Promise(resolve=>setTimeout(resolve,0));
   }
+}
+function beginAdminActionProgress(prefix,label){
+  const box=document.getElementById(prefix+"Progress");
+  if(!box)return;
+  box.hidden=false;
+  box.classList.add("is-indeterminate");
+  document.getElementById(prefix+"ProgressLabel").textContent=label;
+  document.getElementById(prefix+"ProgressCount").textContent="Requesting records";
+  document.getElementById(prefix+"ProgressTrack").removeAttribute("aria-valuenow");
+}
+function updateAdminActionProgress(prefix,processed,total,label){
+  const box=document.getElementById(prefix+"Progress");
+  if(!box)return;
+  const safeTotal=Math.max(0,Number(total)||0);
+  const safeProcessed=Math.max(0,Math.min(safeTotal,Number(processed)||0));
+  const percent=safeTotal?Math.round((safeProcessed/safeTotal)*100):100;
+  box.classList.remove("is-indeterminate");
+  if(label)document.getElementById(prefix+"ProgressLabel").textContent=label;
+  document.getElementById(prefix+"ProgressCount").textContent=`${safeProcessed.toLocaleString()} of ${safeTotal.toLocaleString()} • ${percent}%`;
+  document.getElementById(prefix+"ProgressBar").style.width=percent+"%";
+  document.getElementById(prefix+"ProgressTrack").setAttribute("aria-valuenow",String(percent));
+}
+function hideAdminActionProgress(prefix){
+  const box=document.getElementById(prefix+"Progress");
+  if(!box)return;
+  box.classList.remove("is-indeterminate");
+  box.hidden=true;
 }
 function customerPreviewFilteredRows(){
   const q=(document.getElementById("customerPreviewSearch")?.value||"").trim().toLowerCase();
@@ -5344,7 +5396,10 @@ async function loadGmailInbox(){
   }
 
   loadBtn.disabled=true;
+  loadBtn.textContent="Loading Outbox…";
   refreshBtn.disabled=true;
+  beginAdminActionProgress("inboxLoad","Loading customer message outbox…");
+  await new Promise(resolve=>requestAnimationFrame(resolve));
   status.className="status show";
   status.textContent="Loading customer messages…";
 
@@ -5361,9 +5416,17 @@ async function loadGmailInbox(){
       throw new Error(data.error||"Unable to load customer messages.");
     }
 
-    inboxMessages=Array.isArray(data.messages)?data.messages:[];
+    const loadedMessages=Array.isArray(data.messages)?data.messages:[];
+    inboxMessages=[];
     inboxPage=1;
-    renderInboxMessages();
+    if(!loadedMessages.length){renderInboxMessages();updateAdminActionProgress("inboxLoad",0,0,"Loading outbox messages in batches…");}
+    for(let i=0;i<loadedMessages.length;i+=20){
+      const chunk=loadedMessages.slice(i,i+20);
+      inboxMessages.push(...chunk);
+      renderInboxMessages();
+      updateAdminActionProgress("inboxLoad",inboxMessages.length,loadedMessages.length,"Loading outbox messages in batches…");
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
 
     status.className="status show ok";
     status.textContent=`${inboxMessages.length} customer message${inboxMessages.length===1?"":"s"} loaded.`;
@@ -5374,7 +5437,9 @@ async function loadGmailInbox(){
     status.className="status show bad";
     status.textContent=error.message||"Unable to load customer messages.";
   }finally{
+    hideAdminActionProgress("inboxLoad");
     loadBtn.disabled=false;
+    loadBtn.textContent="Load Outbox";
     refreshBtn.disabled=false;
   }
 }
@@ -6550,6 +6615,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const selectedCount=document.getElementById('statementSelectedCount');
   const status=document.getElementById('statementBatchStatus');
   const progress=document.getElementById('statementBatchProgress');
+  const sendReport=document.getElementById('statementSendReport');
   const customerPagination=document.getElementById('statementCustomerPagination');
   const customerPrev=document.getElementById('statementCustomerPrev');
   const customerNext=document.getElementById('statementCustomerNext');
@@ -6667,11 +6733,21 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     status.className='status show '+(ok===true?'ok':ok===false?'bad':'');
     status.textContent=message||'';
   }
+  function showSendReport({selectedTotal=0,processed=0,succeeded=0,failed=0,portalSent=0,emailSent=0,smsSent=0,batches=0,complete=true,error=''}){
+    if(!sendReport)return;
+    const metric=(value,label)=>'<div class="statement-send-report-metric"><strong>'+Number(value||0).toLocaleString()+'</strong><span>'+esc(label)+'</span></div>';
+    sendReport.innerHTML='<div class="statement-send-report-head"><div><h3>Statement Sending Status Report</h3><p>Statement date: '+esc(date.value||todayLocal())+(error?' • '+esc(error):'')+'</p></div><span class="statement-send-report-status '+(complete?'':'failed')+'">'+(complete?'Completed':'Stopped Early')+'</span></div><div class="statement-send-report-grid">'+
+      metric(selectedTotal,'Customers selected')+metric(processed,'Customers processed')+metric(succeeded,'Statements successful')+metric(failed,'Statements failed')+
+      metric(portalSent,'Portal sent')+metric(emailSent,'Email sent')+metric(smsSent,'SMS sent')+metric(batches,'Batches processed')+'</div>';
+    sendReport.hidden=false;
+  }
 
   async function loadCustomers(){
     const key=document.getElementById('adminKey').value.trim();
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-    loadBtn.disabled=true;loadBtn.textContent='Loading…';
+    loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';
+    beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
+    await new Promise(resolve=>requestAnimationFrame(resolve));
     try{
       const res=await fetch('/api/admin/statement-customers',{
         headers:{'X-Admin-Key':key,'Accept':'application/json'},
@@ -6679,8 +6755,17 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       });
       const data=await res.json().catch(()=>({}));
       if(!res.ok||data.success===false) throw new Error(data.error||'Customers could not be loaded.');
-      customers=Array.isArray(data.customers)?data.customers:[];
+      const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
+      customers=[];
       customerPage=1;
+      if(!loadedCustomers.length){render();updateAdminActionProgress('statementCustomerLoad',0,0,'Loading customers in batches…');}
+      for(let i=0;i<loadedCustomers.length;i+=200){
+        const chunk=loadedCustomers.slice(i,i+200);
+        customers.push(...chunk);
+        render();
+        updateAdminActionProgress('statementCustomerLoad',customers.length,loadedCustomers.length,'Loading customers in batches…');
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
       for(const account of Array.from(selected)){
         if(!customers.some(c=>c.account_number===account)) selected.delete(account);
       }
@@ -6690,6 +6775,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       customers=[];selected.clear();render();
       setStatus(e.message||'Customers could not be loaded.',false);
     }finally{
+      hideAdminActionProgress('statementCustomerLoad');
       loadBtn.disabled=false;loadBtn.textContent='Load Customers';
     }
   }
@@ -6777,17 +6863,24 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     sendBtn.disabled=true;loadBtn.disabled=true;
     sendBtn.textContent='Generating Statements…';
     progress.innerHTML='';
+    if(sendReport){sendReport.hidden=true;sendReport.innerHTML='';}
+    beginAdminActionProgress('statementSend','Generating and sending statements in batches…');
+    updateAdminActionProgress('statementSend',0,accounts.length,'Generating and sending statements in batches…');
     setStatus('Generating professional PDF statements. Please keep this page open…');
 
-    let completed=0,succeeded=0,failed=0;
+    let completed=0,succeeded=0,failed=0,portalSent=0,emailSent=0,smsSent=0,batchesProcessed=0;
     try{
       for(let i=0;i<accounts.length;i+=10){
         const chunk=accounts.slice(i,i+10);
         const data=await sendChunk(key,chunk);
+        batchesProcessed++;
         const rows=Array.isArray(data.results)?data.results:[];
         rows.forEach(r=>{
           completed++;
           if(r.success) succeeded++; else failed++;
+          if(r.portal_notified)portalSent++;
+          if(r.email_sent)emailSent++;
+          if(r.sms_sent)smsSent++;
           const div=document.createElement('div');
           div.className='statement-result-row '+(r.success?'ok':'bad');
           const delivered=[];
@@ -6803,6 +6896,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         });
 
         sendBtn.textContent='Generating… '+Math.min(i+chunk.length,accounts.length)+' / '+accounts.length;
+        updateAdminActionProgress('statementSend',Math.min(i+chunk.length,accounts.length),accounts.length,'Generating and sending statements in batches…');
         setStatus('Processed '+completed+' of '+accounts.length+' statements…');
       }
 
@@ -6811,6 +6905,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         (failed?' • '+failed+' failed':'')+'.',
         failed===0
       );
+      showSendReport({selectedTotal:accounts.length,processed:completed,succeeded,failed,portalSent,emailSent,smsSent,batches:batchesProcessed,complete:true});
 
       if(succeeded){
         // Keep the generated statements available in the Documents list.
@@ -6824,7 +6919,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       }
     }catch(e){
       setStatus(e.message||'Statement generation stopped because of an error.',false);
+      showSendReport({selectedTotal:accounts.length,processed:completed,succeeded,failed,portalSent,emailSent,smsSent,batches:batchesProcessed,complete:false,error:e.message||'Statement generation stopped because of an error.'});
     }finally{
+      hideAdminActionProgress('statementSend');
       sendBtn.disabled=false;loadBtn.disabled=false;
       sendBtn.textContent='Generate & Send Statements';
     }
@@ -7241,15 +7338,26 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   async function loadCustomers(reset){
     if(reset){customerPage=1;openNodes.clear();}
     loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
+    beginAdminActionProgress('communicationLogLoad','Loading communication log…');
+    await new Promise(resolve=>requestAnimationFrame(resolve));
     try{
       const data=await requestLog('',customerPage);
       customerPage=Number(data.page||customerPage);
       totalCustomers=Number(data.total||0);
-      customers=Array.isArray(data.customers)?data.customers:[];
+      const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
+      customers=[];
+      if(!loadedCustomers.length){renderCustomers();updateAdminActionProgress('communicationLogLoad',0,0,'Loading communication customers in batches…');}
+      for(let i=0;i<loadedCustomers.length;i+=5){
+        const chunk=loadedCustomers.slice(i,i+5);
+        customers.push(...chunk);
+        renderCustomers();
+        updateAdminActionProgress('communicationLogLoad',customers.length,loadedCustomers.length,'Loading communication customers in batches…');
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
       renderCustomers();renderMainPagination(data);
       setStatus('Showing '+customers.length+' of '+totalCustomers+' customers. Click a customer to expand their communication history.',true);
     }catch(error){setStatus(error.message||'Communication log could not be loaded.',false);}
-    finally{loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
+    finally{hideAdminActionProgress('communicationLogLoad');loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
   }
   async function loadNode(account,page){
     const current=openNodes.get(account);
