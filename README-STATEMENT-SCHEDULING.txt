@@ -9,6 +9,8 @@ What is included
 - Recent-payment count selection.
 - Portal, Email PDF, and SMS secure-link delivery choices.
 - Customer preview for monthly, mid-month, and weekly schedules.
+- Each preview opens directly beneath its matching A, B, or C schedule card.
+- Every previewed customer has an individual A/B/C selector and Save Cycle button.
 - Confirmed Run Now controls.
 - Latest 20 run reports with customer-level delivery results.
 - Duplicate protection for automatic monthly, mid-month, and weekly runs.

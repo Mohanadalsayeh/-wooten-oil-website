@@ -1440,9 +1440,9 @@ input[type="file"]::file-selector-button{
 .schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 .schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
 .schedule-shared{margin-top:14px}.schedule-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.schedule-option{display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #d7e1ea;border-radius:10px;background:#fff;padding:8px 11px;font-weight:800;color:#344c62}.schedule-option input{width:18px;height:18px}
-.schedule-preview{margin-top:14px}.schedule-preview-list{display:grid;gap:7px;margin-top:9px}.schedule-preview-row{display:grid;grid-template-columns:minmax(180px,1fr) 90px 120px;gap:10px;padding:9px 11px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row strong{color:#17324d}
+.schedule-preview-inline{margin-top:14px}.schedule-preview-inline:empty{display:none}.schedule-preview-summary{padding-top:12px;border-top:1px solid #d9e2e9}.schedule-preview-summary>strong{display:block;color:#17324d}.schedule-preview-summary>p{margin:4px 0 9px;color:#68798a;font-size:12px}.schedule-preview-list{display:grid;gap:7px;max-height:430px;overflow:auto;padding-right:3px}.schedule-preview-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row strong{color:#17324d}.schedule-preview-balance{align-self:center;color:#17324d;font-weight:900}.schedule-customer-cycle{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.schedule-customer-cycle select,.schedule-customer-cycle button{min-height:36px;border-radius:8px;font:inherit}.schedule-customer-cycle select{border:1px solid #c9d5df;background:#fff;padding:5px 8px;color:#17324d}.schedule-customer-cycle button{border:0;background:#e8eef3;color:#17324d;padding:5px 10px;font-weight:900;cursor:pointer}.schedule-customer-cycle button:hover{background:#dbe6ee}.schedule-customer-cycle button:disabled{cursor:wait;opacity:.65}
 .schedule-report{display:grid;gap:10px;margin-top:14px}.schedule-run{border:1px solid #d7e1ea;border-radius:12px;background:#fff;overflow:hidden}.schedule-run summary{cursor:pointer;list-style:none;padding:12px 14px}.schedule-run summary::-webkit-details-marker{display:none}.schedule-run-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.schedule-run-title strong{color:#17324d}.schedule-run-title span{color:#6d7e8f;font-size:12px}.schedule-run-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.schedule-run-metric{border-radius:999px;background:#edf3f7;color:#465d70;padding:4px 8px;font-size:11px;font-weight:900}.schedule-run-metric.good{background:#ddf4e8;color:#17633f}.schedule-run-metric.bad{background:#fde8e8;color:#9b3030}.schedule-run-detail{border-top:1px solid #e0e7ed;padding:10px 14px}.schedule-result-row{display:grid;grid-template-columns:minmax(180px,1fr) repeat(3,90px);gap:8px;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:12px}.schedule-result-row:last-child{border-bottom:0}.schedule-result-row strong{color:#17324d}.schedule-empty{padding:16px;border:1px dashed #c9d5df;border-radius:10px;background:#fff;color:#718193;text-align:center}
-@media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-row{grid-template-columns:1fr 70px}}
+@media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-list{max-height:520px}}
 </style>
 
 
@@ -2535,6 +2535,21 @@ input[type="file"]::file-selector-button{
 
 
 <style id="wooten-customer-payments-import-style">
+  .preview-progress{
+    margin-top:12px;
+    padding:12px 14px;
+    border:1px solid #d3dee7;
+    border-radius:10px;
+    background:#f7fafc;
+  }
+  .preview-progress[hidden]{display:none !important}
+  .preview-progress-head{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#607286;font-size:13px}
+  .preview-progress-head strong{color:var(--navy)}
+  .preview-progress-head span{font-weight:900;font-variant-numeric:tabular-nums}
+  .preview-progress-track{height:12px;margin-top:8px;overflow:hidden;border-radius:999px;background:#e1eaf1}
+  .preview-progress-track span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1e6fa8,#3c9bd7);transition:width .2s ease}
+  .preview-progress.is-indeterminate .preview-progress-track span{width:34%;animation:wooten-preview-loading 1s ease-in-out infinite}
+  @keyframes wooten-preview-loading{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
   .import-progress{
     margin-top:14px;
     padding:14px 16px;
@@ -3218,8 +3233,13 @@ input[type="file"]::file-selector-button{
     </div>
 
     <div class="actions">
-      <button class="secondary" id="previewBtn" type="button">Preview File</button>
+      <button class="secondary" id="previewBtn" type="button">Preview Customers</button>
       <button class="primary" id="importBtn" type="button" disabled>Upload / Update Customers</button>
+    </div>
+
+    <div class="preview-progress" id="customerPreviewProgress" hidden>
+      <div class="preview-progress-head"><strong id="customerPreviewProgressLabel">Reading customer file…</strong><span id="customerPreviewProgressCount">Preparing</span></div>
+      <div class="preview-progress-track" id="customerPreviewProgressTrack" role="progressbar" aria-label="Customer preview loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="customerPreviewProgressBar"></span></div>
     </div>
 
     <div class="import-last-update" id="customerImportLastUpdate">
@@ -3309,6 +3329,11 @@ input[type="file"]::file-selector-button{
       <div class="actions payments-import-actions">
         <button class="secondary" id="paymentPreviewBtn" type="button">Preview Payments</button>
         <button class="primary" id="paymentImportBtn" type="button" disabled>Import Payments</button>
+      </div>
+
+      <div class="preview-progress" id="paymentPreviewProgress" hidden>
+        <div class="preview-progress-head"><strong id="paymentPreviewProgressLabel">Reading payment file…</strong><span id="paymentPreviewProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="paymentPreviewProgressTrack" role="progressbar" aria-label="Payment preview loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="paymentPreviewProgressBar"></span></div>
       </div>
 
       <div class="import-last-update" id="paymentImportLastUpdate">
@@ -3443,13 +3468,18 @@ input[type="file"]::file-selector-button{
       </div>
 
       <div class="db-actions">
-        <button class="primary" id="dbLoadBtn" type="button">Load Database</button>
+        <button class="primary" id="dbLoadBtn" type="button">Load Customers Database</button>
         <button class="secondary" id="dbRefreshBtn" type="button" disabled>Refresh</button>
         <button class="danger-db-btn" id="clearCustomerDatabaseBtn" type="button">Clear Customer Database</button>
       </div>
     </div>
 
     <div id="dbStatus" class="status"></div>
+
+    <div class="preview-progress" id="customerDatabaseLoadProgress" hidden>
+      <div class="preview-progress-head"><strong id="customerDatabaseLoadProgressLabel">Loading customers database…</strong><span id="customerDatabaseLoadProgressCount">Preparing</span></div>
+      <div class="preview-progress-track" id="customerDatabaseLoadProgressTrack" role="progressbar" aria-label="Live customer database loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="customerDatabaseLoadProgressBar"></span></div>
+    </div>
 
     <div class="db-meta" id="dbMeta" style="display:none">
       <div><span class="db-live-dot"></span><strong id="dbTotal">0</strong> matching customer(s)</div>
@@ -3544,6 +3574,11 @@ input[type="file"]::file-selector-button{
       </div>
 
       <div id="livePaymentStatus" class="status"></div>
+
+      <div class="preview-progress" id="paymentDatabaseLoadProgress" hidden>
+        <div class="preview-progress-head"><strong id="paymentDatabaseLoadProgressLabel">Loading payments…</strong><span id="paymentDatabaseLoadProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="paymentDatabaseLoadProgressTrack" role="progressbar" aria-label="Live payment database loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="paymentDatabaseLoadProgressBar"></span></div>
+      </div>
 
       <div class="db-meta" id="livePaymentMeta" style="display:none">
         <div><span class="db-live-dot"></span><strong id="livePaymentTotal">0</strong> matching payment row(s)</div>
@@ -3960,6 +3995,7 @@ input[type="file"]::file-selector-button{
             <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
           </div>
           <div class="actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button><button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button></div>
+          <div id="schedulePreviewMonthlyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
 
         <section class="schedule-card">
@@ -3971,6 +4007,7 @@ input[type="file"]::file-selector-button{
             <div class="schedule-field"><label for="scheduleMidmonthHour">Send Time</label><select id="scheduleMidmonthHour" data-hour-select></select></div>
           </div>
           <div class="actions"><button class="secondary" id="schedulePreviewMidmonth" type="button">Preview B Customers</button><button class="primary" id="scheduleRunMidmonth" type="button">Run B Now</button></div>
+          <div id="schedulePreviewMidmonthResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
 
         <section class="schedule-card">
@@ -3982,6 +4019,7 @@ input[type="file"]::file-selector-button{
             <div class="schedule-field"><label for="scheduleWeeklyHour">Send Time</label><select id="scheduleWeeklyHour" data-hour-select></select></div>
           </div>
           <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview C Customers</button><button class="primary" id="scheduleRunWeekly" type="button">Run C Now</button></div>
+          <div id="schedulePreviewWeeklyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
       </div>
 
@@ -4002,7 +4040,6 @@ input[type="file"]::file-selector-button{
       </section>
 
       <div id="scheduleStatus" class="status"></div>
-      <div id="schedulePreview" class="schedule-preview"></div>
       <div class="statement-batch-head" style="margin-top:22px"><h3>Statement Run Report</h3><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs.</p></div>
       <div id="scheduleReport" class="schedule-report"><div class="schedule-empty">Open this tab or click Refresh Report to load scheduling results.</div></div>
     </div>
@@ -4293,6 +4330,82 @@ function updateImportProgress(kind,{processed=0,total=0,imported=0,batch=0,batch
   document.getElementById(prefix+"ProgressCount").textContent=`Imported ${Number(imported||0).toLocaleString()} • Processed ${safeProcessed.toLocaleString()} of ${safeTotal.toLocaleString()}`;
   document.getElementById(prefix+"ProgressBatch").textContent=batches?`Batch ${Math.min(batch,batches)} of ${batches}`:"Preparing batches";
 }
+function updatePreviewProgress(kind,{processed=0,total=0,phase="reading"}={}){
+  const prefix=kind==="payments"?"paymentPreview":"customerPreview";
+  const box=document.getElementById(prefix+"Progress");
+  const track=document.getElementById(prefix+"ProgressTrack");
+  box.hidden=false;
+  if(phase==="reading"){
+    box.classList.add("is-indeterminate");
+    document.getElementById(prefix+"ProgressLabel").textContent=kind==="payments"?"Reading payment file…":"Reading customer file…";
+    document.getElementById(prefix+"ProgressCount").textContent="Preparing rows";
+    track.removeAttribute("aria-valuenow");
+    return;
+  }
+  box.classList.remove("is-indeterminate");
+  const safeTotal=Math.max(0,Number(total)||0);
+  const safeProcessed=Math.max(0,Math.min(safeTotal,Number(processed)||0));
+  const percent=safeTotal?Math.round((safeProcessed/safeTotal)*100):100;
+  document.getElementById(prefix+"ProgressLabel").textContent=kind==="payments"?"Preparing payment preview…":"Preparing customer preview…";
+  document.getElementById(prefix+"ProgressCount").textContent=`${safeProcessed.toLocaleString()} of ${safeTotal.toLocaleString()} • ${percent}%`;
+  document.getElementById(prefix+"ProgressBar").style.width=percent+"%";
+  track.setAttribute("aria-valuenow",String(percent));
+}
+function hidePreviewProgress(kind){
+  const prefix=kind==="payments"?"paymentPreview":"customerPreview";
+  const box=document.getElementById(prefix+"Progress");
+  box.classList.remove("is-indeterminate");
+  box.hidden=true;
+}
+async function mapPreviewRowsInBatches(rows,mapper,kind,batchSize=500){
+  const source=Array.isArray(rows)?rows:[];
+  const mapped=[];
+  for(let i=0;i<source.length;i+=batchSize){
+    const chunk=source.slice(i,i+batchSize);
+    for(const row of chunk)mapped.push(mapper(row));
+    updatePreviewProgress(kind,{processed:Math.min(i+chunk.length,source.length),total:source.length,phase:"mapping"});
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  if(!source.length)updatePreviewProgress(kind,{processed:0,total:0,phase:"mapping"});
+  return mapped;
+}
+function beginDatabaseLoadProgress(kind){
+  const prefix=kind==="payments"?"paymentDatabaseLoad":"customerDatabaseLoad";
+  const box=document.getElementById(prefix+"Progress");
+  box.hidden=false;
+  box.classList.add("is-indeterminate");
+  document.getElementById(prefix+"ProgressLabel").textContent=kind==="payments"?"Loading payments…":"Loading customers database…";
+  document.getElementById(prefix+"ProgressCount").textContent="Requesting records";
+  document.getElementById(prefix+"ProgressTrack").removeAttribute("aria-valuenow");
+}
+function updateDatabaseLoadProgress(kind,processed,total){
+  const prefix=kind==="payments"?"paymentDatabaseLoad":"customerDatabaseLoad";
+  const box=document.getElementById(prefix+"Progress");
+  const safeTotal=Math.max(0,Number(total)||0);
+  const safeProcessed=Math.max(0,Math.min(safeTotal,Number(processed)||0));
+  const percent=safeTotal?Math.round((safeProcessed/safeTotal)*100):100;
+  box.classList.remove("is-indeterminate");
+  document.getElementById(prefix+"ProgressLabel").textContent=kind==="payments"?"Loading payment records in batches…":"Loading customer records in batches…";
+  document.getElementById(prefix+"ProgressCount").textContent=`${safeProcessed.toLocaleString()} of ${safeTotal.toLocaleString()} • ${percent}%`;
+  document.getElementById(prefix+"ProgressBar").style.width=percent+"%";
+  document.getElementById(prefix+"ProgressTrack").setAttribute("aria-valuenow",String(percent));
+}
+function hideDatabaseLoadProgress(kind){
+  const prefix=kind==="payments"?"paymentDatabaseLoad":"customerDatabaseLoad";
+  const box=document.getElementById(prefix+"Progress");
+  box.classList.remove("is-indeterminate");
+  box.hidden=true;
+}
+async function renderDatabaseRowsInBatches(rows,render,kind,batchSize=10){
+  const source=Array.isArray(rows)?rows:[];
+  if(!source.length){render([]);updateDatabaseLoadProgress(kind,0,0);return;}
+  for(let end=batchSize;end<source.length+batchSize;end+=batchSize){
+    const processed=Math.min(end,source.length);
+    render(source.slice(0,processed));
+    updateDatabaseLoadProgress(kind,processed,source.length);
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+}
 function customerPreviewFilteredRows(){
   const q=(document.getElementById("customerPreviewSearch")?.value||"").trim().toLowerCase();
   const state=document.getElementById("customerStateFilter")?.value||"all";
@@ -4383,15 +4496,20 @@ async function parseFile(file,mode="customers"){
 document.getElementById("previewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("customerFile").files[0];
   if(!file){setStatus("Choose an Access MDB/ACCDB, Excel, or CSV file first.",false);return;}
+  const previewBtn=document.getElementById("previewBtn");
+  previewBtn.disabled=true;
+  previewBtn.textContent="Loading Customers…";
   document.getElementById("customerImportProgress").hidden=true;
   document.getElementById("mImported").textContent="0";
+  updatePreviewProgress("customers",{phase:"reading"});
+  await new Promise(resolve=>requestAnimationFrame(resolve));
   try{
     const parsed=await parseFile(file,"customers");
     const raw=parsed.rows;
     if(file.name.toLowerCase().endsWith(".mdb")||file.name.toLowerCase().endsWith(".accdb")){
       setStatus(`Access database opened: ${parsed.tableName} • ${raw.length.toLocaleString()} row(s) found.`);
     }
-    const mapped=raw.map(mapRow);
+    const mapped=await mapPreviewRowsInBatches(raw,mapRow,"customers",500);
     preparedRows=mapped.filter(r=>r.account_number && r.account_name);
     updateCustomerPreviewFilters();
     render(preparedRows,raw.length,raw.length-preparedRows.length);
@@ -4399,6 +4517,10 @@ document.getElementById("previewBtn").addEventListener("click",async()=>{
     setStatus(`Preview ready: ${preparedRows.length} valid customer records.`);
   }catch(e){
     console.error(e); setStatus("Could not read this file. Export it from Access as Excel or CSV and try again.",false);
+  }finally{
+    hidePreviewProgress("customers");
+    previewBtn.disabled=false;
+    previewBtn.textContent="Preview Customers";
   }
 });
 
@@ -4587,8 +4709,13 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     setPaymentStatus("Choose an Access MDB/ACCDB, Excel, or CSV customer payments file first.",false);
     return;
   }
+  const previewBtn=document.getElementById("paymentPreviewBtn");
+  previewBtn.disabled=true;
+  previewBtn.textContent="Loading Payments…";
   document.getElementById("paymentImportProgress").hidden=true;
   document.getElementById("pmImported").textContent="0";
+  updatePreviewProgress("payments",{phase:"reading"});
+  await new Promise(resolve=>requestAnimationFrame(resolve));
 
   try{
     const parsed=await parseFile(file,"payments");
@@ -4596,7 +4723,7 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     if(file.name.toLowerCase().endsWith(".mdb")||file.name.toLowerCase().endsWith(".accdb")){
       setPaymentStatus(`Access database opened: ${parsed.tableName} • ${raw.length.toLocaleString()} row(s) found.`);
     }
-    const mapped=raw.map(mapPaymentRow);
+    const mapped=await mapPreviewRowsInBatches(raw,mapPaymentRow,"payments",500);
     preparedPaymentRows=mapped.filter(paymentRowIsValid);
     updatePaymentPreviewFilters();
 
@@ -4618,6 +4745,10 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
   }catch(e){
     console.error(e);
     setPaymentStatus("Could not read the payments file. Please use MDB, ACCDB, Excel, or CSV format.",false);
+  }finally{
+    hidePreviewProgress("payments");
+    previewBtn.disabled=false;
+    previewBtn.textContent="Preview Payments";
   }
 });
 
@@ -4797,7 +4928,10 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
 
     const serial=++requestSerial;
     loadBtn.disabled=true;
+    loadBtn.textContent="Loading Payments…";
     refreshBtn.disabled=true;
+    beginDatabaseLoadProgress("payments");
+    await new Promise(resolve=>requestAnimationFrame(resolve));
     setStatus("Loading customer payments…",true);
 
     try{
@@ -4810,7 +4944,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       if(!response.ok||data.success===false) throw new Error(data.error||"Customer payments could not be loaded.");
 
       loaded=true;
-      renderRows(Array.isArray(data.payments)?data.payments:[]);
+      await renderDatabaseRowsInBatches(Array.isArray(data.payments)?data.payments:[],renderRows,"payments",10);
       populateDepositTypes(data.deposit_types||[]);
 
       const total=Number(data.total||0);
@@ -4834,7 +4968,9 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       console.error(error);
       setStatus(error.message||"Customer payments could not be loaded.");
     }finally{
+      hideDatabaseLoadProgress("payments");
       loadBtn.disabled=false;
+      loadBtn.textContent="Load Payments";
       if(loaded) refreshBtn.disabled=false;
     }
   }
@@ -6068,7 +6204,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
     const serial=++requestSerial;
     loadBtn.disabled=true;
+    loadBtn.textContent="Loading Customers…";
     refreshBtn.disabled=true;
+    beginDatabaseLoadProgress("customers");
+    await new Promise(resolve=>requestAnimationFrame(resolve));
     if(!silent){
       status.className="status show";
       status.textContent="Loading live customer database…";
@@ -6092,10 +6231,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const pages=Math.max(1,Number(data.pages||1));
       if(page>pages){
         page=pages;
-        return loadDatabase({silent:true});
       }
 
-      renderRows(rows);
+      await renderDatabaseRowsInBatches(rows,renderRows,"customers",10);
       totalEl.textContent=String(total);
       const start=total ? ((page-1)*pageSize)+1 : 0;
       const end=total ? Math.min(page*pageSize,total) : 0;
@@ -6111,7 +6249,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }catch(error){
       setDbStatus(error.message||"Could not load customer database.");
     }finally{
+      hideDatabaseLoadProgress("customers");
       loadBtn.disabled=false;
+      loadBtn.textContent="Load Customers Database";
       refreshBtn.disabled=!loaded;
     }
   }
@@ -6702,7 +6842,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const midmonthEnabled=get('scheduleMidmonthEnabled'),midmonthDay=get('scheduleMidmonthDay'),midmonthHour=get('scheduleMidmonthHour');
   const monthlyEnabled=get('scheduleMonthlyEnabled'),monthlyDay=get('scheduleMonthlyDay'),monthlyHour=get('scheduleMonthlyHour');
   const positiveOnly=get('schedulePositiveOnly'),paymentCount=get('schedulePaymentCount'),portal=get('schedulePortal'),email=get('scheduleEmail'),sms=get('scheduleSms');
-  const saveBtn=get('scheduleSave'),refreshBtn=get('scheduleRefresh'),status=get('scheduleStatus'),preview=get('schedulePreview'),report=get('scheduleReport');
+  const saveBtn=get('scheduleSave'),refreshBtn=get('scheduleRefresh'),status=get('scheduleStatus'),report=get('scheduleReport');
+  const previewTargets={monthly:get('schedulePreviewMonthlyResults'),midmonth:get('schedulePreviewMidmonthResults'),weekly:get('schedulePreviewWeeklyResults')};
+  const openPreviewTypes=new Set();
   let loaded=false,loading=false;
 
   document.querySelectorAll('[data-hour-select]').forEach(select=>{
@@ -6761,16 +6903,38 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{const data=await request('/api/admin/statement-scheduling');applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;setStatus('Scheduling settings and reports loaded.',true);}
     catch(error){setStatus(error.message||'Scheduling could not be loaded.',false);}finally{loading=false;}
   }
-  async function showPreview(type){
+  async function showPreview(type,saveFirst=true){
+    const preview=previewTargets[type];
+    if(!preview)return;
+    openPreviewTypes.add(type);
+    preview.innerHTML='<div class="schedule-preview-summary"><strong>Loading customers…</strong></div>';
     try{
-      await saveSettings(false);setStatus('Loading scheduled customers…');
+      if(saveFirst)await saveSettings(false);setStatus('Loading scheduled customers…');
       const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
       const title=type==='weekly'?'C — Weekly Cycle Customers':type==='midmonth'?'B — Mid-Month Customers':'A — Monthly Cycle Customers';
-      const rows=(data.customers||[]).slice(0,100).map(row=>'<div class="schedule-preview-row"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Cycle '+esc(row.statement_cycle||'—')+'</span><span>'+esc(money(row.total_balance))+'</span></div>').join('');
-      preview.innerHTML='<div class="schedule-card"><h3>'+title+'</h3><p>'+Number(data.count||0)+' customer(s) match the saved schedule'+(Number(data.count||0)>100?' • showing first 100':'')+'.</p><div class="schedule-preview-list">'+(rows||'<div class="schedule-empty">No customers match this schedule.</div>')+'</div></div>';
+      const rows=(data.customers||[]).slice(0,100).map(row=>{
+        const cycle=String(row.statement_cycle||'B').toUpperCase();
+        return '<div class="schedule-preview-row" data-schedule-customer="'+esc(row.account_number||'')+'"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||row.account_number||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Mid-Month</option><option value="C" '+(cycle==='C'?'selected':'')+'>C — Weekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
+      }).join('');
+      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p>'+Number(data.count||0)+' customer(s) match the saved schedule'+(Number(data.count||0)>100?' • showing first 100':'')+'. Change an individual customer’s cycle below.</p><div class="schedule-preview-list">'+(rows||'<div class="schedule-empty">No customers match this schedule.</div>')+'</div></div>';
       setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'weekly C':type==='midmonth'?'mid-month B':'monthly A')+' schedule.',true);
-    }catch(error){setStatus(error.message||'Preview could not be loaded.',false);}
+    }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
   }
+  panel.addEventListener('click',async event=>{
+    const button=event.target.closest('[data-save-statement-cycle]');
+    if(!button)return;
+    const row=button.closest('[data-schedule-customer]');
+    const account=row?.dataset.scheduleCustomer||'';
+    const select=row?.querySelector('select');
+    const cycle=select?.value||'';
+    if(!account||!cycle)return;
+    button.disabled=true;button.textContent='Saving…';
+    try{
+      const data=await request('/api/admin/customer-statement-cycle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_number:account,statement_cycle:cycle})});
+      for(const openType of [...openPreviewTypes])await showPreview(openType,false);
+      setStatus((data.account_name||account)+' moved to Cycle '+cycle+'.',true);
+    }catch(error){button.disabled=false;button.textContent='Save Cycle';setStatus(error.message||'Customer cycle could not be saved.',false);}
+  });
   async function runNow(type){
     const label=type==='weekly'?'C weekly-cycle':type==='midmonth'?'B mid-month':'A monthly-cycle';
     if(!window.confirm('Generate and send '+label+' statements now to every matching customer?'))return;

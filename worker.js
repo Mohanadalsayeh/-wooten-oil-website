@@ -7023,6 +7023,28 @@ __name(processDueStatementSchedules,"processDueStatementSchedules");
 function statementScheduleAuthorized(request,env){return !!env.ADMIN_IMPORT_KEY&&(request.headers.get("X-Admin-Key")||"")===env.ADMIN_IMPORT_KEY;}
 __name(statementScheduleAuthorized,"statementScheduleAuthorized");
 
+async function adminCustomerStatementCycle({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  if(!env.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  try{
+    const body=await request.json().catch(()=>({}));
+    const digits=String(body.account_number||"").replace(/\D/g,"");
+    const account=digits?digits.padStart(7,"0"):"";
+    const cycle=String(body.statement_cycle||"").trim().toUpperCase();
+    if(!account)return notificationJson({success:false,error:"A valid customer account number is required."},400);
+    if(!["A","B","C"].includes(cycle))return notificationJson({success:false,error:"Statement Cycle must be A, B, or C."},400);
+    await ensureCustomerStatementCycleColumn(env);
+    const customer=await env.DB.prepare(`SELECT account_number,account_name FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
+    if(!customer)return notificationJson({success:false,error:"Customer account was not found."},404);
+    await env.DB.prepare(`UPDATE customers SET statement_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE account_number=?`).bind(cycle,account).run();
+    return notificationJson({success:true,account_number:account,account_name:customer.account_name||"Customer",statement_cycle:cycle});
+  }catch(error){
+    console.error("Customer statement cycle update failed",error);
+    return notificationJson({success:false,error:"Customer statement cycle could not be updated."},500);
+  }
+}
+__name(adminCustomerStatementCycle,"adminCustomerStatementCycle");
+
 async function adminStatementScheduling({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   try{
@@ -7236,6 +7258,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-scheduling/run") {
       if (request.method === "POST") return adminStatementSchedulingRun({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/customer-statement-cycle") {
+      if (request.method === "POST") return adminCustomerStatementCycle({ request, env });
       return methodNotAllowed();
     }
 
