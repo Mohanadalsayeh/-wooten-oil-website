@@ -6601,13 +6601,13 @@ async function adminGenerateStatementsPost({request,env}){
       return notificationJson({success:false,error:"Unauthorized."},401);
     }
     if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
-    if(!env.NOTIFICATION_ATTACHMENTS){
-      return notificationJson({success:false,error:"Statement storage is not configured."},503);
-    }
-
     let body={};
     try{body=await request.json();}catch{
       return notificationJson({success:false,error:"Invalid request data."},400);
+    }
+    const dryRun=body.dry_run===true;
+    if(!dryRun&&!env.NOTIFICATION_ATTACHMENTS){
+      return notificationJson({success:false,error:"Statement storage is not configured."},503);
     }
 
     const accounts=[...new Set((Array.isArray(body.accounts)?body.accounts:[])
@@ -6621,8 +6621,10 @@ async function adminGenerateStatementsPost({request,env}){
     const portalNotification=body.portal_notification!==false;
     const smsLink=body.sms_link===true;
 
-    await ensureCustomerDocumentsTable(env);
-    await ensureCustomerNotificationsTable(env);
+    if(!dryRun){
+      await ensureCustomerDocumentsTable(env);
+      await ensureCustomerNotificationsTable(env);
+    }
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerPaymentsSchema(env);
 
@@ -6677,6 +6679,26 @@ async function adminGenerateStatementsPost({request,env}){
         const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments);
         const filename=`Wooten-Oil-Statement-${account}-${statementDate}.pdf`;
         const title=`Statement ${statementPdfDate(statementDate)}`;
+
+        if(dryRun){
+          results.push({
+            account_number:account,
+            account_name:customer.account_name||"",
+            success:true,
+            test_mode:true,
+            filename,
+            pdf_bytes:pdfBytes.byteLength,
+            payment_count:recentPayments.length,
+            current_balance:current,
+            previous_balance:previous,
+            total_balance:total,
+            portal_notified:false,
+            email_sent:false,
+            sms_sent:false
+          });
+          continue;
+        }
+
         objectKey=`customer-documents/${account}/${crypto.randomUUID()}-${filename}`;
 
         await env.NOTIFICATION_ATTACHMENTS.put(objectKey,pdfBytes,{
@@ -6849,6 +6871,7 @@ async function adminGenerateStatementsPost({request,env}){
       succeeded,
       failed,
       statement_date:statementDate,
+      dry_run:dryRun,
       results
     },failed && !succeeded?500:200);
 
@@ -6945,16 +6968,17 @@ async function statementScheduleCustomers(env,type,config){
 }
 __name(statementScheduleCustomers,"statementScheduleCustomers");
 
-async function runStatementSchedule(env,type,origin,{force=false}={}){
+async function runStatementSchedule(env,type,origin,{force=false,dryRun=false}={}){
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
   const cycleLabel=type==="weekly"?"C":type==="midmonth"?"B":"A";
   const baseKey=type==="weekly"?`weekly:${central.date}`:`${type}:${central.year}-${central.month}`;
-  const runKey=force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
+  const runKey=dryRun?`test:${type}:${crypto.randomUUID()}`:force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
+  const storedRunType=dryRun?`test_${type}`:type;
   const inserted=await env.DB.prepare(`
     INSERT OR IGNORE INTO statement_schedule_runs(run_key,run_type,statement_cycle,status)
     VALUES(?,?,?,'running')
-  `).bind(runKey,type,cycleLabel).run();
+  `).bind(runKey,storedRunType,cycleLabel).run();
   if(Number(inserted?.meta?.changes||0)===0)return {success:true,skipped:true,reason:"This schedule has already run for the current period."};
   const runId=inserted?.meta?.last_row_id||inserted?.meta?.last_insert_rowid;
   try{
@@ -6970,9 +6994,10 @@ async function runStatementSchedule(env,type,origin,{force=false}={}){
           accounts,
           statement_date:central.date,
           payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),
-          portal_notification:Number(config.portal_enabled)!==0,
-          email_pdf:Number(config.email_enabled)!==0,
-          sms_link:Number(config.sms_enabled)!==0
+          portal_notification:dryRun?false:Number(config.portal_enabled)!==0,
+          email_pdf:dryRun?false:Number(config.email_enabled)!==0,
+          sms_link:dryRun?false:Number(config.sms_enabled)!==0,
+          dry_run:dryRun
         })
       });
       const response=await adminGenerateStatementsPost({request,env});
@@ -6982,7 +7007,7 @@ async function runStatementSchedule(env,type,origin,{force=false}={}){
     }
     const success=allResults.filter(r=>r.success).length;
     const failure=allResults.length-success;
-    const enabledPortal=Number(config.portal_enabled)!==0,enabledEmail=Number(config.email_enabled)!==0,enabledSms=Number(config.sms_enabled)!==0;
+    const enabledPortal=!dryRun&&Number(config.portal_enabled)!==0,enabledEmail=!dryRun&&Number(config.email_enabled)!==0,enabledSms=!dryRun&&Number(config.sms_enabled)!==0;
     const portalSuccess=allResults.filter(r=>r.success&&r.portal_notified).length;
     const emailSuccess=allResults.filter(r=>r.success&&r.email_sent).length;
     const smsSuccess=allResults.filter(r=>r.success&&r.sms_sent).length;
@@ -6995,10 +7020,10 @@ async function runStatementSchedule(env,type,origin,{force=false}={}){
         portal_success=?,portal_failure=?,email_success=?,email_failure=?,sms_success=?,sms_failure=?,
         detail_json=?,completed_at=CURRENT_TIMESTAMP
       WHERE id=?
-    `).bind(failure?"completed_with_errors":"completed",allResults.length,success,failure,portalSuccess,portalFailure,emailSuccess,emailFailure,smsSuccess,smsFailure,JSON.stringify(allResults),runId).run();
-    return {success:failure===0,run_id:runId,processed:allResults.length,succeeded:success,failed:failure,results:allResults};
+    `).bind(dryRun?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed"),allResults.length,success,failure,portalSuccess,portalFailure,emailSuccess,emailFailure,smsSuccess,smsFailure,JSON.stringify(allResults),runId).run();
+    return {success:failure===0,dry_run:dryRun,run_id:runId,processed:allResults.length,succeeded:success,failed:failure,results:allResults};
   }catch(error){
-    await env.DB.prepare(`UPDATE statement_schedule_runs SET status='failed',failure_count=1,detail_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(JSON.stringify([{error:String(error?.message||error)}]),runId).run();
+    await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,failure_count=1,detail_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(dryRun?"test_failed":"failed",JSON.stringify([{error:String(error?.message||error)}]),runId).run();
     throw error;
   }
 }
@@ -7090,7 +7115,7 @@ async function adminStatementSchedulingRun({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   const body=await request.json().catch(()=>({}));
   const type=body.type==="weekly"?"weekly":body.type==="midmonth"?"midmonth":"monthly";
-  try{return notificationJson(await runStatementSchedule(env,type,new URL(request.url).origin,{force:true}));}
+  try{return notificationJson(await runStatementSchedule(env,type,new URL(request.url).origin,{force:true,dryRun:body.dry_run===true}));}
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
 }
 __name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
