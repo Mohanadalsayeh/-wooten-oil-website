@@ -622,8 +622,10 @@ async function ensureCustomerStatementCycleColumn(env){
   const info=await env.DB.prepare(`PRAGMA table_info(customers)`).all();
   const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   if(!columns.has("statement_cycle")){
-    await env.DB.prepare(`ALTER TABLE customers ADD COLUMN statement_cycle TEXT NOT NULL DEFAULT ''`).run();
+    await env.DB.prepare(`ALTER TABLE customers ADD COLUMN statement_cycle TEXT NOT NULL DEFAULT 'B'`).run();
   }
+  await env.DB.prepare(`UPDATE customers SET statement_cycle='C' WHERE upper(trim(COALESCE(statement_cycle,'')))='W'`).run();
+  await env.DB.prepare(`UPDATE customers SET statement_cycle='B' WHERE upper(trim(COALESCE(statement_cycle,''))) NOT IN ('A','B','C')`).run();
 }
 __name(ensureCustomerStatementCycleColumn,"ensureCustomerStatementCycleColumn");
 async function onRequestPost3({ request, env }) {
@@ -697,7 +699,7 @@ async function onRequestPost3({ request, env }) {
         numberValue(row?.aging_category_2),
         numberValue(row?.aging_category_3),
         numberValue(row?.aging_category_4),
-        text(row?.statement_cycle).toUpperCase().slice(0,20)
+        (()=>{const cycle=text(row?.statement_cycle).toUpperCase();return cycle==="A"||cycle==="B"||cycle==="C"?cycle:cycle==="W"?"C":"B";})()
       )
     );
   }
@@ -6880,6 +6882,11 @@ async function ensureStatementSchedulingSchema(env){
   await env.DB.prepare(`
     INSERT OR IGNORE INTO statement_schedule_config(id) VALUES(1)
   `).run();
+  const configInfo=await env.DB.prepare(`PRAGMA table_info(statement_schedule_config)`).all();
+  const configColumns=new Set((configInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  if(!configColumns.has("midmonth_enabled"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_enabled INTEGER NOT NULL DEFAULT 0`).run();
+  if(!configColumns.has("midmonth_day"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_day INTEGER NOT NULL DEFAULT 15`).run();
+  if(!configColumns.has("midmonth_hour"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_hour INTEGER NOT NULL DEFAULT 8`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS statement_schedule_runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6914,11 +6921,6 @@ function statementCentralParts(date=new Date()){
 }
 __name(statementCentralParts,"statementCentralParts");
 
-function statementScheduleCycles(value){
-  return [...new Set(String(value||"").split(",").map(v=>v.trim().toUpperCase()).filter(v=>v&&v!=="W").slice(0,25))];
-}
-__name(statementScheduleCycles,"statementScheduleCycles");
-
 async function statementScheduleConfig(env){
   await ensureStatementSchedulingSchema(env);
   return env.DB.prepare(`SELECT * FROM statement_schedule_config WHERE id=1`).first();
@@ -6926,7 +6928,7 @@ async function statementScheduleConfig(env){
 __name(statementScheduleConfig,"statementScheduleConfig");
 
 async function statementScheduleCustomers(env,type,config){
-  const cycles=type==="weekly"?["W"]:statementScheduleCycles(config.monthly_cycles);
+  const cycles=type==="weekly"?["C"]:type==="midmonth"?["B"]:["A"];
   if(!cycles.length)return [];
   const placeholders=cycles.map(()=>"?").join(",");
   const balanceExpr=`COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)`;
@@ -6946,8 +6948,8 @@ __name(statementScheduleCustomers,"statementScheduleCustomers");
 async function runStatementSchedule(env,type,origin,{force=false}={}){
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
-  const cycleLabel=type==="weekly"?"W":statementScheduleCycles(config.monthly_cycles).join(",");
-  const baseKey=type==="weekly"?`weekly:${central.date}`:`monthly:${central.year}-${central.month}`;
+  const cycleLabel=type==="weekly"?"C":type==="midmonth"?"B":"A";
+  const baseKey=type==="weekly"?`weekly:${central.date}`:`${type}:${central.year}-${central.month}`;
   const runKey=force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
   const inserted=await env.DB.prepare(`
     INSERT OR IGNORE INTO statement_schedule_runs(run_key,run_type,statement_cycle,status)
@@ -7009,6 +7011,9 @@ async function processDueStatementSchedules(env){
   if(Number(config.weekly_enabled)!==0&&central.weekday===Number(config.weekly_weekday)&&central.hour===Number(config.weekly_hour)){
     await runStatementSchedule(env,"weekly",env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Weekly statement schedule failed",error));
   }
+  if(Number(config.midmonth_enabled)!==0&&Number(central.day)===Number(config.midmonth_day)&&central.hour===Number(config.midmonth_hour)){
+    await runStatementSchedule(env,"midmonth",env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Mid-month statement schedule failed",error));
+  }
   if(Number(config.monthly_enabled)!==0&&Number(central.day)===Number(config.monthly_day)&&central.hour===Number(config.monthly_hour)){
     await runStatementSchedule(env,"monthly",env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Monthly statement schedule failed",error));
   }
@@ -7024,15 +7029,15 @@ async function adminStatementScheduling({request,env}){
     await ensureStatementSchedulingSchema(env);
     if(request.method==="POST"){
       const body=await request.json().catch(()=>({}));
-      const cycles=statementScheduleCycles(body.monthly_cycles).join(",");
       await env.DB.prepare(`
         UPDATE statement_schedule_config SET
-          weekly_enabled=?,weekly_weekday=?,weekly_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles=?,
+          weekly_enabled=?,weekly_weekday=?,weekly_hour=?,midmonth_enabled=?,midmonth_day=?,midmonth_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles='A',
           positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
         WHERE id=1
       `).bind(
         body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),
-        body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),cycles,
+        body.midmonth_enabled?1:0,Math.max(1,Math.min(28,Number(body.midmonth_day)||15)),Math.max(0,Math.min(23,Number(body.midmonth_hour)||0)),
+        body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),
         body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_enabled?1:0,body.sms_enabled?1:0
       ).run();
     }
@@ -7050,7 +7055,8 @@ __name(adminStatementScheduling,"adminStatementScheduling");
 async function adminStatementSchedulingPreview({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   try{
-    const type=new URL(request.url).searchParams.get("type")==="weekly"?"weekly":"monthly";
+    const requested=new URL(request.url).searchParams.get("type");
+    const type=requested==="weekly"?"weekly":requested==="midmonth"?"midmonth":"monthly";
     const config=await statementScheduleConfig(env);
     const customers=await statementScheduleCustomers(env,type,config);
     return notificationJson({success:true,type,count:customers.length,customers});
@@ -7061,7 +7067,7 @@ __name(adminStatementSchedulingPreview,"adminStatementSchedulingPreview");
 async function adminStatementSchedulingRun({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   const body=await request.json().catch(()=>({}));
-  const type=body.type==="weekly"?"weekly":"monthly";
+  const type=body.type==="weekly"?"weekly":body.type==="midmonth"?"midmonth":"monthly";
   try{return notificationJson(await runStatementSchedule(env,type,new URL(request.url).origin,{force:true}));}
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
 }
