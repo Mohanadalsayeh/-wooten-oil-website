@@ -3951,6 +3951,19 @@ input[type="file"]::file-selector-button{
         </div>
       </div>
 
+      <div class="actions statement-send-actions">
+        <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
+        <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
+      </div>
+      <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
+        <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="statementCustomerLoadProgressTrack" role="progressbar" aria-label="Statement customer loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementCustomerLoadProgressBar"></span></div>
+      </div>
+      <div class="preview-progress" id="statementSendProgress" hidden>
+        <div class="preview-progress-head"><strong id="statementSendProgressLabel">Generating and sending statements…</strong><span id="statementSendProgressCount">Preparing</span></div>
+        <div class="preview-progress-track" id="statementSendProgressTrack" role="progressbar" aria-label="Statement generation and sending progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementSendProgressBar"></span></div>
+      </div>
+
       <div class="statement-selection-toolbar">
         <label class="statement-select-all">
           <input id="statementSelectAllVisible" type="checkbox">
@@ -3981,20 +3994,7 @@ input[type="file"]::file-selector-button{
         <button class="secondary" id="statementCustomerNext" type="button">Next 20</button>
       </div>
 
-      <div class="actions statement-send-actions">
-        <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
-        <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
-      </div>
-
       <div id="statementBatchStatus" class="status"></div>
-      <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
-        <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
-        <div class="preview-progress-track" id="statementCustomerLoadProgressTrack" role="progressbar" aria-label="Statement customer loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementCustomerLoadProgressBar"></span></div>
-      </div>
-      <div class="preview-progress" id="statementSendProgress" hidden>
-        <div class="preview-progress-head"><strong id="statementSendProgressLabel">Generating and sending statements…</strong><span id="statementSendProgressCount">Preparing</span></div>
-        <div class="preview-progress-track" id="statementSendProgressTrack" role="progressbar" aria-label="Statement generation and sending progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementSendProgressBar"></span></div>
-      </div>
       <section class="statement-send-report" id="statementSendReport" hidden aria-live="polite"></section>
       <div id="statementBatchProgress" class="statement-batch-progress"></div>
     </div>
