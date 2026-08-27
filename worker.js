@@ -618,6 +618,14 @@ function accountNumber(v) {
   return s ? s.padStart(7, "0") : "";
 }
 __name(accountNumber, "accountNumber");
+async function ensureCustomerStatementCycleColumn(env){
+  const info=await env.DB.prepare(`PRAGMA table_info(customers)`).all();
+  const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  if(!columns.has("statement_cycle")){
+    await env.DB.prepare(`ALTER TABLE customers ADD COLUMN statement_cycle TEXT NOT NULL DEFAULT ''`).run();
+  }
+}
+__name(ensureCustomerStatementCycleColumn,"ensureCustomerStatementCycleColumn");
 async function onRequestPost3({ request, env }) {
   const supplied = request.headers.get("X-Admin-Key") || "";
   if (!env.ADMIN_IMPORT_KEY || supplied !== env.ADMIN_IMPORT_KEY) {
@@ -639,10 +647,11 @@ async function onRequestPost3({ request, env }) {
   if (customers.length > 5e3) {
     return json3({ success: false, error: "Too many records in one upload." }, 413);
   }
+  await ensureCustomerStatementCycleColumn(env);
   const statement = env.DB.prepare(`
     INSERT INTO customers
-      (account_number, account_name, address1, address2, city, state, zip_code, phone, email, current_balance, aging_category_1, aging_category_2, aging_category_3, aging_category_4, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      (account_number, account_name, address1, address2, city, state, zip_code, phone, email, current_balance, aging_category_1, aging_category_2, aging_category_3, aging_category_4, statement_cycle, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(account_number) DO UPDATE SET
       account_name = excluded.account_name,
       address1 = excluded.address1,
@@ -660,6 +669,7 @@ async function onRequestPost3({ request, env }) {
       aging_category_2 = excluded.aging_category_2,
       aging_category_3 = excluded.aging_category_3,
       aging_category_4 = excluded.aging_category_4,
+      statement_cycle = excluded.statement_cycle,
       updated_at = CURRENT_TIMESTAMP
   `);
   const batch = [];
@@ -686,7 +696,8 @@ async function onRequestPost3({ request, env }) {
         numberValue(row?.aging_category_1),
         numberValue(row?.aging_category_2),
         numberValue(row?.aging_category_3),
-        numberValue(row?.aging_category_4)
+        numberValue(row?.aging_category_4),
+        text(row?.statement_cycle).toUpperCase().slice(0,20)
       )
     );
   }
@@ -5389,6 +5400,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
     }
 
     await ensureAdminContactPreferencesTable(env);
+    await ensureCustomerStatementCycleColumn(env);
     const url = new URL(request.url);
     const page = Math.max(1, Math.min(100000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
     const pageSize = Math.max(10, Math.min(100, Number.parseInt(url.searchParams.get("page_size") || "50", 10) || 50));
@@ -5411,9 +5423,10 @@ async function adminCustomersDatabaseGet({ request, env }) {
         phone LIKE ? OR
         city LIKE ? OR
         state LIKE ? OR
-        zip_code LIKE ?
+        zip_code LIKE ? OR
+        statement_cycle LIKE ?
       )`);
-      args.push(q, q, q, q, q, q, q);
+      args.push(q, q, q, q, q, q, q, q);
     }
 
     if (email === "with") {
@@ -5477,6 +5490,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
         aging_category_2,
         aging_category_3,
         aging_category_4,
+        statement_cycle,
         account_status,
         COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
         COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
@@ -6843,6 +6857,216 @@ async function adminGenerateStatementsPost({request,env}){
 }
 __name(adminGenerateStatementsPost,"adminGenerateStatementsPost");
 
+async function ensureStatementSchedulingSchema(env){
+  await ensureCustomerStatementCycleColumn(env);
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS statement_schedule_config (
+      id INTEGER PRIMARY KEY CHECK(id=1),
+      weekly_enabled INTEGER NOT NULL DEFAULT 0,
+      weekly_weekday INTEGER NOT NULL DEFAULT 1,
+      weekly_hour INTEGER NOT NULL DEFAULT 8,
+      monthly_enabled INTEGER NOT NULL DEFAULT 0,
+      monthly_day INTEGER NOT NULL DEFAULT 1,
+      monthly_hour INTEGER NOT NULL DEFAULT 8,
+      monthly_cycles TEXT NOT NULL DEFAULT 'A,B,C',
+      positive_balance_only INTEGER NOT NULL DEFAULT 1,
+      payment_count INTEGER NOT NULL DEFAULT 1,
+      portal_enabled INTEGER NOT NULL DEFAULT 1,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      sms_enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO statement_schedule_config(id) VALUES(1)
+  `).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS statement_schedule_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_key TEXT NOT NULL UNIQUE,
+      run_type TEXT NOT NULL,
+      statement_cycle TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'running',
+      customer_count INTEGER NOT NULL DEFAULT 0,
+      success_count INTEGER NOT NULL DEFAULT 0,
+      failure_count INTEGER NOT NULL DEFAULT 0,
+      portal_success INTEGER NOT NULL DEFAULT 0,
+      portal_failure INTEGER NOT NULL DEFAULT 0,
+      email_success INTEGER NOT NULL DEFAULT 0,
+      email_failure INTEGER NOT NULL DEFAULT 0,
+      sms_success INTEGER NOT NULL DEFAULT 0,
+      sms_failure INTEGER NOT NULL DEFAULT 0,
+      detail_json TEXT NOT NULL DEFAULT '[]',
+      started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_statement_schedule_runs_started ON statement_schedule_runs(started_at DESC,id DESC)`).run();
+}
+__name(ensureStatementSchedulingSchema,"ensureStatementSchedulingSchema");
+
+function statementCentralParts(date=new Date()){
+  const parts=new Intl.DateTimeFormat("en-US",{
+    timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit",weekday:"short",hour:"2-digit",hourCycle:"h23"
+  }).formatToParts(date).reduce((acc,part)=>{acc[part.type]=part.value;return acc;},{});
+  const weekday={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[parts.weekday]??0;
+  return {year:parts.year,month:parts.month,day:parts.day,weekday,hour:Number(parts.hour||0),date:`${parts.year}-${parts.month}-${parts.day}`};
+}
+__name(statementCentralParts,"statementCentralParts");
+
+function statementScheduleCycles(value){
+  return [...new Set(String(value||"").split(",").map(v=>v.trim().toUpperCase()).filter(v=>v&&v!=="W").slice(0,25))];
+}
+__name(statementScheduleCycles,"statementScheduleCycles");
+
+async function statementScheduleConfig(env){
+  await ensureStatementSchedulingSchema(env);
+  return env.DB.prepare(`SELECT * FROM statement_schedule_config WHERE id=1`).first();
+}
+__name(statementScheduleConfig,"statementScheduleConfig");
+
+async function statementScheduleCustomers(env,type,config){
+  const cycles=type==="weekly"?["W"]:statementScheduleCycles(config.monthly_cycles);
+  if(!cycles.length)return [];
+  const placeholders=cycles.map(()=>"?").join(",");
+  const balanceExpr=`COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)`;
+  const clauses=[`upper(trim(COALESCE(statement_cycle,''))) IN (${placeholders})`,`(account_status IS NULL OR trim(account_status)='' OR lower(trim(account_status))='active')`];
+  if(Number(config.positive_balance_only)!==0)clauses.push(`${balanceExpr}>0.004`);
+  const result=await env.DB.prepare(`
+    SELECT account_number,account_name,statement_cycle,${balanceExpr} AS total_balance,phone,email
+    FROM customers
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY account_name COLLATE NOCASE,account_number
+    LIMIT 5000
+  `).bind(...cycles).all();
+  return result?.results||[];
+}
+__name(statementScheduleCustomers,"statementScheduleCustomers");
+
+async function runStatementSchedule(env,type,origin,{force=false}={}){
+  const config=await statementScheduleConfig(env);
+  const central=statementCentralParts();
+  const cycleLabel=type==="weekly"?"W":statementScheduleCycles(config.monthly_cycles).join(",");
+  const baseKey=type==="weekly"?`weekly:${central.date}`:`monthly:${central.year}-${central.month}`;
+  const runKey=force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
+  const inserted=await env.DB.prepare(`
+    INSERT OR IGNORE INTO statement_schedule_runs(run_key,run_type,statement_cycle,status)
+    VALUES(?,?,?,'running')
+  `).bind(runKey,type,cycleLabel).run();
+  if(Number(inserted?.meta?.changes||0)===0)return {success:true,skipped:true,reason:"This schedule has already run for the current period."};
+  const runId=inserted?.meta?.last_row_id||inserted?.meta?.last_insert_rowid;
+  try{
+    const customers=await statementScheduleCustomers(env,type,config);
+    const allResults=[];
+    const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
+    for(let i=0;i<customers.length;i+=20){
+      const accounts=customers.slice(i,i+20).map(c=>c.account_number);
+      const request=new Request(`${siteOrigin}/api/admin/statements/generate`,{
+        method:"POST",
+        headers:{"X-Admin-Key":String(env.ADMIN_IMPORT_KEY||""),"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({
+          accounts,
+          statement_date:central.date,
+          payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),
+          portal_notification:Number(config.portal_enabled)!==0,
+          email_pdf:Number(config.email_enabled)!==0,
+          sms_link:Number(config.sms_enabled)!==0
+        })
+      });
+      const response=await adminGenerateStatementsPost({request,env});
+      const data=await response.json().catch(()=>({}));
+      if(Array.isArray(data.results))allResults.push(...data.results);
+      else accounts.forEach(account=>allResults.push({account_number:account,success:false,error:data.error||"Statement batch failed."}));
+    }
+    const success=allResults.filter(r=>r.success).length;
+    const failure=allResults.length-success;
+    const enabledPortal=Number(config.portal_enabled)!==0,enabledEmail=Number(config.email_enabled)!==0,enabledSms=Number(config.sms_enabled)!==0;
+    const portalSuccess=allResults.filter(r=>r.success&&r.portal_notified).length;
+    const emailSuccess=allResults.filter(r=>r.success&&r.email_sent).length;
+    const smsSuccess=allResults.filter(r=>r.success&&r.sms_sent).length;
+    const portalFailure=enabledPortal?allResults.length-portalSuccess:0;
+    const emailFailure=enabledEmail?allResults.length-emailSuccess:0;
+    const smsFailure=enabledSms?allResults.length-smsSuccess:0;
+    await env.DB.prepare(`
+      UPDATE statement_schedule_runs SET
+        status=?,customer_count=?,success_count=?,failure_count=?,
+        portal_success=?,portal_failure=?,email_success=?,email_failure=?,sms_success=?,sms_failure=?,
+        detail_json=?,completed_at=CURRENT_TIMESTAMP
+      WHERE id=?
+    `).bind(failure?"completed_with_errors":"completed",allResults.length,success,failure,portalSuccess,portalFailure,emailSuccess,emailFailure,smsSuccess,smsFailure,JSON.stringify(allResults),runId).run();
+    return {success:failure===0,run_id:runId,processed:allResults.length,succeeded:success,failed:failure,results:allResults};
+  }catch(error){
+    await env.DB.prepare(`UPDATE statement_schedule_runs SET status='failed',failure_count=1,detail_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(JSON.stringify([{error:String(error?.message||error)}]),runId).run();
+    throw error;
+  }
+}
+__name(runStatementSchedule,"runStatementSchedule");
+
+async function processDueStatementSchedules(env){
+  if(!env.DB||!env.ADMIN_IMPORT_KEY||!env.NOTIFICATION_ATTACHMENTS)return;
+  const config=await statementScheduleConfig(env);
+  const central=statementCentralParts();
+  if(Number(config.weekly_enabled)!==0&&central.weekday===Number(config.weekly_weekday)&&central.hour===Number(config.weekly_hour)){
+    await runStatementSchedule(env,"weekly",env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Weekly statement schedule failed",error));
+  }
+  if(Number(config.monthly_enabled)!==0&&Number(central.day)===Number(config.monthly_day)&&central.hour===Number(config.monthly_hour)){
+    await runStatementSchedule(env,"monthly",env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Monthly statement schedule failed",error));
+  }
+}
+__name(processDueStatementSchedules,"processDueStatementSchedules");
+
+function statementScheduleAuthorized(request,env){return !!env.ADMIN_IMPORT_KEY&&(request.headers.get("X-Admin-Key")||"")===env.ADMIN_IMPORT_KEY;}
+__name(statementScheduleAuthorized,"statementScheduleAuthorized");
+
+async function adminStatementScheduling({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    await ensureStatementSchedulingSchema(env);
+    if(request.method==="POST"){
+      const body=await request.json().catch(()=>({}));
+      const cycles=statementScheduleCycles(body.monthly_cycles).join(",");
+      await env.DB.prepare(`
+        UPDATE statement_schedule_config SET
+          weekly_enabled=?,weekly_weekday=?,weekly_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles=?,
+          positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
+        WHERE id=1
+      `).bind(
+        body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),
+        body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),cycles,
+        body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_enabled?1:0,body.sms_enabled?1:0
+      ).run();
+    }
+    const config=await statementScheduleConfig(env);
+    const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
+    const parsed=(runs?.results||[]).map(row=>({...row,results:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})()}));
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts()});
+  }catch(error){
+    console.error("Statement scheduling settings failed",error);
+    return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
+  }
+}
+__name(adminStatementScheduling,"adminStatementScheduling");
+
+async function adminStatementSchedulingPreview({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    const type=new URL(request.url).searchParams.get("type")==="weekly"?"weekly":"monthly";
+    const config=await statementScheduleConfig(env);
+    const customers=await statementScheduleCustomers(env,type,config);
+    return notificationJson({success:true,type,count:customers.length,customers});
+  }catch(error){return notificationJson({success:false,error:"Scheduled customers could not be previewed. "+String(error?.message||error)},500);}
+}
+__name(adminStatementSchedulingPreview,"adminStatementSchedulingPreview");
+
+async function adminStatementSchedulingRun({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  const body=await request.json().catch(()=>({}));
+  const type=body.type==="weekly"?"weekly":"monthly";
+  try{return notificationJson(await runStatementSchedule(env,type,new URL(request.url).origin,{force:true}));}
+  catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
+}
+__name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
+
 
 var worker_default = {
   async fetch(request, env, ctx) {
@@ -6991,6 +7215,21 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statements/generate") {
       if (request.method === "POST") return adminGenerateStatementsPost({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling") {
+      if (request.method === "GET" || request.method === "POST") return adminStatementScheduling({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling/preview") {
+      if (request.method === "GET") return adminStatementSchedulingPreview({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling/run") {
+      if (request.method === "POST") return adminStatementSchedulingRun({ request, env });
       return methodNotAllowed();
     }
 
@@ -7209,6 +7448,7 @@ return env.ASSETS.fetch(request);
 
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
+    ctx.waitUntil(processDueStatementSchedules(env));
   }
 
 };

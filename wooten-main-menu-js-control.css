@@ -1,0 +1,8 @@
+/* The menu is controlled by JavaScript instead of :target so clicking
+   anywhere outside it can reliably close it. */
+#mobile-menu.mobile-menu-panel:target{
+  display:none !important;
+}
+#mobile-menu.mobile-menu-panel.menu-open{
+  display:block !important;
+}

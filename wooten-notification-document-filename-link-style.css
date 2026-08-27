@@ -1,0 +1,33 @@
+.customer-notification-document-link{
+  display:inline-block;
+  margin-top:10px;
+  color:#244f75;
+  font-weight:800;
+  text-decoration:none;
+  text-underline-offset:3px;
+  cursor:pointer;
+}
+.customer-notification-document-link:hover,
+.customer-notification-document-link:focus,
+.customer-notification-document-link:focus-visible{
+  color:#244f75 !important;
+  text-decoration:underline !important;
+  text-decoration-thickness:1px !important;
+  transform:none !important;
+  background:transparent !important;
+}
+.customer-notification-document-link-label{
+  display:block;
+  margin-top:10px;
+  color:#7c8995;
+  font-size:.74rem;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.customer-notification-popup-footer.document-notification-footer{
+  display:block !important;
+}
+.customer-notification-popup-footer.document-notification-footer .customer-notification-attachments-title{
+  display:none !important;
+}

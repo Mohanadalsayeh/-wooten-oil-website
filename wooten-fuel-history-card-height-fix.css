@@ -1,0 +1,21 @@
+.customer-account-overlay:has(#customerFuelHistory.show) .customer-account-card{
+  min-height:0 !important;
+  height:auto !important;
+  max-height:calc(100vh - 28px) !important;
+}
+.customer-account-overlay:has(#customerFuelHistory.show) .customer-account-card-inner,
+.customer-account-overlay:has(#customerFuelHistory.show) .customer-account-content{
+  min-height:0 !important;
+  height:auto !important;
+}
+.customer-account-overlay:has(#customerFuelHistory.show){
+  align-items:flex-start !important;
+  padding-top:14px !important;
+  padding-bottom:14px !important;
+}
+@media(max-width:700px){
+  .customer-account-overlay:has(#customerFuelHistory.show){
+    padding-top:8px !important;
+    padding-bottom:8px !important;
+  }
+}

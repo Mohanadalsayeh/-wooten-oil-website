@@ -1,0 +1,40 @@
+/* Sharper, higher-contrast typography in the main website header. */
+.site-header,
+.site-header a,
+.site-header button,
+.site-header .brand,
+.site-header .brand *,
+.site-header .desktop-nav *,
+.site-header .customer-name,
+.site-header .header-account-name,
+.site-header .mobile-menu-button{
+  -webkit-font-smoothing:auto !important;
+  -moz-osx-font-smoothing:auto !important;
+  text-rendering:optimizeLegibility !important;
+  opacity:1 !important;
+}
+
+.site-header .brand,
+.site-header .brand-name,
+.site-header .desktop-nav a,
+.site-header .customer-name,
+.site-header .header-account-name{
+  color:#17283c !important;
+  font-weight:800 !important;
+}
+
+.site-header .brand small,
+.site-header .brand-subtitle{
+  color:#52647a !important;
+  font-weight:800 !important;
+  letter-spacing:.08em;
+}
+
+.site-header .desktop-nav a{
+  text-shadow:0 0 .01px currentColor;
+}
+
+.site-header .customer-name,
+.site-header .header-account-name{
+  text-shadow:0 0 .01px currentColor;
+}

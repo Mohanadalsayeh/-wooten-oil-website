@@ -1,0 +1,23 @@
+#customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+  padding-top:12px !important;
+  padding-bottom:8px !important;
+  min-height:0 !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-attachment-list{
+  gap:3px !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link-label{
+  margin-top:0 !important;
+  margin-bottom:2px !important;
+}
+#customerNotificationPopupAttachments.document-notification-footer .customer-notification-document-link{
+  margin-top:0 !important;
+  margin-bottom:0 !important;
+  line-height:1.2 !important;
+}
+@media(max-width:600px){
+  #customerNotificationPopupAttachments.customer-notification-popup-footer.document-notification-footer{
+    padding-top:10px !important;
+    padding-bottom:7px !important;
+  }
+}

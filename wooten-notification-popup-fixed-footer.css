@@ -1,0 +1,41 @@
+/* Header and attachment footer stay fixed; only the notification body scrolls. */
+.customer-notification-popup-footer{
+  flex:0 0 auto !important;
+  margin-top:0 !important;
+  padding:16px 22px 18px !important;
+  border-top:1px solid #edf1f4 !important;
+  background:#fff !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+.customer-notification-popup-footer.show{
+  display:block !important;
+}
+.customer-notification-popup-body{
+  padding-bottom:22px !important;
+}
+.customer-notification-popup-footer .customer-notification-attachments-title{
+  margin:0 0 10px !important;
+}
+.customer-notification-popup-footer .customer-notification-attachment-list{
+  max-height:150px !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:#9aa5af transparent !important;
+}
+.customer-notification-popup-footer .customer-notification-attachment-list::-webkit-scrollbar{
+  width:7px !important;
+}
+.customer-notification-popup-footer .customer-notification-attachment-list::-webkit-scrollbar-track{
+  background:transparent !important;
+}
+.customer-notification-popup-footer .customer-notification-attachment-list::-webkit-scrollbar-thumb{
+  background:#9aa5af !important;
+  border-radius:999px !important;
+}
+@media(max-width:600px){
+  .customer-notification-popup-footer{
+    padding:14px 18px 16px !important;
+  }
+}

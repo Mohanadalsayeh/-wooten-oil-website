@@ -1,0 +1,24 @@
+.customer-notification-popup{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,34,57,.56);backdrop-filter:blur(3px)}
+.customer-notification-popup.show{display:flex}
+.customer-notification-popup-card{width:min(560px,100%);max-height:min(78vh,680px);overflow:auto;background:#fff;border:1px solid #dce4eb;border-radius:20px;box-shadow:0 24px 70px rgba(15,39,66,.28)}
+.customer-notification-popup-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid #edf1f4}
+.customer-notification-popup-head strong{color:#0b2239;font-size:1rem}
+.customer-notification-popup-close{width:38px;height:38px;border:0;border-radius:50%;background:#eef3f7;color:#17314b;font-size:25px;line-height:1;cursor:pointer}
+.customer-notification-popup-body{padding:22px 22px 24px}
+.customer-notification-popup-title{margin:0 0 8px;color:#0b2239;font-size:1.35rem;line-height:1.25}
+.customer-notification-popup-date{margin-bottom:18px;color:#7a8792;font-size:.78rem;font-weight:700}
+.customer-notification-popup-message{margin:0;color:#334155;font-size:.98rem;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.customer-notification-email-meta{display:grid;gap:7px;margin:0 0 18px;padding:13px 14px;background:#f8fafc;border:1px solid #e5ebf0;border-radius:12px}
+.customer-notification-email-row{display:grid;grid-template-columns:62px minmax(0,1fr);gap:9px;font-size:.84rem;line-height:1.4}
+.customer-notification-email-row span:first-child{color:#7a8792}
+.customer-notification-email-row span:last-child{color:#1e293b;overflow-wrap:anywhere}
+.customer-notification-attachments{display:none;margin-top:22px;padding-top:18px;border-top:1px solid #edf1f4}
+.customer-notification-attachments.show{display:block}
+.customer-notification-attachments-title{margin:0 0 10px;color:#0b2239;font-size:.86rem;font-weight:600}
+.customer-notification-attachment-list{display:grid;gap:9px}
+.customer-notification-attachment{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #dce4eb;border-radius:11px;background:#f8fafc;text-decoration:none;color:#17314b;font:inherit;text-align:left;cursor:pointer}
+.customer-notification-attachment:hover,.customer-notification-attachment:focus{background:#f8fafc;color:#17314b;transform:none}
+.customer-notification-attachment-name{min-width:0;overflow-wrap:anywhere;font-size:.88rem}
+.customer-notification-attachment-open{flex:0 0 auto;font-size:.78rem;color:#64748b}
+
+@media(max-width:600px){.customer-notification-popup{padding:12px}.customer-notification-popup-card{border-radius:16px;max-height:82vh}.customer-notification-popup-body{padding:18px}.customer-notification-popup-title{font-size:1.18rem}}

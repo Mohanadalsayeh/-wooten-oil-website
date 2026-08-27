@@ -1,0 +1,6 @@
+.footer-contact{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 16px}
+.footer-contact-item{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none;white-space:nowrap}
+.footer-contact-item:hover,.footer-contact-item:focus,.footer-contact-item:active{color:inherit;text-decoration:none;transform:none}
+.footer-contact-icon{width:17px;height:17px;flex:0 0 17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:900px){.footer-row{gap:14px!important}.footer-contact{width:100%}}
+@media(max-width:620px){.footer-contact{flex-direction:column;align-items:flex-start;gap:9px}.footer-contact-item{white-space:normal}}

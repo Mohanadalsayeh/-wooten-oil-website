@@ -1,0 +1,29 @@
+#dashboardNotificationList .notification-item{
+  width:100% !important;
+  border:0 !important;
+  border-bottom:1px solid #edf1f4 !important;
+  background:#fff !important;
+  font:inherit !important;
+  text-align:left !important;
+  cursor:pointer !important;
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  transform:none !important;
+}
+#dashboardNotificationList .notification-item:hover,
+#dashboardNotificationList .notification-item:focus,
+#dashboardNotificationList .notification-item:focus-visible,
+#dashboardNotificationList .notification-item:active{
+  background:#fff !important;
+  transform:none !important;
+  outline:none !important;
+  box-shadow:inset 0 0 0 2px rgba(31,78,121,.12) !important;
+}
+#dashboardNotificationList .notification-item.unread{
+  background:#f7fbff !important;
+}
+#dashboardNotificationList .notification-item.unread:hover,
+#dashboardNotificationList .notification-item.unread:focus,
+#dashboardNotificationList .notification-item.unread:focus-visible{
+  background:#f7fbff !important;
+}

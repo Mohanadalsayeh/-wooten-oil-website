@@ -1,0 +1,28 @@
+/* Ensure First-Time Account Activation is always visible on the login screen */
+#portalActivateLink{
+  display:block !important;
+  width:100% !important;
+  min-height:50px;
+  margin-top:12px;
+  padding:12px 14px;
+  border:1px solid #cbd7e2;
+  border-radius:11px;
+  background:#f5f8fb;
+  color:#193d60;
+  font:inherit;
+  font-weight:900;
+  text-align:center;
+  cursor:pointer;
+  -webkit-appearance:none;
+  appearance:none;
+}
+#portalActivateLink:hover{background:#eaf1f7}
+@media(max-width:560px){
+  #portalActivateLink{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    min-height:54px;
+    font-size:1rem;
+  }
+}

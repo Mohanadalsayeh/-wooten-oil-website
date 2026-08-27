@@ -1,0 +1,178 @@
+
+.payment-history-panel{display:none}
+.payment-history-panel.show{display:block}
+.payment-history-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin:18px 0 14px}
+.payment-history-head h3{margin:0 0 5px;color:#17314b;font-size:27px}
+.payment-history-head p{margin:0;color:#718090}
+.payment-history-refresh{border:1px solid #d5dee7;background:#eef3f7;color:#17314b;border-radius:10px;padding:10px 14px;font-weight:800}
+.payment-history-tools{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:12px;margin-bottom:10px}
+.payment-history-tools input,.payment-history-tools select{width:100%;height:45px;border:1px solid #d4dee7;border-radius:11px;background:#fff;padding:0 13px;font:inherit;color:#20364b;box-sizing:border-box}
+.payment-history-results-meta{min-height:20px;color:#718090;font-size:13px;font-weight:700;margin:4px 0 9px}
+.payment-history-status{display:none;padding:12px 14px;border-radius:10px;margin-bottom:10px;background:#f1f5f8;color:#536575}
+.payment-history-status.show{display:block}.payment-history-status.error{background:#fff0f0;color:#9b2525}
+.payment-history-list{display:grid;gap:10px;max-height:440px;overflow:auto;padding-right:4px}
+.payment-history-card{border:1px solid #dce4ea;border-radius:14px;background:#fff;padding:15px 16px}
+.payment-history-card-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:12px}
+.payment-history-card-top strong{font-size:18px;color:#14304b}.payment-history-card-top time{font-size:13px;color:#718090;font-weight:700}
+.payment-history-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.payment-history-item small{display:block;color:#7a8997;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}.payment-history-item strong{color:#253b50;font-size:14px;overflow-wrap:anywhere}.payment-history-item.full{grid-column:1/-1}
+.payment-history-empty{padding:24px;text-align:center;border:1px dashed #ccd7df;border-radius:14px;color:#718090;background:#f8fafb}
+.payment-history-total{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:14px;padding:15px 17px;border-top:2px solid #163653;background:#f3f7fa;border-radius:10px;color:#17314b}.payment-history-total span{font-weight:900}.payment-history-total strong{font-size:22px}
+.payment-history-footer{text-align:center;color:#8795a2;font-size:12px;border-top:1px solid #e1e7ec;margin-top:12px;padding-top:11px}
+@media(max-width:700px){.payment-history-head{margin-top:12px}.payment-history-head h3{font-size:24px}.payment-history-tools{grid-template-columns:1fr}.payment-history-list{max-height:none}.payment-history-grid{grid-template-columns:1fr 1fr}.payment-history-card-top{display:block}.payment-history-card-top time{display:block;margin-top:4px}.payment-history-item.full{grid-column:1/-1}}
+
+
+/* Payment History compact vertical spacing */
+#paymentHistoryPanel{
+  min-height:0 !important;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  margin-top:0 !important;
+  margin-bottom:0 !important;
+}
+
+#paymentHistoryPanel .portal-panel-head,
+#paymentHistoryPanel .account-panel-head,
+#paymentHistoryPanel .payment-history-head{
+  margin-top:0 !important;
+  padding-top:0 !important;
+}
+
+#paymentHistoryPanel .payment-history-shell,
+#paymentHistoryPanel .customer-payment-history,
+#paymentHistoryPanel .portal-subpanel{
+  min-height:0 !important;
+  padding-top:18px !important;
+  padding-bottom:16px !important;
+}
+
+#paymentHistoryPanel .portal-panel-footer,
+#paymentHistoryPanel .payment-history-footer{
+  margin-top:14px !important;
+  padding-top:12px !important;
+  padding-bottom:0 !important;
+}
+
+#paymentHistoryPanel .payment-history-total{
+  margin-bottom:14px !important;
+}
+
+/* The main customer portal modal/card was reserving excessive vertical space.
+   Let Payment History size naturally to its content. */
+.customer-portal-modal:has(#paymentHistoryPanel:not([hidden])),
+.customer-portal-card:has(#paymentHistoryPanel:not([hidden])),
+.customer-account-modal:has(#paymentHistoryPanel:not([hidden])),
+.customer-account-card:has(#paymentHistoryPanel:not([hidden])){
+  min-height:0 !important;
+  height:auto !important;
+}
+
+@media(max-width:720px){
+  #paymentHistoryPanel .payment-history-shell,
+  #paymentHistoryPanel .customer-payment-history,
+  #paymentHistoryPanel .portal-subpanel{
+    padding-top:14px !important;
+    padding-bottom:12px !important;
+  }
+
+  #paymentHistoryPanel .portal-panel-footer,
+  #paymentHistoryPanel .payment-history-footer{
+    margin-top:10px !important;
+    padding-top:10px !important;
+  }
+}
+
+
+/* Payment History MAS 90 detail fields */
+#customerPaymentHistory .payment-history-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:18px 16px !important;
+}
+
+#customerPaymentHistory .payment-history-item{
+  min-width:0;
+}
+
+#customerPaymentHistory .payment-history-item strong{
+  overflow-wrap:anywhere;
+}
+
+@media(max-width:900px){
+  #customerPaymentHistory .payment-history-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  }
+}
+
+@media(max-width:620px){
+  #customerPaymentHistory .payment-history-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+
+/* Payment History: remove wasted space above the toolbar/title.
+   The actual panel id is #customerPaymentHistory. */
+#customerPaymentHistory{
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  margin-top:0 !important;
+  min-height:0 !important;
+}
+
+#customerPaymentHistory.show{
+  display:block !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#customerPaymentHistory .details-toolbar{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  margin-bottom:14px !important;
+}
+
+#customerPaymentHistory .payment-history-head{
+  margin-top:0 !important;
+}
+
+/* Compact the outer customer portal card only while Payment History is open. */
+#portalAccountCard:has(#customerPaymentHistory.show){
+  padding-top:24px !important;
+  padding-bottom:18px !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+#portalAccountCard:has(#customerPaymentHistory.show) > .portal-eyebrow{
+  margin-bottom:16px !important;
+}
+
+/* Keep the overlay close to the top instead of vertically reserving space. */
+.portal-overlay:has(#customerPaymentHistory.show){
+  align-items:flex-start !important;
+  padding-top:12px !important;
+  padding-bottom:12px !important;
+}
+
+@media(max-width:700px){
+  #portalAccountCard:has(#customerPaymentHistory.show){
+    padding-top:18px !important;
+    padding-bottom:12px !important;
+  }
+
+  #portalAccountCard:has(#customerPaymentHistory.show) > .portal-eyebrow{
+    margin-bottom:12px !important;
+  }
+
+  #customerPaymentHistory .details-toolbar{
+    margin-bottom:10px !important;
+  }
+
+  #customerPaymentHistory .payment-history-head{
+    margin-top:0 !important;
+  }
+
+  .portal-overlay:has(#customerPaymentHistory.show){
+    padding-top:8px !important;
+  }
+}

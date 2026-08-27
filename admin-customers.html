@@ -1432,6 +1432,19 @@ input[type="file"]::file-selector-button{
 }
 </style>
 
+<style id="wooten-statement-scheduling-style">
+.statement-scheduling-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.schedule-card{border:1px solid #d7e1ea;border-radius:14px;background:#f8fafc;padding:16px}
+.schedule-card h3{margin:0 0 5px;color:var(--navy);font-size:18px}.schedule-card>p{margin:0 0 14px;color:#68798a;font-size:13px;line-height:1.5}
+.schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
+.schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
+.schedule-shared{margin-top:14px}.schedule-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.schedule-option{display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #d7e1ea;border-radius:10px;background:#fff;padding:8px 11px;font-weight:800;color:#344c62}.schedule-option input{width:18px;height:18px}
+.schedule-preview{margin-top:14px}.schedule-preview-list{display:grid;gap:7px;margin-top:9px}.schedule-preview-row{display:grid;grid-template-columns:minmax(180px,1fr) 90px 120px;gap:10px;padding:9px 11px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row strong{color:#17324d}
+.schedule-report{display:grid;gap:10px;margin-top:14px}.schedule-run{border:1px solid #d7e1ea;border-radius:12px;background:#fff;overflow:hidden}.schedule-run summary{cursor:pointer;list-style:none;padding:12px 14px}.schedule-run summary::-webkit-details-marker{display:none}.schedule-run-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.schedule-run-title strong{color:#17324d}.schedule-run-title span{color:#6d7e8f;font-size:12px}.schedule-run-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.schedule-run-metric{border-radius:999px;background:#edf3f7;color:#465d70;padding:4px 8px;font-size:11px;font-weight:900}.schedule-run-metric.good{background:#ddf4e8;color:#17633f}.schedule-run-metric.bad{background:#fde8e8;color:#9b3030}.schedule-run-detail{border-top:1px solid #e0e7ed;padding:10px 14px}.schedule-result-row{display:grid;grid-template-columns:minmax(180px,1fr) repeat(3,90px);gap:8px;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:12px}.schedule-result-row:last-child{border-bottom:0}.schedule-result-row strong{color:#17324d}.schedule-empty{padding:16px;border:1px dashed #c9d5df;border-radius:10px;background:#fff;color:#718193;text-align:center}
+@media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-row{grid-template-columns:1fr 70px}}
+</style>
+
 
 <style id="wooten-statement-admin-layout-polish">
 /* Keep the statement selection options on one line. */
@@ -3226,13 +3239,13 @@ input[type="file"]::file-selector-button{
       <table>
         <thead><tr>
           <th>Account #</th><th>Name</th><th>Address 1</th><th>Address 2</th>
-          <th>City</th><th>State</th><th>ZIP</th><th>Phone</th><th>Email</th><th>Current Balance</th><th>Aging 1</th><th>Aging 2</th><th>Aging 3</th><th>Aging 4</th>
+          <th>City</th><th>State</th><th>ZIP</th><th>Phone</th><th>Email</th><th>Statement Cycle</th><th>Current Balance</th><th>Aging 1</th><th>Aging 2</th><th>Aging 3</th><th>Aging 4</th>
         </tr></thead>
         <tbody id="previewBody"></tbody>
       </table>
     </div>
 
-    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
+    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. Use StatementCycle W for weekly customers. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
 
     <div class="payments-import-section">
       <div class="payments-import-heading">
@@ -3707,6 +3720,7 @@ input[type="file"]::file-selector-button{
     <nav class="admin-subtabs" role="tablist" aria-label="Statements and invoices sections">
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-document-section="customer-documents">Customer Documents</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements">Send Account Statements</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling">Statement Scheduling</button>
     </nav>
     <div id="documentSectionCustomerDocuments">
     <div class="documents-form-heading">
@@ -3879,6 +3893,60 @@ input[type="file"]::file-selector-button{
 
       <div id="statementBatchStatus" class="status"></div>
       <div id="statementBatchProgress" class="statement-batch-progress"></div>
+    </div>
+
+    <div id="documentSectionStatementScheduling" hidden>
+      <div class="documents-form-heading">
+        <div class="admin-page-label">Automatic Statements</div>
+        <h2>Statement Scheduling</h2>
+        <p>Automatically generate and deliver weekly W-cycle and monthly-cycle statements. All schedule times are shown in Central Time.</p>
+      </div>
+
+      <div class="statement-scheduling-grid">
+        <section class="schedule-card">
+          <h3>W — Weekly Cycle</h3>
+          <p>Sends only to active customers whose MAS 90 Statement Cycle is W.</p>
+          <label class="schedule-enabled"><input id="scheduleWeeklyEnabled" type="checkbox"> Enable weekly W statements</label>
+          <div class="schedule-fields">
+            <div class="schedule-field"><label for="scheduleWeeklyDay">Weekday</label><select id="scheduleWeeklyDay"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
+            <div class="schedule-field"><label for="scheduleWeeklyHour">Send Time</label><select id="scheduleWeeklyHour" data-hour-select></select></div>
+          </div>
+          <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview W Customers</button><button class="primary" id="scheduleRunWeekly" type="button">Run W Now</button></div>
+        </section>
+
+        <section class="schedule-card">
+          <h3>Monthly Cycles</h3>
+          <p>Sends monthly statements to the selected MAS 90 cycles. W is always excluded from monthly processing.</p>
+          <label class="schedule-enabled"><input id="scheduleMonthlyEnabled" type="checkbox"> Enable monthly statements</label>
+          <div class="schedule-fields">
+            <div class="schedule-field"><label for="scheduleMonthlyDay">Day of Month</label><input id="scheduleMonthlyDay" type="number" min="1" max="28" value="1"></div>
+            <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
+            <div class="schedule-field" style="grid-column:1/-1"><label for="scheduleMonthlyCycles">Statement Cycles</label><input id="scheduleMonthlyCycles" type="text" value="A, B, C" placeholder="A, B, C"></div>
+          </div>
+          <div class="actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview Monthly Customers</button><button class="primary" id="scheduleRunMonthly" type="button">Run Monthly Now</button></div>
+        </section>
+      </div>
+
+      <section class="schedule-card schedule-shared">
+        <h3>Statement &amp; Delivery Settings</h3>
+        <p>These settings apply to both weekly and monthly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
+        <div class="schedule-fields">
+          <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
+          <label class="schedule-enabled" style="margin:20px 0 0"><input id="schedulePositiveOnly" type="checkbox" checked> Only accounts with a positive balance</label>
+        </div>
+        <div class="schedule-options" role="group" aria-label="Scheduled statement delivery methods">
+          <label class="schedule-option"><input id="schedulePortal" type="checkbox" checked> Customer Portal</label>
+          <label class="schedule-option"><input id="scheduleEmail" type="checkbox" checked> Email PDF</label>
+          <label class="schedule-option"><input id="scheduleSms" type="checkbox" checked> SMS secure PDF link</label>
+        </div>
+        <div class="actions"><button class="primary" id="scheduleSave" type="button">Save Schedule</button><button class="secondary" id="scheduleRefresh" type="button">Refresh Report</button></div>
+        <p class="note"><strong>Cloudflare requirement:</strong> After deployment, add an hourly Cron Trigger (<code>0 * * * *</code>) to this Worker. The Worker checks the saved Central Time schedule and prevents duplicate weekly or monthly runs.</p>
+      </section>
+
+      <div id="scheduleStatus" class="status"></div>
+      <div id="schedulePreview" class="schedule-preview"></div>
+      <div class="statement-batch-head" style="margin-top:22px"><h3>Statement Run Report</h3><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs.</p></div>
+      <div id="scheduleReport" class="schedule-report"><div class="schedule-empty">Open this tab or click Refresh Report to load scheduling results.</div></div>
     </div>
 
   </div>
@@ -4106,7 +4174,8 @@ const aliases={
   aging_category_1:["agingcategory1","aging_category_1","aging1","age1"],
   aging_category_2:["agingcategory2","aging_category_2","aging2","age2"],
   aging_category_3:["agingcategory3","aging_category_3","aging3","age3"],
-  aging_category_4:["agingcategory4","aging_category_4","aging4","age4"]
+  aging_category_4:["agingcategory4","aging_category_4","aging4","age4"],
+  statement_cycle:["statementcycle","statement_cycle","stmtcycle","statementcode","cycle"]
 };
 
 function keyify(v){return String(v??"").trim().toLowerCase().replace(/[^a-z0-9_]/g,"");}
@@ -4140,7 +4209,8 @@ function mapRow(row){
     aging_category_1:normalizeMoney(pick(row,aliases.aging_category_1)),
     aging_category_2:normalizeMoney(pick(row,aliases.aging_category_2)),
     aging_category_3:normalizeMoney(pick(row,aliases.aging_category_3)),
-    aging_category_4:normalizeMoney(pick(row,aliases.aging_category_4))
+    aging_category_4:normalizeMoney(pick(row,aliases.aging_category_4)),
+    statement_cycle:clean(pick(row,aliases.statement_cycle)).toUpperCase()
   };
 }
 function setStatus(msg,good=true){
@@ -4194,7 +4264,7 @@ function render(rows,total,skipped){
   body.innerHTML="";
   filtered.slice(0,200).forEach(r=>{
     const tr=document.createElement("tr");
-    [r.account_number,r.account_name,r.address1,r.address2,r.city,r.state,r.zip_code,r.phone,r.email,r.current_balance,r.aging_category_1,r.aging_category_2,r.aging_category_3,r.aging_category_4].forEach(v=>{
+    [r.account_number,r.account_name,r.address1,r.address2,r.city,r.state,r.zip_code,r.phone,r.email,r.statement_cycle,r.current_balance,r.aging_category_1,r.aging_category_2,r.aging_category_3,r.aging_category_4].forEach(v=>{
       const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
     });
     body.appendChild(tr);
@@ -5687,6 +5757,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       <div class="db-customer-summary">
         <span class="db-badge ${isActive?"good":"warn"}">${esc(statusText)}</span>
         <span class="db-badge ${onlineActivated?"good":"muted"}">${onlineActivated?"Online account activated":"Online account not activated"}</span>
+        <span class="db-badge muted">Statement Cycle ${esc(row.statement_cycle||"Not set")}</span>
         <span style="color:#64748b;font-size:12px">Updated ${fmtDate(row.updated_at)}</span>
       </div>
 
@@ -6047,11 +6118,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const sectionButtons=Array.from(document.querySelectorAll('[data-document-section]'));
   const customerDocumentsSection=document.getElementById('documentSectionCustomerDocuments');
   const sendStatementsSection=document.getElementById('documentSectionSendStatements');
+  const statementSchedulingSection=document.getElementById('documentSectionStatementScheduling');
   sectionButtons.forEach(button=>button.addEventListener('click',function(){
-    const showDocuments=button.dataset.documentSection==='customer-documents';
-    customerDocumentsSection.hidden=!showDocuments;
-    sendStatementsSection.hidden=showDocuments;
+    const section=button.dataset.documentSection;
+    customerDocumentsSection.hidden=section!=='customer-documents';
+    sendStatementsSection.hidden=section!=='send-statements';
+    if(statementSchedulingSection)statementSchedulingSection.hidden=section!=='statement-scheduling';
     sectionButtons.forEach(item=>item.setAttribute('aria-selected',item===button?'true':'false'));
+    if(section==='statement-scheduling'&&typeof window.loadStatementScheduling==='function')window.loadStatementScheduling();
   }));
   const account=document.getElementById('docAccount');
   const type=document.getElementById('docType');
@@ -6503,6 +6577,101 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       sendBtn.textContent='Generate & Send Statements';
     }
   });
+})();
+</script>
+
+
+<script id="wooten-statement-scheduling-script">
+(function(){
+  const panel=document.getElementById('documentSectionStatementScheduling');
+  if(!panel)return;
+  const get=id=>document.getElementById(id);
+  const weeklyEnabled=get('scheduleWeeklyEnabled'),weeklyDay=get('scheduleWeeklyDay'),weeklyHour=get('scheduleWeeklyHour');
+  const monthlyEnabled=get('scheduleMonthlyEnabled'),monthlyDay=get('scheduleMonthlyDay'),monthlyHour=get('scheduleMonthlyHour'),monthlyCycles=get('scheduleMonthlyCycles');
+  const positiveOnly=get('schedulePositiveOnly'),paymentCount=get('schedulePaymentCount'),portal=get('schedulePortal'),email=get('scheduleEmail'),sms=get('scheduleSms');
+  const saveBtn=get('scheduleSave'),refreshBtn=get('scheduleRefresh'),status=get('scheduleStatus'),preview=get('schedulePreview'),report=get('scheduleReport');
+  let loaded=false,loading=false;
+
+  document.querySelectorAll('[data-hour-select]').forEach(select=>{
+    if(select.options.length)return;
+    for(let hour=0;hour<24;hour++){
+      const option=document.createElement('option');option.value=String(hour);
+      const suffix=hour>=12?'PM':'AM';const shown=hour%12||12;
+      option.textContent=shown+':00 '+suffix+' Central';select.appendChild(option);
+    }
+  });
+
+  function esc(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+  function money(value){return Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});}
+  function displayDate(value){
+    if(!value)return '';
+    const raw=String(value).replace(' ','T')+(String(value).includes('T')?'':'Z');const date=new Date(raw);
+    return Number.isNaN(date.getTime())?String(value):date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+  function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
+  function key(){return (get('adminKey').value||'').trim();}
+  function configBody(){return {
+    weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),
+    monthly_enabled:monthlyEnabled.checked,monthly_day:Number(monthlyDay.value),monthly_hour:Number(monthlyHour.value),monthly_cycles:monthlyCycles.value,
+    positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
+  };}
+  function applyConfig(config){
+    weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);
+    monthlyEnabled.checked=Number(config.monthly_enabled)!==0;monthlyDay.value=String(config.monthly_day??1);monthlyHour.value=String(config.monthly_hour??8);monthlyCycles.value=String(config.monthly_cycles||'A,B,C').replace(/,/g,', ');
+    positiveOnly.checked=Number(config.positive_balance_only)!==0;paymentCount.value=String(config.payment_count??1);portal.checked=Number(config.portal_enabled)!==0;email.checked=Number(config.email_enabled)!==0;sms.checked=Number(config.sms_enabled)!==0;
+  }
+  function renderRuns(runs){
+    if(!Array.isArray(runs)||!runs.length){report.innerHTML='<div class="schedule-empty">No scheduled statement runs have been recorded yet.</div>';return;}
+    report.innerHTML=runs.map(run=>{
+      const rows=Array.isArray(run.results)?run.results:[];
+      const details=rows.length?rows.map(row=>'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Portal: '+(row.portal_notified?'Sent':'Not sent')+'</span><span>Email: '+(row.email_sent?'Sent':'Not sent')+'</span><span>SMS: '+(row.sms_sent?'Sent':'Not sent')+(row.error?' • '+esc(row.error):'')+'</span></div>').join(''):'<div class="schedule-empty">No customers matched this run.</div>';
+      const type=run.run_type==='weekly'?'W — Weekly':'Monthly '+esc(run.statement_cycle||'');
+      return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
+        '<span class="schedule-run-metric">'+Number(run.customer_count||0)+' customers</span><span class="schedule-run-metric good">'+Number(run.success_count||0)+' generated</span>'+
+        (Number(run.failure_count||0)?'<span class="schedule-run-metric bad">'+Number(run.failure_count)+' failed</span>':'')+
+        '<span class="schedule-run-metric">Portal '+Number(run.portal_success||0)+' / '+Number(run.portal_failure||0)+' not sent</span><span class="schedule-run-metric">Email '+Number(run.email_success||0)+' / '+Number(run.email_failure||0)+' not sent</span><span class="schedule-run-metric">SMS '+Number(run.sms_success||0)+' / '+Number(run.sms_failure||0)+' not sent</span></div></summary><div class="schedule-run-detail">'+details+'</div></details>';
+    }).join('');
+  }
+  async function request(path,options={}){
+    const adminKey=key();if(!adminKey){window.ensureAdminLoginKey('Enter your Admin Import Key to manage statement scheduling.');throw new Error('Enter your Admin Import Key first.');}
+    const response=await fetch(path,{...options,headers:{...(options.headers||{}),'X-Admin-Key':adminKey,'Accept':'application/json'},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Statement scheduling request failed.');return data;
+  }
+  async function saveSettings(showMessage=true){
+    const data=await request('/api/admin/statement-scheduling',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody())});
+    applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;if(showMessage)setStatus('Statement scheduling settings saved.',true);return data;
+  }
+  async function load(){
+    if(loading)return;loading=true;
+    try{const data=await request('/api/admin/statement-scheduling');applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;setStatus('Scheduling settings and reports loaded.',true);}
+    catch(error){setStatus(error.message||'Scheduling could not be loaded.',false);}finally{loading=false;}
+  }
+  async function showPreview(type){
+    try{
+      await saveSettings(false);setStatus('Loading scheduled customers…');
+      const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
+      const title=type==='weekly'?'W — Weekly Customers':'Monthly Cycle Customers';
+      const rows=(data.customers||[]).slice(0,100).map(row=>'<div class="schedule-preview-row"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Cycle '+esc(row.statement_cycle||'—')+'</span><span>'+esc(money(row.total_balance))+'</span></div>').join('');
+      preview.innerHTML='<div class="schedule-card"><h3>'+title+'</h3><p>'+Number(data.count||0)+' customer(s) match the saved schedule'+(Number(data.count||0)>100?' • showing first 100':'')+'.</p><div class="schedule-preview-list">'+(rows||'<div class="schedule-empty">No customers match this schedule.</div>')+'</div></div>';
+      setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'weekly W':'monthly')+' schedule.',true);
+    }catch(error){setStatus(error.message||'Preview could not be loaded.',false);}
+  }
+  async function runNow(type){
+    const label=type==='weekly'?'W-cycle weekly':'monthly-cycle';
+    if(!window.confirm('Generate and send '+label+' statements now to every matching customer?'))return;
+    try{
+      await saveSettings(false);setStatus('Generating and sending '+label+' statements. Keep this page open…');
+      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type})});
+      setStatus('Run complete: '+Number(data.succeeded||0)+' succeeded and '+Number(data.failed||0)+' failed.',Number(data.failed||0)===0);await load();
+    }catch(error){setStatus(error.message||'Scheduled statement run failed.',false);await load();}
+  }
+  saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
+  refreshBtn.addEventListener('click',load);
+  get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
+  get('schedulePreviewMonthly').addEventListener('click',()=>showPreview('monthly'));
+  get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
+  get('scheduleRunMonthly').addEventListener('click',()=>runNow('monthly'));
+  window.loadStatementScheduling=function(){if(!loaded)load();};
 })();
 </script>
 
