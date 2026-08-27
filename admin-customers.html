@@ -1433,7 +1433,7 @@ input[type="file"]::file-selector-button{
 </style>
 
 <style id="wooten-statement-scheduling-style">
-.statement-scheduling-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.statement-scheduling-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px}
 .schedule-card{border:1px solid #d7e1ea;border-radius:14px;background:#f8fafc;padding:16px}
 .schedule-card h3{margin:0 0 5px;color:var(--navy);font-size:18px}.schedule-card>p{margin:0 0 14px;color:#68798a;font-size:13px;line-height:1.5}
 .schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
@@ -3245,7 +3245,7 @@ input[type="file"]::file-selector-button{
       </table>
     </div>
 
-    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. Use StatementCycle W for weekly customers. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
+    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. Use A for Monthly Cycle, B for Mid-Month Statements, or C for Weekly Cycle. Blank values default to B. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
 
     <div class="payments-import-section">
       <div class="payments-import-heading">
@@ -3899,37 +3899,47 @@ input[type="file"]::file-selector-button{
       <div class="documents-form-heading">
         <div class="admin-page-label">Automatic Statements</div>
         <h2>Statement Scheduling</h2>
-        <p>Automatically generate and deliver weekly W-cycle and monthly-cycle statements. All schedule times are shown in Central Time.</p>
+        <p>Automatically generate and deliver monthly, mid-month, and weekly statements. All schedule times are shown in Central Time.</p>
       </div>
 
       <div class="statement-scheduling-grid">
         <section class="schedule-card">
-          <h3>W — Weekly Cycle</h3>
-          <p>Sends only to active customers whose MAS 90 Statement Cycle is W.</p>
-          <label class="schedule-enabled"><input id="scheduleWeeklyEnabled" type="checkbox"> Enable weekly W statements</label>
+          <h3>A — Monthly Cycle</h3>
+          <p>Sends monthly statements only to active customers assigned to Statement Cycle A.</p>
+          <label class="schedule-enabled"><input id="scheduleMonthlyEnabled" type="checkbox"> Enable Monthly Cycle statements</label>
+          <div class="schedule-fields">
+            <div class="schedule-field"><label for="scheduleMonthlyDay">Day of Month</label><input id="scheduleMonthlyDay" type="number" min="1" max="28" value="1"></div>
+            <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
+          </div>
+          <div class="actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button><button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button></div>
+        </section>
+
+        <section class="schedule-card">
+          <h3>B — Mid-Month Statements</h3>
+          <p>Sends mid-month statements only to active customers assigned to Statement Cycle B.</p>
+          <label class="schedule-enabled"><input id="scheduleMidmonthEnabled" type="checkbox"> Enable Mid-Month Statements</label>
+          <div class="schedule-fields">
+            <div class="schedule-field"><label for="scheduleMidmonthDay">Day of Month</label><input id="scheduleMidmonthDay" type="number" min="1" max="28" value="15"></div>
+            <div class="schedule-field"><label for="scheduleMidmonthHour">Send Time</label><select id="scheduleMidmonthHour" data-hour-select></select></div>
+          </div>
+          <div class="actions"><button class="secondary" id="schedulePreviewMidmonth" type="button">Preview B Customers</button><button class="primary" id="scheduleRunMidmonth" type="button">Run B Now</button></div>
+        </section>
+
+        <section class="schedule-card">
+          <h3>C — Weekly Cycle</h3>
+          <p>Sends weekly statements only to active customers assigned to Statement Cycle C.</p>
+          <label class="schedule-enabled"><input id="scheduleWeeklyEnabled" type="checkbox"> Enable Weekly Cycle statements</label>
           <div class="schedule-fields">
             <div class="schedule-field"><label for="scheduleWeeklyDay">Weekday</label><select id="scheduleWeeklyDay"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
             <div class="schedule-field"><label for="scheduleWeeklyHour">Send Time</label><select id="scheduleWeeklyHour" data-hour-select></select></div>
           </div>
-          <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview W Customers</button><button class="primary" id="scheduleRunWeekly" type="button">Run W Now</button></div>
-        </section>
-
-        <section class="schedule-card">
-          <h3>Monthly Cycles</h3>
-          <p>Sends monthly statements to the selected MAS 90 cycles. W is always excluded from monthly processing.</p>
-          <label class="schedule-enabled"><input id="scheduleMonthlyEnabled" type="checkbox"> Enable monthly statements</label>
-          <div class="schedule-fields">
-            <div class="schedule-field"><label for="scheduleMonthlyDay">Day of Month</label><input id="scheduleMonthlyDay" type="number" min="1" max="28" value="1"></div>
-            <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
-            <div class="schedule-field" style="grid-column:1/-1"><label for="scheduleMonthlyCycles">Statement Cycles</label><input id="scheduleMonthlyCycles" type="text" value="A, B, C" placeholder="A, B, C"></div>
-          </div>
-          <div class="actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview Monthly Customers</button><button class="primary" id="scheduleRunMonthly" type="button">Run Monthly Now</button></div>
+          <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview C Customers</button><button class="primary" id="scheduleRunWeekly" type="button">Run C Now</button></div>
         </section>
       </div>
 
       <section class="schedule-card schedule-shared">
         <h3>Statement &amp; Delivery Settings</h3>
-        <p>These settings apply to both weekly and monthly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
+        <p>These settings apply to monthly, mid-month, and weekly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
         <div class="schedule-fields">
           <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
           <label class="schedule-enabled" style="margin:20px 0 0"><input id="schedulePositiveOnly" type="checkbox" checked> Only accounts with a positive balance</label>
@@ -3940,7 +3950,7 @@ input[type="file"]::file-selector-button{
           <label class="schedule-option"><input id="scheduleSms" type="checkbox" checked> SMS secure PDF link</label>
         </div>
         <div class="actions"><button class="primary" id="scheduleSave" type="button">Save Schedule</button><button class="secondary" id="scheduleRefresh" type="button">Refresh Report</button></div>
-        <p class="note"><strong>Cloudflare requirement:</strong> After deployment, add an hourly Cron Trigger (<code>0 * * * *</code>) to this Worker. The Worker checks the saved Central Time schedule and prevents duplicate weekly or monthly runs.</p>
+        <p class="note"><strong>Cloudflare requirement:</strong> After deployment, add an hourly Cron Trigger (<code>0 * * * *</code>) to this Worker. The Worker checks the saved Central Time schedule and prevents duplicate monthly, mid-month, or weekly runs.</p>
       </section>
 
       <div id="scheduleStatus" class="status"></div>
@@ -4210,7 +4220,7 @@ function mapRow(row){
     aging_category_2:normalizeMoney(pick(row,aliases.aging_category_2)),
     aging_category_3:normalizeMoney(pick(row,aliases.aging_category_3)),
     aging_category_4:normalizeMoney(pick(row,aliases.aging_category_4)),
-    statement_cycle:clean(pick(row,aliases.statement_cycle)).toUpperCase()
+    statement_cycle:(()=>{const cycle=clean(pick(row,aliases.statement_cycle)).toUpperCase();return cycle==='A'||cycle==='B'||cycle==='C'?cycle:cycle==='W'?'C':'B';})()
   };
 }
 function setStatus(msg,good=true){
@@ -6587,7 +6597,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   if(!panel)return;
   const get=id=>document.getElementById(id);
   const weeklyEnabled=get('scheduleWeeklyEnabled'),weeklyDay=get('scheduleWeeklyDay'),weeklyHour=get('scheduleWeeklyHour');
-  const monthlyEnabled=get('scheduleMonthlyEnabled'),monthlyDay=get('scheduleMonthlyDay'),monthlyHour=get('scheduleMonthlyHour'),monthlyCycles=get('scheduleMonthlyCycles');
+  const midmonthEnabled=get('scheduleMidmonthEnabled'),midmonthDay=get('scheduleMidmonthDay'),midmonthHour=get('scheduleMidmonthHour');
+  const monthlyEnabled=get('scheduleMonthlyEnabled'),monthlyDay=get('scheduleMonthlyDay'),monthlyHour=get('scheduleMonthlyHour');
   const positiveOnly=get('schedulePositiveOnly'),paymentCount=get('schedulePaymentCount'),portal=get('schedulePortal'),email=get('scheduleEmail'),sms=get('scheduleSms');
   const saveBtn=get('scheduleSave'),refreshBtn=get('scheduleRefresh'),status=get('scheduleStatus'),preview=get('schedulePreview'),report=get('scheduleReport');
   let loaded=false,loading=false;
@@ -6612,12 +6623,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function key(){return (get('adminKey').value||'').trim();}
   function configBody(){return {
     weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),
-    monthly_enabled:monthlyEnabled.checked,monthly_day:Number(monthlyDay.value),monthly_hour:Number(monthlyHour.value),monthly_cycles:monthlyCycles.value,
+    midmonth_enabled:midmonthEnabled.checked,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
+    monthly_enabled:monthlyEnabled.checked,monthly_day:Number(monthlyDay.value),monthly_hour:Number(monthlyHour.value),
     positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
   };}
   function applyConfig(config){
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);
-    monthlyEnabled.checked=Number(config.monthly_enabled)!==0;monthlyDay.value=String(config.monthly_day??1);monthlyHour.value=String(config.monthly_hour??8);monthlyCycles.value=String(config.monthly_cycles||'A,B,C').replace(/,/g,', ');
+    midmonthEnabled.checked=Number(config.midmonth_enabled)!==0;midmonthDay.value=String(config.midmonth_day??15);midmonthHour.value=String(config.midmonth_hour??8);
+    monthlyEnabled.checked=Number(config.monthly_enabled)!==0;monthlyDay.value=String(config.monthly_day??1);monthlyHour.value=String(config.monthly_hour??8);
     positiveOnly.checked=Number(config.positive_balance_only)!==0;paymentCount.value=String(config.payment_count??1);portal.checked=Number(config.portal_enabled)!==0;email.checked=Number(config.email_enabled)!==0;sms.checked=Number(config.sms_enabled)!==0;
   }
   function renderRuns(runs){
@@ -6625,7 +6638,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     report.innerHTML=runs.map(run=>{
       const rows=Array.isArray(run.results)?run.results:[];
       const details=rows.length?rows.map(row=>'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Portal: '+(row.portal_notified?'Sent':'Not sent')+'</span><span>Email: '+(row.email_sent?'Sent':'Not sent')+'</span><span>SMS: '+(row.sms_sent?'Sent':'Not sent')+(row.error?' • '+esc(row.error):'')+'</span></div>').join(''):'<div class="schedule-empty">No customers matched this run.</div>';
-      const type=run.run_type==='weekly'?'W — Weekly':'Monthly '+esc(run.statement_cycle||'');
+      const type=run.run_type==='weekly'?'C — Weekly Cycle':run.run_type==='midmonth'?'B — Mid-Month Statements':'A — Monthly Cycle';
       return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
         '<span class="schedule-run-metric">'+Number(run.customer_count||0)+' customers</span><span class="schedule-run-metric good">'+Number(run.success_count||0)+' generated</span>'+
         (Number(run.failure_count||0)?'<span class="schedule-run-metric bad">'+Number(run.failure_count)+' failed</span>':'')+
@@ -6650,14 +6663,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{
       await saveSettings(false);setStatus('Loading scheduled customers…');
       const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
-      const title=type==='weekly'?'W — Weekly Customers':'Monthly Cycle Customers';
+      const title=type==='weekly'?'C — Weekly Cycle Customers':type==='midmonth'?'B — Mid-Month Customers':'A — Monthly Cycle Customers';
       const rows=(data.customers||[]).slice(0,100).map(row=>'<div class="schedule-preview-row"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Cycle '+esc(row.statement_cycle||'—')+'</span><span>'+esc(money(row.total_balance))+'</span></div>').join('');
       preview.innerHTML='<div class="schedule-card"><h3>'+title+'</h3><p>'+Number(data.count||0)+' customer(s) match the saved schedule'+(Number(data.count||0)>100?' • showing first 100':'')+'.</p><div class="schedule-preview-list">'+(rows||'<div class="schedule-empty">No customers match this schedule.</div>')+'</div></div>';
-      setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'weekly W':'monthly')+' schedule.',true);
+      setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'weekly C':type==='midmonth'?'mid-month B':'monthly A')+' schedule.',true);
     }catch(error){setStatus(error.message||'Preview could not be loaded.',false);}
   }
   async function runNow(type){
-    const label=type==='weekly'?'W-cycle weekly':'monthly-cycle';
+    const label=type==='weekly'?'C weekly-cycle':type==='midmonth'?'B mid-month':'A monthly-cycle';
     if(!window.confirm('Generate and send '+label+' statements now to every matching customer?'))return;
     try{
       await saveSettings(false);setStatus('Generating and sending '+label+' statements. Keep this page open…');
@@ -6668,8 +6681,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   refreshBtn.addEventListener('click',load);
   get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
+  get('schedulePreviewMidmonth').addEventListener('click',()=>showPreview('midmonth'));
   get('schedulePreviewMonthly').addEventListener('click',()=>showPreview('monthly'));
   get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
+  get('scheduleRunMidmonth').addEventListener('click',()=>runNow('midmonth'));
   get('scheduleRunMonthly').addEventListener('click',()=>runNow('monthly'));
   window.loadStatementScheduling=function(){if(!loaded)load();};
 })();
