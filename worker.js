@@ -7120,6 +7120,162 @@ async function adminStatementSchedulingRun({request,env}){
 }
 __name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
 
+async function ensureAccountApplicationsTable(env){
+  if(!env?.DB) throw new Error("Customer database is not configured.");
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS account_applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_number TEXT NOT NULL UNIQUE,
+      application_type TEXT NOT NULL,
+      business_name TEXT,
+      dba_name TEXT,
+      tax_id_last4 TEXT,
+      years_in_business INTEGER,
+      full_name TEXT NOT NULL,
+      job_title TEXT,
+      email TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      address_1 TEXT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      zip_code TEXT NOT NULL,
+      preferred_contact TEXT NOT NULL DEFAULT 'phone',
+      applicant_notes TEXT,
+      tax_document_key TEXT,
+      tax_document_name TEXT,
+      tax_document_type TEXT,
+      identity_document_key TEXT NOT NULL,
+      identity_document_name TEXT NOT NULL,
+      identity_document_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'new',
+      admin_notes TEXT,
+      submitted_ip_hash TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_account_applications_created ON account_applications(created_at DESC,id DESC)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_account_applications_status ON account_applications(status,created_at DESC)`).run();
+}
+__name(ensureAccountApplicationsTable,"ensureAccountApplicationsTable");
+
+function accountApplicationText(value,max=200){return String(value||"").trim().slice(0,max);}
+function accountApplicationFileInfo(file){
+  if(!(file instanceof File)||file.size<=0) throw new Error("Choose the required document.");
+  if(file.size>10*1024*1024) throw new Error("Each document must be 10 MB or smaller.");
+  const name=notificationSafeFilename(file.name||"document");
+  const type=String(file.type||"").toLowerCase();
+  const extension=(name.split(".").pop()||"").toLowerCase();
+  const allowed=(type==="application/pdf"||extension==="pdf")?"application/pdf":
+    (type==="image/jpeg"||["jpg","jpeg"].includes(extension))?"image/jpeg":
+    (type==="image/png"||extension==="png")?"image/png":"";
+  if(!allowed) throw new Error("Documents must be PDF, JPG, or PNG files.");
+  return {file,name,type:allowed};
+}
+async function accountApplicationVerifiedBytes(info){
+  const bytes=new Uint8Array(await info.file.arrayBuffer());
+  const pdf=bytes.length>=5&&bytes[0]===0x25&&bytes[1]===0x50&&bytes[2]===0x44&&bytes[3]===0x46&&bytes[4]===0x2d;
+  const jpg=bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
+  const png=bytes.length>=8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a;
+  if((info.type==="application/pdf"&&!pdf)||(info.type==="image/jpeg"&&!jpg)||(info.type==="image/png"&&!png)) throw new Error("One of the uploaded documents does not match its file type.");
+  return bytes;
+}
+async function accountApplicationIpHash(request){
+  const ip=String(request.headers.get("CF-Connecting-IP")||"");if(!ip)return "";
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(ip));
+  return [...new Uint8Array(digest)].slice(0,12).map(v=>v.toString(16).padStart(2,"0")).join("");
+}
+async function accountApplicationPost({request,env}){
+  let taxKey="",identityKey="";
+  try{
+    if(!env.DB) return notificationJson({success:false,error:"Account application database is not configured."},503);
+    if(!env.NOTIFICATION_ATTACHMENTS) return notificationJson({success:false,error:"Secure application document storage is not configured."},503);
+    const form=await request.formData();
+    if(accountApplicationText(form.get("website"),100)) return notificationJson({success:true,application_number:"RECEIVED"});
+    const type=accountApplicationText(form.get("application_type"),20).toLowerCase();
+    if(!["business","personal"].includes(type)) return notificationJson({success:false,error:"Choose Business or Personal account."},400);
+    const data={
+      business_name:accountApplicationText(form.get("business_name"),120),dba_name:accountApplicationText(form.get("dba_name"),120),
+      tax_id_last4:accountApplicationText(form.get("tax_id_last4"),4).replace(/\D/g,""),years_in_business:Number(form.get("years_in_business")||0),
+      full_name:accountApplicationText(form.get("full_name"),120),job_title:accountApplicationText(form.get("job_title"),80),
+      email:accountApplicationText(form.get("email"),160).toLowerCase(),phone:accountApplicationText(form.get("phone"),30),
+      address_1:accountApplicationText(form.get("address_1"),160),city:accountApplicationText(form.get("city"),80),
+      state:accountApplicationText(form.get("state"),2).toUpperCase(),zip_code:accountApplicationText(form.get("zip_code"),10),
+      preferred_contact:accountApplicationText(form.get("preferred_contact"),10)==="email"?"email":"phone",notes:accountApplicationText(form.get("notes"),1500)
+    };
+    if(!data.full_name||!data.email||!data.phone||!data.address_1||!data.city||!data.state||!data.zip_code) return notificationJson({success:false,error:"Complete all required contact and address fields."},400);
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) return notificationJson({success:false,error:"Enter a valid email address."},400);
+    if(String(form.get("certification")||"")!=="1") return notificationJson({success:false,error:"Certification is required."},400);
+    if(type==="business"&&(!data.business_name||data.tax_id_last4.length!==4)) return notificationJson({success:false,error:"Enter the legal business name and the last four digits of its Tax ID."},400);
+    const identityInfo=accountApplicationFileInfo(form.get("identity_document"));
+    const taxInfo=type==="business"?accountApplicationFileInfo(form.get("tax_id_document")):null;
+    const [identityBytes,taxBytes]=await Promise.all([accountApplicationVerifiedBytes(identityInfo),taxInfo?accountApplicationVerifiedBytes(taxInfo):Promise.resolve(null)]);
+    await ensureAccountApplicationsTable(env);
+    const date=new Date().toISOString().slice(0,10).replaceAll("-","");
+    const applicationNumber=`WOA-${date}-${crypto.randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
+    const folder=`account-applications/${applicationNumber}`;
+    identityKey=`${folder}/identity-${crypto.randomUUID()}-${identityInfo.name}`;
+    await env.NOTIFICATION_ATTACHMENTS.put(identityKey,identityBytes,{httpMetadata:{contentType:identityInfo.type,contentDisposition:`inline; filename="${identityInfo.name.replace(/"/g,"")}"`},customMetadata:{application_number:applicationNumber,document_kind:"identity"}});
+    if(taxInfo){taxKey=`${folder}/tax-${crypto.randomUUID()}-${taxInfo.name}`;await env.NOTIFICATION_ATTACHMENTS.put(taxKey,taxBytes,{httpMetadata:{contentType:taxInfo.type,contentDisposition:`inline; filename="${taxInfo.name.replace(/"/g,"")}"`},customMetadata:{application_number:applicationNumber,document_kind:"tax_id"}});}
+    const ipHash=await accountApplicationIpHash(request);
+    await env.DB.prepare(`
+      INSERT INTO account_applications
+      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,submitted_ip_hash)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,ipHash).run();
+    return notificationJson({success:true,application_number:applicationNumber});
+  }catch(error){
+    console.error("accountApplicationPost failed",error);
+    if(env?.NOTIFICATION_ATTACHMENTS){if(taxKey)try{await env.NOTIFICATION_ATTACHMENTS.delete(taxKey);}catch{}if(identityKey)try{await env.NOTIFICATION_ATTACHMENTS.delete(identityKey);}catch{}}
+    return notificationJson({success:false,error:String(error?.message||"The application could not be submitted.")},500);
+  }
+}
+__name(accountApplicationPost,"accountApplicationPost");
+
+function accountApplicationAuthorized(request,env){return Boolean(env.ADMIN_IMPORT_KEY&&(request.headers.get("X-Admin-Key")||"")===env.ADMIN_IMPORT_KEY);}
+async function adminAccountApplicationsGet({request,env}){
+  try{
+    if(!accountApplicationAuthorized(request,env)) return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureAccountApplicationsTable(env);const url=new URL(request.url);
+    const page=Math.max(1,Number(url.searchParams.get("page")||1));const perPage=20;const offset=(page-1)*perPage;
+    const search=accountApplicationText(url.searchParams.get("search"),100);const status=accountApplicationText(url.searchParams.get("status"),20).toLowerCase();const type=accountApplicationText(url.searchParams.get("type"),20).toLowerCase();
+    const clauses=["1=1"],values=[];
+    if(search){clauses.push("(application_number LIKE ? OR full_name LIKE ? OR business_name LIKE ? OR email LIKE ? OR phone LIKE ?)");const q=`%${search}%`;values.push(q,q,q,q,q);}
+    if(["new","under_review","approved","declined"].includes(status)){clauses.push("status=?");values.push(status);}
+    if(["business","personal"].includes(type)){clauses.push("application_type=?");values.push(type);}
+    const where=clauses.join(" AND ");
+    const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE ${where}`).bind(...values).first();
+    const rows=await env.DB.prepare(`SELECT id,application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,status,admin_notes,created_at,updated_at,CASE WHEN tax_document_key IS NOT NULL THEN 1 ELSE 0 END AS has_tax_document,1 AS has_identity_document,tax_document_name,identity_document_name FROM account_applications WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...values,perPage,offset).all();
+    const total=Number(totalRow?.total||0);return notificationJson({success:true,applications:rows?.results||[],page,per_page:perPage,total,total_pages:Math.max(1,Math.ceil(total/perPage))});
+  }catch(error){console.error("adminAccountApplicationsGet failed",error);return notificationJson({success:false,error:"Account applications could not be loaded."},500);}
+}
+__name(adminAccountApplicationsGet,"adminAccountApplicationsGet");
+
+async function adminAccountApplicationUpdate({request,env}){
+  try{
+    if(!accountApplicationAuthorized(request,env)) return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureAccountApplicationsTable(env);const body=await request.json();const id=Number(body.id);const status=accountApplicationText(body.status,20).toLowerCase();const notes=accountApplicationText(body.admin_notes,3000);
+    if(!Number.isInteger(id)||id<=0||!["new","under_review","approved","declined"].includes(status)) return notificationJson({success:false,error:"Choose a valid application and review status."},400);
+    const result=await env.DB.prepare(`UPDATE account_applications SET status=?,admin_notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(status,notes,id).run();
+    if(!Number(result?.meta?.changes||0)) return notificationJson({success:false,error:"Application not found."},404);
+    return notificationJson({success:true});
+  }catch(error){console.error("adminAccountApplicationUpdate failed",error);return notificationJson({success:false,error:"The application review could not be saved."},500);}
+}
+__name(adminAccountApplicationUpdate,"adminAccountApplicationUpdate");
+
+async function adminAccountApplicationFileGet({request,env}){
+  try{
+    if(!accountApplicationAuthorized(request,env)) return new Response("Unauthorized.",{status:401});
+    if(!env.NOTIFICATION_ATTACHMENTS) return new Response("Secure document storage is not configured.",{status:503});
+    await ensureAccountApplicationsTable(env);const url=new URL(request.url);const match=url.pathname.match(/^\/api\/admin\/account-applications\/(\d+)\/(tax|identity)$/);if(!match)return new Response("Document not found.",{status:404});
+    const id=Number(match[1]),kind=match[2];const keyColumn=kind==="tax"?"tax_document_key":"identity_document_key";const nameColumn=kind==="tax"?"tax_document_name":"identity_document_name";const typeColumn=kind==="tax"?"tax_document_type":"identity_document_type";
+    const row=await env.DB.prepare(`SELECT ${keyColumn} AS object_key,${nameColumn} AS filename,${typeColumn} AS content_type FROM account_applications WHERE id=? LIMIT 1`).bind(id).first();
+    if(!row?.object_key)return new Response("Document not found.",{status:404});const object=await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);if(!object)return new Response("Document file is unavailable.",{status:404});
+    const filename=notificationSafeFilename(row.filename||"document");const headers=new Headers();object.writeHttpMetadata(headers);headers.set("Content-Type",row.content_type||"application/octet-stream");headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);headers.set("Cache-Control","private, no-store");headers.set("X-Content-Type-Options","nosniff");return new Response(object.body,{status:200,headers});
+  }catch(error){console.error("adminAccountApplicationFileGet failed",error);return new Response("Document could not be opened.",{status:500});}
+}
+__name(adminAccountApplicationFileGet,"adminAccountApplicationFileGet");
+
 
 var worker_default = {
   async fetch(request, env, ctx) {
@@ -7154,6 +7310,19 @@ var worker_default = {
           env
         });
       }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/account-applications") {
+      if (request.method === "POST") return accountApplicationPost({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/account-applications") {
+      if (request.method === "GET") return adminAccountApplicationsGet({ request, env });
+      if (request.method === "POST") return adminAccountApplicationUpdate({ request, env });
+      return methodNotAllowed();
+    }
+    if (/^\/api\/admin\/account-applications\/\d+\/(tax|identity)$/.test(url.pathname)) {
+      if (request.method === "GET") return adminAccountApplicationFileGet({ request, env });
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/customer-online-deactivate") {

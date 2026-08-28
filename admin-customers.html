@@ -3141,6 +3141,10 @@ input[type="file"]::file-selector-button{
 .statement-contact-selection-note{margin:10px 0 0;padding:10px 12px;border:1px solid #dbe5ec;border-radius:10px;background:#f7fafc;color:#526477;font-size:12px;line-height:1.5}
 @media(max-width:720px){.db-contact-cell{min-width:128px}.db-contact-toggle{width:34px;height:34px}}
 </style>
+<style id="wooten-account-applications-style">
+.application-filters{display:grid;grid-template-columns:minmax(280px,2fr) minmax(170px,1fr) minmax(180px,1fr);gap:14px;margin:22px 0 4px}.application-filters label{display:block;margin-bottom:7px}.application-filters input,.application-filters select{width:100%;min-height:52px}.application-list{display:grid;gap:14px;margin-top:18px}.application-card{overflow:hidden;border:1px solid #d5e0e9;border-radius:14px;background:#fff}.application-summary{width:100%;display:grid;grid-template-columns:minmax(240px,2fr) minmax(135px,.8fr) minmax(155px,1fr) auto;gap:16px;align-items:center;border:0;background:#f7fafc;padding:17px 19px;text-align:left;color:#122840;cursor:pointer}.application-summary:hover{background:#f0f6fa}.application-summary strong{display:block;font-size:17px}.application-summary small{display:block;margin-top:3px;color:#66798e}.application-type,.application-status-badge{display:inline-flex;width:max-content;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;text-transform:uppercase}.application-type{background:#e8f1f8;color:#215b84}.application-status-badge{background:#fff0d6;color:#8a5700}.application-status-badge.approved{background:#def5e8;color:#087241}.application-status-badge.declined{background:#ffe4e4;color:#a11f1f}.application-status-badge.under_review{background:#e9e7ff;color:#5040a3}.application-detail{padding:20px}.application-detail[hidden]{display:none}.application-info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.application-info{min-width:0;border:1px solid #e0e7ed;border-radius:10px;padding:11px 12px}.application-info span{display:block;color:#6b7d90;font-size:11px;font-weight:900;text-transform:uppercase}.application-info strong{display:block;margin-top:3px;overflow-wrap:anywhere}.application-info.full{grid-column:1/-1}.application-documents{display:flex;gap:10px;flex-wrap:wrap;margin:17px 0}.application-review{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(260px,2fr) auto;gap:12px;align-items:end;padding-top:17px;border-top:1px solid #e2e9ef}.application-review label{display:block}.application-review select,.application-review textarea{width:100%;margin-top:6px}.application-review textarea{min-height:76px;resize:vertical}.application-empty{padding:28px;border:1px dashed #cbd8e3;border-radius:12px;text-align:center;color:#687b90}.preview-progress-track.is-moving span{width:38%!important;animation:wooten-preview-loading 1s ease-in-out infinite}
+@media(max-width:850px){.application-filters,.application-info-grid,.application-review{grid-template-columns:1fr}.application-summary{grid-template-columns:1fr auto}.application-summary>div:nth-child(2),.application-summary>div:nth-child(3){grid-column:1}.application-review button{width:100%}}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -3222,6 +3226,7 @@ input[type="file"]::file-selector-button{
       <button class="admin-tab" id="admin-tab-btn-documents" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-documents" data-admin-tab="documents">Statements &amp; Invoices</button>
       <button class="admin-tab" id="admin-tab-btn-communication" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-communication" data-admin-tab="communication">Communication History</button>
       <button class="admin-tab" id="admin-tab-btn-settings" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-settings" data-admin-tab="settings">Communications Settings</button>
+      <button class="admin-tab" id="admin-tab-btn-applications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-applications" data-admin-tab="applications">Account Applications</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation">Account Activation</button>
     </nav>
   </div>
@@ -4021,6 +4026,10 @@ input[type="file"]::file-selector-button{
           <label class="schedule-option"><input id="scheduleSms" type="checkbox" checked> SMS secure PDF link</label>
         </div>
         <div class="actions"><button class="primary" id="scheduleSave" type="button">Save Schedule</button><button class="secondary" id="scheduleRefresh" type="button">Refresh Report</button><button class="schedule-test-btn" id="scheduleTestAll" type="button">Test All Cycles</button><button class="schedule-test-help" id="scheduleTestHelp" type="button" aria-label="About Test Mode" title="About Test Mode">?</button></div>
+        <div class="preview-progress" id="scheduleTestAllProgress" hidden>
+          <div class="preview-progress-head"><strong id="scheduleTestAllProgressLabel">Testing all statement cycles…</strong><span id="scheduleTestAllProgressCount">Preparing</span></div>
+          <div class="preview-progress-track" id="scheduleTestAllProgressTrack" role="progressbar" aria-label="All-cycle dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestAllProgressBar"></span></div>
+        </div>
         <p class="note"><strong>Cloudflare requirement:</strong> After deployment, add an hourly Cron Trigger (<code>0 * * * *</code>) to this Worker. The Worker checks the saved Central Time schedule and prevents duplicate monthly, mid-month, or weekly runs.</p>
       </section>
 
@@ -4034,6 +4043,10 @@ input[type="file"]::file-selector-button{
             <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
           </div>
           <div class="actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button><button class="schedule-test-btn" id="scheduleTestMonthly" type="button">Test A</button><button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button></div>
+          <div class="preview-progress" id="scheduleTestMonthlyProgress" hidden>
+            <div class="preview-progress-head"><strong id="scheduleTestMonthlyProgressLabel">Testing A statements…</strong><span id="scheduleTestMonthlyProgressCount">Preparing</span></div>
+            <div class="preview-progress-track" id="scheduleTestMonthlyProgressTrack" role="progressbar" aria-label="Cycle A dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestMonthlyProgressBar"></span></div>
+          </div>
           <div id="schedulePreviewMonthlyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
 
@@ -4046,6 +4059,10 @@ input[type="file"]::file-selector-button{
             <div class="schedule-field"><label for="scheduleMidmonthHour">Send Time</label><select id="scheduleMidmonthHour" data-hour-select></select></div>
           </div>
           <div class="actions"><button class="secondary" id="schedulePreviewMidmonth" type="button">Preview B Customers</button><button class="schedule-test-btn" id="scheduleTestMidmonth" type="button">Test B</button><button class="primary" id="scheduleRunMidmonth" type="button">Run B Now</button></div>
+          <div class="preview-progress" id="scheduleTestMidmonthProgress" hidden>
+            <div class="preview-progress-head"><strong id="scheduleTestMidmonthProgressLabel">Testing B statements…</strong><span id="scheduleTestMidmonthProgressCount">Preparing</span></div>
+            <div class="preview-progress-track" id="scheduleTestMidmonthProgressTrack" role="progressbar" aria-label="Cycle B dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestMidmonthProgressBar"></span></div>
+          </div>
           <div id="schedulePreviewMidmonthResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
 
@@ -4058,6 +4075,10 @@ input[type="file"]::file-selector-button{
             <div class="schedule-field"><label for="scheduleWeeklyHour">Send Time</label><select id="scheduleWeeklyHour" data-hour-select></select></div>
           </div>
           <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview C Customers</button><button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test C</button><button class="primary" id="scheduleRunWeekly" type="button">Run C Now</button></div>
+          <div class="preview-progress" id="scheduleTestWeeklyProgress" hidden>
+            <div class="preview-progress-head"><strong id="scheduleTestWeeklyProgressLabel">Testing C statements…</strong><span id="scheduleTestWeeklyProgressCount">Preparing</span></div>
+            <div class="preview-progress-track" id="scheduleTestWeeklyProgressTrack" role="progressbar" aria-label="Cycle C dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestWeeklyProgressBar"></span></div>
+          </div>
           <div id="schedulePreviewWeeklyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
       </div>
@@ -4117,6 +4138,25 @@ input[type="file"]::file-selector-button{
     </div>
 
 
+  </div>
+
+  <div class="card admin-tab-panel account-applications-panel" id="admin-tab-applications" role="tabpanel" aria-labelledby="admin-tab-btn-applications" data-admin-panel="applications">
+    <div class="admin-page-label">New Accounts</div>
+    <h2>Account Applications</h2>
+    <p>Review business and personal requests to open a Wooten Oil account. Identity and Tax ID documents are private and require administrator access.</p>
+    <div class="application-filters">
+      <div><label for="applicationSearch">Search</label><input id="applicationSearch" type="search" placeholder="Name, company, email, phone, or application #"></div>
+      <div><label for="applicationTypeFilter">Account Type</label><select id="applicationTypeFilter"><option value="">All types</option><option value="business">Business</option><option value="personal">Personal</option></select></div>
+      <div><label for="applicationStatusFilter">Review Status</label><select id="applicationStatusFilter"><option value="">All statuses</option><option value="new">New</option><option value="under_review">Under Review</option><option value="approved">Approved</option><option value="declined">Declined</option></select></div>
+    </div>
+    <div class="actions"><button class="primary" id="applicationLoad" type="button">Load Applications</button></div>
+    <div id="applicationAdminStatus" class="status"></div>
+    <div class="preview-progress" id="applicationLoadProgress" hidden>
+      <div class="preview-progress-head"><strong>Loading account applications…</strong><span>Working…</span></div>
+      <div class="preview-progress-track is-moving" role="progressbar" aria-label="Account applications loading"><span></span></div>
+    </div>
+    <div id="applicationList" class="application-list"></div>
+    <div class="db-pagination" id="applicationPagination" hidden><button class="secondary" id="applicationPrev" type="button">Previous 20</button><div class="db-page-info" id="applicationPageInfo">Page 1 of 1</div><button class="secondary" id="applicationNext" type="button">Next 20</button></div>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -7065,33 +7105,74 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       setStatus((data.account_name||account)+' moved to Cycle '+cycle+'.',true);
     }catch(error){button.disabled=false;button.textContent='Save Cycle';setStatus(error.message||'Customer cycle could not be saved.',false);}
   });
+  const testProgressTimers=new Map();
+  function testProgressParts(type){
+    const prefix=type==='all'?'scheduleTestAll':type==='weekly'?'scheduleTestWeekly':type==='midmonth'?'scheduleTestMidmonth':'scheduleTestMonthly';
+    return {host:get(prefix+'Progress'),label:get(prefix+'ProgressLabel'),count:get(prefix+'ProgressCount'),track:get(prefix+'ProgressTrack'),bar:get(prefix+'ProgressBar')};
+  }
+  function setTestProgress(type,percent,label,count){
+    const parts=testProgressParts(type);if(!parts.host)return;
+    const value=Math.max(0,Math.min(100,Math.round(Number(percent)||0)));
+    parts.host.hidden=false;
+    if(label)parts.label.textContent=label;
+    parts.count.textContent=count||value+'%';
+    parts.bar.style.width=value+'%';
+    parts.track.setAttribute('aria-valuenow',String(value));
+  }
+  function startTestProgress(type,label){
+    const previous=testProgressTimers.get(type);if(previous)window.clearInterval(previous);
+    let value=5;setTestProgress(type,value,label,'Preparing');
+    const timer=window.setInterval(()=>{
+      value=Math.min(92,value+(value<55?7:value<80?3:1));
+      setTestProgress(type,value,label,'Processing batches… '+value+'%');
+    },650);
+    testProgressTimers.set(type,timer);
+  }
+  async function finishTestProgress(type,label){
+    const timer=testProgressTimers.get(type);if(timer)window.clearInterval(timer);testProgressTimers.delete(type);
+    setTestProgress(type,100,label||'Test complete','100%');
+    await new Promise(resolve=>window.setTimeout(resolve,650));
+    const parts=testProgressParts(type);if(parts.host)parts.host.hidden=true;
+  }
+  function hideTestProgress(type){
+    const timer=testProgressTimers.get(type);if(timer)window.clearInterval(timer);testProgressTimers.delete(type);
+    const parts=testProgressParts(type);if(parts.host)parts.host.hidden=true;
+  }
   async function runNow(type,dryRun=false){
     const label=type==='weekly'?'C weekly-cycle':type==='midmonth'?'B mid-month':'A monthly-cycle';
     const prompt=dryRun
       ?'TEST MODE: Generate and validate '+label+' statement PDFs for every matching customer? No Portal, Email, SMS, document storage, or Communication History records will be created.'
       :'Generate and send '+label+' statements now to every matching customer?';
     if(!window.confirm(prompt))return;
+    if(dryRun)startTestProgress(type,'Testing '+label+' statements…');
     try{
       await saveSettings(false);setStatus((dryRun?'Testing PDF generation for ':'Generating and sending ')+label+' statements. Keep this page open…');
       const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:dryRun})},dryRun);
-      setStatus((dryRun?'Test':'Run')+' complete: '+Number(data.succeeded||0)+' succeeded and '+Number(data.failed||0)+' failed.',Number(data.failed||0)===0);await load();
-    }catch(error){setStatus(error.message||(dryRun?'Statement test failed.':'Scheduled statement run failed.'),false);await load();}
+      setStatus((dryRun?'Test':'Run')+' complete: '+Number(data.succeeded||0)+' succeeded and '+Number(data.failed||0)+' failed.',Number(data.failed||0)===0);
+      if(dryRun)await finishTestProgress(type,Number(data.succeeded||0)+' PDFs generated • '+Number(data.failed||0)+' failed');
+      await load();
+    }catch(error){if(dryRun)hideTestProgress(type);setStatus(error.message||(dryRun?'Statement test failed.':'Scheduled statement run failed.'),false);await load();}
   }
   async function testAllCycles(){
     if(!window.confirm('TEST MODE: Generate and validate A, B, and C statement PDFs for all matching customers? Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
     const types=['monthly','midmonth','weekly'];
     let succeeded=0,failed=0;
+    setTestProgress('all',3,'Testing all statement cycles…','Preparing');
     try{
       await saveSettings(false);
-      for(const type of types){
+      for(let index=0;index<types.length;index++){
+        const type=types[index];
         const label=type==='weekly'?'C weekly-cycle':type==='midmonth'?'B mid-month':'A monthly-cycle';
+        setTestProgress('all',5+index*30,'Testing '+label+' statements…',(index+1)+' of 3 cycles');
         setStatus('Testing '+label+' statement PDFs. Keep this page open…');
         const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:true})},true);
         succeeded+=Number(data.succeeded||0);failed+=Number(data.failed||0);
+        setTestProgress('all',33+index*33,'Completed '+label,(index+1)+' of 3 cycles');
       }
       setStatus('All-cycle test complete: '+succeeded+' PDFs generated and '+failed+' failed.',failed===0);
+      await finishTestProgress('all',succeeded+' PDFs generated • '+failed+' failed');
       await load();
-    }catch(error){setStatus(error.message||'All-cycle statement test failed.',false);await load();}
+    }catch(error){hideTestProgress('all');setStatus(error.message||'All-cycle statement test failed.',false);await load();}
   }
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   refreshBtn.addEventListener('click',load);
@@ -7713,5 +7794,33 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   </div>
 </div>
 
+<script id="wooten-account-applications-script">
+(()=>{
+  const get=id=>document.getElementById(id),list=get('applicationList'),loadBtn=get('applicationLoad'),progress=get('applicationLoadProgress'),statusBox=get('applicationAdminStatus'),pagination=get('applicationPagination'),pageInfo=get('applicationPageInfo');
+  let page=1,totalPages=1,loaded=false;
+  const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+  const label=value=>({new:'New',under_review:'Under Review',approved:'Approved',declined:'Declined'}[value]||value||'New');
+  const adminKey=()=>get('adminKey')?.value||sessionStorage.getItem('wootenAdminKey')||'';
+  function setStatus(message,ok=true){statusBox.textContent=message||'';statusBox.className='status'+(message?' show '+(ok?'ok':'bad'):'');}
+  function info(name,value,full=false){return '<div class="application-info'+(full?' full':'')+'"><span>'+esc(name)+'</span><strong>'+esc(value||'—')+'</strong></div>';}
+  function render(rows){
+    if(!rows.length){list.innerHTML='<div class="application-empty">No account applications match the selected filters.</div>';return;}
+    list.innerHTML=rows.map(row=>{const display=row.application_type==='business'?(row.business_name||row.full_name):row.full_name;return '<article class="application-card" data-application-id="'+Number(row.id)+'">'+
+      '<button class="application-summary" type="button" data-application-toggle aria-expanded="false"><div><strong>'+esc(display)+'</strong><small>'+esc(row.application_number)+' • '+esc(row.full_name)+'</small></div><div><span class="application-type">'+esc(row.application_type)+'</span></div><div><span class="application-status-badge '+esc(row.status)+'">'+esc(label(row.status))+'</span><small>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</small></div><span aria-hidden="true">⌄</span></button>'+
+      '<div class="application-detail" hidden><div class="application-info-grid">'+
+      info('Application #',row.application_number)+info('Account Type',row.application_type)+info('Submitted',new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+
+      (row.application_type==='business'?info('Legal Business Name',row.business_name)+info('DBA / Trade Name',row.dba_name)+info('Tax ID Last 4',row.tax_id_last4)+info('Years in Business',row.years_in_business):'')+
+      info('Applicant / Contact',row.full_name)+info('Job Title',row.job_title)+info('Preferred Contact',row.preferred_contact)+info('Email',row.email)+info('Phone',row.phone)+info('Address',[row.address_1,row.city,row.state,row.zip_code].filter(Boolean).join(', '),true)+info('Fuel Needs / Applicant Notes',row.applicant_notes,true)+'</div>'+
+      '<div class="application-documents">'+(row.has_tax_document?'<button class="secondary" type="button" data-application-file="tax">Open Tax ID Document</button>':'')+'<button class="secondary" type="button" data-application-file="identity">Open Driver’s License / State ID</button></div>'+
+      '<div class="application-review"><label>Review Status<select data-application-status><option value="new"'+(row.status==='new'?' selected':'')+'>New</option><option value="under_review"'+(row.status==='under_review'?' selected':'')+'>Under Review</option><option value="approved"'+(row.status==='approved'?' selected':'')+'>Approved</option><option value="declined"'+(row.status==='declined'?' selected':'')+'>Declined</option></select></label><label>Private Admin Notes<textarea data-application-notes maxlength="3000" placeholder="Add private review notes…">'+esc(row.admin_notes||'')+'</textarea></label><button class="primary" type="button" data-application-save>Save Review</button></div></div></article>';}).join('');
+  }
+  async function load(){progress.hidden=false;loadBtn.disabled=true;setStatus('');try{const params=new URLSearchParams({page:String(page),search:get('applicationSearch').value,status:get('applicationStatusFilter').value,type:get('applicationTypeFilter').value});const response=await fetch('/api/admin/account-applications?'+params,{headers:{'X-Admin-Key':adminKey()}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Applications could not be loaded.');render(data.applications||[]);totalPages=Number(data.total_pages||1);page=Number(data.page||1);pageInfo.textContent='Page '+page+' of '+totalPages+' • '+Number(data.total||0)+' applications';pagination.hidden=Number(data.total||0)===0;get('applicationPrev').disabled=page<=1;get('applicationNext').disabled=page>=totalPages;setStatus(Number(data.total||0)+' account application(s) found.',true);loaded=true;}catch(error){setStatus(error.message||'Applications could not be loaded.',false);}finally{progress.hidden=true;loadBtn.disabled=false;}}
+  async function openFile(card,kind,button){button.disabled=true;const original=button.textContent;button.textContent='Opening…';try{const id=card.dataset.applicationId;const response=await fetch('/api/admin/account-applications/'+encodeURIComponent(id)+'/'+kind,{headers:{'X-Admin-Key':adminKey()}});if(!response.ok)throw new Error(await response.text()||'Document could not be opened.');const url=URL.createObjectURL(await response.blob());const anchor=document.createElement('a');anchor.href=url;anchor.target='_blank';anchor.rel='noopener';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){setStatus(error.message||'Document could not be opened.',false);}finally{button.disabled=false;button.textContent=original;}}
+  async function save(card,button){button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/account-applications',{method:'POST',headers:{'X-Admin-Key':adminKey(),'Content-Type':'application/json'},body:JSON.stringify({id:Number(card.dataset.applicationId),status:card.querySelector('[data-application-status]').value,admin_notes:card.querySelector('[data-application-notes]').value})});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Review could not be saved.');setStatus('Application review saved.',true);await load();}catch(error){setStatus(error.message||'Review could not be saved.',false);button.disabled=false;button.textContent='Save Review';}}
+  list.addEventListener('click',event=>{const card=event.target.closest('[data-application-id]');if(!card)return;const toggle=event.target.closest('[data-application-toggle]');if(toggle){const detail=card.querySelector('.application-detail'),open=detail.hidden;detail.hidden=!open;toggle.setAttribute('aria-expanded',String(open));return;}const file=event.target.closest('[data-application-file]');if(file){openFile(card,file.dataset.applicationFile,file);return;}const saveBtn=event.target.closest('[data-application-save]');if(saveBtn)save(card,saveBtn);});
+  loadBtn.addEventListener('click',()=>{page=1;load();});get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}});get('applicationNext').addEventListener('click',()=>{if(page<totalPages){page++;load();}});get('applicationTypeFilter').addEventListener('change',()=>{page=1;load();});get('applicationStatusFilter').addEventListener('change',()=>{page=1;load();});
+  let timer;get('applicationSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load();},350);});get('admin-tab-btn-applications').addEventListener('click',()=>{if(!loaded)load();});
+})();
+</script>
 </body>
 </html>
