@@ -7075,7 +7075,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         ?'<span class="schedule-run-metric">No Portal, Email, or SMS attempted</span>'
         :'<span class="schedule-run-metric">Portal '+Number(run.portal_success||0)+' / '+Number(run.portal_failure||0)+' not sent</span><span class="schedule-run-metric">Email '+Number(run.email_success||0)+' / '+Number(run.email_failure||0)+' not sent</span><span class="schedule-run-metric">SMS '+Number(run.sms_success||0)+' / '+Number(run.sms_failure||0)+' not sent</span>';
       return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+(isTest?'TEST RUN — ':'')+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
-        (isTest?'<span class="schedule-run-metric">TEST RUN</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0)+' customers</span><span class="schedule-run-metric good">'+Number(run.success_count||0)+' generated</span>'+
+        (isTest?'<span class="schedule-run-metric">TEST RUN</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(run.success_count||0).toLocaleString()+' generated</span>'+
         (Number(run.failure_count||0)?'<span class="schedule-run-metric bad">'+Number(run.failure_count)+' failed</span>':'')+
         deliveryMetrics+'</div></summary><div class="schedule-run-detail">'+details+'</div></details>';
     }).join('');
@@ -7192,10 +7192,27 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{
       await saveSettings(false);setStatus((dryRun?'Testing PDF generation for ':'Generating and sending ')+label+' statements. Keep this page open…');
       const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:dryRun})},dryRun);
-      setStatus((dryRun?'Test':'Run')+' complete: '+Number(data.succeeded||0)+' succeeded and '+Number(data.failed||0)+' failed.',Number(data.failed||0)===0);
-      if(dryRun)await finishTestProgress(type,Number(data.succeeded||0)+' PDFs generated • '+Number(data.failed||0)+' failed');
+      const final=await waitForScheduledRun(data.run_id,type,dryRun,data.total||0);
+      setStatus((dryRun?'Test':'Run')+' complete: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
+      if(dryRun)await finishTestProgress(type,Number(final.success_count||0)+' PDFs generated • '+Number(final.failure_count||0)+' failed');
       await load();
     }catch(error){if(dryRun)hideTestProgress(type);setStatus(error.message||(dryRun?'Statement test failed.':'Scheduled statement run failed.'),false);await load();}
+  }
+  async function waitForScheduledRun(runId,type,dryRun,total){
+    if(!runId)return {success_count:0,failure_count:0};
+    for(let attempt=0;attempt<1200;attempt++){
+      const progress=await request('/api/admin/statement-scheduling/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId})},true);
+      await new Promise(resolve=>window.setTimeout(resolve,250));
+      const snapshot=await request('/api/admin/statement-scheduling?compact=1');
+      const run=(snapshot.runs||[]).find(item=>Number(item.id)===Number(runId));
+      if(!run)continue;
+      const processed=Number(run.processed_count||0),count=Number(run.customer_count||total||0);
+      const pct=count?Math.min(99,Math.round(processed/count*100)):100;
+      setStatus((dryRun?'Testing':'Generating')+' '+processed.toLocaleString()+' of '+count.toLocaleString()+' customers… '+Number(run.success_count||0).toLocaleString()+' generated, '+Number(run.failure_count||0).toLocaleString()+' failed.');
+      if(dryRun)setTestProgress(type,pct,'Testing statement PDFs…',processed.toLocaleString()+' / '+count.toLocaleString());
+      if(String(run.status||'')!=='running')return run;
+    }
+    throw new Error('The statement run is still continuing in the background. Refresh the report to see its latest progress.');
   }
   async function testAllCycles(){
     if(!window.confirm('TEST MODE: Generate and validate A, B, and C statement PDFs for all matching customers? Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
@@ -7210,7 +7227,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         setTestProgress('all',5+index*30,'Testing '+label+' statements…',(index+1)+' of 3 cycles');
         setStatus('Testing '+label+' statement PDFs. Keep this page open…');
         const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:true})},true);
-        succeeded+=Number(data.succeeded||0);failed+=Number(data.failed||0);
+        const final=await waitForScheduledRun(data.run_id,'all',true,data.total||0);
+        succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
         setTestProgress('all',33+index*33,'Completed '+label,(index+1)+' of 3 cycles');
       }
       setStatus('All-cycle test complete: '+succeeded+' PDFs generated and '+failed+' failed.',failed===0);
@@ -7637,6 +7655,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     let firstVisible=null;
     document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const allowed=!!user&&(user.owner||(tab.dataset.adminTab!=='users'&&permissions.has(mapping[tab.dataset.adminTab])));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
+    if(user?.owner)setTimeout(()=>window.loadWootenAdminUsers?.(),0);
   }
 
   function setStatus(message,bad){
@@ -7857,17 +7876,19 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-users-script">
 (()=>{
-  const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus');let loaded=false;
+  const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus');let loaded=false,loading=false;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const labels={database:'Database & Imports',customer_activity:'Customer Activity',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
   function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
-  async function load(){try{const [usersRes,auditRes]=await Promise.all([fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()}})]);const usersData=await usersRes.json().catch(()=>({})),auditData=await auditRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);renderAudit(auditData.entries||[]);loaded=true;}catch(error){message(error.message||'Admin users could not be loaded.',false);}}
+  async function load(){if(loading)return;loading=true;try{const [usersRes,auditRes]=await Promise.all([fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()}})]);const usersData=await usersRes.json().catch(()=>({})),auditData=await auditRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);renderAudit(auditData.entries||[]);loaded=true;}catch(error){message(error.message||'Admin users could not be loaded.',false);}finally{loading=false;}}
+  window.loadWootenAdminUsers=load;
   async function save(){const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
   list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
   get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminUsersRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
+  if(window.wootenAdminUser?.owner)setTimeout(load,0);
 })();
 </script>
 
