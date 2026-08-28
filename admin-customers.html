@@ -356,10 +356,16 @@
     .admin-mobile-menu-btn span{display:block;width:18px;height:2px;background:currentColor;box-shadow:0 -6px 0 currentColor,0 6px 0 currentColor}
     .admin-mobile-title{min-width:0;color:var(--navy);font-size:14px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .admin-workspace{display:block}
-    .admin-tabs-shell{position:fixed;inset:0 auto 0 0;z-index:50;width:min(84vw,310px);padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));background:#f5f7fa;transform:translateX(-105%);transition:transform .22s ease;overflow-y:auto}
+    .admin-tabs-shell{position:fixed;inset:0 auto auto 0;z-index:50;width:min(84vw,310px);height:100vh;height:100dvh;height:var(--admin-drawer-height,100dvh);max-height:var(--admin-drawer-height,100dvh);padding:calc(12px + env(safe-area-inset-top)) 12px 0;background:#f5f7fa;transform:translateX(-105%);transition:transform .22s ease;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
     body.admin-drawer-open .admin-tabs-shell{transform:translateX(0)}
-    .admin-tabs{min-height:100%;border-radius:17px}
-    .admin-drawer-close{display:grid!important;place-items:center;position:absolute;right:22px;top:calc(22px + env(safe-area-inset-top));z-index:2;width:34px;height:34px;border:0;border-radius:9px;background:#eef2f6;color:var(--navy);font-size:23px;cursor:pointer}
+    .admin-tabs{min-height:100%;padding-bottom:calc(112px + env(safe-area-inset-bottom));border-radius:17px}
+    .admin-drawer-close{display:block!important;position:sticky;top:8px;z-index:60;width:44px;height:44px;margin:8px 8px -52px auto;padding:0;border:0;border-radius:12px;background:#eef2f6;color:var(--navy);font-size:0;cursor:pointer;box-shadow:0 1px 2px rgba(15,39,66,.05);-webkit-tap-highlight-color:transparent}
+    .admin-drawer-close::before,.admin-drawer-close::after{content:"";position:absolute;left:50%;top:50%;width:21px;height:2.5px;border-radius:2px;background:currentColor;transform-origin:center}
+    .admin-drawer-close::before{transform:translate(-50%,-50%) rotate(45deg)}
+    .admin-drawer-close::after{transform:translate(-50%,-50%) rotate(-45deg)}
+    .admin-drawer-close:hover,.admin-drawer-close:active{background:#dfe6ee}
+    .admin-drawer-close:focus-visible{outline:3px solid rgba(23,58,97,.28);outline-offset:2px}
+    .admin-sidebar-brand{padding-right:58px}
     .admin-drawer-backdrop{position:fixed;inset:0;z-index:49;background:rgba(7,20,34,.45);backdrop-filter:blur(2px)}
     body.admin-drawer-open .admin-drawer-backdrop{display:block}
     body.admin-drawer-open{overflow:hidden}
@@ -6637,6 +6643,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   drawerClose?.addEventListener("click",closeDrawer);
   drawerBackdrop?.addEventListener("click",closeDrawer);
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeDrawer();});
+  function syncDrawerViewport(){const height=Math.round(window.visualViewport?.height||window.innerHeight);if(height>0)document.documentElement.style.setProperty("--admin-drawer-height",height+"px");}
+  syncDrawerViewport();
+  window.addEventListener("resize",syncDrawerViewport,{passive:true});
+  window.visualViewport?.addEventListener("resize",syncDrawerViewport,{passive:true});
   const dashboardDate=document.getElementById("adminDashboardDate");
   if(dashboardDate)dashboardDate.textContent=new Intl.DateTimeFormat("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric",timeZone:"America/Chicago"}).format(new Date())+" • Central Time";
 
