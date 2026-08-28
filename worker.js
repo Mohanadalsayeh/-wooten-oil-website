@@ -714,7 +714,8 @@ async function onRequestPost3({ request, env }) {
   }
   let importMeta=null;
   try{
-    importMeta=await recordAdminImport(env,"customers",batch.length);
+    importMeta=await recordAdminImport(env,"customers",batch.length,adminRequestActor(request,env).name);
+    await adminAudit(env,request,"customer_import","customers","",`${batch.length} records imported; ${skipped} skipped`);
   }catch(error){
     console.error("Customer import timestamp could not be recorded",error);
   }
@@ -738,24 +739,27 @@ async function ensureAdminImportMetadataSchema(env){
     CREATE TABLE IF NOT EXISTS admin_import_metadata (
       import_type TEXT PRIMARY KEY,
       last_import_at TEXT NOT NULL,
-      last_record_count INTEGER NOT NULL DEFAULT 0
+      last_record_count INTEGER NOT NULL DEFAULT 0,
+      last_import_by TEXT NOT NULL DEFAULT ''
     )
   `).run();
+  const info=await env.DB.prepare(`PRAGMA table_info(admin_import_metadata)`).all();if(!(info?.results||[]).some(row=>String(row.name||"").toLowerCase()==="last_import_by"))await env.DB.prepare(`ALTER TABLE admin_import_metadata ADD COLUMN last_import_by TEXT NOT NULL DEFAULT ''`).run();
 }
 __name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
 
-async function recordAdminImport(env,type,count){
+async function recordAdminImport(env,type,count,actorName="Wooten Oil Owner"){
   await ensureAdminImportMetadataSchema(env);
   await env.DB.prepare(`
-    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count)
-    VALUES (?,CURRENT_TIMESTAMP,?)
+    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count,last_import_by)
+    VALUES (?,CURRENT_TIMESTAMP,?,?)
     ON CONFLICT(import_type) DO UPDATE SET
       last_import_at=CURRENT_TIMESTAMP,
-      last_record_count=excluded.last_record_count
-  `).bind(String(type||""),Number(count||0)).run();
+      last_record_count=excluded.last_record_count,
+      last_import_by=excluded.last_import_by
+  `).bind(String(type||""),Number(count||0),String(actorName||"Wooten Oil Owner")).run();
 
   const row=await env.DB.prepare(`
-    SELECT last_import_at,last_record_count
+    SELECT last_import_at,last_record_count,last_import_by
     FROM admin_import_metadata
     WHERE import_type=?
   `).bind(String(type||"")).first();
@@ -775,21 +779,23 @@ async function adminImportStatusGet({request,env}){
   try{
     await ensureAdminImportMetadataSchema(env);
     const result=await env.DB.prepare(`
-      SELECT import_type,last_import_at,last_record_count
+      SELECT import_type,last_import_at,last_record_count,last_import_by
       FROM admin_import_metadata
       WHERE import_type IN ('customers','payments')
     `).all();
 
-    let customersLast="",paymentsLast="";
+    let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
 
     for(const row of result?.results||[]){
       if(row.import_type==="customers"){
         customersLast=row.last_import_at||"";
         customersCount=Number(row.last_record_count||0);
+        customersBy=row.last_import_by||"";
       }else if(row.import_type==="payments"){
         paymentsLast=row.last_import_at||"";
         paymentsCount=Number(row.last_record_count||0);
+        paymentsBy=row.last_import_by||"";
       }
     }
 
@@ -797,8 +803,10 @@ async function adminImportStatusGet({request,env}){
       success:true,
       customers_last_import_at:customersLast,
       customers_last_record_count:customersCount,
+      customers_last_import_by:customersBy,
       payments_last_import_at:paymentsLast,
-      payments_last_record_count:paymentsCount
+      payments_last_record_count:paymentsCount,
+      payments_last_import_by:paymentsBy
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -951,7 +959,8 @@ async function adminCustomerPaymentsImport({ request, env }) {
 
   let importMeta=null;
   try{
-    importMeta=await recordAdminImport(env,"payments",valid.length);
+    importMeta=await recordAdminImport(env,"payments",valid.length,adminRequestActor(request,env).name);
+    await adminAudit(env,request,"payment_import","payments","",`${valid.length} valid; ${inserted} inserted; ${duplicates} duplicates; ${skipped} skipped`);
   }catch(error){
     console.error("Payment import timestamp could not be recorded",error);
   }
@@ -1265,6 +1274,14 @@ async function createSession(env, customerId, rememberMe = false) {
   return token;
 }
 __name(createSession, "createSession");
+async function ensureCustomerLoginActivityTable(env){
+  if(!env?.DB)return;
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS customer_login_activity (id INTEGER PRIMARY KEY AUTOINCREMENT,customer_id INTEGER,account_number TEXT NOT NULL,result TEXT NOT NULL,user_agent TEXT,ip_hash TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_customer_login_activity_account_created ON customer_login_activity(account_number,created_at DESC,id DESC)`).run();
+}
+async function recordCustomerLoginActivity(env,request,customer,result){
+  try{await ensureCustomerLoginActivityTable(env);const ipHash=await accountApplicationIpHash(request);await env.DB.prepare(`INSERT INTO customer_login_activity(customer_id,account_number,result,user_agent,ip_hash) VALUES (?,?,?,?,?)`).bind(Number(customer?.id||0)||null,String(customer?.account_number||""),String(result||"unknown").slice(0,40),String(request.headers.get("User-Agent")||"").slice(0,300),ipHash||null).run();}catch(error){console.error("Customer login activity could not be recorded",error);}
+}
 async function getCustomerFromSession(request, env) {
   const cookies = parseCookies(request);
   const token = cookies[SESSION_COOKIE];
@@ -1394,12 +1411,14 @@ async function customerLoginPost({
   }
   const status = clean(customer.account_status).toLowerCase();
   if (status && status !== "active") {
+    await recordCustomerLoginActivity(env,request,customer,"blocked_inactive");
     return json4({
       success: false,
       error: "This customer account is not active. Please contact Wooten Oil."
     }, 403);
   }
   if (!clean(customer.password_hash)) {
+    await recordCustomerLoginActivity(env,request,customer,"activation_required");
     return json4({
       success: false,
       setup_required: true,
@@ -1412,6 +1431,7 @@ async function customerLoginPost({
     customer.password_hash
   );
   if (!valid) {
+    await recordCustomerLoginActivity(env,request,customer,"failed_password");
     return json4({
       success: false,
       error: "Customer Number or password is incorrect."
@@ -1422,6 +1442,7 @@ async function customerLoginPost({
     customer.id,
     rememberMe
   );
+  await recordCustomerLoginActivity(env,request,customer,"success");
   return json4(
     {
       success: true,
@@ -7120,6 +7141,93 @@ async function adminStatementSchedulingRun({request,env}){
 }
 __name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
 
+const ADMIN_PERMISSION_KEYS=["database","customer_activity","notifications","statements","communication","communications_settings","applications","activation","manage_users"];
+async function ensureAdminUsersTables(env){
+  if(!env?.DB) throw new Error("Admin user database is not configured.");
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,permissions TEXT NOT NULL DEFAULT '[]',active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL,expires_at TEXT NOT NULL,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_sessions_user ON admin_sessions(user_id,expires_at)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT,actor_user_id INTEGER,actor_name TEXT NOT NULL,action_type TEXT NOT NULL,target_type TEXT,target_id TEXT,detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC,id DESC)`).run();
+}
+__name(ensureAdminUsersTables,"ensureAdminUsersTables");
+function adminBytesHex(bytes){return [...bytes].map(v=>v.toString(16).padStart(2,"0")).join("");}
+function adminHexBytes(hex){const clean=String(hex||"");const out=new Uint8Array(Math.floor(clean.length/2));for(let i=0;i<out.length;i++)out[i]=parseInt(clean.slice(i*2,i*2+2),16);return out;}
+async function adminSha256(value){return adminBytesHex(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value||"")))));}
+async function adminPasswordHash(password,saltHex){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(password||"")),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:adminHexBytes(saltHex),iterations:150000},key,256);return adminBytesHex(new Uint8Array(bits));}
+function adminSafePermissions(value){let source=value;try{if(typeof source==="string")source=JSON.parse(source);}catch{source=[];}return [...new Set((Array.isArray(source)?source:[]).map(v=>String(v||"")).filter(v=>ADMIN_PERMISSION_KEYS.includes(v)))];}
+function adminRequestActor(request,env){return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Owner"),owner:(request.headers.get("X-Admin-Actor-Owner")||"")==="1"||((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
+async function adminAudit(env,request,action,targetType="",targetId="",detail=""){try{await ensureAdminUsersTables(env);const actor=adminRequestActor(request,env);await env.DB.prepare(`INSERT INTO admin_audit_log(actor_user_id,actor_name,action_type,target_type,target_id,detail) VALUES (?,?,?,?,?,?)`).bind(actor.id,actor.name,String(action||""),String(targetType||""),String(targetId||""),String(detail||"").slice(0,2000)).run();}catch(error){console.error("Admin audit could not be recorded",error);}}
+function adminPermissionForPath(path){
+  if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/audit"))return "manage_users";
+  if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
+  if(path.startsWith("/api/admin/account-applications"))return "applications";
+  if(path.includes("activation")||path.includes("password-reset-code"))return "activation";
+  if(path.includes("gmail")||path.includes("twilio"))return "communications_settings";
+  if(path.includes("communication-log"))return "communication";
+  if(path.includes("statement")||path.includes("customer-documents"))return "statements";
+  if(path.includes("notification"))return "notifications";
+  if(path.includes("customer")||path.includes("import")||path.includes("database"))return "database";
+  return "manage_users";
+}
+async function adminSessionFromCredential(env,credential){
+  if(!env?.DB||!credential)return null;await ensureAdminUsersTables(env);const tokenHash=await adminSha256(credential);
+  const row=await env.DB.prepare(`SELECT s.token_hash,s.user_id,s.expires_at,u.username,u.display_name,u.permissions,u.active FROM admin_sessions s JOIN admin_users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1 AND s.expires_at>CURRENT_TIMESTAMP LIMIT 1`).bind(tokenHash).first();
+  if(!row)return null;await env.DB.prepare(`UPDATE admin_sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE token_hash=?`).bind(tokenHash).run();return {...row,permissions:adminSafePermissions(row.permissions)};
+}
+async function adminAuthorizeRequest(request,env,path){
+  const credential=String(request.headers.get("X-Admin-Key")||"");
+  if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Owner");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Owner",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
+  const session=await adminSessionFromCredential(env,credential);if(!session)return {response:notificationJson({success:false,error:"Your admin session is invalid or expired."},401)};
+  const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};
+  const headers=new Headers(request.headers);headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY||""));headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");return {request:new Request(request,{headers}),actor:{id:session.user_id,name:session.display_name,owner:false,permissions:session.permissions}};
+}
+async function adminAuthLogin({request,env}){
+  try{if(!env.DB)return notificationJson({success:false,error:"Admin user database is not configured."},503);const body=await request.json();const username=String(body.username||"").trim();const password=String(body.password||"");if(!username||!password)return notificationJson({success:false,error:"Enter your username and password."},400);
+    if(env.ADMIN_IMPORT_KEY&&["admin","owner"].includes(username.toLowerCase())&&password===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Owner",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});
+    await ensureAdminUsersTables(env);const user=await env.DB.prepare(`SELECT id,username,display_name,password_salt,password_hash,permissions,active FROM admin_users WHERE username=? COLLATE NOCASE LIMIT 1`).bind(username).first();if(!user||!Number(user.active))return notificationJson({success:false,error:"Invalid username or password."},401);const hash=await adminPasswordHash(password,user.password_salt);if(hash!==user.password_hash)return notificationJson({success:false,error:"Invalid username or password."},401);
+    const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+12 hours'))`).bind(tokenHash,user.id).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
+  }catch(error){console.error("adminAuthLogin failed",error);return notificationJson({success:false,error:"Administrator login is unavailable."},500);}
+}
+async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Owner",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
+async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(credential&&credential!==String(env.ADMIN_IMPORT_KEY||"")&&env.DB){await ensureAdminUsersTables(env);await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();}return notificationJson({success:true});}
+async function adminUsersApi({request,env}){
+  try{await ensureAdminUsersTables(env);if(request.method==="GET"){const users=await env.DB.prepare(`SELECT id,username,display_name,permissions,active,created_at,updated_at FROM admin_users ORDER BY display_name COLLATE NOCASE`).all();return notificationJson({success:true,users:(users?.results||[]).map(u=>({...u,permissions:adminSafePermissions(u.permissions)}))});}
+    const body=await request.json();const id=Number(body.id||0);const username=String(body.username||"").trim().slice(0,60);const displayName=String(body.display_name||"").trim().slice(0,100);const password=String(body.password||"");const permissions=adminSafePermissions(body.permissions);const active=body.active===false||body.active===0?0:1;if(!username||!displayName)return notificationJson({success:false,error:"Enter the user's name and username."},400);if(!id&&password.length<8)return notificationJson({success:false,error:"New admin passwords must contain at least 8 characters."},400);
+    let userId=id;if(id){const existing=await env.DB.prepare(`SELECT id FROM admin_users WHERE id=?`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Admin user not found."},404);if(password){const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,password_salt=?,password_hash=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active,id).run();}else await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,JSON.stringify(permissions),active,id).run();if(!active)await env.DB.prepare(`DELETE FROM admin_sessions WHERE user_id=?`).bind(id).run();}
+    else{const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);const result=await env.DB.prepare(`INSERT INTO admin_users(username,display_name,password_salt,password_hash,permissions,active) VALUES (?,?,?,?,?,?)`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active).run();userId=Number(result?.meta?.last_row_id||result?.meta?.last_insert_rowid||0);}
+    await adminAudit(env,request,id?"admin_user_updated":"admin_user_created","admin_user",String(userId),`${displayName} (${username})`);return notificationJson({success:true,id:userId});
+  }catch(error){console.error("adminUsersApi failed",error);const duplicate=String(error?.message||"").toLowerCase().includes("unique");return notificationJson({success:false,error:duplicate?"That username is already in use.":"The admin user could not be saved."},duplicate?409:500);}
+}
+async function adminAuditGet({request,env}){try{await ensureAdminUsersTables(env);const rows=await env.DB.prepare(`SELECT id,actor_name,action_type,target_type,target_id,detail,created_at FROM admin_audit_log ORDER BY created_at DESC,id DESC LIMIT 100`).all();return notificationJson({success:true,entries:rows?.results||[]});}catch(error){return notificationJson({success:false,error:"Admin activity could not be loaded."},500);}}
+
+async function adminCustomerActivityGet({request,env}){
+  try{
+    if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+    const url=new URL(request.url);const search=String(url.searchParams.get("search")||"").trim().slice(0,160);const account=normalizeNotificationAccount(url.searchParams.get("account_number")||"");
+    if(!account){
+      if(search.length<2)return notificationJson({success:true,matches:[]});
+      const q=`%${search}%`;const rows=await env.DB.prepare(`SELECT account_number,account_name,email,phone,current_balance,account_status FROM customers WHERE account_number LIKE ? OR account_name LIKE ? OR email LIKE ? OR phone LIKE ? ORDER BY CASE WHEN account_number=? THEN 0 ELSE 1 END,account_name COLLATE NOCASE LIMIT 20`).bind(q,q,q,q,normalizeNotificationAccount(search)).all();
+      return notificationJson({success:true,matches:rows?.results||[]});
+    }
+    await Promise.all([ensureCustomerPaymentsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
+    const customer=await env.DB.prepare(`SELECT id,account_number,account_name,email,phone,address1,address2,address3,city,state,zip_code,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,credit_hold,credit_limit,terms_description,salesperson_name,statement_cycle,account_status,updated_at,CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated,COALESCE((SELECT email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS email_enabled,COALESCE((SELECT sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS sms_enabled,COALESCE((SELECT portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS portal_enabled FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
+    if(!customer)return notificationJson({success:false,error:"Customer was not found."},404);
+    const safeRows=async(promise,label)=>{try{return (await promise)?.results||[];}catch(error){console.error(`Customer activity ${label} query failed`,error);return [];}};
+    const [payments,documents,communications,fuelRequests,applications,logins]=await Promise.all([
+      safeRows(env.DB.prepare(`SELECT id,payment_date,posting_date,deposit_date,reference,source_invoice_no AS invoice_no,amount,description FROM customer_payments WHERE account_number=? ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT 10`).bind(account).all(),"payments"),
+      safeRows(env.DB.prepare(`SELECT id,document_type,title,document_date,filename,size_bytes,created_at FROM portal_customer_documents WHERE account_number=? ORDER BY COALESCE(document_date,created_at) DESC,id DESC LIMIT 10`).bind(account).all(),"documents"),
+      safeRows(env.DB.prepare(`SELECT id,event_type,title,detail,portal_sent,email_sent,sms_sent,sms_status,sms_error_code,error_text,created_at FROM admin_communication_log WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT 20`).bind(account).all(),"communications"),
+      safeRows(env.DB.prepare(`SELECT request_number,fuel_type,gallons,delivery_date,delivery_address,email_status,received_at FROM fuel_requests WHERE customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)) ORDER BY datetime(received_at) DESC,rowid DESC LIMIT 10`).bind(account,String(customer.email||""),String(customer.phone||"")).all(),"fuel requests"),
+      safeRows(env.DB.prepare(`SELECT application_number,application_type,business_name,full_name,status,reviewed_by,reviewed_at,created_at FROM account_applications WHERE lower(email)=lower(?) OR phone=? ORDER BY created_at DESC,id DESC LIMIT 5`).bind(String(customer.email||""),String(customer.phone||"")).all(),"applications"),
+      safeRows(env.DB.prepare(`SELECT result,user_agent,created_at FROM customer_login_activity WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT 10`).bind(account).all(),"logins")
+    ]);
+    await adminAudit(env,request,"customer_activity_viewed","customer",account,String(customer.account_name||"Customer"));
+    return notificationJson({success:true,customer,payments,documents,communications,fuel_requests:fuelRequests,applications,login_activity:logins});
+  }catch(error){console.error("adminCustomerActivityGet failed",error);return notificationJson({success:false,error:"Customer activity could not be loaded. "+String(error?.message||error)},500);}
+}
+__name(adminCustomerActivityGet,"adminCustomerActivityGet");
+
 async function ensureAccountApplicationsTable(env){
   if(!env?.DB) throw new Error("Customer database is not configured.");
   await env.DB.prepare(`
@@ -7149,6 +7257,17 @@ async function ensureAccountApplicationsTable(env){
       identity_document_type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'new',
       admin_notes TEXT,
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      sms_confirmation_consent INTEGER NOT NULL DEFAULT 0,
+      support_email_sent INTEGER NOT NULL DEFAULT 0,
+      support_email_id TEXT,
+      applicant_email_sent INTEGER NOT NULL DEFAULT 0,
+      applicant_email_id TEXT,
+      confirmation_sms_sent INTEGER NOT NULL DEFAULT 0,
+      confirmation_sms_sid TEXT,
+      notification_error TEXT,
+      notification_sent_at TEXT,
       submitted_ip_hash TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -7156,6 +7275,11 @@ async function ensureAccountApplicationsTable(env){
   `).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_account_applications_created ON account_applications(created_at DESC,id DESC)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_account_applications_status ON account_applications(status,created_at DESC)`).run();
+  const info=await env.DB.prepare(`PRAGMA table_info(account_applications)`).all();const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  if(!columns.has("reviewed_by"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_by TEXT`).run();
+  if(!columns.has("reviewed_at"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_at TEXT`).run();
+  const additions=[["sms_confirmation_consent","INTEGER NOT NULL DEFAULT 0"],["support_email_sent","INTEGER NOT NULL DEFAULT 0"],["support_email_id","TEXT"],["applicant_email_sent","INTEGER NOT NULL DEFAULT 0"],["applicant_email_id","TEXT"],["confirmation_sms_sent","INTEGER NOT NULL DEFAULT 0"],["confirmation_sms_sid","TEXT"],["notification_error","TEXT"],["notification_sent_at","TEXT"]];
+  for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN ${name} ${definition}`).run();
 }
 __name(ensureAccountApplicationsTable,"ensureAccountApplicationsTable");
 
@@ -7185,6 +7309,27 @@ async function accountApplicationIpHash(request){
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(ip));
   return [...new Uint8Array(digest)].slice(0,12).map(v=>v.toString(16).padStart(2,"0")).join("");
 }
+async function accountApplicationSendEmail(env,{to,subject,html,text}){
+  if(!env.RESEND_API_KEY)return {sent:false,error:"Email service is not configured."};
+  try{
+    const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},body:JSON.stringify({from:String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim(),to:[to],subject,html,text})});
+    const result=await response.json().catch(()=>({}));
+    return response.ok?{sent:true,id:String(result.id||"")}:{sent:false,error:String(result.message||`Email service returned ${response.status}.`)};
+  }catch(error){return {sent:false,error:String(error?.message||"Email could not be sent.")};}
+}
+async function accountApplicationSendNotifications({request,env,applicationNumber,type,data}){
+  const applicantName=data.full_name;const accountName=type==="business"?data.business_name:applicantName;const submitted=new Date().toLocaleString("en-US",{timeZone:"America/Chicago",dateStyle:"long",timeStyle:"short"});
+  const internalHtml=`<h2>New Wooten Oil Account Application</h2><p>A new ${notificationEscapeHtml(type)} account application was submitted.</p><table cellpadding="7" cellspacing="0" style="border-collapse:collapse"><tr><td><strong>Application</strong></td><td>${notificationEscapeHtml(applicationNumber)}</td></tr><tr><td><strong>Applicant</strong></td><td>${notificationEscapeHtml(applicantName)}</td></tr><tr><td><strong>Account name</strong></td><td>${notificationEscapeHtml(accountName)}</td></tr><tr><td><strong>Email</strong></td><td>${notificationEscapeHtml(data.email)}</td></tr><tr><td><strong>Phone</strong></td><td>${notificationEscapeHtml(data.phone)}</td></tr><tr><td><strong>Submitted</strong></td><td>${notificationEscapeHtml(submitted)} Central</td></tr></table><p>Review the application and its private documents in Customer Administration → Account Applications.</p><p><strong>Security:</strong> Identity and Tax ID documents are not attached to this email.</p>`;
+  const applicantHtml=`<h2>We received your Wooten Oil account application</h2><p>Hello ${notificationEscapeHtml(applicantName)},</p><p>Your application <strong>${notificationEscapeHtml(applicationNumber)}</strong> has been received. Our team will review it and contact you if additional information is needed.</p><p>Please keep your application number for your records.</p><p>Wooten Oil Co. Inc.<br>support@wootenoil.com</p>`;
+  const internalText=`New Wooten Oil ${type} account application\nApplication: ${applicationNumber}\nApplicant: ${applicantName}\nAccount name: ${accountName}\nEmail: ${data.email}\nPhone: ${data.phone}\nSubmitted: ${submitted} Central\n\nReview it in Customer Administration > Account Applications. Sensitive documents are not attached.`;
+  const applicantText=`Hello ${applicantName},\n\nWe received your Wooten Oil account application ${applicationNumber}. Our team will review it and contact you if additional information is needed. Please keep this number for your records.\n\nWooten Oil Co. Inc.\nsupport@wootenoil.com`;
+  const smsBody=`Wooten Oil: We received your account application ${applicationNumber}. Our team will review it and contact you. Reply STOP to opt out.`;
+  const supportPromise=accountApplicationSendEmail(env,{to:"support@wootenoil.com",subject:`New Wooten Oil Account Application — ${applicationNumber}`,html:internalHtml,text:internalText});
+  const applicantPromise=accountApplicationSendEmail(env,{to:data.email,subject:`Wooten Oil Account Application Received — ${applicationNumber}`,html:applicantHtml,text:applicantText});
+  const smsPromise=twilioSendSms(env,data.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")}).then(result=>({sent:true,sid:String(result?.sid||"")})).catch(error=>({sent:false,error:String(error?.message||"SMS could not be sent.")}));
+  const [support,applicant,sms]=await Promise.all([supportPromise,applicantPromise,smsPromise]);
+  return {support,applicant,sms};
+}
 async function accountApplicationPost({request,env}){
   let taxKey="",identityKey="";
   try{
@@ -7206,6 +7351,7 @@ async function accountApplicationPost({request,env}){
     if(!data.full_name||!data.email||!data.phone||!data.address_1||!data.city||!data.state||!data.zip_code) return notificationJson({success:false,error:"Complete all required contact and address fields."},400);
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) return notificationJson({success:false,error:"Enter a valid email address."},400);
     if(String(form.get("certification")||"")!=="1") return notificationJson({success:false,error:"Certification is required."},400);
+    if(String(form.get("sms_confirmation_consent")||"")!=="1") return notificationJson({success:false,error:"Consent is required to send the application confirmation text message."},400);
     if(type==="business"&&(!data.business_name||data.tax_id_last4.length!==4)) return notificationJson({success:false,error:"Enter the legal business name and the last four digits of its Tax ID."},400);
     const identityInfo=accountApplicationFileInfo(form.get("identity_document"));
     const taxInfo=type==="business"?accountApplicationFileInfo(form.get("tax_id_document")):null;
@@ -7220,10 +7366,13 @@ async function accountApplicationPost({request,env}){
     const ipHash=await accountApplicationIpHash(request);
     await env.DB.prepare(`
       INSERT INTO account_applications
-      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,submitted_ip_hash)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,ipHash).run();
-    return notificationJson({success:true,application_number:applicationNumber});
+      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,sms_confirmation_consent,submitted_ip_hash)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,1,ipHash).run();
+    const delivery=await accountApplicationSendNotifications({request,env,applicationNumber,type,data});
+    const errors=[!delivery.support.sent?`Support email: ${delivery.support.error}`:"",!delivery.applicant.sent?`Applicant email: ${delivery.applicant.error}`:"",!delivery.sms.sent?`Confirmation SMS: ${delivery.sms.error}`:""].filter(Boolean).join(" | ").slice(0,2000);
+    await env.DB.prepare(`UPDATE account_applications SET support_email_sent=?,support_email_id=?,applicant_email_sent=?,applicant_email_id=?,confirmation_sms_sent=?,confirmation_sms_sid=?,notification_error=?,notification_sent_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE application_number=?`).bind(delivery.support.sent?1:0,delivery.support.id||null,delivery.applicant.sent?1:0,delivery.applicant.id||null,delivery.sms.sent?1:0,delivery.sms.sid||null,errors||null,applicationNumber).run();
+    return notificationJson({success:true,application_number:applicationNumber,confirmations:{support_email:delivery.support.sent,applicant_email:delivery.applicant.sent,sms:delivery.sms.sent}});
   }catch(error){
     console.error("accountApplicationPost failed",error);
     if(env?.NOTIFICATION_ATTACHMENTS){if(taxKey)try{await env.NOTIFICATION_ATTACHMENTS.delete(taxKey);}catch{}if(identityKey)try{await env.NOTIFICATION_ATTACHMENTS.delete(identityKey);}catch{}}
@@ -7245,7 +7394,7 @@ async function adminAccountApplicationsGet({request,env}){
     if(["business","personal"].includes(type)){clauses.push("application_type=?");values.push(type);}
     const where=clauses.join(" AND ");
     const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE ${where}`).bind(...values).first();
-    const rows=await env.DB.prepare(`SELECT id,application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,status,admin_notes,created_at,updated_at,CASE WHEN tax_document_key IS NOT NULL THEN 1 ELSE 0 END AS has_tax_document,1 AS has_identity_document,tax_document_name,identity_document_name FROM account_applications WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...values,perPage,offset).all();
+    const rows=await env.DB.prepare(`SELECT id,application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,status,admin_notes,reviewed_by,reviewed_at,sms_confirmation_consent,support_email_sent,applicant_email_sent,confirmation_sms_sent,notification_error,notification_sent_at,created_at,updated_at,CASE WHEN tax_document_key IS NOT NULL THEN 1 ELSE 0 END AS has_tax_document,1 AS has_identity_document,tax_document_name,identity_document_name FROM account_applications WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...values,perPage,offset).all();
     const total=Number(totalRow?.total||0);return notificationJson({success:true,applications:rows?.results||[],page,per_page:perPage,total,total_pages:Math.max(1,Math.ceil(total/perPage))});
   }catch(error){console.error("adminAccountApplicationsGet failed",error);return notificationJson({success:false,error:"Account applications could not be loaded."},500);}
 }
@@ -7256,8 +7405,10 @@ async function adminAccountApplicationUpdate({request,env}){
     if(!accountApplicationAuthorized(request,env)) return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureAccountApplicationsTable(env);const body=await request.json();const id=Number(body.id);const status=accountApplicationText(body.status,20).toLowerCase();const notes=accountApplicationText(body.admin_notes,3000);
     if(!Number.isInteger(id)||id<=0||!["new","under_review","approved","declined"].includes(status)) return notificationJson({success:false,error:"Choose a valid application and review status."},400);
-    const result=await env.DB.prepare(`UPDATE account_applications SET status=?,admin_notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(status,notes,id).run();
+    const existing=await env.DB.prepare(`SELECT application_number,status FROM account_applications WHERE id=? LIMIT 1`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Application not found."},404);const actor=adminRequestActor(request,env);
+    const result=await env.DB.prepare(`UPDATE account_applications SET status=?,admin_notes=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(status,notes,actor.name,id).run();
     if(!Number(result?.meta?.changes||0)) return notificationJson({success:false,error:"Application not found."},404);
+    await adminAudit(env,request,"application_reviewed","account_application",String(existing.application_number||id),`${existing.status} → ${status}`);
     return notificationJson({success:true});
   }catch(error){console.error("adminAccountApplicationUpdate failed",error);return notificationJson({success:false,error:"The application review could not be saved."},500);}
 }
@@ -7280,6 +7431,39 @@ __name(adminAccountApplicationFileGet,"adminAccountApplicationFileGet");
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if(url.pathname==="/api/admin/auth/login"){
+      if(request.method==="POST")return adminAuthLogin({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/auth/me"){
+      if(request.method==="GET")return adminAuthMe({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/auth/logout"){
+      if(request.method==="POST")return adminAuthLogout({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname.startsWith("/api/admin/")){
+      const authorization=await adminAuthorizeRequest(request,env,url.pathname);
+      if(authorization.response)return authorization.response;
+      request=authorization.request;
+    }
+    if(url.pathname==="/api/admin/users"){
+      if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/audit"){
+      if(request.method==="GET")return adminAuditGet({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/customer-activity"){
+      if(request.method==="GET")return adminCustomerActivityGet({request,env});
+      return methodNotAllowed();
+    }
+    if(/^\/api\/admin\/customer-activity\/documents\/\d+\/file$/.test(url.pathname)){
+      if(request.method==="GET")return adminCustomerDocumentFileGet({request,env});
+      return methodNotAllowed();
+    }
     if (url.pathname === "/api/fuel-request") {
       if (request.method === "POST") {
         return onRequestPost({

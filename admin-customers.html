@@ -2317,7 +2317,15 @@ input[type="file"]::file-selector-button{
 .sms-delivery{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}.sms-status{border-radius:999px;padding:5px 10px;font-size:11px;font-weight:900}.sms-status.delivered{background:#d9f3e6;color:#17633f}.sms-status.pending{background:#fff0c7;color:#725300}.sms-status.failed{background:#fde3e3;color:#9b3030}.sms-status.opted_out{background:#e8ebef;color:#4d5967}.sms-error-detail{width:100%;margin:0!important;color:#9b3030!important;font-size:12px}.sms-resend{border:1px solid #b92d36;border-radius:8px;background:#fff;color:#9b2029;padding:6px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}.sms-resend:hover{background:#fff1f2}.sms-resend:disabled{opacity:.6;cursor:wait}
 .communication-log-empty{padding:24px;text-align:center;border:1px dashed #c7d3de;border-radius:12px;background:#fff;color:#718193}
 @media(max-width:900px){.communication-log-filters{grid-template-columns:1fr 1fr}.communication-customer-row{grid-template-columns:1fr repeat(2,75px)}.communication-customer-row .communication-count:nth-of-type(4),.communication-customer-row .communication-count:nth-of-type(5){display:none}.communication-last{grid-column:1/-1;text-align:left}}
-@media(max-width:600px){.communication-log-section{padding:14px}.communication-log-filters{grid-template-columns:1fr}.communication-customer-row{grid-template-columns:1fr 70px}.communication-customer-row .communication-count{display:none}.communication-customer-row .communication-count:first-of-type{display:block}.communication-log-detail-head{align-items:flex-start;flex-direction:column}.communication-entry-head{display:block}.communication-entry-time{margin-top:5px}}
+@media(max-width:600px){
+  #admin-tab-communication,.communication-log-section,.communication-log-filters,.communication-log-filters>div{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+  .communication-log-section{padding:14px;overflow-x:hidden}
+  .communication-log-filters{grid-template-columns:minmax(0,1fr)}
+  .communication-log-filters>div{overflow:hidden}
+  .communication-log-filters input,.communication-log-filters select{display:block!important;width:100%!important;inline-size:100%!important;min-width:0!important;min-inline-size:0!important;max-width:100%!important;max-inline-size:100%!important;box-sizing:border-box!important}
+  .communication-log-filters input[type="date"]{-webkit-appearance:none;appearance:none;font-size:16px}
+  .communication-customer-row{grid-template-columns:1fr 70px}.communication-customer-row .communication-count{display:none}.communication-customer-row .communication-count:first-of-type{display:block}.communication-log-detail-head{align-items:flex-start;flex-direction:column}.communication-entry-head{display:block}.communication-entry-time{margin-top:5px}
+}
 </style>
 
 
@@ -3141,9 +3149,17 @@ input[type="file"]::file-selector-button{
 .statement-contact-selection-note{margin:10px 0 0;padding:10px 12px;border:1px solid #dbe5ec;border-radius:10px;background:#f7fafc;color:#526477;font-size:12px;line-height:1.5}
 @media(max-width:720px){.db-contact-cell{min-width:128px}.db-contact-toggle{width:34px;height:34px}}
 </style>
+<style id="wooten-customer-activity-style">
+.activity-search-row{display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:12px;align-items:end;margin-top:22px}.activity-search-row input{width:100%;height:54px}.activity-search-results{display:grid;gap:8px;margin-top:10px}.activity-search-result{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;width:100%;padding:13px 15px;border:1px solid #d5e0e9;border-radius:11px;background:#fff;text-align:left;color:#172d44;cursor:pointer}.activity-search-result:hover,.activity-search-result:focus-visible{background:#f2f7fb;border-color:#9fb7ca;outline:none}.activity-search-result strong,.activity-search-result small{display:block}.activity-search-result small{margin-top:3px;color:#6b7d90}.activity-dashboard{margin-top:20px}.activity-customer-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:20px;border-radius:15px;background:#102b45;color:#fff}.activity-customer-head h3{margin:0 0 5px;font-size:25px}.activity-customer-head p{margin:0;color:#c9d8e6}.activity-status{display:inline-flex;padding:6px 10px;border-radius:999px;background:#dff5e8;color:#087241;font-size:12px;font-weight:900;text-transform:uppercase}.activity-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px;margin-top:14px}.activity-summary{padding:14px;border:1px solid #dbe4eb;border-radius:12px;background:#f8fafc;min-width:0}.activity-summary span{display:block;color:#66798d;font-size:11px;font-weight:900;text-transform:uppercase}.activity-summary strong{display:block;margin-top:5px;color:#112a42;font-size:18px;overflow-wrap:anywhere}.activity-contact-line{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}.activity-chip{padding:7px 10px;border-radius:999px;background:#edf3f7;color:#314b63;font-size:12px;font-weight:800}.activity-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}.activity-section{min-width:0;border:1px solid #d9e3eb;border-radius:14px;background:#fff;overflow:hidden}.activity-section.activity-wide{grid-column:1/-1}.activity-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e2e9ef;background:#f7fafc}.activity-section-head h3{margin:0;font-size:17px}.activity-count{min-width:28px;padding:4px 8px;border-radius:999px;background:#e4edf4;color:#31556f;text-align:center;font-size:12px;font-weight:900}.activity-list{display:grid}.activity-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:13px 16px;border-top:1px solid #edf1f4}.activity-row:first-child{border-top:0}.activity-row strong,.activity-row small{display:block;overflow-wrap:anywhere}.activity-row small{margin-top:4px;color:#687b8e;line-height:1.4}.activity-row-side{text-align:right;white-space:nowrap}.activity-empty{padding:19px 16px;color:#718295;text-align:center}.activity-link{border:0;background:none;padding:0;color:#126aa2;font:inherit;font-weight:800;cursor:pointer}.activity-link:hover{text-decoration:underline}.activity-delivery{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.activity-delivery span{padding:4px 7px;border-radius:999px;background:#e3f5ea;color:#087142;font-size:10px;font-weight:900}.activity-delivery span.failed{background:#fee8e8;color:#a12626}.activity-progress{margin-top:12px}.activity-address{margin-top:9px;color:#d7e3ed;font-size:13px}.activity-login-success{color:#087241}.activity-login-failed{color:#a12626}
+@media(max-width:1050px){.activity-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:760px){.activity-search-row,.activity-sections{grid-template-columns:1fr}.activity-search-row button{width:100%}.activity-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-section.activity-wide{grid-column:auto}.activity-customer-head{display:block}.activity-status{margin-top:12px}.activity-row{grid-template-columns:1fr}.activity-row-side{text-align:left;white-space:normal}}@media(max-width:430px){.activity-summary-grid{grid-template-columns:1fr}.activity-customer-head{padding:16px}.activity-search-result{grid-template-columns:1fr}}
+</style>
 <style id="wooten-account-applications-style">
 .application-filters{display:grid;grid-template-columns:minmax(280px,2fr) minmax(170px,1fr) minmax(180px,1fr);gap:14px;margin:22px 0 4px}.application-filters label{display:block;margin-bottom:7px}.application-filters input,.application-filters select{width:100%;height:54px;border:1px solid #cbd8e3;border-radius:12px;background-color:#fff;color:#172d44;padding:0 16px;font-size:16px;box-shadow:inset 0 1px 2px rgba(15,39,66,.035);transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease}.application-filters input::placeholder{color:#75869a}.application-filters select{appearance:none;-webkit-appearance:none;padding-right:46px;background-image:linear-gradient(45deg,transparent 50%,#233a52 50%),linear-gradient(135deg,#233a52 50%,transparent 50%);background-position:calc(100% - 19px) 24px,calc(100% - 13px) 24px;background-size:6px 6px,6px 6px;background-repeat:no-repeat}.application-filters input:hover,.application-filters select:hover{border-color:#9fb1c1;background-color:#fbfdff}.application-filters input:focus,.application-filters select:focus{outline:none;border-color:#1e6fa8;box-shadow:0 0 0 3px rgba(30,111,168,.14)}.account-applications-panel>.actions{margin-top:24px}.account-applications-panel #applicationLoadProgress{margin-top:14px;margin-bottom:0}.application-list{display:grid;gap:14px;margin-top:18px}.application-card{overflow:hidden;border:1px solid #d5e0e9;border-radius:14px;background:#fff}.application-summary{width:100%;display:grid;grid-template-columns:minmax(240px,2fr) minmax(135px,.8fr) minmax(155px,1fr) auto;gap:16px;align-items:center;border:0;background:#f7fafc;padding:17px 19px;text-align:left;color:#122840;cursor:pointer}.application-summary:hover{background:#f0f6fa}.application-summary strong{display:block;font-size:17px}.application-summary small{display:block;margin-top:3px;color:#66798e}.application-type,.application-status-badge{display:inline-flex;width:max-content;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;text-transform:uppercase}.application-type{background:#e8f1f8;color:#215b84}.application-status-badge{background:#fff0d6;color:#8a5700}.application-status-badge.approved{background:#def5e8;color:#087241}.application-status-badge.declined{background:#ffe4e4;color:#a11f1f}.application-status-badge.under_review{background:#e9e7ff;color:#5040a3}.application-detail{padding:20px}.application-detail[hidden]{display:none}.application-info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.application-info{min-width:0;border:1px solid #e0e7ed;border-radius:10px;padding:11px 12px}.application-info span{display:block;color:#6b7d90;font-size:11px;font-weight:900;text-transform:uppercase}.application-info strong{display:block;margin-top:3px;overflow-wrap:anywhere}.application-info.full{grid-column:1/-1}.application-documents{display:flex;gap:10px;flex-wrap:wrap;margin:17px 0}.application-review{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(260px,2fr) auto;gap:12px;align-items:end;padding-top:17px;border-top:1px solid #e2e9ef}.application-review label{display:block}.application-review select,.application-review textarea{width:100%;margin-top:6px;border:1px solid #cbd8e3;border-radius:11px;background:#fff;color:#172d44;padding:11px 13px}.application-review select{min-height:48px}.application-review textarea{min-height:76px;resize:vertical}.application-review select:focus,.application-review textarea:focus{outline:none;border-color:#1e6fa8;box-shadow:0 0 0 3px rgba(30,111,168,.14)}.application-empty{padding:28px;border:1px dashed #cbd8e3;border-radius:12px;text-align:center;color:#687b90}
 @media(max-width:850px){.application-filters,.application-info-grid,.application-review{grid-template-columns:1fr}.application-summary{grid-template-columns:1fr auto}.application-summary>div:nth-child(2),.application-summary>div:nth-child(3){grid-column:1}.application-review button{width:100%}}
+</style>
+<style id="wooten-admin-users-style">
+.admin-user-editor,.admin-user-list-section,.admin-audit-section{margin-top:22px;padding:20px;border:1px solid #d8e2ea;border-radius:15px;background:#f8fafc}.admin-user-editor h3{margin-top:0}.admin-user-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.admin-user-fields input{width:100%}.admin-user-permissions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:17px}.admin-user-permissions label,.admin-user-active{display:flex;align-items:center;gap:9px;margin:0;padding:11px;border:1px solid #d8e2ea;border-radius:10px;background:#fff}.admin-user-permissions input,.admin-user-active input{width:18px;height:18px}.admin-user-active{width:max-content;margin-top:13px}.admin-users-list{display:grid;gap:10px;margin-top:14px}.admin-user-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr) auto;gap:14px;align-items:center;padding:14px;border:1px solid #d8e2ea;border-radius:11px;background:#fff}.admin-user-row strong,.admin-user-row small{display:block}.admin-user-row small{color:#6a7b8c;margin-top:3px}.admin-user-permission-tags{display:flex;flex-wrap:wrap;gap:5px}.admin-user-permission-tags span{padding:4px 7px;border-radius:999px;background:#e8f1f8;color:#245b82;font-size:11px;font-weight:800}.admin-user-disabled{color:#a12626!important}.admin-audit-section .tablewrap{max-height:390px}.admin-audit-section td{white-space:normal;vertical-align:top}.import-last-update small{display:block;margin-top:3px;color:#65778a;font-weight:700}
+@media(max-width:850px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr 1fr}.admin-user-row{grid-template-columns:1fr}.admin-user-row button{width:100%}}@media(max-width:560px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr}.admin-user-active{width:100%}}
 </style>
 </head>
 <body>
@@ -3165,22 +3181,22 @@ input[type="file"]::file-selector-button{
         <div class="admin-login-accent"></div>
       </div>
 
-      <div class="admin-login-authorized">Sign in with the administrator account and your private Admin Import Key to open the Wooten Oil customer administration tools.</div>
+      <div class="admin-login-authorized">Sign in with your individual administrator username and password. The Wooten Oil owner may continue using <strong>Admin</strong> with the private Admin Import Key.</div>
 
       <div class="admin-login-grid">
         <div class="admin-login-field">
           <label for="adminLoginName">User Name</label>
           <div class="admin-login-input-wrap">
             <span class="admin-login-input-icon" aria-hidden="true">♙</span>
-            <input id="adminLoginName" type="text" value="Admin" readonly aria-readonly="true" autocomplete="username">
+            <input id="adminLoginName" type="text" value="Admin" autocomplete="username" placeholder="Enter username">
           </div>
         </div>
 
         <div class="admin-login-field">
-          <label for="adminKeyPrompt">Admin Import Key</label>
+          <label for="adminKeyPrompt">Password / Owner Admin Key</label>
           <div class="admin-login-input-wrap">
             <span class="admin-login-input-icon" aria-hidden="true">⌕</span>
-            <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Enter Admin Import Key">
+            <input id="adminKeyPrompt" type="password" autocomplete="current-password" placeholder="Enter password">
           </div>
         </div>
       </div>
@@ -3222,11 +3238,13 @@ input[type="file"]::file-selector-button{
   <div class="admin-tabs-shell">
     <nav class="admin-tabs" role="tablist" aria-label="Wooten Oil admin pages">
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-customers" data-admin-tab="customers">Database</button>
+      <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity">Customer Activity</button>
       <button class="admin-tab" id="admin-tab-btn-notifications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-notifications" data-admin-tab="notifications">Notifications</button>
       <button class="admin-tab" id="admin-tab-btn-documents" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-documents" data-admin-tab="documents">Statements &amp; Invoices</button>
       <button class="admin-tab" id="admin-tab-btn-communication" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-communication" data-admin-tab="communication">Communication History</button>
       <button class="admin-tab" id="admin-tab-btn-settings" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-settings" data-admin-tab="settings">Communications Settings</button>
       <button class="admin-tab" id="admin-tab-btn-applications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-applications" data-admin-tab="applications">Account Applications</button>
+      <button class="admin-tab" id="admin-tab-btn-users" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-users" data-admin-tab="users">Admin Users</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation">Account Activation</button>
     </nav>
   </div>
@@ -3260,6 +3278,7 @@ input[type="file"]::file-selector-button{
     <div class="import-last-update" id="customerImportLastUpdate">
       <span class="import-last-update-label">Last customer file update</span>
       <strong id="customerImportLastUpdateValue">Not imported yet</strong>
+      <small id="customerImportLastUpdateBy">Imported by: —</small>
     </div>
 
     <div id="status" class="status"></div>
@@ -3354,6 +3373,7 @@ input[type="file"]::file-selector-button{
       <div class="import-last-update" id="paymentImportLastUpdate">
         <span class="import-last-update-label">Last payment file update</span>
         <strong id="paymentImportLastUpdateValue">Not imported yet</strong>
+        <small id="paymentImportLastUpdateBy">Imported by: —</small>
       </div>
 
       <div id="paymentImportStatus" class="status"></div>
@@ -4140,6 +4160,13 @@ input[type="file"]::file-selector-button{
 
   </div>
 
+  <div class="card admin-tab-panel" id="admin-tab-activity" role="tabpanel" aria-labelledby="admin-tab-btn-activity" data-admin-panel="activity">
+    <div class="admin-page-label">Customer Center</div><h2>Customer Activity Dashboard</h2><p>Search for one customer to review their account, balances, payments, documents, communications, fuel requests, applications, and portal sign-in activity in one place.</p>
+    <div class="activity-search-row"><div><label for="activityCustomerSearch">Find Customer</label><input id="activityCustomerSearch" type="search" autocomplete="off" placeholder="Customer number, name, email, or phone"></div><button class="primary" id="activityCustomerSearchBtn" type="button">Search Customer</button></div>
+    <div class="preview-progress activity-progress" id="activityLoadProgress" hidden><div class="preview-progress-head"><strong>Loading customer activity…</strong><span id="activityLoadProgressCount">Preparing</span></div><div class="preview-progress-track" id="activityLoadProgressTrack" role="progressbar" aria-label="Customer activity loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="activityLoadProgressBar"></span></div></div>
+    <div id="activityStatus" class="status"></div><div id="activitySearchResults" class="activity-search-results"></div><div id="activityDashboard" class="activity-dashboard" hidden></div>
+  </div>
+
   <div class="card admin-tab-panel account-applications-panel" id="admin-tab-applications" role="tabpanel" aria-labelledby="admin-tab-btn-applications" data-admin-panel="applications">
     <div class="admin-page-label">New Accounts</div>
     <h2>Account Applications</h2>
@@ -4157,6 +4184,17 @@ input[type="file"]::file-selector-button{
     <div id="applicationAdminStatus" class="status"></div>
     <div id="applicationList" class="application-list"></div>
     <div class="db-pagination" id="applicationPagination" hidden><button class="secondary" id="applicationPrev" type="button">Previous 20</button><div class="db-page-info" id="applicationPageInfo">Page 1 of 1</div><button class="secondary" id="applicationNext" type="button">Next 20</button></div>
+  </div>
+
+  <div class="card admin-tab-panel" id="admin-tab-users" role="tabpanel" aria-labelledby="admin-tab-btn-users" data-admin-panel="users">
+    <div class="admin-page-label">Access Control</div><h2>Admin Users &amp; Permissions</h2><p>Create individual administrator accounts and choose exactly which sections each person can access. The owner Admin Import Key always retains full access.</p>
+    <section class="admin-user-editor"><h3 id="adminUserEditorTitle">Add Admin User</h3><input id="adminUserId" type="hidden">
+      <div class="admin-user-fields"><div><label for="adminUserDisplayName">Full Name</label><input id="adminUserDisplayName" type="text" maxlength="100" placeholder="Employee name"></div><div><label for="adminUserUsername">Username</label><input id="adminUserUsername" type="text" maxlength="60" autocomplete="off" placeholder="Login username"></div><div><label for="adminUserPassword">Password</label><input id="adminUserPassword" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters"></div></div>
+      <div class="admin-user-permissions" role="group" aria-label="Admin permissions"><label><input type="checkbox" value="database"> Database &amp; Imports</label><label><input type="checkbox" value="customer_activity"> Customer Activity</label><label><input type="checkbox" value="notifications"> Notifications</label><label><input type="checkbox" value="statements"> Statements &amp; Invoices</label><label><input type="checkbox" value="communication"> Communication History</label><label><input type="checkbox" value="communications_settings"> Communications Settings</label><label><input type="checkbox" value="applications"> Account Applications</label><label><input type="checkbox" value="activation"> Account Activation</label><label><input type="checkbox" value="manage_users"> Manage Admin Users</label></div>
+      <label class="admin-user-active"><input id="adminUserActive" type="checkbox" checked> Active — user may sign in</label><div class="actions"><button class="primary" id="adminUserSave" type="button">Create User</button><button class="secondary" id="adminUserCancel" type="button" hidden>Cancel Editing</button></div><div id="adminUserStatus" class="status"></div>
+    </section>
+    <section class="admin-user-list-section"><div class="statement-batch-head"><h3>Admin Users</h3><button class="secondary" id="adminUsersRefresh" type="button">Refresh</button></div><div id="adminUsersList" class="admin-users-list"></div></section>
+    <section class="admin-audit-section"><div class="statement-batch-head"><h3>Recent Admin Activity</h3><p>Latest 100 recorded admin actions, including imports and application reviews.</p></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table></div></section>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -4297,11 +4335,13 @@ function formatImportUpdateDate(value){
   });
 }
 
-function setImportLastUpdate(kind,value){
+function setImportLastUpdate(kind,value,by){
   const el=document.getElementById(
     kind==="payments" ? "paymentImportLastUpdateValue" : "customerImportLastUpdateValue"
   );
   if(el) el.textContent=formatImportUpdateDate(value);
+  const byEl=document.getElementById(kind==="payments"?"paymentImportLastUpdateBy":"customerImportLastUpdateBy");
+  if(byEl)byEl.textContent="Imported by: "+(by||"—");
 }
 
 async function loadImportLastUpdates(){
@@ -4314,8 +4354,8 @@ async function loadImportLastUpdates(){
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok || data.success===false) return;
-    setImportLastUpdate("customers",data.customers_last_import_at||"");
-    setImportLastUpdate("payments",data.payments_last_import_at||"");
+    setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"");
+    setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"");
   }catch(e){
     console.warn("Could not load import update times",e);
   }
@@ -4651,7 +4691,7 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
       updateImportProgress("customers",{processed,total,imported,batch:currentBatch,batches,label:"Importing customers"});
       setStatus(`Importing customers: ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches}.`);
     }
-    if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt);
+    if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt,window.wootenAdminUser?.display_name||"Wooten Oil Owner");
     updateImportProgress("customers",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Customer import complete"});
     setStatus(`Success: ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}.`);
   }catch(e){
@@ -4901,7 +4941,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     }
 
     document.getElementById("pmImported").textContent=imported;
-    if(latestPaymentImportAt) setImportLastUpdate("payments",latestPaymentImportAt);
+    if(latestPaymentImportAt) setImportLastUpdate("payments",latestPaymentImportAt,window.wootenAdminUser?.display_name||"Wooten Oil Owner");
     updateImportProgress("payments",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Payment import complete"});
     setPaymentStatus(
       `Payment import complete: ${imported} new payment(s) added`+
@@ -7584,7 +7624,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const accessMeta=document.getElementById('adminAccessMeta');
   const submitBtn=form ? form.querySelector('button[type="submit"]') : null;
   const storageKey='wootenAdminLoginSession';
-  const validationUrl='/api/admin/statement-customers';
+  let currentUser=null;
+
+  function applyPermissions(user){
+    currentUser=user||null;window.wootenAdminUser=currentUser;
+    const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
+    const mapping={customers:'database',activity:'customer_activity',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',activation:'activation',users:'manage_users'};
+    let firstVisible=null;
+    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const allowed=!!user&&(user.owner||permissions.has(mapping[tab.dataset.adminTab]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
+    const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
+  }
 
   function setStatus(message,bad){
     if(!status) return;
@@ -7605,11 +7654,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   function updateAccessMeta(){
-    loginName.value='Admin';
     const hasKey=!!(keyField.value||'').trim();
     if(openBtn) openBtn.textContent='Logout / Change Key';
     if(!accessMeta) return;
-    accessMeta.textContent=hasKey ? 'Signed in as Admin' : 'Locked • Login required';
+    accessMeta.textContent=hasKey ? 'Signed in as '+String(currentUser?.display_name||currentUser?.username||'Administrator') : 'Locked • Login required';
   }
 
   function openLogin(options){
@@ -7629,7 +7677,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   function saveSession(){
     try{
-      sessionStorage.setItem(storageKey, JSON.stringify({login:'Admin', key:(keyField.value||'').trim()}));
+      sessionStorage.setItem(storageKey, JSON.stringify({login:loginName.value.trim(), key:(keyField.value||'').trim(),user:currentUser}));
     }catch(_e){}
   }
 
@@ -7637,15 +7685,21 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{ sessionStorage.removeItem(storageKey); }catch(_e){}
   }
 
-  async function validateAdminKey(key){
-    const response = await fetch(validationUrl, {
-      method:'GET',
-      headers:{'X-Admin-Key':key,'Accept':'application/json'},
+  async function loginAdmin(username,password){
+    const response = await fetch('/api/admin/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({username,password}),
       cache:'no-store'
     });
-    if(response.status===401) return {ok:false, reason:'invalid'};
-    if(response.ok || response.status===503) return {ok:true};
-    return {ok:false, reason:'server', status:response.status};
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data.success)return {ok:false,reason:response.status===401?'invalid':'server',error:data.error};
+    return {ok:true,token:data.token,user:data.user};
+  }
+
+  async function validateSession(key){
+    const response=await fetch('/api/admin/auth/me',{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});const data=await response.json().catch(()=>({}));
+    return response.ok&&data.success?{ok:true,user:data.user}:{ok:false};
   }
 
   async function tryRestoreSession(){
@@ -7655,14 +7709,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const data=JSON.parse(raw)||{};
       const savedKey=String(data.key||'').trim();
       if(!savedKey) return false;
-      const check=await validateAdminKey(savedKey);
+      const check=await validateSession(savedKey);
       if(!check.ok){
         clearSession();
         return false;
       }
-      loginName.value='Admin';
+      loginName.value=String(data.login||check.user?.username||'Admin');
       keyField.value=savedKey;
       keyPrompt.value=savedKey;
+      applyPermissions(check.user||data.user);
       updateAccessMeta();
       closeLogin();
       loadImportLastUpdates();
@@ -7681,27 +7736,28 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   form.addEventListener('submit', async function(e){
     e.preventDefault();
-    loginName.value='Admin';
+    const username=(loginName.value||'').trim();
     const key=(keyPrompt.value||'').trim();
-    if(!key){
-      setStatus('Enter your Admin Import Key.',true);
+    if(!username||!key){
+      setStatus('Enter your username and password.',true);
       keyPrompt.focus();
       return;
     }
     setBusy(true);
     clearStatus();
     try{
-      const check=await validateAdminKey(key);
+      const check=await loginAdmin(username,key);
       if(!check.ok){
         keyField.value='';
-        if(check.reason==='invalid') setStatus('Invalid Admin Import Key.',true);
-        else setStatus('Could not verify the Admin Import Key right now. Please try again.',true);
+        if(check.reason==='invalid') setStatus('Invalid username or password.',true);
+        else setStatus(check.error||'Could not verify administrator access right now. Please try again.',true);
         keyPrompt.focus();
         keyPrompt.select();
         updateAccessMeta();
         return;
       }
-      keyField.value=key;
+      keyField.value=check.token;
+      applyPermissions(check.user);
       saveSession();
       updateAccessMeta();
       setStatus('Access granted.',false);
@@ -7709,7 +7765,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       loadImportLastUpdates();
     }catch(_error){
       keyField.value='';
-      setStatus('Could not verify the Admin Import Key right now. Please try again.',true);
+      setStatus('Could not verify administrator access right now. Please try again.',true);
       keyPrompt.focus();
       keyPrompt.select();
       updateAccessMeta();
@@ -7720,12 +7776,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   if(openBtn){
     openBtn.addEventListener('click',function(){
+      const oldKey=(keyField.value||'').trim();if(oldKey)fetch('/api/admin/auth/logout',{method:'POST',headers:{'X-Admin-Key':oldKey}}).catch(()=>{});
       clearSession();
       keyField.value='';
       keyPrompt.value='';
+      applyPermissions(null);
       updateAccessMeta();
       openLogin();
-      setStatus('Signed out. Enter the Admin Import Key to sign in again or use a different key.',false);
+      setStatus('Signed out. Enter a username and password, or use Admin with the owner key.',false);
     });
   }
 
@@ -7742,7 +7800,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 
   loginName.value='Admin';
-  loginName.setAttribute('readonly','readonly');
   updateAccessMeta();
   tryRestoreSession().then(function(restored){
     if(!restored) openLogin();
@@ -7794,6 +7851,47 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   </div>
 </div>
 
+<script id="wooten-admin-users-script">
+(()=>{
+  const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus');let loaded=false;
+  const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const labels={database:'Database & Imports',customer_activity:'Customer Activity',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation',manage_users:'Manage Admin Users'};
+  function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
+  function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
+  function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
+  function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
+  async function load(){try{const [usersRes,auditRes]=await Promise.all([fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()}})]);const usersData=await usersRes.json().catch(()=>({})),auditData=await auditRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);renderAudit(auditData.entries||[]);loaded=true;}catch(error){message(error.message||'Admin users could not be loaded.',false);}}
+  async function save(){const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!id&&body.password.length<8){message('Enter a password containing at least 8 characters.',false);return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
+  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
+  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminUsersRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
+})();
+</script>
+
+<script id="wooten-customer-activity-script">
+(()=>{
+  const get=id=>document.getElementById(id),search=get('activityCustomerSearch'),searchBtn=get('activityCustomerSearchBtn'),results=get('activitySearchResults'),dashboard=get('activityDashboard'),status=get('activityStatus'),progress=get('activityLoadProgress'),progressBar=get('activityLoadProgressBar'),progressTrack=get('activityLoadProgressTrack'),progressCount=get('activityLoadProgressCount');let timer;
+  const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const money=v=>Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD'});const date=v=>{if(!v)return '—';const parsed=new Date(String(v).replace(' ','T')+(String(v).includes('Z')?'':'Z'));return Number.isNaN(parsed.getTime())?String(v):parsed.toLocaleString();};
+  function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
+  function startProgress(){let n=8;progress.hidden=false;progressBar.style.width=n+'%';progressTrack.setAttribute('aria-valuenow',String(n));progressCount.textContent='Preparing';return setInterval(()=>{n=Math.min(91,n+(n<60?10:n<80?5:2));progressBar.style.width=n+'%';progressTrack.setAttribute('aria-valuenow',String(n));progressCount.textContent=n+'%';},140);}
+  async function finishProgress(handle){clearInterval(handle);progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(r=>setTimeout(r,260));progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');}
+  function empty(text){return '<div class="activity-empty">'+esc(text)+'</div>';}
+  function section(title,rows,wide=false){return '<section class="activity-section'+(wide?' activity-wide':'')+'"><div class="activity-section-head"><h3>'+esc(title)+'</h3><span class="activity-count">'+rows.length+'</span></div><div class="activity-list">'+(rows.join('')||empty('No activity recorded.'))+'</div></section>';}
+  function render(data){const c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),total=ages.reduce((a,b)=>a+(Number.isFinite(b)?b:0),0),address=[c.address1,c.address2,c.address3,c.city,c.state,c.zip_code].filter(Boolean).join(', '),active=!c.account_status||String(c.account_status).toLowerCase()==='active';
+    const payments=(data.payments||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.reference||r.description||'Payment')+'</strong><small>Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'')+'</small></div><div class="activity-row-side"><strong>'+money(r.amount)+'</strong><small>Posted '+esc(r.posting_date||r.payment_date||'—')+'</small></div></div>');
+    const documents=(data.documents||[]).map(r=>'<div class="activity-row"><div><button class="activity-link" type="button" data-activity-document="'+Number(r.id)+'">'+esc(r.title||r.filename||'PDF Document')+'</button><small>'+esc(String(r.document_type||'document').toUpperCase())+' • '+esc(r.filename||'PDF')+'</small></div><div class="activity-row-side"><strong>'+esc(r.document_date||'—')+'</strong><small>'+date(r.created_at)+'</small></div></div>');
+    const communications=(data.communications||[]).map(r=>{const channels=[];if(Number(r.portal_sent))channels.push('<span>Portal</span>');if(Number(r.email_sent))channels.push('<span>Email</span>');if(Number(r.sms_sent))channels.push('<span class="'+(String(r.sms_status||'').match(/failed|undelivered|opted/i)?'failed':'')+'">SMS '+esc(r.sms_status||'Sent')+'</span>');return '<div class="activity-row"><div><strong>'+esc(String(r.event_type||'Activity').toUpperCase())+' — '+esc(r.title||'')+'</strong><small>'+esc(r.detail||r.error_text||'')+'</small><div class="activity-delivery">'+channels.join('')+'</div></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});
+    const fuel=(data.fuel_requests||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.request_number)+' — '+esc(r.fuel_type||'Fuel Request')+'</strong><small>'+esc(r.gallons||'—')+' gallons • '+esc(r.delivery_address||'No address')+'</small></div><div class="activity-row-side"><strong>'+esc(r.delivery_date||'Flexible')+'</strong><small>'+date(r.received_at)+'</small></div></div>');
+    const applications=(data.applications||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.application_number)+'</strong><small>'+esc(r.application_type)+' • '+esc(r.business_name||r.full_name||'')+'</small></div><div class="activity-row-side"><strong>'+esc(String(r.status||'new').replaceAll('_',' '))+'</strong><small>'+date(r.created_at)+(r.reviewed_by?' • '+esc(r.reviewed_by):'')+'</small></div></div>');
+    const logins=(data.login_activity||[]).map(r=>{const success=r.result==='success';return '<div class="activity-row"><div><strong class="'+(success?'activity-login-success':'activity-login-failed')+'">'+(success?'Successful sign-in':esc(String(r.result||'Login').replaceAll('_',' ')))+'</strong><small>'+esc(r.user_agent||'Device information unavailable')+'</small></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});
+    dashboard.innerHTML='<div class="activity-customer-head"><div><h3>'+esc(c.account_name||'Customer')+'</h3><p>Customer # '+esc(c.account_number||'')+'</p><div class="activity-address">'+esc(address||'No address on file')+'</div></div><span class="activity-status">'+(active?'Active':'Inactive')+'</span></div><div class="activity-contact-line"><span class="activity-chip">'+esc(c.email||'No email')+'</span><span class="activity-chip">'+esc(c.phone||'No phone')+'</span><span class="activity-chip">Cycle '+esc(c.statement_cycle||'B')+'</span><span class="activity-chip">Portal '+(Number(c.online_activated)?'Activated':'Not Activated')+'</span><span class="activity-chip">Delivery: '+[Number(c.portal_enabled)?'Portal':'',Number(c.email_enabled)?'Email':'',Number(c.sms_enabled)?'SMS':''].filter(Boolean).join(', ')+'</span></div><div class="activity-summary-grid">'+[['Current Balance',ages[0]],['Aging 1',ages[1]],['Aging 2',ages[2]],['Aging 3',ages[3]],['Aging 4',ages[4]],['Total Balance',total]].map(x=>'<div class="activity-summary"><span>'+x[0]+'</span><strong>'+money(x[1])+'</strong></div>').join('')+'</div><div class="activity-sections">'+section('Recent Payments',payments)+section('Statements & Invoices',documents)+section('Communication History',communications,true)+section('Fuel Requests',fuel)+section('Account Applications',applications)+section('Portal Sign-in Activity',logins,true)+'</div>';dashboard.hidden=false;results.innerHTML='';message('Customer activity loaded.',true);
+  }
+  async function findCustomers(){const q=search.value.trim();dashboard.hidden=true;if(q.length<2){results.innerHTML='';message('Enter at least two letters or numbers.',false);return;}searchBtn.disabled=true;searchBtn.textContent='Searching…';message('');try{const response=await fetch('/api/admin/customer-activity?search='+encodeURIComponent(q),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer search failed.');const rows=data.matches||[];results.innerHTML=rows.length?rows.map(r=>'<button class="activity-search-result" type="button" data-activity-account="'+esc(r.account_number)+'"><span><strong>'+esc(r.account_name||'Customer')+'</strong><small># '+esc(r.account_number)+' • '+esc(r.email||r.phone||'No contact information')+'</small></span><strong>'+money(r.current_balance)+'</strong></button>').join(''):empty('No customers match this search.');message(rows.length+' customer(s) found.',true);if(rows.length===1&&(rows[0].account_number===q.replace(/\D/g,'').padStart(7,'0')||String(rows[0].account_name||'').toLowerCase()===q.toLowerCase()))loadActivity(rows[0].account_number);}catch(error){message(error.message||'Customer search failed.',false);}finally{searchBtn.disabled=false;searchBtn.textContent='Search Customer';}}
+  async function loadActivity(account){const handle=startProgress();results.innerHTML='';dashboard.hidden=true;message('');try{const response=await fetch('/api/admin/customer-activity?account_number='+encodeURIComponent(account),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer activity could not be loaded.');render(data);}catch(error){message(error.message||'Customer activity could not be loaded.',false);}finally{await finishProgress(handle);}}
+  async function openDocument(id){try{const response=await fetch('/api/admin/customer-activity/documents/'+encodeURIComponent(id)+'/file',{headers:{'X-Admin-Key':key()}});if(!response.ok)throw new Error(await response.text()||'PDF could not be opened.');const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){message(error.message||'PDF could not be opened.',false);}}
+  searchBtn.addEventListener('click',findCustomers);search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findCustomers();}});search.addEventListener('input',()=>{clearTimeout(timer);if(search.value.trim().length>=3)timer=setTimeout(findCustomers,450);});results.addEventListener('click',e=>{const button=e.target.closest('[data-activity-account]');if(button)loadActivity(button.dataset.activityAccount);});dashboard.addEventListener('click',e=>{const button=e.target.closest('[data-activity-document]');if(button)openDocument(button.dataset.activityDocument);});
+})();
+</script>
+
 <script id="wooten-account-applications-script">
 (()=>{
   const get=id=>document.getElementById(id),list=get('applicationList'),loadBtn=get('applicationLoad'),progress=get('applicationLoadProgress'),progressCount=get('applicationLoadProgressCount'),progressTrack=get('applicationLoadProgressTrack'),progressBar=get('applicationLoadProgressBar'),statusBox=get('applicationAdminStatus'),pagination=get('applicationPagination'),pageInfo=get('applicationPageInfo');
@@ -7810,7 +7908,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       '<div class="application-detail" hidden><div class="application-info-grid">'+
       info('Application #',row.application_number)+info('Account Type',row.application_type)+info('Submitted',new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+
       (row.application_type==='business'?info('Legal Business Name',row.business_name)+info('DBA / Trade Name',row.dba_name)+info('Tax ID Last 4',row.tax_id_last4)+info('Years in Business',row.years_in_business):'')+
-      info('Applicant / Contact',row.full_name)+info('Job Title',row.job_title)+info('Preferred Contact',row.preferred_contact)+info('Email',row.email)+info('Phone',row.phone)+info('Address',[row.address_1,row.city,row.state,row.zip_code].filter(Boolean).join(', '),true)+info('Fuel Needs / Applicant Notes',row.applicant_notes,true)+'</div>'+
+      info('Applicant / Contact',row.full_name)+info('Job Title',row.job_title)+info('Preferred Contact',row.preferred_contact)+info('Email',row.email)+info('Phone',row.phone)+info('Last Reviewed By',row.reviewed_by?row.reviewed_by+(row.reviewed_at?' • '+new Date(String(row.reviewed_at).replace(' ','T')+'Z').toLocaleString():''):'Not reviewed yet')+info('Support Notification Email',Number(row.support_email_sent)?'Sent':'Failed')+info('Applicant Confirmation Email',Number(row.applicant_email_sent)?'Sent':'Failed')+info('Applicant Confirmation SMS',Number(row.confirmation_sms_sent)?'Sent':'Failed')+info('Address',[row.address_1,row.city,row.state,row.zip_code].filter(Boolean).join(', '),true)+info('Fuel Needs / Applicant Notes',row.applicant_notes,true)+(row.notification_error?info('Notification Delivery Details',row.notification_error,true):'')+'</div>'+
       '<div class="application-documents">'+(row.has_tax_document?'<button class="secondary" type="button" data-application-file="tax">Open Tax ID Document</button>':'')+'<button class="secondary" type="button" data-application-file="identity">Open Driver’s License / State ID</button></div>'+
       '<div class="application-review"><label>Review Status<select data-application-status><option value="new"'+(row.status==='new'?' selected':'')+'>New</option><option value="under_review"'+(row.status==='under_review'?' selected':'')+'>Under Review</option><option value="approved"'+(row.status==='approved'?' selected':'')+'>Approved</option><option value="declined"'+(row.status==='declined'?' selected':'')+'>Declined</option></select></label><label>Private Admin Notes<textarea data-application-notes maxlength="3000" placeholder="Add private review notes…">'+esc(row.admin_notes||'')+'</textarea></label><button class="primary" type="button" data-application-save>Save Review</button></div></div></article>';}).join('');
   }
