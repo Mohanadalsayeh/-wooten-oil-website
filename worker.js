@@ -7141,7 +7141,7 @@ async function adminStatementSchedulingRun({request,env}){
 }
 __name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
 
-const ADMIN_PERMISSION_KEYS=["database","customer_activity","notifications","statements","communication","communications_settings","applications","activation","manage_users"];
+const ADMIN_PERMISSION_KEYS=["database","customer_activity","notifications","statements","communication","communications_settings","applications","activation"];
 async function ensureAdminUsersTables(env){
   if(!env?.DB) throw new Error("Admin user database is not configured.");
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,permissions TEXT NOT NULL DEFAULT '[]',active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
@@ -7191,6 +7191,7 @@ async function adminAuthorizeRequest(request,env,path){
   const credential=String(request.headers.get("X-Admin-Key")||"");
   if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Owner");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Owner",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
   const session=await adminSessionFromCredential(env,credential);if(!session)return {response:notificationJson({success:false,error:"Your admin session is invalid or expired."},401)};
+  if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/audit"))return {response:notificationJson({success:false,error:"Only the Wooten Oil owner can manage administrator users."},403)};
   const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};
   const headers=new Headers(request.headers);headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY||""));headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");return {request:new Request(request,{headers}),actor:{id:session.user_id,name:session.display_name,owner:false,permissions:session.permissions}};
 }
