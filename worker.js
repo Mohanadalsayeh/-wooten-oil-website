@@ -747,7 +747,7 @@ async function ensureAdminImportMetadataSchema(env){
 }
 __name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
 
-async function recordAdminImport(env,type,count,actorName="Wooten Oil Owner"){
+async function recordAdminImport(env,type,count,actorName="Wooten Oil Admin"){
   await ensureAdminImportMetadataSchema(env);
   await env.DB.prepare(`
     INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count,last_import_by)
@@ -756,7 +756,7 @@ async function recordAdminImport(env,type,count,actorName="Wooten Oil Owner"){
       last_import_at=CURRENT_TIMESTAMP,
       last_record_count=excluded.last_record_count,
       last_import_by=excluded.last_import_by
-  `).bind(String(type||""),Number(count||0),String(actorName||"Wooten Oil Owner")).run();
+  `).bind(String(type||""),Number(count||0),String(actorName||"Wooten Oil Admin")).run();
 
   const row=await env.DB.prepare(`
     SELECT last_import_at,last_record_count,last_import_by
@@ -7157,9 +7157,9 @@ async function ensureAdminUsersTables(env){
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_sessions_user ON admin_sessions(user_id,expires_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT,actor_user_id INTEGER,actor_name TEXT NOT NULL,action_type TEXT NOT NULL,target_type TEXT,target_id TEXT,detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const auditInfo=await env.DB.prepare(`PRAGMA table_info(admin_audit_log)`).all();const auditColumns=new Set((auditInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
-  const auditAdditions=[["id","INTEGER"],["actor_user_id","INTEGER"],["actor_name","TEXT NOT NULL DEFAULT 'Wooten Oil Owner'"],["action_type","TEXT NOT NULL DEFAULT 'activity'"],["target_type","TEXT"],["target_id","TEXT"],["detail","TEXT"],["created_at","TEXT"]];
+  const auditAdditions=[["id","INTEGER"],["actor_user_id","INTEGER"],["actor_name","TEXT NOT NULL DEFAULT 'Wooten Oil Admin'"],["action_type","TEXT NOT NULL DEFAULT 'activity'"],["target_type","TEXT"],["target_id","TEXT"],["detail","TEXT"],["created_at","TEXT"]];
   for(const [name,definition] of auditAdditions)if(!auditColumns.has(name))await env.DB.prepare(`ALTER TABLE admin_audit_log ADD COLUMN ${name} ${definition}`).run();
-  await env.DB.prepare(`UPDATE admin_audit_log SET id=COALESCE(id,rowid),created_at=COALESCE(created_at,CURRENT_TIMESTAMP),actor_name=COALESCE(NULLIF(actor_name,''),'Wooten Oil Owner'),action_type=COALESCE(NULLIF(action_type,''),'activity')`).run();
+  await env.DB.prepare(`UPDATE admin_audit_log SET id=COALESCE(id,rowid),created_at=COALESCE(created_at,CURRENT_TIMESTAMP),actor_name=CASE WHEN actor_name='Wooten Oil Owner' THEN 'Wooten Oil Admin' ELSE COALESCE(NULLIF(actor_name,''),'Wooten Oil Admin') END,action_type=COALESCE(NULLIF(action_type,''),'activity')`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC,id DESC)`).run();
 }
 __name(ensureAdminUsersTables,"ensureAdminUsersTables");
@@ -7168,7 +7168,7 @@ function adminHexBytes(hex){const clean=String(hex||"");const out=new Uint8Array
 async function adminSha256(value){return adminBytesHex(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value||"")))));}
 async function adminPasswordHash(password,saltHex){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(password||"")),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:adminHexBytes(saltHex),iterations:100000},key,256);return adminBytesHex(new Uint8Array(bits));}
 function adminSafePermissions(value){let source=value;try{if(typeof source==="string")source=JSON.parse(source);}catch{source=[];}return [...new Set((Array.isArray(source)?source:[]).map(v=>String(v||"")).filter(v=>ADMIN_PERMISSION_KEYS.includes(v)))];}
-function adminRequestActor(request,env){return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Owner"),owner:(request.headers.get("X-Admin-Actor-Owner")||"")==="1"||((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
+function adminRequestActor(request,env){return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Admin"),owner:(request.headers.get("X-Admin-Actor-Owner")||"")==="1"||((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
 async function adminAudit(env,request,action,targetType="",targetId="",detail=""){try{await ensureAdminUsersTables(env);const actor=adminRequestActor(request,env);await env.DB.prepare(`INSERT INTO admin_audit_log(id,actor_user_id,actor_name,action_type,target_type,target_id,detail) VALUES ((SELECT COALESCE(MAX(id),0)+1 FROM admin_audit_log),?,?,?,?,?,?)`).bind(actor.id,actor.name,String(action||""),String(targetType||""),String(targetId||""),String(detail||"").slice(0,2000)).run();}catch(error){console.error("Admin audit could not be recorded",error);}}
 function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/audit"))return "manage_users";
@@ -7189,7 +7189,7 @@ async function adminSessionFromCredential(env,credential){
 }
 async function adminAuthorizeRequest(request,env,path){
   const credential=String(request.headers.get("X-Admin-Key")||"");
-  if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Owner");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Owner",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
+  if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
   const session=await adminSessionFromCredential(env,credential);if(!session)return {response:notificationJson({success:false,error:"Your admin session is invalid or expired."},401)};
   if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/audit"))return {response:notificationJson({success:false,error:"Only the Wooten Oil owner can manage administrator users."},403)};
   const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};
@@ -7197,12 +7197,12 @@ async function adminAuthorizeRequest(request,env,path){
 }
 async function adminAuthLogin({request,env}){
   try{if(!env.DB)return notificationJson({success:false,error:"Admin user database is not configured."},503);const body=await request.json();const username=String(body.username||"").trim();const password=String(body.password||"");if(!username||!password)return notificationJson({success:false,error:"Enter your username and password."},400);
-    if(env.ADMIN_IMPORT_KEY&&username==="Admin"&&password===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Owner",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});
+    if(env.ADMIN_IMPORT_KEY&&username==="Admin"&&password===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});
     await ensureAdminUsersTables(env);const user=await env.DB.prepare(`SELECT id,username,display_name,password_salt,password_hash,permissions,active FROM admin_users WHERE username=? COLLATE BINARY LIMIT 1`).bind(username).first();if(!user||!Number(user.active))return notificationJson({success:false,error:"Invalid username or password."},401);const hash=await adminPasswordHash(password,user.password_salt);if(hash!==user.password_hash)return notificationJson({success:false,error:"Invalid username or password."},401);
     const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+12 hours'))`).bind(tokenHash,user.id).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
   }catch(error){console.error("adminAuthLogin failed",error);return notificationJson({success:false,error:"Administrator login is unavailable."},500);}
 }
-async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Owner",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
+async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
 async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(credential&&credential!==String(env.ADMIN_IMPORT_KEY||"")&&env.DB){await ensureAdminUsersTables(env);await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();}return notificationJson({success:true});}
 async function adminUsersApi({request,env}){
   try{await ensureAdminUsersTables(env);if(request.method==="GET"){const users=await env.DB.prepare(`SELECT id,username,display_name,permissions,active,created_at,updated_at FROM admin_users ORDER BY display_name COLLATE NOCASE`).all();return notificationJson({success:true,users:(users?.results||[]).map(u=>({...u,permissions:adminSafePermissions(u.permissions)}))});}
@@ -7291,6 +7291,7 @@ async function ensureAccountApplicationsTable(env){
   const info=await env.DB.prepare(`PRAGMA table_info(account_applications)`).all();const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   if(!columns.has("reviewed_by"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_by TEXT`).run();
   if(!columns.has("reviewed_at"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_at TEXT`).run();
+  await env.DB.prepare(`UPDATE account_applications SET reviewed_by='Wooten Oil Admin' WHERE reviewed_by='Wooten Oil Owner'`).run();
   const additions=[["sms_confirmation_consent","INTEGER NOT NULL DEFAULT 0"],["support_email_sent","INTEGER NOT NULL DEFAULT 0"],["support_email_id","TEXT"],["applicant_email_sent","INTEGER NOT NULL DEFAULT 0"],["applicant_email_id","TEXT"],["confirmation_sms_sent","INTEGER NOT NULL DEFAULT 0"],["confirmation_sms_sid","TEXT"],["notification_error","TEXT"],["notification_sent_at","TEXT"]];
   for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN ${name} ${definition}`).run();
 }
