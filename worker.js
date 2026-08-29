@@ -622,10 +622,15 @@ async function ensureCustomerStatementCycleColumn(env){
   const info=await env.DB.prepare(`PRAGMA table_info(customers)`).all();
   const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   if(!columns.has("statement_cycle")){
-    await env.DB.prepare(`ALTER TABLE customers ADD COLUMN statement_cycle TEXT NOT NULL DEFAULT 'B'`).run();
+    await env.DB.prepare(`ALTER TABLE customers ADD COLUMN statement_cycle TEXT NOT NULL DEFAULT 'A'`).run();
   }
-  await env.DB.prepare(`UPDATE customers SET statement_cycle='C' WHERE upper(trim(COALESCE(statement_cycle,'')))='W'`).run();
-  await env.DB.prepare(`UPDATE customers SET statement_cycle='B' WHERE upper(trim(COALESCE(statement_cycle,''))) NOT IN ('A','B','C')`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS portal_schema_migrations (migration_key TEXT PRIMARY KEY,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  const migration=await env.DB.prepare(`INSERT OR IGNORE INTO portal_schema_migrations(migration_key) VALUES ('statement_cycles_ab_v2')`).run();
+  if(Number(migration?.meta?.changes||0)>0){
+    await env.DB.prepare(`UPDATE customers SET statement_cycle=CASE WHEN upper(trim(COALESCE(statement_cycle,''))) IN ('C','W') THEN 'B' ELSE 'A' END,updated_at=CURRENT_TIMESTAMP`).run();
+  }
+  await env.DB.prepare(`UPDATE customers SET statement_cycle='B' WHERE upper(trim(COALESCE(statement_cycle,''))) IN ('C','W')`).run();
+  await env.DB.prepare(`UPDATE customers SET statement_cycle='A' WHERE upper(trim(COALESCE(statement_cycle,''))) NOT IN ('A','B')`).run();
 }
 __name(ensureCustomerStatementCycleColumn,"ensureCustomerStatementCycleColumn");
 async function onRequestPost3({ request, env }) {
@@ -712,7 +717,7 @@ async function onRequestPost3({ request, env }) {
         numberValue(row?.aging_category_2),
         numberValue(row?.aging_category_3),
         numberValue(row?.aging_category_4),
-        (()=>{const cycle=text(row?.statement_cycle).toUpperCase();return cycle==="A"||cycle==="B"||cycle==="C"?cycle:cycle==="W"?"C":"B";})()
+        (()=>{const cycle=text(row?.statement_cycle).toUpperCase();return cycle==="C"||cycle==="W"?"B":"A";})()
       )
     );
   }
@@ -6584,18 +6589,18 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     const headerY=600,rowH=24,tableRight=570;
     pRect(42,headerY,528,28,navy);
     columns.forEach(col=>{
-      if(col.label==="AMOUNT")pCenter(337.5,headerY+10,7.5,col.label,true,white);
-      else pText(col.x+5,headerY+10,7.5,col.label,true,white);
+      if(col.label==="AMOUNT")pCenter(337.5,headerY+9,9,col.label,true,white);
+      else pText(col.x+5,headerY+9,9,col.label,true,white);
     });
     payments.forEach((payment,index)=>{
       const y=headerY-rowH*(index+1);
       pRect(42,y,528,rowH,index%2===0?[0.975,0.981,0.987]:white,line,0.45);
-      pText(47,y+8,8,clip(payment.payment_date||"-",12),false,slate);
-      pText(130,y+8,8,clip(payment.check_number||"-",11),false,slate);
-      pText(207,y+8,8,clip(payment.invoice_number||"-",14),false,slate);
-      pCenter(337.5,y+8,8.5,statementMoney(payment.amount),true,navy);
-      pText(380,y+8,8,clip(payment.posting_date||"-",12),false,slate);
-      pText(477,y+8,8,clip(payment.deposit_date||"-",12),false,slate);
+      pText(47,y+9,9.5,clip(payment.payment_date||"-",12),false,slate);
+      pText(130,y+9,9.5,clip(payment.check_number||"-",11),false,slate);
+      pText(207,y+9,9.5,clip(payment.invoice_number||"-",14),false,slate);
+      pCenter(337.5,y+9,10,statementMoney(payment.amount),false,slate);
+      pText(380,y+9,9.5,clip(payment.posting_date||"-",12),false,slate);
+      pText(477,y+9,9.5,clip(payment.deposit_date||"-",12),false,slate);
     });
     const tableBottom=headerY-rowH*payments.length;
     [125,202,300,375,472].forEach(x=>pLine(x,tableBottom,x,headerY+28,line,0.45));
@@ -7050,7 +7055,7 @@ async function ensureStatementSchedulingSchema(env){
       monthly_enabled INTEGER NOT NULL DEFAULT 0,
       monthly_day INTEGER NOT NULL DEFAULT 1,
       monthly_hour INTEGER NOT NULL DEFAULT 8,
-      monthly_cycles TEXT NOT NULL DEFAULT 'A,B,C',
+      monthly_cycles TEXT NOT NULL DEFAULT 'A',
       positive_balance_only INTEGER NOT NULL DEFAULT 1,
       payment_count INTEGER NOT NULL DEFAULT 1,
       portal_enabled INTEGER NOT NULL DEFAULT 1,
@@ -7067,6 +7072,8 @@ async function ensureStatementSchedulingSchema(env){
   if(!configColumns.has("midmonth_enabled"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_enabled INTEGER NOT NULL DEFAULT 0`).run();
   if(!configColumns.has("midmonth_day"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_day INTEGER NOT NULL DEFAULT 15`).run();
   if(!configColumns.has("midmonth_hour"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_hour INTEGER NOT NULL DEFAULT 8`).run();
+  if(!configColumns.has("weekly_frequency"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN weekly_frequency TEXT NOT NULL DEFAULT 'weekly'`).run();
+  if(!configColumns.has("weekly_anchor_date"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN weekly_anchor_date TEXT NOT NULL DEFAULT ''`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS statement_schedule_runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7118,7 +7125,7 @@ async function statementScheduleConfig(env){
 __name(statementScheduleConfig,"statementScheduleConfig");
 
 async function statementScheduleCustomers(env,type,config){
-  const cycles=type==="weekly"?["C"]:type==="midmonth"?["B"]:["A"];
+  const cycles=type==="weekly"?["B"]:type==="midmonth"?[]:["A"];
   if(!cycles.length)return [];
   const placeholders=cycles.map(()=>"?").join(",");
   const balanceExpr=`COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)`;
@@ -7138,7 +7145,7 @@ __name(statementScheduleCustomers,"statementScheduleCustomers");
 async function startStatementSchedule(env,type,origin,{force=false,dryRun=false}={}){
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
-  const cycleLabel=type==="weekly"?"C":type==="midmonth"?"B":"A";
+  const cycleLabel=type==="weekly"?"B":type==="midmonth"?"LEGACY":"A";
   const baseKey=type==="weekly"?`weekly:${central.date}`:`${type}:${central.year}-${central.month}`;
   const runKey=dryRun?`test:${type}:${crypto.randomUUID()}`:force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
   const storedRunType=dryRun?`test_${type}`:type;
@@ -7222,11 +7229,14 @@ async function processDueStatementSchedules(env){
   }
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
-  if(Number(config.weekly_enabled)!==0&&central.weekday===Number(config.weekly_weekday)&&central.hour===Number(config.weekly_hour)){
+  const weeklyFrequency=String(config.weekly_frequency||"weekly").toLowerCase();
+  const anchorDate=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||""))?String(config.weekly_anchor_date):"";
+  const anchorTime=anchorDate?Date.parse(anchorDate+"T00:00:00Z"):NaN;
+  const currentTime=Date.parse(central.date+"T00:00:00Z");
+  const anchorDays=Number.isFinite(anchorTime)&&Number.isFinite(currentTime)?Math.floor((currentTime-anchorTime)/86400000):-1;
+  const weeklyDateDue=weeklyFrequency==="biweekly"?anchorDays>=0&&anchorDays%14===0:central.weekday===Number(config.weekly_weekday);
+  if(Number(config.weekly_enabled)!==0&&weeklyDateDue&&central.hour===Number(config.weekly_hour)){
     await launchDueStatementSchedule(env,"weekly").catch(error=>console.error("Weekly statement schedule failed",error));
-  }
-  if(Number(config.midmonth_enabled)!==0&&Number(central.day)===Number(config.midmonth_day)&&central.hour===Number(config.midmonth_hour)){
-    await launchDueStatementSchedule(env,"midmonth").catch(error=>console.error("Mid-month statement schedule failed",error));
   }
   if(Number(config.monthly_enabled)!==0&&Number(central.day)===Number(config.monthly_day)&&central.hour===Number(config.monthly_hour)){
     await launchDueStatementSchedule(env,"monthly").catch(error=>console.error("Monthly statement schedule failed",error));
@@ -7254,7 +7264,7 @@ async function adminCustomerStatementCycle({request,env}){
     const account=digits?digits.padStart(7,"0"):"";
     const cycle=String(body.statement_cycle||"").trim().toUpperCase();
     if(!account)return notificationJson({success:false,error:"A valid customer account number is required."},400);
-    if(!["A","B","C"].includes(cycle))return notificationJson({success:false,error:"Statement Cycle must be A, B, or C."},400);
+    if(!["A","B"].includes(cycle))return notificationJson({success:false,error:"Statement Cycle must be A or B."},400);
     await ensureCustomerStatementCycleColumn(env);
     const customer=await env.DB.prepare(`SELECT account_number,account_name FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
     if(!customer)return notificationJson({success:false,error:"Customer account was not found."},404);
@@ -7275,12 +7285,12 @@ async function adminStatementScheduling({request,env}){
       const body=await request.json().catch(()=>({}));
       await env.DB.prepare(`
         UPDATE statement_schedule_config SET
-          weekly_enabled=?,weekly_weekday=?,weekly_hour=?,midmonth_enabled=?,midmonth_day=?,midmonth_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles='A',
+          weekly_enabled=?,weekly_weekday=?,weekly_hour=?,weekly_frequency=?,weekly_anchor_date=?,midmonth_enabled=?,midmonth_day=?,midmonth_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles='A',
           positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
         WHERE id=1
       `).bind(
-        body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),
-        body.midmonth_enabled?1:0,Math.max(1,Math.min(28,Number(body.midmonth_day)||15)),Math.max(0,Math.min(23,Number(body.midmonth_hour)||0)),
+        body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),String(body.weekly_frequency||"").toLowerCase()==="biweekly"?"biweekly":"weekly",/^\d{4}-\d{2}-\d{2}$/.test(String(body.weekly_anchor_date||""))?String(body.weekly_anchor_date):statementCentralParts().date,
+        0,Math.max(1,Math.min(28,Number(body.midmonth_day)||15)),Math.max(0,Math.min(23,Number(body.midmonth_hour)||0)),
         body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),
         body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_enabled?1:0,body.sms_enabled?1:0
       ).run();

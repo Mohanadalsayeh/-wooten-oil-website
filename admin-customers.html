@@ -1594,7 +1594,7 @@ input[type="file"]:focus-visible{
 </style>
 
 <style id="wooten-statement-scheduling-style">
-.statement-scheduling-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px}
+.statement-scheduling-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
 .schedule-card{border:1px solid #d7e1ea;border-radius:14px;background:#f8fafc;padding:16px}
 .schedule-card h3{margin:0 0 5px;color:var(--navy);font-size:18px}.schedule-card>p{margin:0 0 14px;color:#68798a;font-size:13px;line-height:1.5}
 .schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
@@ -3603,7 +3603,7 @@ input[type="file"]:focus-visible{
       </table>
     </div>
 
-    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. Use A for Monthly Cycle, B for Mid-Month Statements, or C for Weekly Cycle. Blank values default to B. Account numbers are automatically preserved/padded to 7 digits.</p>
+    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. A, B, and blank imported values use Monthly Cycle A. C or W imported values use Weekly / Biweekly Cycle B. Account numbers are automatically preserved/padded to 7 digits.</p>
 
     <div class="payments-import-section">
       <div class="payments-import-heading">
@@ -4334,7 +4334,7 @@ input[type="file"]:focus-visible{
           <div id="schedulePreviewMonthlyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
 
-        <section class="schedule-card">
+        <section class="schedule-card" hidden aria-hidden="true">
           <h3>B — Mid-Month Statements</h3>
           <p>Sends mid-month statements only to active customers assigned to Statement Cycle B.</p>
           <label class="schedule-enabled"><input id="scheduleMidmonthEnabled" type="checkbox"> Enable Mid-Month Statements</label>
@@ -4351,17 +4351,19 @@ input[type="file"]:focus-visible{
         </section>
 
         <section class="schedule-card">
-          <h3>C — Weekly Cycle</h3>
-          <p>Sends weekly statements only to active customers assigned to Statement Cycle C.</p>
-          <label class="schedule-enabled"><input id="scheduleWeeklyEnabled" type="checkbox"> Enable Weekly Cycle statements</label>
+          <h3>B — Weekly / Biweekly Cycle</h3>
+          <p>Sends statements every week or every two weeks to active customers assigned to Statement Cycle B.</p>
+          <label class="schedule-enabled"><input id="scheduleWeeklyEnabled" type="checkbox"> Enable Cycle B statements</label>
           <div class="schedule-fields">
+            <div class="schedule-field"><label for="scheduleWeeklyFrequency">Frequency</label><select id="scheduleWeeklyFrequency"><option value="weekly">Every week</option><option value="biweekly">Every 2 weeks</option></select></div>
             <div class="schedule-field"><label for="scheduleWeeklyDay">Weekday</label><select id="scheduleWeeklyDay"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
             <div class="schedule-field"><label for="scheduleWeeklyHour">Send Time</label><select id="scheduleWeeklyHour" data-hour-select></select></div>
+            <div class="schedule-field" id="scheduleWeeklyAnchorField" hidden><label for="scheduleWeeklyAnchorDate">First Biweekly Run</label><input id="scheduleWeeklyAnchorDate" type="date"></div>
           </div>
-          <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview C Customers</button><button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test C</button><button class="primary" id="scheduleRunWeekly" type="button">Run C Now</button></div>
+          <div class="actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview B Customers</button><button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test B</button><button class="primary" id="scheduleRunWeekly" type="button">Run B Now</button></div>
           <div class="preview-progress" id="scheduleTestWeeklyProgress" hidden>
-            <div class="preview-progress-head"><strong id="scheduleTestWeeklyProgressLabel">Testing C statements…</strong><span id="scheduleTestWeeklyProgressCount">Preparing</span></div>
-            <div class="preview-progress-track" id="scheduleTestWeeklyProgressTrack" role="progressbar" aria-label="Cycle C dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestWeeklyProgressBar"></span></div>
+            <div class="preview-progress-head"><strong id="scheduleTestWeeklyProgressLabel">Testing B statements…</strong><span id="scheduleTestWeeklyProgressCount">Preparing</span></div>
+            <div class="preview-progress-track" id="scheduleTestWeeklyProgressTrack" role="progressbar" aria-label="Cycle B dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestWeeklyProgressBar"></span></div>
           </div>
           <div id="schedulePreviewWeeklyResults" class="schedule-preview-inline" aria-live="polite"></div>
         </section>
@@ -4678,7 +4680,7 @@ function mapRow(row){
     aging_category_2:normalizeMoney(pick(row,aliases.aging_category_2)),
     aging_category_3:normalizeMoney(pick(row,aliases.aging_category_3)),
     aging_category_4:normalizeMoney(pick(row,aliases.aging_category_4)),
-    statement_cycle:(()=>{const cycle=clean(pick(row,aliases.statement_cycle)).toUpperCase();return cycle==='A'||cycle==='B'||cycle==='C'?cycle:cycle==='W'?'C':'B';})()
+    statement_cycle:(()=>{const cycle=clean(pick(row,aliases.statement_cycle)).toUpperCase();return cycle==='C'||cycle==='W'?'B':'A';})()
   };
 }
 function setStatus(msg,good=true){
@@ -7278,7 +7280,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const panel=document.getElementById('documentSectionStatementScheduling');
   if(!panel)return;
   const get=id=>document.getElementById(id);
-  const weeklyEnabled=get('scheduleWeeklyEnabled'),weeklyDay=get('scheduleWeeklyDay'),weeklyHour=get('scheduleWeeklyHour');
+  const weeklyEnabled=get('scheduleWeeklyEnabled'),weeklyDay=get('scheduleWeeklyDay'),weeklyHour=get('scheduleWeeklyHour'),weeklyFrequency=get('scheduleWeeklyFrequency'),weeklyAnchor=get('scheduleWeeklyAnchorDate'),weeklyAnchorField=get('scheduleWeeklyAnchorField');
   const midmonthEnabled=get('scheduleMidmonthEnabled'),midmonthDay=get('scheduleMidmonthDay'),midmonthHour=get('scheduleMidmonthHour');
   const monthlyEnabled=get('scheduleMonthlyEnabled'),monthlyDay=get('scheduleMonthlyDay'),monthlyHour=get('scheduleMonthlyHour');
   const positiveOnly=get('schedulePositiveOnly'),paymentCount=get('schedulePaymentCount'),portal=get('schedulePortal'),email=get('scheduleEmail'),sms=get('scheduleSms');
@@ -7307,14 +7309,18 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function key(){return (get('adminKey').value||'').trim();}
   function configBody(){return {
-    weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),
-    midmonth_enabled:midmonthEnabled.checked,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
+    weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),weekly_frequency:weeklyFrequency.value,weekly_anchor_date:weeklyAnchor.value,
+    midmonth_enabled:false,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
     monthly_enabled:monthlyEnabled.checked,monthly_day:Number(monthlyDay.value),monthly_hour:Number(monthlyHour.value),
     positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
   };}
+  function syncWeeklyFrequency(){
+    const biweekly=weeklyFrequency.value==='biweekly';weeklyAnchorField.hidden=!biweekly;weeklyAnchor.required=biweekly;weeklyDay.disabled=biweekly;
+    if(biweekly&&weeklyAnchor.value){const selected=new Date(weeklyAnchor.value+'T12:00:00');if(!Number.isNaN(selected.getTime()))weeklyDay.value=String(selected.getDay());}
+  }
   function applyConfig(config){
-    weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);
-    midmonthEnabled.checked=Number(config.midmonth_enabled)!==0;midmonthDay.value=String(config.midmonth_day??15);midmonthHour.value=String(config.midmonth_hour??8);
+    weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
+    midmonthEnabled.checked=false;midmonthDay.value=String(config.midmonth_day??15);midmonthHour.value=String(config.midmonth_hour??8);
     monthlyEnabled.checked=Number(config.monthly_enabled)!==0;monthlyDay.value=String(config.monthly_day??1);monthlyHour.value=String(config.monthly_hour??8);
     positiveOnly.checked=Number(config.positive_balance_only)!==0;paymentCount.value=String(config.payment_count??1);portal.checked=Number(config.portal_enabled)!==0;email.checked=Number(config.email_enabled)!==0;sms.checked=Number(config.sms_enabled)!==0;
   }
@@ -7327,7 +7333,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const details=rows.length?rows.map(row=>isTest
         ?'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>PDF: '+(row.success?'Generated':'Failed')+'</span><span>Payments: '+Number(row.payment_count||0)+'</span><span>Balance: '+esc(money(row.total_balance||0))+(row.error?' • '+esc(row.error):'')+'</span></div>'
         :'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Portal: '+(row.portal_notified?'Sent':'Not sent')+'</span><span>Email: '+(row.email_sent?'Sent':'Not sent')+'</span><span>SMS: '+(row.sms_sent?'Sent':'Not sent')+(row.error?' • '+esc(row.error):'')+'</span></div>').join(''):'<div class="schedule-empty">No customers matched this run.</div>';
-      const type=baseType==='weekly'?'C — Weekly Cycle':baseType==='midmonth'?'B — Mid-Month Statements':'A — Monthly Cycle';
+      const type=baseType==='weekly'?'B — Weekly / Biweekly Cycle':baseType==='midmonth'?'Legacy Mid-Month Run':'A — Monthly Cycle';
       const deliveryMetrics=isTest
         ?'<span class="schedule-run-metric">No Portal, Email, or SMS attempted</span>'
         :'<span class="schedule-run-metric">Portal '+Number(run.portal_success||0)+' / '+Number(run.portal_failure||0)+' not sent</span><span class="schedule-run-metric">Email '+Number(run.email_success||0)+' / '+Number(run.email_failure||0)+' not sent</span><span class="schedule-run-metric">SMS '+Number(run.sms_success||0)+' / '+Number(run.sms_failure||0)+' not sent</span>';
@@ -7343,6 +7349,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const data=await response.json().catch(()=>({}));if(!response.ok||(!allowReportedFailure&&data.success===false))throw new Error(data.error||'Statement scheduling request failed.');return data;
   }
   async function saveSettings(showMessage=true){
+    if(weeklyEnabled.checked&&weeklyFrequency.value==='biweekly'&&!weeklyAnchor.value){weeklyAnchor.focus();throw new Error('Select the first biweekly Cycle B run date.');}
     const data=await request('/api/admin/statement-scheduling',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody())});
     applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;if(showMessage)setStatus('Statement scheduling settings saved.',true);return data;
   }
@@ -7352,8 +7359,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     catch(error){setStatus(error.message||'Scheduling could not be loaded.',false);}finally{loading=false;}
   }
   function previewCustomerRow(row){
-    const cycle=String(row.statement_cycle||'B').toUpperCase();
-    return '<div class="schedule-preview-row" data-schedule-customer="'+esc(row.account_number||'')+'"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||row.account_number||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Mid-Month</option><option value="C" '+(cycle==='C'?'selected':'')+'>C — Weekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
+    const cycle=String(row.statement_cycle||'A').toUpperCase();
+    return '<div class="schedule-preview-row" data-schedule-customer="'+esc(row.account_number||'')+'"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||row.account_number||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
   }
   function renderPreviewMatches(type,query=''){
     const preview=previewTargets[type],summary=preview?.querySelector('.schedule-preview-summary');
@@ -7377,12 +7384,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{
       if(saveFirst)await saveSettings(false);setStatus('Loading scheduled customers…');
       const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
-      const title=type==='weekly'?'C — Weekly Cycle Customers':type==='midmonth'?'B — Mid-Month Customers':'A — Monthly Cycle Customers';
+      const title=type==='weekly'?'B — Weekly / Biweekly Customers':type==='midmonth'?'Legacy Mid-Month Customers':'A — Monthly Cycle Customers';
       previewCustomerData[type]=data.customers||[];
       const total=previewCustomerData[type].length;
       preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer name or number…" aria-label="Search '+title+'"><div class="schedule-preview-list"></div></div>';
       renderPreviewMatches(type,'');
-      setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'weekly C':type==='midmonth'?'mid-month B':'monthly A')+' schedule.',true);
+      setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'Cycle B':type==='midmonth'?'legacy mid-month':'monthly A')+' schedule.',true);
     }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
   }
   panel.addEventListener('input',event=>{
@@ -7439,8 +7446,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const timer=testProgressTimers.get(type);if(timer)window.clearInterval(timer);testProgressTimers.delete(type);
     const parts=testProgressParts(type);if(parts.host)parts.host.hidden=true;
   }
+  function showRunCompletion(dryRun,label,succeeded,failed){
+    const action=dryRun?'Test':'Run',successCount=Number(succeeded||0),failureCount=Number(failed||0);
+    const result=failureCount
+      ?action+' completed with errors.\n\n'+successCount.toLocaleString()+' succeeded\n'+failureCount.toLocaleString()+' failed'
+      :action+' completed successfully without errors.\n\n'+successCount.toLocaleString()+' succeeded\n0 failed';
+    window.alert(label+'\n\n'+result);
+    (report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
+  }
   async function runNow(type,dryRun=false){
-    const label=type==='weekly'?'C weekly-cycle':type==='midmonth'?'B mid-month':'A monthly-cycle';
+    const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':type==='midmonth'?'legacy mid-month':'A monthly-cycle';
     const prompt=dryRun
       ?'TEST MODE: Generate and validate '+label+' statement PDFs for every matching customer? No Portal, Email, SMS, document storage, or Communication History records will be created.'
       :'Generate and send '+label+' statements now to every matching customer?';
@@ -7453,6 +7468,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       setStatus((dryRun?'Test':'Run')+' complete: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
       if(dryRun)await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' generated • '+Number(final.failure_count||0)+' failed');
       await load();
+      showRunCompletion(dryRun,(dryRun?'TEST ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
     }catch(error){if(dryRun)hideTestProgress(type);setStatus(error.message||(dryRun?'Statement test failed.':'Scheduled statement run failed.'),false);await load();}
   }
   async function waitForScheduledRun(runId,type,dryRun,total){
@@ -7472,28 +7488,31 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     throw new Error('The statement run is still continuing in the background. Refresh the report to see its latest progress.');
   }
   async function testAllCycles(){
-    if(!window.confirm('TEST MODE: Generate and validate A, B, and C statement PDFs for all matching customers? Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
-    const types=['monthly','midmonth','weekly'];
+    if(!window.confirm('TEST MODE: Generate and validate Cycle A and Cycle B statement PDFs for all matching customers? Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
+    const types=['monthly','weekly'];
     let succeeded=0,failed=0;
     setTestProgress('all',3,'Testing all statement cycles…','Preparing');
     try{
       await saveSettings(false);
       for(let index=0;index<types.length;index++){
         const type=types[index];
-        const label=type==='weekly'?'C weekly-cycle':type==='midmonth'?'B mid-month':'A monthly-cycle';
-        setTestProgress('all',5+index*30,'Testing '+label+' statements…',(index+1)+' of 3 cycles');
+        const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':'A monthly-cycle';
+        setTestProgress('all',5+index*45,'Testing '+label+' statements…',(index+1)+' of 2 cycles');
         setStatus('Testing '+label+' statement PDFs. Keep this page open…');
         const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:true})},true);
         const final=await waitForScheduledRun(data.run_id,'all',true,data.total||0);
         succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
-        setTestProgress('all',33+index*33,'Completed '+label,(index+1)+' of 3 cycles');
+        setTestProgress('all',50+index*50,'Completed '+label,(index+1)+' of 2 cycles');
       }
       setStatus('All-cycle test complete: '+succeeded+' PDFs generated and '+failed+' failed.',failed===0);
       await finishTestProgress('all','100% complete • '+succeeded+' generated • '+failed+' failed');
       await load();
+      showRunCompletion(true,'TEST ALL CYCLES',succeeded,failed);
     }catch(error){hideTestProgress('all');setStatus(error.message||'All-cycle statement test failed.',false);await load();}
   }
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
+  weeklyFrequency.addEventListener('change',syncWeeklyFrequency);
+  weeklyAnchor.addEventListener('change',syncWeeklyFrequency);
   refreshBtn.addEventListener('click',load);
   get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
   get('schedulePreviewMidmonth').addEventListener('click',()=>showPreview('midmonth'));
