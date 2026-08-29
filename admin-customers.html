@@ -786,6 +786,36 @@ input[type="file"]:focus-visible{
   padding:8px 12px !important;
   white-space:nowrap;
 }
+.db-customer-link{
+  display:inline!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  outline:0!important;
+  background:transparent!important;
+  color:inherit!important;
+  font:inherit;
+  font-weight:inherit;
+  line-height:inherit;
+  text-align:left;
+  text-decoration:none;
+  cursor:pointer;
+  box-shadow:none!important;
+}
+.db-customer-link:hover,
+.db-customer-link:focus,
+.db-customer-link:focus-visible,
+.db-customer-link:active{
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  color:inherit!important;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  box-shadow:none!important;
+  transform:none!important;
+}
 .db-customer-modal{
   position:fixed;
   inset:0;
@@ -3720,7 +3750,6 @@ input[type="file"]:focus-visible{
             <th class="money">Current Balance</th>
             <th>Status</th>
             <th>Online Account</th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="dbTableBody"></tbody>
@@ -6296,7 +6325,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function renderRows(rows){
     currentRows=rows;
     if(!rows.length){
-      tbody.innerHTML='<tr><td colspan="9"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
+      tbody.innerHTML='<tr><td colspan="8"><div class="db-empty">No customers match the current search and filters.</div></td></tr>';
       return;
     }
 
@@ -6312,15 +6341,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         : '<span class="db-badge warn">'+esc(rawStatus)+'</span>';
 
       return `<tr>
-        <td class="account">${esc(acct)}</td>
+        <td class="account"><button class="db-customer-link" type="button" data-db-row="${index}" aria-label="View customer ${esc(acct)} details">${esc(acct)}</button></td>
         <td class="db-contact-cell">${contactIcons(row)}</td>
-        <td class="db-company">${esc(row.account_name||"")}</td>
+        <td class="db-company"><button class="db-customer-link" type="button" data-db-row="${index}" aria-label="View ${esc(row.account_name||"customer")} details">${esc(row.account_name||"")}</button></td>
         <td class="email-cell db-email" title="${esc(row.email||"")}">${esc(row.email||"—")}</td>
         <td>${esc(row.phone||"—")}</td>
         <td class="money">${money(row.current_balance)}</td>
         <td>${statusBadge}</td>
         <td>${online}</td>
-        <td class="db-actions-cell"><button class="secondary db-view-btn" type="button" data-db-row="${index}">View</button></td>
       </tr>`;
     }).join("");
   }

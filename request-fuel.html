@@ -3815,7 +3815,7 @@ body.request-fuel-page .fuel-field{
       var isCurrent=String(account.account_number||'')===String(currentAccount||'');
       var option=document.createElement('button');option.type='button';option.className='account-switcher-option'+(isCurrent?' current':'');option.disabled=isCurrent;option.setAttribute('data-account-number',String(account.account_number||''));
       var identity=document.createElement('span'),name=document.createElement('strong'),number=document.createElement('small'),side=document.createElement('span');
-      name.textContent=account.account_name||'Customer Account';number.textContent='Customer # '+(account.account_number||'');side.textContent=isCurrent?'Current':money(account.current_balance);
+      name.textContent=account.account_name||'Customer Account';number.textContent='Customer # '+(account.account_number||'')+(isCurrent?' • Current account':'');side.className='account-switcher-balance';side.innerHTML='<small>Total Balance</small><strong>'+money(account.total_balance)+'</strong>';
       identity.appendChild(name);identity.appendChild(number);option.appendChild(identity);option.appendChild(side);accountSwitcherList.appendChild(option);
     });
     if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status';accountSwitcherStatus.textContent='';}

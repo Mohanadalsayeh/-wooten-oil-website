@@ -1533,10 +1533,12 @@ async function customerLoginPost({
 }
 __name(customerLoginPost, "customerLoginPost");
 function linkedAccountSummary(customer) {
+  const totalBalance=Number(customer.current_balance||0)+Number(customer.aging_category_1||0)+Number(customer.aging_category_2||0)+Number(customer.aging_category_3||0)+Number(customer.aging_category_4||0);
   return {
     account_number: customer.account_number,
     account_name: customer.account_name || "Customer Account",
-    current_balance: Number(customer.current_balance || 0)
+    current_balance: Number(customer.current_balance || 0),
+    total_balance: totalBalance
   };
 }
 __name(linkedAccountSummary, "linkedAccountSummary");
@@ -1544,7 +1546,7 @@ async function customerLinkedAccounts(customer, env) {
   const email = clean(customer?.email).toLowerCase();
   if (!email) return [linkedAccountSummary(customer)];
   const rows = await env.DB.prepare(`
-    SELECT account_number,account_name,current_balance,account_status
+    SELECT account_number,account_name,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,account_status
     FROM customers
     WHERE lower(trim(email)) = ?
     ORDER BY account_name COLLATE NOCASE,account_number
