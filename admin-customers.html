@@ -7366,6 +7366,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return '<div class="schedule-preview-row" data-schedule-customer="'+esc(account)+'"><label class="schedule-bulk-check" title="Select customer"><input type="checkbox" data-bulk-cycle-customer data-preview-type="'+type+'" value="'+esc(account)+'" '+(bulkSelections[type]?.has(account)?'checked':'')+' aria-label="Select '+esc(row.account_name||account)+'"></label><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(account)+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||account||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
   }
   function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),move=preview?.querySelector('[data-bulk-move]'),clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected';if(move)move.disabled=selected===0;if(clear)clear.disabled=selected===0;}
+  function setBulkProgress(type,processed,total,moved,failed,label='Moving customers…'){
+    const host=previewTargets[type]?.querySelector('[data-bulk-progress]');if(!host)return;
+    const percent=total?Math.min(100,Math.round(processed/total*100)):100;host.hidden=false;
+    const title=host.querySelector('[data-bulk-progress-label]'),count=host.querySelector('[data-bulk-progress-count]'),track=host.querySelector('[data-bulk-progress-track]'),bar=host.querySelector('[data-bulk-progress-bar]');
+    if(title)title.textContent=label;if(count)count.textContent=processed.toLocaleString()+' / '+total.toLocaleString()+' • '+moved.toLocaleString()+' moved'+(failed?' • '+failed.toLocaleString()+' failed':'');if(bar)bar.style.width=percent+'%';if(track)track.setAttribute('aria-valuenow',String(percent));
+  }
   function renderPreviewMatches(type,query=''){
     const preview=previewTargets[type],summary=preview?.querySelector('.schedule-preview-summary');
     if(!summary)return;
@@ -7393,7 +7399,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       previewCustomerData[type]=data.customers||[];
       const total=previewCustomerData[type].length;
       const destination=type==='weekly'?'A':'B';
-      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer name or number…" aria-label="Search '+title+'"><div class="schedule-bulk-toolbar"><button type="button" data-bulk-select-matching data-preview-type="'+type+'">Select All Matching</button><button type="button" data-bulk-clear data-preview-type="'+type+'" disabled>Clear Selection</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="'+destination+'" disabled>Move Selected to Cycle '+destination+'</button><span class="schedule-bulk-count" data-bulk-selected-count>0 selected</span></div><div class="schedule-preview-list"></div></div>';
+      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer name or number…" aria-label="Search '+title+'"><div class="schedule-bulk-toolbar"><button type="button" data-bulk-select-matching data-preview-type="'+type+'">Select All Matching</button><button type="button" data-bulk-clear data-preview-type="'+type+'" disabled>Clear Selection</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="'+destination+'" disabled>Move Selected to Cycle '+destination+'</button><span class="schedule-bulk-count" data-bulk-selected-count>0 selected</span></div><div class="preview-progress schedule-bulk-progress" data-bulk-progress hidden><div class="preview-progress-head"><strong data-bulk-progress-label>Moving customers…</strong><span data-bulk-progress-count>Preparing</span></div><div class="preview-progress-track" data-bulk-progress-track role="progressbar" aria-label="Bulk customer cycle move progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-bulk-progress-bar></span></div></div><div class="schedule-preview-list"></div></div>';
       renderPreviewMatches(type,'');
       setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'Cycle B':type==='midmonth'?'legacy mid-month':'monthly A')+' schedule.',true);
     }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
@@ -7420,12 +7426,19 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const targetCycle=bulkButton.dataset.targetCycle;if(!['A','B'].includes(targetCycle)||!selection.size)return;
       const accounts=[...selection];
       if(!window.confirm('Move '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' to Cycle '+targetCycle+'?'))return;
-      bulkButton.disabled=true;bulkButton.textContent='Moving…';
+      preview.querySelectorAll('button,input,select').forEach(control=>control.disabled=true);bulkButton.textContent='Moving…';
       try{
-        const data=await request('/api/admin/customer-statement-cycle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_numbers:accounts,statement_cycle:targetCycle})});
+        const batchSize=50;let processed=0,moved=0,failed=0;const errors=[];setBulkProgress(type,0,accounts.length,0,0,'Preparing customer batches…');
+        for(let start=0;start<accounts.length;start+=batchSize){
+          const batch=accounts.slice(start,start+batchSize);
+          try{const data=await request('/api/admin/customer-statement-cycle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_numbers:batch,statement_cycle:targetCycle})});moved+=Number(data.updated||0);}
+          catch(error){failed+=batch.length;errors.push(error.message||'A customer batch failed.');}
+          processed+=batch.length;setBulkProgress(type,processed,accounts.length,moved,failed,processed>=accounts.length?'Bulk move complete':'Moving customer batches…');setStatus('Moving customers: '+processed.toLocaleString()+' of '+accounts.length.toLocaleString()+' processed.',failed===0?undefined:false);
+        }
+        await new Promise(resolve=>window.setTimeout(resolve,500));
         selection.clear();
         for(const previewType of ['monthly','weekly'])await showPreview(previewType,false);
-        setStatus(Number(data.updated||0).toLocaleString()+' customer'+(Number(data.updated||0)===1?'':'s')+' moved to Cycle '+targetCycle+'.',true);
+        setStatus(moved.toLocaleString()+' customer'+(moved===1?'':'s')+' moved to Cycle '+targetCycle+(failed?' • '+failed.toLocaleString()+' could not be processed. '+errors[0]:'.'),failed===0);
       }catch(error){bulkButton.disabled=false;bulkButton.textContent='Move Selected to Cycle '+targetCycle;setStatus(error.message||'Selected customers could not be moved.',false);}
       return;
     }
