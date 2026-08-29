@@ -12,6 +12,11 @@
   var desktopCustomerLogout=document.getElementById('desktopCustomerLogout');
   var mobileCustomerAccount=document.getElementById('mobileCustomerAccount');
   var mobileCustomerLogout=document.getElementById('mobileCustomerLogout');
+  var accountSwitcher=document.getElementById('accountSwitcher');
+  var accountSwitcherButton=document.getElementById('accountSwitcherButton');
+  var accountSwitcherPanel=document.getElementById('accountSwitcherPanel');
+  var accountSwitcherList=document.getElementById('accountSwitcherList');
+  var accountSwitcherStatus=document.getElementById('accountSwitcherStatus');
   var activateLink=document.getElementById('portalActivateLink');
   var forgotPassword=document.getElementById('portalForgotPassword');
   var useResetCode=document.getElementById('portalUseResetCode');
@@ -33,6 +38,7 @@
 
   
   var activePortalCustomer=null;
+  var linkedPortalAccounts=[];
   var pendingDocumentToken=(new URLSearchParams(window.location.search)).get('document_token')||'';
 
   function openPendingDocument(){
@@ -110,6 +116,8 @@
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
+  var ACCOUNTS_ENDPOINT='/api/customer/accounts';
+  var ACCOUNT_SWITCH_ENDPOINT='/api/customer/account-switch';
   var ACTIVATE_START_ENDPOINT='/api/customer/activation/start';
   var ACTIVATE_SET_PASSWORD_ENDPOINT='/api/customer/activation/set-password';
   var RESET_START_ENDPOINT='/api/customer/password-reset/start';
@@ -678,6 +686,64 @@
       if(mobileHeaderNotificationBadge) mobileHeaderNotificationBadge.style.display='none';
     }
   }
+  function setAccountSwitcherOpen(open){
+    if(!accountSwitcherButton || !accountSwitcherPanel) return;
+    accountSwitcherButton.setAttribute('aria-expanded',open?'true':'false');
+    accountSwitcherPanel.hidden=!open;
+  }
+  function renderAccountSwitcher(accounts,currentAccount,autoOpen){
+    linkedPortalAccounts=Array.isArray(accounts)?accounts:[];
+    if(!accountSwitcher || !accountSwitcherList) return;
+    var multiple=linkedPortalAccounts.length>1;
+    accountSwitcher.hidden=!multiple;
+    accountSwitcherList.innerHTML='';
+    if(!multiple){setAccountSwitcherOpen(false);return;}
+    linkedPortalAccounts.forEach(function(account){
+      var isCurrent=String(account.account_number||'')===String(currentAccount||'');
+      var option=document.createElement('button');
+      option.type='button';
+      option.className='account-switcher-option'+(isCurrent?' current':'');
+      option.disabled=isCurrent;
+      option.setAttribute('data-account-number',String(account.account_number||''));
+      var identity=document.createElement('span');
+      var name=document.createElement('strong');name.textContent=account.account_name||'Customer Account';
+      var number=document.createElement('small');number.textContent='Customer # '+(account.account_number||'');
+      identity.appendChild(name);identity.appendChild(number);
+      var side=document.createElement('span');side.textContent=isCurrent?'Current':money(account.current_balance);
+      option.appendChild(identity);option.appendChild(side);accountSwitcherList.appendChild(option);
+    });
+    if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status';accountSwitcherStatus.textContent='';}
+    setAccountSwitcherOpen(!!autoOpen);
+  }
+  async function loadLinkedAccounts(autoOpen){
+    try{
+      var response=await fetch(ACCOUNTS_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false) throw new Error(data.error||'Linked accounts could not be loaded.');
+      renderAccountSwitcher(data.accounts,data.current_account_number,autoOpen);
+    }catch(error){
+      renderAccountSwitcher([],activePortalCustomer&&activePortalCustomer.account_number,false);
+    }
+  }
+  async function switchCustomerAccount(accountNumber,button){
+    if(!accountNumber || !button || button.disabled) return;
+    if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status';accountSwitcherStatus.textContent='';}
+    button.disabled=true;
+    try{
+      var response=await fetch(ACCOUNT_SWITCH_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({account_number:accountNumber})});
+      var data=await response.json().catch(function(){return {};});
+      if(!response.ok || data.success===false || !data.customer) throw new Error(data.error||'The account could not be opened.');
+      showAccount(data.customer);
+      renderAccountSwitcher(data.accounts,data.customer.account_number,false);
+      if(accountCard && accountCard.scrollIntoView) accountCard.scrollIntoView({behavior:'smooth',block:'start'});
+    }catch(error){
+      button.disabled=false;
+      if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status show';accountSwitcherStatus.textContent=error.message||'The account could not be opened.';}
+    }
+  }
+  if(accountSwitcherButton) accountSwitcherButton.addEventListener('click',function(){setAccountSwitcherOpen(accountSwitcherButton.getAttribute('aria-expanded')!=='true');});
+  if(accountSwitcherList) accountSwitcherList.addEventListener('click',function(event){var option=event.target.closest('.account-switcher-option');if(option)switchCustomerAccount(option.getAttribute('data-account-number'),option);});
+  document.addEventListener('click',function(event){if(accountSwitcher && !accountSwitcher.contains(event.target))setAccountSwitcherOpen(false);});
   function hideAll(){
     loginCard.style.display='none';
     activationCard.classList.remove('show');
@@ -771,6 +837,7 @@
       var d=await r.json().catch(function(){return {};});
       if(!r.ok || d.success===false || !d.customer){ updateCustomerMenu(null); return false; }
       showAccount(d.customer);
+      await loadLinkedAccounts(false);
       return true;
     }catch(e){ return false; }
   }
@@ -812,7 +879,7 @@
         }
         throw new Error(d.error || 'The customer number/email or password is incorrect.');
       }
-      if(d.customer){ showAccount(d.customer); }
+      if(d.customer){ showAccount(d.customer); await loadLinkedAccounts(true); }
       else if(!(await loadCurrentAccount(false))){ throw new Error('Signed in, but the account information could not be loaded.'); }
       document.getElementById('portal-password').value='';
       if(openPendingDocument()) return;
@@ -1532,6 +1599,7 @@
       await fetch(LOGOUT_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},credentials:'same-origin'});
     }catch(e){}
     updateCustomerMenu(null);
+    renderAccountSwitcher([],null,false);
     form.reset();
     clearStatus(status);
     if(openLogin) showLogin();

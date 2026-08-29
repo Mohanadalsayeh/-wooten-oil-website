@@ -1,0 +1,18 @@
+.dashboard-welcome-row{position:relative;flex-wrap:wrap}
+.account-switcher{position:relative;margin-left:auto;align-self:flex-start;z-index:8}
+.account-switcher-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 13px;border:1px solid #cbd8e3;border-radius:10px;background:#fff;color:#173a59;font:inherit;font-size:13px;font-weight:900;cursor:pointer}
+.account-switcher-button:hover,.account-switcher-button:focus-visible{border-color:#819bb1;background:#f6f9fb;outline:none}
+.account-switcher-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
+.account-switcher-button[aria-expanded="true"] svg{transform:rotate(180deg)}
+.account-switcher-panel{position:absolute;top:calc(100% + 8px);right:0;width:min(360px,calc(100vw - 40px));max-height:360px;overflow:auto;padding:10px;border:1px solid #d2dde6;border-radius:13px;background:#fff;box-shadow:0 16px 38px rgba(15,39,66,.18)}
+.account-switcher-title{padding:4px 6px 9px;color:#64778a;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.account-switcher-list{display:grid;gap:6px}
+.account-switcher-option{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;width:100%;padding:11px 12px;border:1px solid transparent;border-radius:10px;background:#f5f8fa;color:#163550;text-align:left;font:inherit;cursor:pointer}
+.account-switcher-option:hover,.account-switcher-option:focus-visible{border-color:#a9bdcd;background:#edf4f8;outline:none}
+.account-switcher-option.current{border-color:#a9d7be;background:#edf8f2;cursor:default}
+.account-switcher-option strong,.account-switcher-option small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-switcher-option small{margin-top:2px;color:#6d7f90;font-size:12px}
+.account-switcher-option span:last-child{align-self:center;color:#36536c;font-size:12px;font-weight:900;white-space:nowrap}
+.account-switcher-status{display:none;margin-top:8px;padding:8px;border-radius:8px;background:#fff1f1;color:#9b2630;font-size:12px;font-weight:750}
+.account-switcher-status.show{display:block}
+@media(max-width:620px){.dashboard-welcome-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto}.account-switcher{grid-column:1/-1;width:100%;margin:8px 0 0}.account-switcher-button{width:100%}.account-switcher-panel{position:static;width:100%;margin-top:8px;max-height:320px;box-shadow:0 10px 24px rgba(15,39,66,.12)}}
