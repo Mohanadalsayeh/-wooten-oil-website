@@ -341,8 +341,8 @@
   .admin-dashboard-card:nth-child(3) .admin-dashboard-card-icon{background:#fff7df;color:#a66b00}
   .admin-dashboard-card h3{margin:0 0 7px;color:var(--navy);font-size:17px}
   .admin-dashboard-card p{margin:0 0 18px;color:#66778a;font-size:13px;line-height:1.55}
-  .admin-dashboard-link{align-self:flex-start;margin-top:auto;padding:0;border:0;background:transparent;color:#0969da;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
-  .admin-dashboard-link:hover{text-decoration:underline}
+  .admin-dashboard-link,.admin-dashboard-link:visited{display:inline!important;align-self:flex-start;width:auto!important;min-width:0!important;min-height:0!important;margin-top:auto!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#0969da!important;box-shadow:none!important;transform:none!important;appearance:none!important;-webkit-appearance:none!important;font:inherit;font-size:13px;font-weight:800;line-height:1.45;text-decoration:none;cursor:pointer}
+  .admin-dashboard-link:hover,.admin-dashboard-link:focus,.admin-dashboard-link:focus-visible,.admin-dashboard-link:active{padding:0!important;border:0!important;background:transparent!important;color:#0969da!important;box-shadow:none!important;transform:none!important;outline:0!important;text-decoration-line:underline;text-decoration-thickness:1.5px;text-underline-offset:4px}
   .admin-dashboard-welcome{grid-column:1/-1;display:flex;justify-content:space-between;gap:22px;align-items:center;padding:24px 26px;border-radius:18px;background:linear-gradient(120deg,#0b2239,#173a61);color:#fff;box-shadow:0 12px 30px rgba(11,34,57,.16)}
   .admin-dashboard-welcome h2{margin:0 0 7px;color:#fff;font-size:25px}.admin-dashboard-welcome p{margin:0;color:#d7e3ef}
   .admin-dashboard-date{flex:0 0 auto;color:#d7e3ef;font-size:13px;font-weight:800}
@@ -3226,18 +3226,16 @@ input[type="file"]::file-selector-button{
 </style>
 <style id="wooten-live-customer-contact-icons-style">
 .db-table{min-width:1240px !important}
-.db-contact-cell{min-width:142px}
-.db-contact-icons{display:flex;align-items:center;gap:7px;white-space:nowrap}
-.db-contact-toggle{width:36px;height:36px;padding:0;border:1px solid #d5dde5;border-radius:10px;background:#f3f5f7;color:#919ba5;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .14s ease,background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease}
-.db-contact-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
-.db-contact-toggle:hover,.db-contact-toggle:focus-visible{transform:translateY(-1px);border-color:#9aaabd;outline:none;box-shadow:0 4px 10px rgba(15,39,66,.1)}
-.db-contact-toggle.active[data-channel="email"]{background:#e8f2ff;border-color:#9bc4f4;color:#1769aa}
-.db-contact-toggle.active[data-channel="sms"]{background:#e8f8ef;border-color:#9dd9b5;color:#238451}
-.db-contact-toggle.active[data-channel="portal"]{background:#f0ecff;border-color:#b9abea;color:#6548b8}
-.db-contact-toggle.saving{opacity:.55;pointer-events:none}
+.db-contact-cell{min-width:112px}
+.db-contact-icons{display:flex;align-items:center;gap:12px;white-space:nowrap}
+.db-contact-indicator{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}
+.db-contact-indicator svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.db-contact-indicator[data-channel="sms"]{color:#2563eb}
+.db-contact-indicator[data-channel="portal"]{color:#10b981}
+.db-contact-indicator[data-channel="email"]{color:#f59e0b}
 .db-contact-help{margin:8px 0 0;color:#667789;font-size:12px;line-height:1.45}
 .statement-contact-selection-note{margin:10px 0 0;padding:10px 12px;border:1px solid #dbe5ec;border-radius:10px;background:#f7fafc;color:#526477;font-size:12px;line-height:1.5}
-@media(max-width:720px){.db-contact-cell{min-width:128px}.db-contact-toggle{width:34px;height:34px}}
+@media(max-width:720px){.db-contact-cell{min-width:104px}.db-contact-icons{gap:11px}}
 </style>
 <style id="wooten-customer-activity-style">
 .activity-search-row{display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:12px;align-items:end;margin-top:22px}.activity-search-row input{width:100%;height:54px}.activity-search-results{display:grid;gap:8px;margin-top:10px}.activity-search-result{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;width:100%;padding:13px 15px;border:1px solid #d5e0e9;border-radius:11px;background:#fff;text-align:left;color:#172d44;cursor:pointer}.activity-search-result:hover,.activity-search-result:focus-visible{background:#f2f7fb;border-color:#9fb7ca;outline:none}.activity-search-result strong,.activity-search-result small{display:block}.activity-search-result small{margin-top:3px;color:#6b7d90}.activity-dashboard{margin-top:20px}.activity-customer-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:20px;border-radius:15px;background:#102b45;color:#fff}.activity-customer-head h3{margin:0 0 5px;font-size:25px}.activity-customer-head p{margin:0;color:#c9d8e6}.activity-status{display:inline-flex;padding:6px 10px;border-radius:999px;background:#dff5e8;color:#087241;font-size:12px;font-weight:900;text-transform:uppercase}.activity-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px;margin-top:14px}.activity-summary{padding:14px;border:1px solid #dbe4eb;border-radius:12px;background:#f8fafc;min-width:0}.activity-summary span{display:block;color:#66798d;font-size:11px;font-weight:900;text-transform:uppercase}.activity-summary strong{display:block;margin-top:5px;color:#112a42;font-size:18px;overflow-wrap:anywhere}.activity-contact-line{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}.activity-chip{padding:7px 10px;border-radius:999px;background:#edf3f7;color:#314b63;font-size:12px;font-weight:800}.activity-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}.activity-section{min-width:0;border:1px solid #d9e3eb;border-radius:14px;background:#fff;overflow:hidden}.activity-section.activity-wide{grid-column:1/-1}.activity-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e2e9ef;background:#f7fafc}.activity-section-head h3{margin:0;font-size:17px}.activity-count{min-width:28px;padding:4px 8px;border-radius:999px;background:#e4edf4;color:#31556f;text-align:center;font-size:12px;font-weight:900}.activity-list{display:grid}.activity-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:13px 16px;border-top:1px solid #edf1f4}.activity-row:first-child{border-top:0}.activity-row strong,.activity-row small{display:block;overflow-wrap:anywhere}.activity-row small{margin-top:4px;color:#687b8e;line-height:1.4}.activity-row-side{text-align:right;white-space:nowrap}.activity-empty{padding:19px 16px;color:#718295;text-align:center}.activity-link{border:0;background:none;padding:0;color:#126aa2;font:inherit;font-weight:800;cursor:pointer}.activity-link:hover{text-decoration:underline}.activity-delivery{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.activity-delivery span{padding:4px 7px;border-radius:999px;background:#e3f5ea;color:#087142;font-size:10px;font-weight:900}.activity-delivery span.failed{background:#fee8e8;color:#a12626}.activity-progress{margin-top:12px}.activity-address{margin-top:9px;color:#d7e3ed;font-size:13px}.activity-login-success{color:#087241}.activity-login-failed{color:#a12626}
@@ -3375,12 +3373,13 @@ input[type="file"]::file-selector-button{
     </nav>
     <div class="admin-page-label">Customers</div>
     <h2>MAS 90 Database</h2>
-    <p>Upload a customer list from Excel or CSV. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
+    <p>Upload the original Microsoft Access <strong>.mdb</strong> customer database. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
       <div>
         <label for="customerFile">Customer File</label>
-        <input id="customerFile" type="file" accept=".mdb,.accdb,.csv,.xlsx,.xls">
+        <input id="customerFile" type="file" accept=".mdb" aria-describedby="customerFileHint">
+        <div class="access-import-hint" id="customerFileHint">Microsoft Access files only: <strong>*.mdb</strong></div>
       </div>
     </div>
 
@@ -3460,22 +3459,22 @@ input[type="file"]::file-selector-button{
       </table>
     </div>
 
-    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. Use A for Monthly Cycle, B for Mid-Month Statements, or C for Weekly Cycle. Blank values default to B. For Microsoft Access, export the query/table to Excel or CSV first. Account numbers are automatically preserved/padded to 7 digits.</p>
+    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. Use A for Monthly Cycle, B for Mid-Month Statements, or C for Weekly Cycle. Blank values default to B. Account numbers are automatically preserved/padded to 7 digits.</p>
 
     <div class="payments-import-section">
       <div class="payments-import-heading">
         <div>
           <div class="admin-page-label payments-label">Payments</div>
           <h3>Customer Payments Import</h3>
-          <p>Upload the original Access MDB/ACCDB payment database directly, or use Excel/CSV. Payments are matched to customers by account number and duplicate payment rows are skipped automatically.</p>
+          <p>Upload the original Microsoft Access <strong>.mdb</strong> payment database. Payments are matched to customers by account number and duplicate payment rows are skipped automatically.</p>
         </div>
       </div>
 
       <div class="grid payments-import-grid">
         <div>
           <label for="paymentFile">Customer Payments File</label>
-          <input id="paymentFile" type="file" accept=".mdb,.accdb,.csv,.xlsx,.xls">
-          <div class="access-import-hint">Recommended: use the original <strong>.mdb</strong> file. Dates are read directly from Access, so no Excel conversion is needed.</div>
+          <input id="paymentFile" type="file" accept=".mdb" aria-describedby="paymentFileHint">
+          <div class="access-import-hint" id="paymentFileHint">Microsoft Access files only: <strong>*.mdb</strong>. Dates are read directly from Access.</div>
         </div>
       </div>
 
@@ -3658,7 +3657,7 @@ input[type="file"]::file-selector-button{
         <tbody id="dbTableBody"></tbody>
       </table>
     </div>
-    <p class="db-contact-help"><strong>Contact icons:</strong> Colored means selected for statement delivery; gray means skipped. Email and Phone appear only when that information is on file. Portal is available for every customer.</p>
+    <p class="db-contact-help"><strong>Contact availability:</strong> The icons show which contact methods are available for each customer. Unavailable methods are hidden.</p>
 
     <div class="db-pagination" id="dbPagination" style="display:none">
       <button class="secondary" id="dbPrevBtn" type="button">Previous</button>
@@ -4031,7 +4030,7 @@ input[type="file"]::file-selector-button{
           <div class="admin-page-label">Generate Statements</div>
           <h2>Send Account Statements</h2>
           <p>Select individual customers or select all customers with phone numbers on file. Send each generated PDF through the secure customer portal, email, SMS, or all three.</p>
-          <p class="statement-contact-selection-note"><strong>Customer delivery selections:</strong> The colored Email, Phone, and Portal icons in Live Customer Data determine which enabled methods each customer receives. Gray icons are skipped.</p>
+          <p class="statement-contact-selection-note"><strong>Contact availability:</strong> The SMS, Portal, and Email icons in Live Customer Data are display-only and show the contact methods currently available for each customer.</p>
         </div>
       </div>
 
@@ -4751,9 +4750,20 @@ async function parseFile(file,mode="customers"){
   return {rows:XLSX.utils.sheet_to_json(ws,{defval:"",raw:false}),tableName:wb.SheetNames[0]||"Excel"};
 }
 
+function isMicrosoftAccessMdb(file){return !!file&&/\.mdb$/i.test(String(file.name||""));}
+document.getElementById("customerFile").addEventListener("change",event=>{
+  const file=event.target.files?.[0];
+  if(file&&!isMicrosoftAccessMdb(file)){event.target.value="";setStatus("Only a Microsoft Access *.mdb file can be selected.",false);}
+});
+document.getElementById("paymentFile").addEventListener("change",event=>{
+  const file=event.target.files?.[0];
+  if(file&&!isMicrosoftAccessMdb(file)){event.target.value="";setPaymentStatus("Only a Microsoft Access *.mdb file can be selected.",false);}
+});
+
 document.getElementById("previewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("customerFile").files[0];
-  if(!file){setStatus("Choose an Access MDB/ACCDB, Excel, or CSV file first.",false);return;}
+  if(!file){setStatus("Choose a Microsoft Access *.mdb file first.",false);return;}
+  if(!isMicrosoftAccessMdb(file)){setStatus("Only a Microsoft Access *.mdb file can be imported.",false);return;}
   const previewBtn=document.getElementById("previewBtn");
   previewBtn.disabled=true;
   previewBtn.textContent="Loading Customers…";
@@ -4792,6 +4802,7 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
   const batches=Math.ceil(total/chunkSize);
   let processed=0;
   let imported=0;
+  let reactivationRequired=0;
   let currentBatch=0;
   let latestCustomerImportAt="";
   btn.disabled=true; btn.textContent="Importing batch 1 of "+batches;
@@ -4810,14 +4821,15 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
       if(!res.ok || data.success===false) throw new Error(data.error||`Customer import failed during batch ${currentBatch}.`);
       processed+=chunk.length;
       imported+=Number(data.processed||chunk.length);
+      reactivationRequired+=Number(data.email_changes_requiring_reactivation||0);
       if(data.imported_at)latestCustomerImportAt=data.imported_at;
       document.getElementById("mImported").textContent=imported;
       updateImportProgress("customers",{processed,total,imported,batch:currentBatch,batches,label:"Importing customers"});
-      setStatus(`Importing customers: ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches}.`);
+      setStatus(`Importing customers: ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches}${reactivationRequired?` • ${reactivationRequired.toLocaleString()} email change${reactivationRequired===1?"":"s"} require reactivation`:""}.`);
     }
     if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt,window.wootenAdminUser?.display_name||"Wooten Oil Admin");
     updateImportProgress("customers",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Customer import complete"});
-    setStatus(`Success: ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}.`);
+    setStatus(`Success: ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}.${reactivationRequired?` ${reactivationRequired.toLocaleString()} account${reactivationRequired===1?"":"s"} had an email change and must reactivate online access.`:""}`);
   }catch(e){
     console.error(e);
     updateImportProgress("customers",{processed,total,imported,batch:currentBatch||1,batches,state:"failed",label:"Customer import stopped"});
@@ -4964,7 +4976,11 @@ function renderPaymentPreview(rows,total,skipped){
 document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("paymentFile").files[0];
   if(!file){
-    setPaymentStatus("Choose an Access MDB/ACCDB, Excel, or CSV customer payments file first.",false);
+    setPaymentStatus("Choose a Microsoft Access *.mdb customer payments file first.",false);
+    return;
+  }
+  if(!isMicrosoftAccessMdb(file)){
+    setPaymentStatus("Only a Microsoft Access *.mdb customer payments file can be imported.",false);
     return;
   }
   const previewBtn=document.getElementById("paymentPreviewBtn");
@@ -6189,23 +6205,23 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   let currentRows=[];
 
-  function contactIcon(row,channel,enabled,label){
+  function contactIcon(channel,label){
     const icons={
       email:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>',
-      sms:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M10 6h4M10 18h4"></path></svg>',
-      portal:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M8 22h8M12 18v4"></path><circle cx="12" cy="10" r="2.2"></circle></svg>'
+      sms:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H10l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path><path d="M8 9h8M8 13h5"></path></svg>',
+      portal:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 7h18"></path><circle cx="12" cy="12" r="2.4"></circle><path d="M7.5 19a4.5 4.5 0 0 1 9 0"></path></svg>'
     };
-    return '<button type="button" class="db-contact-toggle '+(enabled?'active':'')+'" data-contact-account="'+esc(row.account_number||'')+'" data-channel="'+channel+'" aria-pressed="'+(enabled?'true':'false')+'" title="'+esc(label+': '+(enabled?'selected':'not selected'))+'" aria-label="'+esc(label+': '+(enabled?'selected':'not selected'))+'">'+icons[channel]+'</button>';
+    return '<span class="db-contact-indicator" data-channel="'+channel+'" title="'+esc(label+' available')+'" aria-label="'+esc(label+' available')+'">'+icons[channel]+'</span>';
   }
 
   function contactIcons(row){
     const hasEmail=!!String(row.email||'').trim();
     const hasPhone=!!String(row.phone||'').trim();
-    return '<div class="db-contact-icons">'+
-      (hasEmail?contactIcon(row,'email',Number(row.contact_email_enabled)!==0,'Email'):'')+
-      (hasPhone?contactIcon(row,'sms',Number(row.contact_sms_enabled)!==0,'Phone / SMS'):'')+
-      contactIcon(row,'portal',Number(row.contact_portal_enabled)!==0,'Customer Portal')+
-    '</div>';
+    const hasPortal=!!row.online_activated;
+    const icons=(hasPhone?contactIcon('sms','SMS'):'')+
+      (hasPortal?contactIcon('portal','Customer Portal'):'')+
+      (hasEmail?contactIcon('email','Email'):'');
+    return '<div class="db-contact-icons">'+(icons||'<span aria-label="No contact methods available">—</span>')+'</div>';
   }
 
   function renderRows(rows){
@@ -6409,54 +6425,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   tbody.addEventListener("click",e=>{
-    const contactBtn=e.target.closest(".db-contact-toggle");
-    if(contactBtn){
-      e.preventDefault();
-      updateContactPreference(contactBtn);
-      return;
-    }
     const btn=e.target.closest("[data-db-row]");
     if(!btn) return;
     const index=Number(btn.getAttribute("data-db-row"));
     if(Number.isInteger(index) && currentRows[index]) renderCustomerDetails(currentRows[index]);
   });
-
-  async function updateContactPreference(button){
-    if(!button || button.classList.contains('saving')) return;
-    const key=document.getElementById("adminKey").value.trim();
-    if(!key){
-      window.ensureAdminLoginKey('Enter your Admin Import Key to change contact selections.');
-      setDbStatus('Enter your Admin Import Key in the Admin Login window first.');
-      return;
-    }
-
-    const account=button.getAttribute('data-contact-account')||'';
-    const channel=button.getAttribute('data-channel')||'';
-    const enabled=!button.classList.contains('active');
-    button.classList.add('saving');
-    try{
-      const response=await fetch('/api/admin/customer-contact-preferences',{
-        method:'POST',
-        headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},
-        body:JSON.stringify({account_number:account,channel,enabled})
-      });
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok || data.success===false) throw new Error(data.error||'Contact selection could not be saved.');
-
-      const row=currentRows.find(item=>String(item.account_number)===String(account));
-      if(row) row[channel==='email'?'contact_email_enabled':channel==='sms'?'contact_sms_enabled':'contact_portal_enabled']=enabled?1:0;
-      button.classList.toggle('active',enabled);
-      button.setAttribute('aria-pressed',enabled?'true':'false');
-      const label=channel==='email'?'Email':channel==='sms'?'Phone / SMS':'Customer Portal';
-      button.title=label+': '+(enabled?'selected':'not selected');
-      button.setAttribute('aria-label',button.title);
-      setDbStatus(label+' delivery '+(enabled?'selected':'turned off')+' for Customer # '+account+'.',true);
-    }catch(error){
-      setDbStatus(error.message||'Contact selection could not be saved.');
-    }finally{
-      button.classList.remove('saving');
-    }
-  }
 
   document.getElementById("dbCustomerModalClose").addEventListener("click",closeCustomerDetails);
   document.getElementById("dbCustomerModal").addEventListener("click",e=>{
@@ -7804,6 +7777,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||user.owner||(section!=='users'&&permissions.has(mapping[section])));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
     document.querySelectorAll('[data-admin-open]').forEach(button=>{const section=button.dataset.adminOpen;button.closest('.admin-dashboard-card').hidden=!(user&&(user.owner||permissions.has(mapping[section])));});
+    const ownerOnlyControls=document.querySelectorAll('#admin-tab-users input,#admin-tab-users button:not(#adminUsersRefresh)');
+    ownerOnlyControls.forEach(control=>{control.disabled=!user?.owner;control.setAttribute('aria-disabled',user?.owner?'false':'true');});
+    document.getElementById('admin-tab-users')?.classList.toggle('admin-user-management-locked',!user?.owner);
     const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
     if(user?.owner)setTimeout(()=>window.loadWootenAdminUsers?.(),0);
   }
@@ -8035,8 +8011,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
   async function load(){if(loading)return;loading=true;try{const [usersRes,auditRes]=await Promise.all([fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()}})]);const usersData=await usersRes.json().catch(()=>({})),auditData=await auditRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);renderAudit(auditData.entries||[]);loaded=true;}catch(error){message(error.message||'Admin users could not be loaded.',false);}finally{loading=false;}}
   window.loadWootenAdminUsers=load;
-  async function save(){const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
-  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
+  async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
+  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
   get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminUsersRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
   if(window.wootenAdminUser?.owner)setTimeout(load,0);
 })();

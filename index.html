@@ -29,6 +29,7 @@
 
 
 <link rel="stylesheet" href="assets/css/wooten-live-dashboard-style.css">
+<link rel="stylesheet" href="assets/css/wooten-account-switcher.css">
 
 
 <link rel="stylesheet" href="assets/css/wooten-professional-dashboard-icons.css">
@@ -445,6 +446,16 @@
           <span>Welcome back</span>
           <h2 class="account-name" id="acctName">Customer Account</h2>
           <div class="account-number" id="acctNumber"></div>
+        </div>
+        <div class="account-switcher" id="accountSwitcher" hidden>
+          <button class="account-switcher-button" id="accountSwitcherButton" type="button" aria-expanded="false" aria-controls="accountSwitcherPanel">
+            <span>Switch Account</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+          </button>
+          <div class="account-switcher-panel" id="accountSwitcherPanel" hidden>
+            <div class="account-switcher-title">Choose an account</div>
+            <div class="account-switcher-list" id="accountSwitcherList"></div>
+            <div class="account-switcher-status" id="accountSwitcherStatus" role="status" aria-live="polite"></div>
+          </div>
         </div>
         <button class="dashboard-notification-button" id="dashboardNotifications" type="button" aria-label="Open notifications" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>

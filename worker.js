@@ -666,6 +666,16 @@ async function onRequestPost3({ request, env }) {
         WHEN excluded.email IS NOT NULL AND excluded.email <> '' THEN excluded.email
         ELSE customers.email
       END,
+      password_hash = CASE
+        WHEN excluded.email IS NOT NULL AND trim(excluded.email) <> ''
+          AND lower(trim(excluded.email)) <> lower(trim(COALESCE(customers.email,''))) THEN NULL
+        ELSE customers.password_hash
+      END,
+      must_change_password = CASE
+        WHEN excluded.email IS NOT NULL AND trim(excluded.email) <> ''
+          AND lower(trim(excluded.email)) <> lower(trim(COALESCE(customers.email,''))) THEN 0
+        ELSE customers.must_change_password
+      END,
       current_balance = excluded.current_balance,
       aging_category_1 = excluded.aging_category_1,
       aging_category_2 = excluded.aging_category_2,
@@ -675,6 +685,7 @@ async function onRequestPost3({ request, env }) {
       updated_at = CURRENT_TIMESTAMP
   `);
   const batch = [];
+  const importedEmails = new Map();
   let skipped = 0;
   for (const row of customers) {
     const acct = accountNumber(row?.account_number);
@@ -683,6 +694,8 @@ async function onRequestPost3({ request, env }) {
       skipped++;
       continue;
     }
+    const importedEmail=text(row?.email).slice(0,254);
+    importedEmails.set(acct,importedEmail);
     batch.push(
       statement.bind(
         acct,
@@ -693,7 +706,7 @@ async function onRequestPost3({ request, env }) {
         text(row?.state).slice(0, 30),
         text(row?.zip_code).slice(0, 20),
         text(row?.phone).replace(/[^\d]/g, "").slice(0, 30),
-        text(row?.email).slice(0, 254),
+        importedEmail,
         numberValue(row?.current_balance),
         numberValue(row?.aging_category_1),
         numberValue(row?.aging_category_2),
@@ -706,24 +719,56 @@ async function onRequestPost3({ request, env }) {
   if (!batch.length) {
     return json3({ success: false, error: "No valid customer records were found." }, 400);
   }
+  const customerRecordCount=batch.length;
+  const changedEmailAccounts=[];
+  try{
+    const accounts=[...importedEmails.keys()];
+    for(let start=0;start<accounts.length;start+=100){
+      const chunk=accounts.slice(start,start+100);
+      const placeholders=chunk.map(()=>"?").join(",");
+      const existing=await env.DB.prepare(`SELECT account_number,email FROM customers WHERE account_number IN (${placeholders})`).bind(...chunk).all();
+      for(const current of existing?.results||[]){
+        const incoming=String(importedEmails.get(String(current.account_number))||"").trim();
+        const previous=String(current.email||"").trim();
+        if(incoming && incoming.toLowerCase()!==previous.toLowerCase()) changedEmailAccounts.push(String(current.account_number));
+      }
+    }
+  }catch(error){
+    console.error("Customer email-change detection failed",error);
+    return json3({success:false,error:"The import could not safely verify customer email changes."},500);
+  }
+  for(let start=0;start<changedEmailAccounts.length;start+=100){
+    const chunk=changedEmailAccounts.slice(start,start+100);
+    const placeholders=chunk.map(()=>"?").join(",");
+    batch.push(env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id IN (SELECT id FROM customers WHERE account_number IN (${placeholders}))`).bind(...chunk));
+  }
   try {
     await env.DB.batch(batch);
   } catch (error) {
     console.error("Customer import failed", error);
     return json3({ success: false, error: "Database import failed." }, 500);
   }
+  if(changedEmailAccounts.length){
+    for(let start=0;start<changedEmailAccounts.length;start+=100){
+      const chunk=changedEmailAccounts.slice(start,start+100);
+      const placeholders=chunk.map(()=>"?").join(",");
+      await env.DB.prepare(`UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE used_at IS NULL AND customer_id IN (SELECT id FROM customers WHERE account_number IN (${placeholders}))`).bind(...chunk).run().catch(()=>{});
+      await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE used_at IS NULL AND customer_id IN (SELECT id FROM customers WHERE account_number IN (${placeholders}))`).bind(...chunk).run().catch(()=>{});
+    }
+  }
   let importMeta=null;
   try{
-    importMeta=await recordAdminImport(env,"customers",batch.length,adminRequestActor(request,env).name);
-    await adminAudit(env,request,"customer_import","customers","",`${batch.length} records imported; ${skipped} skipped`);
+    importMeta=await recordAdminImport(env,"customers",customerRecordCount,adminRequestActor(request,env).name);
+    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation`);
   }catch(error){
     console.error("Customer import timestamp could not be recorded",error);
   }
 
   return json3({
     success: true,
-    processed: batch.length,
+    processed: customerRecordCount,
     skipped,
+    email_changes_requiring_reactivation: changedEmailAccounts.length,
     imported_at: importMeta?.last_import_at || new Date().toISOString()
   });
 }
@@ -1386,6 +1431,7 @@ async function customerLoginPost({
     }, 400);
   }
   let customer = null;
+  let emailMatches = [];
   const normalizedAccount = normalizeAccount(user);
   if (normalizedAccount) {
     customer = await env.DB.prepare(`
@@ -1396,14 +1442,37 @@ async function customerLoginPost({
       `).bind(normalizedAccount).first();
   }
   if (!customer && user.includes("@")) {
-    customer = await env.DB.prepare(`
+    const matches = await env.DB.prepare(`
         SELECT *
         FROM customers
         WHERE lower(email) = lower(?)
-        LIMIT 1
-      `).bind(user).first();
+        ORDER BY account_number
+      `).bind(user).all();
+    emailMatches = matches?.results || [];
+    for (const candidate of emailMatches) {
+      const candidateStatus = clean(candidate.account_status).toLowerCase();
+      if (candidateStatus && candidateStatus !== "active") continue;
+      if (!clean(candidate.password_hash)) continue;
+      if (await verifyPassword(password, candidate.password_hash)) {
+        customer = candidate;
+        break;
+      }
+    }
   }
   if (!customer) {
+    const activeEmailMatches = emailMatches.filter((candidate) => {
+      const candidateStatus = clean(candidate.account_status).toLowerCase();
+      return !candidateStatus || candidateStatus === "active";
+    });
+    if (user.includes("@") && activeEmailMatches.length === 1 && !clean(activeEmailMatches[0].password_hash)) {
+      await recordCustomerLoginActivity(env,request,activeEmailMatches[0],"activation_required");
+      return json4({
+        success: false,
+        setup_required: true,
+        account_number: activeEmailMatches[0].account_number,
+        error: "This account has not been activated for online access yet."
+      }, 403);
+    }
     return json4({
       success: false,
       error: "Customer Number or password is incorrect."
@@ -1417,7 +1486,19 @@ async function customerLoginPost({
       error: "This customer account is not active. Please contact Wooten Oil."
     }, 403);
   }
-  if (!clean(customer.password_hash)) {
+  let valid = user.includes("@");
+  let linkedLoginAvailable = false;
+  if (!valid && clean(customer.password_hash)) valid = await verifyPassword(password, customer.password_hash);
+  if (!valid && clean(customer.email)) {
+    const linkedRows = await env.DB.prepare(`SELECT password_hash,account_status FROM customers WHERE lower(trim(email))=lower(trim(?)) AND id<>? AND password_hash IS NOT NULL AND trim(password_hash)<>''`).bind(customer.email,customer.id).all();
+    for (const linked of linkedRows?.results || []) {
+      const linkedStatus = clean(linked.account_status).toLowerCase();
+      if (linkedStatus && linkedStatus !== "active") continue;
+      linkedLoginAvailable = true;
+      if (await verifyPassword(password,linked.password_hash)) { valid = true; break; }
+    }
+  }
+  if (!valid && !clean(customer.password_hash) && !linkedLoginAvailable) {
     await recordCustomerLoginActivity(env,request,customer,"activation_required");
     return json4({
       success: false,
@@ -1426,10 +1507,6 @@ async function customerLoginPost({
       error: "This account has not been activated for online access yet."
     }, 403);
   }
-  const valid = await verifyPassword(
-    password,
-    customer.password_hash
-  );
   if (!valid) {
     await recordCustomerLoginActivity(env,request,customer,"failed_password");
     return json4({
@@ -1455,6 +1532,65 @@ async function customerLoginPost({
   );
 }
 __name(customerLoginPost, "customerLoginPost");
+function linkedAccountSummary(customer) {
+  return {
+    account_number: customer.account_number,
+    account_name: customer.account_name || "Customer Account",
+    current_balance: Number(customer.current_balance || 0)
+  };
+}
+__name(linkedAccountSummary, "linkedAccountSummary");
+async function customerLinkedAccounts(customer, env) {
+  const email = clean(customer?.email).toLowerCase();
+  if (!email) return [linkedAccountSummary(customer)];
+  const rows = await env.DB.prepare(`
+    SELECT account_number,account_name,current_balance,account_status
+    FROM customers
+    WHERE lower(trim(email)) = ?
+    ORDER BY account_name COLLATE NOCASE,account_number
+  `).bind(email).all();
+  return (rows?.results || []).filter((row) => {
+    const status = clean(row.account_status).toLowerCase();
+    return !status || status === "active";
+  }).map(linkedAccountSummary);
+}
+__name(customerLinkedAccounts, "customerLinkedAccounts");
+async function customerAccountsGet({request,env}) {
+  if (!env.DB) return json4({success:false,error:"Customer database is not configured."},503);
+  const customer = await getCustomerFromSession(request,env);
+  if (!customer) return json4({success:false,authenticated:false},401);
+  const accounts = await customerLinkedAccounts(customer,env);
+  return json4({success:true,current_account_number:customer.account_number,accounts});
+}
+__name(customerAccountsGet, "customerAccountsGet");
+async function customerAccountSwitchPost({request,env}) {
+  if (!env.DB) return json4({success:false,error:"Customer database is not configured."},503);
+  const current = await getCustomerFromSession(request,env);
+  if (!current) return json4({success:false,authenticated:false},401);
+  let body;
+  try { body = await request.json(); }
+  catch { return json4({success:false,error:"Invalid account switch request."},400); }
+  const targetAccount = normalizeAccount(body?.account_number);
+  if (!targetAccount) return json4({success:false,error:"Choose an account."},400);
+  const email = clean(current.email).toLowerCase();
+  if (!email) return json4({success:false,error:"No linked accounts are available."},403);
+  const target = await env.DB.prepare(`
+    SELECT * FROM customers
+    WHERE account_number = ?
+      AND lower(trim(email)) = ?
+    LIMIT 1
+  `).bind(targetAccount,email).first();
+  const targetStatus = clean(target?.account_status).toLowerCase();
+  if (!target || (targetStatus && targetStatus !== "active")) {
+    return json4({success:false,error:"That account is not available for this portal login."},403);
+  }
+  if (target.id !== current.id) {
+    await env.DB.prepare(`UPDATE customer_sessions SET customer_id=?,last_seen_at=? WHERE id=?`).bind(target.id,new Date().toISOString(),current.session_id).run();
+    await recordCustomerLoginActivity(env,request,target,"account_switch");
+  }
+  return json4({success:true,customer:publicCustomer(target),accounts:await customerLinkedAccounts(target,env)});
+}
+__name(customerAccountSwitchPost, "customerAccountSwitchPost");
 async function customerMeGet({
   request,
   env
@@ -5464,10 +5600,11 @@ async function adminCustomersDatabaseGet({ request, env }) {
       where.push(`phone IS NULL OR trim(phone) = ''`);
     }
 
+    const portalAccessSql = `(password_hash IS NOT NULL AND trim(password_hash) <> '' OR (email IS NOT NULL AND trim(email) <> '' AND EXISTS (SELECT 1 FROM customers linked_login WHERE lower(trim(linked_login.email))=lower(trim(customers.email)) AND linked_login.password_hash IS NOT NULL AND trim(linked_login.password_hash)<>'')))`;
     if (online === "activated") {
-      where.push(`password_hash IS NOT NULL AND trim(password_hash) <> ''`);
+      where.push(portalAccessSql);
     } else if (online === "not_activated") {
-      where.push(`password_hash IS NULL OR trim(password_hash) = ''`);
+      where.push(`NOT ${portalAccessSql}`);
     }
 
     if (status === "active") {
@@ -5518,10 +5655,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
         COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
         COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
         COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled,
-        CASE
-          WHEN password_hash IS NOT NULL AND trim(password_hash) <> '' THEN 1
-          ELSE 0
-        END AS online_activated,
+        CASE WHEN ${portalAccessSql} THEN 1 ELSE 0 END AS online_activated,
         updated_at
       FROM customers
       ${whereSql}
@@ -7836,6 +7970,14 @@ var worker_default = {
           env
         });
       }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/customer/accounts") {
+      if (request.method === "GET") return customerAccountsGet({request,env});
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/customer/account-switch") {
+      if (request.method === "POST") return customerAccountSwitchPost({request,env});
       return methodNotAllowed();
     }
     if (url.pathname === "/api/customer/logout") {
