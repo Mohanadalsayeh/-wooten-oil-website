@@ -7365,8 +7365,52 @@ function adminHexBytes(hex){const clean=String(hex||"");const out=new Uint8Array
 async function adminSha256(value){return adminBytesHex(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value||"")))));}
 async function adminPasswordHash(password,saltHex){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(password||"")),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:adminHexBytes(saltHex),iterations:100000},key,256);return adminBytesHex(new Uint8Array(bits));}
 function adminSafePermissions(value){let source=value;try{if(typeof source==="string")source=JSON.parse(source);}catch{source=[];}return [...new Set((Array.isArray(source)?source:[]).map(v=>String(v||"")).filter(v=>ADMIN_PERMISSION_KEYS.includes(v)))];}
-function adminRequestActor(request,env){return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Admin"),owner:(request.headers.get("X-Admin-Actor-Owner")||"")==="1"||((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
+function adminRequestActor(request,env){const ownerHeader=request.headers.get("X-Admin-Actor-Owner");return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Admin"),owner:ownerHeader!==null?ownerHeader==="1":((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
 async function adminAudit(env,request,action,targetType="",targetId="",detail=""){try{await ensureAdminUsersTables(env);const actor=adminRequestActor(request,env);await env.DB.prepare(`INSERT INTO admin_audit_log(id,actor_user_id,actor_name,action_type,target_type,target_id,detail) VALUES ((SELECT COALESCE(MAX(id),0)+1 FROM admin_audit_log),?,?,?,?,?,?)`).bind(actor.id,actor.name,String(action||""),String(targetType||""),String(targetId||""),String(detail||"").slice(0,2000)).run();}catch(error){console.error("Admin audit could not be recorded",error);}}
+function adminGeneralAuditDescriptor(request){
+  const url=new URL(request.url),path=url.pathname,method=String(request.method||"GET").toUpperCase();
+  if(path==="/api/admin/audit")return null;
+  if(method==="DELETE"&&/^\/api\/admin\/account-applications\/\d+$/.test(path))return null;
+  if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
+  if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
+  const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
+  const routes={
+    "/api/admin/users":["admin_users_viewed","administration","Administrator user list viewed"],
+    "/api/admin/customer-activity":["customer_activity_searched","customer_activity","Customer Activity searched"],
+    "/api/admin/customers-database":["customer_database_viewed","database","Live Customer Data loaded or searched"],
+    "/api/admin/customer-payments-database":["payment_database_viewed","database","Live Customer Payments loaded or searched"],
+    "/api/admin/customer-contact-preferences":[method==="GET"?"contact_preferences_viewed":"contact_preferences_changed","customer",method==="GET"?"Customer contact preferences viewed":"Customer contact preferences changed"],
+    "/api/admin/customer-online-deactivate":["online_account_deactivated","customer","Customer online account deactivated"],
+    "/api/admin/clear-database":["database_cleared","database","Customer or payment database cleared"],
+    "/api/admin/import-status":["import_status_viewed","database","Import status viewed"],
+    "/api/admin/gmail-inbox":["customer_messages_viewed","communication","Customer message history viewed"],
+    "/api/admin/gmail-portal-sync":["gmail_portal_sync_run","communication","Gmail portal synchronization run"],
+    "/api/admin/gmail-portal-sync/status":["gmail_portal_sync_status_viewed","communication","Gmail portal synchronization status viewed"],
+    "/api/admin/statement-customers":["statement_customers_viewed","statements","Statement customer list viewed"],
+    "/api/admin/communication-log":["communication_history_viewed","communication","Communication history viewed"],
+    "/api/admin/communication-log/resend":["communication_resent","communication","Communication resend requested"],
+    "/api/admin/statements/generate":["statements_generated","statements","Statement generation requested"],
+    "/api/admin/statement-scheduling":[method==="GET"?"statement_schedule_viewed":"statement_schedule_changed","statements",method==="GET"?"Statement schedule viewed":"Statement schedule changed"],
+    "/api/admin/statement-scheduling/preview":["statement_schedule_previewed","statements","Statement schedule previewed"],
+    "/api/admin/statement-scheduling/run":["statement_schedule_run","statements","Statement schedule run started"],
+    "/api/admin/statement-scheduling/continue":["statement_schedule_continued","statements","Statement schedule run continued"],
+    "/api/admin/customer-statement-cycle":["statement_cycle_changed","customer","Customer statement cycle changed"],
+    "/api/admin/customer-documents":[method==="GET"?"customer_documents_viewed":"customer_documents_changed","documents",method==="GET"?"Customer documents viewed":"Customer documents changed"],
+    "/api/admin/customer-documents/upload":["customer_document_uploaded","documents","Customer document uploaded"],
+    "/api/admin/customer-notifications":["customer_notification_sent","notifications","Customer notification send requested"],
+    "/api/admin/twilio/status":["sms_settings_viewed","communication_settings","Twilio SMS connection status viewed"],
+    "/api/admin/customer-activation-code":["activation_code_created","activation","Customer activation code created"],
+    "/api/admin/customer-password-reset-code":["password_reset_code_created","activation","Customer password reset code created"],
+    "/api/admin/account-applications":["account_applications_viewed","applications","Account applications viewed"]
+  };
+  let descriptor=routes[path];
+  if(!descriptor&&path.startsWith("/api/admin/account-applications/"))descriptor=["application_document_viewed","applications","Account application document viewed"];
+  if(!descriptor&&path.startsWith("/api/admin/customer-activity/documents/"))descriptor=["customer_document_opened","documents","Customer document opened from Customer Activity"];
+  if(!descriptor&&path.startsWith("/api/admin/customer-documents/"))descriptor=["customer_document_opened","documents","Customer document opened"];
+  if(!descriptor)descriptor=[`admin_${method.toLowerCase()}_${path.split("/").filter(Boolean).slice(2).join("_").replace(/[^a-z0-9_]/gi,"").toLowerCase()||"activity"}`,"admin",`${method} ${path}`];
+  return {action:descriptor[0],targetType:descriptor[1],targetId:String(account||""),detail:descriptor[2]};
+}
+async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/users")||path.startsWith("/api/admin/audit"))return "manage_users";
   if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
@@ -7394,13 +7438,13 @@ async function adminAuthorizeRequest(request,env,path){
 }
 async function adminAuthLogin({request,env}){
   try{if(!env.DB)return notificationJson({success:false,error:"Admin user database is not configured."},503);const body=await request.json();const username=String(body.username||"").trim();const password=String(body.password||"");if(!username||!password)return notificationJson({success:false,error:"Enter your username and password."},400);
-    if(env.ADMIN_IMPORT_KEY&&username==="Admin"&&password===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});
+    if(env.ADMIN_IMPORT_KEY&&username==="Admin"&&password===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers();headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY));headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_login","admin_owner","Admin","Signed in");return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});}
     await ensureAdminUsersTables(env);const user=await env.DB.prepare(`SELECT id,username,display_name,password_salt,password_hash,permissions,active FROM admin_users WHERE username=? COLLATE BINARY LIMIT 1`).bind(username).first();if(!user||!Number(user.active))return notificationJson({success:false,error:"Invalid username or password."},401);const hash=await adminPasswordHash(password,user.password_salt);if(hash!==user.password_hash)return notificationJson({success:false,error:"Invalid username or password."},401);
     const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+12 hours'))`).bind(tokenHash,user.id).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
   }catch(error){console.error("adminAuthLogin failed",error);return notificationJson({success:false,error:"Administrator login is unavailable."},500);}
 }
 async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
-async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(credential&&credential!==String(env.ADMIN_IMPORT_KEY||"")&&env.DB){await ensureAdminUsersTables(env);await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();}return notificationJson({success:true});}
+async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(!credential||!env?.DB)return notificationJson({success:true});if(credential===String(env.ADMIN_IMPORT_KEY||"")){const headers=new Headers();headers.set("X-Admin-Key",credential);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_owner","Admin","Signed out");return notificationJson({success:true});}await ensureAdminUsersTables(env);const session=await adminSessionFromCredential(env,credential);if(session){const headers=new Headers();headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_user",String(session.user_id),"Signed out");}await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();return notificationJson({success:true});}
 async function adminUsersApi({request,env}){
   try{await ensureAdminUsersTables(env);if(request.method==="GET"){const users=await env.DB.prepare(`SELECT id,username,display_name,permissions,active,created_at,updated_at FROM admin_users ORDER BY display_name COLLATE NOCASE`).all();return notificationJson({success:true,users:(users?.results||[]).map(u=>({...u,permissions:adminSafePermissions(u.permissions)}))});}
     const body=await request.json();const id=Number(body.id||0);const username=String(body.username||"").trim().slice(0,60);const displayName=String(body.display_name||"").trim().slice(0,100);const password=String(body.password||"");const permissions=adminSafePermissions(body.permissions);const active=body.active===false||body.active===0?0:1;if(!username||!displayName)return notificationJson({success:false,error:"Enter the user's name and username."},400);if(!/^[A-Za-z0-9._-]+$/.test(username))return notificationJson({success:false,error:"Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed."},400);if((!id||password)&&!(password.length>=8&&/[A-Za-z]/.test(password)&&/\d/.test(password)))return notificationJson({success:false,error:"Password must contain at least 8 characters, including at least one letter and one number."},400);const duplicateUser=await env.DB.prepare(`SELECT id FROM admin_users WHERE username=? COLLATE NOCASE AND id<>? LIMIT 1`).bind(username,id||0).first();if(duplicateUser)return notificationJson({success:false,error:"That username is already in use."},409);
@@ -7625,6 +7669,37 @@ async function adminAccountApplicationUpdate({request,env}){
 }
 __name(adminAccountApplicationUpdate,"adminAccountApplicationUpdate");
 
+async function adminAccountApplicationDelete({request,env}){
+  try{
+    if(!accountApplicationAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+    const actor=adminRequestActor(request,env);
+    if(!actor.owner){await adminAudit(env,request,"application_delete_denied","account_application","","Regular admin user attempted a Main Admin-only deletion");return notificationJson({success:false,error:"Only the Main Admin can permanently delete account applications."},403);}
+    if(!env.DB)return notificationJson({success:false,error:"Account application database is not configured."},503);
+    await ensureAccountApplicationsTable(env);
+    const match=new URL(request.url).pathname.match(/^\/api\/admin\/account-applications\/(\d+)$/);
+    const id=Number(match?.[1]||0);
+    if(!Number.isInteger(id)||id<=0)return notificationJson({success:false,error:"Choose a valid account application."},400);
+    const application=await env.DB.prepare(`SELECT id,application_number,application_type,business_name,full_name,tax_document_key,identity_document_key FROM account_applications WHERE id=? LIMIT 1`).bind(id).first();
+    if(!application)return notificationJson({success:false,error:"Application not found."},404);
+    let objectKeys=[application.tax_document_key,application.identity_document_key].map(value=>String(value||"").trim()).filter(Boolean);
+    if(objectKeys.length&&!env.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Secure document storage is unavailable. The application was not deleted because its uploaded files could not be safely removed."},503);
+    if(objectKeys.length){
+      try{
+        const stored=await env.NOTIFICATION_ATTACHMENTS.list({prefix:`account-applications/${application.application_number}/`});
+        objectKeys=[...new Set([...objectKeys,...(stored?.objects||[]).map(object=>String(object.key||"")).filter(Boolean)])];
+        await env.NOTIFICATION_ATTACHMENTS.delete(objectKeys);
+      }
+      catch(error){console.error("Account application files could not be deleted",error);return notificationJson({success:false,error:"The uploaded application files could not be deleted. The application record was kept for safety."},500);}
+    }
+    const result=await env.DB.prepare(`DELETE FROM account_applications WHERE id=?`).bind(id).run();
+    if(!Number(result?.meta?.changes||0))return notificationJson({success:false,error:"Application not found."},404);
+    const applicant=String(application.business_name||application.full_name||"Applicant");
+    await adminAudit(env,request,"application_deleted","account_application",String(application.application_number||id),`${applicant}; ${objectKeys.length} uploaded file(s) permanently deleted`);
+    return notificationJson({success:true,application_number:application.application_number,files_deleted:objectKeys.length});
+  }catch(error){console.error("adminAccountApplicationDelete failed",error);return notificationJson({success:false,error:"The application could not be deleted."},500);}
+}
+__name(adminAccountApplicationDelete,"adminAccountApplicationDelete");
+
 async function adminAccountApplicationFileGet({request,env}){
   try{
     if(!accountApplicationAuthorized(request,env)) return new Response("Unauthorized.",{status:401});
@@ -7658,6 +7733,7 @@ var worker_default = {
       const authorization=await adminAuthorizeRequest(request,env,url.pathname);
       if(authorization.response)return authorization.response;
       request=authorization.request;
+      ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});
@@ -7714,6 +7790,10 @@ var worker_default = {
     if (url.pathname === "/api/admin/account-applications") {
       if (request.method === "GET") return adminAccountApplicationsGet({ request, env });
       if (request.method === "POST") return adminAccountApplicationUpdate({ request, env });
+      return methodNotAllowed();
+    }
+    if (/^\/api\/admin\/account-applications\/\d+$/.test(url.pathname)) {
+      if (request.method === "DELETE") return adminAccountApplicationDelete({ request, env });
       return methodNotAllowed();
     }
     if (/^\/api\/admin\/account-applications\/\d+\/(tax|identity)$/.test(url.pathname)) {
