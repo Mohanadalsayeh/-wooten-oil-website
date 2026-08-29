@@ -707,9 +707,9 @@
       option.setAttribute('data-account-number',String(account.account_number||''));
       var identity=document.createElement('span');
       var name=document.createElement('strong');name.textContent=account.account_name||'Customer Account';
-      var number=document.createElement('small');number.textContent='Customer # '+(account.account_number||'');
+      var number=document.createElement('small');number.textContent='Customer # '+(account.account_number||'')+(isCurrent?' • Current account':'');
       identity.appendChild(name);identity.appendChild(number);
-      var side=document.createElement('span');side.textContent=isCurrent?'Current':money(account.current_balance);
+      var side=document.createElement('span');side.className='account-switcher-balance';side.innerHTML='<small>Total Balance</small><strong>'+money(account.total_balance)+'</strong>';
       option.appendChild(identity);option.appendChild(side);accountSwitcherList.appendChild(option);
     });
     if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status';accountSwitcherStatus.textContent='';}

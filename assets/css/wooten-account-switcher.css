@@ -13,6 +13,9 @@
 .account-switcher-option strong,.account-switcher-option small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .account-switcher-option small{margin-top:2px;color:#6d7f90;font-size:12px}
 .account-switcher-option span:last-child{align-self:center;color:#36536c;font-size:12px;font-weight:900;white-space:nowrap}
+.account-switcher-option .account-switcher-balance{display:grid;gap:1px;text-align:right}
+.account-switcher-option .account-switcher-balance small{margin:0;color:#73869a;font-size:9px;font-weight:850;letter-spacing:.055em;text-transform:uppercase}
+.account-switcher-option .account-switcher-balance strong{color:#163550;font-size:13px;font-weight:900}
 .account-switcher-status{display:none;margin-top:8px;padding:8px;border-radius:8px;background:#fff1f1;color:#9b2630;font-size:12px;font-weight:750}
 .account-switcher-status.show{display:block}
 @media(max-width:620px){.dashboard-welcome-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto}.account-switcher{grid-column:1/-1;width:100%;margin:8px 0 0}.account-switcher-button{width:100%}.account-switcher-panel{position:static;width:100%;margin-top:8px;max-height:320px;box-shadow:0 10px 24px rgba(15,39,66,.12)}}
