@@ -686,7 +686,7 @@ async function onRequestPost3({ request, env }) {
       aging_category_2 = excluded.aging_category_2,
       aging_category_3 = excluded.aging_category_3,
       aging_category_4 = excluded.aging_category_4,
-      statement_cycle = excluded.statement_cycle,
+      statement_cycle = CASE WHEN ?=1 THEN excluded.statement_cycle ELSE customers.statement_cycle END,
       updated_at = CURRENT_TIMESTAMP
   `);
   const batch = [];
@@ -700,6 +700,9 @@ async function onRequestPost3({ request, env }) {
       continue;
     }
     const importedEmail=text(row?.email).slice(0,254);
+    const importedCycle=text(row?.statement_cycle).toUpperCase();
+    const hasImportedCycle=importedCycle!=="";
+    const normalizedCycle=importedCycle==="C"||importedCycle==="W"?"B":"A";
     importedEmails.set(acct,importedEmail);
     batch.push(
       statement.bind(
@@ -717,7 +720,8 @@ async function onRequestPost3({ request, env }) {
         numberValue(row?.aging_category_2),
         numberValue(row?.aging_category_3),
         numberValue(row?.aging_category_4),
-        (()=>{const cycle=text(row?.statement_cycle).toUpperCase();return cycle==="C"||cycle==="W"?"B":"A";})()
+        normalizedCycle,
+        hasImportedCycle?1:0
       )
     );
   }
@@ -7260,12 +7264,24 @@ async function adminCustomerStatementCycle({request,env}){
   if(!env.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
   try{
     const body=await request.json().catch(()=>({}));
-    const digits=String(body.account_number||"").replace(/\D/g,"");
-    const account=digits?digits.padStart(7,"0"):"";
     const cycle=String(body.statement_cycle||"").trim().toUpperCase();
-    if(!account)return notificationJson({success:false,error:"A valid customer account number is required."},400);
     if(!["A","B"].includes(cycle))return notificationJson({success:false,error:"Statement Cycle must be A or B."},400);
     await ensureCustomerStatementCycleColumn(env);
+    if(Array.isArray(body.account_numbers)){
+      const accounts=[...new Set(body.account_numbers.map(value=>{const digits=String(value||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
+      if(!accounts.length)return notificationJson({success:false,error:"Select at least one customer."},400);
+      if(accounts.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers can be moved at once."},413);
+      let updated=0;
+      for(let start=0;start<accounts.length;start+=100){
+        const chunk=accounts.slice(start,start+100),placeholders=chunk.map(()=>"?").join(",");
+        const result=await env.DB.prepare(`UPDATE customers SET statement_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE account_number IN (${placeholders}) AND upper(trim(COALESCE(statement_cycle,'')))<>?`).bind(cycle,...chunk,cycle).run();
+        updated+=Number(result?.meta?.changes||0);
+      }
+      return notificationJson({success:true,bulk:true,selected:accounts.length,updated,statement_cycle:cycle});
+    }
+    const digits=String(body.account_number||"").replace(/\D/g,"");
+    const account=digits?digits.padStart(7,"0"):"";
+    if(!account)return notificationJson({success:false,error:"A valid customer account number is required."},400);
     const customer=await env.DB.prepare(`SELECT account_number,account_name FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
     if(!customer)return notificationJson({success:false,error:"Customer account was not found."},404);
     await env.DB.prepare(`UPDATE customers SET statement_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE account_number=?`).bind(cycle,account).run();

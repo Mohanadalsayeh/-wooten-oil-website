@@ -1604,7 +1604,8 @@ input[type="file"]:focus-visible{
 .schedule-shared{margin-top:14px}.schedule-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.schedule-option{display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #d7e1ea;border-radius:10px;background:#fff;padding:8px 11px;font-weight:800;color:#344c62}.schedule-option input{width:18px;height:18px}
 .schedule-preview-inline{margin-top:14px}.schedule-preview-inline:empty{display:none}.schedule-preview-summary{padding-top:12px;border-top:1px solid #d9e2e9}.schedule-preview-summary>strong{display:block;color:#17324d}.schedule-preview-summary>p{margin:4px 0 9px;color:#68798a;font-size:12px}.schedule-preview-count-number{color:#17324d;font-weight:900}.schedule-preview-search{width:100%;min-height:40px;margin:0 0 9px;padding:8px 11px;border:1px solid #c9d5df;border-radius:9px;background:#fff;color:#17324d;font:inherit;box-sizing:border-box}.schedule-preview-search:focus{outline:none;border-color:#6f91af;box-shadow:0 0 0 3px rgba(31,78,121,.10)}.schedule-preview-list{display:grid;gap:7px;max-height:430px;overflow:auto;padding-right:3px}.schedule-preview-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row[hidden]{display:none!important}.schedule-preview-row strong{color:#17324d}.schedule-preview-balance{align-self:center;color:#17324d;font-weight:900}.schedule-customer-cycle{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.schedule-customer-cycle select,.schedule-customer-cycle button{min-height:36px;border-radius:8px;font:inherit}.schedule-customer-cycle select{border:1px solid #c9d5df;background:#fff;padding:5px 8px;color:#17324d}.schedule-customer-cycle button{border:0;background:#e8eef3;color:#17324d;padding:5px 10px;font-weight:900;cursor:pointer}.schedule-customer-cycle button:hover{background:#dbe6ee}.schedule-customer-cycle button:disabled{cursor:wait;opacity:.65}
 .schedule-report{display:grid;gap:10px;margin-top:14px}.schedule-run{border:1px solid #d7e1ea;border-radius:12px;background:#fff;overflow:hidden}.schedule-run summary{cursor:pointer;list-style:none;padding:12px 14px}.schedule-run summary::-webkit-details-marker{display:none}.schedule-run-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.schedule-run-title strong{color:#17324d}.schedule-run-title span{color:#6d7e8f;font-size:12px}.schedule-run-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.schedule-run-metric{border-radius:999px;background:#edf3f7;color:#465d70;padding:4px 8px;font-size:11px;font-weight:900}.schedule-run-metric.good{background:#ddf4e8;color:#17633f}.schedule-run-metric.bad{background:#fde8e8;color:#9b3030}.schedule-run-detail{border-top:1px solid #e0e7ed;padding:10px 14px}.schedule-result-row{display:grid;grid-template-columns:minmax(180px,1fr) repeat(3,90px);gap:8px;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:12px}.schedule-result-row:last-child{border-bottom:0}.schedule-result-row strong{color:#17324d}.schedule-empty{padding:16px;border:1px dashed #c9d5df;border-radius:10px;background:#fff;color:#718193;text-align:center}
-@media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-list{max-height:520px}}
+.schedule-bulk-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:10px 0}.schedule-bulk-toolbar button{min-height:36px;border:1px solid #c8d5df;border-radius:8px;background:#fff;color:#24445f;padding:6px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}.schedule-bulk-toolbar button:hover{background:#edf4f8}.schedule-bulk-toolbar button[data-bulk-move]{border-color:#c9282d;background:#fff;color:#b32126}.schedule-bulk-toolbar button[data-bulk-move]:hover{background:#fff0f0}.schedule-bulk-toolbar button:disabled{cursor:not-allowed;opacity:.55}.schedule-bulk-count{margin-left:auto;color:#526b80;font-size:12px;font-weight:900}.schedule-bulk-check{display:flex;align-items:flex-start;padding-top:2px}.schedule-bulk-check input{width:18px;height:18px}.schedule-preview-row{grid-template-columns:auto minmax(0,1fr) auto}.schedule-customer-cycle{grid-column:2/-1}
+@media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-list{max-height:520px}.schedule-bulk-count{width:100%;margin-left:0}}
 </style>
 
 
@@ -3603,7 +3604,7 @@ input[type="file"]:focus-visible{
       </table>
     </div>
 
-    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, StatementCycle, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. A, B, and blank imported values use Monthly Cycle A. C or W imported values use Weekly / Biweekly Cycle B. Account numbers are automatically preserved/padded to 7 digits.</p>
+    <p class="note"><strong>Accepted MAS 90 / Access fields:</strong> CustomerNo, CustomerName, AddressLine1, AddressLine2, City, State, ZipCode, TelephoneNo, EmailAddress, CurrentBalance, AgingCategory1, AgingCategory2, AgingCategory3, AgingCategory4. MAS 90 imports do not change an existing customer’s portal statement cycle. New customers start in Cycle A. Account numbers are automatically preserved/padded to 7 digits.</p>
 
     <div class="payments-import-section">
       <div class="payments-import-heading">
@@ -4680,7 +4681,7 @@ function mapRow(row){
     aging_category_2:normalizeMoney(pick(row,aliases.aging_category_2)),
     aging_category_3:normalizeMoney(pick(row,aliases.aging_category_3)),
     aging_category_4:normalizeMoney(pick(row,aliases.aging_category_4)),
-    statement_cycle:(()=>{const cycle=clean(pick(row,aliases.statement_cycle)).toUpperCase();return cycle==='C'||cycle==='W'?'B':'A';})()
+    statement_cycle:(()=>{const cycle=clean(pick(row,aliases.statement_cycle)).toUpperCase();return cycle?cycle==='C'||cycle==='W'?'B':'A':'';})()
   };
 }
 function setStatus(msg,good=true){
@@ -7287,6 +7288,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const saveBtn=get('scheduleSave'),refreshBtn=get('scheduleRefresh'),status=get('scheduleStatus'),report=get('scheduleReport');
   const previewTargets={monthly:get('schedulePreviewMonthlyResults'),midmonth:get('schedulePreviewMidmonthResults'),weekly:get('schedulePreviewWeeklyResults')};
   const previewCustomerData={monthly:[],midmonth:[],weekly:[]};
+  const bulkSelections={monthly:new Set(),weekly:new Set()};
   const openPreviewTypes=new Set();
   let loaded=false,loading=false;
 
@@ -7358,10 +7360,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{const data=await request('/api/admin/statement-scheduling');applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;setStatus('Scheduling settings and reports loaded.',true);}
     catch(error){setStatus(error.message||'Scheduling could not be loaded.',false);}finally{loading=false;}
   }
-  function previewCustomerRow(row){
+  function previewCustomerRow(row,type){
     const cycle=String(row.statement_cycle||'A').toUpperCase();
-    return '<div class="schedule-preview-row" data-schedule-customer="'+esc(row.account_number||'')+'"><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||row.account_number||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
+    const account=String(row.account_number||'');
+    return '<div class="schedule-preview-row" data-schedule-customer="'+esc(account)+'"><label class="schedule-bulk-check" title="Select customer"><input type="checkbox" data-bulk-cycle-customer data-preview-type="'+type+'" value="'+esc(account)+'" '+(bulkSelections[type]?.has(account)?'checked':'')+' aria-label="Select '+esc(row.account_name||account)+'"></label><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(account)+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||account||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
   }
+  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),move=preview?.querySelector('[data-bulk-move]'),clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected';if(move)move.disabled=selected===0;if(clear)clear.disabled=selected===0;}
   function renderPreviewMatches(type,query=''){
     const preview=previewTargets[type],summary=preview?.querySelector('.schedule-preview-summary');
     if(!summary)return;
@@ -7372,9 +7376,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const count=summary.querySelector('[data-schedule-preview-count]');
     if(count)count.innerHTML=normalized
       ?'<strong class="schedule-preview-count-number">'+matches.length.toLocaleString()+'</strong> customer(s) match this search'+(matches.length>100?' • showing first 100':'')+'.'
-      :'<strong class="schedule-preview-count-number">'+all.length.toLocaleString()+'</strong> customer(s) match the saved schedule'+(all.length>100?' • showing first 100':'')+'. Change an individual customer’s cycle below.';
+      :'<strong class="schedule-preview-count-number">'+all.length.toLocaleString()+'</strong> customer(s) match the saved schedule'+(all.length>100?' • showing first 100':'')+'. Select customers for a bulk move or change one customer below.';
     const list=summary.querySelector('.schedule-preview-list');
-    if(list)list.innerHTML=shown.length?shown.map(previewCustomerRow).join(''):'<div class="schedule-empty">'+(normalized?'No customers match this search.':'No customers match this schedule.')+'</div>';
+    if(list)list.innerHTML=shown.length?shown.map(row=>previewCustomerRow(row,type)).join(''):'<div class="schedule-empty">'+(normalized?'No customers match this search.':'No customers match this schedule.')+'</div>';
+    updateBulkControls(type);
   }
   async function showPreview(type,saveFirst=true){
     const preview=previewTargets[type];
@@ -7387,7 +7392,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const title=type==='weekly'?'B — Weekly / Biweekly Customers':type==='midmonth'?'Legacy Mid-Month Customers':'A — Monthly Cycle Customers';
       previewCustomerData[type]=data.customers||[];
       const total=previewCustomerData[type].length;
-      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer name or number…" aria-label="Search '+title+'"><div class="schedule-preview-list"></div></div>';
+      const destination=type==='weekly'?'A':'B';
+      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer name or number…" aria-label="Search '+title+'"><div class="schedule-bulk-toolbar"><button type="button" data-bulk-select-matching data-preview-type="'+type+'">Select All Matching</button><button type="button" data-bulk-clear data-preview-type="'+type+'" disabled>Clear Selection</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="'+destination+'" disabled>Move Selected to Cycle '+destination+'</button><span class="schedule-bulk-count" data-bulk-selected-count>0 selected</span></div><div class="schedule-preview-list"></div></div>';
       renderPreviewMatches(type,'');
       setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'Cycle B':type==='midmonth'?'legacy mid-month':'monthly A')+' schedule.',true);
     }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
@@ -7398,7 +7404,31 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     renderPreviewMatches(input.dataset.previewType,input.value);
     input.focus();
   });
+  panel.addEventListener('change',event=>{
+    const checkbox=event.target.closest('[data-bulk-cycle-customer]');if(!checkbox)return;
+    const type=checkbox.dataset.previewType,selection=bulkSelections[type];if(!selection)return;
+    if(checkbox.checked)selection.add(checkbox.value);else selection.delete(checkbox.value);updateBulkControls(type);
+  });
   panel.addEventListener('click',async event=>{
+    const bulkButton=event.target.closest('[data-bulk-select-matching],[data-bulk-clear],[data-bulk-move]');
+    if(bulkButton){
+      const type=bulkButton.dataset.previewType,selection=bulkSelections[type],preview=previewTargets[type];if(!selection||!preview)return;
+      const query=String(preview.querySelector('[data-schedule-preview-search]')?.value||'').trim().toLowerCase();
+      const matches=(previewCustomerData[type]||[]).filter(row=>!query||(String(row.account_name||'')+' '+String(row.account_number||'')).toLowerCase().includes(query));
+      if(bulkButton.hasAttribute('data-bulk-select-matching')){matches.forEach(row=>selection.add(String(row.account_number||'')));renderPreviewMatches(type,query);return;}
+      if(bulkButton.hasAttribute('data-bulk-clear')){selection.clear();renderPreviewMatches(type,query);return;}
+      const targetCycle=bulkButton.dataset.targetCycle;if(!['A','B'].includes(targetCycle)||!selection.size)return;
+      const accounts=[...selection];
+      if(!window.confirm('Move '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' to Cycle '+targetCycle+'?'))return;
+      bulkButton.disabled=true;bulkButton.textContent='Moving…';
+      try{
+        const data=await request('/api/admin/customer-statement-cycle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_numbers:accounts,statement_cycle:targetCycle})});
+        selection.clear();
+        for(const previewType of ['monthly','weekly'])await showPreview(previewType,false);
+        setStatus(Number(data.updated||0).toLocaleString()+' customer'+(Number(data.updated||0)===1?'':'s')+' moved to Cycle '+targetCycle+'.',true);
+      }catch(error){bulkButton.disabled=false;bulkButton.textContent='Move Selected to Cycle '+targetCycle;setStatus(error.message||'Selected customers could not be moved.',false);}
+      return;
+    }
     const button=event.target.closest('[data-save-statement-cycle]');
     if(!button)return;
     const row=button.closest('[data-schedule-customer]');
