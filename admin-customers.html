@@ -7317,14 +7317,30 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
   };}
   function syncWeeklyFrequency(){
-    const biweekly=weeklyFrequency.value==='biweekly';weeklyAnchorField.hidden=!biweekly;weeklyAnchor.required=biweekly;weeklyDay.disabled=biweekly;
+    const enabled=weeklyEnabled.checked;
+    const biweekly=weeklyFrequency.value==='biweekly';
+    weeklyAnchorField.hidden=!biweekly;
+    weeklyAnchor.required=enabled&&biweekly;
+    weeklyFrequency.disabled=!enabled;
+    weeklyHour.disabled=!enabled;
+    weeklyAnchor.disabled=!enabled;
+    weeklyDay.disabled=!enabled||biweekly;
     if(biweekly&&weeklyAnchor.value){const selected=new Date(weeklyAnchor.value+'T12:00:00');if(!Number.isNaN(selected.getTime()))weeklyDay.value=String(selected.getDay());}
+  }
+  function syncCycleEnabledState(){
+    const monthlyOn=monthlyEnabled.checked,weeklyOn=weeklyEnabled.checked;
+    monthlyDay.disabled=!monthlyOn;monthlyHour.disabled=!monthlyOn;
+    ['schedulePreviewMonthly','scheduleTestMonthly','scheduleRunMonthly'].forEach(id=>{const button=get(id);if(button)button.disabled=!monthlyOn;});
+    ['schedulePreviewWeekly','scheduleTestWeekly','scheduleRunWeekly'].forEach(id=>{const button=get(id);if(button)button.disabled=!weeklyOn;});
+    syncWeeklyFrequency();
+    const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=!monthlyOn&&!weeklyOn;
   }
   function applyConfig(config){
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
     midmonthEnabled.checked=false;midmonthDay.value=String(config.midmonth_day??15);midmonthHour.value=String(config.midmonth_hour??8);
     monthlyEnabled.checked=Number(config.monthly_enabled)!==0;monthlyDay.value=String(config.monthly_day??1);monthlyHour.value=String(config.monthly_hour??8);
     positiveOnly.checked=Number(config.positive_balance_only)!==0;paymentCount.value=String(config.payment_count??1);portal.checked=Number(config.portal_enabled)!==0;email.checked=Number(config.email_enabled)!==0;sms.checked=Number(config.sms_enabled)!==0;
+    syncCycleEnabledState();
   }
   function renderRuns(runs){
     if(!Array.isArray(runs)||!runs.length){report.innerHTML='<div class="schedule-empty">No scheduled statement runs have been recorded yet.</div>';return;}
@@ -7498,6 +7514,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     (report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
   }
   async function runNow(type,dryRun=false){
+    const cycleEnabled=type==='weekly'?weeklyEnabled.checked:type==='midmonth'?false:monthlyEnabled.checked;
+    if(!cycleEnabled){setStatus((type==='weekly'?'Cycle B':'Cycle A')+' is disabled. Check its Enable box and Save Schedule first.',false);return;}
     const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':type==='midmonth'?'legacy mid-month':'A monthly-cycle';
     const prompt=dryRun
       ?'TEST MODE: Generate and validate '+label+' statement PDFs for every matching customer? No Portal, Email, SMS, document storage, or Communication History records will be created.'
@@ -7531,32 +7549,44 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     throw new Error('The statement run is still continuing in the background. Refresh the report to see its latest progress.');
   }
   async function testAllCycles(){
-    if(!window.confirm('TEST MODE: Generate and validate Cycle A and Cycle B statement PDFs for all matching customers? Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
-    const types=['monthly','weekly'];
+    const types=[];
+    if(monthlyEnabled.checked)types.push('monthly');
+    if(weeklyEnabled.checked)types.push('weekly');
+    if(!types.length){setStatus('Both statement cycles are disabled. Enable Cycle A or Cycle B first.',false);return;}
+    const cycleNames=types.map(type=>type==='weekly'?'Cycle B':'Cycle A').join(' and ');
+    if(!window.confirm('TEST MODE: Generate and validate '+cycleNames+' statement PDFs for all matching customers? Disabled cycles will be skipped. Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
     let succeeded=0,failed=0;
-    setTestProgress('all',3,'Testing all statement cycles…','Preparing');
+    setTestProgress('all',3,'Testing enabled statement cycles…','Preparing');
     try{
       await saveSettings(false);
       for(let index=0;index<types.length;index++){
         const type=types[index];
         const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':'A monthly-cycle';
-        setTestProgress('all',5+index*45,'Testing '+label+' statements…',(index+1)+' of 2 cycles');
+        const startPct=5+Math.floor(index*(90/types.length));
+        setTestProgress('all',startPct,'Testing '+label+' statements…',(index+1)+' of '+types.length+' enabled cycle'+(types.length===1?'':'s'));
         setStatus('Testing '+label+' statement PDFs. Keep this page open…');
         const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:true})},true);
+        if(data.success===false)throw new Error(data.error||'Statement cycle test could not start.');
         const final=await waitForScheduledRun(data.run_id,'all',true,data.total||0);
         succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
-        setTestProgress('all',50+index*50,'Completed '+label,(index+1)+' of 2 cycles');
+        setTestProgress('all',Math.floor(((index+1)/types.length)*100),'Completed '+label,(index+1)+' of '+types.length+' enabled cycle'+(types.length===1?'':'s'));
       }
-      setStatus('All-cycle test complete: '+succeeded+' PDFs generated and '+failed+' failed.',failed===0);
+      setStatus('Enabled-cycle test complete: '+succeeded+' PDFs generated and '+failed+' failed.',failed===0);
       await finishTestProgress('all','100% complete • '+succeeded+' generated • '+failed+' failed');
       await load();
-      showRunCompletion(true,'TEST ALL CYCLES',succeeded,failed);
-    }catch(error){hideTestProgress('all');setStatus(error.message||'All-cycle statement test failed.',false);await load();}
+      showRunCompletion(true,'TEST ENABLED CYCLES',succeeded,failed);
+    }catch(error){hideTestProgress('all');setStatus(error.message||'Enabled-cycle statement test failed.',false);await load();}
   }
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
+  monthlyEnabled.addEventListener('change',syncCycleEnabledState);
+  weeklyEnabled.addEventListener('change',syncCycleEnabledState);
   weeklyFrequency.addEventListener('change',syncWeeklyFrequency);
   weeklyAnchor.addEventListener('change',syncWeeklyFrequency);
-  refreshBtn.addEventListener('click',load);
+  refreshBtn.addEventListener('click',async()=>{
+    refreshBtn.disabled=true;
+    try{await load();await new Promise(resolve=>window.requestAnimationFrame(resolve));(report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});}
+    finally{refreshBtn.disabled=false;}
+  });
   get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
   get('schedulePreviewMidmonth').addEventListener('click',()=>showPreview('midmonth'));
   get('schedulePreviewMonthly').addEventListener('click',()=>showPreview('monthly'));
@@ -7581,6 +7611,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
   get('scheduleRunMidmonth').addEventListener('click',()=>runNow('midmonth'));
   get('scheduleRunMonthly').addEventListener('click',()=>runNow('monthly'));
+  syncCycleEnabledState();
   window.loadStatementScheduling=function(){if(!loaded)load();};
 })();
 </script>

@@ -7340,6 +7340,12 @@ async function adminStatementSchedulingRun({request,env}){
   const body=await request.json().catch(()=>({}));
   const type=body.type==="weekly"?"weekly":body.type==="midmonth"?"midmonth":"monthly";
   try{
+    const config=await statementScheduleConfig(env);
+    const cycleEnabled=type==="weekly"?Number(config.weekly_enabled)!==0:type==="monthly"?Number(config.monthly_enabled)!==0:false;
+    if(!cycleEnabled){
+      const cycleName=type==="weekly"?"Cycle B":"Cycle A";
+      return notificationJson({success:false,error:cycleName+" is disabled. Enable its checkbox and save the schedule before testing or running statements."},409);
+    }
     const origin=new URL(request.url).origin;
     const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true});
     return notificationJson(started);
