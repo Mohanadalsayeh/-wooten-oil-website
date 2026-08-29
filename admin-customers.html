@@ -528,11 +528,37 @@ button.copy-btn:active{
   color:var(--navy) !important;
 }
 
-/* Browser file-picker button follows the same normal-weight look. */
-input[type="file"]::file-selector-button{
-  font:inherit;
-  font-weight:400 !important;
+/* Modern Wooten Oil file-picker button — Option 1. */
+input[type="file"]{
+  color:#526477;
+  background:#fff;
+  border:1px solid #c7d2de;
+  border-radius:9px;
+  overflow:hidden;
   cursor:pointer;
+}
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button{
+  min-height:46px;
+  margin:-1px 14px -1px -1px;
+  padding:0 18px;
+  border:1px solid #0b2239;
+  border-radius:9px 0 0 9px;
+  background:#0b2239;
+  color:#fff;
+  font:inherit;
+  font-weight:800 !important;
+  cursor:pointer;
+  transition:background-color .16s ease,border-color .16s ease;
+}
+input[type="file"]:hover::file-selector-button,
+input[type="file"]:hover::-webkit-file-upload-button{
+  background:#163b5d;
+  border-color:#163b5d;
+}
+input[type="file"]:focus-visible{
+  outline:3px solid rgba(30,111,168,.18);
+  outline-offset:2px;
 }
 </style>
 
@@ -1370,6 +1396,48 @@ input[type="file"]::file-selector-button{
   .db-detail-label{font-size:11px!important}
   .db-detail-value,.db-aging-box .db-detail-value{font-size:14px!important}
 }
+</style>
+
+<style id="wooten-customer-detail-professional-v66">
+.db-customer-modal{background:rgba(9,25,42,.68)!important;backdrop-filter:blur(3px)}
+.db-customer-card{width:min(960px,calc(100vw - 32px))!important;max-height:92vh!important;border:1px solid rgba(255,255,255,.7)!important;border-radius:20px!important;box-shadow:0 28px 80px rgba(4,18,31,.34)!important}
+.db-customer-head{position:relative;min-height:0!important;padding:24px 28px 22px!important;border-bottom:1px solid #dbe5ec!important;background:linear-gradient(135deg,#f9fbfd 0%,#fff 68%)!important}
+.db-customer-head::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:#0b2239;border-radius:20px 20px 0 0}
+.db-customer-head-kicker{margin-bottom:5px!important;color:#b4232d!important;font-size:11px!important;font-weight:900!important;letter-spacing:.13em!important}
+.db-customer-head h3{margin:0!important;color:#0b2239!important;font-size:26px!important;letter-spacing:-.02em}
+.db-customer-head-account{margin-top:5px!important;color:#52677b!important;font-size:14px!important}
+.db-customer-close{width:42px!important;height:42px!important;min-width:42px!important;padding:0!important;border:1px solid #d6e0e8!important;border-radius:12px!important;background:#eef3f7!important;color:#0b2239!important;font-size:24px!important;font-weight:500!important;line-height:1!important;box-shadow:none!important}
+.db-customer-close:hover,.db-customer-close:focus-visible{background:#0b2239!important;border-color:#0b2239!important;color:#fff!important}
+.db-customer-body{padding:0 28px 28px!important;background:#fff!important}
+.db-customer-summary{display:grid!important;grid-template-columns:auto auto auto 1fr!important;gap:8px!important;margin:0 -28px 22px!important;padding:14px 28px!important;border-bottom:1px solid #e3eaf0;background:#f7f9fb}
+.db-customer-summary .db-badge{display:inline-flex!important;align-items:center!important;min-height:30px!important;padding:5px 11px!important;border-radius:999px!important;font-size:11px!important;font-weight:800!important}
+.db-customer-updated{align-self:center;justify-self:end;color:#6b7d8f;font-size:12px;font-weight:650;white-space:nowrap}
+.db-detail-section{margin-top:22px!important}
+.db-section-title{display:flex;align-items:center;gap:9px;margin:0 0 11px!important;color:#102a43!important;font-size:15px!important;font-weight:850!important}
+.db-section-title::before{content:"";width:4px;height:18px;border-radius:99px;background:#b4232d}
+.db-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+.db-detail-box{position:relative;min-height:76px!important;padding:14px 15px 13px 48px!important;border:1px solid #dbe4ec!important;border-radius:12px!important;background:#fbfcfd!important;box-shadow:0 1px 2px rgba(15,39,66,.025)}
+.db-detail-box::before{content:"";position:absolute;left:14px;top:17px;width:22px;height:22px;background-position:center;background-repeat:no-repeat;background-size:20px}
+.db-detail-box[data-field="email"]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23265f8d' stroke-width='1.8' viewBox='0 0 24 24'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='m4 7 8 6 8-6'/%3E%3C/svg%3E")}
+.db-detail-box[data-field="phone"]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23265f8d' stroke-width='1.8' viewBox='0 0 24 24'%3E%3Cpath d='M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.8 2.1Z'/%3E%3C/svg%3E")}
+.db-detail-box[data-field="location"]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23265f8d' stroke-width='1.8' viewBox='0 0 24 24'%3E%3Cpath d='M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E")}
+.db-detail-label{margin-bottom:4px!important;color:#718196!important;font-size:10px!important;font-weight:900!important;letter-spacing:.09em!important;text-transform:uppercase}
+.db-detail-value{color:#15283d!important;font-size:15px!important;font-weight:750!important;overflow-wrap:anywhere}
+.db-aging-grid{display:grid!important;grid-template-columns:1.2fr repeat(4,1fr) 1.25fr!important;gap:9px!important;margin-top:0!important}
+.db-aging-box{min-height:88px!important;padding:14px 13px!important;border:1px solid #dbe4ec!important;border-radius:12px!important;background:#fff!important;display:flex;flex-direction:column;justify-content:space-between}
+.db-aging-box.current-balance{background:#f7f9fb!important}
+.db-aging-box .db-detail-value{font-size:16px!important;font-weight:850!important}
+.db-total-balance{border-color:#a9c9e5!important;background:#eaf4fc!important;box-shadow:inset 0 0 0 1px rgba(38,95,141,.04)}
+.db-total-balance .db-detail-value{font-size:18px!important;color:#0b2239!important}
+.db-online-action{position:relative;margin-top:22px!important;padding:17px 18px 17px 52px!important;border:1px solid #dbe4ec!important;border-radius:13px!important;background:#f8fafc!important}
+.db-online-action::before{content:"";position:absolute;left:18px;top:19px;width:18px;height:18px;border-radius:50%;background:#94a3b8;box-shadow:0 0 0 5px #e8edf2}
+.db-online-action.is-active{border-color:#bde5ce!important;background:#f3fbf6!important}
+.db-online-action.is-active::before{background:#10b981;box-shadow:0 0 0 5px #dcf5e7}
+.db-online-action h4{margin:0 0 3px!important;color:#102a43!important;font-size:15px!important}
+.db-online-action p{margin:0!important;color:#63758a!important;font-size:12.5px!important}
+.db-online-action .db-deactivate-btn{margin-top:12px!important}
+@media(max-width:820px){.db-customer-summary{grid-template-columns:auto auto;}.db-customer-updated{grid-column:1/-1;justify-self:start}.db-aging-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(max-width:620px){.db-customer-modal{padding:0!important;align-items:stretch!important}.db-customer-card{width:100%!important;max-height:100dvh!important;border-radius:0!important}.db-customer-head{padding:20px 18px 17px!important}.db-customer-head::before{border-radius:0}.db-customer-head h3{font-size:22px!important}.db-customer-close{width:40px!important;height:40px!important;min-width:40px!important}.db-customer-body{padding:0 16px 22px!important}.db-customer-summary{grid-template-columns:1fr!important;margin:0 -16px 18px!important;padding:13px 16px!important}.db-customer-summary .db-badge{width:max-content}.db-customer-updated{grid-column:auto}.db-detail-grid{grid-template-columns:1fr!important}.db-aging-grid{grid-template-columns:1fr 1fr!important}.db-online-action{padding-left:48px!important}}
 </style>
 
 
@@ -3232,6 +3300,7 @@ input[type="file"]::file-selector-button{
 .db-contact-indicator svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .db-contact-indicator[data-channel="sms"]{color:#2563eb}
 .db-contact-indicator[data-channel="portal"]{color:#10b981}
+.db-contact-indicator[data-channel="portal"][data-available="false"]{color:#94a3b8}
 .db-contact-indicator[data-channel="email"]{color:#f59e0b}
 .db-contact-help{margin:8px 0 0;color:#667789;font-size:12px;line-height:1.45}
 .statement-contact-selection-note{margin:10px 0 0;padding:10px 12px;border:1px solid #dbe5ec;border-radius:10px;background:#f7fafc;color:#526477;font-size:12px;line-height:1.5}
@@ -3657,7 +3726,7 @@ input[type="file"]::file-selector-button{
         <tbody id="dbTableBody"></tbody>
       </table>
     </div>
-    <p class="db-contact-help"><strong>Contact availability:</strong> The icons show which contact methods are available for each customer. Unavailable methods are hidden.</p>
+    <p class="db-contact-help"><strong>Contact availability:</strong> SMS and Email appear when available. Portal is green when activated and gray when not activated.</p>
 
     <div class="db-pagination" id="dbPagination" style="display:none">
       <button class="secondary" id="dbPrevBtn" type="button">Previous</button>
@@ -6205,23 +6274,23 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   let currentRows=[];
 
-  function contactIcon(channel,label){
+  function contactIcon(channel,label,available=true){
     const icons={
       email:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>',
       sms:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H10l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path><path d="M8 9h8M8 13h5"></path></svg>',
       portal:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 7h18"></path><circle cx="12" cy="12" r="2.4"></circle><path d="M7.5 19a4.5 4.5 0 0 1 9 0"></path></svg>'
     };
-    return '<span class="db-contact-indicator" data-channel="'+channel+'" title="'+esc(label+' available')+'" aria-label="'+esc(label+' available')+'">'+icons[channel]+'</span>';
+    const state=available?'available':'not activated';
+    return '<span class="db-contact-indicator" data-channel="'+channel+'" data-available="'+(available?'true':'false')+'" title="'+esc(label+' '+state)+'" aria-label="'+esc(label+' '+state)+'">'+icons[channel]+'</span>';
   }
 
   function contactIcons(row){
     const hasEmail=!!String(row.email||'').trim();
     const hasPhone=!!String(row.phone||'').trim();
-    const hasPortal=!!row.online_activated;
     const icons=(hasPhone?contactIcon('sms','SMS'):'')+
-      (hasPortal?contactIcon('portal','Customer Portal'):'')+
+      contactIcon('portal','Customer Portal',!!row.online_activated)+
       (hasEmail?contactIcon('email','Email'):'');
-    return '<div class="db-contact-icons">'+(icons||'<span aria-label="No contact methods available">—</span>')+'</div>';
+    return '<div class="db-contact-icons">'+icons+'</div>';
   }
 
   function renderRows(rows){
@@ -6269,18 +6338,24 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const isActive=statusText.toLowerCase()==="active";
     const onlineActivated=!!row.online_activated;
 
+    const formatDetailPhone=value=>{
+      const digits=String(value||"").replace(/\D/g,"");
+      const local=digits.length===11&&digits.startsWith("1")?digits.slice(1):digits;
+      return local.length===10?`(${local.slice(0,3)}) ${local.slice(3,6)}-${local.slice(6)}`:String(value||"");
+    };
+
     const contactFields=[
-      ["Email",row.email],
-      ["Phone",row.phone],
-      ["City",row.city],
-      ["State",row.state],
-      ["ZIP",row.zip_code]
+      ["Email",row.email,"email"],
+      ["Phone",formatDetailPhone(row.phone),"phone"],
+      ["Location",[row.city,row.state].filter(Boolean).join(", ")+(row.zip_code?" "+row.zip_code:""),"location"]
     ].filter(item=>String(item[1]||"").trim());
+
+    const totalBalance=Number(row.current_balance||0)+Number(row.aging_category_1||0)+Number(row.aging_category_2||0)+Number(row.aging_category_3||0)+Number(row.aging_category_4||0);
 
     const contactHtml=contactFields.length
       ? `<div class="db-detail-grid">${
           contactFields.map(item=>`
-            <div class="db-detail-box">
+            <div class="db-detail-box" data-field="${esc(item[2])}">
               <div class="db-detail-label">${esc(item[0])}</div>
               <div class="db-detail-value">${esc(item[1])}</div>
             </div>
@@ -6293,7 +6368,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         <span class="db-badge ${isActive?"good":"warn"}">${esc(statusText)}</span>
         <span class="db-badge ${onlineActivated?"good":"muted"}">${onlineActivated?"Online account activated":"Online account not activated"}</span>
         <span class="db-badge muted">Statement Cycle ${esc(row.statement_cycle||"Not set")}</span>
-        <span style="color:#64748b;font-size:12px">Updated ${fmtDate(row.updated_at)}</span>
+        <span class="db-customer-updated">Last updated ${fmtDate(row.updated_at)}</span>
       </div>
 
       <div class="db-detail-section">
@@ -6326,24 +6401,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
           </div>
           <div class="db-aging-box db-total-balance">
             <div class="db-detail-label">Total Balance</div>
-            <div class="db-detail-value" title="${money(
-              Number(row.current_balance||0)+
-              Number(row.aging_category_1||0)+
-              Number(row.aging_category_2||0)+
-              Number(row.aging_category_3||0)+
-              Number(row.aging_category_4||0)
-            )}">${money(
-              Number(row.current_balance||0)+
-              Number(row.aging_category_1||0)+
-              Number(row.aging_category_2||0)+
-              Number(row.aging_category_3||0)+
-              Number(row.aging_category_4||0)
-            )}</div>
+            <div class="db-detail-value" title="${money(totalBalance)}">${money(totalBalance)}</div>
           </div>
         </div>
       </div>
 
-      <div class="db-online-action">
+      <div class="db-online-action ${onlineActivated?"is-active":"is-inactive"}">
         <h4>Online Account Access</h4>
         ${onlineActivated ? `
           <p>Deactivate only the customer's website login. Billing status, balances, and customer information will not be changed.</p>
