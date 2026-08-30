@@ -3692,6 +3692,38 @@ input[type="file"]:focus-visible{
 }
 </style>
 
+
+<style id="wooten-mobile-back-top-style">
+  .wooten-mobile-back-top{
+    position:fixed;
+    right:18px;
+    bottom:calc(88px + env(safe-area-inset-bottom, 0px));
+    width:48px;
+    height:48px;
+    border:1px solid #cbd8e6;
+    border-radius:16px;
+    background:rgba(255,255,255,.96);
+    color:#15314f;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    box-shadow:none;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:none;
+    transition:opacity .18s ease,visibility .18s ease,background-color .18s ease,border-color .18s ease;
+    z-index:2147483000;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wooten-mobile-back-top svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+  .wooten-mobile-back-top.is-visible{opacity:1;visibility:visible;pointer-events:auto;}
+  .wooten-mobile-back-top:active{background:#f2f6fa;border-color:#afc2d6;}
+  @media (min-width:761px){.wooten-mobile-back-top{display:none!important;}}
+  @media (prefers-reduced-motion:reduce){.wooten-mobile-back-top{transition:none;}}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -8750,6 +8782,38 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   let timer;get('applicationSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load();},350);});get('admin-tab-btn-applications').addEventListener('click',()=>{if(!loaded)load();});
 })();
 </script>
+
+<button type="button" class="wooten-mobile-back-top" id="wootenMobileBackTop" aria-label="Back to top" title="Back to top">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"></path></svg>
+</button>
+<script id="wooten-mobile-back-top-script">
+(function(){
+  var button=document.getElementById('wootenMobileBackTop');
+  if(!button) return;
+  function isPhone(){
+    return window.matchMedia('(max-width:760px)').matches && window.matchMedia('(pointer:coarse)').matches;
+  }
+  function longPage(){
+    var h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
+    return h > window.innerHeight * 1.55;
+  }
+  function update(){
+    var show=isPhone() && longPage() && window.scrollY > Math.max(420,window.innerHeight*.55);
+    button.classList.toggle('is-visible',show);
+  }
+  button.addEventListener('click',function(){
+    window.scrollTo({top:0,left:0,behavior:'smooth'});
+  });
+  window.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('resize',update,{passive:true});
+  window.addEventListener('load',update,{once:true});
+  if(window.ResizeObserver){
+    try{new ResizeObserver(update).observe(document.body);}catch(_e){}
+  }
+  setTimeout(update,250);
+})();
+</script>
+
 </body>
 </html>
 
@@ -8851,6 +8915,118 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     width:100% !important;
     max-width:100% !important;
     min-height:52px !important;
+  }
+}
+</style>
+
+<!-- Ver118 iPhone date-field alignment and width fix -->
+<style id="wooten-ver118-date-field-mobile-fix">
+/* Date controls: normalize the internal Safari date value so it is centered vertically. */
+#statementBatchDate,
+#scheduleWeeklyAnchorDate{
+  box-sizing:border-box !important;
+  height:52px !important;
+  min-height:52px !important;
+  max-height:52px !important;
+  line-height:1 !important;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+}
+#statementBatchDate::-webkit-date-and-time-value,
+#scheduleWeeklyAnchorDate::-webkit-date-and-time-value{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:50px !important;
+  height:50px !important;
+  line-height:1 !important;
+  margin:0 !important;
+  padding:0 !important;
+  text-align:center !important;
+}
+#statementBatchDate::-webkit-datetime-edit,
+#scheduleWeeklyAnchorDate::-webkit-datetime-edit{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:50px !important;
+  height:50px !important;
+  line-height:1 !important;
+  padding:0 !important;
+}
+
+@media(max-width:700px){
+  #statementBatchDate,
+  #scheduleWeeklyAnchorDate{
+    display:block !important;
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    inline-size:100% !important;
+    min-inline-size:0 !important;
+    max-inline-size:100% !important;
+    -webkit-appearance:none !important;
+    appearance:none !important;
+    padding-left:12px !important;
+    padding-right:12px !important;
+    text-align:center !important;
+  }
+
+  /* The First Biweekly Run field must stay inside the Cycle B card. */
+  #scheduleWeeklyAnchorField{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    overflow:hidden !important;
+  }
+  #scheduleWeeklyAnchorField > label{
+    display:block !important;
+    width:100% !important;
+  }
+}
+</style>
+
+<!-- Ver119 mobile Communication History tab centering -->
+<style id="wooten-ver119-communication-tab-centering">
+@media(max-width:700px){
+  #admin-tab-communication > .admin-subtabs,
+  #admin-tab-messages > .admin-subtabs{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:10px !important;
+    width:100% !important;
+    max-width:560px !important;
+    margin:0 auto 18px !important;
+    padding:8px !important;
+    box-sizing:border-box !important;
+    justify-items:center !important;
+  }
+
+  #admin-tab-communication > .admin-subtabs .admin-subtab,
+  #admin-tab-messages > .admin-subtabs .admin-subtab{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    min-height:50px !important;
+    margin:0 auto !important;
+    padding:11px 14px !important;
+    text-align:center !important;
+    white-space:normal !important;
+    overflow-wrap:anywhere !important;
+    line-height:1.25 !important;
+    box-sizing:border-box !important;
+    box-shadow:none !important;
+  }
+
+  #admin-tab-communication > .admin-subtabs .admin-subtab[aria-selected="true"],
+  #admin-tab-messages > .admin-subtabs .admin-subtab[aria-selected="true"]{
+    border-color:#cfdbe6 !important;
+    background:#fff !important;
+    color:var(--navy) !important;
+    box-shadow:none !important;
   }
 }
 </style>

@@ -264,6 +264,38 @@
 <link rel="stylesheet" href="assets/css/wooten-ios-mobile-viewport-fix.css">
 
 <link rel="stylesheet" href="assets/css/wooten-modern-checkboxes-v114.css">
+
+<style id="wooten-mobile-back-top-style">
+  .wooten-mobile-back-top{
+    position:fixed;
+    right:18px;
+    bottom:calc(88px + env(safe-area-inset-bottom, 0px));
+    width:48px;
+    height:48px;
+    border:1px solid #cbd8e6;
+    border-radius:16px;
+    background:rgba(255,255,255,.96);
+    color:#15314f;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    box-shadow:none;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:none;
+    transition:opacity .18s ease,visibility .18s ease,background-color .18s ease,border-color .18s ease;
+    z-index:2147483000;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wooten-mobile-back-top svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+  .wooten-mobile-back-top.is-visible{opacity:1;visibility:visible;pointer-events:auto;}
+  .wooten-mobile-back-top:active{background:#f2f6fa;border-color:#afc2d6;}
+  @media (min-width:761px){.wooten-mobile-back-top{display:none!important;}}
+  @media (prefers-reduced-motion:reduce){.wooten-mobile-back-top{transition:none;}}
+</style>
+
 </head>
 <body>
 
@@ -1352,5 +1384,37 @@
   window.setTimeout(function () { applyPageLimit(true); updateTopButton(); }, 500);
 })();
 </script>
+
+<button type="button" class="wooten-mobile-back-top" id="wootenMobileBackTop" aria-label="Back to top" title="Back to top">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"></path></svg>
+</button>
+<script id="wooten-mobile-back-top-script">
+(function(){
+  var button=document.getElementById('wootenMobileBackTop');
+  if(!button) return;
+  function isPhone(){
+    return window.matchMedia('(max-width:760px)').matches && window.matchMedia('(pointer:coarse)').matches;
+  }
+  function longPage(){
+    var h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
+    return h > window.innerHeight * 1.55;
+  }
+  function update(){
+    var show=isPhone() && longPage() && window.scrollY > Math.max(420,window.innerHeight*.55);
+    button.classList.toggle('is-visible',show);
+  }
+  button.addEventListener('click',function(){
+    window.scrollTo({top:0,left:0,behavior:'smooth'});
+  });
+  window.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('resize',update,{passive:true});
+  window.addEventListener('load',update,{once:true});
+  if(window.ResizeObserver){
+    try{new ResizeObserver(update).observe(document.body);}catch(_e){}
+  }
+  setTimeout(update,250);
+})();
+</script>
+
 </body>
 </html>
