@@ -1606,6 +1606,43 @@ input[type="file"]:focus-visible{
 .schedule-report{display:grid;gap:10px;margin-top:14px}.schedule-run{border:1px solid #d7e1ea;border-radius:12px;background:#fff;overflow:hidden}.schedule-run summary{cursor:pointer;list-style:none;padding:12px 14px}.schedule-run summary::-webkit-details-marker{display:none}.schedule-run-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.schedule-run-title strong{color:#17324d}.schedule-run-title span{color:#6d7e8f;font-size:12px}.schedule-run-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.schedule-run-metric{border-radius:999px;background:#edf3f7;color:#465d70;padding:4px 8px;font-size:11px;font-weight:900}.schedule-run-metric.good{background:#ddf4e8;color:#17633f}.schedule-run-metric.bad{background:#fde8e8;color:#9b3030}.schedule-run-detail{border-top:1px solid #e0e7ed;padding:10px 14px}.schedule-result-row{display:grid;grid-template-columns:minmax(180px,1fr) repeat(3,90px);gap:8px;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:12px}.schedule-result-row:last-child{border-bottom:0}.schedule-result-row strong{color:#17324d}.schedule-empty{padding:16px;border:1px dashed #c9d5df;border-radius:10px;background:#fff;color:#718193;text-align:center}
 .schedule-bulk-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:10px 0}.schedule-bulk-toolbar button{min-height:36px;border:1px solid #c8d5df;border-radius:8px;background:#fff;color:#24445f;padding:6px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}.schedule-bulk-toolbar button:hover{background:#edf4f8}.schedule-bulk-toolbar button[data-bulk-move]{border-color:#c9282d;background:#fff;color:#b32126}.schedule-bulk-toolbar button[data-bulk-move]:hover{background:#fff0f0}.schedule-bulk-toolbar button:disabled{cursor:not-allowed;opacity:.55}.schedule-bulk-count{margin-left:auto;color:#526b80;font-size:12px;font-weight:900}.schedule-bulk-check{display:flex;align-items:flex-start;padding-top:2px}.schedule-bulk-check input{width:18px;height:18px}.schedule-preview-row{grid-template-columns:auto minmax(0,1fr) auto}.schedule-customer-cycle{grid-column:2/-1}
 @media(max-width:820px){.statement-scheduling-grid{grid-template-columns:1fr}.schedule-options{grid-template-columns:1fr}.schedule-result-row{grid-template-columns:1fr 1fr}.schedule-preview-list{max-height:520px}.schedule-bulk-count{width:100%;margin-left:0}}
+
+/* Ver112 — modern Statement & Delivery Settings controls */
+.schedule-shared-fields{grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);align-items:end;gap:18px}
+.schedule-shared .schedule-field select{min-height:56px;border-radius:13px;padding:10px 16px;font-size:16px;border-color:#cfdce7;box-shadow:0 1px 2px rgba(20,48,72,.02)}
+.schedule-balance-toggle{display:flex;align-items:center;gap:13px;min-height:56px;padding:5px 4px;cursor:pointer;user-select:none;color:#17324d}
+.schedule-balance-toggle input{position:absolute;opacity:0;pointer-events:none}
+.schedule-toggle-ui{position:relative;flex:0 0 48px;width:48px;height:28px;border-radius:999px;background:#cfd6dd;box-shadow:inset 0 0 0 1px rgba(23,50,77,.05);transition:background .18s ease,box-shadow .18s ease}
+.schedule-toggle-ui::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(15,35,52,.24);transition:transform .18s ease}
+.schedule-balance-toggle input:checked + .schedule-toggle-ui{background:#1677ea;box-shadow:0 0 0 1px rgba(22,119,234,.08),0 3px 10px rgba(22,119,234,.15)}
+.schedule-balance-toggle input:checked + .schedule-toggle-ui::after{transform:translateX(20px)}
+.schedule-balance-toggle input:focus-visible + .schedule-toggle-ui{outline:3px solid rgba(22,119,234,.2);outline-offset:3px}
+.schedule-balance-copy{display:grid;gap:2px;min-width:0}
+.schedule-balance-copy strong{font-size:14px;line-height:1.25;color:#17324d}
+.schedule-balance-copy small{font-size:12px;line-height:1.35;color:#748598;font-weight:500}
+.schedule-options-heading{margin:17px 0 9px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.055em}
+.schedule-shared .schedule-options.schedule-option-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:0}
+.schedule-shared .schedule-option-card{display:block;min-width:0;min-height:0;padding:0;border:0;background:transparent;color:inherit;font-weight:inherit;cursor:pointer}
+.schedule-shared .schedule-option-card>input{position:absolute;opacity:0;pointer-events:none}
+.schedule-option-shell{display:grid;grid-template-columns:58px minmax(0,1fr) 46px;align-items:center;gap:14px;min-height:112px;padding:15px 15px 15px 14px;border:1px solid #d7e1ea;border-radius:15px;background:#fff;box-sizing:border-box;transition:border-color .18s ease,background .18s ease,box-shadow .18s ease,transform .18s ease}
+.schedule-option-card:hover .schedule-option-shell{border-color:#a9bfd2;box-shadow:0 5px 16px rgba(24,60,91,.07);transform:translateY(-1px)}
+.schedule-option-card>input:checked + .schedule-option-shell{border-color:#5a9df5;background:linear-gradient(135deg,#fff 0%,#f5f9ff 100%);box-shadow:0 0 0 1px rgba(65,139,236,.08),0 5px 16px rgba(32,99,178,.07)}
+.schedule-option-card>input:focus-visible + .schedule-option-shell{outline:3px solid rgba(22,119,234,.18);outline-offset:3px}
+.schedule-option-icon{display:grid;place-items:center;width:56px;height:56px;border:1px solid #dde7ef;border-radius:14px;background:#f7fafc;box-sizing:border-box}
+.schedule-option-icon svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.schedule-option-icon-portal{color:#1268d3;background:#edf5ff;border-color:#d9eaff}
+.schedule-option-icon-email{color:#247f4a;background:#eff8f2;border-color:#deefe4}
+.schedule-option-icon-sms{color:#7542a8;background:#f7f1fb;border-color:#eadcf5}
+.schedule-option-copy{display:grid;align-content:center;gap:5px;min-width:0}
+.schedule-option-copy strong{color:#17324d;font-size:15px;line-height:1.2;font-weight:900}
+.schedule-option-copy small{color:#748598;font-size:12px;line-height:1.45;font-weight:500}
+.schedule-option-switch{position:relative;justify-self:end;width:44px;height:26px;border-radius:999px;background:#cfd6dd;box-shadow:inset 0 0 0 1px rgba(23,50,77,.05);transition:background .18s ease,box-shadow .18s ease}
+.schedule-option-switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(15,35,52,.22);transition:transform .18s ease}
+.schedule-option-card>input:checked + .schedule-option-shell .schedule-option-switch{background:#1677ea;box-shadow:0 3px 9px rgba(22,119,234,.2)}
+.schedule-option-card>input:checked + .schedule-option-shell .schedule-option-switch::after{transform:translateX(18px)}
+@media(max-width:1050px){.schedule-shared-fields{grid-template-columns:1fr}.schedule-balance-toggle{padding:4px 0}.schedule-shared .schedule-options.schedule-option-cards{grid-template-columns:1fr}.schedule-option-shell{min-height:92px}}
+@media(max-width:600px){.schedule-option-shell{grid-template-columns:48px minmax(0,1fr) 42px;gap:11px;padding:12px}.schedule-option-icon{width:46px;height:46px;border-radius:12px}.schedule-option-icon svg{width:26px;height:26px}.schedule-option-copy strong{font-size:14px}.schedule-option-copy small{font-size:11.5px}.schedule-balance-copy small{font-size:11.5px}}
+
 </style>
 
 
@@ -4301,14 +4338,40 @@ input[type="file"]:focus-visible{
       <section class="schedule-card schedule-shared">
         <h3>Statement &amp; Delivery Settings</h3>
         <p>These settings apply to monthly, mid-month, and weekly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
-        <div class="schedule-fields">
+        <div class="schedule-fields schedule-shared-fields">
           <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
-          <label class="schedule-enabled" style="margin:20px 0 0"><input id="schedulePositiveOnly" type="checkbox" checked> Only accounts with a positive balance</label>
+          <label class="schedule-balance-toggle" for="schedulePositiveOnly">
+            <input id="schedulePositiveOnly" type="checkbox" checked>
+            <span class="schedule-toggle-ui" aria-hidden="true"></span>
+            <span class="schedule-balance-copy"><strong>Only accounts with a positive balance</strong><small>Exclude accounts that have a zero or negative balance.</small></span>
+          </label>
         </div>
-        <div class="schedule-options" role="group" aria-label="Scheduled statement delivery methods">
-          <label class="schedule-option"><input id="schedulePortal" type="checkbox" checked> Customer Portal</label>
-          <label class="schedule-option"><input id="scheduleEmail" type="checkbox" checked> Email PDF</label>
-          <label class="schedule-option"><input id="scheduleSms" type="checkbox" checked> SMS secure PDF link</label>
+        <div class="schedule-options-heading">Delivery Options</div>
+        <div class="schedule-options schedule-option-cards" role="group" aria-label="Scheduled statement delivery methods">
+          <label class="schedule-option schedule-option-card" for="schedulePortal">
+            <input id="schedulePortal" type="checkbox" checked>
+            <span class="schedule-option-shell">
+              <span class="schedule-option-icon schedule-option-icon-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"></circle><path d="M6.5 19c.5-4 2.4-6 5.5-6s5 2 5.5 6"></path></svg></span>
+              <span class="schedule-option-copy"><strong>Customer Portal</strong><small>Make statements available in the customer portal.</small></span>
+              <span class="schedule-option-switch" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="schedule-option schedule-option-card" for="scheduleEmail">
+            <input id="scheduleEmail" type="checkbox" checked>
+            <span class="schedule-option-shell">
+              <span class="schedule-option-icon schedule-option-icon-email" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"></path><path d="M15 3v5h5"></path><path d="M8 13h8M8 17h5"></path></svg></span>
+              <span class="schedule-option-copy"><strong>Email PDF</strong><small>Email statements as PDF attachments.</small></span>
+              <span class="schedule-option-switch" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="schedule-option schedule-option-card" for="scheduleSms">
+            <input id="scheduleSms" type="checkbox" checked>
+            <span class="schedule-option-shell">
+              <span class="schedule-option-icon schedule-option-icon-sms" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><circle cx="9" cy="10.5" r=".7"></circle><circle cx="12" cy="10.5" r=".7"></circle><circle cx="15" cy="10.5" r=".7"></circle><path d="M15.5 15.5h5v5h-5z"></path><path d="M16.5 15.5v-1a1.5 1.5 0 0 1 3 0v1"></path></svg></span>
+              <span class="schedule-option-copy"><strong>SMS secure PDF link</strong><small>Send customers a secure PDF link by SMS.</small></span>
+              <span class="schedule-option-switch" aria-hidden="true"></span>
+            </span>
+          </label>
         </div>
         <div class="actions"><button class="primary" id="scheduleSave" type="button">Save Schedule</button><button class="secondary" id="scheduleRefresh" type="button">Refresh Report</button><button class="schedule-test-btn" id="scheduleTestAll" type="button">Test All Cycles</button><button class="schedule-test-help" id="scheduleTestHelp" type="button" aria-label="About Test Mode" title="About Test Mode">?</button></div>
         <div class="preview-progress" id="scheduleTestAllProgress" hidden>
