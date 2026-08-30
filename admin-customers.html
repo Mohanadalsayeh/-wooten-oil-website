@@ -8058,19 +8058,32 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     overlay.hidden=true;overlay.setAttribute('aria-hidden','true');
     document.body.classList.remove('statement-processing-active');
   }
+  function showStatementResultPopup(message){
+    /* Ver130: native alert() blocks browser painting. Close the processing
+       dialog first, then wait for a paint before opening the completion popup
+       so the finished dialog cannot remain visibly frozen behind the alert. */
+    hideStatementProcessingOverlay();
+    const show=()=>{
+      window.setTimeout(()=>{
+        window.alert(message);
+        (report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
+      },80);
+    };
+    if(typeof window.requestAnimationFrame==='function'){
+      window.requestAnimationFrame(()=>window.requestAnimationFrame(show));
+    }else show();
+  }
   function showRunCompletion(isTest,label,succeeded,failed){
-    const action=isTest?'Test send':'Run',successCount=Number(succeeded||0),failureCount=Number(failed||0);
+    const action=isTest?'Test run':'Run',successCount=Number(succeeded||0),failureCount=Number(failed||0);
     const result=failureCount
       ?action+' completed with errors.\n\n'+successCount.toLocaleString()+' succeeded\n'+failureCount.toLocaleString()+' failed'
       :action+' completed successfully without errors.\n\n'+successCount.toLocaleString()+' succeeded\n0 failed';
-    window.alert(label+'\n\n'+result);
-    (report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
+    showStatementResultPopup(label+'\n\n'+result);
   }
   function showRunFailure(isTest,label,error){
-    const action=isTest?'Test send':'Run';
+    const action=isTest?'Test run':'Run';
     const message=String(error?.message||error||'The statement job could not be completed.');
-    window.alert(label+'\n\n'+action+' stopped with an error.\n\n'+message);
-    (report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
+    showStatementResultPopup(label+'\n\n'+action+' stopped with an error.\n\n'+message);
   }
   async function runNow(type,isTest=false){
     const cycleEnabled=type==='weekly'?weeklyEnabled.checked:type==='midmonth'?false:monthlyEnabled.checked;
