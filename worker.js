@@ -6719,7 +6719,7 @@ async function adminStatementCustomersGet({request,env}){
 }
 __name(adminStatementCustomersGet,"adminStatementCustomersGet");
 
-async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,total){
+async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,total,idempotencyKey=""){
   if(!customer?.email || !env.RESEND_API_KEY) return {sent:false,reason:!customer?.email?"no_email":"email_not_configured"};
   try{
     const fromAddress=String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim();
@@ -6729,7 +6729,8 @@ async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,t
       headers:{
         "Authorization":`Bearer ${env.RESEND_API_KEY}`,
         "Content-Type":"application/json",
-        "User-Agent":"WootenOilCustomerPortal/1.0"
+        "User-Agent":"WootenOilCustomerPortal/1.0",
+        ...(idempotencyKey?{"Idempotency-Key":String(idempotencyKey)}:{})
       },
       body:JSON.stringify({
         from:`Wooten Oil <${fromAddress}>`,
@@ -6772,6 +6773,8 @@ async function adminGenerateStatementsPost({request,env}){
       return notificationJson({success:false,error:"Invalid request data."},400);
     }
     const dryRun=body.dry_run===true;
+    const statementRunId=Math.max(0,Number(body.statement_run_id||body.run_id||0));
+    if(statementRunId)await ensureStatementSchedulingSchema(env);
     if(!dryRun&&!env.NOTIFICATION_ATTACHMENTS){
       return notificationJson({success:false,error:"Statement storage is not configured."},503);
     }
@@ -6899,7 +6902,12 @@ async function adminGenerateStatementsPost({request,env}){
         const customerSmsLink=smsLink && Number(customer.contact_sms_enabled)!==0;
 
         let notificationId=null;
+        let portalDuplicatePrevented=false;
         if(customerPortalNotification){
+          const portalClaimed=await claimStatementRunDelivery(env,statementRunId,account,"portal");
+          if(!portalClaimed){
+            portalDuplicatePrevented=true;
+          }else{
           const notificationResult=await env.DB.prepare(`
             INSERT INTO portal_notifications
               (account_number,title,message,email_sent,action_type,action_id,created_at)
@@ -6913,11 +6921,23 @@ async function adminGenerateStatementsPost({request,env}){
             documentId
           ).run();
           notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
+          await finishStatementRunDelivery(env,statementRunId,account,"portal",{status:notificationId?"sent":"failed",deliveryId:notificationId||"",errorText:notificationId?"":"portal_insert_failed"}).catch(()=>{});
+          }
         }
 
-        const emailResult=customerEmailPdf
-          ? await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total)
-          : {sent:false,reason:emailPdf?"email_not_selected":"email_disabled"};
+        let emailResult={sent:false,reason:emailPdf?"email_not_selected":"email_disabled"};
+        let emailDuplicatePrevented=false;
+        if(customerEmailPdf){
+          const emailClaimed=await claimStatementRunDelivery(env,statementRunId,account,"email");
+          if(!emailClaimed){
+            emailDuplicatePrevented=true;
+            emailResult={sent:false,reason:"duplicate_send_prevented"};
+          }else{
+            const emailIdempotencyKey=statementRunId?`statement-run-${statementRunId}-${account}-email`:"";
+            emailResult=await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total,emailIdempotencyKey);
+            await finishStatementRunDelivery(env,statementRunId,account,"email",{status:emailResult.sent?"sent":"failed",deliveryId:emailResult.id||"",errorText:emailResult.sent?"":(emailResult.reason||"")}).catch(()=>{});
+          }
+        }
 
         if(notificationId && emailResult.sent){
           try{
@@ -6932,7 +6952,13 @@ async function adminGenerateStatementsPost({request,env}){
         }
 
         let smsResult={sent:false,reason:customerSmsLink?"no_phone":(smsLink?"sms_not_selected":"sms_disabled"),body:"",to:twilioNormalizePhone(customer.phone||""),code:""};
+        let smsDuplicatePrevented=false;
         if(customerSmsLink && customer.phone){
+          const smsClaimed=await claimStatementRunDelivery(env,statementRunId,account,"sms");
+          if(!smsClaimed){
+            smsDuplicatePrevented=true;
+            smsResult={sent:false,reason:"duplicate_send_prevented",body:"",to:twilioNormalizePhone(customer.phone||""),code:""};
+          }else{
           let smsBody="";
           try{
             const secureLink=await createPortalStatementLink({
@@ -6952,11 +6978,14 @@ async function adminGenerateStatementsPost({request,env}){
               `Please do not reply to this message.`;
             const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
             smsResult={sent:true,sid:sent.sid||"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone),code:""};
+            await finishStatementRunDelivery(env,statementRunId,account,"sms",{status:"sent",deliveryId:smsResult.sid||""}).catch(()=>{});
           }catch(error){
             const code=String(error?.twilioCode||"");
             smsResult={sent:false,reason:String(error?.message||error),body:smsBody,to:twilioNormalizePhone(customer.phone),code};
+            await finishStatementRunDelivery(env,statementRunId,account,"sms",{status:"failed",errorText:smsResult.reason||""}).catch(()=>{});
             if(code==="21610") await twilioRememberOptOut(env,customer.phone,true,"STOP");
             console.error("statement SMS failed",account,error);
+          }
           }
         }
 
@@ -7010,9 +7039,12 @@ async function adminGenerateStatementsPost({request,env}){
           previous_balance:previous,
           total_balance:total,
           portal_notified:!!notificationId,
+          portal_duplicate_prevented:portalDuplicatePrevented,
           email_sent:!!emailResult.sent,
+          email_duplicate_prevented:emailDuplicatePrevented,
           email_warning:emailResult.sent?"":(emailResult.reason||""),
           sms_sent:!!smsResult.sent,
+          sms_duplicate_prevented:smsDuplicatePrevented,
           sms_sid:smsResult.sid||"",
           sms_warning:smsResult.sent?"":(smsResult.reason||"")
         });
@@ -7110,8 +7142,46 @@ async function ensureStatementSchedulingSchema(env){
   for(const [name,definition] of runAdditions){
     if(!runColumns.has(name))await env.DB.prepare(`ALTER TABLE statement_schedule_runs ADD COLUMN ${name} ${definition}`).run();
   }
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS statement_run_delivery_guard (
+      run_id INTEGER NOT NULL,
+      account_number TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'claimed',
+      delivery_id TEXT NOT NULL DEFAULT '',
+      error_text TEXT NOT NULL DEFAULT '',
+      claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT,
+      PRIMARY KEY(run_id,account_number,channel)
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_statement_run_delivery_guard_run ON statement_run_delivery_guard(run_id,account_number)`).run();
 }
 __name(ensureStatementSchedulingSchema,"ensureStatementSchedulingSchema");
+
+async function claimStatementRunDelivery(env,runId,account,channel){
+  const id=Math.max(0,Number(runId||0));
+  if(!id)return true;
+  const normalized=normalizeNotificationAccount(account);
+  if(!normalized)return false;
+  const inserted=await env.DB.prepare(`
+    INSERT OR IGNORE INTO statement_run_delivery_guard(run_id,account_number,channel,status,claimed_at)
+    VALUES(?,?,?,'claimed',CURRENT_TIMESTAMP)
+  `).bind(id,normalized,String(channel||'')).run();
+  return Number(inserted?.meta?.changes||0)===1;
+}
+__name(claimStatementRunDelivery,"claimStatementRunDelivery");
+
+async function finishStatementRunDelivery(env,runId,account,channel,{status='completed',deliveryId='',errorText=''}={}){
+  const id=Math.max(0,Number(runId||0));
+  if(!id)return;
+  await env.DB.prepare(`
+    UPDATE statement_run_delivery_guard
+    SET status=?,delivery_id=?,error_text=?,completed_at=CURRENT_TIMESTAMP
+    WHERE run_id=? AND account_number=? AND channel=?
+  `).bind(String(status||'completed'),String(deliveryId||''),String(errorText||''),id,normalizeNotificationAccount(account),String(channel||'')).run();
+}
+__name(finishStatementRunDelivery,"finishStatementRunDelivery");
 
 function statementCentralParts(date=new Date()){
   const parts=new Intl.DateTimeFormat("en-US",{
@@ -7236,6 +7306,28 @@ async function continueStatementSchedule(env,runId,origin){
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,processed_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(String(run.run_type||"").startsWith("test_")?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed"),results.length,runId).run();
     return {success:failure===0,run_id:runId,complete:true,processed:results.length,total:targets.length,succeeded:results.length-failure,failed:failure};
   }
+
+  // Claim this exact batch BEFORE generating or sending anything. This prevents duplicate
+  // SMS/email/portal delivery if two browser/network continuation requests overlap.
+  const claimedThrough=cursor+accounts.length;
+  const claim=await env.DB.prepare(`
+    UPDATE statement_schedule_runs
+    SET cursor_position=?
+    WHERE id=? AND status='running' AND cursor_position=?
+  `).bind(claimedThrough,runId,cursor).run();
+  if(Number(claim?.meta?.changes||0)!==1){
+    const current=await env.DB.prepare(`
+      SELECT status,cursor_position,processed_count,success_count,failure_count,customer_count
+      FROM statement_schedule_runs WHERE id=? LIMIT 1
+    `).bind(runId).first();
+    return {
+      success:true,run_id:runId,complete:String(current?.status||'')!=='running',
+      status:current?.status||'running',processed:Number(current?.processed_count||0),
+      total:Number(current?.customer_count||targets.length),succeeded:Number(current?.success_count||0),
+      failed:Number(current?.failure_count||0),batch_already_claimed:true
+    };
+  }
+
   const isTest=String(run.run_type||"").startsWith("test_");
   const testSend=isTest&&String(run.run_key||"").startsWith("testsend:");
   const dryRun=isTest&&!testSend;
@@ -7244,7 +7336,7 @@ async function continueStatementSchedule(env,runId,origin){
   const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
   const generateRequest=new Request(`${siteOrigin}/api/admin/statements/generate`,{
     method:"POST",headers:{"X-Admin-Key":String(env.ADMIN_IMPORT_KEY||""),"Content-Type":"application/json","Accept":"application/json"},
-    body:JSON.stringify({accounts,statement_date:central.date,payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun})
+    body:JSON.stringify({accounts,statement_run_id:runId,statement_date:central.date,payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun})
   });
   let batch=[];
   try{
@@ -7253,7 +7345,7 @@ async function continueStatementSchedule(env,runId,origin){
     batch=Array.isArray(data.results)?data.results:accounts.map(account=>({account_number:account,success:false,error:data.error||"Statement batch failed."}));
   }catch(error){batch=accounts.map(account=>({account_number:account,success:false,error:String(error?.message||error)}));}
   results.push(...batch);
-  const processed=cursor+accounts.length;
+  const processed=claimedThrough;
   const success=results.filter(r=>r.success).length;
   const failure=results.length-success;
   const portalSuccess=results.filter(r=>r.success&&r.portal_notified).length;
@@ -7367,7 +7459,7 @@ async function adminStatementScheduling({request,env}){
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true}});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);

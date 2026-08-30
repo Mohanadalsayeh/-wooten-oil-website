@@ -7381,6 +7381,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(probe?.capabilities?.selected_statement_recipients_v2!==true){
       throw new Error('SAFETY STOP: the deployed statement server is an older version that may use every customer in the cycle. No Test/Run was started. Deploy the current worker/server code before using Test or Run.');
     }
+    if(probe?.capabilities?.statement_batch_claim_v1!==true){
+      throw new Error('SAFETY STOP: the deployed statement server does not have duplicate batch protection. No Test/Run was started. Deploy the Ver110 worker/server code first.');
+    }
+    if(probe?.capabilities?.statement_channel_dedupe_v1!==true){
+      throw new Error('SAFETY STOP: the deployed statement server does not have per-customer Email/SMS/Portal duplicate-send protection. No Test/Run was started. Deploy the Ver110 worker/server code first.');
+    }
     if(requireTestAll&&probe?.capabilities?.selected_statement_test_all_v1!==true){
       throw new Error('SAFETY STOP: the deployed statement server does not support selected-customer Test All Cycles. No statements were sent. Deploy the Ver107 worker/server code first.');
     }
