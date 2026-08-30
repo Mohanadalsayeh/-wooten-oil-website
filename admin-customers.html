@@ -1510,7 +1510,7 @@ input[type="file"]:focus-visible{
   align-items:end;
   margin-top:18px;
 }
-.statement-batch-controls label:not(.statement-email-option){
+.statement-batch-controls label:not(.statement-email-option):not(.schedule-option-card){
   display:block;margin-bottom:6px;font-size:12px;font-weight:800;color:#536273;
   text-transform:uppercase;letter-spacing:.04em
 }
@@ -2477,6 +2477,24 @@ input[type="file"]:focus-visible{
 }
 </style>
 
+<style id="wooten-delivery-card-unification-v114">
+/* Ver114: Customer Documents and Send Account Statements use the same delivery cards as Statement Scheduling. */
+.statement-delivery-card-section{display:block!important;padding:12px!important}
+.statement-delivery-card-section .statement-delivery-heading{display:flex!important;width:100%;box-sizing:border-box;margin-bottom:9px!important}
+.statement-delivery-card-section .statement-delivery-card-grid{width:100%;margin:0!important}
+.statement-delivery-card-section .schedule-option-card{display:block!important;min-width:0!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:inherit!important;font-weight:inherit!important;cursor:pointer!important}
+.statement-delivery-card-section .schedule-option-card>input{position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;margin:0!important}
+.statement-delivery-card-section .schedule-option-shell,
+.statement-delivery-card-section .schedule-option-card:hover .schedule-option-shell,
+.statement-delivery-card-section .schedule-option-card>input:checked + .schedule-option-shell{transform:none!important;box-shadow:none!important}
+.statement-delivery-card-section .schedule-option-card:hover .schedule-option-shell{border-color:#8eb7e8!important}
+.statement-delivery-card-section .schedule-option-switch,
+.statement-delivery-card-section .schedule-option-switch::after,
+.statement-delivery-card-section .schedule-option-card>input:checked + .schedule-option-shell .schedule-option-switch{box-shadow:none!important}
+@media(max-width:1050px){.statement-delivery-card-section .schedule-options.schedule-option-cards{grid-template-columns:1fr!important}}
+@media(max-width:700px){.statement-delivery-card-section{padding:10px!important}.statement-delivery-card-section .statement-delivery-heading{display:block!important}.statement-delivery-card-section .statement-delivery-heading span{display:block!important;margin-top:3px!important;line-height:1.4!important}}
+</style>
+
 <style id="wooten-admin-communication-log-style">
 .communication-log-section{margin-top:24px;padding:20px;border:1px solid #d8e1ea;border-radius:16px;background:#f8fafc}
 .communication-log-filters{display:grid;grid-template-columns:150px 150px 190px minmax(230px,1fr);gap:12px;margin-top:16px}
@@ -3434,7 +3452,7 @@ input[type="file"]:focus-visible{
 
 <link rel="stylesheet" href="assets/css/wooten-ios-mobile-viewport-fix.css">
 
-<link rel="stylesheet" href="assets/css/wooten-modern-checkboxes-v113.css">
+<link rel="stylesheet" href="assets/css/wooten-modern-checkboxes-v114.css">
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -4180,23 +4198,37 @@ input[type="file"]:focus-visible{
       </div>
     </div>
 
-    <div class="statement-delivery-options" role="group" aria-labelledby="docSendingOptionsTitle">
+    <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="docSendingOptionsTitle">
       <div class="statement-delivery-heading" id="docSendingOptionsTitle">
         <strong>Sending Options</strong>
-        <span>Checked boxes are the delivery methods used when this document is uploaded.</span>
+        <span>Choose how this document is delivered to the customer.</span>
       </div>
-      <label class="statement-email-option">
-        <input id="docPortalNotification" type="checkbox" checked>
-        <span>Customer Portal</span>
-      </label>
-      <label class="statement-email-option">
-        <input id="docEmailPdf" type="checkbox" checked>
-        <span>Email PDF</span>
-      </label>
-      <label class="statement-email-option">
-        <input id="docSmsLink" type="checkbox" checked>
-        <span>SMS secure PDF link</span>
-      </label>
+      <div class="schedule-options schedule-option-cards statement-delivery-card-grid">
+        <label class="schedule-option schedule-option-card" for="docPortalNotification">
+          <input id="docPortalNotification" type="checkbox" checked>
+          <span class="schedule-option-shell">
+            <span class="schedule-option-icon schedule-option-icon-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"></circle><path d="M6.5 19c.5-4 2.4-6 5.5-6s5 2 5.5 6"></path></svg></span>
+            <span class="schedule-option-copy"><strong>Customer Portal</strong><small>Make this document available in the customer portal.</small></span>
+            <span class="schedule-option-switch" aria-hidden="true"></span>
+          </span>
+        </label>
+        <label class="schedule-option schedule-option-card" for="docEmailPdf">
+          <input id="docEmailPdf" type="checkbox" checked>
+          <span class="schedule-option-shell">
+            <span class="schedule-option-icon schedule-option-icon-email" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"></path><path d="M15 3v5h5"></path><path d="M8 13h8M8 17h5"></path></svg></span>
+            <span class="schedule-option-copy"><strong>Email PDF</strong><small>Email this PDF directly to the customer.</small></span>
+            <span class="schedule-option-switch" aria-hidden="true"></span>
+          </span>
+        </label>
+        <label class="schedule-option schedule-option-card" for="docSmsLink">
+          <input id="docSmsLink" type="checkbox" checked>
+          <span class="schedule-option-shell">
+            <span class="schedule-option-icon schedule-option-icon-sms" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><circle cx="9" cy="10.5" r=".7"></circle><circle cx="12" cy="10.5" r=".7"></circle><circle cx="15" cy="10.5" r=".7"></circle><path d="M15.5 15.5h5v5h-5z"></path><path d="M16.5 15.5v-1a1.5 1.5 0 0 1 3 0v1"></path></svg></span>
+            <span class="schedule-option-copy"><strong>SMS secure PDF link</strong><small>Send the customer a secure PDF link by SMS.</small></span>
+            <span class="schedule-option-switch" aria-hidden="true"></span>
+          </span>
+        </label>
+      </div>
     </div>
 
     <div class="actions">
@@ -4261,23 +4293,37 @@ input[type="file"]:focus-visible{
             </div>
           </div>
         </div>
-        <div class="statement-delivery-options" role="group" aria-labelledby="statementSendingOptionsTitle">
+        <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
           <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
             <strong>Sending Options</strong>
-            <span>Checked boxes are the delivery methods used when statements are sent.</span>
+            <span>Choose how the selected account statements are delivered.</span>
           </div>
-          <label class="statement-email-option">
-            <input id="statementPortalNotification" type="checkbox" checked>
-            <span>Customer Portal</span>
-          </label>
-          <label class="statement-email-option">
-            <input id="statementEmailPdf" type="checkbox" checked>
-            <span>Email PDF</span>
-          </label>
-          <label class="statement-email-option">
-            <input id="statementSmsLink" type="checkbox" checked>
-            <span>SMS secure PDF link</span>
-          </label>
+          <div class="schedule-options schedule-option-cards statement-delivery-card-grid">
+            <label class="schedule-option schedule-option-card" for="statementPortalNotification">
+              <input id="statementPortalNotification" type="checkbox" checked>
+              <span class="schedule-option-shell">
+                <span class="schedule-option-icon schedule-option-icon-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"></circle><path d="M6.5 19c.5-4 2.4-6 5.5-6s5 2 5.5 6"></path></svg></span>
+                <span class="schedule-option-copy"><strong>Customer Portal</strong><small>Make generated statements available in the customer portal.</small></span>
+                <span class="schedule-option-switch" aria-hidden="true"></span>
+              </span>
+            </label>
+            <label class="schedule-option schedule-option-card" for="statementEmailPdf">
+              <input id="statementEmailPdf" type="checkbox" checked>
+              <span class="schedule-option-shell">
+                <span class="schedule-option-icon schedule-option-icon-email" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"></path><path d="M15 3v5h5"></path><path d="M8 13h8M8 17h5"></path></svg></span>
+                <span class="schedule-option-copy"><strong>Email PDF</strong><small>Email generated statements as PDF attachments.</small></span>
+                <span class="schedule-option-switch" aria-hidden="true"></span>
+              </span>
+            </label>
+            <label class="schedule-option schedule-option-card" for="statementSmsLink">
+              <input id="statementSmsLink" type="checkbox" checked>
+              <span class="schedule-option-shell">
+                <span class="schedule-option-icon schedule-option-icon-sms" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><circle cx="9" cy="10.5" r=".7"></circle><circle cx="12" cy="10.5" r=".7"></circle><circle cx="15" cy="10.5" r=".7"></circle><path d="M15.5 15.5h5v5h-5z"></path><path d="M16.5 15.5v-1a1.5 1.5 0 0 1 3 0v1"></path></svg></span>
+                <span class="schedule-option-copy"><strong>SMS secure PDF link</strong><small>Send customers a secure PDF link by SMS.</small></span>
+                <span class="schedule-option-switch" aria-hidden="true"></span>
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 
