@@ -3,8 +3,8 @@ WOOTEN OIL STATEMENT SCHEDULING
 What is included
 ----------------
 - A statement cycle for monthly statements.
-- B statement cycle for mid-month statements (15th by default).
-- C statement cycle for weekly statements.
+- B statement cycle for weekly or biweekly statements.
+- Cycle C is no longer used.
 - Positive-balance-only option.
 - Recent-payment count selection.
 - Portal, Email PDF, and SMS secure-link delivery choices.
