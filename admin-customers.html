@@ -7376,6 +7376,25 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const response=await fetch(path,{...options,headers:{...(options.headers||{}),'X-Admin-Key':adminKey,'Accept':'application/json'},cache:'no-store'});
     const data=await response.json().catch(()=>({}));if(!response.ok||(!allowReportedFailure&&data.success===false))throw new Error(data.error||'Statement scheduling request failed.');return data;
   }
+  async function requireSelectedRecipientServer(requireTestAll=false){
+    const probe=await request('/api/admin/statement-scheduling?compact=1');
+    if(probe?.capabilities?.selected_statement_recipients_v2!==true){
+      throw new Error('SAFETY STOP: the deployed statement server is an older version that may use every customer in the cycle. No Test/Run was started. Deploy the current worker/server code before using Test or Run.');
+    }
+    if(requireTestAll&&probe?.capabilities?.selected_statement_test_all_v1!==true){
+      throw new Error('SAFETY STOP: the deployed statement server does not support selected-customer Test All Cycles. No statements were sent. Deploy the Ver107 worker/server code first.');
+    }
+    return probe;
+  }
+  function normalizeSelectedAccount(value){const digits=String(value||'').replace(/\D/g,'');return digits?digits.padStart(7,'0'):'';}
+  function verifySelectedRunTargets(data,accounts){
+    const requested=[...new Set((accounts||[]).map(normalizeSelectedAccount).filter(Boolean))];
+    const returned=[...new Set((Array.isArray(data?.target_accounts)?data.target_accounts:[]).map(normalizeSelectedAccount).filter(Boolean))];
+    const same=requested.length===returned.length&&requested.every(account=>returned.includes(account));
+    if(data?.selection_enforced!==true||Number(data?.total)!==requested.length||!same||data?.resumed===true){
+      throw new Error('SAFETY STOP: the server did not confirm the exact selected-customer list. No statement delivery was continued. Selected: '+requested.length.toLocaleString()+', server targets: '+Number(data?.total||returned.length||0).toLocaleString()+'.');
+    }
+  }
   async function saveSettings(showMessage=true){
     if(weeklyEnabled.checked&&weeklyFrequency.value==='biweekly'&&!weeklyAnchor.value){weeklyAnchor.focus();throw new Error('Select the first biweekly Cycle B run date.');}
     const data=await request('/api/admin/statement-scheduling',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody())});
@@ -7535,8 +7554,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!window.confirm(prompt))return;
     if(isTest)startTestProgress(type,'Sending test '+label+' statements…');
     try{
+      setStatus('Verifying selected-customer safety before starting…');
+      await requireSelectedRecipientServer();
       await saveSettings(false);setStatus((isTest?'Sending test statements to ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
-      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:false,test_send:isTest,account_numbers:accounts})});
+      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:false,test_send:isTest,account_numbers:accounts,selected_only:true})});
+      verifySelectedRunTargets(data,accounts);
       const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length);
       setStatus((isTest?'Test send':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
       if(isTest)await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' sent • '+Number(final.failure_count||0)+' failed');
@@ -7561,33 +7583,48 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     throw new Error('The statement run is still continuing in the background. Refresh the report to see its latest progress.');
   }
   async function testAllCycles(){
-    const types=[];
-    if(monthlyEnabled.checked&&bulkSelections.monthly.size)types.push('monthly');
-    if(weeklyEnabled.checked&&bulkSelections.weekly.size)types.push('weekly');
+    const selections={
+      monthly:monthlyEnabled.checked?selectedAccounts('monthly'):[],
+      weekly:weeklyEnabled.checked?selectedAccounts('weekly'):[]
+    };
+    const types=['monthly','weekly'].filter(type=>selections[type].length);
     if(!types.length){setStatus('Select at least one customer in Preview A or Preview B first. Test All never processes unselected customers.',false);return;}
-    const totalSelected=types.reduce((sum,type)=>sum+selectedAccounts(type).length,0);
-    const cycleNames=types.map(type=>type==='weekly'?'Cycle B':'Cycle A').join(' and ');
-    if(!window.confirm('TEST SEND: Send statements to '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+' across '+cycleNames+' only?\n\nThis is a real delivery and will create documents and Communication History.'))return;
+    const totalSelected=types.reduce((sum,type)=>sum+selections[type].length,0);
+    const breakdown=[];
+    if(selections.monthly.length)breakdown.push('Cycle A: '+selections.monthly.length.toLocaleString()+' selected');
+    if(selections.weekly.length)breakdown.push('Cycle B: '+selections.weekly.length.toLocaleString()+' selected');
+    if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will receive a real test statement. Documents and Communication History will be created.'))return;
     let succeeded=0,failed=0;
-    setTestProgress('all',3,'Sending selected test statements…','Preparing');
+    setTestProgress('all',3,'Validating selected customers from all cycles…','Preparing');
     try{
+      setStatus('Validating the selected Cycle A and Cycle B customer lists before any statement is sent…');
+      await requireSelectedRecipientServer(true);
       await saveSettings(false);
+      const batch=await request('/api/admin/statement-scheduling/test-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selected_only:true,test_send:true,selections})});
+      const runs=Array.isArray(batch.runs)?batch.runs:[];
+      if(runs.length!==types.length)throw new Error('SAFETY STOP: the server did not create one exact selected-customer run for every selected cycle. No statement delivery was continued.');
+      const runByType=new Map(runs.map(run=>[String(run.type||''),run]));
+      for(const type of types){
+        const run=runByType.get(type);
+        if(!run)throw new Error('SAFETY STOP: the server did not confirm the selected '+(type==='weekly'?'Cycle B':'Cycle A')+' list. No statement delivery was continued.');
+        verifySelectedRunTargets(run,selections[type]);
+      }
+      setStatus('Selection safety check passed. Sending only the '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+' across all selected cycles…',true);
       for(let index=0;index<types.length;index++){
-        const type=types[index],accounts=selectedAccounts(type);
+        const type=types[index],accounts=selections[type],run=runByType.get(type);
         const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':'A monthly-cycle';
-        const startPct=5+Math.floor(index*(90/types.length));
+        const startPct=8+Math.floor(index*(86/types.length));
         setTestProgress('all',startPct,'Sending test '+label+' statements…',(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
-        setStatus('Sending test '+label+' statements to '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
-        const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:false,test_send:true,account_numbers:accounts})});
-        const final=await waitForScheduledRun(data.run_id,'all',true,data.total||accounts.length);
+        setStatus('Sending test '+label+' statements to '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only. Keep this page open…');
+        const final=await waitForScheduledRun(run.run_id,'all',true,run.total||accounts.length);
         succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
         setTestProgress('all',Math.floor(((index+1)/types.length)*100),'Completed '+label,(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
       }
-      setStatus('Selected-customer test send complete: '+succeeded+' succeeded and '+failed+' failed.',failed===0);
+      setStatus('Selected-customer Test All complete: '+succeeded+' succeeded and '+failed+' failed.',failed===0);
       await finishTestProgress('all','100% complete • '+succeeded+' sent • '+failed+' failed');
       await load();
-      showRunCompletion(true,'TEST SEND — SELECTED CUSTOMERS',succeeded,failed);
-    }catch(error){hideTestProgress('all');setStatus(error.message||'Selected-customer statement test send failed.',false);await load();}
+      showRunCompletion(true,'TEST ALL CYCLES — SELECTED CUSTOMERS ONLY',succeeded,failed);
+    }catch(error){hideTestProgress('all');setStatus(error.message||'Selected-customer Test All failed.',false);await load();}
   }
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   monthlyEnabled.addEventListener('change',syncCycleEnabledState);
@@ -7611,12 +7648,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     '',
     '• First open Preview A or Preview B and select the customer(s) you want.',
     '• Test A and Test B process selected customers only.',
+    '• Test All Cycles combines only the selected customers from Cycle A and Cycle B; it never expands to the full cycles.',
     '• Test uses the same eligibility rules and saved delivery options as a real run.',
     '• Portal, Email, and SMS are sent only when those delivery options are enabled and selected for that customer.',
     '• Statement PDFs are stored in the selected customer accounts.',
     '• Communication History is updated because this is a real delivery.',
     '• The report is clearly labeled TEST SEND.',
-    '• Unselected customers are never processed by Test A, Test B, Run A, or Run B.'
+    '• Unselected customers are never processed by Test A, Test B, Test All Cycles, Run A, or Run B.'
   ].join('\n')));
   get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
   get('scheduleRunMidmonth').addEventListener('click',()=>runNow('midmonth'));

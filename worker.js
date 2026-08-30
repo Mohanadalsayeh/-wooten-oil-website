@@ -7164,8 +7164,26 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,
     customers=requestedAccounts.map(account=>eligibleByAccount.get(account)).filter(Boolean);
     if(!customers.length)throw new Error(`None of the selected customers currently match Cycle ${cycleLabel} and the saved statement eligibility rules.`);
   }
-  const active=await env.DB.prepare(`SELECT id,customer_count,processed_count,success_count,failure_count FROM statement_schedule_runs WHERE run_type=? AND status='running' ORDER BY id DESC LIMIT 1`).bind(storedRunType).first();
-  if(active)return {success:true,dry_run:dryRun,test_send:testSend,run_id:active.id,processed:Number(active.processed_count||0),total:Number(active.customer_count||0),succeeded:Number(active.success_count||0),failed:Number(active.failure_count||0),complete:false,resumed:true};
+  const manualSelectedRun=Array.isArray(requestedAccounts);
+  if(manualSelectedRun){
+    // A manual Test/Run must NEVER inherit or resume a previous run for the whole cycle.
+    // Close older unfinished manual/test runs of the same type before creating this exact-selection run.
+    await env.DB.prepare(`
+      UPDATE statement_schedule_runs
+      SET status='cancelled_selection_superseded', completed_at=CURRENT_TIMESTAMP
+      WHERE run_type=? AND status='running'
+        AND (run_key LIKE 'testdry:%' OR run_key LIKE 'testsend:%' OR run_key LIKE '%:manual:%')
+    `).bind(storedRunType).run();
+  }else{
+    // Only an automatic scheduled run may resume, and only when its exact deterministic run key matches.
+    const active=await env.DB.prepare(`
+      SELECT id,customer_count,processed_count,success_count,failure_count,target_json
+      FROM statement_schedule_runs
+      WHERE run_key=? AND status='running'
+      LIMIT 1
+    `).bind(runKey).first();
+    if(active)return {success:true,dry_run:dryRun,test_send:testSend,run_id:active.id,processed:Number(active.processed_count||0),total:Number(active.customer_count||0),succeeded:Number(active.success_count||0),failed:Number(active.failure_count||0),complete:false,resumed:true,selection_enforced:false,target_accounts:(()=>{try{return JSON.parse(active.target_json||'[]');}catch{return [];}})()};
+  }
   const inserted=await env.DB.prepare(`
     INSERT OR IGNORE INTO statement_schedule_runs(run_key,run_type,statement_cycle,status)
     VALUES(?,?,?,'running')
@@ -7181,7 +7199,7 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,
     if(!customers.length){
       await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_completed":"completed",runId).run();
     }
-    return {success:true,dry_run:dryRun,test_send:testSend,run_id:runId,processed:0,total:customers.length,requested:requestedAccounts?.length??customers.length,eligible:customers.length,skipped:selectedAccountsSkipped(requestedAccounts,customers),succeeded:0,failed:0,complete:customers.length===0};
+    return {success:true,dry_run:dryRun,test_send:testSend,run_id:runId,processed:0,total:customers.length,requested:requestedAccounts?.length??customers.length,eligible:customers.length,skipped:selectedAccountsSkipped(requestedAccounts,customers),succeeded:0,failed:0,complete:customers.length===0,selection_enforced:Array.isArray(requestedAccounts),target_accounts:customers.map(customer=>String(customer.account_number||''))};
   }catch(error){
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,failure_count=1,detail_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_failed":"failed",JSON.stringify([{error:String(error?.message||error)}]),runId).run();
     throw error;
@@ -7202,6 +7220,15 @@ async function continueStatementSchedule(env,runId,origin){
   try{targets=JSON.parse(run.target_json||"[]");}catch{}
   try{results=JSON.parse(run.detail_json||"[]");}catch{}
   if(!Array.isArray(targets))targets=[];if(!Array.isArray(results))results=[];
+  const manualSelectedRun=String(run.run_key||'').startsWith('testdry:')||String(run.run_key||'').startsWith('testsend:')||String(run.run_key||'').includes(':manual:');
+  if(manualSelectedRun){
+    const normalizedTargets=[...new Set(targets.map(value=>{const digits=String(value||'').replace(/\D/g,'');return digits?digits.padStart(7,'0'):'';}).filter(Boolean))];
+    if(!normalizedTargets.length||normalizedTargets.length!==Number(run.customer_count||0)){
+      await env.DB.prepare(`UPDATE statement_schedule_runs SET status='failed_selection_guard',failure_count=CASE WHEN failure_count<1 THEN 1 ELSE failure_count END,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(runId).run();
+      throw new Error('Selected-customer safety check failed. No statement batch was processed.');
+    }
+    targets=normalizedTargets;
+  }
   const cursor=Math.max(0,Number(run.cursor_position||0));
   const accounts=targets.slice(cursor,cursor+20);
   if(!accounts.length){
@@ -7243,7 +7270,16 @@ __name(continueStatementSchedule,"continueStatementSchedule");
 async function processDueStatementSchedules(env){
   if(!env.DB||!env.ADMIN_IMPORT_KEY||!env.NOTIFICATION_ATTACHMENTS)return;
   await ensureStatementSchedulingSchema(env);
-  const activeRuns=await env.DB.prepare(`SELECT id FROM statement_schedule_runs WHERE status='running' ORDER BY id LIMIT 3`).all();
+  // Cron may continue automatic schedules only. Manual Test/Run batches are controlled by the admin browser
+  // so an abandoned or older full-cycle manual run can never restart in the background.
+  const activeRuns=await env.DB.prepare(`
+    SELECT id FROM statement_schedule_runs
+    WHERE status='running'
+      AND run_key NOT LIKE 'testdry:%'
+      AND run_key NOT LIKE 'testsend:%'
+      AND run_key NOT LIKE '%:manual:%'
+    ORDER BY id LIMIT 3
+  `).all();
   for(const active of activeRuns?.results||[]){
     await continueStatementSchedule(env,active.id,env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Statement run continuation failed",active.id,error));
   }
@@ -7331,7 +7367,7 @@ async function adminStatementScheduling({request,env}){
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts()});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
@@ -7362,6 +7398,9 @@ async function adminStatementSchedulingRun({request,env}){
       const cycleName=type==="weekly"?"Cycle B":"Cycle A";
       return notificationJson({success:false,error:cycleName+" is disabled. Enable its checkbox and save the schedule before testing or running statements."},409);
     }
+    if(body.selected_only!==true){
+      return notificationJson({success:false,error:"Selected-customer safety mode is required for every manual Test/Run. Refresh the Admin page and try again."},400);
+    }
     if(!Array.isArray(body.account_numbers)||!body.account_numbers.length){
       return notificationJson({success:false,error:"Select at least one customer in the cycle preview. Manual Test and Run actions only process explicitly selected customers."},400);
     }
@@ -7375,6 +7414,68 @@ async function adminStatementSchedulingRun({request,env}){
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
 }
 __name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
+
+async function adminStatementSchedulingTestAll({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  const body=await request.json().catch(()=>({}));
+  try{
+    if(body.selected_only!==true||body.test_send!==true){
+      return notificationJson({success:false,error:"Selected-customer safety mode is required for Test All Cycles."},400);
+    }
+    const source=body.selections&&typeof body.selections==="object"?body.selections:{};
+    const normalizeList=(value)=>[...new Set((Array.isArray(value)?value:[]).map(item=>{const digits=String(item||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
+    const selections={monthly:normalizeList(source.monthly),weekly:normalizeList(source.weekly)};
+    const types=["monthly","weekly"].filter(type=>selections[type].length);
+    if(!types.length)return notificationJson({success:false,error:"Select at least one customer in Cycle A or Cycle B before using Test All Cycles."},400);
+    if(selections.monthly.length>5000||selections.weekly.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers may be selected in one cycle."},413);
+
+    const duplicateAcrossCycles=selections.monthly.filter(account=>selections.weekly.includes(account));
+    if(duplicateAcrossCycles.length){
+      return notificationJson({success:false,error:"SAFETY STOP: the same customer appears in both Cycle A and Cycle B selections. Refresh both previews before testing."},409);
+    }
+
+    const config=await statementScheduleConfig(env);
+    if(selections.monthly.length&&Number(config.monthly_enabled)===0)return notificationJson({success:false,error:"Cycle A is disabled. Enable Cycle A and save the schedule before Test All Cycles."},409);
+    if(selections.weekly.length&&Number(config.weekly_enabled)===0)return notificationJson({success:false,error:"Cycle B is disabled. Enable Cycle B and save the schedule before Test All Cycles."},409);
+
+    // Validate every selected account in every selected cycle BEFORE creating or continuing any run.
+    const validated={};
+    for(const type of types){
+      const eligible=await statementScheduleCustomers(env,type,config);
+      const eligibleSet=new Set(eligible.map(row=>String(row.account_number||"")));
+      const invalid=selections[type].filter(account=>!eligibleSet.has(account));
+      if(invalid.length){
+        const cycleName=type==="weekly"?"Cycle B":"Cycle A";
+        return notificationJson({success:false,error:`SAFETY STOP: ${invalid.length} selected customer(s) no longer match ${cycleName} or the saved eligibility rules. Refresh the preview and select again. No statements were sent.`,invalid_accounts:invalid,cycle:type},409);
+      }
+      validated[type]=selections[type];
+    }
+
+    const origin=new URL(request.url).origin;
+    const created=[];
+    try{
+      for(const type of types){
+        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:false,testSend:true,accountNumbers:validated[type]});
+        const returned=[...new Set((Array.isArray(started?.target_accounts)?started.target_accounts:[]).map(item=>{const digits=String(item||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
+        const requested=validated[type];
+        const exact=started?.selection_enforced===true&&Number(started?.total)===requested.length&&returned.length===requested.length&&requested.every(account=>returned.includes(account))&&started?.resumed!==true;
+        if(!exact)throw new Error(`Selected-customer target confirmation failed for ${type==="weekly"?"Cycle B":"Cycle A"}.`);
+        created.push({...started,type});
+      }
+    }catch(error){
+      for(const run of created){
+        if(run?.run_id)await env.DB.prepare(`UPDATE statement_schedule_runs SET status='cancelled_test_all_safety',completed_at=CURRENT_TIMESTAMP WHERE id=? AND status='running'`).bind(run.run_id).run().catch(()=>{});
+      }
+      throw error;
+    }
+
+    return notificationJson({success:true,selected_only:true,test_send:true,total_selected:types.reduce((sum,type)=>sum+validated[type].length,0),cycles:types,runs:created});
+  }catch(error){
+    console.error("Selected Test All Cycles failed",error);
+    return notificationJson({success:false,error:"Selected-customer Test All Cycles failed. "+String(error?.message||error)},500);
+  }
+}
+__name(adminStatementSchedulingTestAll,"adminStatementSchedulingTestAll");
 
 async function adminStatementSchedulingContinue({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
@@ -7999,6 +8100,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-scheduling/run") {
       if (request.method === "POST") return adminStatementSchedulingRun({ request, env, ctx });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling/test-all") {
+      if (request.method === "POST") return adminStatementSchedulingTestAll({ request, env, ctx });
       return methodNotAllowed();
     }
 
