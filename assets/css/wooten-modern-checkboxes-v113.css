@@ -1,0 +1,129 @@
+/* Wooten Oil Portal Ver113
+   Unified modern checkbox/toggle treatment across the portal.
+   Functionality is unchanged; only the visual presentation is updated. */
+
+/*
+ * The Statement & Delivery Settings controls already use custom switches.
+ * Keep their hidden native inputs untouched so their card/switch UI continues
+ * to control the same underlying checkbox values.
+ */
+html body input[type="checkbox"]:not(#schedulePositiveOnly):not(#schedulePortal):not(#scheduleEmail):not(#scheduleSms) {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  position: relative !important;
+  display: inline-block !important;
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  border: 1px solid #bcc9d5 !important;
+  border-radius: 999px !important;
+  background: #d3dae1 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  cursor: pointer !important;
+  transition: background-color .16s ease, border-color .16s ease !important;
+  box-sizing: border-box !important;
+}
+
+html body input[type="checkbox"]:not(#schedulePositiveOnly):not(#schedulePortal):not(#scheduleEmail):not(#scheduleSms)::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  transform: translateX(0) !important;
+  transition: transform .16s ease !important;
+  pointer-events: none !important;
+}
+
+html body input[type="checkbox"]:not(#schedulePositiveOnly):not(#schedulePortal):not(#scheduleEmail):not(#scheduleSms):checked {
+  border-color: #1677ea !important;
+  background: #1677ea !important;
+}
+
+html body input[type="checkbox"]:not(#schedulePositiveOnly):not(#schedulePortal):not(#scheduleEmail):not(#scheduleSms):checked::after {
+  transform: translateX(16px) !important;
+}
+
+html body input[type="checkbox"]:not(#schedulePositiveOnly):not(#schedulePortal):not(#scheduleEmail):not(#scheduleSms):focus-visible {
+  outline: 3px solid rgba(22,119,234,.18) !important;
+  outline-offset: 2px !important;
+}
+
+html body input[type="checkbox"]:not(#schedulePositiveOnly):not(#schedulePortal):not(#scheduleEmail):not(#scheduleSms):disabled {
+  opacity: .55 !important;
+  cursor: not-allowed !important;
+}
+
+/* Keep dense selection rows compact while retaining the same switch style. */
+html body .statement-customer-check,
+html body [data-bulk-cycle-customer],
+html body .schedule-bulk-check input[type="checkbox"] {
+  flex-basis: 34px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+}
+html body .statement-customer-check::after,
+html body [data-bulk-cycle-customer]::after,
+html body .schedule-bulk-check input[type="checkbox"]::after {
+  top: 2px !important;
+  left: 2px !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+html body .statement-customer-check:checked::after,
+html body [data-bulk-cycle-customer]:checked::after,
+html body .schedule-bulk-check input[type="checkbox"]:checked::after {
+  transform: translateX(14px) !important;
+}
+
+/* Ver113: the three Statement & Delivery option cards stay perfectly still.
+   No hover lift and no shadow in any state. */
+.schedule-shared .schedule-option-card .schedule-option-shell,
+.schedule-shared .schedule-option-card:hover .schedule-option-shell,
+.schedule-shared .schedule-option-card > input:checked + .schedule-option-shell {
+  transform: none !important;
+  box-shadow: none !important;
+}
+.schedule-shared .schedule-option-card:hover .schedule-option-shell {
+  border-color: #8eb7e8 !important;
+}
+.schedule-shared .schedule-option-card .schedule-option-switch,
+.schedule-shared .schedule-option-card .schedule-option-switch::after,
+.schedule-shared .schedule-option-card > input:checked + .schedule-option-shell .schedule-option-switch {
+  box-shadow: none !important;
+}
+
+/* The positive-balance switch follows the same flat, no-shadow visual system. */
+.schedule-balance-toggle .schedule-toggle-ui,
+.schedule-balance-toggle .schedule-toggle-ui::after,
+.schedule-balance-toggle input:checked + .schedule-toggle-ui {
+  box-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body input[type="checkbox"],
+  html body input[type="checkbox"]::after,
+  .schedule-option-shell,
+  .schedule-option-switch,
+  .schedule-option-switch::after,
+  .schedule-toggle-ui,
+  .schedule-toggle-ui::after {
+    transition: none !important;
+  }
+}
