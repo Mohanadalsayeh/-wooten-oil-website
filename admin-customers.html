@@ -1600,7 +1600,7 @@ input[type="file"]:focus-visible{
 .schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
 .schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 .schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
-.schedule-test-btn{min-height:44px;border:1px solid #d69a2d;border-radius:10px;background:#fff7df;color:#754800;padding:9px 15px;font:inherit;font-weight:900;cursor:pointer}.schedule-test-btn:hover{background:#ffefbd}.schedule-test-btn:disabled{cursor:wait;opacity:.65}.schedule-card>.actions{flex-wrap:wrap}.schedule-card .schedule-test-help{width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;align-self:center;padding:0!important;border:1px solid #9aabb9;border-radius:50%;background:#fff;color:#17324d;font-size:17px;font-weight:900;line-height:1;cursor:pointer}.schedule-card .schedule-test-help:hover{background:#eaf1f6;border-color:#617b91}.schedule-card .schedule-test-help:focus-visible{outline:3px solid rgba(31,78,121,.18);outline-offset:2px}
+.schedule-test-btn{min-height:44px;border:1px solid #d69a2d;border-radius:10px;background:#fff7df;color:#754800;padding:9px 15px;font:inherit;font-weight:900;cursor:pointer}.schedule-test-btn:hover{background:#ffefbd}.schedule-test-btn:disabled{cursor:not-allowed;opacity:.65}.schedule-test-btn.is-loading,.schedule-test-btn[aria-busy="true"]{cursor:wait!important}.schedule-test-btn.is-loading:hover,.schedule-test-btn[aria-busy="true"]:hover{background:#fff7df}.schedule-card>.actions{flex-wrap:wrap}.schedule-card .schedule-test-help{width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;align-self:center;padding:0!important;border:1px solid #9aabb9;border-radius:50%;background:#fff;color:#17324d;font-size:17px;font-weight:900;line-height:1;cursor:pointer}.schedule-card .schedule-test-help:hover{background:#eaf1f6;border-color:#617b91}.schedule-card .schedule-test-help:focus-visible{outline:3px solid rgba(31,78,121,.18);outline-offset:2px}
 .schedule-shared{margin-top:14px}.schedule-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.schedule-option{display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #d7e1ea;border-radius:10px;background:#fff;padding:8px 11px;font-weight:800;color:#344c62}.schedule-option input{width:18px;height:18px}
 .schedule-preview-inline{margin-top:14px}.schedule-preview-inline:empty{display:none}.schedule-preview-summary{padding-top:12px;border-top:1px solid #d9e2e9}.schedule-preview-summary>strong{display:block;color:#17324d}.schedule-preview-summary>p{margin:4px 0 9px;color:#68798a;font-size:12px}.schedule-preview-count-number{color:#17324d;font-weight:900}.schedule-preview-search{width:100%;min-height:40px;margin:0 0 9px;padding:8px 11px;border:1px solid #c9d5df;border-radius:9px;background:#fff;color:#17324d;font:inherit;box-sizing:border-box}.schedule-preview-search:focus{outline:none;border-color:#6f91af;box-shadow:0 0 0 3px rgba(31,78,121,.10)}.schedule-preview-list{display:grid;gap:7px;max-height:430px;overflow:auto;padding-right:3px}.schedule-preview-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px;border:1px solid #dbe4eb;border-radius:9px;background:#fff;color:#526477;font-size:13px}.schedule-preview-row[hidden]{display:none!important}.schedule-preview-row strong{color:#17324d}.schedule-preview-balance{align-self:center;color:#17324d;font-weight:900}.schedule-customer-cycle{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.schedule-customer-cycle select,.schedule-customer-cycle button{min-height:36px;border-radius:8px;font:inherit}.schedule-customer-cycle select{border:1px solid #c9d5df;background:#fff;padding:5px 8px;color:#17324d}.schedule-customer-cycle button{border:0;background:#e8eef3;color:#17324d;padding:5px 10px;font-weight:900;cursor:pointer}.schedule-customer-cycle button:hover{background:#dbe6ee}.schedule-customer-cycle button:disabled{cursor:wait;opacity:.65}
 .schedule-report{display:grid;gap:10px;margin-top:14px}.schedule-run{border:1px solid #d7e1ea;border-radius:12px;background:#fff;overflow:hidden}.schedule-run summary{cursor:pointer;list-style:none;padding:12px 14px}.schedule-run summary::-webkit-details-marker{display:none}.schedule-run-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.schedule-run-title strong{color:#17324d}.schedule-run-title span{color:#6d7e8f;font-size:12px}.schedule-run-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.schedule-run-metric{border-radius:999px;background:#edf3f7;color:#465d70;padding:4px 8px;font-size:11px;font-weight:900}.schedule-run-metric.good{background:#ddf4e8;color:#17633f}.schedule-run-metric.bad{background:#fde8e8;color:#9b3030}.schedule-run-detail{border-top:1px solid #e0e7ed;padding:10px 14px}.schedule-result-row{display:grid;grid-template-columns:minmax(180px,1fr) repeat(3,90px);gap:8px;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:12px}.schedule-result-row:last-child{border-bottom:0}.schedule-result-row strong{color:#17324d}.schedule-empty{padding:16px;border:1px dashed #c9d5df;border-radius:10px;background:#fff;color:#718193;text-align:center}
@@ -7595,6 +7595,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(selections.weekly.length)breakdown.push('Cycle B: '+selections.weekly.length.toLocaleString()+' selected');
     if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will receive a real test statement. Documents and Communication History will be created.'))return;
     let succeeded=0,failed=0;
+    const testAllButton=get('scheduleTestAll');
+    if(testAllButton){
+      testAllButton.disabled=true;
+      testAllButton.classList.add('is-loading');
+      testAllButton.setAttribute('aria-busy','true');
+      testAllButton.textContent='Testing All Cycles…';
+    }
     setTestProgress('all',3,'Validating selected customers from all cycles…','Preparing');
     try{
       setStatus('Validating the selected Cycle A and Cycle B customer lists before any statement is sent…');
@@ -7625,6 +7632,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       await load();
       showRunCompletion(true,'TEST ALL CYCLES — SELECTED CUSTOMERS ONLY',succeeded,failed);
     }catch(error){hideTestProgress('all');setStatus(error.message||'Selected-customer Test All failed.',false);await load();}
+    finally{
+      if(testAllButton){
+        testAllButton.classList.remove('is-loading');
+        testAllButton.removeAttribute('aria-busy');
+        testAllButton.textContent='Test All Cycles';
+      }
+      syncCycleEnabledState();
+    }
   }
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   monthlyEnabled.addEventListener('change',syncCycleEnabledState);
