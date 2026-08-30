@@ -7329,8 +7329,12 @@ async function continueStatementSchedule(env,runId,origin){
     }
     targets=normalizedTargets;
   }
+  const preIsTest=String(run.run_type||"").startsWith("test_");
+  const preTestSend=preIsTest&&String(run.run_key||"").startsWith("testsend:");
+  const preDryRun=preIsTest&&!preTestSend;
   const cursor=Math.max(0,Number(run.cursor_position||0));
-  const accounts=targets.slice(cursor,cursor+20);
+  const batchSize=preDryRun?20:5;
+  const accounts=targets.slice(cursor,cursor+batchSize);
   if(!accounts.length){
     const failure=results.filter(r=>!r.success).length;
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,processed_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(String(run.run_type||"").startsWith("test_")?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed"),results.length,runId).run();
@@ -7358,9 +7362,9 @@ async function continueStatementSchedule(env,runId,origin){
     };
   }
 
-  const isTest=String(run.run_type||"").startsWith("test_");
-  const testSend=isTest&&String(run.run_key||"").startsWith("testsend:");
-  const dryRun=isTest&&!testSend;
+  const isTest=preIsTest;
+  const testSend=preTestSend;
+  const dryRun=preDryRun;
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
   const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
@@ -7489,7 +7493,7 @@ async function adminStatementScheduling({request,env}){
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true}});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_dry_test_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
@@ -7541,7 +7545,7 @@ async function adminStatementSchedulingTestAll({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   const body=await request.json().catch(()=>({}));
   try{
-    if(body.selected_only!==true||body.test_send!==true){
+    if(body.selected_only!==true){
       return notificationJson({success:false,error:"Selected-customer safety mode is required for Test All Cycles."},400);
     }
     const source=body.selections&&typeof body.selections==="object"?body.selections:{};
@@ -7577,7 +7581,7 @@ async function adminStatementSchedulingTestAll({request,env}){
     const created=[];
     try{
       for(const type of types){
-        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:false,testSend:true,accountNumbers:validated[type]});
+        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:true,testSend:false,accountNumbers:validated[type]});
         const returned=[...new Set((Array.isArray(started?.target_accounts)?started.target_accounts:[]).map(item=>{const digits=String(item||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
         const requested=validated[type];
         const exact=started?.selection_enforced===true&&Number(started?.total)===requested.length&&returned.length===requested.length&&requested.every(account=>returned.includes(account))&&started?.resumed!==true;
@@ -7591,7 +7595,7 @@ async function adminStatementSchedulingTestAll({request,env}){
       throw error;
     }
 
-    return notificationJson({success:true,selected_only:true,test_send:true,total_selected:types.reduce((sum,type)=>sum+validated[type].length,0),cycles:types,runs:created});
+    return notificationJson({success:true,selected_only:true,test_send:false,dry_run:true,total_selected:types.reduce((sum,type)=>sum+validated[type].length,0),cycles:types,runs:created});
   }catch(error){
     console.error("Selected Test All Cycles failed",error);
     return notificationJson({success:false,error:"Selected-customer Test All Cycles failed. "+String(error?.message||error)},500);

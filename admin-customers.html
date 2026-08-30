@@ -7844,10 +7844,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         :'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Portal: '+(row.portal_notified?'Sent':'Not sent')+'</span><span>Email: '+(row.email_sent?'Sent':'Not sent')+'</span><span>SMS: '+(row.sms_sent?'Sent':'Not sent')+(row.error?' • '+esc(row.error):'')+'</span></div>').join(''):'<div class="schedule-empty">No customers matched this run.</div>';
       const type=baseType==='weekly'?'B — Weekly / Biweekly Cycle':baseType==='midmonth'?'Legacy Mid-Month Run':'A — Monthly Cycle';
       const deliveryMetrics=isTest&&!isTestSend
-        ?'<span class="schedule-run-metric">Legacy dry test — no delivery attempted</span>'
+        ?'<span class="schedule-run-metric">Dry test — no delivery attempted</span>'
         :'<span class="schedule-run-metric">Portal '+Number(run.portal_success||0)+' / '+Number(run.portal_failure||0)+' not sent</span><span class="schedule-run-metric">Email '+Number(run.email_success||0)+' / '+Number(run.email_failure||0)+' not sent</span><span class="schedule-run-metric">SMS '+Number(run.sms_success||0)+' / '+Number(run.sms_failure||0)+' not sent</span>';
-      return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+(isTest?(isTestSend?'TEST SEND — ':'TEST RUN — '):'')+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
-        (isTest?'<span class="schedule-run-metric">'+(isTestSend?'TEST SEND':'TEST RUN')+'</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(run.success_count||0).toLocaleString()+' generated</span>'+
+      return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+(isTest?(isTestSend?'TEST SEND (LEGACY) — ':'TEST RUN — '):'')+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
+        (isTest?'<span class="schedule-run-metric">'+(isTestSend?'TEST SEND (LEGACY)':'TEST RUN')+'</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(run.success_count||0).toLocaleString()+' generated</span>'+
         (Number(run.failure_count||0)?'<span class="schedule-run-metric bad">'+Number(run.failure_count)+' failed</span>':'')+
         deliveryMetrics+'</div></summary><div class="schedule-run-detail">'+details+'</div></details>';
     }).join('');
@@ -7868,6 +7868,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(probe?.capabilities?.statement_channel_dedupe_v1!==true){
       throw new Error('SAFETY STOP: the deployed statement server does not have per-customer Email/SMS/Portal duplicate-send protection. No Test/Run was started. Deploy the Ver110 worker/server code first.');
     }
+    if(requireTestAll&&probe?.capabilities?.statement_dry_test_v1!==true){
+      throw new Error('SAFETY STOP: the deployed statement server does not support no-delivery Test All mode. Deploy the current worker/server code before using Test All Cycles.');
+    }
     if(requireTestAll&&probe?.capabilities?.selected_statement_test_all_v1!==true){
       throw new Error('SAFETY STOP: the deployed statement server does not support selected-customer Test All Cycles. No statements were sent. Deploy the Ver107 worker/server code first.');
     }
@@ -7879,7 +7882,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const returned=[...new Set((Array.isArray(data?.target_accounts)?data.target_accounts:[]).map(normalizeSelectedAccount).filter(Boolean))];
     const same=requested.length===returned.length&&requested.every(account=>returned.includes(account));
     if(data?.selection_enforced!==true||Number(data?.total)!==requested.length||!same||data?.resumed===true){
-      throw new Error('SAFETY STOP: the server did not confirm the exact selected-customer list. No statement delivery was continued. Selected: '+requested.length.toLocaleString()+', server targets: '+Number(data?.total||returned.length||0).toLocaleString()+'.');
+      throw new Error('SAFETY STOP: the server did not confirm the exact selected-customer list. No test processing was continued. Selected: '+requested.length.toLocaleString()+', server targets: '+Number(data?.total||returned.length||0).toLocaleString()+'.');
     }
   }
   async function saveSettings(showMessage=true){
@@ -8064,41 +8067,53 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!accounts.length){setStatus('Select at least one customer in Preview '+(type==='weekly'?'B':'A')+' Customers first. Test and Run never process unselected customers.',false);return;}
     const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':type==='midmonth'?'legacy mid-month':'A monthly-cycle';
     const prompt=isTest
-      ?'TEST SEND: Send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nThis is a real delivery using the saved Portal, Email, and SMS options. Documents and Communication History will be created.'
+      ?'TEST RUN: Generate and validate '+label+' statements for the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nNo SMS, email, portal delivery, saved document, or Communication History entry will be created.'
       :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
     showStatementProcessingOverlay(
       (isTest?'Testing ':'Processing ')+label+' statements…',
-      'Please keep this page open while '+accounts.length.toLocaleString()+' selected customer statement'+(accounts.length===1?' is':'s are')+' processed. This may take a few minutes to complete.'
+      'Please keep this page open while '+accounts.length.toLocaleString()+' selected customer statement'+(accounts.length===1?' is':'s are')+' processed. '+(isTest?'This is a dry test; nothing will be delivered. ':'')+'This may take a few minutes to complete.'
     );
-    startTestProgress(type,(isTest?'Sending test ':'Running ')+label+' statements…');
+    startTestProgress(type,(isTest?'Testing ':'Running ')+label+' statements…');
     try{
       setStatus('Verifying selected-customer safety before starting…');
       await requireSelectedRecipientServer();
-      await saveSettings(false);setStatus((isTest?'Sending test statements to ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
-      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:false,test_send:isTest,account_numbers:accounts,selected_only:true})});
+      await saveSettings(false);setStatus((isTest?'Generating and validating test statements for ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
+      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:isTest,test_send:false,account_numbers:accounts,selected_only:true})});
       verifySelectedRunTargets(data,accounts);
       const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length);
-      setStatus((isTest?'Test send':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
+      setStatus((isTest?'Test run':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
       updateStatementProcessingOverlay(100,'100% complete • Finalizing report…',(isTest?'Testing':'Processing')+' complete');
       await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' succeeded • '+Number(final.failure_count||0)+' failed');
       await load();
       hideStatementProcessingOverlay();
-      showRunCompletion(isTest,(isTest?'TEST SEND ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
+      showRunCompletion(isTest,(isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
     }catch(error){
       hideStatementProcessingOverlay();hideTestProgress(type);
-      setStatus(error.message||(isTest?'Statement test send failed.':'Scheduled statement run failed.'),false);
+      setStatus(error.message||(isTest?'Statement dry test failed.':'Scheduled statement run failed.'),false);
       await load();
-      showRunFailure(isTest,(isTest?'TEST SEND ':'RUN ')+label.toUpperCase(),error);
+      showRunFailure(isTest,(isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),error);
     }
   }
   async function waitForScheduledRun(runId,type,dryRun,total,progressMap){
     if(!runId)return {success_count:0,failure_count:0};
     for(let attempt=0;attempt<1200;attempt++){
-      const progress=await request('/api/admin/statement-scheduling/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId})},true);
-      await new Promise(resolve=>window.setTimeout(resolve,250));
-      const snapshot=await request('/api/admin/statement-scheduling?compact=1');
+      let continueError=null;
+      try{
+        await request('/api/admin/statement-scheduling/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId})},true);
+      }catch(error){
+        continueError=error;
+      }
+      await new Promise(resolve=>window.setTimeout(resolve,continueError?900:250));
+      let snapshot;
+      try{snapshot=await request('/api/admin/statement-scheduling?compact=1');}
+      catch(snapshotError){if(continueError)throw continueError;throw snapshotError;}
       const run=(snapshot.runs||[]).find(item=>Number(item.id)===Number(runId));
+      if(continueError&&run&&String(run.status||'')==='running'){
+        setStatus('Connection was briefly interrupted. The statement run is still active; checking progress again…');
+      } else if(continueError&&!run){
+        throw continueError;
+      }
       if(!run)continue;
       const processed=Number(run.processed_count||0),count=Number(run.customer_count||total||0);
       const runPct=count?Math.min(99,Math.round(processed/count*100)):100;
@@ -8127,7 +8142,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const breakdown=[];
     if(selections.monthly.length)breakdown.push('Cycle A: '+selections.monthly.length.toLocaleString()+' selected');
     if(selections.weekly.length)breakdown.push('Cycle B: '+selections.weekly.length.toLocaleString()+' selected');
-    if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will receive a real test statement. Documents and Communication History will be created.'))return;
+    if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will be tested. No SMS, email, portal delivery, saved document, or Communication History entry will be created.'))return;
     showStatementProcessingOverlay(
       'Testing selected statements…',
       'Please keep this page open while '+totalSelected.toLocaleString()+' selected customer statement'+(totalSelected===1?' is':'s are')+' processed across all selected cycles. This may take a few minutes to complete.'
@@ -8143,26 +8158,26 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     setTestProgress('all',3,'Validating selected customers from all cycles…','Preparing');
     updateStatementProcessingOverlay(0,'Validating selected customer lists…','Testing selected statements…');
     try{
-      setStatus('Validating the selected Cycle A and Cycle B customer lists before any statement is sent…');
+      setStatus('Validating the selected Cycle A and Cycle B customer lists before the dry test begins…');
       await requireSelectedRecipientServer(true);
       await saveSettings(false);
-      const batch=await request('/api/admin/statement-scheduling/test-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selected_only:true,test_send:true,selections})});
+      const batch=await request('/api/admin/statement-scheduling/test-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selected_only:true,test_send:false,dry_run:true,selections})});
       const runs=Array.isArray(batch.runs)?batch.runs:[];
-      if(runs.length!==types.length)throw new Error('SAFETY STOP: the server did not create one exact selected-customer run for every selected cycle. No statement delivery was continued.');
+      if(runs.length!==types.length)throw new Error('SAFETY STOP: the server did not create one exact selected-customer run for every selected cycle. No test processing was continued.');
       const runByType=new Map(runs.map(run=>[String(run.type||''),run]));
       for(const type of types){
         const run=runByType.get(type);
-        if(!run)throw new Error('SAFETY STOP: the server did not confirm the selected '+(type==='weekly'?'Cycle B':'Cycle A')+' list. No statement delivery was continued.');
+        if(!run)throw new Error('SAFETY STOP: the server did not confirm the selected '+(type==='weekly'?'Cycle B':'Cycle A')+' list. No test processing was continued.');
         verifySelectedRunTargets(run,selections[type]);
       }
-      setStatus('Selection safety check passed. Sending only the '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+' across all selected cycles…',true);
+      setStatus('Selection safety check passed. Dry-testing only the '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+' across all selected cycles…',true);
       for(let index=0;index<types.length;index++){
         const type=types[index],accounts=selections[type],run=runByType.get(type);
         const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':'A monthly-cycle';
         const startPct=8+Math.floor(index*(86/types.length));
-        setTestProgress('all',startPct,'Sending test '+label+' statements…',(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
+        setTestProgress('all',startPct,'Testing '+label+' statements…',(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
         updateStatementProcessingOverlay(startPct,'Starting '+label+' • '+(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'),'Testing selected statements…');
-        setStatus('Sending test '+label+' statements to '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only. Keep this page open…');
+        setStatus('Generating and validating '+label+' statements for '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only. Nothing will be delivered. Keep this page open…');
         const completedBefore=types.slice(0,index).reduce((sum,doneType)=>sum+selections[doneType].length,0);
         const final=await waitForScheduledRun(run.run_id,'all',true,run.total||accounts.length,(processed)=>((completedBefore+processed)/totalSelected)*100);
         succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
@@ -8170,7 +8185,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       }
       setStatus('Selected-customer Test All complete: '+succeeded+' succeeded and '+failed+' failed.',failed===0);
       updateStatementProcessingOverlay(100,'100% complete • Finalizing report…','Testing complete');
-      await finishTestProgress('all','100% complete • '+succeeded+' sent • '+failed+' failed');
+      await finishTestProgress('all','100% complete • '+succeeded+' generated • '+failed+' failed');
       await load();
       hideStatementProcessingOverlay();
       showRunCompletion(true,'TEST ALL CYCLES — SELECTED CUSTOMERS ONLY',succeeded,failed);
@@ -8216,7 +8231,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     '• Portal, Email, and SMS are sent only when those delivery options are enabled and selected for that customer.',
     '• Statement PDFs are stored in the selected customer accounts.',
     '• Communication History is updated because this is a real delivery.',
-    '• The report is clearly labeled TEST SEND.',
+    '• The report is clearly labeled TEST RUN.',
     '• Unselected customers are never processed by Test A, Test B, Test All Cycles, Run A, or Run B.'
   ].join('\n')));
   get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
