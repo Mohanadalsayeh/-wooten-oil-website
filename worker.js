@@ -3889,7 +3889,35 @@ async function portalDocumentLinkGet({request,env}){
       return Response.redirect(loginUrl.toString(),302);
     }
     if(normalizeNotificationAccount(customer.account_number)!==normalizeNotificationAccount(row.account_number)){
-      return new Response("This document belongs to a different customer account.",{status:403});
+      // A customer portal login can already switch between active accounts that
+      // share the same email address. Apply that same authorization rule to
+      // direct statement/document links so a link for another linked account
+      // does not fail just because a different linked account is currently active.
+      const linkedEmail=clean(customer.email).toLowerCase();
+      let linkedTarget=null;
+      if(linkedEmail){
+        linkedTarget=await env.DB.prepare(`
+          SELECT *
+          FROM customers
+          WHERE account_number = ?
+            AND lower(trim(email)) = ?
+          LIMIT 1
+        `).bind(normalizeNotificationAccount(row.account_number),linkedEmail).first();
+      }
+      const linkedTargetStatus=clean(linkedTarget?.account_status).toLowerCase();
+      if(!linkedTarget || (linkedTargetStatus && linkedTargetStatus!=="active")){
+        return new Response("This document belongs to a different customer account.",{status:403});
+      }
+
+      // Switch the existing authenticated session to the linked account that
+      // owns this document before returning it. This is the same permission
+      // boundary used by /api/customer/account-switch.
+      await env.DB.prepare(`
+        UPDATE customer_sessions
+        SET customer_id = ?, last_seen_at = ?
+        WHERE id = ?
+      `).bind(linkedTarget.id,new Date().toISOString(),customer.session_id).run();
+      await recordCustomerLoginActivity(env,request,linkedTarget,"document_link_switch");
     }
 
     const object=await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);
