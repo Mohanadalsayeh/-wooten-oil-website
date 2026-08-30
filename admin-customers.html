@@ -7933,12 +7933,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   function startTestProgress(type,label){
     const previous=testProgressTimers.get(type);if(previous)window.clearInterval(previous);
-    let value=5;setTestProgress(type,value,label,'Preparing');
-    const timer=window.setInterval(()=>{
-      value=Math.min(92,value+(value<55?7:value<80?3:1));
-      setTestProgress(type,value,label,'Processing batches… '+value+'%');
-    },650);
-    testProgressTimers.set(type,timer);
+    testProgressTimers.delete(type);
+    /* Ver123: never simulate statement progress. The bar must reflect only
+       the server's real processed/customer counts so it always matches the
+       status text shown above the cycle cards. */
+    setTestProgress(type,0,label,'Preparing');
   }
   async function finishTestProgress(type,label){
     const timer=testProgressTimers.get(type);if(timer)window.clearInterval(timer);testProgressTimers.delete(type);
@@ -7968,7 +7967,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       ?'TEST SEND: Send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nThis is a real delivery using the saved Portal, Email, and SMS options. Documents and Communication History will be created.'
       :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
-    if(isTest)startTestProgress(type,'Sending test '+label+' statements…');
+    startTestProgress(type,(isTest?'Sending test ':'Running ')+label+' statements…');
     try{
       setStatus('Verifying selected-customer safety before starting…');
       await requireSelectedRecipientServer();
@@ -7977,12 +7976,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       verifySelectedRunTargets(data,accounts);
       const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length);
       setStatus((isTest?'Test send':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
-      if(isTest)await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' sent • '+Number(final.failure_count||0)+' failed');
+      await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' succeeded • '+Number(final.failure_count||0)+' failed');
       await load();
       showRunCompletion(isTest,(isTest?'TEST SEND ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
-    }catch(error){if(isTest)hideTestProgress(type);setStatus(error.message||(isTest?'Statement test send failed.':'Scheduled statement run failed.'),false);await load();}
+    }catch(error){hideTestProgress(type);setStatus(error.message||(isTest?'Statement test send failed.':'Scheduled statement run failed.'),false);await load();}
   }
-  async function waitForScheduledRun(runId,type,dryRun,total){
+  async function waitForScheduledRun(runId,type,dryRun,total,progressMap){
     if(!runId)return {success_count:0,failure_count:0};
     for(let attempt=0;attempt<1200;attempt++){
       const progress=await request('/api/admin/statement-scheduling/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:runId})},true);
@@ -7991,9 +7990,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const run=(snapshot.runs||[]).find(item=>Number(item.id)===Number(runId));
       if(!run)continue;
       const processed=Number(run.processed_count||0),count=Number(run.customer_count||total||0);
-      const pct=count?Math.min(99,Math.round(processed/count*100)):100;
-      setStatus((dryRun?'Testing':'Generating')+' statements: '+pct+'% complete. '+Number(run.success_count||0).toLocaleString()+' generated, '+Number(run.failure_count||0).toLocaleString()+' failed.');
-      if(dryRun)setTestProgress(type,pct,'Overall Progress',pct+'% complete');
+      const runPct=count?Math.min(99,Math.round(processed/count*100)):100;
+      const pct=typeof progressMap==='function'?Math.max(0,Math.min(99,Math.round(progressMap(processed,count,runPct)))):runPct;
+      const actionLabel=dryRun?'Testing':'Running';
+      const progressText=actionLabel+' statements: '+pct+'% complete. '+Number(run.success_count||0).toLocaleString()+' succeeded, '+Number(run.failure_count||0).toLocaleString()+' failed.';
+      setStatus(progressText);
+      setTestProgress(type,pct,actionLabel+' statements…',pct+'% complete');
       if(String(run.status||'')!=='running')return run;
     }
     throw new Error('The statement run is still continuing in the background. Refresh the report to see its latest progress.');
@@ -8039,7 +8041,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         const startPct=8+Math.floor(index*(86/types.length));
         setTestProgress('all',startPct,'Sending test '+label+' statements…',(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
         setStatus('Sending test '+label+' statements to '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only. Keep this page open…');
-        const final=await waitForScheduledRun(run.run_id,'all',true,run.total||accounts.length);
+        const completedBefore=types.slice(0,index).reduce((sum,doneType)=>sum+selections[doneType].length,0);
+        const final=await waitForScheduledRun(run.run_id,'all',true,run.total||accounts.length,(processed)=>((completedBefore+processed)/totalSelected)*100);
         succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
         setTestProgress('all',Math.floor(((index+1)/types.length)*100),'Completed '+label,(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
       }

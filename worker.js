@@ -6191,7 +6191,7 @@ async function adminCustomerDocumentUpload({request,env}){
         try{
           const secureLink=await createPortalStatementLink({request,env,documentId,accountNumber:account});
           const typeLabel=type==="invoice"?"Invoice":"Statement";
-          smsBody=`WOOTEN OIL CO INC\n\n${title}\n\nYour new ${typeLabel.toLowerCase()} is ready. View or download it here:\n\n${secureLink}\n\nPlease do not reply to this message.`;
+          smsBody=`WOOTEN OIL CO INC\n\n${title}\n\nCustomer #: ${account}\nCustomer: ${String(customer.account_name||"Customer Account").trim()}\n\nYour new ${typeLabel.toLowerCase()} is ready. View or download it here:\n\n${secureLink}\n\nPlease do not reply to this message.`;
           const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
           smsResult={sent:true,reason:"",sid:sent.sid||"",status:"pending",code:"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone)};
         }catch(error){
@@ -7001,6 +7001,8 @@ async function adminGenerateStatementsPost({request,env}){
             smsBody=
               `WOOTEN OIL CO INC\n\n`+
               `${statementMonth} Statement\n\n`+
+              `Customer #: ${account}\n`+
+              `Customer: ${String(customer.account_name||"Customer Account").trim()}\n\n`+
               `Your new statement is ready. View or download it here:\n\n`+
               `${secureLink}\n\n`+
               `Please do not reply to this message.`;
