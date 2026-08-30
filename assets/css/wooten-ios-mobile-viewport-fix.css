@@ -1,0 +1,38 @@
+/* Wooten Oil Portal Ver103
+   iPhone / mobile initial zoom and horizontal viewport guard.
+   - iOS Safari automatically zooms focused form controls below 16px.
+   - Keep the document viewport from being widened by responsive children.
+   - Do not disable user pinch zoom/accessibility. */
+
+@media (max-width: 800px) {
+  html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  /* Prevent iOS Safari's automatic focus zoom. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Let main responsive shells shrink to the phone viewport. */
+  main,
+  .wrap,
+  .container,
+  .admin-workspace,
+  .admin-content {
+    min-width: 0;
+  }
+}
