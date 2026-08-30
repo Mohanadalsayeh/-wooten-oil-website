@@ -3724,6 +3724,34 @@ input[type="file"]:focus-visible{
   @media (prefers-reduced-motion:reduce){.wooten-mobile-back-top{transition:none;}}
 </style>
 
+
+<!-- Ver121 desktop First Biweekly Run size alignment -->
+<style id="wooten-ver121-biweekly-desktop-size-fix">
+@media(min-width:761px){
+  #scheduleWeeklyAnchorField{
+    min-width:0 !important;
+    max-width:100% !important;
+  }
+  #scheduleWeeklyAnchorDate{
+    display:block !important;
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    height:44px !important;
+    min-height:44px !important;
+    max-height:44px !important;
+    padding:8px 10px !important;
+    line-height:1.2 !important;
+    box-sizing:border-box !important;
+  }
+  #scheduleWeeklyAnchorDate::-webkit-date-and-time-value,
+  #scheduleWeeklyAnchorDate::-webkit-datetime-edit{
+    min-height:26px !important;
+    height:26px !important;
+    line-height:1.2 !important;
+  }
+}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -9027,6 +9055,41 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     background:#fff !important;
     color:var(--navy) !important;
     box-shadow:none !important;
+  }
+}
+</style>
+
+<style id="wooten-ver122-statements-invoices-mobile-width-fix">
+/* Ver122 — make Statements & Invoices use the full available phone width. */
+@media (max-width:800px){
+  .admin-workspace,
+  .admin-content{
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+  }
+
+  .admin-content{
+    width:calc(100vw - 24px) !important;
+    max-width:calc(100vw - 24px) !important;
+  }
+
+  #admin-tab-documents{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    box-sizing:border-box !important;
+  }
+
+  #admin-tab-documents > *,
+  #admin-tab-documents #documentSectionCustomerDocuments,
+  #admin-tab-documents #documentSectionSendStatements,
+  #admin-tab-documents #documentSectionSchedule{
+    max-width:100% !important;
+    min-width:0 !important;
+    box-sizing:border-box !important;
   }
 }
 </style>
