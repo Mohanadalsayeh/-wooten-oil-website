@@ -59,3 +59,17 @@ Recommended first setup
 5. Run one small manual test if appropriate.
 6. Save and enable the schedules.
 7. Add the hourly Cloudflare Cron Trigger.
+
+Manual Test / Run customer selection
+------------------------------------
+For Preview A and Preview B, select the customers that should be processed.
+Test A, Test B, Run A Now, and Run B Now process only those selected customers.
+Manual runs never fall back to every customer in the cycle when nothing is selected.
+
+Test A / Test B are real test sends to the selected customers using the saved
+Portal, Email, and SMS options and each customer's delivery preferences. Test
+sends create customer documents and Communication History entries and are
+reported as TEST SEND.
+
+Automatic scheduled runs are unchanged: when Cycle A or B becomes due, the
+Worker processes the eligible customers assigned to that cycle.

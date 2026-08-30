@@ -6769,11 +6769,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(validPanels.has(name)||validParents.has(name)) showAdminPage(name,{updateHash:false});
   });
 
-  let initial=location.hash.replace(/^#/,"");
-  if(!validPanels.has(initial)&&!validParents.has(initial)){
-    try{initial=sessionStorage.getItem("wootenAdminTab")||"dashboard";}catch{initial="dashboard";}
-  }
-  showAdminPage(initial,{updateHash:false});
+  /* Always start every admin session on Dashboard.
+     Previous tabs/hash values must never become the admin landing page. */
+  window.showWootenAdminPage=showAdminPage;
+  showAdminPage("dashboard",{updateHash:true});
 })();
 
 </script>
@@ -7329,13 +7328,21 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     weeklyDay.disabled=!enabled||biweekly;
     if(biweekly&&weeklyAnchor.value){const selected=new Date(weeklyAnchor.value+'T12:00:00');if(!Number.isNaN(selected.getTime()))weeklyDay.value=String(selected.getDay());}
   }
+  function selectedAccounts(type){return [...(bulkSelections[type]||new Set())].filter(Boolean);}
+  function syncRunSelectionState(type){
+    const count=bulkSelections[type]?.size||0;
+    const cycleOn=type==='weekly'?weeklyEnabled.checked:monthlyEnabled.checked;
+    const ids=type==='weekly'?['scheduleTestWeekly','scheduleRunWeekly']:['scheduleTestMonthly','scheduleRunMonthly'];
+    ids.forEach(id=>{const button=get(id);if(!button)return;button.disabled=!cycleOn||count===0;button.title=count?('Will process '+count.toLocaleString()+' selected customer'+(count===1?'':'s')+'.'):'Open Preview '+(type==='weekly'?'B':'A')+' Customers and select at least one customer first.';});
+  }
   function syncCycleEnabledState(){
     const monthlyOn=monthlyEnabled.checked,weeklyOn=weeklyEnabled.checked;
     monthlyDay.disabled=!monthlyOn;monthlyHour.disabled=!monthlyOn;
-    ['schedulePreviewMonthly','scheduleTestMonthly','scheduleRunMonthly'].forEach(id=>{const button=get(id);if(button)button.disabled=!monthlyOn;});
-    ['schedulePreviewWeekly','scheduleTestWeekly','scheduleRunWeekly'].forEach(id=>{const button=get(id);if(button)button.disabled=!weeklyOn;});
+    const monthlyPreview=get('schedulePreviewMonthly');if(monthlyPreview)monthlyPreview.disabled=!monthlyOn;
+    const weeklyPreview=get('schedulePreviewWeekly');if(weeklyPreview)weeklyPreview.disabled=!weeklyOn;
+    syncRunSelectionState('monthly');syncRunSelectionState('weekly');
     syncWeeklyFrequency();
-    const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=!monthlyOn&&!weeklyOn;
+    const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=(!monthlyOn&&!weeklyOn)||((bulkSelections.monthly?.size||0)+(bulkSelections.weekly?.size||0)===0);
   }
   function applyConfig(config){
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
@@ -7349,16 +7356,17 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     report.innerHTML=runs.map(run=>{
       const rows=Array.isArray(run.results)?run.results:[];
       const isTest=String(run.run_type||'').startsWith('test_');
+      const isTestSend=isTest&&String(run.run_key||'').startsWith('testsend:');
       const baseType=isTest?String(run.run_type).slice(5):run.run_type;
-      const details=rows.length?rows.map(row=>isTest
+      const details=rows.length?rows.map(row=>(isTest&&!isTestSend)
         ?'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>PDF: '+(row.success?'Generated':'Failed')+'</span><span>Payments: '+Number(row.payment_count||0)+'</span><span>Balance: '+esc(money(row.total_balance||0))+(row.error?' • '+esc(row.error):'')+'</span></div>'
         :'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>Portal: '+(row.portal_notified?'Sent':'Not sent')+'</span><span>Email: '+(row.email_sent?'Sent':'Not sent')+'</span><span>SMS: '+(row.sms_sent?'Sent':'Not sent')+(row.error?' • '+esc(row.error):'')+'</span></div>').join(''):'<div class="schedule-empty">No customers matched this run.</div>';
       const type=baseType==='weekly'?'B — Weekly / Biweekly Cycle':baseType==='midmonth'?'Legacy Mid-Month Run':'A — Monthly Cycle';
-      const deliveryMetrics=isTest
-        ?'<span class="schedule-run-metric">No Portal, Email, or SMS attempted</span>'
+      const deliveryMetrics=isTest&&!isTestSend
+        ?'<span class="schedule-run-metric">Legacy dry test — no delivery attempted</span>'
         :'<span class="schedule-run-metric">Portal '+Number(run.portal_success||0)+' / '+Number(run.portal_failure||0)+' not sent</span><span class="schedule-run-metric">Email '+Number(run.email_success||0)+' / '+Number(run.email_failure||0)+' not sent</span><span class="schedule-run-metric">SMS '+Number(run.sms_success||0)+' / '+Number(run.sms_failure||0)+' not sent</span>';
-      return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+(isTest?'TEST RUN — ':'')+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
-        (isTest?'<span class="schedule-run-metric">TEST RUN</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(run.success_count||0).toLocaleString()+' generated</span>'+
+      return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+(isTest?(isTestSend?'TEST SEND — ':'TEST RUN — '):'')+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
+        (isTest?'<span class="schedule-run-metric">'+(isTestSend?'TEST SEND':'TEST RUN')+'</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(run.success_count||0).toLocaleString()+' generated</span>'+
         (Number(run.failure_count||0)?'<span class="schedule-run-metric bad">'+Number(run.failure_count)+' failed</span>':'')+
         deliveryMetrics+'</div></summary><div class="schedule-run-detail">'+details+'</div></details>';
     }).join('');
@@ -7381,9 +7389,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function previewCustomerRow(row,type){
     const cycle=String(row.statement_cycle||'A').toUpperCase();
     const account=String(row.account_number||'');
-    return '<div class="schedule-preview-row" data-schedule-customer="'+esc(account)+'"><label class="schedule-bulk-check" title="Select customer"><input type="checkbox" data-bulk-cycle-customer data-preview-type="'+type+'" value="'+esc(account)+'" '+(bulkSelections[type]?.has(account)?'checked':'')+' aria-label="Select '+esc(row.account_name||account)+'"></label><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(account)+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||account||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
+    return '<div class="schedule-preview-row" data-schedule-customer="'+esc(account)+'"><label class="schedule-bulk-check" title="Select for Test / Run or cycle move"><input type="checkbox" data-bulk-cycle-customer data-preview-type="'+type+'" value="'+esc(account)+'" '+(bulkSelections[type]?.has(account)?'checked':'')+' aria-label="Select '+esc(row.account_name||account)+' for Test or Run"></label><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(account)+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement cycle for '+esc(row.account_name||account||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option></select><button type="button" data-save-statement-cycle>Save Cycle</button></div></div>';
   }
-  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),move=preview?.querySelector('[data-bulk-move]'),clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected';if(move)move.disabled=selected===0;if(clear)clear.disabled=selected===0;}
+  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),move=preview?.querySelector('[data-bulk-move]'),clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected for Test / Run';if(move)move.disabled=selected===0;if(clear)clear.disabled=selected===0;syncRunSelectionState(type);const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=(!monthlyEnabled.checked&&!weeklyEnabled.checked)||((bulkSelections.monthly?.size||0)+(bulkSelections.weekly?.size||0)===0);}
   function setBulkProgress(type,processed,total,moved,failed,label='Moving customers…'){
     const host=previewTargets[type]?.querySelector('[data-bulk-progress]');if(!host)return;
     const percent=total?Math.min(100,Math.round(processed/total*100)):100;host.hidden=false;
@@ -7400,7 +7408,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const count=summary.querySelector('[data-schedule-preview-count]');
     if(count)count.innerHTML=normalized
       ?'<strong class="schedule-preview-count-number">'+matches.length.toLocaleString()+'</strong> customer(s) match this search'+(matches.length>100?' • showing first 100':'')+'.'
-      :'<strong class="schedule-preview-count-number">'+all.length.toLocaleString()+'</strong> customer(s) match the saved schedule'+(all.length>100?' • showing first 100':'')+'. Select customers for a bulk move or change one customer below.';
+      :'<strong class="schedule-preview-count-number">'+all.length.toLocaleString()+'</strong> customer(s) match the saved schedule'+(all.length>100?' • showing first 100':'')+'. Select the customer(s) you want Test / Run to process. The same selection can also be used for a bulk cycle move.';
     const list=summary.querySelector('.schedule-preview-list');
     if(list)list.innerHTML=shown.length?shown.map(row=>previewCustomerRow(row,type)).join(''):'<div class="schedule-empty">'+(normalized?'No customers match this search.':'No customers match this schedule.')+'</div>';
     updateBulkControls(type);
@@ -7507,32 +7515,34 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const timer=testProgressTimers.get(type);if(timer)window.clearInterval(timer);testProgressTimers.delete(type);
     const parts=testProgressParts(type);if(parts.host)parts.host.hidden=true;
   }
-  function showRunCompletion(dryRun,label,succeeded,failed){
-    const action=dryRun?'Test':'Run',successCount=Number(succeeded||0),failureCount=Number(failed||0);
+  function showRunCompletion(isTest,label,succeeded,failed){
+    const action=isTest?'Test send':'Run',successCount=Number(succeeded||0),failureCount=Number(failed||0);
     const result=failureCount
       ?action+' completed with errors.\n\n'+successCount.toLocaleString()+' succeeded\n'+failureCount.toLocaleString()+' failed'
       :action+' completed successfully without errors.\n\n'+successCount.toLocaleString()+' succeeded\n0 failed';
     window.alert(label+'\n\n'+result);
     (report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
   }
-  async function runNow(type,dryRun=false){
+  async function runNow(type,isTest=false){
     const cycleEnabled=type==='weekly'?weeklyEnabled.checked:type==='midmonth'?false:monthlyEnabled.checked;
     if(!cycleEnabled){setStatus((type==='weekly'?'Cycle B':'Cycle A')+' is disabled. Check its Enable box and Save Schedule first.',false);return;}
+    const accounts=selectedAccounts(type);
+    if(!accounts.length){setStatus('Select at least one customer in Preview '+(type==='weekly'?'B':'A')+' Customers first. Test and Run never process unselected customers.',false);return;}
     const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':type==='midmonth'?'legacy mid-month':'A monthly-cycle';
-    const prompt=dryRun
-      ?'TEST MODE: Generate and validate '+label+' statement PDFs for every matching customer? No Portal, Email, SMS, document storage, or Communication History records will be created.'
-      :'Generate and send '+label+' statements now to every matching customer?';
+    const prompt=isTest
+      ?'TEST SEND: Send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nThis is a real delivery using the saved Portal, Email, and SMS options. Documents and Communication History will be created.'
+      :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
-    if(dryRun)startTestProgress(type,'Testing '+label+' statements…');
+    if(isTest)startTestProgress(type,'Sending test '+label+' statements…');
     try{
-      await saveSettings(false);setStatus((dryRun?'Testing PDF generation for ':'Generating and sending ')+label+' statements. Keep this page open…');
-      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:dryRun})},dryRun);
-      const final=await waitForScheduledRun(data.run_id,type,dryRun,data.total||0);
-      setStatus((dryRun?'Test':'Run')+' complete: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
-      if(dryRun)await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' generated • '+Number(final.failure_count||0)+' failed');
+      await saveSettings(false);setStatus((isTest?'Sending test statements to ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
+      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:false,test_send:isTest,account_numbers:accounts})});
+      const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length);
+      setStatus((isTest?'Test send':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
+      if(isTest)await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' sent • '+Number(final.failure_count||0)+' failed');
       await load();
-      showRunCompletion(dryRun,(dryRun?'TEST ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
-    }catch(error){if(dryRun)hideTestProgress(type);setStatus(error.message||(dryRun?'Statement test failed.':'Scheduled statement run failed.'),false);await load();}
+      showRunCompletion(isTest,(isTest?'TEST SEND ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
+    }catch(error){if(isTest)hideTestProgress(type);setStatus(error.message||(isTest?'Statement test send failed.':'Scheduled statement run failed.'),false);await load();}
   }
   async function waitForScheduledRun(runId,type,dryRun,total){
     if(!runId)return {success_count:0,failure_count:0};
@@ -7552,32 +7562,32 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   async function testAllCycles(){
     const types=[];
-    if(monthlyEnabled.checked)types.push('monthly');
-    if(weeklyEnabled.checked)types.push('weekly');
-    if(!types.length){setStatus('Both statement cycles are disabled. Enable Cycle A or Cycle B first.',false);return;}
+    if(monthlyEnabled.checked&&bulkSelections.monthly.size)types.push('monthly');
+    if(weeklyEnabled.checked&&bulkSelections.weekly.size)types.push('weekly');
+    if(!types.length){setStatus('Select at least one customer in Preview A or Preview B first. Test All never processes unselected customers.',false);return;}
+    const totalSelected=types.reduce((sum,type)=>sum+selectedAccounts(type).length,0);
     const cycleNames=types.map(type=>type==='weekly'?'Cycle B':'Cycle A').join(' and ');
-    if(!window.confirm('TEST MODE: Generate and validate '+cycleNames+' statement PDFs for all matching customers? Disabled cycles will be skipped. Nothing will be delivered, stored in customer accounts, or added to Communication History.'))return;
+    if(!window.confirm('TEST SEND: Send statements to '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+' across '+cycleNames+' only?\n\nThis is a real delivery and will create documents and Communication History.'))return;
     let succeeded=0,failed=0;
-    setTestProgress('all',3,'Testing enabled statement cycles…','Preparing');
+    setTestProgress('all',3,'Sending selected test statements…','Preparing');
     try{
       await saveSettings(false);
       for(let index=0;index<types.length;index++){
-        const type=types[index];
+        const type=types[index],accounts=selectedAccounts(type);
         const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':'A monthly-cycle';
         const startPct=5+Math.floor(index*(90/types.length));
-        setTestProgress('all',startPct,'Testing '+label+' statements…',(index+1)+' of '+types.length+' enabled cycle'+(types.length===1?'':'s'));
-        setStatus('Testing '+label+' statement PDFs. Keep this page open…');
-        const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:true})},true);
-        if(data.success===false)throw new Error(data.error||'Statement cycle test could not start.');
-        const final=await waitForScheduledRun(data.run_id,'all',true,data.total||0);
+        setTestProgress('all',startPct,'Sending test '+label+' statements…',(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
+        setStatus('Sending test '+label+' statements to '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
+        const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:false,test_send:true,account_numbers:accounts})});
+        const final=await waitForScheduledRun(data.run_id,'all',true,data.total||accounts.length);
         succeeded+=Number(final.success_count||0);failed+=Number(final.failure_count||0);
-        setTestProgress('all',Math.floor(((index+1)/types.length)*100),'Completed '+label,(index+1)+' of '+types.length+' enabled cycle'+(types.length===1?'':'s'));
+        setTestProgress('all',Math.floor(((index+1)/types.length)*100),'Completed '+label,(index+1)+' of '+types.length+' selected cycle'+(types.length===1?'':'s'));
       }
-      setStatus('Enabled-cycle test complete: '+succeeded+' PDFs generated and '+failed+' failed.',failed===0);
-      await finishTestProgress('all','100% complete • '+succeeded+' generated • '+failed+' failed');
+      setStatus('Selected-customer test send complete: '+succeeded+' succeeded and '+failed+' failed.',failed===0);
+      await finishTestProgress('all','100% complete • '+succeeded+' sent • '+failed+' failed');
       await load();
-      showRunCompletion(true,'TEST ENABLED CYCLES',succeeded,failed);
-    }catch(error){hideTestProgress('all');setStatus(error.message||'Enabled-cycle statement test failed.',false);await load();}
+      showRunCompletion(true,'TEST SEND — SELECTED CUSTOMERS',succeeded,failed);
+    }catch(error){hideTestProgress('all');setStatus(error.message||'Selected-customer statement test send failed.',false);await load();}
   }
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   monthlyEnabled.addEventListener('change',syncCycleEnabledState);
@@ -7597,18 +7607,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   get('scheduleTestMonthly').addEventListener('click',()=>runNow('monthly',true));
   get('scheduleTestAll').addEventListener('click',testAllCycles);
   get('scheduleTestHelp').addEventListener('click',()=>window.alert([
-    'Test Mode:',
+    'Test Send:',
     '',
-    '• Uses the same customer eligibility rules as real runs.',
-    '• Calculates balances and retrieves recent payments.',
-    '• Generates and validates every PDF in batches.',
-    '• Continues testing after individual failures.',
-    '• Creates a clearly labeled TEST RUN report.',
-    '• Shows each customer’s PDF result, payment count, and balance.',
-    '• Does not send Portal notifications, emails, or SMS.',
-    '• Does not store PDFs in customer accounts.',
-    '• Does not add normal Communication History records.',
-    '• Does not affect real-run duplicate protection.'
+    '• First open Preview A or Preview B and select the customer(s) you want.',
+    '• Test A and Test B process selected customers only.',
+    '• Test uses the same eligibility rules and saved delivery options as a real run.',
+    '• Portal, Email, and SMS are sent only when those delivery options are enabled and selected for that customer.',
+    '• Statement PDFs are stored in the selected customer accounts.',
+    '• Communication History is updated because this is a real delivery.',
+    '• The report is clearly labeled TEST SEND.',
+    '• Unselected customers are never processed by Test A, Test B, Run A, or Run B.'
   ].join('\n')));
   get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
   get('scheduleRunMidmonth').addEventListener('click',()=>runNow('midmonth'));
@@ -8066,6 +8074,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{ sessionStorage.removeItem(storageKey); }catch(_e){}
   }
 
+  function openAdminDashboard(){
+    try{ sessionStorage.setItem('wootenAdminTab','dashboard'); }catch(_e){}
+    if(typeof window.showWootenAdminPage==='function'){
+      window.showWootenAdminPage('dashboard',{updateHash:true});
+      return;
+    }
+    const dashboardTab=document.querySelector('[data-admin-tab="dashboard"]');
+    if(dashboardTab&&!dashboardTab.hidden) dashboardTab.click();
+  }
+
   async function loginAdmin(username,password){
     const response = await fetch('/api/admin/auth/login', {
       method:'POST',
@@ -8099,6 +8117,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       keyField.value=savedKey;
       keyPrompt.value=savedKey;
       applyPermissions(check.user||data.user);
+      openAdminDashboard();
       updateAccessMeta();
       closeLogin();
       loadImportLastUpdates();
@@ -8139,6 +8158,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       }
       keyField.value=check.token;
       applyPermissions(check.user);
+      openAdminDashboard();
       saveSession();
       updateAccessMeta();
       setStatus('Access granted.',false);

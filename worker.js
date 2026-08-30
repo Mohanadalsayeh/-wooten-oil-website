@@ -7146,15 +7146,26 @@ async function statementScheduleCustomers(env,type,config){
 }
 __name(statementScheduleCustomers,"statementScheduleCustomers");
 
-async function startStatementSchedule(env,type,origin,{force=false,dryRun=false}={}){
+async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,accountNumbers=null}={}){
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
   const cycleLabel=type==="weekly"?"B":type==="midmonth"?"LEGACY":"A";
   const baseKey=type==="weekly"?`weekly:${central.date}`:`${type}:${central.year}-${central.month}`;
-  const runKey=dryRun?`test:${type}:${crypto.randomUUID()}`:force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
-  const storedRunType=dryRun?`test_${type}`:type;
+  const isTest=!!dryRun||!!testSend;
+  const runKey=dryRun?`testdry:${type}:${crypto.randomUUID()}`:testSend?`testsend:${type}:${crypto.randomUUID()}`:force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
+  const storedRunType=isTest?`test_${type}`:type;
+  const allCustomers=await statementScheduleCustomers(env,type,config);
+  let requestedAccounts=null;
+  let customers=allCustomers;
+  if(Array.isArray(accountNumbers)){
+    requestedAccounts=[...new Set(accountNumbers.map(value=>{const digits=String(value||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
+    if(!requestedAccounts.length)throw new Error("Select at least one customer before starting a manual statement run.");
+    const eligibleByAccount=new Map(allCustomers.map(customer=>[String(customer.account_number||""),customer]));
+    customers=requestedAccounts.map(account=>eligibleByAccount.get(account)).filter(Boolean);
+    if(!customers.length)throw new Error(`None of the selected customers currently match Cycle ${cycleLabel} and the saved statement eligibility rules.`);
+  }
   const active=await env.DB.prepare(`SELECT id,customer_count,processed_count,success_count,failure_count FROM statement_schedule_runs WHERE run_type=? AND status='running' ORDER BY id DESC LIMIT 1`).bind(storedRunType).first();
-  if(active)return {success:true,dry_run:dryRun,run_id:active.id,processed:Number(active.processed_count||0),total:Number(active.customer_count||0),succeeded:Number(active.success_count||0),failed:Number(active.failure_count||0),complete:false,resumed:true};
+  if(active)return {success:true,dry_run:dryRun,test_send:testSend,run_id:active.id,processed:Number(active.processed_count||0),total:Number(active.customer_count||0),succeeded:Number(active.success_count||0),failed:Number(active.failure_count||0),complete:false,resumed:true};
   const inserted=await env.DB.prepare(`
     INSERT OR IGNORE INTO statement_schedule_runs(run_key,run_type,statement_cycle,status)
     VALUES(?,?,?,'running')
@@ -7162,20 +7173,23 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false}
   if(Number(inserted?.meta?.changes||0)===0)return {success:true,skipped:true,reason:"This schedule has already run for the current period."};
   const runId=inserted?.meta?.last_row_id||inserted?.meta?.last_insert_rowid;
   try{
-    const customers=await statementScheduleCustomers(env,type,config);
     await env.DB.prepare(`
       UPDATE statement_schedule_runs SET
         customer_count=?,target_json=?,cursor_position=0,processed_count=0,detail_json='[]'
       WHERE id=?
     `).bind(customers.length,JSON.stringify(customers.map(c=>c.account_number)),runId).run();
     if(!customers.length){
-      await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(dryRun?"test_completed":"completed",runId).run();
+      await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_completed":"completed",runId).run();
     }
-    return {success:true,dry_run:dryRun,run_id:runId,processed:0,total:customers.length,succeeded:0,failed:0,complete:customers.length===0};
+    return {success:true,dry_run:dryRun,test_send:testSend,run_id:runId,processed:0,total:customers.length,requested:requestedAccounts?.length??customers.length,eligible:customers.length,skipped:selectedAccountsSkipped(requestedAccounts,customers),succeeded:0,failed:0,complete:customers.length===0};
   }catch(error){
-    await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,failure_count=1,detail_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(dryRun?"test_failed":"failed",JSON.stringify([{error:String(error?.message||error)}]),runId).run();
+    await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,failure_count=1,detail_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_failed":"failed",JSON.stringify([{error:String(error?.message||error)}]),runId).run();
     throw error;
   }
+}
+function selectedAccountsSkipped(requestedAccounts,customers){
+  if(!Array.isArray(requestedAccounts))return 0;
+  return Math.max(0,requestedAccounts.length-(Array.isArray(customers)?customers.length:0));
 }
 __name(startStatementSchedule,"startStatementSchedule");
 
@@ -7195,7 +7209,9 @@ async function continueStatementSchedule(env,runId,origin){
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,processed_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(String(run.run_type||"").startsWith("test_")?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed"),results.length,runId).run();
     return {success:failure===0,run_id:runId,complete:true,processed:results.length,total:targets.length,succeeded:results.length-failure,failed:failure};
   }
-  const dryRun=String(run.run_type||"").startsWith("test_");
+  const isTest=String(run.run_type||"").startsWith("test_");
+  const testSend=isTest&&String(run.run_key||"").startsWith("testsend:");
+  const dryRun=isTest&&!testSend;
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
   const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
@@ -7218,7 +7234,7 @@ async function continueStatementSchedule(env,runId,origin){
   const smsSuccess=results.filter(r=>r.success&&r.sms_sent).length;
   const enabledPortal=!dryRun&&Number(config.portal_enabled)!==0,enabledEmail=!dryRun&&Number(config.email_enabled)!==0,enabledSms=!dryRun&&Number(config.sms_enabled)!==0;
   const complete=processed>=targets.length;
-  const finalStatus=complete?(dryRun?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed")):"running";
+  const finalStatus=complete?(isTest?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed")):"running";
   await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,cursor_position=?,processed_count=?,success_count=?,failure_count=?,portal_success=?,portal_failure=?,email_success=?,email_failure=?,sms_success=?,sms_failure=?,detail_json=?,completed_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=?`).bind(finalStatus,processed,processed,success,failure,portalSuccess,enabledPortal?processed-portalSuccess:0,emailSuccess,enabledEmail?processed-emailSuccess:0,smsSuccess,enabledSms?processed-smsSuccess:0,JSON.stringify(results),complete?1:0,runId).run();
   return {success:failure===0,run_id:runId,complete,processed,total:targets.length,succeeded:success,failed:failure};
 }
@@ -7346,8 +7362,14 @@ async function adminStatementSchedulingRun({request,env}){
       const cycleName=type==="weekly"?"Cycle B":"Cycle A";
       return notificationJson({success:false,error:cycleName+" is disabled. Enable its checkbox and save the schedule before testing or running statements."},409);
     }
+    if(!Array.isArray(body.account_numbers)||!body.account_numbers.length){
+      return notificationJson({success:false,error:"Select at least one customer in the cycle preview. Manual Test and Run actions only process explicitly selected customers."},400);
+    }
+    const normalized=[...new Set(body.account_numbers.map(value=>{const digits=String(value||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
+    if(!normalized.length)return notificationJson({success:false,error:"Select at least one valid customer account."},400);
+    if(normalized.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers can be selected for one statement run."},413);
     const origin=new URL(request.url).origin;
-    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true});
+    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,accountNumbers:normalized});
     return notificationJson(started);
   }
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
