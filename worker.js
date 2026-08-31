@@ -6674,6 +6674,17 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     pageStreams.push(paymentCommands.join("\n"));
   }
 
+  // Add per-customer page numbering after all pages for this statement are known.
+  // The count resets for every customer statement, including statements that are
+  // later merged into an admin combined PDF.
+  const statementTotalPages=pageStreams.length;
+  for(let pageIndex=0;pageIndex<statementTotalPages;pageIndex++){
+    const pageLabel=`Page ${pageIndex+1} of ${statementTotalPages}`;
+    const pageLabelSize=8.5;
+    const pageLabelX=Math.max(42,570-pageLabel.length*(0.52*pageLabelSize));
+    pageStreams[pageIndex]+=`\nBT /F1 ${pageLabelSize} Tf ${rgb(...slate)} rg ${pageLabelX.toFixed(1)} 43 Td (${statementPdfEscape(pageLabel)}) Tj ET`;
+  }
+
   const objects=[];
   objects[1]="<< /Type /Catalog /Pages 2 0 R >>";
   objects[2]=pageStreams.length===2
@@ -7772,6 +7783,77 @@ async function adminStatementSchedulingCombinedPdf({request,env}){
 }
 __name(adminStatementSchedulingCombinedPdf,"adminStatementSchedulingCombinedPdf");
 
+
+function statementCleanupPartEntries(row){
+  const out=[];
+  const add=(jsonValue,fallbackKey,fallbackFilename,scope)=>{
+    let parts=[];try{parts=JSON.parse(jsonValue||"[]");}catch{}
+    if((!Array.isArray(parts)||!parts.length)&&fallbackKey)parts=[{part_number:1,key:fallbackKey,filename:fallbackFilename||"Combined Statement PDF.pdf"}];
+    for(const part of Array.isArray(parts)?parts:[]){
+      const key=String(part?.key||"").trim();if(!key)continue;
+      out.push({key,filename:String(part?.filename||fallbackFilename||key.split("/").pop()||"Combined Statement PDF.pdf"),part_number:Number(part?.part_number||1),scope});
+    }
+  };
+  add(row.combined_pdf_parts_json,row.combined_pdf_key,row.combined_pdf_filename,"run");
+  add(row.group_combined_pdf_parts_json,row.group_combined_pdf_key,row.group_combined_pdf_filename,"group");
+  return out;
+}
+__name(statementCleanupPartEntries,"statementCleanupPartEntries");
+
+async function adminStatementSchedulingPdfCleanup({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  if(!env.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Statement storage is not configured."},503);
+  await ensureStatementSchedulingSchema(env);
+  try{
+    const oldRows=await env.DB.prepare(`SELECT id,run_type,started_at,completed_at,combined_group_id,combined_pdf_key,combined_pdf_filename,combined_pdf_parts_json,group_combined_pdf_key,group_combined_pdf_filename,group_combined_pdf_parts_json FROM statement_schedule_runs WHERE COALESCE(completed_at,started_at) <= datetime('now','-90 days') ORDER BY COALESCE(completed_at,started_at) DESC,id DESC`).all();
+    const allowed=new Map();
+    for(const row of oldRows?.results||[]){
+      for(const part of statementCleanupPartEntries(row)){
+        if(!part.key.startsWith("statement-runs/"))continue;
+        const existing=allowed.get(part.key);
+        const item={...part,run_id:Number(row.id||0),group_id:String(row.combined_group_id||""),run_type:String(row.run_type||""),created_at:String(row.completed_at||row.started_at||"")};
+        if(!existing||part.scope==="group")allowed.set(part.key,item);
+      }
+    }
+    if(request.method==="GET"){
+      const files=[];
+      for(const item of allowed.values()){
+        let object=null;try{object=await env.NOTIFICATION_ATTACHMENTS.head(item.key);}catch{}
+        if(!object)continue;
+        files.push({...item,size:Number(object.size||0),uploaded_at:object.uploaded?new Date(object.uploaded).toISOString():item.created_at});
+      }
+      files.sort((a,b)=>String(b.uploaded_at||b.created_at).localeCompare(String(a.uploaded_at||a.created_at)));
+      return notificationJson({success:true,retention_days:90,count:files.length,files});
+    }
+    if(request.method!=="POST")return methodNotAllowed();
+    const body=await request.json().catch(()=>({}));
+    const requested=[...new Set((Array.isArray(body.keys)?body.keys:[]).map(v=>String(v||"").trim()).filter(Boolean))];
+    if(!requested.length)return notificationJson({success:false,error:"Select at least one PDF file to delete."},400);
+    const invalid=requested.filter(key=>!allowed.has(key));
+    if(invalid.length)return notificationJson({success:false,error:"One or more selected files are not eligible for 90-day cleanup. Refresh the list and try again."},409);
+    for(const key of requested)await env.NOTIFICATION_ATTACHMENTS.delete(key);
+    const affectedRows=new Set();
+    for(const key of requested){const item=allowed.get(key);if(item?.run_id)affectedRows.add(Number(item.run_id));}
+    // Remove deleted file references from every run row so report links disappear cleanly.
+    const allRows=await env.DB.prepare(`SELECT id,combined_pdf_key,combined_pdf_filename,combined_pdf_parts_json,group_combined_pdf_key,group_combined_pdf_filename,group_combined_pdf_parts_json FROM statement_schedule_runs WHERE combined_pdf_key<>'' OR group_combined_pdf_key<>'' OR combined_pdf_parts_json<>'[]' OR group_combined_pdf_parts_json<>'[]'`).all();
+    for(const row of allRows?.results||[]){
+      let runParts=[],groupParts=[];try{runParts=JSON.parse(row.combined_pdf_parts_json||"[]");}catch{}try{groupParts=JSON.parse(row.group_combined_pdf_parts_json||"[]");}catch{}
+      runParts=(Array.isArray(runParts)?runParts:[]).filter(part=>!requested.includes(String(part?.key||"")));
+      groupParts=(Array.isArray(groupParts)?groupParts:[]).filter(part=>!requested.includes(String(part?.key||"")));
+      const runKey=requested.includes(String(row.combined_pdf_key||""))?String(runParts[0]?.key||""):String(row.combined_pdf_key||"");
+      const runFilename=runKey?String((runParts.find(p=>String(p?.key||"")===runKey)||{}).filename||row.combined_pdf_filename||""):"";
+      const groupKey=requested.includes(String(row.group_combined_pdf_key||""))?String(groupParts[0]?.key||""):String(row.group_combined_pdf_key||"");
+      const groupFilename=groupKey?String((groupParts.find(p=>String(p?.key||"")===groupKey)||{}).filename||row.group_combined_pdf_filename||""):"";
+      await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_pdf_key=?,combined_pdf_filename=?,combined_pdf_parts_json=?,group_combined_pdf_key=?,group_combined_pdf_filename=?,group_combined_pdf_parts_json=? WHERE id=?`).bind(runKey,runFilename,JSON.stringify(runParts),groupKey,groupFilename,JSON.stringify(groupParts),row.id).run();
+    }
+    return notificationJson({success:true,deleted_count:requested.length,deleted_keys:requested});
+  }catch(error){
+    console.error("Statement PDF cleanup failed",error);
+    return notificationJson({success:false,error:"Statement PDF cleanup could not be processed. "+String(error?.message||error)},500);
+  }
+}
+__name(adminStatementSchedulingPdfCleanup,"adminStatementSchedulingPdfCleanup");
+
 async function adminStatementSchedulingRun({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   const body=await request.json().catch(()=>({}));
@@ -8497,6 +8579,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-scheduling/combined-pdf") {
       if (request.method === "GET") return adminStatementSchedulingCombinedPdf({ request, env, ctx });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling/pdf-cleanup") {
+      if (request.method === "GET" || request.method === "POST") return adminStatementSchedulingPdfCleanup({ request, env });
       return methodNotAllowed();
     }
 
