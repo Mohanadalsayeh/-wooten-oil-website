@@ -710,17 +710,11 @@ async function onRequestPost3({ request, env }) {
   }
 
   const changedEmailAccounts=[];
-  const changedPhoneAccounts=[];
-  const lookupWork=[];
+  const phoneCandidates=[];
   let phoneUnchanged=0;
   let phoneChangedVsServer=0;
   let phoneServerMatches=0;
   let phoneAreaCodeFixed=0;
-  let phoneUpdated=0;
-  let phoneRejected=0;
-  let phoneLookupErrors=0;
-  let phoneLookupInvalid=0;
-
   for(const row of parsed){
     const current=existingByAccount.get(row.acct);
     const incomingEmail=String(row.importedEmail||"").trim();
@@ -729,90 +723,80 @@ async function onRequestPost3({ request, env }) {
 
     const incomingRaw=String(row.importedPhone||"").trim();
     const existingRaw=String(current?.phone||"").trim();
-    const incomingDigits=incomingRaw.replace(/\D/g,"");
-    const isSevenDigitImport=incomingDigits.length===7;
+    row.finalPhone=existingRaw;
+    row.phoneDecision="unchanged";
 
-    // Customer.mdb is authoritative for the stored phone number.
-    // ON: add the saved area code only to 7-digit imported values.
-    // OFF: store the imported phone exactly as supplied (trimmed), including 7-digit values.
-    let finalPhone=incomingRaw;
-    if(fixAreaCodeAutomatically&&isSevenDigitImport){
-      const corrected=`+1${defaultAreaCode}${incomingDigits}`;
-      finalPhone=twilioFormatUsNational(corrected);
-      phoneAreaCodeFixed++;
-    }
-    row.finalPhone=finalPhone;
-
-    const changed=existingRaw!==finalPhone;
-    if(current){
-      if(changed){
-        phoneChangedVsServer++;
-        changedPhoneAccounts.push(row.acct);
-      }else{
-        phoneServerMatches++;
-      }
-    }
-    if(changed||!current){
-      row.phoneDecision="updated";
-      phoneUpdated++;
-    }else{
-      row.phoneDecision="unchanged";
+    if(!incomingRaw){
+      if(!current)row.finalPhone="";
       phoneUnchanged++;
+      continue;
     }
 
-    // Twilio validation never blocks the MDB phone update. It only updates SMS eligibility/status.
-    // Blank/7-digit/malformed values remain stored exactly per the import rule and are marked
-    // unverified/invalid for SMS until a complete U.S. number can be checked.
-    const lookupPhone=twilioUsPhoneWithArea(finalPhone,"");
-    if(!finalPhone){
-      lookupWork.push({row,action:"clear",raw:finalPhone,normalized:""});
-    }else if(!lookupPhone||!/^\+1\d{10}$/.test(lookupPhone)){
-      phoneLookupInvalid++;
-      lookupWork.push({row,action:"invalid_format",raw:finalPhone,normalized:lookupPhone||""});
-    }else{
-      lookupWork.push({row,action:"lookup",raw:finalPhone,normalized:lookupPhone});
+    const incomingDigits=incomingRaw.replace(/\D/g,"");
+    const existingDigits=existingRaw.replace(/\D/g,"");
+    const isSevenDigitImport=incomingDigits.length===7;
+    const incomingNormalized=twilioUsPhoneWithArea(incomingRaw,fixAreaCodeAutomatically?defaultAreaCode:"");
+    const existingNormalized=twilioUsPhoneWithArea(existingRaw,(fixAreaCodeAutomatically&&isSevenDigitImport)?defaultAreaCode:"");
+    const serverStillSevenDigits=existingDigits.length===7;
+    const semanticMatch=(incomingNormalized&&existingNormalized&&incomingNormalized===existingNormalized)||(!incomingNormalized&&!existingNormalized&&incomingDigits&&incomingDigits===existingDigits);
+    const sameNumber=!!current&&semanticMatch&&!(fixAreaCodeAutomatically&&isSevenDigitImport&&serverStillSevenDigits);
+    if(current&&sameNumber){
+      phoneServerMatches++;
+      phoneUnchanged++;
+      continue;
     }
+    if(current)phoneChangedVsServer++;
+
+    phoneCandidates.push({row,current,incomingRaw,incomingNormalized,existingRaw,isSevenDigitImport});
   }
 
+  let phoneUpdated=0,phoneRejected=0,phoneLookupErrors=0;
   const lookupConcurrency=8;
-  for(let start=0;start<lookupWork.length;start+=lookupConcurrency){
-    const group=lookupWork.slice(start,start+lookupConcurrency);
-    await Promise.all(group.map(async item=>{
-      const {row,action,raw,normalized}=item;
-      if(action==="clear"){
-        try{await env.DB.prepare(`DELETE FROM twilio_phone_lookup_cache WHERE account_number=?`).bind(row.acct).run();}catch(cacheError){console.error("Customer import phone lookup cache clear failed",row.acct,cacheError);}
-        return;
-      }
-      if(action==="invalid_format"){
-        try{
-          await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,0,'','','INVALID_US_FORMAT',CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=0,line_type='',carrier_name='',error_code='INVALID_US_FORMAT',checked_at=CURRENT_TIMESTAMP`).bind(row.acct,raw,normalized||"",raw).run();
-        }catch(cacheError){console.error("Customer import invalid phone cache failed",row.acct,cacheError);}
-        return;
-      }
-
+  for(let start=0;start<phoneCandidates.length;start+=lookupConcurrency){
+    const group=phoneCandidates.slice(start,start+lookupConcurrency);
+    await Promise.all(group.map(async candidate=>{
+      const {row,current,incomingRaw,incomingNormalized,existingRaw,isSevenDigitImport}=candidate;
       let valid=0,lineType="",carrier="",errorCode="",national="",countryCode="";
-      try{
-        const data=await twilioLookupPhone(env,normalized);
-        valid=data?.valid?1:0;
-        lineType=String(data?.line_type_intelligence?.type||"");
-        carrier=String(data?.line_type_intelligence?.carrier_name||"");
-        errorCode=String(data?.line_type_intelligence?.error_code||"");
-        national=String(data?.national_format||twilioFormatUsNational(normalized));
-        countryCode=String(data?.country_code||"").toUpperCase();
-        if(valid!==1||countryCode!=="US"){
-          phoneLookupInvalid++;
-          if(countryCode&&countryCode!=="US")errorCode=errorCode||"NOT_US_NUMBER";
+      if(!incomingNormalized||!/^\+1\d{10}$/.test(incomingNormalized)){
+        errorCode="INVALID_US_FORMAT";
+        phoneRejected++;
+        row.finalPhone=current?existingRaw:"";
+        row.phoneDecision="rejected";
+      }else{
+        try{
+          const data=await twilioLookupPhone(env,incomingNormalized);
+          valid=data?.valid?1:0;
+          lineType=String(data?.line_type_intelligence?.type||"");
+          carrier=String(data?.line_type_intelligence?.carrier_name||"");
+          errorCode=String(data?.line_type_intelligence?.error_code||"");
+          national=String(data?.national_format||twilioFormatUsNational(incomingNormalized));
+          countryCode=String(data?.country_code||"").toUpperCase();
+          if(valid===1&&countryCode==="US"){
+            row.finalPhone=national||twilioFormatUsNational(incomingNormalized);
+            row.phoneDecision="updated";
+            phoneUpdated++;
+            if(fixAreaCodeAutomatically&&isSevenDigitImport)phoneAreaCodeFixed++;
+          }else{
+            row.finalPhone=current?existingRaw:"";
+            row.phoneDecision="rejected";
+            phoneRejected++;
+            if(countryCode&&countryCode!=="US")errorCode=errorCode||"NOT_US_NUMBER";
+          }
+        }catch(error){
+          valid=-1;
+          errorCode=String(error?.twilioCode||"LOOKUP_ERROR");
+          row.finalPhone=current?existingRaw:"";
+          row.phoneDecision="lookup_error";
+          phoneLookupErrors++;
         }
-      }catch(error){
-        valid=-1;
-        errorCode=String(error?.twilioCode||"LOOKUP_ERROR");
-        phoneLookupErrors++;
       }
       try{
-        await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=excluded.line_type,carrier_name=excluded.carrier_name,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(row.acct,raw,normalized||"",national,valid,lineType,carrier,errorCode).run();
+        await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=excluded.line_type,carrier_name=excluded.carrier_name,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(row.acct,incomingRaw,incomingNormalized||"",national,valid,lineType,carrier,errorCode).run();
       }catch(cacheError){console.error("Customer import phone lookup cache failed",row.acct,cacheError);}
     }));
   }
+
+  phoneUnchanged+=phoneRejected+phoneLookupErrors;
 
   const statement = env.DB.prepare(`
     INSERT INTO customers
@@ -860,11 +844,6 @@ async function onRequestPost3({ request, env }) {
     const placeholders=chunk.map(()=>"?").join(",");
     batch.push(env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id IN (SELECT id FROM customers WHERE account_number IN (${placeholders}))`).bind(...chunk));
   }
-  for(let start=0;start<changedPhoneAccounts.length;start+=100){
-    const chunk=changedPhoneAccounts.slice(start,start+100);
-    const placeholders=chunk.map(()=>"?").join(",");
-    batch.push(env.DB.prepare(`DELETE FROM twilio_sms_verification WHERE account_number IN (${placeholders})`).bind(...chunk));
-  }
 
   try{await env.DB.batch(batch);}catch(error){
     console.error("Customer import failed",error);
@@ -884,7 +863,7 @@ async function onRequestPost3({ request, env }) {
   let importMeta=null;
   try{
     importMeta=await recordAdminImport(env,"customers",customerRecordCount,adminRequestActor(request,env).name);
-    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation; phone numbers found ${phoneNumbersFound}; 7-digit phones ${phoneAreaCodeCandidates}; area codes fixed ${phoneAreaCodeFixed}; different vs server ${phoneChangedVsServer}; server matches ${phoneServerMatches}; phone updates ${phoneUpdated}; phone rejected ${phoneRejected}; phone lookup invalid ${phoneLookupInvalid}; phone lookup errors ${phoneLookupErrors}`);
+    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation; phone numbers found ${phoneNumbersFound}; 7-digit phones ${phoneAreaCodeCandidates}; area codes fixed ${phoneAreaCodeFixed}; different vs server ${phoneChangedVsServer}; server matches ${phoneServerMatches}; phone updates ${phoneUpdated}; phone rejected ${phoneRejected}; phone lookup errors ${phoneLookupErrors}`);
   }catch(error){console.error("Customer import timestamp could not be recorded",error);}
 
   return json3({
@@ -895,7 +874,6 @@ async function onRequestPost3({ request, env }) {
     phone_updates:phoneUpdated,
     phone_rejected:phoneRejected,
     phone_lookup_errors:phoneLookupErrors,
-    phone_lookup_invalid:phoneLookupInvalid,
     phone_unchanged:phoneUnchanged,
     phone_numbers_found:phoneNumbersFound,
     phone_area_code_candidates:phoneAreaCodeCandidates,
@@ -3927,12 +3905,6 @@ async function twilioMessageStatusPost({request,env}){
     UPDATE portal_notifications SET sms_status=?,sms_error_code=?,sms_error=?,sms_updated_at=CURRENT_TIMESTAMP
     WHERE sms_sid=?
   `).bind(status,code,errorMessage,sid).run();
-  try{
-    await ensureTwilioPhoneToolsSchema(env);
-    const verification=await env.DB.prepare(`SELECT phone_e164 FROM twilio_sms_verification WHERE sms_sid=? LIMIT 1`).bind(sid).first();
-    if(code==="21610"&&verification?.phone_e164)await twilioRememberOptOut(env,verification.phone_e164,true,"STOP");
-    await env.DB.prepare(`UPDATE twilio_sms_verification SET status=?,error_code=?,error_message=?,updated_at=CURRENT_TIMESTAMP,delivered_at=CASE WHEN ?='delivered' THEN CURRENT_TIMESTAMP ELSE delivered_at END WHERE sms_sid=?`).bind(status,code,errorMessage,status,sid).run();
-  }catch(verificationError){console.error("Twilio SMS verification callback update failed",verificationError);}
   return new Response(null,{status:204});
 }
 __name(twilioMessageStatusPost,"twilioMessageStatusPost");
@@ -4135,18 +4107,6 @@ async function ensureTwilioPhoneToolsSchema(env){
     checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_twilio_phone_lookup_checked ON twilio_phone_lookup_cache(checked_at DESC)`).run();
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS twilio_sms_verification (
-    account_number TEXT PRIMARY KEY,
-    phone_e164 TEXT NOT NULL DEFAULT '',
-    sms_sid TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT '',
-    error_code TEXT NOT NULL DEFAULT '',
-    error_message TEXT NOT NULL DEFAULT '',
-    sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    delivered_at TEXT,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`).run();
-  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_twilio_sms_verification_status ON twilio_sms_verification(status,updated_at DESC)`).run();
 }
 __name(ensureTwilioPhoneToolsSchema,"ensureTwilioPhoneToolsSchema");
 function adminTwilioAuthorized(request,env){
@@ -4226,7 +4186,7 @@ async function adminTwilioPhoneResultsGet({request,env}){
     const pages=Math.max(1,Math.ceil(total/pageSize));
     const safePage=Math.min(page,pages);
     const offset=(safePage-1)*pageSize;
-    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at,v.phone_e164 AS sms_verification_phone,v.sms_sid AS sms_verification_sid,v.status AS sms_verification_status,v.error_code AS sms_verification_error_code,v.error_message AS sms_verification_error_message,v.sent_at AS sms_verification_sent_at,v.delivered_at AS sms_verification_delivered_at,v.updated_at AS sms_verification_updated_at FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number LEFT JOIN twilio_sms_verification v ON v.account_number=c.account_number WHERE ${where.join(" AND ")} ORDER BY CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number LIMIT ? OFFSET ?`;
+    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at${fromSql} ORDER BY CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number LIMIT ? OFFSET ?`;
     const listParams=[...params,pageSize,offset];
     const rows=await env.DB.prepare(listSql).bind(...listParams).all();
     return notificationJson({success:true,group,q,page:safePage,page_size:pageSize,pages,total,results:rows?.results||[]});
@@ -4290,39 +4250,6 @@ async function adminTwilioLookupBatchPost({request,env}){
   }catch(error){console.error("adminTwilioLookupBatchPost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioLookupBatchPost,"adminTwilioLookupBatchPost");
-async function adminTwilioVerifySmsPost({request,env}){
-  try{
-    if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
-    await ensureTwilioPhoneToolsSchema(env);
-    const body=await request.json().catch(()=>({}));
-    const account=normalizeNotificationAccount(body?.account_number||body?.accountNumber);
-    if(!account)return notificationJson({success:false,error:"Customer account number is required."},400);
-    const row=await env.DB.prepare(`SELECT c.account_number,c.account_name,c.phone,l.normalized_phone,l.valid,l.line_type FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number WHERE c.account_number=? LIMIT 1`).bind(account).first();
-    if(!row)return notificationJson({success:false,error:"Customer was not found."},404);
-    const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
-    const currentPhone=twilioUsPhoneWithArea(row.phone,String(setting?.default_area_code||""));
-    const lookupPhone=String(row.normalized_phone||"");
-    if(!currentPhone)return notificationJson({success:false,error:"Customer phone number is not a valid U.S. number."},400);
-    if(!lookupPhone||currentPhone!==lookupPhone)return notificationJson({success:false,error:"Run Twilio Phone Validation again before verifying SMS capability for this phone number."},409);
-    if(Number(row.valid)!==1)return notificationJson({success:false,error:"Twilio Lookup does not identify this phone number as valid."},400);
-    const lineType=String(row.line_type||"");
-    if(!["fixedVoip","nonFixedVoip"].includes(lineType))return notificationJson({success:false,error:"SMS verification is available here only for VoIP phone numbers."},400);
-    const message="Wooten Oil SMS verification test. No action is required.";
-    let sent;
-    try{
-      sent=await twilioSendSms(env,currentPhone,message,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
-    }catch(error){
-      const code=String(error?.twilioCode||"");
-      const errorMessage=twilioErrorDescription(code,String(error?.message||"SMS verification could not be sent."));
-      await env.DB.prepare(`INSERT INTO twilio_sms_verification(account_number,phone_e164,sms_sid,status,error_code,error_message,sent_at,delivered_at,updated_at) VALUES(?,?,?,'failed',?,?,CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET phone_e164=excluded.phone_e164,sms_sid=excluded.sms_sid,status='failed',error_code=excluded.error_code,error_message=excluded.error_message,sent_at=CURRENT_TIMESTAMP,delivered_at=NULL,updated_at=CURRENT_TIMESTAMP`).bind(account,currentPhone,"",code,errorMessage).run();
-      return notificationJson({success:false,error:errorMessage,status:"failed",error_code:code},400);
-    }
-    const initialStatus=twilioDeliveryStatus(sent?.status||"");
-    await env.DB.prepare(`INSERT INTO twilio_sms_verification(account_number,phone_e164,sms_sid,status,error_code,error_message,sent_at,delivered_at,updated_at) VALUES(?,?,?,?,?,'',CURRENT_TIMESTAMP,CASE WHEN ?='delivered' THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET phone_e164=excluded.phone_e164,sms_sid=excluded.sms_sid,status=excluded.status,error_code='',error_message='',sent_at=CURRENT_TIMESTAMP,delivered_at=CASE WHEN excluded.status='delivered' THEN CURRENT_TIMESTAMP ELSE NULL END,updated_at=CURRENT_TIMESTAMP`).bind(account,currentPhone,String(sent?.sid||""),initialStatus,"",initialStatus).run();
-    return notificationJson({success:true,account_number:account,phone_e164:currentPhone,sid:String(sent?.sid||""),status:initialStatus});
-  }catch(error){console.error("adminTwilioVerifySmsPost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
-}
-__name(adminTwilioVerifySmsPost,"adminTwilioVerifySmsPost");
 
 async function adminSendCustomerNotification({ request, env }) {
   try {
@@ -6073,10 +6000,6 @@ async function adminCustomersDatabaseGet({ request, env }) {
         COALESCE((SELECT l.normalized_phone FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_normalized,
         COALESCE((SELECT l.error_code FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_error,
         COALESCE((SELECT l.checked_at FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_checked_at,
-        COALESCE((SELECT v.phone_e164 FROM twilio_sms_verification v WHERE v.account_number=customers.account_number),'') AS twilio_sms_verification_phone,
-        COALESCE((SELECT v.status FROM twilio_sms_verification v WHERE v.account_number=customers.account_number),'') AS twilio_sms_verification_status,
-        COALESCE((SELECT v.error_code FROM twilio_sms_verification v WHERE v.account_number=customers.account_number),'') AS twilio_sms_verification_error_code,
-        COALESCE((SELECT v.delivered_at FROM twilio_sms_verification v WHERE v.account_number=customers.account_number),'') AS twilio_sms_verification_delivered_at,
         CASE WHEN ${portalAccessSql} THEN 1 ELSE 0 END AS online_activated,
         updated_at
       FROM customers
@@ -8992,10 +8915,6 @@ var worker_default = {
     }
     if (url.pathname === "/api/admin/twilio/phone-tools/lookup-batch") {
       if (request.method === "POST") return adminTwilioLookupBatchPost({ request, env });
-      return methodNotAllowed();
-    }
-    if (url.pathname === "/api/admin/twilio/phone-tools/verify-sms") {
-      if (request.method === "POST") return adminTwilioVerifySmsPost({ request, env });
       return methodNotAllowed();
     }
 
