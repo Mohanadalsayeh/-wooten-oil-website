@@ -1302,7 +1302,23 @@ function publicCustomer(customer) {
   };
 }
 __name(publicCustomer, "publicCustomer");
-async function createSession(env, customerId, rememberMe = false) {
+async function ensureCustomerSessionScopeColumns(env) {
+  if (!env?.DB) return;
+  const info = await env.DB.prepare(`PRAGMA table_info(customer_sessions)`).all();
+  const columns = new Set((info?.results || []).map((row) => String(row.name || "").toLowerCase()));
+  if (!columns.has("login_method")) {
+    await env.DB.prepare(`ALTER TABLE customer_sessions ADD COLUMN login_method TEXT NOT NULL DEFAULT 'account'`).run();
+  }
+  if (!columns.has("session_scope")) {
+    await env.DB.prepare(`ALTER TABLE customer_sessions ADD COLUMN session_scope TEXT NOT NULL DEFAULT 'single'`).run();
+  }
+  if (!columns.has("verified_email")) {
+    await env.DB.prepare(`ALTER TABLE customer_sessions ADD COLUMN verified_email TEXT`).run();
+  }
+}
+__name(ensureCustomerSessionScopeColumns, "ensureCustomerSessionScopeColumns");
+async function createSession(env, customerId, rememberMe = false, loginMethod = "account", verifiedEmail = "") {
+  await ensureCustomerSessionScopeColumns(env);
   const token = randomToken();
   const tokenHash = await sha256(token);
   const now = /* @__PURE__ */ new Date();
@@ -1315,15 +1331,21 @@ async function createSession(env, customerId, rememberMe = false) {
       session_token_hash,
       expires_at,
       last_seen_at,
-      created_at
+      created_at,
+      login_method,
+      session_scope,
+      verified_email
     )
-    VALUES (?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     customerId,
     tokenHash,
     expires.toISOString(),
     now.toISOString(),
-    now.toISOString()
+    now.toISOString(),
+    loginMethod === "email" ? "email" : "account",
+    loginMethod === "email" ? "linked" : "single",
+    loginMethod === "email" ? clean(verifiedEmail).toLowerCase() : null
   ).run();
   return token;
 }
@@ -1337,6 +1359,7 @@ async function recordCustomerLoginActivity(env,request,customer,result){
   try{await ensureCustomerLoginActivityTable(env);const ipHash=await accountApplicationIpHash(request);await env.DB.prepare(`INSERT INTO customer_login_activity(customer_id,account_number,result,user_agent,ip_hash) VALUES (?,?,?,?,?)`).bind(Number(customer?.id||0)||null,String(customer?.account_number||""),String(result||"unknown").slice(0,40),String(request.headers.get("User-Agent")||"").slice(0,300),ipHash||null).run();}catch(error){console.error("Customer login activity could not be recorded",error);}
 }
 async function getCustomerFromSession(request, env) {
+  await ensureCustomerSessionScopeColumns(env);
   const cookies = parseCookies(request);
   const token = cookies[SESSION_COOKIE];
   if (!token) {
@@ -1348,6 +1371,9 @@ async function getCustomerFromSession(request, env) {
       SELECT
         s.id AS session_id,
         s.expires_at,
+        s.login_method,
+        s.session_scope,
+        s.verified_email,
 
         c.id,
         c.account_number,
@@ -1441,7 +1467,8 @@ async function customerLoginPost({
   }
   let customer = null;
   let emailMatches = [];
-  const normalizedAccount = normalizeAccount(user);
+  const loginMethod = user.includes("@") ? "email" : "account";
+  const normalizedAccount = loginMethod === "account" ? normalizeAccount(user) : "";
   if (normalizedAccount) {
     customer = await env.DB.prepare(`
         SELECT *
@@ -1450,11 +1477,11 @@ async function customerLoginPost({
         LIMIT 1
       `).bind(normalizedAccount).first();
   }
-  if (!customer && user.includes("@")) {
+  if (!customer && loginMethod === "email") {
     const matches = await env.DB.prepare(`
         SELECT *
         FROM customers
-        WHERE lower(email) = lower(?)
+        WHERE lower(trim(email)) = lower(trim(?))
         ORDER BY account_number
       `).bind(user).all();
     emailMatches = matches?.results || [];
@@ -1473,7 +1500,7 @@ async function customerLoginPost({
       const candidateStatus = clean(candidate.account_status).toLowerCase();
       return !candidateStatus || candidateStatus === "active";
     });
-    if (user.includes("@") && activeEmailMatches.length === 1 && !clean(activeEmailMatches[0].password_hash)) {
+    if (loginMethod === "email" && activeEmailMatches.length === 1 && !clean(activeEmailMatches[0].password_hash)) {
       await recordCustomerLoginActivity(env,request,activeEmailMatches[0],"activation_required");
       return json4({
         success: false,
@@ -1495,19 +1522,11 @@ async function customerLoginPost({
       error: "This customer account is not active. Please contact Wooten Oil."
     }, 403);
   }
-  let valid = user.includes("@");
-  let linkedLoginAvailable = false;
-  if (!valid && clean(customer.password_hash)) valid = await verifyPassword(password, customer.password_hash);
-  if (!valid && clean(customer.email)) {
-    const linkedRows = await env.DB.prepare(`SELECT password_hash,account_status FROM customers WHERE lower(trim(email))=lower(trim(?)) AND id<>? AND password_hash IS NOT NULL AND trim(password_hash)<>''`).bind(customer.email,customer.id).all();
-    for (const linked of linkedRows?.results || []) {
-      const linkedStatus = clean(linked.account_status).toLowerCase();
-      if (linkedStatus && linkedStatus !== "active") continue;
-      linkedLoginAvailable = true;
-      if (await verifyPassword(password,linked.password_hash)) { valid = true; break; }
-    }
+  let valid = loginMethod === "email";
+  if (loginMethod === "account") {
+    valid = clean(customer.password_hash) ? await verifyPassword(password, customer.password_hash) : false;
   }
-  if (!valid && !clean(customer.password_hash) && !linkedLoginAvailable) {
+  if (!valid && !clean(customer.password_hash)) {
     await recordCustomerLoginActivity(env,request,customer,"activation_required");
     return json4({
       success: false,
@@ -1526,13 +1545,17 @@ async function customerLoginPost({
   const token = await createSession(
     env,
     customer.id,
-    rememberMe
+    rememberMe,
+    loginMethod,
+    loginMethod === "email" ? user : ""
   );
   await recordCustomerLoginActivity(env,request,customer,"success");
   return json4(
     {
       success: true,
-      customer: publicCustomer(customer)
+      customer: publicCustomer(customer),
+      login_method: loginMethod,
+      account_scope: loginMethod === "email" ? "linked" : "single"
     },
     200,
     {
@@ -1570,8 +1593,9 @@ async function customerAccountsGet({request,env}) {
   if (!env.DB) return json4({success:false,error:"Customer database is not configured."},503);
   const customer = await getCustomerFromSession(request,env);
   if (!customer) return json4({success:false,authenticated:false},401);
-  const accounts = await customerLinkedAccounts(customer,env);
-  return json4({success:true,current_account_number:customer.account_number,accounts});
+  const linkedScope = clean(customer.login_method).toLowerCase() === "email" && clean(customer.session_scope).toLowerCase() === "linked";
+  const accounts = linkedScope ? await customerLinkedAccounts(customer,env) : [linkedAccountSummary(customer)];
+  return json4({success:true,current_account_number:customer.account_number,account_scope:linkedScope?"linked":"single",accounts});
 }
 __name(customerAccountsGet, "customerAccountsGet");
 async function customerAccountSwitchPost({request,env}) {
@@ -1583,8 +1607,10 @@ async function customerAccountSwitchPost({request,env}) {
   catch { return json4({success:false,error:"Invalid account switch request."},400); }
   const targetAccount = normalizeAccount(body?.account_number);
   if (!targetAccount) return json4({success:false,error:"Choose an account."},400);
-  const email = clean(current.email).toLowerCase();
-  if (!email) return json4({success:false,error:"No linked accounts are available."},403);
+  const linkedScope = clean(current.login_method).toLowerCase() === "email" && clean(current.session_scope).toLowerCase() === "linked";
+  if (!linkedScope) return json4({success:false,error:"Account switching is available only when you sign in with your email address."},403);
+  const email = clean(current.verified_email).toLowerCase();
+  if (!email) return json4({success:false,error:"No linked accounts are available for this email login."},403);
   const target = await env.DB.prepare(`
     SELECT * FROM customers
     WHERE account_number = ?
@@ -1599,7 +1625,7 @@ async function customerAccountSwitchPost({request,env}) {
     await env.DB.prepare(`UPDATE customer_sessions SET customer_id=?,last_seen_at=? WHERE id=?`).bind(target.id,new Date().toISOString(),current.session_id).run();
     await recordCustomerLoginActivity(env,request,target,"account_switch");
   }
-  return json4({success:true,customer:publicCustomer(target),accounts:await customerLinkedAccounts(target,env)});
+  return json4({success:true,customer:publicCustomer(target),account_scope:"linked",accounts:await customerLinkedAccounts(target,env)});
 }
 __name(customerAccountSwitchPost, "customerAccountSwitchPost");
 async function customerMeGet({
@@ -1622,10 +1648,13 @@ async function customerMeGet({
       authenticated: false
     }, 401);
   }
+  const linkedScope = clean(customer.login_method).toLowerCase() === "email" && clean(customer.session_scope).toLowerCase() === "linked";
   return json4({
     success: true,
     authenticated: true,
-    customer: publicCustomer(customer)
+    customer: publicCustomer(customer),
+    login_method: linkedScope ? "email" : "account",
+    account_scope: linkedScope ? "linked" : "single"
   });
 }
 __name(customerMeGet, "customerMeGet");
@@ -3889,11 +3918,14 @@ async function portalDocumentLinkGet({request,env}){
       return Response.redirect(loginUrl.toString(),302);
     }
     if(normalizeNotificationAccount(customer.account_number)!==normalizeNotificationAccount(row.account_number)){
-      // A customer portal login can already switch between active accounts that
-      // share the same email address. Apply that same authorization rule to
-      // direct statement/document links so a link for another linked account
-      // does not fail just because a different linked account is currently active.
-      const linkedEmail=clean(customer.email).toLowerCase();
+      // Cross-account document access is allowed only for sessions that were
+      // authenticated by email and explicitly carry linked-account scope.
+      // Account-number logins remain locked to their exact customer account.
+      const linkedScope=clean(customer.login_method).toLowerCase()==="email" && clean(customer.session_scope).toLowerCase()==="linked";
+      if(!linkedScope){
+        return new Response("This document belongs to a different customer account.",{status:403});
+      }
+      const linkedEmail=clean(customer.verified_email).toLowerCase();
       let linkedTarget=null;
       if(linkedEmail){
         linkedTarget=await env.DB.prepare(`
@@ -6675,6 +6707,151 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
 }
 __name(statementBuildPdf,"statementBuildPdf");
 
+function statementExtractPdfPageStreams(pdfBytes){
+  const source=new TextDecoder().decode(pdfBytes instanceof Uint8Array?pdfBytes:new Uint8Array(pdfBytes||[]));
+  const streams=[];
+  const pattern=/\d+ 0 obj\s*<< \/Length \d+ >>\s*stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let match;
+  while((match=pattern.exec(source)))streams.push(match[1]);
+  return streams;
+}
+__name(statementExtractPdfPageStreams,"statementExtractPdfPageStreams");
+
+function statementBuildCombinedPdf(pdfParts){
+  const pageStreams=[];
+  for(const part of pdfParts||[])pageStreams.push(...statementExtractPdfPageStreams(part));
+  if(!pageStreams.length)throw new Error("No generated statement pages were available for the combined PDF.");
+  const objects=[];
+  objects[1]="<< /Type /Catalog /Pages 2 0 R >>";
+  objects[3]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  objects[4]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+  const kids=[];
+  pageStreams.forEach((stream,index)=>{
+    const pageId=5+index*2,contentId=pageId+1;
+    kids.push(`${pageId} 0 R`);
+    objects[pageId]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentId} 0 R >>`;
+    objects[contentId]=`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`;
+  });
+  objects[2]=`<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pageStreams.length} >>`;
+  const objectCount=4+pageStreams.length*2;
+  let pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+  const offsets=[0];
+  for(let i=1;i<=objectCount;i++){
+    offsets[i]=new TextEncoder().encode(pdf).length;
+    pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;
+  }
+  const xrefOffset=new TextEncoder().encode(pdf).length;
+  pdf+=`xref\n0 ${objectCount+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<=objectCount;i++)pdf+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
+  pdf+=`trailer\n<< /Size ${objectCount+1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return new TextEncoder().encode(pdf);
+}
+__name(statementBuildCombinedPdf,"statementBuildCombinedPdf");
+
+const STATEMENT_COMBINED_CUSTOMERS_PER_PART=250;
+
+function statementCombinedFilename(run,partNumber=1,totalParts=1){
+  const id=Math.max(0,Number(run?.id||0));
+  const type=String(run?.run_type||"");
+  const cycle=type.includes("weekly")?"Cycle-B":type.includes("monthly")?"Cycle-A":"Statements";
+  const test=type.startsWith("test_")?"Test-":"";
+  const suffix=Number(totalParts||1)>1?`-Part-${Math.max(1,Number(partNumber||1))}`:"";
+  return `Wooten-Oil-${test}${cycle}-Combined-Run-${id}${suffix}.pdf`;
+}
+__name(statementCombinedFilename,"statementCombinedFilename");
+
+async function appendStatementRunCombinedPdf(env,run,batchObjectKey,partNumber=1,partStartCustomer=1,partEndCustomer=1){
+  if(!env.NOTIFICATION_ATTACHMENTS||!batchObjectKey)return String(run?.combined_working_parts_json||"[]");
+  const runId=Math.max(0,Number(run?.id||0));
+  if(!runId)return "[]";
+  let parts=[];
+  try{parts=JSON.parse(run?.combined_working_parts_json||"[]");}catch{}
+  if(!Array.isArray(parts))parts=[];
+  const number=Math.max(1,Number(partNumber||1));
+  let part=parts.find(item=>Number(item?.part_number)===number);
+  const workingKey=String(part?.key||`statement-runs/${runId}/combined-part-${number}.pdf`);
+  const batchObject=await env.NOTIFICATION_ATTACHMENTS.get(batchObjectKey);
+  if(!batchObject)throw new Error("A statement batch PDF could not be found while building the combined PDF part.");
+  const batchBytes=new Uint8Array(await batchObject.arrayBuffer());
+  let combinedBytes=batchBytes;
+  const existing=await env.NOTIFICATION_ATTACHMENTS.get(workingKey);
+  if(existing){
+    const existingBytes=new Uint8Array(await existing.arrayBuffer());
+    combinedBytes=statementBuildCombinedPdf([existingBytes,batchBytes]);
+  }
+  await env.NOTIFICATION_ATTACHMENTS.put(workingKey,combinedBytes,{httpMetadata:{contentType:"application/pdf",contentDisposition:"inline"},customMetadata:{statement_run_id:String(runId),kind:"combined-working-part",part_number:String(number)}});
+  if(batchObjectKey!==workingKey)await env.NOTIFICATION_ATTACHMENTS.delete(batchObjectKey).catch(()=>{});
+  const updated={part_number:number,key:workingKey,start_customer:Math.max(1,Number(part?.start_customer||partStartCustomer||1)),end_customer:Math.max(Number(part?.end_customer||0),Number(partEndCustomer||partStartCustomer||1))};
+  parts=parts.filter(item=>Number(item?.part_number)!==number);parts.push(updated);parts.sort((a,b)=>Number(a.part_number)-Number(b.part_number));
+  return JSON.stringify(parts);
+}
+__name(appendStatementRunCombinedPdf,"appendStatementRunCombinedPdf");
+
+async function finalizeStatementRunCombinedPdf(env,runId){
+  const id=Math.max(0,Number(runId||0));
+  if(!id)return null;
+  const run=await env.DB.prepare(`SELECT * FROM statement_schedule_runs WHERE id=? LIMIT 1`).bind(id).first();
+  if(!run)return null;
+  let existingParts=[];try{existingParts=JSON.parse(run.combined_pdf_parts_json||"[]");}catch{}
+  if(Array.isArray(existingParts)&&existingParts.length)return run;
+  let workingParts=[];try{workingParts=JSON.parse(run.combined_working_parts_json||"[]");}catch{}
+  if(!Array.isArray(workingParts)||!workingParts.length){
+    // Backward compatibility for Ver138 runs that used one working key.
+    const legacyKey=String(run.combined_working_key||"");
+    if(legacyKey)workingParts=[{part_number:1,key:legacyKey,start_customer:1,end_customer:Number(run.success_count||run.customer_count||1)}];
+  }
+  if(!workingParts.length){
+    const message=Number(run.success_count||0)>0?"Combined PDF could not be created because no generated batch PDF was saved.":"No statements were generated for this run.";
+    await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_pdf_error=? WHERE id=?`).bind(message,id).run();
+    return {...run,combined_pdf_error:message};
+  }
+  const finalParts=[];
+  const totalParts=workingParts.length;
+  for(const item of workingParts.sort((a,b)=>Number(a.part_number)-Number(b.part_number))){
+    const key=String(item.key||"");if(!key)continue;
+    const object=env.NOTIFICATION_ATTACHMENTS?await env.NOTIFICATION_ATTACHMENTS.get(key):null;
+    if(!object)throw new Error(`Combined PDF Part ${item.part_number} is unavailable in statement storage.`);
+    const filename=statementCombinedFilename(run,item.part_number,totalParts);
+    await env.NOTIFICATION_ATTACHMENTS.put(key,await object.arrayBuffer(),{httpMetadata:{contentType:"application/pdf",contentDisposition:`inline; filename="${filename}"`},customMetadata:{statement_run_id:String(id),kind:"combined-final-part",part_number:String(item.part_number),filename}});
+    finalParts.push({part_number:Number(item.part_number),key,filename,start_customer:Number(item.start_customer||1),end_customer:Number(item.end_customer||0)});
+  }
+  if(!finalParts.length)throw new Error("No combined PDF parts could be finalized.");
+  const first=finalParts[0];
+  await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_pdf_key=?,combined_pdf_filename=?,combined_pdf_parts_json=?,combined_pdf_error='' WHERE id=?`).bind(first.key,first.filename,JSON.stringify(finalParts),id).run();
+  const finalized={...run,combined_pdf_key:first.key,combined_pdf_filename:first.filename,combined_pdf_parts_json:JSON.stringify(finalParts),combined_pdf_error:""};
+  if(String(run.combined_group_id||""))await finalizeStatementRunCombinedGroup(env,String(run.combined_group_id)).catch(error=>console.error("Statement Test All combined PDF parts failed",error));
+  return finalized;
+}
+__name(finalizeStatementRunCombinedPdf,"finalizeStatementRunCombinedPdf");
+
+async function finalizeStatementRunCombinedGroup(env,groupId){
+  const group=String(groupId||"").trim();
+  if(!group||!env.NOTIFICATION_ATTACHMENTS)return null;
+  const rows=await env.DB.prepare(`SELECT * FROM statement_schedule_runs WHERE combined_group_id=? ORDER BY id`).bind(group).all();
+  const runs=rows?.results||[];
+  if(!runs.length||runs.some(run=>String(run.status||"")==="running"))return null;
+  const groupParts=[];
+  for(const run of runs){
+    let parts=[];try{parts=JSON.parse(run.combined_pdf_parts_json||"[]");}catch{}
+    if(Number(run.success_count||0)>0&&(!Array.isArray(parts)||!parts.length)){
+      const message="Test All combined PDFs are waiting for every cycle part to finish.";
+      await env.DB.prepare(`UPDATE statement_schedule_runs SET group_combined_pdf_error=? WHERE combined_group_id=?`).bind(message,group).run();
+      return null;
+    }
+    for(const part of (parts||[]))groupParts.push({...part,cycle:String(run.statement_cycle||"")});
+  }
+  if(!groupParts.length){
+    const message="No statements were generated for this Test All job.";
+    await env.DB.prepare(`UPDATE statement_schedule_runs SET group_combined_pdf_error=? WHERE combined_group_id=?`).bind(message,group).run();
+    return null;
+  }
+  const normalized=groupParts.map((part,index)=>({part_number:index+1,key:String(part.key||""),filename:`Wooten-Oil-Test-All-Combined-Part-${index+1}.pdf`,start_customer:Number(part.start_customer||0),end_customer:Number(part.end_customer||0),cycle:part.cycle||""}));
+  const first=normalized[0];
+  await env.DB.prepare(`UPDATE statement_schedule_runs SET group_combined_pdf_key=?,group_combined_pdf_filename=?,group_combined_pdf_parts_json=?,group_combined_pdf_error='' WHERE combined_group_id=?`).bind(first.key,first.filename,JSON.stringify(normalized),group).run();
+  return {group_combined_pdf_key:first.key,group_combined_pdf_filename:first.filename,group_combined_pdf_parts_json:JSON.stringify(normalized)};
+}
+__name(finalizeStatementRunCombinedGroup,"finalizeStatementRunCombinedGroup");
+
 function statementBytesToBase64(bytes){
   let binary="";
   const chunk=0x8000;
@@ -6826,6 +7003,7 @@ async function adminGenerateStatementsPost({request,env}){
     await ensureCustomerPaymentsSchema(env);
 
     const results=[];
+    const generatedPdfParts=[];
 
     for(const account of accounts){
       let objectKey="";
@@ -6874,6 +7052,7 @@ async function adminGenerateStatementsPost({request,env}){
         }
 
         const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments);
+        generatedPdfParts.push(pdfBytes);
         const filename=`Wooten-Oil-Statement-${account}-${statementDate}.pdf`;
         const title=`Statement ${statementPdfDate(statementDate)}`;
 
@@ -7100,6 +7279,16 @@ async function adminGenerateStatementsPost({request,env}){
 
     const succeeded=results.filter(r=>r.success).length;
     const failed=results.length-succeeded;
+    let batchCombinedKey="",batchCombinedError="";
+    if(statementRunId&&generatedPdfParts.length&&env.NOTIFICATION_ATTACHMENTS){
+      try{
+        const batchBytes=statementBuildCombinedPdf(generatedPdfParts);
+        batchCombinedKey=`statement-runs/${statementRunId}/batch-${crypto.randomUUID()}.pdf`;
+        await env.NOTIFICATION_ATTACHMENTS.put(batchCombinedKey,batchBytes,{httpMetadata:{contentType:"application/pdf",contentDisposition:"inline"},customMetadata:{statement_run_id:String(statementRunId),kind:"combined-batch"}});
+      }catch(error){batchCombinedError=String(error?.message||error);console.error("statement batch combined PDF failed",error);}
+    }else if(statementRunId&&generatedPdfParts.length&&!env.NOTIFICATION_ATTACHMENTS){
+      batchCombinedError="Statement storage is not configured for combined PDFs.";
+    }
     return notificationJson({
       success:failed===0,
       processed:results.length,
@@ -7107,6 +7296,8 @@ async function adminGenerateStatementsPost({request,env}){
       failed,
       statement_date:statementDate,
       dry_run:dryRun,
+      batch_combined_key:batchCombinedKey,
+      batch_combined_error:batchCombinedError,
       results
     },failed && !succeeded?500:200);
 
@@ -7174,7 +7365,18 @@ async function ensureStatementSchedulingSchema(env){
   const runAdditions=[
     ["target_json","TEXT NOT NULL DEFAULT '[]'"],
     ["cursor_position","INTEGER NOT NULL DEFAULT 0"],
-    ["processed_count","INTEGER NOT NULL DEFAULT 0"]
+    ["processed_count","INTEGER NOT NULL DEFAULT 0"],
+    ["combined_working_key","TEXT NOT NULL DEFAULT ''"],
+    ["combined_working_parts_json","TEXT NOT NULL DEFAULT '[]'"],
+    ["combined_pdf_key","TEXT NOT NULL DEFAULT ''"],
+    ["combined_pdf_filename","TEXT NOT NULL DEFAULT ''"],
+    ["combined_pdf_error","TEXT NOT NULL DEFAULT ''"],
+    ["combined_pdf_parts_json","TEXT NOT NULL DEFAULT '[]'"],
+    ["combined_group_id","TEXT NOT NULL DEFAULT ''"],
+    ["group_combined_pdf_key","TEXT NOT NULL DEFAULT ''"],
+    ["group_combined_pdf_filename","TEXT NOT NULL DEFAULT ''"],
+    ["group_combined_pdf_error","TEXT NOT NULL DEFAULT ''"],
+    ["group_combined_pdf_parts_json","TEXT NOT NULL DEFAULT '[]'"]
   ];
   for(const [name,definition] of runAdditions){
     if(!runColumns.has(name))await env.DB.prepare(`ALTER TABLE statement_schedule_runs ADD COLUMN ${name} ${definition}`).run();
@@ -7340,11 +7542,18 @@ async function continueStatementSchedule(env,runId,origin){
   const preTestSend=preIsTest&&String(run.run_key||"").startsWith("testsend:");
   const preDryRun=preIsTest&&!preTestSend;
   const cursor=Math.max(0,Number(run.cursor_position||0));
-  const batchSize=preDryRun?20:5;
+  const processedBefore=Math.max(0,Number(run.processed_count||0));
+  if(processedBefore<cursor){
+    return {success:true,run_id:runId,complete:false,status:"running",processed:processedBefore,total:targets.length,succeeded:Number(run.success_count||0),failed:Number(run.failure_count||0),batch_in_progress:true};
+  }
+  const baseBatchSize=preDryRun?20:5;
+  const remainingInCombinedPart=STATEMENT_COMBINED_CUSTOMERS_PER_PART-(cursor%STATEMENT_COMBINED_CUSTOMERS_PER_PART);
+  const batchSize=Math.min(baseBatchSize,remainingInCombinedPart);
   const accounts=targets.slice(cursor,cursor+batchSize);
   if(!accounts.length){
     const failure=results.filter(r=>!r.success).length;
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,processed_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(String(run.run_type||"").startsWith("test_")?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed"),results.length,runId).run();
+    await finalizeStatementRunCombinedPdf(env,runId).catch(async error=>{console.error("Statement combined PDF finalization failed",error);await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_pdf_error=? WHERE id=?`).bind(String(error?.message||error),runId).run().catch(()=>{});});
     return {success:failure===0,run_id:runId,complete:true,processed:results.length,total:targets.length,succeeded:results.length-failure,failed:failure};
   }
 
@@ -7379,13 +7588,22 @@ async function continueStatementSchedule(env,runId,origin){
     method:"POST",headers:{"X-Admin-Key":String(env.ADMIN_IMPORT_KEY||""),"Content-Type":"application/json","Accept":"application/json"},
     body:JSON.stringify({accounts,statement_run_id:runId,statement_date:central.date,payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun})
   });
-  let batch=[];
+  let batch=[];let batchCombinedKey="";let batchCombinedError="";
   try{
     const response=await adminGenerateStatementsPost({request:generateRequest,env});
     const data=await response.json().catch(()=>({}));
     batch=Array.isArray(data.results)?data.results:accounts.map(account=>({account_number:account,success:false,error:data.error||"Statement batch failed."}));
+    batchCombinedKey=String(data.batch_combined_key||"");
+    batchCombinedError=String(data.batch_combined_error||"");
   }catch(error){batch=accounts.map(account=>({account_number:account,success:false,error:String(error?.message||error)}));}
   results.push(...batch);
+  let combinedWorkingPartsJson=String(run.combined_working_parts_json||"[]");
+  if(batchCombinedKey){
+    try{
+      const partNumber=Math.floor(cursor/STATEMENT_COMBINED_CUSTOMERS_PER_PART)+1;
+      combinedWorkingPartsJson=await appendStatementRunCombinedPdf(env,{...run,combined_working_parts_json:combinedWorkingPartsJson},batchCombinedKey,partNumber,cursor+1,claimedThrough);
+    }catch(error){batchCombinedError=String(error?.message||error);console.error("Statement combined PDF part append failed",error);}
+  }
   const processed=claimedThrough;
   const success=results.filter(r=>r.success).length;
   const failure=results.length-success;
@@ -7395,7 +7613,8 @@ async function continueStatementSchedule(env,runId,origin){
   const enabledPortal=!dryRun&&Number(config.portal_enabled)!==0,enabledEmail=!dryRun&&Number(config.email_enabled)!==0,enabledSms=!dryRun&&Number(config.sms_enabled)!==0;
   const complete=processed>=targets.length;
   const finalStatus=complete?(isTest?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed")):"running";
-  await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,cursor_position=?,processed_count=?,success_count=?,failure_count=?,portal_success=?,portal_failure=?,email_success=?,email_failure=?,sms_success=?,sms_failure=?,detail_json=?,completed_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=?`).bind(finalStatus,processed,processed,success,failure,portalSuccess,enabledPortal?processed-portalSuccess:0,emailSuccess,enabledEmail?processed-emailSuccess:0,smsSuccess,enabledSms?processed-smsSuccess:0,JSON.stringify(results),complete?1:0,runId).run();
+  await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,cursor_position=?,processed_count=?,success_count=?,failure_count=?,portal_success=?,portal_failure=?,email_success=?,email_failure=?,sms_success=?,sms_failure=?,detail_json=?,combined_working_parts_json=?,combined_pdf_error=CASE WHEN ?<>'' THEN ? ELSE combined_pdf_error END,completed_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=?`).bind(finalStatus,processed,processed,success,failure,portalSuccess,enabledPortal?processed-portalSuccess:0,emailSuccess,enabledEmail?processed-emailSuccess:0,smsSuccess,enabledSms?processed-smsSuccess:0,JSON.stringify(results),combinedWorkingPartsJson,batchCombinedError,batchCombinedError,complete?1:0,runId).run();
+  if(complete)await finalizeStatementRunCombinedPdf(env,runId).catch(async error=>{console.error("Statement combined PDF finalization failed",error);await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_pdf_error=? WHERE id=?`).bind(String(error?.message||error),runId).run().catch(()=>{});});
   return {success:failure===0,run_id:runId,complete,processed,total:targets.length,succeeded:success,failed:failure};
 }
 __name(continueStatementSchedule,"continueStatementSchedule");
@@ -7499,8 +7718,8 @@ async function adminStatementScheduling({request,env}){
     const config=await statementScheduleConfig(env);
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
-    const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_dry_test_v1:true}});
+    const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})(),combined_pdf_parts:(()=>{try{return JSON.parse(row.combined_pdf_parts_json||"[]");}catch{return [];}})(),group_combined_pdf_parts:(()=>{try{return JSON.parse(row.group_combined_pdf_parts_json||"[]");}catch{return [];}})()}));
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
@@ -7519,6 +7738,39 @@ async function adminStatementSchedulingPreview({request,env}){
   }catch(error){return notificationJson({success:false,error:"Scheduled customers could not be previewed. "+String(error?.message||error)},500);}
 }
 __name(adminStatementSchedulingPreview,"adminStatementSchedulingPreview");
+
+async function adminStatementSchedulingCombinedPdf({request,env}){
+  if(!statementScheduleAuthorized(request,env))return new Response("Unauthorized.",{status:401});
+  if(!env.NOTIFICATION_ATTACHMENTS)return new Response("Statement storage is not configured.",{status:503});
+  await ensureStatementSchedulingSchema(env);
+  const url=new URL(request.url);
+  const groupId=String(url.searchParams.get("group_id")||"").trim();
+  const runId=Math.max(0,Number(url.searchParams.get("run_id")||0));
+  const requestedPart=Math.max(1,Number(url.searchParams.get("part")||1));
+  let row=null,parts=[];
+  if(groupId){
+    row=await env.DB.prepare(`SELECT * FROM statement_schedule_runs WHERE combined_group_id=? ORDER BY id LIMIT 1`).bind(groupId).first();
+    if(row&&!String(row.group_combined_pdf_parts_json||"").includes('"key"'))await finalizeStatementRunCombinedGroup(env,groupId).catch(()=>{});
+    row=await env.DB.prepare(`SELECT * FROM statement_schedule_runs WHERE combined_group_id=? ORDER BY id LIMIT 1`).bind(groupId).first();
+    try{parts=JSON.parse(row?.group_combined_pdf_parts_json||"[]");}catch{}
+    if((!Array.isArray(parts)||!parts.length)&&row?.group_combined_pdf_key)parts=[{part_number:1,key:row.group_combined_pdf_key,filename:row.group_combined_pdf_filename||"Wooten-Oil-Test-All-Combined.pdf"}];
+  }else if(runId){
+    row=await env.DB.prepare(`SELECT * FROM statement_schedule_runs WHERE id=? LIMIT 1`).bind(runId).first();
+    if(row&&String(row.status||"")!=="running"&&!String(row.combined_pdf_parts_json||"").includes('"key"'))await finalizeStatementRunCombinedPdf(env,runId).catch(()=>{});
+    row=await env.DB.prepare(`SELECT * FROM statement_schedule_runs WHERE id=? LIMIT 1`).bind(runId).first();
+    try{parts=JSON.parse(row?.combined_pdf_parts_json||"[]");}catch{}
+    if((!Array.isArray(parts)||!parts.length)&&row?.combined_pdf_key)parts=[{part_number:1,key:row.combined_pdf_key,filename:row.combined_pdf_filename||statementCombinedFilename(row||{id:runId})}];
+  }
+  if(!row)return new Response("Statement run was not found.",{status:404});
+  const part=(Array.isArray(parts)?parts:[]).find(item=>Number(item?.part_number)===requestedPart);
+  if(!part||!part.key)return new Response(String(groupId?row.group_combined_pdf_error:row.combined_pdf_error)||`Combined PDF Part ${requestedPart} is not available for this run.`,{status:404});
+  const object=await env.NOTIFICATION_ATTACHMENTS.get(String(part.key));
+  if(!object)return new Response("Combined PDF file is unavailable.",{status:404});
+  const filename=String(part.filename||`Wooten-Oil-Combined-Part-${requestedPart}.pdf`);
+  const headers=new Headers();object.writeHttpMetadata(headers);headers.set("Content-Type","application/pdf");headers.set("Content-Disposition",`inline; filename="${filename.replace(/"/g,"")}"; filename*=UTF-8''${encodeURIComponent(filename)}`);headers.set("Cache-Control","private, no-store");headers.set("X-Content-Type-Options","nosniff");
+  return new Response(object.body,{status:200,headers});
+}
+__name(adminStatementSchedulingCombinedPdf,"adminStatementSchedulingCombinedPdf");
 
 async function adminStatementSchedulingRun({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
@@ -7586,6 +7838,7 @@ async function adminStatementSchedulingTestAll({request,env}){
 
     const origin=new URL(request.url).origin;
     const created=[];
+    const combinedGroupId=`testall:${crypto.randomUUID()}`;
     try{
       for(const type of types){
         const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:true,testSend:false,accountNumbers:validated[type]});
@@ -7593,7 +7846,8 @@ async function adminStatementSchedulingTestAll({request,env}){
         const requested=validated[type];
         const exact=started?.selection_enforced===true&&Number(started?.total)===requested.length&&returned.length===requested.length&&requested.every(account=>returned.includes(account))&&started?.resumed!==true;
         if(!exact)throw new Error(`Selected-customer target confirmation failed for ${type==="weekly"?"Cycle B":"Cycle A"}.`);
-        created.push({...started,type});
+        if(started?.run_id)await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_group_id=? WHERE id=?`).bind(combinedGroupId,started.run_id).run();
+        created.push({...started,type,combined_group_id:combinedGroupId});
       }
     }catch(error){
       for(const run of created){
@@ -7602,7 +7856,7 @@ async function adminStatementSchedulingTestAll({request,env}){
       throw error;
     }
 
-    return notificationJson({success:true,selected_only:true,test_send:false,dry_run:true,total_selected:types.reduce((sum,type)=>sum+validated[type].length,0),cycles:types,runs:created});
+    return notificationJson({success:true,selected_only:true,test_send:false,dry_run:true,total_selected:types.reduce((sum,type)=>sum+validated[type].length,0),cycles:types,combined_group_id:combinedGroupId,runs:created});
   }catch(error){
     console.error("Selected Test All Cycles failed",error);
     return notificationJson({success:false,error:"Selected-customer Test All Cycles failed. "+String(error?.message||error)},500);
@@ -8238,6 +8492,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-scheduling/test-all") {
       if (request.method === "POST") return adminStatementSchedulingTestAll({ request, env, ctx });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling/combined-pdf") {
+      if (request.method === "GET") return adminStatementSchedulingCombinedPdf({ request, env, ctx });
       return methodNotAllowed();
     }
 
