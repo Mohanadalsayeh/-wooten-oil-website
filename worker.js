@@ -6953,6 +6953,8 @@ async function adminGenerateStatementsPost({request,env}){
           }
         }
 
+        const portalWarning=notificationId?"":(!portalNotification?"Portal delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_portal_enabled)===0?"Portal delivery is disabled for this customer.":portalDuplicatePrevented?"Duplicate portal delivery was prevented for safety.":"The portal notification could not be created.");
+
         let emailResult={sent:false,reason:emailPdf?"email_not_selected":"email_disabled"};
         let emailDuplicatePrevented=false;
         if(customerEmailPdf){
@@ -6966,6 +6968,8 @@ async function adminGenerateStatementsPost({request,env}){
             await finishStatementRunDelivery(env,statementRunId,account,"email",{status:emailResult.sent?"sent":"failed",deliveryId:emailResult.id||"",errorText:emailResult.sent?"":(emailResult.reason||"")}).catch(()=>{});
           }
         }
+
+        const emailWarning=emailResult.sent?"":(!emailPdf?"Email delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_email_enabled)===0?"Email delivery is disabled for this customer.":emailDuplicatePrevented?"Duplicate email delivery was prevented for safety.":emailResult.reason==="no_email"?"No email address is on file for this customer.":emailResult.reason==="email_not_configured"?"Email delivery service is not configured.":String(emailResult.reason||"Email delivery failed."));
 
         if(notificationId && emailResult.sent){
           try{
@@ -7019,6 +7023,8 @@ async function adminGenerateStatementsPost({request,env}){
           }
         }
 
+        const smsWarning=smsResult.sent?"":(!smsLink?"SMS delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_sms_enabled)===0?"SMS delivery is disabled for this customer.":!customer.phone?"No phone number is on file for this customer.":smsDuplicatePrevented?"Duplicate SMS delivery was prevented for safety.":String(smsResult.code||"")==="21610"?"Customer has opted out of SMS messages (Twilio 21610).":String(smsResult.reason||"SMS delivery failed."));
+
         try{
           if(notificationId){
             await env.DB.prepare(`
@@ -7048,7 +7054,7 @@ async function adminGenerateStatementsPost({request,env}){
           `).bind(
             account,"statement",title,notificationMessage,logSourceType,logSourceId,
             notificationId?1:0,emailResult.sent?1:0,smsResult.sent?1:0,emailResult.id||"",smsResult.sid||"",
-            [emailResult.sent?"":(emailResult.reason||""),smsResult.sent?"":(smsResult.reason||"")].filter(Boolean).join(" | "),
+            [portalWarning,emailWarning,smsWarning].filter(Boolean).join(" | "),
             smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":(customerSmsLink&&customer.phone)?"failed":""),smsResult.code||"",smsResult.sent?"":(smsResult.reason||""),
             smsResult.to||"",smsResult.body||"",
             smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":"failed"),smsResult.sent?"pending":(smsResult.code==="21610"?"opted_out":"failed")
@@ -7070,13 +7076,14 @@ async function adminGenerateStatementsPost({request,env}){
           total_balance:total,
           portal_notified:!!notificationId,
           portal_duplicate_prevented:portalDuplicatePrevented,
+          portal_warning:portalWarning,
           email_sent:!!emailResult.sent,
           email_duplicate_prevented:emailDuplicatePrevented,
-          email_warning:emailResult.sent?"":(emailResult.reason||""),
+          email_warning:emailWarning,
           sms_sent:!!smsResult.sent,
           sms_duplicate_prevented:smsDuplicatePrevented,
           sms_sid:smsResult.sid||"",
-          sms_warning:smsResult.sent?"":(smsResult.reason||"")
+          sms_warning:smsWarning
         });
       }catch(error){
         if(objectKey){
@@ -7493,7 +7500,7 @@ async function adminStatementScheduling({request,env}){
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_dry_test_v1:true}});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_dry_test_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
