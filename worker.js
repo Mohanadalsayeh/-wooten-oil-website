@@ -794,9 +794,9 @@ async function onRequestPost3({ request, env }) {
       try{
         const data=await twilioLookupPhone(env,normalized);
         valid=data?.valid?1:0;
-        lineType=String(data?.line_type_intelligence?.type||"");
-        carrier=String(data?.line_type_intelligence?.carrier_name||"");
-        errorCode=String(data?.line_type_intelligence?.error_code||"");
+        lineType="";
+        carrier="";
+        errorCode="";
         national=String(data?.national_format||twilioFormatUsNational(normalized));
         countryCode=String(data?.country_code||"").toUpperCase();
         if(valid!==1||countryCode!=="US"){
@@ -809,7 +809,7 @@ async function onRequestPost3({ request, env }) {
         phoneLookupErrors++;
       }
       try{
-        await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=excluded.line_type,carrier_name=excluded.carrier_name,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(row.acct,raw,normalized||"",national,valid,lineType,carrier,errorCode).run();
+        await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=CASE WHEN twilio_phone_lookup_cache.raw_phone=excluded.raw_phone THEN twilio_phone_lookup_cache.line_type ELSE '' END,carrier_name=CASE WHEN twilio_phone_lookup_cache.raw_phone=excluded.raw_phone THEN twilio_phone_lookup_cache.carrier_name ELSE '' END,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(row.acct,raw,normalized||"",national,valid,lineType,carrier,errorCode).run();
       }catch(cacheError){console.error("Customer import phone lookup cache failed",row.acct,cacheError);}
     }));
   }
@@ -4011,6 +4011,77 @@ async function createPortalStatementLink({request,env,documentId,accountNumber})
 }
 __name(createPortalStatementLink,"createPortalStatementLink");
 
+async function ensurePortalShortStatementLinksTable(env){
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS portal_short_statement_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code_hash TEXT NOT NULL UNIQUE,
+      document_id INTEGER NOT NULL,
+      account_number TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_portal_short_statement_links_account
+    ON portal_short_statement_links(account_number, document_id)
+  `).run();
+}
+__name(ensurePortalShortStatementLinksTable,"ensurePortalShortStatementLinksTable");
+
+function portalShortCode(){
+  const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes=new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let code="";
+  for(const value of bytes) code+=alphabet[value%alphabet.length];
+  return code;
+}
+__name(portalShortCode,"portalShortCode");
+
+async function createPortalShortStatementLink({request,env,documentId,accountNumber}){
+  await ensurePortalShortStatementLinksTable(env);
+  for(let attempt=0;attempt<6;attempt++){
+    const code=portalShortCode();
+    const result=await env.DB.prepare(`
+      INSERT OR IGNORE INTO portal_short_statement_links
+        (code_hash, document_id, account_number, created_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(await sha256(code),documentId,accountNumber).run();
+    if(Number(result?.meta?.changes||0)>0){
+      return `${new URL(request.url).origin}/s/${code}`;
+    }
+  }
+  throw new Error("A short statement link could not be created.");
+}
+__name(createPortalShortStatementLink,"createPortalShortStatementLink");
+
+async function portalShortStatementLinkGet({request,env}){
+  try{
+    if(!env.DB) return new Response("Document storage is not configured.",{status:503});
+    const url=new URL(request.url);
+    const code=decodeURIComponent(url.pathname.split("/").filter(Boolean).pop()||"");
+    if(!/^[A-Za-z0-9]{6,16}$/.test(code)) return new Response("Document link is invalid.",{status:404});
+    await ensureCustomerDocumentsTable(env);
+    await ensurePortalShortStatementLinksTable(env);
+    const row=await env.DB.prepare(`
+      SELECT l.document_id,l.account_number
+      FROM portal_short_statement_links l
+      INNER JOIN portal_customer_documents d ON d.id=l.document_id
+      WHERE l.code_hash=? AND d.account_number=l.account_number
+      LIMIT 1
+    `).bind(await sha256(code)).first();
+    if(!row) return new Response("Document link was not found.",{status:404});
+    const longLink=await createPortalStatementLink({
+      request,env,documentId:Number(row.document_id),accountNumber:row.account_number
+    });
+    return Response.redirect(longLink,302);
+  }catch(error){
+    console.error("portalShortStatementLinkGet failed",error);
+    return new Response("Document could not be opened.",{status:500});
+  }
+}
+__name(portalShortStatementLinkGet,"portalShortStatementLinkGet");
+
 async function portalDocumentLinkGet({request,env}){
   try{
     if(!env.DB||!env.NOTIFICATION_ATTACHMENTS){
@@ -4119,7 +4190,6 @@ async function adminTwilioStatusGet({request,env}){
     tests.push({key:"authentication",label:"Account authentication",ok:false,skipped:true,detail:"Skipped until Account SID and Auth Token are configured."});
     tests.push({key:"sender",label:"Messaging Service / Sender",ok:false,skipped:true,detail:"Skipped until Twilio authentication is available."});
     tests.push({key:"lookup",label:"Twilio Lookup",ok:false,skipped:true,detail:"Skipped until Twilio authentication is available."});
-    tests.push({key:"line_type",label:"Line Type Intelligence",ok:false,skipped:true,detail:"Skipped until Twilio authentication is available."});
     return notificationJson({success:true,configured:false,missing:config.missing,tests,account_sid_masked:config.accountSid?`${config.accountSid.slice(0,4)}…${config.accountSid.slice(-4)}`:"",sender_label:config.messagingServiceSid?`Messaging Service ${config.messagingServiceSid.slice(0,6)}…`:(config.phoneNumber||"")});
   }
 
@@ -4157,17 +4227,7 @@ async function adminTwilioStatusGet({request,env}){
     tests.push({key:"lookup",label:"Twilio Lookup",ok:false,skipped:true,detail:"Skipped because account authentication failed."});
   }
 
-  if(accountTest.ok&&lookupOk){
-    const lineTypeTest=await twilioStatusRequest(`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(testPhone)}?Fields=line_type_intelligence`,config);
-    const intelligence=lineTypeTest.data?.line_type_intelligence||{};
-    const intelligenceError=String(intelligence?.error_code||"");
-    const lineTypeOk=lineTypeTest.ok&&!intelligenceError;
-    tests.push({key:"line_type",label:"Line Type Intelligence",ok:lineTypeOk,code:lineTypeOk?"":(intelligenceError||lineTypeTest.code),detail:lineTypeOk?`Available${intelligence?.type?` • ${intelligence.type}`:""}.`:(lineTypeTest.ok?`Twilio returned Line Type Intelligence error ${intelligenceError||"unknown"}.`:`${lineTypeTest.message}${lineTypeTest.code?` — ${lineTypeTest.code}`:""}`)});
-  }else{
-    tests.push({key:"line_type",label:"Line Type Intelligence",ok:false,skipped:true,detail:"Skipped until Twilio Lookup authentication succeeds."});
-  }
-
-  const requiredTests=tests.filter(test=>["configuration","authentication","sender","lookup","line_type"].includes(test.key));
+  const requiredTests=tests.filter(test=>["configuration","authentication","sender","lookup"].includes(test.key));
   const connected=requiredTests.every(test=>test.ok);
   return notificationJson({
     success:true,
@@ -4246,7 +4306,7 @@ async function twilioLookupPhone(env,phone){
   const config=twilioConfig(env);
   if(!config.accountSid||!config.authToken)throw new Error("Twilio account SID and auth token are required for Lookup.");
   const auth=btoa(`${config.accountSid}:${config.authToken}`);
-  const endpoint=`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(phone)}?Fields=line_type_intelligence`;
+  const endpoint=`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(phone)}`;
   const response=await fetch(endpoint,{headers:{Authorization:`Basic ${auth}`,Accept:"application/json"}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(String(data?.message||data?.detail||`Twilio Lookup failed (${response.status}).`));error.twilioCode=String(data?.code||response.status||"");throw error;}
@@ -4259,9 +4319,9 @@ async function adminTwilioPhoneToolsGet({request,env}){
     await ensureTwilioPhoneToolsSchema(env);
     const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
     const phoneStats=await env.DB.prepare(`SELECT COUNT(*) AS customer_phone_count,SUM(CASE WHEN length(replace(replace(replace(replace(replace(replace(trim(phone),'(',''),')',''),'-',''),' ',''),'.',''),'+',''))=7 THEN 1 ELSE 0 END) AS seven_digit_count FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();
-    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.account_number IS NULL THEN 1 ELSE 0 END) AS not_checked_count,SUM(CASE WHEN l.valid=1 AND l.line_type='mobile' THEN 1 ELSE 0 END) AS mobile_count,SUM(CASE WHEN l.valid=1 AND l.line_type='landline' THEN 1 ELSE 0 END) AS landline_count,SUM(CASE WHEN l.valid=1 AND l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>'' THEN 1 ELSE 0 END) AS other_count FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE trim(COALESCE(c.phone,''))<>''`).first();
+    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.account_number IS NULL THEN 1 ELSE 0 END) AS not_checked_count FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE trim(COALESCE(c.phone,''))<>''`).first();
     const rows=await env.DB.prepare(`SELECT l.account_number,c.account_name,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at FROM twilio_phone_lookup_cache l LEFT JOIN customers c ON c.account_number=l.account_number ORDER BY datetime(l.checked_at) DESC,l.account_number LIMIT 100`).all();
-    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),not_checked_count:Number(lookupStats?.not_checked_count||0),mobile_count:Number(lookupStats?.mobile_count||0),landline_count:Number(lookupStats?.landline_count||0),other_count:Number(lookupStats?.other_count||0)},results:rows?.results||[]});
+    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),not_checked_count:Number(lookupStats?.not_checked_count||0)},results:rows?.results||[]});
   }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioPhoneToolsGet,"adminTwilioPhoneToolsGet");
@@ -4270,7 +4330,7 @@ async function adminTwilioPhoneResultsGet({request,env}){
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureTwilioPhoneToolsSchema(env);
     const url=new URL(request.url);
-    const allowed=new Set(["all","valid","invalid","error","unchecked","mobile","landline","other"]);
+    const allowed=new Set(["all","valid","invalid","error","unchecked"]);
     const group=allowed.has(String(url.searchParams.get("group")||""))?String(url.searchParams.get("group")):"all";
     const page=Math.max(1,Math.floor(Number(url.searchParams.get("page"))||1));
     const pageSize=50;
@@ -4281,13 +4341,10 @@ async function adminTwilioPhoneResultsGet({request,env}){
     else if(group==="invalid")where.push(`l.valid=0`);
     else if(group==="error")where.push(`l.valid=-1`);
     else if(group==="unchecked")where.push(`l.account_number IS NULL`);
-    else if(group==="mobile")where.push(`l.valid=1 AND l.line_type='mobile'`);
-    else if(group==="landline")where.push(`l.valid=1 AND l.line_type='landline'`);
-    else if(group==="other")where.push(`l.valid=1 AND l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>''`);
     if(q){
       const like=`%${q}%`;
-      where.push(`(lower(COALESCE(c.account_number,'')) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ? OR lower(COALESCE(c.phone,'')) LIKE ? OR lower(COALESCE(l.national_format,'')) LIKE ? OR lower(COALESCE(l.normalized_phone,'')) LIKE ? OR lower(COALESCE(l.line_type,'')) LIKE ? OR lower(COALESCE(l.carrier_name,'')) LIKE ? OR lower(COALESCE(l.error_code,'')) LIKE ?)`);
-      params.push(like,like,like,like,like,like,like,like);
+      where.push(`(lower(COALESCE(c.account_number,'')) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ? OR lower(COALESCE(c.phone,'')) LIKE ? OR lower(COALESCE(l.national_format,'')) LIKE ? OR lower(COALESCE(l.normalized_phone,'')) LIKE ? OR lower(COALESCE(l.error_code,'')) LIKE ?)`);
+      params.push(like,like,like,like,like,like);
     }
     const fromSql=` FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE ${where.join(" AND ")}`;
     const countStmt=env.DB.prepare(`SELECT COUNT(*) AS n${fromSql}`);
@@ -4343,7 +4400,6 @@ async function adminTwilioLookupBatchPost({request,env}){
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureTwilioPhoneToolsSchema(env);
     const body=await request.json().catch(()=>({}));const cursor=Math.max(0,Number(body?.cursor)||0);const limit=Math.min(25,Math.max(1,Number(body?.limit)||20));
-    if(cursor===0)await env.DB.prepare(`DELETE FROM twilio_phone_lookup_cache`).run();
     const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();const area=String(setting?.default_area_code||"");
     const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();const total=Number(totalRow?.n||0);
     const rows=await env.DB.prepare(`SELECT account_number,phone FROM customers WHERE trim(COALESCE(phone,''))<>'' ORDER BY id LIMIT ? OFFSET ?`).bind(limit,cursor).all();
@@ -4352,10 +4408,10 @@ async function adminTwilioLookupBatchPost({request,env}){
       const raw=String(row.phone||"");const normalized=twilioUsPhoneWithArea(raw,area);let valid=0,lineType="",carrier="",errorCode="",national="";
       if(!normalized){errorCode="INVALID_FORMAT";}
       else{
-        try{const data=await twilioLookupPhone(env,normalized);valid=data?.valid?1:0;lineType=String(data?.line_type_intelligence?.type||"");carrier=String(data?.line_type_intelligence?.carrier_name||"");errorCode=String(data?.line_type_intelligence?.error_code||"");national=String(data?.national_format||twilioFormatUsNational(normalized));}
+        try{const data=await twilioLookupPhone(env,normalized);valid=data?.valid?1:0;lineType="";carrier="";errorCode="";national=String(data?.national_format||twilioFormatUsNational(normalized));}
         catch(error){valid=-1;errorCode=String(error?.twilioCode||"LOOKUP_ERROR");}
       }
-      await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=excluded.line_type,carrier_name=excluded.carrier_name,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(String(row.account_number||""),raw,normalized,national,valid,lineType,carrier,errorCode).run();processed++;
+      await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=CASE WHEN twilio_phone_lookup_cache.raw_phone=excluded.raw_phone THEN twilio_phone_lookup_cache.line_type ELSE '' END,carrier_name=CASE WHEN twilio_phone_lookup_cache.raw_phone=excluded.raw_phone THEN twilio_phone_lookup_cache.carrier_name ELSE '' END,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(String(row.account_number||""),raw,normalized,national,valid,lineType,carrier,errorCode).run();processed++;
     }
     const next=cursor+list.length;return notificationJson({success:true,total,processed_batch:processed,processed_total:Math.min(next,total),next_cursor:next,done:next>=total||list.length===0});
   }catch(error){console.error("adminTwilioLookupBatchPost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
@@ -4368,7 +4424,7 @@ async function adminTwilioVerifySmsPost({request,env}){
     const body=await request.json().catch(()=>({}));
     const account=normalizeNotificationAccount(body?.account_number||body?.accountNumber);
     if(!account)return notificationJson({success:false,error:"Customer account number is required."},400);
-    const row=await env.DB.prepare(`SELECT c.account_number,c.account_name,c.phone,l.normalized_phone,l.valid,l.line_type FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number WHERE c.account_number=? LIMIT 1`).bind(account).first();
+    const row=await env.DB.prepare(`SELECT c.account_number,c.account_name,c.phone,l.normalized_phone,l.valid FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number WHERE c.account_number=? LIMIT 1`).bind(account).first();
     if(!row)return notificationJson({success:false,error:"Customer was not found."},404);
     const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
     const currentPhone=twilioUsPhoneWithArea(row.phone,String(setting?.default_area_code||""));
@@ -4376,8 +4432,6 @@ async function adminTwilioVerifySmsPost({request,env}){
     if(!currentPhone)return notificationJson({success:false,error:"Customer phone number is not a valid U.S. number."},400);
     if(!lookupPhone||currentPhone!==lookupPhone)return notificationJson({success:false,error:"Run Twilio Phone Validation again before verifying SMS capability for this phone number."},409);
     if(Number(row.valid)!==1)return notificationJson({success:false,error:"Twilio Lookup does not identify this phone number as valid."},400);
-    const lineType=String(row.line_type||"");
-    if(!["fixedVoip","nonFixedVoip"].includes(lineType))return notificationJson({success:false,error:"SMS verification is available here only for VoIP phone numbers."},400);
     const message="Wooten Oil SMS verification test. No action is required.";
     let sent;
     try{
@@ -6643,9 +6697,16 @@ async function adminCustomerDocumentUpload({request,env}){
       if(smsEnabled&&customer.phone){
         let smsBody="";
         try{
-          const secureLink=await createPortalStatementLink({request,env,documentId,accountNumber:account});
+          const secureLink=await createPortalShortStatementLink({request,env,documentId,accountNumber:account});
+          const smsLink=secureLink.replace(/^https?:\/\//i,"");
           const typeLabel=type==="invoice"?"Invoice":"Statement";
-          smsBody=`WOOTEN OIL CO INC\n\n${title}\n\nCustomer #: ${account}\nCustomer: ${String(customer.account_name||"Customer Account").trim()}\n\nYour new ${typeLabel.toLowerCase()} is ready. View or download it here:\n\n${secureLink}\n\nPlease do not reply to this message.`;
+          const effectiveDate=documentDate||new Date().toISOString().slice(0,10);
+          const dateText=statementSmsDate(effectiveDate);
+          if(type==="statement"){
+            smsBody=`WOOTEN OIL CO INC\nCustomer #${account}\n${statementSmsMonth(effectiveDate)} Statement\nStatement Date: ${dateText}\nView PDF: ${smsLink}\nPlease do not reply.`;
+          }else{
+            smsBody=`WOOTEN OIL CO INC\nCustomer #${account}\n${typeLabel}\nDate: ${dateText}\nView PDF: ${smsLink}\nPlease do not reply.`;
+          }
           const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
           smsResult={sent:true,reason:"",sid:sent.sid||"",status:"pending",code:"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone)};
         }catch(error){
@@ -6890,6 +6951,21 @@ function statementPdfShortDate(value){
   return `${y}-${m}-${day}`;
 }
 __name(statementPdfShortDate,"statementPdfShortDate");
+
+function statementSmsDate(value){
+  const iso=statementPdfShortDate(value);
+  const parts=iso.split("-");
+  return parts.length===3?`${parts[1]}/${parts[2]}/${parts[0]}`:iso;
+}
+__name(statementSmsDate,"statementSmsDate");
+
+function statementSmsMonth(value){
+  const raw=String(value||"").trim();
+  const iso=/^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:statementPdfShortDate(raw);
+  const d=new Date(`${iso}T12:00:00Z`);
+  return Number.isNaN(d.getTime())?"Statement":d.toLocaleDateString("en-US",{month:"long",timeZone:"UTC"});
+}
+__name(statementSmsMonth,"statementSmsMonth");
 
 function statementCustomerAddress(customer){
   const street=[customer?.address1,customer?.address2,customer?.address3]
@@ -7605,23 +7681,21 @@ async function adminGenerateStatementsPost({request,env}){
           }else{
           let smsBody="";
           try{
-            const secureLink=await createPortalStatementLink({
+            const secureLink=await createPortalShortStatementLink({
               request,
               env,
               documentId,
               accountNumber:account
             });
-            const statementMonth=new Date(`${statementDate}T12:00:00Z`).toLocaleDateString(
-              "en-US",{month:"long",timeZone:"UTC"}
-            );
+            const smsLink=secureLink.replace(/^https?:\/\//i,"");
+            const statementMonth=statementSmsMonth(statementDate);
             smsBody=
-              `WOOTEN OIL CO INC\n\n`+
-              `${statementMonth} Statement\n\n`+
-              `Customer #: ${account}\n`+
-              `Customer: ${String(customer.account_name||"Customer Account").trim()}\n\n`+
-              `Your new statement is ready. View or download it here:\n\n`+
-              `${secureLink}\n\n`+
-              `Please do not reply to this message.`;
+              `WOOTEN OIL CO INC\n`+
+              `Customer #${account}\n`+
+              `${statementMonth} Statement\n`+
+              `Statement Date: ${statementSmsDate(statementDate)}\n`+
+              `View PDF: ${smsLink}\n`+
+              `Please do not reply.`;
             const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
             smsResult={sent:true,sid:sent.sid||"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone),code:""};
             await finishStatementRunDelivery(env,statementRunId,account,"sms",{status:"sent",deliveryId:smsResult.sid||""}).catch(()=>{});
@@ -9082,6 +9156,11 @@ var worker_default = {
 
     if (/^\/api\/customer\/documents\/\d+\/file$/.test(url.pathname)) {
       if (request.method === "GET") return customerDocumentFileGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname.startsWith("/s/")) {
+      if (request.method === "GET") return portalShortStatementLinkGet({ request, env });
       return methodNotAllowed();
     }
 

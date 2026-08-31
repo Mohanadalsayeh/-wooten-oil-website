@@ -4469,7 +4469,7 @@ body.statement-processing-active{overflow:hidden!important}
     </nav>
     <div class="admin-page-label">Communications Settings</div>
     <h2>Twilio SMS Configuration</h2>
-    <p>Run a real Twilio connection test for account authentication, Messaging Service, Lookup, and Line Type Intelligence. The Line Type test may perform one paid Lookup request.</p>
+    <p>Run a real Twilio connection test for account authentication, Messaging Service, and basic phone-number Lookup. No paid Line Type Intelligence request is performed.</p>
     <div class="twilio-status-card">
       <div>
         <div class="twilio-status-title">Twilio SMS</div>
@@ -4501,15 +4501,15 @@ body.statement-processing-active{overflow:hidden!important}
       </section>
 
       <section class="twilio-tool-card">
-        <h3>Twilio Phone Validation &amp; Line Type</h3>
-        <p>Check customer phone numbers with Twilio Lookup to validate the number and identify its line type and carrier.</p>
+        <h3>Twilio Phone Validation</h3>
+        <p>Check customer phone numbers with Twilio basic Lookup to validate the number. This check does not request paid Line Type Intelligence.</p>
         <div class="twilio-tool-actions">
           <button class="secondary" id="twilioLookupCustomers" type="button">Check Customer Phone Numbers</button>
           <button class="secondary" id="twilioRefreshLookupResults" type="button">Refresh Results</button>
         </div>
-        <div class="twilio-tool-note warn">Line Type Intelligence is a paid Twilio Lookup feature. The scan starts only when you click the button and confirm.</div>
+        <div class="twilio-tool-note">Basic Twilio Lookup is used for phone validation. Paid Line Type Intelligence is disabled.</div>
         <div class="twilio-fax-note">Fax note: Twilio does not provide fax as a reliable separate line type. Fax numbers may appear as landline or unknown and should be manually verified.</div>
-        <div class="twilio-tool-note">VoIP SMS: Fixed and non-fixed VoIP numbers stay unverified until a test SMS receives a Twilio <b>delivered</b> status. Use <b>Verify SMS</b> in the results table.</div>
+        <div class="twilio-tool-note">SMS capability: a valid number stays unverified for SMS until a test SMS receives a Twilio <b>delivered</b> status, unless a previous saved mobile classification already exists.</div>
         <div class="twilio-phone-progress" id="twilioLookupProgress" hidden>
           <div class="twilio-phone-progress-track"><div class="twilio-phone-progress-bar" id="twilioLookupProgressBar"></div></div>
           <div class="twilio-phone-progress-text" id="twilioLookupProgressText">Preparing…</div>
@@ -6632,7 +6632,7 @@ const twilioResultsState={group:"",page:1,pageSize:50,total:0,pages:1,search:"",
 function twilioEsc(value){return String(value==null?"":value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));}
 function twilioAdminHeaders(json=false){const key=document.getElementById("adminKey").value.trim();const headers={"X-Admin-Key":key,"Accept":"application/json"};if(json)headers["Content-Type"]="application/json";return headers;}
 function twilioTypeLabel(value){const key=String(value||"");return ({mobile:"Mobile",landline:"Landline",fixedVoip:"Fixed VoIP",nonFixedVoip:"Non-fixed VoIP",tollFree:"Toll-free",personal:"Personal",premium:"Premium",sharedCost:"Shared cost",uan:"Universal access",voicemail:"Voicemail",pager:"Pager",unknown:"Unknown"})[key]||key||"Unknown";}
-function twilioGroupLabel(value){return ({all:"All phones",valid:"Valid phones",invalid:"Invalid phones",error:"Lookup errors",unchecked:"Not checked",mobile:"Mobile phones",landline:"Landline phones",other:"VoIP / Other phones"})[value]||"Phone results";}
+function twilioGroupLabel(value){return ({all:"All phones",valid:"Valid phones",invalid:"Invalid phones",error:"Lookup errors",unchecked:"Not checked"})[value]||"Phone results";}
 function renderTwilioLookupData(data){
   const st=data?.stats||{};
   if(twilioPhoneTools.area&&data?.default_area_code!==undefined)twilioPhoneTools.area.value=data.default_area_code||"";
@@ -6643,10 +6643,7 @@ function renderTwilioLookupData(data){
       ["valid","Valid",st.valid_count,"good"],
       ["invalid","Invalid",st.invalid_count,"bad"],
       ["error","Lookup Error",st.error_count,"warn"],
-      ["unchecked","Not Checked",st.not_checked_count,""],
-      ["mobile","Mobile",st.mobile_count,""],
-      ["landline","Landline",st.landline_count,""],
-      ["other","VoIP/Other",st.other_count,""]
+      ["unchecked","Not Checked",st.not_checked_count,""]
     ];
     twilioPhoneTools.summary.innerHTML=chips.map(([group,label,count,kind])=>'<button type="button" class="twilio-lookup-chip '+kind+(twilioResultsState.group===group?' active':'')+'" data-twilio-group="'+group+'">'+label+': '+Number(count||0).toLocaleString()+'</button>').join('');
   }
@@ -6659,32 +6656,27 @@ function twilioResultStatusMarkup(value,errorCode){
   return '<span class="twilio-error">Lookup Error'+(errorCode?' — '+twilioEsc(errorCode):'')+'</span>';
 }
 function twilioPhoneDigits(value){const digits=String(value||'').replace(/\D/g,'');return digits.length===11&&digits.startsWith('1')?digits.slice(1):digits;}
-function twilioIsVoip(value){return ['fixedvoip','nonfixedvoip'].includes(String(value||'').trim().toLowerCase());}
 function twilioSmsCapability(r){
   const current=twilioPhoneDigits(r.customer_phone||r.national_format||r.normalized_phone||r.raw_phone);
   const lookup=twilioPhoneDigits(r.normalized_phone);
   const lookupMatches=!!current&&!!lookup&&current===lookup;
   const valid=Number(r.valid)===1;
-  const type=String(r.line_type||'').trim();
-  const typeLower=type.toLowerCase();
+  const savedType=String(r.line_type||'').trim().toLowerCase();
+  const verifiedPhone=twilioPhoneDigits(r.sms_verification_phone);
+  const verifiedMatches=!!current&&!!verifiedPhone&&current===verifiedPhone;
+  const verificationStatus=verifiedMatches?String(r.sms_verification_status||'').trim().toLowerCase():'';
   if(!lookupMatches)return {state:'neutral',label:'Phone changed — recheck',verify:false};
   if(!valid)return {state:'failed',label:'Not SMS verified',verify:false};
-  if(typeLower==='mobile')return {state:'ready',label:'SMS ready — mobile',verify:false};
-  if(twilioIsVoip(type)){
-    const verifiedPhone=twilioPhoneDigits(r.sms_verification_phone);
-    const verifiedMatches=!!current&&!!verifiedPhone&&current===verifiedPhone;
-    const status=verifiedMatches?String(r.sms_verification_status||'').trim().toLowerCase():'';
-    if(status==='delivered')return {state:'ready',label:'SMS verified — delivered',verify:false};
-    if(status==='pending')return {state:'pending',label:'Verification pending',verify:false};
-    if(status==='failed'||status==='opted_out')return {state:'failed',label:'SMS verification failed',verify:true};
-    return {state:'neutral',label:'VoIP — SMS not verified',verify:true};
-  }
-  return {state:'neutral',label:'SMS capability not confirmed',verify:false};
+  if(verificationStatus==='delivered')return {state:'ready',label:'SMS verified — delivered',verify:false};
+  if(savedType==='mobile')return {state:'ready',label:'SMS ready — saved mobile classification',verify:false};
+  if(verificationStatus==='pending')return {state:'pending',label:'Verification pending',verify:false};
+  if(verificationStatus==='failed'||verificationStatus==='opted_out')return {state:'failed',label:'SMS verification failed',verify:true};
+  return {state:'neutral',label:'Valid number — SMS not verified',verify:true};
 }
 function twilioSmsCapabilityMarkup(r){const c=twilioSmsCapability(r);return '<span class="twilio-sms-capability '+c.state+'">'+twilioEsc(c.label)+'</span>';}
 function twilioSmsVerifyActionMarkup(r){
   const c=twilioSmsCapability(r);
-  if(!twilioIsVoip(r.line_type)||Number(r.valid)!==1)return '<span class="twilio-muted">—</span>';
+  if(Number(r.valid)!==1)return '<span class="twilio-muted">—</span>';
   if(c.state==='ready')return '<span class="twilio-valid">Verified</span>';
   if(c.state==='pending')return '<button class="secondary twilio-sms-verify-btn" type="button" disabled>Checking…</button>';
   return '<button class="secondary twilio-sms-verify-btn" type="button" data-twilio-verify-sms="'+twilioEsc(r.account_number||'')+'">'+(c.state==='failed'?'Retry SMS':'Verify SMS')+'</button>';
@@ -6700,7 +6692,7 @@ function renderTwilioResults(data){
   if(twilioPhoneTools.next)twilioPhoneTools.next.disabled=twilioResultsState.page>=twilioResultsState.pages;
   if(!twilioPhoneTools.results)return;
   if(!rows.length){twilioPhoneTools.results.innerHTML='<div class="schedule-empty">No matching phone records.</div>';return;}
-  twilioPhoneTools.results.innerHTML='<table class="twilio-lookup-table"><thead><tr><th>Customer</th><th>Phone</th><th>Status</th><th>Line Type</th><th>SMS Capability</th><th>Carrier</th><th>Checked</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+twilioEsc(r.account_number||'')+'</b><br><span class="twilio-muted">'+twilioEsc(r.account_name||'')+'</span></td><td>'+twilioEsc(r.national_format||r.customer_phone||r.normalized_phone||r.raw_phone||'—')+'</td><td>'+twilioResultStatusMarkup(r.valid,r.error_code)+'</td><td><span class="twilio-type">'+twilioEsc(r.valid===null||r.valid===undefined?'Not checked':twilioTypeLabel(r.line_type))+'</span></td><td>'+twilioSmsCapabilityMarkup(r)+'</td><td>'+twilioEsc(r.carrier_name||'—')+'</td><td>'+twilioEsc(r.checked_at||'—')+'</td><td>'+twilioSmsVerifyActionMarkup(r)+'</td></tr>').join('')+'</tbody></table>';
+  twilioPhoneTools.results.innerHTML='<table class="twilio-lookup-table"><thead><tr><th>Customer</th><th>Phone</th><th>Status</th><th>SMS Capability</th><th>Checked</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+twilioEsc(r.account_number||'')+'</b><br><span class="twilio-muted">'+twilioEsc(r.account_name||'')+'</span></td><td>'+twilioEsc(r.national_format||r.customer_phone||r.normalized_phone||r.raw_phone||'—')+'</td><td>'+twilioResultStatusMarkup(r.valid,r.error_code)+'</td><td>'+twilioSmsCapabilityMarkup(r)+'</td><td>'+twilioEsc(r.checked_at||'—')+'</td><td>'+twilioSmsVerifyActionMarkup(r)+'</td></tr>').join('')+'</tbody></table>';
 }
 async function loadTwilioResults(){
   if(!twilioResultsState.group||!twilioPhoneTools.panel)return;
@@ -6771,7 +6763,7 @@ async function applyTwilioAreaCode(){
   }finally{twilioPhoneTools.apply.disabled=false;}
 }
 async function runTwilioCustomerLookup(){
-  if(!confirm('Check customer phone numbers with Twilio Lookup?\n\nLine Type Intelligence is a paid Twilio feature and may create lookup charges.'))return;
+  if(!confirm('Check customer phone numbers with Twilio basic Lookup?\n\nPaid Line Type Intelligence is disabled, so this scan will validate numbers without requesting line-type classification.'))return;
   twilioPhoneTools.lookup.disabled=true;twilioPhoneTools.progress.hidden=false;twilioPhoneTools.progress.classList.remove('is-complete');twilioPhoneTools.bar.style.width='0%';twilioPhoneTools.progressText.textContent='Starting Twilio lookup…';let cursor=0,total=0,processed=0;
   try{
     while(true){const res=await fetch('/api/admin/twilio/phone-tools/lookup-batch',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({cursor,limit:20})});const data=await res.json().catch(()=>({}));if(!res.ok||data.success===false)throw new Error(data.error||'Twilio lookup failed.');total=Number(data.total||total||0);processed=Number(data.processed_total||processed);cursor=Number(data.next_cursor||0);const pct=total?Math.min(100,Math.round(processed/total*100)):100;twilioPhoneTools.bar.style.width=pct+'%';twilioPhoneTools.progressText.textContent=processed.toLocaleString()+' of '+total.toLocaleString()+' customer phone numbers checked ('+pct+'%)';if(data.done)break;}
@@ -6786,7 +6778,7 @@ function scheduleTwilioVerifyRefresh(attempt=0){
 }
 async function verifyTwilioVoipSms(account,button){
   account=String(account||'').trim();if(!account)return;
-  if(!confirm('Send a one-time SMS verification message to the VoIP number for customer '+account+'?\n\nThe SMS icon will become blue only after Twilio confirms the message was delivered. Standard Twilio messaging charges may apply.'))return;
+  if(!confirm('Send a one-time SMS verification message to the phone number for customer '+account+'?\n\nThe SMS icon will become blue after Twilio confirms the message was delivered. Standard Twilio messaging charges may apply.'))return;
   const oldText=button?.textContent||'Verify SMS';if(button){button.disabled=true;button.textContent='Sending…';}
   try{
     const res=await fetch('/api/admin/twilio/phone-tools/verify-sms',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({account_number:account})});
@@ -7204,23 +7196,20 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const lineType=String(row.twilio_phone_line_type||'').trim();
     const lineTypeLower=lineType.toLowerCase();
     const isMobile=lineTypeLower==='mobile';
-    const isVoip=['fixedvoip','nonfixedvoip'].includes(lineTypeLower);
     const verificationPhone=phoneDigits(row.twilio_sms_verification_phone);
     const verificationMatches=!!current&&!!verificationPhone&&current===verificationPhone;
     const verificationStatus=verificationMatches?String(row.twilio_sms_verification_status||'').trim().toLowerCase():'';
-    const verifiedVoip=isVoip&&verificationMatches&&verificationStatus==='delivered';
-    const smsValid=sameNumber&&valid&&(isMobile||verifiedVoip);
+    const verifiedSms=verificationMatches&&verificationStatus==='delivered';
+    const smsValid=sameNumber&&valid&&(isMobile||verifiedSms);
     let reason='SMS not verified';
     if(sameNumber){
-      if(isMobile&&valid)reason='SMS valid — mobile';
-      else if(verifiedVoip&&valid)reason='SMS valid — VoIP verification delivered';
+      if(verifiedSms&&valid)reason='SMS valid — verification delivered';
+      else if(isMobile&&valid)reason='SMS valid — saved mobile classification';
       else if(Number(row.twilio_phone_valid)===0)reason='SMS not valid — Twilio says this phone number is invalid';
       else if(Number(row.twilio_phone_valid)===-1)reason='SMS not valid — Twilio lookup error';
-      else if(valid&&isVoip&&verificationStatus==='pending')reason='SMS not verified yet — VoIP verification pending';
-      else if(valid&&isVoip&&(verificationStatus==='failed'||verificationStatus==='opted_out'))reason='SMS not valid yet — VoIP verification failed';
-      else if(valid&&isVoip)reason='SMS not verified — VoIP requires a successful verification text';
-      else if(valid&&lineType)reason='SMS not valid — '+lineType+' number';
-      else if(valid)reason='SMS not valid — line type is unknown';
+      else if(valid&&verificationStatus==='pending')reason='SMS not verified yet — verification pending';
+      else if(valid&&(verificationStatus==='failed'||verificationStatus==='opted_out'))reason='SMS not valid yet — SMS verification failed';
+      else if(valid)reason='SMS not verified — send a verification SMS to confirm capability';
     }else if(checked){
       reason='SMS not verified — stored phone changed since the last Twilio check';
     }
