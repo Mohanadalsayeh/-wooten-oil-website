@@ -5899,6 +5899,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
 
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerStatementCycleColumn(env);
+    await ensureTwilioPhoneToolsSchema(env);
     const url = new URL(request.url);
     const page = Math.max(1, Math.min(100000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
     const pageSize = Math.max(10, Math.min(100, Number.parseInt(url.searchParams.get("page_size") || "50", 10) || 50));
@@ -5994,6 +5995,11 @@ async function adminCustomersDatabaseGet({ request, env }) {
         COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
         COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
         COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled,
+        COALESCE((SELECT l.valid FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),-2) AS twilio_phone_valid,
+        COALESCE((SELECT l.line_type FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_line_type,
+        COALESCE((SELECT l.normalized_phone FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_normalized,
+        COALESCE((SELECT l.error_code FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_error,
+        COALESCE((SELECT l.checked_at FROM twilio_phone_lookup_cache l WHERE l.account_number=customers.account_number),'') AS twilio_phone_checked_at,
         CASE WHEN ${portalAccessSql} THEN 1 ELSE 0 END AS online_activated,
         updated_at
       FROM customers
