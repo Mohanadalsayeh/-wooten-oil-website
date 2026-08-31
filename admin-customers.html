@@ -8983,8 +8983,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const points=(paymentEntries||[]).filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item.chart_date||''))&&Number.isFinite(Number(item.amount))).map((item,index)=>{const parsed=new Date(String(item.chart_date)+'T12:00:00');return {key:String(item.chart_date)+'-'+index,date:String(item.chart_date),label:parsed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}),amount:Number(item.amount||0),reference:item.reference||item.description||'Payment'};}).sort((a,b)=>a.date.localeCompare(b.date));
     const paymentCount=points.length,paymentTotal=points.reduce((sum,item)=>sum+item.amount,0),averagePayment=paymentCount?paymentTotal/paymentCount:0,maxAmount=Math.max(1,...points.map(item=>Math.max(0,item.amount))),width=Math.max(760,Math.min(16000,points.length*28+115)),height=326,left=68,right=width-28,top=58,bottom=258,plotHeight=bottom-top,step=(right-left)/Math.max(1,points.length-1),y=value=>bottom-(Math.max(0,value)/maxAmount)*plotHeight;
     const grids=[0,.25,.5,.75,1].map(factor=>{const py=bottom-factor*plotHeight;return '<line class="activity-trend-grid" x1="'+left+'" y1="'+py+'" x2="'+right+'" y2="'+py+'"></line><text class="activity-trend-axis" x="'+(left-8)+'" y="'+(py+4)+'" text-anchor="end">'+esc(money(maxAmount*factor).replace('.00',''))+'</text>';}).join('');
-    const pointData=points.map((item,index)=>{const x=points.length===1?(left+right)/2:left+step*index;return {item,x,y:y(item.amount)};});
-    const labelInterval=Math.max(1,Math.ceil(points.length/10));
+    const pointData=points.map((item,index)=>{const x=points.length===1?(left+right)/2:left+step*index;return {item,x,y:y(item.amount)};}),labelInterval=Math.max(1,Math.ceil(points.length/10));
     const labels=pointData.map((point,index)=>{const showLabel=index===0||index===points.length-1||index%labelInterval===0;return showLabel?'<text class="activity-trend-axis" x="'+point.x.toFixed(1)+'" y="'+(bottom+20)+'" text-anchor="middle">'+esc(point.item.label)+'</text>':'';}).join('');
     const coordinates=pointData.map(point=>point.x.toFixed(1)+','+point.y.toFixed(1)),trendLine=coordinates.length>1?'<polyline class="activity-trend-line" points="'+coordinates.join(' ')+'"></polyline>':'',trendArea=coordinates.length>1?'<path class="activity-trend-area" d="M '+pointData[0].x.toFixed(1)+' '+bottom+' L '+coordinates.join(' L ')+' L '+pointData[pointData.length-1].x.toFixed(1)+' '+bottom+' Z"></path>':'',dots=pointData.map(point=>'<g><title>'+esc(point.item.label+' — '+money(point.item.amount)+(point.item.reference?' — '+point.item.reference:''))+'</title><circle class="activity-trend-dot" cx="'+point.x.toFixed(1)+'" cy="'+point.y.toFixed(1)+'" r="4"></circle></g>').join('');
     const recent=[];for(let index=5;index>=0;index--){const d=new Date(now.getFullYear(),now.getMonth()-index,1),keyName=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');recent.push(Number(source.get(keyName)?.amount||0));}const hasTrendHistory=validMonths.some(item=>String(item.month)<=new Date(now.getFullYear(),now.getMonth()-5,1).toISOString().slice(0,7))&&recent.filter(value=>value>0).length>=2,priorAverage=(recent[0]+recent[1]+recent[2])/3,recentAverage=(recent[3]+recent[4]+recent[5])/3;let trend='Not enough history',trendClass='';if(hasTrendHistory){if(priorAverage===0&&recentAverage>0){trend='Increasing';trendClass='increasing';}else{const ratio=priorAverage?recentAverage/priorAverage:1;if(ratio>1.10){trend='Increasing';trendClass='increasing';}else if(ratio<.90){trend='Decreasing';trendClass='decreasing';}else{trend='Stable';trendClass='stable';}}}
@@ -8992,118 +8991,22 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return '<section class="activity-payment-chart activity-trend-chart" data-activity-chart="payments" aria-label="Payment trend and balance"><div class="activity-payment-chart-head"><h3>Payment Trend</h3>'+periodSelect('payments',selectedMonths)+'</div><div class="activity-trend-current"><span>Current Total Balance</span><strong>'+money(currentBalance)+'</strong></div>'+svg+emptyChart+(points.length?'<div class="activity-trend-legend"><span><i class="activity-trend-swatch"></i>Payments</span><span><i class="activity-trend-line-swatch"></i>Trend line</span><span><i class="activity-trend-balance-swatch"></i>Current balance reference</span></div>':'')+'<div class="activity-trend-summary"><div><span>Total paid</span><strong>'+money(paymentTotal)+'</strong></div><div><span>Average payment</span><strong>'+money(averagePayment)+'</strong></div><div><span>Last payment</span><strong>'+lastText+'</strong></div><div><span>Recent trend</span><strong class="activity-trend-status '+trendClass+'">'+trend+'</strong></div></div></section>';
   }
   function balanceChart(ages,paymentRows,selectedMonths=balanceChartMonths){const labels=['Current Balance','Aging 1','Aging 2','Aging 3','Aging 4'],colors=['#2f80bd','#44a6d8','#6f88c9','#a277c5','#e09a4f'],values=ages.map(value=>Math.max(0,Number(value)||0)),totalBalance=values.reduce((sum,value)=>sum+value,0),payments=(paymentRows||[]).reduce((sum,item)=>sum+Number(item.total_amount||0),0);let cursor=0;const stops=values.map((value,index)=>{const start=totalBalance?cursor/totalBalance*100:0;cursor+=value;const end=totalBalance?cursor/totalBalance*100:0;return colors[index]+' '+start.toFixed(2)+'% '+end.toFixed(2)+'%';}).join(','),background=totalBalance?'conic-gradient('+stops+')':'#dbe5ec';return '<section class="activity-payment-chart activity-balance-chart" data-activity-chart="balance" aria-label="Balance, aging, and payments"><div class="activity-payment-chart-head"><h3>Balance</h3>'+periodSelect('balance',selectedMonths)+'</div><div class="activity-donut-layout"><div class="activity-donut'+(totalBalance?'':' activity-donut-empty')+'" style="background:'+background+'"><div class="activity-donut-center"><strong class="activity-donut-money">'+money(totalBalance)+'</strong><span class="activity-donut-caption">Total Balance</span></div></div><div class="activity-donut-legend">'+labels.map((labelName,index)=>{const percent=totalBalance?Math.round(values[index]/totalBalance*100):0;return '<div class="activity-donut-row"><span class="activity-donut-dot" style="background:'+colors[index]+'"></span><span>'+labelName+'</span><strong>'+money(values[index])+'</strong><span class="activity-donut-share"><span style="width:'+percent+'%;--share-color:'+colors[index]+'"></span></span><em>'+percent+'% of total balance</em></div>';}).join('')+'<div class="activity-chart-payment-note"><span>Payments in selected period</span><strong>'+money(payments)+'</strong></div></div></div></section>';}
-  function render(data){
-    const docs=Array.isArray(data.documents)?data.documents:[];
-    list.innerHTML='';
-    if(data.customer){
-      meta.style.display='block';
-      meta.textContent=(data.customer.account_name||'Customer')+' • Customer # '+(data.customer.account_number||'');
-    }
-    if(!docs.length){
-      const empty=document.createElement('div');
-      empty.className='doc-admin-empty';
-      empty.textContent='No statements or invoices have been uploaded for this customer.';
-      list.appendChild(empty);
-      return;
-    }
-    docs.forEach(d=>{
-      const row=document.createElement('div'); row.className='doc-admin-row';
-      const badge=document.createElement('div'); badge.className='doc-admin-badge'; badge.textContent=d.document_type||'document';
-      const main=document.createElement('div'); main.className='doc-admin-main';
-      const strong=document.createElement('strong'); strong.textContent=d.title||d.filename||'Document';
-      const small=document.createElement('small');
-      small.appendChild(document.createTextNode(formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '));
-      const filenameLink=document.createElement('button');
-      filenameLink.type='button';
-      filenameLink.className='communication-pdf-link';
-      filenameLink.textContent=d.filename||'PDF';
-      filenameLink.addEventListener('click',function(){openAdminDocument(d.id);});
-      small.appendChild(filenameLink);
-      main.append(strong,small);
-      const actions=document.createElement('div');
-      actions.className='doc-admin-actions';
-
-      const id=document.createElement('small');
-      id.textContent='Document #'+d.id;
-      actions.append(id);
-
-      row.append(badge,main,actions); list.appendChild(row);
-    });
+  function render(data){const c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),total=ages.reduce((a,b)=>a+(Number.isFinite(b)?b:0),0),address=[c.address1,c.address2,c.address3,c.city,c.state,c.zip_code].filter(Boolean).join(', '),active=!c.account_status||String(c.account_status).toLowerCase()==='active';
+    const payments=(data.payments||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.reference||r.description||'Payment')+'</strong><small>Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'')+'</small></div><div class="activity-row-side"><strong>'+money(r.amount)+'</strong><small>Posted '+esc(r.posting_date||r.payment_date||'—')+'</small></div></div>');
+    const documents=(data.documents||[]).map(r=>'<div class="activity-row"><div><button class="activity-link" type="button" data-activity-document="'+Number(r.id)+'">'+esc(r.title||r.filename||'PDF Document')+'</button><small>'+esc(String(r.document_type||'document').toUpperCase())+' • '+esc(r.filename||'PDF')+'</small></div><div class="activity-row-side"><strong>'+esc(r.document_date||'—')+'</strong><small>'+date(r.created_at)+'</small></div></div>');
+    const communications=(data.communications||[]).map(r=>{const channels=[];if(Number(r.portal_sent))channels.push('<span>Portal</span>');if(Number(r.email_sent))channels.push('<span>Email</span>');if(Number(r.sms_sent))channels.push('<span class="'+(String(r.sms_status||'').match(/failed|undelivered|opted/i)?'failed':'')+'">SMS '+esc(r.sms_status||'Sent')+'</span>');return '<div class="activity-row"><div><strong>'+esc(String(r.event_type||'Activity').toUpperCase())+' — '+esc(r.title||'')+'</strong><small>'+esc(r.detail||r.error_text||'')+'</small><div class="activity-delivery">'+channels.join('')+'</div></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});
+    const fuel=(data.fuel_requests||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.request_number)+' — '+esc(r.fuel_type||'Fuel Request')+'</strong><small>'+esc(r.gallons||'—')+' gallons • '+esc(r.delivery_address||'No address')+'</small></div><div class="activity-row-side"><strong>'+esc(r.delivery_date||'Flexible')+'</strong><small>'+date(r.received_at)+'</small></div></div>');
+    const applications=(data.applications||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.application_number)+'</strong><small>'+esc(r.application_type)+' • '+esc(r.business_name||r.full_name||'')+'</small></div><div class="activity-row-side"><strong>'+esc(String(r.status||'new').replaceAll('_',' '))+'</strong><small>'+date(r.created_at)+(r.reviewed_by?' • '+esc(r.reviewed_by):'')+'</small></div></div>');
+    const logins=(data.login_activity||[]).map(r=>{const success=r.result==='success';return '<div class="activity-row"><div><strong class="'+(success?'activity-login-success':'activity-login-failed')+'">'+(success?'Successful sign-in':esc(String(r.result||'Login').replaceAll('_',' ')))+'</strong><small>'+esc(r.user_agent||'Device information unavailable')+'</small></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});
+    const pagination=data.pagination||{},charts='<div class="activity-chart-panels">'+paymentChart(data.payment_chart||[],data.fuel_chart_summary||{},paymentChartMonths,total,data.payment_chart_last)+balanceChart(ages,data.payment_chart||[])+'</div>';dashboard.innerHTML='<div class="activity-customer-head"><div><h3>'+esc(c.account_name||'Customer')+'</h3><p>Customer # '+esc(c.account_number||'')+'</p><div class="activity-address">'+esc(address||'No address on file')+'</div></div><span class="activity-status">'+(active?'Active':'Inactive')+'</span></div><div class="activity-contact-line"><span class="activity-chip">'+esc(c.email||'No email')+'</span><span class="activity-chip">'+esc(c.phone||'No phone')+'</span><span class="activity-chip">Cycle '+esc(c.statement_cycle||'B')+'</span><span class="activity-chip">Portal '+(Number(c.online_activated)?'Activated':'Not Activated')+'</span><span class="activity-chip">Delivery: '+[Number(c.portal_enabled)?'Portal':'',Number(c.email_enabled)?'Email':'',Number(c.sms_enabled)?'SMS':''].filter(Boolean).join(', ')+'</span></div><div class="activity-summary-grid">'+[['Current Balance',ages[0]],['Aging 1',ages[1]],['Aging 2',ages[2]],['Aging 3',ages[3]],['Aging 4',ages[4]],['Total Balance',total]].map(x=>'<div class="activity-summary'+(x[0]==='Total Balance'?' activity-summary-total':'')+'"><span>'+x[0]+'</span><strong>'+money(x[1])+'</strong></div>').join('')+'</div>'+charts+'<div class="activity-sections">'+section('Recent Payments',payments,false,'payments',pagination.payments)+section('Statements & Invoices',documents,false,'documents',pagination.documents)+section('Communication History',communications,true,'communications',pagination.communications)+section('Fuel Requests',fuel,false,'fuel',pagination.fuel)+section('Account Applications',applications)+section('Portal Sign-in Activity',logins,true,'logins',pagination.logins)+'</div>';dashboard.hidden=false;results.innerHTML='';message('Customer activity loaded.',true);
   }
-
-  async function openAdminDocument(id){
-    const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-
-    const popup=window.open('about:blank','_blank');
-    try{
-      const res=await fetch('/api/admin/customer-documents/'+encodeURIComponent(id)+'/file',{
-        method:'GET',
-        headers:{'X-Admin-Key':key},
-        cache:'no-store'
-      });
-      if(!res.ok) throw new Error(await res.text()||'Document could not be opened.');
-      const blob=await res.blob();
-      const url=URL.createObjectURL(blob);
-      if(popup) popup.location=url;
-      else window.location.href=url;
-      setTimeout(function(){URL.revokeObjectURL(url);},60000);
-    }catch(e){
-      if(popup) popup.close();
-      setStatus(e.message||'Document could not be opened.',false);
-    }
-  }
-  window.openAdminCustomerDocument=openAdminDocument;
-
-  async function loadDocs(){
-    const key=document.getElementById('adminKey').value.trim();
-    const acct=normalize(account.value);
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-    if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
-    account.value=acct;
-    setStatus('Loading customer documents…');
-    try{
-      const res=await fetch('/api/admin/customer-documents?account_number='+encodeURIComponent(acct),{
-        headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'
-      });
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok||data.success===false) throw new Error(data.error||'Documents could not be loaded.');
-      render(data); setStatus(data.documents.length+' document(s) found.',true);
-    }catch(e){setStatus(e.message||'Documents could not be loaded.',false);}
-  }
-  load.addEventListener('click',loadDocs);
-
-  upload.addEventListener('click',async()=>{
-    const key=document.getElementById('adminKey').value.trim();
-    const acct=normalize(account.value);
-    const selected=file.files&&file.files[0];
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-    if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
-    if(!selected){setStatus('Choose a PDF statement or invoice.',false);return;}
-    if(!portalNotification.checked&&!emailPdf.checked&&!smsLink.checked){setStatus('Select at least one Sending Option.',false);return;}
-    if(selected.size>10*1024*1024){setStatus('PDF files must be 10 MB or smaller.',false);return;}
-    account.value=acct; upload.disabled=true; upload.textContent='Uploading…';
-    try{
-      const fd=new FormData();
-      fd.append('account_number',acct);
-      fd.append('document_type',type.value);
-      fd.append('document_date',date.value||'');
-      fd.append('title',title.value||'');
-      fd.append('portal_notification',portalNotification.checked?'1':'0');
-      fd.append('email_pdf',emailPdf.checked?'1':'0');
-      fd.append('sms_link',smsLink.checked?'1':'0');
-      fd.append('file',selected,selected.name);
-      const res=await fetch('/api/admin/customer-documents/upload',{
-        method:'POST',headers:{'X-Admin-Key':key},body:fd
-      });
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok||data.success===false) throw new Error(data.error||'Upload failed.');
-      setStatus(data.message||'Document uploaded successfully.',true);
-      file.value=''; title.value='';
-      await loadDocs();
-    }catch(e){setStatus(e.message||'Upload failed.',false);}
-    finally{upload.disabled=false;upload.textContent='Upload Document';}
-  });
+  function sectionMarkup(data,name){const p=data.pagination||{};if(name==='payments'){const rows=(data.payments||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.reference||r.description||'Payment')+'</strong><small>Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'')+'</small></div><div class="activity-row-side"><strong>'+money(r.amount)+'</strong><small>Posted '+esc(r.posting_date||r.payment_date||'—')+'</small></div></div>');return section('Recent Payments',rows,false,name,p[name]);}if(name==='documents'){const rows=(data.documents||[]).map(r=>'<div class="activity-row"><div><button class="activity-link" type="button" data-activity-document="'+Number(r.id)+'">'+esc(r.title||r.filename||'PDF Document')+'</button><small>'+esc(String(r.document_type||'document').toUpperCase())+' • '+esc(r.filename||'PDF')+'</small></div><div class="activity-row-side"><strong>'+esc(r.document_date||'—')+'</strong><small>'+date(r.created_at)+'</small></div></div>');return section('Statements & Invoices',rows,false,name,p[name]);}if(name==='communications'){const rows=(data.communications||[]).map(r=>{const channels=[];if(Number(r.portal_sent))channels.push('<span>Portal</span>');if(Number(r.email_sent))channels.push('<span>Email</span>');if(Number(r.sms_sent))channels.push('<span class="'+(String(r.sms_status||'').match(/failed|undelivered|opted/i)?'failed':'')+'">SMS '+esc(r.sms_status||'Sent')+'</span>');return '<div class="activity-row"><div><strong>'+esc(String(r.event_type||'Activity').toUpperCase())+' — '+esc(r.title||'')+'</strong><small>'+esc(r.detail||r.error_text||'')+'</small><div class="activity-delivery">'+channels.join('')+'</div></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});return section('Communication History',rows,true,name,p[name]);}if(name==='fuel'){const rows=(data.fuel_requests||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.request_number)+' — '+esc(r.fuel_type||'Fuel Request')+'</strong><small>'+esc(r.gallons||'—')+' gallons • '+esc(r.delivery_address||'No address')+'</small></div><div class="activity-row-side"><strong>'+esc(r.delivery_date||'Flexible')+'</strong><small>'+date(r.received_at)+'</small></div></div>');return section('Fuel Requests',rows,false,name,p[name]);}if(name==='logins'){const rows=(data.login_activity||[]).map(r=>{const success=r.result==='success';return '<div class="activity-row"><div><strong class="'+(success?'activity-login-success':'activity-login-failed')+'">'+(success?'Successful sign-in':esc(String(r.result||'Login').replaceAll('_',' ')))+'</strong><small>'+esc(r.user_agent||'Device information unavailable')+'</small></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});return section('Portal Sign-in Activity',rows,true,name,p[name]);}return '';}
+  async function loadActivitySection(name,page){const target=dashboard.querySelector('[data-activity-section="'+name+'"]');if(!target||!currentAccount)return;const previousPage=activityPages[name];activityPages[name]=Math.max(1,Number(page||1));target.setAttribute('aria-busy','true');target.querySelectorAll('button').forEach(button=>button.disabled=true);try{const params=new URLSearchParams({account_number:currentAccount,chart_months:String(chartMonths)});Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'This activity section could not be loaded.');const markup=sectionMarkup(data,name);if(!markup)throw new Error('This activity section could not be updated.');activityPages[name]=Number(data.pagination?.[name]?.page||activityPages[name]);target.outerHTML=markup;}catch(error){activityPages[name]=previousPage;target.removeAttribute('aria-busy');target.querySelectorAll('button').forEach(button=>button.disabled=false);message(error.message||'This activity section could not be loaded.',false);}}
+  async function findCustomers(){const q=search.value.trim();dashboard.hidden=true;if(q.length<2){results.innerHTML='';message('Enter at least two letters or numbers.',false);return;}searchBtn.disabled=true;searchBtn.textContent='Searching…';message('');try{const response=await fetch('/api/admin/customer-activity?search='+encodeURIComponent(q),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer search failed.');const rows=data.matches||[];results.innerHTML=rows.length?rows.map(r=>'<button class="activity-search-result" type="button" data-activity-account="'+esc(r.account_number)+'"><span><strong>'+esc(r.account_name||'Customer')+'</strong><small># '+esc(r.account_number)+' • '+esc(r.email||r.phone||'No contact information')+'</small></span><span class="activity-search-balance"><small>Total Balance</small><strong>'+money(r.total_balance)+'</strong></span></button>').join(''):empty('No customers match this search.');message(rows.length+' customer(s) found.',true);if(rows.length===1&&(rows[0].account_number===q.replace(/\D/g,'').padStart(7,'0')||String(rows[0].account_name||'').toLowerCase()===q.toLowerCase()))loadActivity(rows[0].account_number);}catch(error){message(error.message||'Customer search failed.',false);}finally{searchBtn.disabled=false;searchBtn.textContent='Search Customer';}}
+  async function loadActivity(account,changedSection=''){if(account!==currentAccount){currentAccount=account;chartMonths=12;paymentChartMonths=12;balanceChartMonths=12;Object.keys(activityPages).forEach(name=>activityPages[name]=1);}const handle=startProgress();results.innerHTML='';dashboard.hidden=true;message('');try{const params=new URLSearchParams({account_number:account,chart_months:String(chartMonths)});Object.entries(activityPages).forEach(([name,page])=>params.set(name+'_page',String(page)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer activity could not be loaded.');chartMonths=Number(data.chart_months??chartMonths);render(data);if(changedSection)requestAnimationFrame(()=>dashboard.querySelector('[data-activity-section="'+changedSection+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));}catch(error){message(error.message||'Customer activity could not be loaded.',false);}finally{await finishProgress(handle);}}
+  async function loadActivityChart(name,months){const target=dashboard.querySelector('[data-activity-chart="'+name+'"]');if(!target||!currentAccount)return;const previous=name==='payments'?paymentChartMonths:balanceChartMonths,selected=[3,6,12,24,0].includes(Number(months))?Number(months):12;target.setAttribute('aria-busy','true');target.querySelectorAll('select').forEach(control=>control.disabled=true);try{const params=new URLSearchParams({account_number:currentAccount,chart_months:String(selected)});Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'This chart could not be loaded.');const actual=Number(data.chart_months??selected),c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),totalBalance=ages.reduce((sum,value)=>sum+(Number.isFinite(value)?value:0),0);let markup;if(name==='payments'){paymentChartMonths=actual;markup=paymentChart(data.payment_chart||[],data.fuel_chart_summary||{},actual,totalBalance,data.payment_chart_last);}else{balanceChartMonths=actual;markup=balanceChart(ages,data.payment_chart||[],actual);}target.outerHTML=markup;}catch(error){if(name==='payments')paymentChartMonths=previous;else balanceChartMonths=previous;target.removeAttribute('aria-busy');target.querySelectorAll('select').forEach(control=>{control.disabled=false;control.value=String(previous);});message(error.message||'This chart could not be loaded.',false);}}
+  async function openDocument(id){try{const response=await fetch('/api/admin/customer-activity/documents/'+encodeURIComponent(id)+'/file',{headers:{'X-Admin-Key':key()}});if(!response.ok)throw new Error(await response.text()||'PDF could not be opened.');const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){message(error.message||'PDF could not be opened.',false);}}
+  searchBtn.addEventListener('click',findCustomers);search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findCustomers();}});search.addEventListener('input',()=>{clearTimeout(timer);if(search.value.trim().length>=3)timer=setTimeout(findCustomers,450);});results.addEventListener('click',e=>{const button=e.target.closest('[data-activity-account]');if(button)loadActivity(button.dataset.activityAccount);});dashboard.addEventListener('change',e=>{const selector=e.target.closest('[data-activity-chart-period]');if(!selector)return;loadActivityChart(selector.dataset.activityChartName,selector.value);});dashboard.addEventListener('click',e=>{const pageButton=e.target.closest('[data-activity-page-section]');if(pageButton){loadActivitySection(pageButton.dataset.activityPageSection,pageButton.dataset.activityPage);return;}const button=e.target.closest('[data-activity-document]');if(button)openDocument(button.dataset.activityDocument);});
 })();
 </script>
 
