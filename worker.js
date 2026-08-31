@@ -651,10 +651,137 @@ async function onRequestPost3({ request, env }) {
   if (!customers.length) {
     return json3({ success: false, error: "No customer records were supplied." }, 400);
   }
-  if (customers.length > 5e3) {
-    return json3({ success: false, error: "Too many records in one upload." }, 413);
+  if (customers.length > 500) {
+    return json3({ success: false, error: "Too many records in one customer import batch." }, 413);
   }
+
   await ensureCustomerStatementCycleColumn(env);
+  await ensureTwilioPhoneToolsSchema(env);
+  const areaSetting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
+  const defaultAreaCode=String(areaSetting?.default_area_code||"").replace(/\D/g,"");
+
+  const parsed=[];
+  let skipped=0;
+  for(const row of customers){
+    const acct=accountNumber(row?.account_number);
+    const name=text(row?.account_name);
+    if(!acct||!name){skipped++;continue;}
+    const importedCycle=text(row?.statement_cycle).toUpperCase();
+    parsed.push({
+      acct,
+      name:name.slice(0,200),
+      address1:text(row?.address1).slice(0,250),
+      address2:text(row?.address2).slice(0,250),
+      city:text(row?.city).slice(0,120),
+      state:text(row?.state).slice(0,30),
+      zip:text(row?.zip_code).slice(0,20),
+      importedPhone:text(row?.phone).slice(0,60),
+      importedEmail:text(row?.email).slice(0,254),
+      currentBalance:numberValue(row?.current_balance),
+      aging1:numberValue(row?.aging_category_1),
+      aging2:numberValue(row?.aging_category_2),
+      aging3:numberValue(row?.aging_category_3),
+      aging4:numberValue(row?.aging_category_4),
+      normalizedCycle:importedCycle==="C"||importedCycle==="W"?"B":"A",
+      hasImportedCycle:importedCycle!==""
+    });
+  }
+  if(!parsed.length)return json3({success:false,error:"No valid customer records were found."},400);
+
+  const accounts=parsed.map(row=>row.acct);
+  const existingByAccount=new Map();
+  try{
+    for(let start=0;start<accounts.length;start+=100){
+      const chunk=accounts.slice(start,start+100);
+      const placeholders=chunk.map(()=>"?").join(",");
+      const existing=await env.DB.prepare(`SELECT account_number,email,phone FROM customers WHERE account_number IN (${placeholders})`).bind(...chunk).all();
+      for(const current of existing?.results||[])existingByAccount.set(String(current.account_number),current);
+    }
+  }catch(error){
+    console.error("Customer existing-record detection failed",error);
+    return json3({success:false,error:"The import could not safely compare existing customer records."},500);
+  }
+
+  const changedEmailAccounts=[];
+  const phoneCandidates=[];
+  let phoneUnchanged=0;
+  for(const row of parsed){
+    const current=existingByAccount.get(row.acct);
+    const incomingEmail=String(row.importedEmail||"").trim();
+    const previousEmail=String(current?.email||"").trim();
+    if(current&&incomingEmail&&incomingEmail.toLowerCase()!==previousEmail.toLowerCase())changedEmailAccounts.push(row.acct);
+
+    const incomingRaw=String(row.importedPhone||"").trim();
+    const existingRaw=String(current?.phone||"").trim();
+    row.finalPhone=existingRaw;
+    row.phoneDecision="unchanged";
+
+    if(!incomingRaw){
+      if(!current)row.finalPhone="";
+      phoneUnchanged++;
+      continue;
+    }
+
+    const incomingNormalized=twilioUsPhoneWithArea(incomingRaw,defaultAreaCode);
+    const existingNormalized=twilioUsPhoneWithArea(existingRaw,defaultAreaCode);
+    const incomingDigits=incomingRaw.replace(/\D/g,"");
+    const existingDigits=existingRaw.replace(/\D/g,"");
+    const sameNumber=(incomingNormalized&&existingNormalized&&incomingNormalized===existingNormalized)||(!incomingNormalized&&!existingNormalized&&incomingDigits&&incomingDigits===existingDigits);
+    if(current&&sameNumber){
+      phoneUnchanged++;
+      continue;
+    }
+
+    phoneCandidates.push({row,current,incomingRaw,incomingNormalized,existingRaw});
+  }
+
+  let phoneUpdated=0,phoneRejected=0,phoneLookupErrors=0;
+  const lookupConcurrency=8;
+  for(let start=0;start<phoneCandidates.length;start+=lookupConcurrency){
+    const group=phoneCandidates.slice(start,start+lookupConcurrency);
+    await Promise.all(group.map(async candidate=>{
+      const {row,current,incomingRaw,incomingNormalized,existingRaw}=candidate;
+      let valid=0,lineType="",carrier="",errorCode="",national="",countryCode="";
+      if(!incomingNormalized||!/^\+1\d{10}$/.test(incomingNormalized)){
+        errorCode="INVALID_US_FORMAT";
+        phoneRejected++;
+        row.finalPhone=current?existingRaw:"";
+        row.phoneDecision="rejected";
+      }else{
+        try{
+          const data=await twilioLookupPhone(env,incomingNormalized);
+          valid=data?.valid?1:0;
+          lineType=String(data?.line_type_intelligence?.type||"");
+          carrier=String(data?.line_type_intelligence?.carrier_name||"");
+          errorCode=String(data?.line_type_intelligence?.error_code||"");
+          national=String(data?.national_format||twilioFormatUsNational(incomingNormalized));
+          countryCode=String(data?.country_code||"").toUpperCase();
+          if(valid===1&&countryCode==="US"){
+            row.finalPhone=national||twilioFormatUsNational(incomingNormalized);
+            row.phoneDecision="updated";
+            phoneUpdated++;
+          }else{
+            row.finalPhone=current?existingRaw:"";
+            row.phoneDecision="rejected";
+            phoneRejected++;
+            if(countryCode&&countryCode!=="US")errorCode=errorCode||"NOT_US_NUMBER";
+          }
+        }catch(error){
+          valid=-1;
+          errorCode=String(error?.twilioCode||"LOOKUP_ERROR");
+          row.finalPhone=current?existingRaw:"";
+          row.phoneDecision="lookup_error";
+          phoneLookupErrors++;
+        }
+      }
+      try{
+        await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=excluded.line_type,carrier_name=excluded.carrier_name,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(row.acct,incomingRaw,incomingNormalized||"",national,valid,lineType,carrier,errorCode).run();
+      }catch(cacheError){console.error("Customer import phone lookup cache failed",row.acct,cacheError);}
+    }));
+  }
+
+  phoneUnchanged+=phoneRejected+phoneLookupErrors;
+
   const statement = env.DB.prepare(`
     INSERT INTO customers
       (account_number, account_name, address1, address2, city, state, zip_code, phone, email, current_balance, aging_category_1, aging_category_2, aging_category_3, aging_category_4, statement_cycle, updated_at)
@@ -689,74 +816,24 @@ async function onRequestPost3({ request, env }) {
       statement_cycle = CASE WHEN ?=1 THEN excluded.statement_cycle ELSE customers.statement_cycle END,
       updated_at = CURRENT_TIMESTAMP
   `);
-  const batch = [];
-  const importedEmails = new Map();
-  let skipped = 0;
-  for (const row of customers) {
-    const acct = accountNumber(row?.account_number);
-    const name = text(row?.account_name);
-    if (!acct || !name) {
-      skipped++;
-      continue;
-    }
-    const importedEmail=text(row?.email).slice(0,254);
-    const importedCycle=text(row?.statement_cycle).toUpperCase();
-    const hasImportedCycle=importedCycle!=="";
-    const normalizedCycle=importedCycle==="C"||importedCycle==="W"?"B":"A";
-    importedEmails.set(acct,importedEmail);
-    batch.push(
-      statement.bind(
-        acct,
-        name.slice(0, 200),
-        text(row?.address1).slice(0, 250),
-        text(row?.address2).slice(0, 250),
-        text(row?.city).slice(0, 120),
-        text(row?.state).slice(0, 30),
-        text(row?.zip_code).slice(0, 20),
-        text(row?.phone).replace(/[^\d]/g, "").slice(0, 30),
-        importedEmail,
-        numberValue(row?.current_balance),
-        numberValue(row?.aging_category_1),
-        numberValue(row?.aging_category_2),
-        numberValue(row?.aging_category_3),
-        numberValue(row?.aging_category_4),
-        normalizedCycle,
-        hasImportedCycle?1:0
-      )
-    );
-  }
-  if (!batch.length) {
-    return json3({ success: false, error: "No valid customer records were found." }, 400);
-  }
-  const customerRecordCount=batch.length;
-  const changedEmailAccounts=[];
-  try{
-    const accounts=[...importedEmails.keys()];
-    for(let start=0;start<accounts.length;start+=100){
-      const chunk=accounts.slice(start,start+100);
-      const placeholders=chunk.map(()=>"?").join(",");
-      const existing=await env.DB.prepare(`SELECT account_number,email FROM customers WHERE account_number IN (${placeholders})`).bind(...chunk).all();
-      for(const current of existing?.results||[]){
-        const incoming=String(importedEmails.get(String(current.account_number))||"").trim();
-        const previous=String(current.email||"").trim();
-        if(incoming && incoming.toLowerCase()!==previous.toLowerCase()) changedEmailAccounts.push(String(current.account_number));
-      }
-    }
-  }catch(error){
-    console.error("Customer email-change detection failed",error);
-    return json3({success:false,error:"The import could not safely verify customer email changes."},500);
+  const batch=[];
+  for(const row of parsed){
+    batch.push(statement.bind(
+      row.acct,row.name,row.address1,row.address2,row.city,row.state,row.zip,row.finalPhone,row.importedEmail,
+      row.currentBalance,row.aging1,row.aging2,row.aging3,row.aging4,row.normalizedCycle,row.hasImportedCycle?1:0
+    ));
   }
   for(let start=0;start<changedEmailAccounts.length;start+=100){
     const chunk=changedEmailAccounts.slice(start,start+100);
     const placeholders=chunk.map(()=>"?").join(",");
     batch.push(env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id IN (SELECT id FROM customers WHERE account_number IN (${placeholders}))`).bind(...chunk));
   }
-  try {
-    await env.DB.batch(batch);
-  } catch (error) {
-    console.error("Customer import failed", error);
-    return json3({ success: false, error: "Database import failed." }, 500);
+
+  try{await env.DB.batch(batch);}catch(error){
+    console.error("Customer import failed",error);
+    return json3({success:false,error:"Database import failed."},500);
   }
+
   if(changedEmailAccounts.length){
     for(let start=0;start<changedEmailAccounts.length;start+=100){
       const chunk=changedEmailAccounts.slice(start,start+100);
@@ -765,20 +842,24 @@ async function onRequestPost3({ request, env }) {
       await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE used_at IS NULL AND customer_id IN (SELECT id FROM customers WHERE account_number IN (${placeholders}))`).bind(...chunk).run().catch(()=>{});
     }
   }
+
+  const customerRecordCount=parsed.length;
   let importMeta=null;
   try{
     importMeta=await recordAdminImport(env,"customers",customerRecordCount,adminRequestActor(request,env).name);
-    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation`);
-  }catch(error){
-    console.error("Customer import timestamp could not be recorded",error);
-  }
+    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation; phone updates ${phoneUpdated}; phone rejected ${phoneRejected}; phone lookup errors ${phoneLookupErrors}`);
+  }catch(error){console.error("Customer import timestamp could not be recorded",error);}
 
   return json3({
-    success: true,
-    processed: customerRecordCount,
+    success:true,
+    processed:customerRecordCount,
     skipped,
-    email_changes_requiring_reactivation: changedEmailAccounts.length,
-    imported_at: importMeta?.last_import_at || new Date().toISOString()
+    email_changes_requiring_reactivation:changedEmailAccounts.length,
+    phone_updates:phoneUpdated,
+    phone_rejected:phoneRejected,
+    phone_lookup_errors:phoneLookupErrors,
+    phone_unchanged:phoneUnchanged,
+    imported_at:importMeta?.last_import_at||new Date().toISOString()
   });
 }
 __name(onRequestPost3, "onRequestPost");
@@ -3982,6 +4063,124 @@ async function adminTwilioStatusGet({request,env}){
   });
 }
 __name(adminTwilioStatusGet,"adminTwilioStatusGet");
+
+async function ensureTwilioPhoneToolsSchema(env){
+  if(!env.DB) throw new Error("Customer database is not configured.");
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS twilio_phone_settings (
+    id INTEGER PRIMARY KEY CHECK(id=1),
+    default_area_code TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`).run();
+  await env.DB.prepare(`INSERT OR IGNORE INTO twilio_phone_settings(id,default_area_code) VALUES(1,'')`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS twilio_phone_lookup_cache (
+    account_number TEXT PRIMARY KEY,
+    raw_phone TEXT NOT NULL DEFAULT '',
+    normalized_phone TEXT NOT NULL DEFAULT '',
+    national_format TEXT NOT NULL DEFAULT '',
+    valid INTEGER NOT NULL DEFAULT 0,
+    line_type TEXT NOT NULL DEFAULT '',
+    carrier_name TEXT NOT NULL DEFAULT '',
+    error_code TEXT NOT NULL DEFAULT '',
+    checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_twilio_phone_lookup_checked ON twilio_phone_lookup_cache(checked_at DESC)`).run();
+}
+__name(ensureTwilioPhoneToolsSchema,"ensureTwilioPhoneToolsSchema");
+function adminTwilioAuthorized(request,env){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  return !!env.ADMIN_IMPORT_KEY&&supplied===env.ADMIN_IMPORT_KEY;
+}
+__name(adminTwilioAuthorized,"adminTwilioAuthorized");
+function twilioUsPhoneWithArea(value,areaCode=""){
+  const raw=String(value||"").trim();
+  if(!raw)return "";
+  if(raw.startsWith("+")){
+    const digits=raw.slice(1).replace(/\D/g,"");
+    return digits.length>=10&&digits.length<=15?`+${digits}`:"";
+  }
+  let digits=raw.replace(/\D/g,"");
+  const area=String(areaCode||"").replace(/\D/g,"");
+  if(digits.length===7&&/^\d{3}$/.test(area))digits=area+digits;
+  if(digits.length===10)return `+1${digits}`;
+  if(digits.length===11&&digits.startsWith("1"))return `+${digits}`;
+  return "";
+}
+__name(twilioUsPhoneWithArea,"twilioUsPhoneWithArea");
+function twilioFormatUsNational(value){
+  const digits=String(value||"").replace(/\D/g,"").replace(/^1(?=\d{10}$)/,"");
+  return digits.length===10?`(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`:String(value||"");
+}
+__name(twilioFormatUsNational,"twilioFormatUsNational");
+async function twilioLookupPhone(env,phone){
+  const config=twilioConfig(env);
+  if(!config.accountSid||!config.authToken)throw new Error("Twilio account SID and auth token are required for Lookup.");
+  const auth=btoa(`${config.accountSid}:${config.authToken}`);
+  const endpoint=`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(phone)}?Fields=line_type_intelligence`;
+  const response=await fetch(endpoint,{headers:{Authorization:`Basic ${auth}`,Accept:"application/json"}});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){const error=new Error(String(data?.message||data?.detail||`Twilio Lookup failed (${response.status}).`));error.twilioCode=String(data?.code||response.status||"");throw error;}
+  return data||{};
+}
+__name(twilioLookupPhone,"twilioLookupPhone");
+async function adminTwilioPhoneToolsGet({request,env}){
+  try{
+    if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureTwilioPhoneToolsSchema(env);
+    const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
+    const phoneStats=await env.DB.prepare(`SELECT COUNT(*) AS customer_phone_count,SUM(CASE WHEN length(replace(replace(replace(replace(replace(replace(trim(phone),'(',''),')',''),'-',''),' ',''),'.',''),'+',''))=7 THEN 1 ELSE 0 END) AS seven_digit_count FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();
+    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN line_type='mobile' THEN 1 ELSE 0 END) AS mobile_count,SUM(CASE WHEN line_type='landline' THEN 1 ELSE 0 END) AS landline_count,SUM(CASE WHEN line_type NOT IN ('mobile','landline') AND trim(line_type)<>'' THEN 1 ELSE 0 END) AS other_count FROM twilio_phone_lookup_cache`).first();
+    const rows=await env.DB.prepare(`SELECT l.account_number,c.account_name,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at FROM twilio_phone_lookup_cache l LEFT JOIN customers c ON c.account_number=l.account_number ORDER BY datetime(l.checked_at) DESC,l.account_number LIMIT 100`).all();
+    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),mobile_count:Number(lookupStats?.mobile_count||0),landline_count:Number(lookupStats?.landline_count||0),other_count:Number(lookupStats?.other_count||0)},results:rows?.results||[]});
+  }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+}
+__name(adminTwilioPhoneToolsGet,"adminTwilioPhoneToolsGet");
+async function adminTwilioPhoneSettingsPost({request,env}){
+  try{
+    if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureTwilioPhoneToolsSchema(env);
+    const body=await request.json().catch(()=>({}));const area=String(body?.default_area_code||"").replace(/\D/g,"");
+    if(!/^[2-9]\d{2}$/.test(area))return notificationJson({success:false,error:"Enter a valid 3-digit U.S. area code."},400);
+    await env.DB.prepare(`UPDATE twilio_phone_settings SET default_area_code=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(area).run();
+    return notificationJson({success:true,default_area_code:area});
+  }catch(error){return notificationJson({success:false,error:String(error?.message||error)},500);}
+}
+__name(adminTwilioPhoneSettingsPost,"adminTwilioPhoneSettingsPost");
+async function adminTwilioApplyAreaCodePost({request,env}){
+  try{
+    if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureTwilioPhoneToolsSchema(env);
+    const body=await request.json().catch(()=>({}));let area=String(body?.default_area_code||"").replace(/\D/g,"");
+    if(!/^[2-9]\d{2}$/.test(area)){const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();area=String(setting?.default_area_code||"").replace(/\D/g,"");}
+    if(!/^[2-9]\d{2}$/.test(area))return notificationJson({success:false,error:"Save a valid 3-digit U.S. area code first."},400);
+    const rows=await env.DB.prepare(`SELECT id,phone FROM customers WHERE trim(COALESCE(phone,''))<>''`).all();
+    let updated=0;
+    for(const row of rows?.results||[]){const digits=String(row.phone||"").replace(/\D/g,"");if(digits.length!==7)continue;const formatted=`(${area}) ${digits.slice(0,3)}-${digits.slice(3)}`;await env.DB.prepare(`UPDATE customers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(formatted,row.id).run();updated++;}
+    return notificationJson({success:true,updated_count:updated,default_area_code:area});
+  }catch(error){console.error("adminTwilioApplyAreaCodePost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+}
+__name(adminTwilioApplyAreaCodePost,"adminTwilioApplyAreaCodePost");
+async function adminTwilioLookupBatchPost({request,env}){
+  try{
+    if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureTwilioPhoneToolsSchema(env);
+    const body=await request.json().catch(()=>({}));const cursor=Math.max(0,Number(body?.cursor)||0);const limit=Math.min(25,Math.max(1,Number(body?.limit)||20));
+    const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();const area=String(setting?.default_area_code||"");
+    const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();const total=Number(totalRow?.n||0);
+    const rows=await env.DB.prepare(`SELECT account_number,phone FROM customers WHERE trim(COALESCE(phone,''))<>'' ORDER BY id LIMIT ? OFFSET ?`).bind(limit,cursor).all();
+    const list=rows?.results||[];let processed=0;
+    for(const row of list){
+      const raw=String(row.phone||"");const normalized=twilioUsPhoneWithArea(raw,area);let valid=0,lineType="",carrier="",errorCode="",national="";
+      if(!normalized){errorCode="INVALID_FORMAT";}
+      else{
+        try{const data=await twilioLookupPhone(env,normalized);valid=data?.valid?1:0;lineType=String(data?.line_type_intelligence?.type||"");carrier=String(data?.line_type_intelligence?.carrier_name||"");errorCode=String(data?.line_type_intelligence?.error_code||"");national=String(data?.national_format||twilioFormatUsNational(normalized));}
+        catch(error){valid=-1;errorCode=String(error?.twilioCode||"LOOKUP_ERROR");}
+      }
+      await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=excluded.line_type,carrier_name=excluded.carrier_name,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(String(row.account_number||""),raw,normalized,national,valid,lineType,carrier,errorCode).run();processed++;
+    }
+    const next=cursor+list.length;return notificationJson({success:true,total,processed_batch:processed,processed_total:Math.min(next,total),next_cursor:next,done:next>=total||list.length===0});
+  }catch(error){console.error("adminTwilioLookupBatchPost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+}
+__name(adminTwilioLookupBatchPost,"adminTwilioLookupBatchPost");
 
 async function adminSendCustomerNotification({ request, env }) {
   try {
@@ -8621,6 +8820,22 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/twilio/status") {
       if (request.method === "GET") return adminTwilioStatusGet({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/twilio/phone-tools") {
+      if (request.method === "GET") return adminTwilioPhoneToolsGet({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/twilio/phone-tools/settings") {
+      if (request.method === "POST") return adminTwilioPhoneSettingsPost({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/twilio/phone-tools/apply-area-code") {
+      if (request.method === "POST") return adminTwilioApplyAreaCodePost({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/twilio/phone-tools/lookup-batch") {
+      if (request.method === "POST") return adminTwilioLookupBatchPost({ request, env });
       return methodNotAllowed();
     }
 
