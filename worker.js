@@ -4101,14 +4101,82 @@ async function portalDocumentLinkGet({request,env}){
   }
 }
 __name(portalDocumentLinkGet,"portalDocumentLinkGet");
+async function twilioStatusRequest(url,config){
+  const response=await fetch(url,{headers:{Authorization:`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,Accept:"application/json"}});
+  const data=await response.json().catch(()=>({}));
+  const code=String(data?.code||response.status||"");
+  const message=String(data?.message||data?.detail||data?.status||`HTTP ${response.status}`);
+  return {ok:response.ok,status:response.status,code,message,data};
+}
+__name(twilioStatusRequest,"twilioStatusRequest");
 async function adminTwilioStatusGet({request,env}){
   const supplied=request.headers.get("X-Admin-Key")||"";
   if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY) return notificationJson({success:false,error:"Unauthorized."},401);
   const config=twilioConfig(env);
+  const tests=[];
+  tests.push({key:"configuration",label:"Configuration",ok:config.configured,detail:config.configured?"Required Twilio settings are present.":`Missing: ${config.missing.join(", ")}`});
+  if(!config.accountSid||!config.authToken){
+    tests.push({key:"authentication",label:"Account authentication",ok:false,skipped:true,detail:"Skipped until Account SID and Auth Token are configured."});
+    tests.push({key:"sender",label:"Messaging Service / Sender",ok:false,skipped:true,detail:"Skipped until Twilio authentication is available."});
+    tests.push({key:"lookup",label:"Twilio Lookup",ok:false,skipped:true,detail:"Skipped until Twilio authentication is available."});
+    tests.push({key:"line_type",label:"Line Type Intelligence",ok:false,skipped:true,detail:"Skipped until Twilio authentication is available."});
+    return notificationJson({success:true,configured:false,missing:config.missing,tests,account_sid_masked:config.accountSid?`${config.accountSid.slice(0,4)}…${config.accountSid.slice(-4)}`:"",sender_label:config.messagingServiceSid?`Messaging Service ${config.messagingServiceSid.slice(0,6)}…`:(config.phoneNumber||"")});
+  }
+
+  const accountTest=await twilioStatusRequest(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}.json`,config);
+  tests.push({key:"authentication",label:"Account authentication",ok:accountTest.ok,code:accountTest.ok?"":accountTest.code,detail:accountTest.ok?`Authenticated as ${String(accountTest.data?.friendly_name||accountTest.data?.sid||config.accountSid)}.`:`${accountTest.message}${accountTest.code?` — ${accountTest.code}`:""}`});
+
+  let senderOk=false;
+  if(accountTest.ok&&config.messagingServiceSid){
+    const senderTest=await twilioStatusRequest(`https://messaging.twilio.com/v1/Services/${encodeURIComponent(config.messagingServiceSid)}`,config);
+    senderOk=senderTest.ok;
+    tests.push({key:"sender",label:"Messaging Service",ok:senderTest.ok,code:senderTest.ok?"":senderTest.code,detail:senderTest.ok?`Available: ${String(senderTest.data?.friendly_name||config.messagingServiceSid)}.`:`${senderTest.message}${senderTest.code?` — ${senderTest.code}`:""}`});
+  }else if(accountTest.ok&&config.phoneNumber){
+    senderOk=true;
+    tests.push({key:"sender",label:"SMS sender",ok:true,detail:`Configured sender ${config.phoneNumber}.`});
+  }else{
+    tests.push({key:"sender",label:"Messaging Service / Sender",ok:false,skipped:!accountTest.ok,detail:accountTest.ok?"No Messaging Service SID or sender phone number is configured.":"Skipped because account authentication failed."});
+  }
+
+  let testPhone="";
+  if(accountTest.ok&&env.DB){
+    try{
+      const candidates=await env.DB.prepare(`SELECT phone FROM customers WHERE trim(COALESCE(phone,''))<>'' LIMIT 40`).all();
+      for(const row of (candidates?.results||[])){const normalized=twilioNormalizePhone(row?.phone);if(normalized){testPhone=normalized;break;}}
+    }catch(error){console.error("Twilio status test phone selection failed",error);}
+  }
+  if(!testPhone&&config.phoneNumber)testPhone=twilioNormalizePhone(config.phoneNumber);
+  if(!testPhone)testPhone="+12025550123";
+
+  let lookupOk=false;
+  if(accountTest.ok){
+    const lookupTest=await twilioStatusRequest(`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(testPhone)}`,config);
+    lookupOk=lookupTest.ok;
+    tests.push({key:"lookup",label:"Twilio Lookup",ok:lookupTest.ok,code:lookupTest.ok?"":lookupTest.code,detail:lookupTest.ok?`Lookup authenticated successfully using ${testPhone}.`:`${lookupTest.message}${lookupTest.code?` — ${lookupTest.code}`:""}`});
+  }else{
+    tests.push({key:"lookup",label:"Twilio Lookup",ok:false,skipped:true,detail:"Skipped because account authentication failed."});
+  }
+
+  if(accountTest.ok&&lookupOk){
+    const lineTypeTest=await twilioStatusRequest(`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(testPhone)}?Fields=line_type_intelligence`,config);
+    const intelligence=lineTypeTest.data?.line_type_intelligence||{};
+    const intelligenceError=String(intelligence?.error_code||"");
+    const lineTypeOk=lineTypeTest.ok&&!intelligenceError;
+    tests.push({key:"line_type",label:"Line Type Intelligence",ok:lineTypeOk,code:lineTypeOk?"":(intelligenceError||lineTypeTest.code),detail:lineTypeOk?`Available${intelligence?.type?` • ${intelligence.type}`:""}.`:(lineTypeTest.ok?`Twilio returned Line Type Intelligence error ${intelligenceError||"unknown"}.`:`${lineTypeTest.message}${lineTypeTest.code?` — ${lineTypeTest.code}`:""}`)});
+  }else{
+    tests.push({key:"line_type",label:"Line Type Intelligence",ok:false,skipped:true,detail:"Skipped until Twilio Lookup authentication succeeds."});
+  }
+
+  const requiredTests=tests.filter(test=>["configuration","authentication","sender","lookup","line_type"].includes(test.key));
+  const connected=requiredTests.every(test=>test.ok);
   return notificationJson({
     success:true,
     configured:config.configured,
+    connected,
+    sender_ok:senderOk,
     missing:config.missing,
+    tests,
+    test_phone:testPhone,
     account_sid_masked:config.accountSid?`${config.accountSid.slice(0,4)}…${config.accountSid.slice(-4)}`:"",
     sender_label:config.messagingServiceSid?`Messaging Service ${config.messagingServiceSid.slice(0,6)}…`:(config.phoneNumber||"")
   });
