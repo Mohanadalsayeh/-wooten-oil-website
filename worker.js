@@ -659,6 +659,7 @@ async function onRequestPost3({ request, env }) {
   await ensureTwilioPhoneToolsSchema(env);
   const areaSetting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
   const defaultAreaCode=String(areaSetting?.default_area_code||"").replace(/\D/g,"");
+  const fixAreaCodeAutomatically=body?.fix_area_code_automatically===true;
 
   const parsed=[];
   let skipped=0;
@@ -688,6 +689,12 @@ async function onRequestPost3({ request, env }) {
   }
   if(!parsed.length)return json3({success:false,error:"No valid customer records were found."},400);
 
+  const phoneNumbersFound=parsed.reduce((count,row)=>count+(String(row.importedPhone||"").trim()?1:0),0);
+  const phoneAreaCodeCandidates=parsed.reduce((count,row)=>count+(String(row.importedPhone||"").replace(/\D/g,"").length===7?1:0),0);
+  if(fixAreaCodeAutomatically&&phoneAreaCodeCandidates>0&&!/^[2-9]\d{2}$/.test(defaultAreaCode)){
+    return json3({success:false,error:"Fix Area Code Automatically is selected, but a valid Default U.S. Area Code has not been saved in Twilio settings."},400);
+  }
+
   const accounts=parsed.map(row=>row.acct);
   const existingByAccount=new Map();
   try{
@@ -705,6 +712,9 @@ async function onRequestPost3({ request, env }) {
   const changedEmailAccounts=[];
   const phoneCandidates=[];
   let phoneUnchanged=0;
+  let phoneChangedVsServer=0;
+  let phoneServerMatches=0;
+  let phoneAreaCodeFixed=0;
   for(const row of parsed){
     const current=existingByAccount.get(row.acct);
     const incomingEmail=String(row.importedEmail||"").trim();
@@ -722,17 +732,22 @@ async function onRequestPost3({ request, env }) {
       continue;
     }
 
-    const incomingNormalized=twilioUsPhoneWithArea(incomingRaw,defaultAreaCode);
-    const existingNormalized=twilioUsPhoneWithArea(existingRaw,defaultAreaCode);
     const incomingDigits=incomingRaw.replace(/\D/g,"");
     const existingDigits=existingRaw.replace(/\D/g,"");
-    const sameNumber=(incomingNormalized&&existingNormalized&&incomingNormalized===existingNormalized)||(!incomingNormalized&&!existingNormalized&&incomingDigits&&incomingDigits===existingDigits);
+    const isSevenDigitImport=incomingDigits.length===7;
+    const incomingNormalized=twilioUsPhoneWithArea(incomingRaw,fixAreaCodeAutomatically?defaultAreaCode:"");
+    const existingNormalized=twilioUsPhoneWithArea(existingRaw,(fixAreaCodeAutomatically&&isSevenDigitImport)?defaultAreaCode:"");
+    const serverStillSevenDigits=existingDigits.length===7;
+    const semanticMatch=(incomingNormalized&&existingNormalized&&incomingNormalized===existingNormalized)||(!incomingNormalized&&!existingNormalized&&incomingDigits&&incomingDigits===existingDigits);
+    const sameNumber=!!current&&semanticMatch&&!(fixAreaCodeAutomatically&&isSevenDigitImport&&serverStillSevenDigits);
     if(current&&sameNumber){
+      phoneServerMatches++;
       phoneUnchanged++;
       continue;
     }
+    if(current)phoneChangedVsServer++;
 
-    phoneCandidates.push({row,current,incomingRaw,incomingNormalized,existingRaw});
+    phoneCandidates.push({row,current,incomingRaw,incomingNormalized,existingRaw,isSevenDigitImport});
   }
 
   let phoneUpdated=0,phoneRejected=0,phoneLookupErrors=0;
@@ -740,7 +755,7 @@ async function onRequestPost3({ request, env }) {
   for(let start=0;start<phoneCandidates.length;start+=lookupConcurrency){
     const group=phoneCandidates.slice(start,start+lookupConcurrency);
     await Promise.all(group.map(async candidate=>{
-      const {row,current,incomingRaw,incomingNormalized,existingRaw}=candidate;
+      const {row,current,incomingRaw,incomingNormalized,existingRaw,isSevenDigitImport}=candidate;
       let valid=0,lineType="",carrier="",errorCode="",national="",countryCode="";
       if(!incomingNormalized||!/^\+1\d{10}$/.test(incomingNormalized)){
         errorCode="INVALID_US_FORMAT";
@@ -760,6 +775,7 @@ async function onRequestPost3({ request, env }) {
             row.finalPhone=national||twilioFormatUsNational(incomingNormalized);
             row.phoneDecision="updated";
             phoneUpdated++;
+            if(fixAreaCodeAutomatically&&isSevenDigitImport)phoneAreaCodeFixed++;
           }else{
             row.finalPhone=current?existingRaw:"";
             row.phoneDecision="rejected";
@@ -847,7 +863,7 @@ async function onRequestPost3({ request, env }) {
   let importMeta=null;
   try{
     importMeta=await recordAdminImport(env,"customers",customerRecordCount,adminRequestActor(request,env).name);
-    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation; phone updates ${phoneUpdated}; phone rejected ${phoneRejected}; phone lookup errors ${phoneLookupErrors}`);
+    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation; phone numbers found ${phoneNumbersFound}; 7-digit phones ${phoneAreaCodeCandidates}; area codes fixed ${phoneAreaCodeFixed}; different vs server ${phoneChangedVsServer}; server matches ${phoneServerMatches}; phone updates ${phoneUpdated}; phone rejected ${phoneRejected}; phone lookup errors ${phoneLookupErrors}`);
   }catch(error){console.error("Customer import timestamp could not be recorded",error);}
 
   return json3({
@@ -859,6 +875,13 @@ async function onRequestPost3({ request, env }) {
     phone_rejected:phoneRejected,
     phone_lookup_errors:phoneLookupErrors,
     phone_unchanged:phoneUnchanged,
+    phone_numbers_found:phoneNumbersFound,
+    phone_area_code_candidates:phoneAreaCodeCandidates,
+    phone_area_code_fixed:phoneAreaCodeFixed,
+    phone_changed_vs_server:phoneChangedVsServer,
+    phone_server_matches:phoneServerMatches,
+    fix_area_code_automatically:fixAreaCodeAutomatically,
+    default_area_code:fixAreaCodeAutomatically?defaultAreaCode:"",
     imported_at:importMeta?.last_import_at||new Date().toISOString()
   });
 }
@@ -4128,12 +4151,48 @@ async function adminTwilioPhoneToolsGet({request,env}){
     await ensureTwilioPhoneToolsSchema(env);
     const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
     const phoneStats=await env.DB.prepare(`SELECT COUNT(*) AS customer_phone_count,SUM(CASE WHEN length(replace(replace(replace(replace(replace(replace(trim(phone),'(',''),')',''),'-',''),' ',''),'.',''),'+',''))=7 THEN 1 ELSE 0 END) AS seven_digit_count FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();
-    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN line_type='mobile' THEN 1 ELSE 0 END) AS mobile_count,SUM(CASE WHEN line_type='landline' THEN 1 ELSE 0 END) AS landline_count,SUM(CASE WHEN line_type NOT IN ('mobile','landline') AND trim(line_type)<>'' THEN 1 ELSE 0 END) AS other_count FROM twilio_phone_lookup_cache`).first();
+    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.line_type='mobile' THEN 1 ELSE 0 END) AS mobile_count,SUM(CASE WHEN l.line_type='landline' THEN 1 ELSE 0 END) AS landline_count,SUM(CASE WHEN l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>'' THEN 1 ELSE 0 END) AS other_count FROM twilio_phone_lookup_cache l JOIN customers c ON c.account_number=l.account_number WHERE trim(COALESCE(c.phone,''))<>''`).first();
     const rows=await env.DB.prepare(`SELECT l.account_number,c.account_name,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at FROM twilio_phone_lookup_cache l LEFT JOIN customers c ON c.account_number=l.account_number ORDER BY datetime(l.checked_at) DESC,l.account_number LIMIT 100`).all();
     return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),mobile_count:Number(lookupStats?.mobile_count||0),landline_count:Number(lookupStats?.landline_count||0),other_count:Number(lookupStats?.other_count||0)},results:rows?.results||[]});
   }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioPhoneToolsGet,"adminTwilioPhoneToolsGet");
+async function adminTwilioPhoneResultsGet({request,env}){
+  try{
+    if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+    await ensureTwilioPhoneToolsSchema(env);
+    const url=new URL(request.url);
+    const allowed=new Set(["all","valid","invalid","mobile","landline","other"]);
+    const group=allowed.has(String(url.searchParams.get("group")||""))?String(url.searchParams.get("group")):"all";
+    const page=Math.max(1,Math.floor(Number(url.searchParams.get("page"))||1));
+    const pageSize=50;
+    const q=String(url.searchParams.get("q")||"").trim().slice(0,120).toLowerCase();
+    const where=[`trim(COALESCE(c.phone,''))<>''`];
+    const params=[];
+    if(group==="valid")where.push(`l.valid=1`);
+    else if(group==="invalid")where.push(`l.valid=0`);
+    else if(group==="mobile")where.push(`l.line_type='mobile'`);
+    else if(group==="landline")where.push(`l.line_type='landline'`);
+    else if(group==="other")where.push(`l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>''`);
+    if(q){
+      const like=`%${q}%`;
+      where.push(`(lower(COALESCE(c.account_number,'')) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ? OR lower(COALESCE(c.phone,'')) LIKE ? OR lower(COALESCE(l.national_format,'')) LIKE ? OR lower(COALESCE(l.normalized_phone,'')) LIKE ? OR lower(COALESCE(l.line_type,'')) LIKE ? OR lower(COALESCE(l.carrier_name,'')) LIKE ? OR lower(COALESCE(l.error_code,'')) LIKE ?)`);
+      params.push(like,like,like,like,like,like,like,like);
+    }
+    const fromSql=` FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number WHERE ${where.join(" AND ")}`;
+    const countStmt=env.DB.prepare(`SELECT COUNT(*) AS n${fromSql}`);
+    const countRow=params.length?await countStmt.bind(...params).first():await countStmt.first();
+    const total=Math.max(0,Number(countRow?.n||0));
+    const pages=Math.max(1,Math.ceil(total/pageSize));
+    const safePage=Math.min(page,pages);
+    const offset=(safePage-1)*pageSize;
+    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at${fromSql} ORDER BY CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number LIMIT ? OFFSET ?`;
+    const listParams=[...params,pageSize,offset];
+    const rows=await env.DB.prepare(listSql).bind(...listParams).all();
+    return notificationJson({success:true,group,q,page:safePage,page_size:pageSize,pages,total,results:rows?.results||[]});
+  }catch(error){console.error("adminTwilioPhoneResultsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+}
+__name(adminTwilioPhoneResultsGet,"adminTwilioPhoneResultsGet");
 async function adminTwilioPhoneSettingsPost({request,env}){
   try{
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
@@ -4152,10 +4211,20 @@ async function adminTwilioApplyAreaCodePost({request,env}){
     const body=await request.json().catch(()=>({}));let area=String(body?.default_area_code||"").replace(/\D/g,"");
     if(!/^[2-9]\d{2}$/.test(area)){const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();area=String(setting?.default_area_code||"").replace(/\D/g,"");}
     if(!/^[2-9]\d{2}$/.test(area))return notificationJson({success:false,error:"Save a valid 3-digit U.S. area code first."},400);
-    const rows=await env.DB.prepare(`SELECT id,phone FROM customers WHERE trim(COALESCE(phone,''))<>''`).all();
-    let updated=0;
-    for(const row of rows?.results||[]){const digits=String(row.phone||"").replace(/\D/g,"");if(digits.length!==7)continue;const formatted=`(${area}) ${digits.slice(0,3)}-${digits.slice(3)}`;await env.DB.prepare(`UPDATE customers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(formatted,row.id).run();updated++;}
-    return notificationJson({success:true,updated_count:updated,default_area_code:area});
+    const cursor=Math.max(0,Math.floor(Number(body?.cursor)||0));
+    const limit=Math.min(250,Math.max(1,Math.floor(Number(body?.limit)||100)));
+    const totals=await env.DB.prepare(`SELECT COUNT(*) AS n,COALESCE(MAX(id),0) AS max_id FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();
+    const total=Math.max(0,Number(totals?.n||0));
+    const maxId=Math.max(0,Number(totals?.max_id||0));
+    const rows=await env.DB.prepare(`SELECT id,phone FROM customers WHERE trim(COALESCE(phone,''))<>'' AND id>? ORDER BY id LIMIT ?`).bind(cursor,limit).all();
+    const list=rows?.results||[];let updated=0;
+    for(const row of list){
+      const digits=String(row.phone||"").replace(/\D/g,"");
+      if(digits.length===7){const formatted=`(${area}) ${digits.slice(0,3)}-${digits.slice(3)}`;await env.DB.prepare(`UPDATE customers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(formatted,row.id).run();updated++;}
+    }
+    const nextCursor=list.length?Number(list[list.length-1].id||cursor):cursor;
+    const done=list.length===0||nextCursor>=maxId;
+    return notificationJson({success:true,default_area_code:area,total,processed_batch:list.length,updated_batch:updated,next_cursor:nextCursor,done});
   }catch(error){console.error("adminTwilioApplyAreaCodePost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioApplyAreaCodePost,"adminTwilioApplyAreaCodePost");
@@ -8824,6 +8893,10 @@ var worker_default = {
     }
     if (url.pathname === "/api/admin/twilio/phone-tools") {
       if (request.method === "GET") return adminTwilioPhoneToolsGet({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/twilio/phone-tools/results") {
+      if (request.method === "GET") return adminTwilioPhoneResultsGet({ request, env });
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/twilio/phone-tools/settings") {
