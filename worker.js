@@ -4191,9 +4191,9 @@ async function adminTwilioPhoneToolsGet({request,env}){
     await ensureTwilioPhoneToolsSchema(env);
     const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
     const phoneStats=await env.DB.prepare(`SELECT COUNT(*) AS customer_phone_count,SUM(CASE WHEN length(replace(replace(replace(replace(replace(replace(trim(phone),'(',''),')',''),'-',''),' ',''),'.',''),'+',''))=7 THEN 1 ELSE 0 END) AS seven_digit_count FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();
-    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.line_type='mobile' THEN 1 ELSE 0 END) AS mobile_count,SUM(CASE WHEN l.line_type='landline' THEN 1 ELSE 0 END) AS landline_count,SUM(CASE WHEN l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>'' THEN 1 ELSE 0 END) AS other_count FROM twilio_phone_lookup_cache l JOIN customers c ON c.account_number=l.account_number WHERE trim(COALESCE(c.phone,''))<>''`).first();
+    const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.account_number IS NULL THEN 1 ELSE 0 END) AS not_checked_count,SUM(CASE WHEN l.valid=1 AND l.line_type='mobile' THEN 1 ELSE 0 END) AS mobile_count,SUM(CASE WHEN l.valid=1 AND l.line_type='landline' THEN 1 ELSE 0 END) AS landline_count,SUM(CASE WHEN l.valid=1 AND l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>'' THEN 1 ELSE 0 END) AS other_count FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE trim(COALESCE(c.phone,''))<>''`).first();
     const rows=await env.DB.prepare(`SELECT l.account_number,c.account_name,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at FROM twilio_phone_lookup_cache l LEFT JOIN customers c ON c.account_number=l.account_number ORDER BY datetime(l.checked_at) DESC,l.account_number LIMIT 100`).all();
-    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),mobile_count:Number(lookupStats?.mobile_count||0),landline_count:Number(lookupStats?.landline_count||0),other_count:Number(lookupStats?.other_count||0)},results:rows?.results||[]});
+    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),not_checked_count:Number(lookupStats?.not_checked_count||0),mobile_count:Number(lookupStats?.mobile_count||0),landline_count:Number(lookupStats?.landline_count||0),other_count:Number(lookupStats?.other_count||0)},results:rows?.results||[]});
   }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioPhoneToolsGet,"adminTwilioPhoneToolsGet");
@@ -4202,7 +4202,7 @@ async function adminTwilioPhoneResultsGet({request,env}){
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureTwilioPhoneToolsSchema(env);
     const url=new URL(request.url);
-    const allowed=new Set(["all","valid","invalid","mobile","landline","other"]);
+    const allowed=new Set(["all","valid","invalid","error","unchecked","mobile","landline","other"]);
     const group=allowed.has(String(url.searchParams.get("group")||""))?String(url.searchParams.get("group")):"all";
     const page=Math.max(1,Math.floor(Number(url.searchParams.get("page"))||1));
     const pageSize=50;
@@ -4211,22 +4211,24 @@ async function adminTwilioPhoneResultsGet({request,env}){
     const params=[];
     if(group==="valid")where.push(`l.valid=1`);
     else if(group==="invalid")where.push(`l.valid=0`);
-    else if(group==="mobile")where.push(`l.line_type='mobile'`);
-    else if(group==="landline")where.push(`l.line_type='landline'`);
-    else if(group==="other")where.push(`l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>''`);
+    else if(group==="error")where.push(`l.valid=-1`);
+    else if(group==="unchecked")where.push(`l.account_number IS NULL`);
+    else if(group==="mobile")where.push(`l.valid=1 AND l.line_type='mobile'`);
+    else if(group==="landline")where.push(`l.valid=1 AND l.line_type='landline'`);
+    else if(group==="other")where.push(`l.valid=1 AND l.line_type NOT IN ('mobile','landline') AND trim(COALESCE(l.line_type,''))<>''`);
     if(q){
       const like=`%${q}%`;
       where.push(`(lower(COALESCE(c.account_number,'')) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ? OR lower(COALESCE(c.phone,'')) LIKE ? OR lower(COALESCE(l.national_format,'')) LIKE ? OR lower(COALESCE(l.normalized_phone,'')) LIKE ? OR lower(COALESCE(l.line_type,'')) LIKE ? OR lower(COALESCE(l.carrier_name,'')) LIKE ? OR lower(COALESCE(l.error_code,'')) LIKE ?)`);
       params.push(like,like,like,like,like,like,like,like);
     }
-    const fromSql=` FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number WHERE ${where.join(" AND ")}`;
+    const fromSql=` FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE ${where.join(" AND ")}`;
     const countStmt=env.DB.prepare(`SELECT COUNT(*) AS n${fromSql}`);
     const countRow=params.length?await countStmt.bind(...params).first():await countStmt.first();
     const total=Math.max(0,Number(countRow?.n||0));
     const pages=Math.max(1,Math.ceil(total/pageSize));
     const safePage=Math.min(page,pages);
     const offset=(safePage-1)*pageSize;
-    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at,v.phone_e164 AS sms_verification_phone,v.sms_sid AS sms_verification_sid,v.status AS sms_verification_status,v.error_code AS sms_verification_error_code,v.error_message AS sms_verification_error_message,v.sent_at AS sms_verification_sent_at,v.delivered_at AS sms_verification_delivered_at,v.updated_at AS sms_verification_updated_at FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number LEFT JOIN twilio_sms_verification v ON v.account_number=c.account_number WHERE ${where.join(" AND ")} ORDER BY CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number LIMIT ? OFFSET ?`;
+    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at,v.phone_e164 AS sms_verification_phone,v.sms_sid AS sms_verification_sid,v.status AS sms_verification_status,v.error_code AS sms_verification_error_code,v.error_message AS sms_verification_error_message,v.sent_at AS sms_verification_sent_at,v.delivered_at AS sms_verification_delivered_at,v.updated_at AS sms_verification_updated_at FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) LEFT JOIN twilio_sms_verification v ON v.account_number=c.account_number WHERE ${where.join(" AND ")} ORDER BY CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number LIMIT ? OFFSET ?`;
     const listParams=[...params,pageSize,offset];
     const rows=await env.DB.prepare(listSql).bind(...listParams).all();
     return notificationJson({success:true,group,q,page:safePage,page_size:pageSize,pages,total,results:rows?.results||[]});
@@ -4273,6 +4275,7 @@ async function adminTwilioLookupBatchPost({request,env}){
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureTwilioPhoneToolsSchema(env);
     const body=await request.json().catch(()=>({}));const cursor=Math.max(0,Number(body?.cursor)||0);const limit=Math.min(25,Math.max(1,Number(body?.limit)||20));
+    if(cursor===0)await env.DB.prepare(`DELETE FROM twilio_phone_lookup_cache`).run();
     const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();const area=String(setting?.default_area_code||"");
     const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();const total=Number(totalRow?.n||0);
     const rows=await env.DB.prepare(`SELECT account_number,phone FROM customers WHERE trim(COALESCE(phone,''))<>'' ORDER BY id LIMIT ? OFFSET ?`).bind(limit,cursor).all();
