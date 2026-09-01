@@ -3950,6 +3950,137 @@ body.statement-processing-active{overflow:hidden!important}
 @media(max-width:700px){.admin-activity-search-wrap{max-width:none}}
 </style>
 
+
+<style id="wooten-admin-activity-ver207-style">
+.admin-activity-search-row{
+  margin:18px 0 14px;
+}
+.admin-activity-search-label{
+  display:block;
+  margin:0 0 7px;
+  font-size:14px;
+  font-weight:800;
+  color:#17324d;
+}
+.admin-activity-search-wrap{
+  position:relative;
+  width:100%;
+  max-width:none;
+}
+.admin-activity-search-wrap input{
+  width:100%;
+  height:48px;
+  box-sizing:border-box;
+  border:1px solid #cbd8e3;
+  border-radius:11px;
+  background:#fff;
+  color:#17324d;
+  padding:0 46px 0 42px;
+  font:inherit;
+  font-size:15px;
+}
+.admin-activity-search-wrap input:focus{
+  outline:none;
+  border-color:#8fb5d5;
+  box-shadow:0 0 0 3px rgba(86,145,194,.12);
+}
+.admin-activity-search-icon{
+  position:absolute;
+  left:14px;
+  top:50%;
+  transform:translateY(-50%);
+  width:19px;
+  height:19px;
+  color:#5f7d98;
+  pointer-events:none;
+}
+.admin-activity-search-icon svg{
+  width:100%;
+  height:100%;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+}
+.admin-activity-search-clear{
+  position:absolute;
+  right:9px;
+  top:50%;
+  transform:translateY(-50%);
+  width:30px;
+  height:30px;
+  border:0;
+  background:transparent;
+  color:#667b8e;
+  font-size:22px;
+  line-height:1;
+  cursor:pointer;
+  border-radius:7px;
+}
+.admin-activity-search-clear:hover,.admin-activity-search-clear:focus-visible{
+  background:#f1f5f8;
+  outline:none;
+}
+.admin-activity-search-clear[hidden]{display:none!important}
+
+#adminActivityPagination{
+  width:100%;
+  box-sizing:border-box;
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center;
+  gap:20px;
+  margin:16px 0 0;
+  padding:14px 0 4px;
+  border-top:1px solid #e3eaf0;
+}
+#adminActivityPagination .admin-activity-pagination-summary{
+  margin:0;
+  color:#61768b;
+  font-size:14px;
+  line-height:1.4;
+}
+#adminActivityPagination .admin-activity-pagination-controls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  margin:0;
+}
+#adminActivityPagination .admin-page-btn{
+  min-width:104px;
+  height:42px;
+  margin:0;
+  padding:0 18px;
+  border-radius:10px;
+}
+#adminActivityPagination .admin-activity-page-indicator{
+  min-width:100px;
+  height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin:0;
+  white-space:nowrap;
+  font-weight:800;
+}
+@media(max-width:700px){
+  #adminActivityPagination{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  #adminActivityPagination .admin-activity-pagination-controls{
+    width:100%;
+    justify-content:space-between;
+    gap:8px;
+  }
+  #adminActivityPagination .admin-page-btn{
+    min-width:0;
+    flex:1 1 0;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
