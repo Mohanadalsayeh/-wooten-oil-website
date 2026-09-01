@@ -2580,6 +2580,55 @@ async function storeResetCode(env, customerId, code) {
 }
 __name(storeResetCode, "storeResetCode");
 
+async function ensureSharedEmailPasswordResetTable(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS shared_email_password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email_key TEXT NOT NULL,
+      token_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      used_at TEXT
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_shared_email_reset_email ON shared_email_password_reset_tokens(email_key,created_at)`).run().catch(()=>{});
+}
+__name(ensureSharedEmailPasswordResetTable, "ensureSharedEmailPasswordResetTable");
+async function sharedEmailResetHash(emailKey, code) {
+  return sha2563(`shared-email:${clean3(emailKey).toLowerCase()}:${clean3(code)}`);
+}
+__name(sharedEmailResetHash, "sharedEmailResetHash");
+async function storeSharedEmailResetCode(env, emailKey, code) {
+  await ensureSharedEmailPasswordResetTable(env);
+  const key = clean3(emailKey).toLowerCase();
+  const hash = await sharedEmailResetHash(key, code);
+  const expires = new Date(Date.now() + CODE_MINUTES2 * 60 * 1e3).toISOString();
+  await env.DB.prepare(`UPDATE shared_email_password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE email_key=? AND used_at IS NULL`).bind(key).run();
+  await env.DB.prepare(`INSERT INTO shared_email_password_reset_tokens(email_key,token_hash,expires_at,created_at) VALUES(?,?,?,CURRENT_TIMESTAMP)`).bind(key,hash,expires).run();
+  return expires;
+}
+__name(storeSharedEmailResetCode, "storeSharedEmailResetCode");
+async function sendSharedEmailResetEmail(env, email, code) {
+  if (!env.RESEND_API_KEY) throw new Error("Email service is not configured.");
+  const fromAddress = clean3(env.FUEL_FROM_EMAIL) || "support@wootenoil.com";
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json", "User-Agent": "WootenOilCustomerPortal/1.0" },
+    body: JSON.stringify({
+      from: `Wooten Oil <${fromAddress}>`,
+      to: [email],
+      subject: "Wooten Oil Shared Email Login Password Reset",
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#172033;line-height:1.6"><h2 style="color:#0b2239">Wooten Oil</h2><p>Use this verification code to reset the password for your <strong>Shared Email Login</strong>:</p><div style="font-size:32px;font-weight:800;letter-spacing:7px;background:#f3f6f9;border-radius:12px;padding:18px;text-align:center">${code}</div><p>This reset applies only to the password used to sign in with <strong>${escapeHtml2(email)}</strong> and switch between linked accounts. Individual customer account passwords will not be changed.</p><p>This code expires in ${CODE_MINUTES2} minutes. If you did not request this password reset, you can ignore this email.</p></div>`
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error("Resend shared email password reset error", data);
+    throw new Error("Shared email password reset email could not be sent.");
+  }
+}
+__name(sendSharedEmailResetEmail, "sendSharedEmailResetEmail");
+
 async function adminGeneratePasswordResetCode({ request, env }) {
   try {
     if (!env.DB) {
@@ -2695,6 +2744,53 @@ async function customerPasswordResetStart({ request, env }) {
   const identifier = clean3(body?.identifier || body?.user || body?.account_number || body?.email);
   const requestedMethod = clean3(body?.method).toLowerCase();
   if (!identifier) return json6({ success: false, error: "Enter the email address or Customer Number on the account." }, 400);
+
+  // Shared-email recovery is an email-level credential. Never attach it to a specific customer account.
+  if (identifier.includes("@")) {
+    const emailKey = identifier.toLowerCase();
+    const sharedCredential = await getSharedEmailCredential(env, emailKey);
+    const linked = await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM customers
+      WHERE lower(trim(email))=?
+        AND (account_status IS NULL OR trim(account_status)='' OR lower(trim(account_status))='active')
+    `).bind(emailKey).first();
+    const linkedCount = Number(linked?.total || 0);
+    if (sharedCredential && linkedCount > 1) {
+      const methods = [{ method: "email", label: "Email", destination: maskEmail2(emailKey) }];
+      if (!requestedMethod) {
+        return json6({
+          success: true,
+          method: "choose",
+          reset_scope: "shared_email",
+          email: emailKey,
+          methods,
+          message: "Reset the password for your Shared Email Login. This will not change any individual customer account password."
+        });
+      }
+      if (requestedMethod !== "email") return json6({ success: false, error: "Shared Email Login password recovery is available by email only." }, 400);
+      await ensureSharedEmailPasswordResetTable(env);
+      const recent = await env.DB.prepare(`SELECT id FROM shared_email_password_reset_tokens WHERE email_key=? AND used_at IS NULL AND created_at > datetime('now','-60 seconds') LIMIT 1`).bind(emailKey).first();
+      if (recent) return json6({ success: false, wait: true, error: "A reset code was already requested recently. Please wait about one minute before trying again." }, 429);
+      const code = randomCode2();
+      await storeSharedEmailResetCode(env, emailKey, code);
+      try {
+        await sendSharedEmailResetEmail(env, emailKey, code);
+      } catch (e) {
+        console.error(e);
+        return json6({ success: false, error: "We could not send the Shared Email Login password reset email. Please contact Wooten Oil." }, 503);
+      }
+      return json6({
+        success: true,
+        method: "email",
+        reset_scope: "shared_email",
+        email: emailKey,
+        destination: maskEmail2(emailKey),
+        message: "A 6-digit Shared Email Login password reset code was sent to your email."
+      });
+    }
+  }
+
   const customer = await findCustomer(env, identifier);
   if (!customer) return json6({ success: false, error: "We could not locate an account with that email or Customer Number." }, 404);
   if (clean3(customer.account_status).toLowerCase() && clean3(customer.account_status).toLowerCase() !== "active") return json6({ success: false, error: "This account is not active. Please contact Wooten Oil." }, 403);
@@ -2711,7 +2807,7 @@ async function customerPasswordResetStart({ request, env }) {
 
   if (!requestedMethod) {
     if (!methods.length) return json6({ success: true, method: "office", account_number: customer.account_number, methods: [], message: "There is no email address or SMS-capable phone setup available for automatic recovery. Please contact Wooten Oil for password assistance." });
-    return json6({ success: true, method: "choose", account_number: customer.account_number, methods, message: methods.length > 1 ? "Choose where you want to receive your 6-digit verification code." : "Choose the available recovery method to receive your 6-digit verification code." });
+    return json6({ success: true, method: "choose", reset_scope: "account", account_number: customer.account_number, methods, message: methods.length > 1 ? "Choose where you want to receive your 6-digit verification code." : "Choose the available recovery method to receive your 6-digit verification code." });
   }
 
   if (!methods.some(m => m.method === requestedMethod)) return json6({ success: false, error: "That password recovery method is not available for this account." }, 400);
@@ -2727,7 +2823,7 @@ async function customerPasswordResetStart({ request, env }) {
     return json6({ success: false, error: requestedMethod === "email" ? "We could not send the password reset email. Please contact Wooten Oil." : "We could not send the password reset text. Please contact Wooten Oil." }, 503);
   }
   const destination = requestedMethod === "email" ? maskEmail2(customer.email) : maskPhone(customer.phone);
-  return json6({ success: true, method: requestedMethod, account_number: customer.account_number, destination, message: `A 6-digit password reset code was sent ${requestedMethod === "email" ? "to your email" : "by text message"}.` });
+  return json6({ success: true, method: requestedMethod, reset_scope: "account", account_number: customer.account_number, destination, message: `A 6-digit password reset code was sent ${requestedMethod === "email" ? "to your email" : "by text message"}.` });
 }
 __name(customerPasswordResetStart, "customerPasswordResetStart");
 async function customerPasswordResetComplete({ request, env }) {
@@ -2749,6 +2845,31 @@ async function customerPasswordResetComplete({ request, env }) {
     if (confirm && password !== confirm) return json6({ success: false, error: "The passwords do not match." }, 400);
     if (password.length < 8 || !/[A-Za-z]/.test(password)) return json6({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
     if (password.length > 128) return json6({ success: false, error: "Your password is too long." }, 400);
+
+    // For an email identifier, first check for a valid Shared Email Login reset token.
+    if (identifier.includes("@")) {
+      const emailKey = identifier.toLowerCase();
+      await ensureSharedEmailPasswordResetTable(env);
+      const sharedHash = await sharedEmailResetHash(emailKey, code);
+      const sharedToken = await env.DB.prepare(`
+        SELECT id
+        FROM shared_email_password_reset_tokens
+        WHERE email_key=? AND token_hash=? AND used_at IS NULL
+          AND datetime(expires_at) > datetime('now')
+        ORDER BY id DESC LIMIT 1
+      `).bind(emailKey,sharedHash).first();
+      if (sharedToken) {
+        const existingShared = await getSharedEmailCredential(env,emailKey);
+        if (!existingShared) return json6({ success: false, error: "This Shared Email Login is not set up. Please use First Time Login." }, 409);
+        const passwordHash = await createPasswordHash2(password);
+        await env.DB.prepare(`UPDATE customer_shared_email_credentials SET password_hash=?,updated_at=CURRENT_TIMESTAMP WHERE email_key=?`).bind(passwordHash,emailKey).run();
+        await env.DB.prepare(`UPDATE shared_email_password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(sharedToken.id).run().catch(()=>{});
+        await ensureCustomerSessionScopeColumns(env);
+        await env.DB.prepare(`DELETE FROM customer_sessions WHERE login_method='email' AND lower(trim(COALESCE(verified_email,'')))=?`).bind(emailKey).run().catch(()=>{});
+        return json6({ success: true, reset_scope: "shared_email", email: emailKey, message: "Your Shared Email Login password has been reset. You can now sign in with your email and new password." });
+      }
+    }
+
     const customer = await findCustomer(env, identifier);
     if (!customer) return json6({ success: false, error: "The verification code is incorrect or has expired." }, 400);
     const hash = await codeHash2(customer.id, code);
