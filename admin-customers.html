@@ -4306,6 +4306,43 @@ textarea[data-request-response]{
 }
 </style>
 
+
+<style id="wooten-admin-sidebar-scroll-ver215">
+/* Desktop: keep the entire left navigation reachable without moving the main page. */
+#adminSidebar.admin-tabs-shell{
+  box-sizing:border-box!important;
+  max-height:calc(100vh - 28px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:18px!important;
+  align-self:flex-start!important;
+  position:sticky!important;
+  top:14px!important;
+}
+#adminSidebar .admin-tabs{
+  min-height:max-content!important;
+  padding-bottom:16px!important;
+}
+#adminSidebar .admin-tabs > *:last-child{
+  margin-bottom:10px!important;
+}
+#adminSidebar::-webkit-scrollbar{width:7px}
+#adminSidebar::-webkit-scrollbar-thumb{background:#c8d4df;border-radius:999px}
+#adminSidebar::-webkit-scrollbar-track{background:transparent}
+@media(max-width:900px){
+  #adminSidebar.admin-tabs-shell{
+    max-height:none!important;
+    overflow:visible!important;
+    position:fixed!important;
+    top:0!important;
+    padding-bottom:12px!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
