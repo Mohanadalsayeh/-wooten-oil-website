@@ -8963,7 +8963,7 @@ async function requestDecisionNotify({request,env,accountNumber,email,phone,name
   }
   if(smsSend){
     if(!phone)result.sms={sent:false,error:'No phone number is available.'};
-    else{try{const sent=await twilioSendSms(env,String(phone),`WOOTEN OIL CO INC\n${message}\nPlease do not reply.`,{statusCallbackUrl:twilioCallbackUrl(request,'/api/twilio/message-status')});result.sms={sent:true,sid:String(sent?.sid||'')};}catch(e){result.sms={sent:false,error:String(e?.message||e)}}
+    else{try{const sent=await twilioSendSms(env,String(phone),`WOOTEN OIL CO INC\n${message}\nPlease do not reply.`,{statusCallbackUrl:twilioCallbackUrl(request,'/api/twilio/message-status')});result.sms={sent:true,sid:String(sent?.sid||'')};}catch(e){result.sms={sent:false,error:String(e?.message||e)}}}
   }
   return result;
 }
