@@ -2046,6 +2046,10 @@ input[type="file"]:focus-visible{
 
 
 
+
+<style id="wooten-admin-notification-bell-style">
+.admin-header-actions{display:flex;align-items:center;gap:10px;margin-left:auto}.admin-bell-shell{position:relative;flex:0 0 auto}.admin-bell-btn{position:relative;width:44px;height:44px;border:1px solid #cfdae4;border-radius:12px;background:#f8fbfd;color:#17324d;display:grid;place-items:center;cursor:pointer;padding:0}.admin-bell-btn:hover,.admin-bell-btn[aria-expanded="true"]{background:#eef6fc;border-color:#a9c7dd}.admin-bell-btn svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.admin-bell-badge{position:absolute;right:-5px;top:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#c91f2b;color:#fff;font-size:11px;font-weight:900;line-height:20px;text-align:center;border:2px solid #fff;box-sizing:border-box}.admin-bell-menu{position:absolute;right:0;top:53px;width:min(390px,calc(100vw - 28px));background:#fff;border:1px solid #d8e2ea;border-radius:16px;box-shadow:0 20px 55px rgba(12,33,53,.20);z-index:250;padding:0;overflow:hidden}.admin-bell-menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px 12px;border-bottom:1px solid #e4ebf1}.admin-bell-menu-head strong{display:block;color:#17324d;font-size:16px}.admin-bell-menu-head span{display:block;color:#74879a;font-size:12px;margin-top:2px}.admin-bell-menu-head button{width:34px;height:34px;border:1px solid #d6e1e9;border-radius:9px;background:#f8fbfd;color:#2c6389;font-size:20px;cursor:pointer}.admin-bell-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:11px 12px;background:#f7fafc;border-bottom:1px solid #e4ebf1}.admin-bell-count{border:0;background:#fff;border-radius:10px;padding:8px 6px;text-align:center;color:#536a7d;font-size:11px;font-weight:700;cursor:pointer}.admin-bell-count strong{display:block;color:#17324d;font-size:16px;margin-bottom:1px}.admin-bell-list{max-height:360px;overflow:auto}.admin-bell-item{width:100%;display:flex;gap:11px;align-items:flex-start;text-align:left;border:0;border-bottom:1px solid #edf1f4;background:#fff;padding:12px 14px;cursor:pointer;color:#17324d}.admin-bell-item:hover{background:#f5f9fc}.admin-bell-dot{width:9px;height:9px;border-radius:50%;background:#c91f2b;margin-top:6px;flex:0 0 auto}.admin-bell-item strong{display:block;font-size:13px;line-height:1.3}.admin-bell-item span{display:block;color:#6e8294;font-size:12px;margin-top:3px}.admin-bell-empty{padding:24px 16px;text-align:center;color:#7d8f9e;font-size:13px}@media(max-width:800px){.admin-header-actions{width:100%;justify-content:flex-end}.admin-bell-menu{position:fixed;top:72px;right:12px;left:12px;width:auto;max-height:calc(100vh - 90px)}}
+</style>
 <style id="wooten-admin-login-popup-style">
   .admin-access-box{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
@@ -3920,7 +3924,20 @@ body.statement-processing-active{overflow:hidden!important}
         <div class="admin-access-label">Admin Access</div>
         <div class="admin-access-meta" id="adminAccessMeta">Locked • Login required</div>
       </div>
-      <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
+      <div class="admin-header-actions">
+        <div class="admin-bell-shell">
+          <button class="admin-bell-btn" id="adminNotificationBell" type="button" aria-label="Admin notifications" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+            <span class="admin-bell-badge" id="adminNotificationBadge" hidden>0</span>
+          </button>
+          <div class="admin-bell-menu" id="adminNotificationMenu" hidden>
+            <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications">↻</button></div>
+            <div class="admin-bell-counts" id="adminNotificationCounts"></div>
+            <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div>
+          </div>
+        </div>
+        <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
+      </div>
     </div>
     <div hidden aria-hidden="true">
       <input id="adminKey" type="password" autocomplete="off">
@@ -10649,6 +10666,25 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   </div>
 </div>
 
+
+<script id="wooten-admin-notification-bell-script">
+(()=>{
+ const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
+ const key=()=>g('adminKey')?.value.trim()||'';
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+ const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application'};
+ const time=v=>{if(!v)return '';const d=new Date(String(v).replace(' ','T')+'Z');return Number.isNaN(d.getTime())?'':d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});};
+ function openTarget(type){menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
+ async function load(){if(!key()){badge.hidden=true;list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';counts.innerHTML='';return;}try{const r=await fetch('/api/admin/notification-bell',{headers:{'X-Admin-Key':key()},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Could not load notifications.');const total=Number(d.total||0);badge.textContent=total>99?'99+':String(total);badge.hidden=total===0;summary.textContent=total?total+' pending item'+(total===1?'':'s'):'No pending items';counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications']].map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(d.counts?.[k]||0)+'</strong>'+l+'</button>').join('');const items=d.items||[];list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(x.created_at?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending customer requests or applications.</div>';}catch(e){list.innerHTML='<div class="admin-bell-empty">'+esc(e.message||'Notifications could not be loaded.')+'</div>';}}
+ bell.addEventListener('click',async e=>{e.stopPropagation();const next=menu.hidden;menu.hidden=!next;bell.setAttribute('aria-expanded',String(next));if(next)await load();});
+ refresh?.addEventListener('click',e=>{e.stopPropagation();load();});
+ menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType);return}const c=e.target.closest('[data-bell-count]');if(c){openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);}});
+ document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
+ setInterval(()=>{if(!menu.hidden||key())load();},60000);
+ setTimeout(load,1200);
+})();
+</script>
 </body>
 </html>
 

@@ -9059,6 +9059,24 @@ async function adminRequestCenterDecision({request,env}){
 __name(adminRequestCenterDecision,'adminRequestCenterDecision');
 
 
+async function adminNotificationBellGet({request,env}){
+  try{
+    await ensureRequestCenterSchema(env);
+    const profileCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM profile_change_requests WHERE COALESCE(status,'pending')='pending'`).first())?.total||0);
+    const fuelCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending'`).first())?.total||0);
+    const applicationCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE COALESCE(status,'pending')='pending'`).first())?.total||0);
+    const profileRows=(await env.DB.prepare(`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' ORDER BY datetime(created_at) DESC,id DESC LIMIT 8`).all())?.results||[];
+    const fuelRows=(await env.DB.prepare(`SELECT 'fuel' AS item_type,rowid AS id,request_number,customer_name AS name,customer_account_number AS account,received_at AS created_at FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' ORDER BY datetime(received_at) DESC,rowid DESC LIMIT 8`).all())?.results||[];
+    const appRows=(await env.DB.prepare(`SELECT 'application' AS item_type,id,application_number AS request_number,COALESCE(NULLIF(business_name,''),full_name) AS name,'' AS account,created_at FROM account_applications WHERE COALESCE(status,'pending')='pending' ORDER BY datetime(created_at) DESC,id DESC LIMIT 8`).all())?.results||[];
+    const items=[...profileRows,...fuelRows,...appRows].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,10);
+    return notificationJson({success:true,total:profileCount+fuelCount+applicationCount,counts:{profile:profileCount,fuel:fuelCount,applications:applicationCount},items});
+  }catch(error){
+    console.error('adminNotificationBellGet',error);
+    return notificationJson({success:false,error:'Admin notifications could not be loaded.'},500);
+  }
+}
+__name(adminNotificationBellGet,'adminNotificationBellGet');
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -9095,6 +9113,10 @@ var worker_default = {
     if(url.pathname==="/api/admin/request-center"){
       if(request.method==="GET")return adminRequestCenterGet({request,env});
       if(request.method==="POST")return adminRequestCenterDecision({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/notification-bell"){
+      if(request.method==="GET")return adminNotificationBellGet({request,env});
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/customer-activity"){
