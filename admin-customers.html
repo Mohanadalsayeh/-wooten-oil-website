@@ -729,6 +729,7 @@ input[type="file"]:focus-visible{
 @keyframes dbSkeletonShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.db-skeleton-cell{animation:none;background:#edf2f6}}
 .admin-skeleton-stack{display:grid;gap:14px;margin-top:14px}.admin-skeleton-card{border:1px solid #dbe4eb;border-radius:14px;background:#fff;padding:17px 18px;overflow:hidden}.admin-skeleton-line{display:block;height:14px;border-radius:7px;background:linear-gradient(90deg,#edf2f6 25%,#f8fafc 45%,#edf2f6 65%);background-size:220% 100%;animation:dbSkeletonShimmer 1.25s ease-in-out infinite}.admin-skeleton-line.xs{width:24%}.admin-skeleton-line.sm{width:38%}.admin-skeleton-line.md{width:58%}.admin-skeleton-line.lg{width:82%}.admin-skeleton-line.full{width:100%}.admin-skeleton-rowline{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;align-items:center}.admin-skeleton-rowline+.admin-skeleton-rowline{margin-top:12px}.admin-skeleton-card:nth-child(2n) .admin-skeleton-line{animation-delay:.11s}.admin-activity-skeleton{display:grid;gap:16px}.admin-activity-skeleton-head{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px}.admin-activity-skeleton-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.admin-activity-skeleton .admin-skeleton-card{margin:0}.admin-activity-skeleton .admin-skeleton-card.tall{min-height:170px}.admin-audit-skeleton td{background:#fff!important;pointer-events:none}@media(max-width:760px){.admin-skeleton-rowline,.admin-activity-skeleton-head,.admin-activity-skeleton-grid{grid-template-columns:1fr}}@media (prefers-reduced-motion:reduce){.admin-skeleton-line{animation:none;background:#edf2f6}}
+.admin-inline-skeleton{display:grid;gap:10px}.admin-inline-skeleton-row{display:grid;grid-template-columns:minmax(180px,1.6fr) repeat(3,minmax(90px,.6fr));gap:12px;align-items:center;border:1px solid #dbe4eb;border-radius:12px;background:#fff;padding:13px 14px}.admin-inline-skeleton-row.statement{grid-template-columns:28px minmax(220px,1.6fr) repeat(3,minmax(90px,.65fr)) minmax(180px,1fr)}.admin-inline-skeleton-row.preview{grid-template-columns:28px minmax(190px,1.5fr) 110px 190px}.admin-inline-skeleton-line{display:block;height:14px;border-radius:7px;background:linear-gradient(90deg,#edf2f6 25%,#f8fafc 45%,#edf2f6 65%);background-size:220% 100%;animation:dbSkeletonShimmer 1.25s ease-in-out infinite}.admin-inline-skeleton-line.sm{width:38%}.admin-inline-skeleton-line.md{width:62%}.admin-inline-skeleton-line.lg{width:84%}.admin-inline-skeleton-line.full{width:100%}.admin-inline-skeleton-row:nth-child(2n) .admin-inline-skeleton-line{animation-delay:.1s}.admin-document-skeleton{display:grid;gap:10px;margin-top:10px}.admin-document-skeleton .admin-skeleton-card{margin:0}.schedule-report .admin-skeleton-stack{margin-top:0}.communication-tree-children .admin-skeleton-stack,.communication-log-detail .admin-skeleton-stack{margin-top:0}@media(max-width:900px){.admin-inline-skeleton-row,.admin-inline-skeleton-row.statement,.admin-inline-skeleton-row.preview{grid-template-columns:1fr}}@media (prefers-reduced-motion:reduce){.admin-inline-skeleton-line{animation:none;background:#edf2f6}}
 .db-table .money{text-align:right;font-variant-numeric:tabular-nums}
 .db-table .account{font-variant-numeric:tabular-nums;color:#0b2239}
 .db-table .email-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}
@@ -6460,6 +6461,14 @@ async function loadGmailInbox(){
   loadBtn.disabled=true;
   loadBtn.textContent="Loading Outbox…";
   refreshBtn.disabled=true;
+  const inboxWrap=document.getElementById("inboxTableWrap");
+  const inboxBody=document.getElementById("inboxBody");
+  const inboxMobile=document.getElementById("mobileInboxCards");
+  if(inboxWrap&&inboxBody){
+    inboxWrap.style.display="block";
+    inboxBody.innerHTML=Array.from({length:7},(_,r)=>'<tr class="db-skeleton-row" aria-hidden="true">'+Array.from({length:7},(_,c)=>'<td><span class="db-skeleton-cell '+(['medium','short','medium','long','medium','long','long'][c]||'medium')+'" style="animation-delay:'+(((r+c)%5)*.06)+'s"></span></td>').join('')+'</tr>').join('');
+  }
+  if(inboxMobile){inboxMobile.style.display="grid";window.wootenAdminSkeleton?.cards(inboxMobile,4,'message');}
   beginAdminActionProgress("inboxLoad","Loading customer message outbox…");
   await new Promise(resolve=>requestAnimationFrame(resolve));
   status.className="status show";
@@ -7845,6 +7854,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     account.value=acct;
     setStatus('Loading customer documents…');
+    meta.style.display='none';
+    list.innerHTML='<div class="admin-document-skeleton" aria-hidden="true"></div>';
+    window.wootenAdminSkeleton?.cards(list.querySelector('.admin-document-skeleton'),4,'document');
     try{
       const res=await fetch('/api/admin/customer-documents?account_number='+encodeURIComponent(acct),{
         headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'
@@ -8042,6 +8054,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const key=document.getElementById('adminKey').value.trim();
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';
+    list.innerHTML='<div class="admin-inline-skeleton" aria-hidden="true">'+Array.from({length:8},(_,r)=>'<div class="admin-inline-skeleton-row statement"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div>';
     beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
     await new Promise(resolve=>requestAnimationFrame(resolve));
     try{
@@ -8477,6 +8490,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   async function load(){
     if(loading)return;loading=true;
+    window.wootenAdminSkeleton?.cards(report,3,'statement report');
     try{const data=await request('/api/admin/statement-scheduling');applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;setStatus('Scheduling settings and reports loaded.',true);}
     catch(error){setStatus(error.message||'Scheduling could not be loaded.',false);}finally{loading=false;}
   }
@@ -8512,7 +8526,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!preview)return;
     const previousSearch=String(preview.querySelector('[data-schedule-preview-search]')?.value||'');
     openPreviewTypes.add(type);
-    preview.innerHTML='<div class="schedule-preview-summary"><strong>Loading customers…</strong></div>';
+    preview.innerHTML='<div class="schedule-preview-summary" aria-hidden="true"><div class="admin-inline-skeleton">'+Array.from({length:6},(_,r)=>'<div class="admin-inline-skeleton-row preview"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div></div>';
     try{
       if(saveFirst)await saveSettings(false);setStatus('Loading scheduled customers…');
       const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
@@ -8998,7 +9012,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   async function loadCustomerEntries(){
     if(!activeAccount)return;
-    entriesEl.innerHTML='<div class="communication-log-empty">Loading customer history…</div>';
+    window.wootenAdminSkeleton?.cards(entriesEl,3,'communication');
     try{
       const data=await requestLog(activeAccount,detailPage);
       detailPage=Number(data.page||detailPage);
@@ -9116,7 +9130,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }).join('');
   }
   function childHtml(account,state){
-    if(state.loading)return '<div class="communication-log-empty">Loading customer history…</div>';
+    if(state.loading)return '<div class="admin-skeleton-stack" aria-hidden="true">'+Array.from({length:3},()=>'<div class="admin-skeleton-card"><span class="admin-skeleton-line md"></span><div style="height:10px"></div><span class="admin-skeleton-line full"></span><div style="height:9px"></div><span class="admin-skeleton-line sm"></span></div>').join('')+'</div>';
     if(state.error)return '<div class="communication-log-empty">'+esc(state.error)+'</div>';
     const start=state.total?((state.page-1)*20)+1:0;
     const end=Math.min(state.page*20,state.total);
@@ -9560,7 +9574,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
  list.addEventListener('click',async e=>{const b=e.target.closest('[data-req-save]');if(!b)return;const card=b.closest('[data-request-id]'),channels=[card.querySelector('[data-req-portal]'),card.querySelector('[data-req-email]'),card.querySelector('[data-req-sms]')];if(!channels.some(x=>x&&!x.disabled&&x.checked)){msg('Choose at least one available notification method.',false);return}b.disabled=true;b.textContent='Saving…';try{const r=await fetch('/api/admin/request-center',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify({type:card.dataset.requestType,id:card.dataset.requestId,status:card.querySelector('[data-req-status]').value,admin_response:card.querySelector('[data-req-note]').value,portal:!!channels[0]?.checked,email:!!channels[1]?.checked,sms:!!channels[2]?.checked})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Decision could not be saved.');if(channels[2]?.checked)await refreshTwilioBalance();msg('Decision saved and selected customer notifications were processed.',true);await load();}catch(err){msg(err.message||'Decision could not be saved.',false);b.disabled=false;b.textContent='Save & Notify'}});
  g('requestCenterLoad').addEventListener('click',()=>{page=1;load()});g('requestCenterType').addEventListener('change',()=>{page=1;load()});g('requestCenterStatusFilter').addEventListener('change',()=>{page=1;load()});let timer;g('requestCenterSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load()},300)});g('requestCenterPrev').addEventListener('click',()=>{if(page>1){page--;load()}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){page++;load()}});g('admin-tab-btn-requests').addEventListener('click',()=>{if(!loaded)load()});
 })();
-</script>\n\n<script id="wooten-admin-users-script">
+</script>
+
+<script id="wooten-admin-users-script">
 (()=>{
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus');let loaded=false,loading=false;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
