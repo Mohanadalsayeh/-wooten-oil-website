@@ -1492,6 +1492,7 @@ input[type="file"]:focus-visible{
 .doc-admin-main strong{display:block;color:var(--navy);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .doc-admin-main small{display:block;margin-top:3px;color:#7c8996;font-size:12px}
 .doc-admin-empty{padding:18px;border:1px dashed var(--line);border-radius:11px;text-align:center;color:#748291;background:#fbfcfd}
+.doc-admin-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px}.doc-admin-pagination[hidden]{display:none!important}.doc-admin-pagination-summary{font-size:14px;color:#61768b}.doc-admin-pagination-controls{display:flex;align-items:center;gap:10px}.doc-admin-page-btn{min-width:88px!important;width:auto!important;margin:0!important}.doc-admin-page-info{min-width:96px;text-align:center;color:#344b61;font-size:14px;font-weight:700}.doc-admin-page-btn:disabled{opacity:.45;cursor:not-allowed}@media(max-width:700px){.doc-admin-pagination{flex-direction:column;align-items:stretch}.doc-admin-pagination-controls{justify-content:space-between}.doc-admin-page-btn{flex:1}.doc-admin-page-info{align-self:center}}
 @media(max-width:900px){.doc-admin-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.doc-admin-grid{grid-template-columns:1fr}.doc-admin-row{grid-template-columns:1fr}.doc-admin-badge{width:max-content}}
 </style>
@@ -3867,7 +3868,11 @@ body.statement-processing-active{overflow:hidden!important}
 .customer-phone-import-stat.changed{background:#edf5ff;border-color:#d0e4fb;color:#28628e}
 @media(max-width:620px){.customer-import-phone-option{max-width:none}.customer-phone-import-summary{display:grid;grid-template-columns:1fr 1fr}.customer-phone-import-stat{border-radius:10px;justify-content:flex-start}}
 </style>
-</head>
+
+<style id="wooten-admin-activity-pagination-style">
+.admin-activity-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding-top:2px}.admin-activity-pagination[hidden]{display:none!important}.admin-activity-pagination-summary{font-size:14px;color:#61768b}.admin-activity-pagination-controls{display:flex;align-items:center;gap:10px}.admin-page-btn{min-width:88px;height:40px;padding:0 14px;border:1px solid #cbd8e3;border-radius:10px;background:#fff;color:#17324d;font:inherit;font-weight:700;cursor:pointer}.admin-page-btn:hover:not(:disabled),.admin-page-btn:focus-visible:not(:disabled){text-decoration:underline;border-color:#9dbad3;outline:none}.admin-page-btn:disabled{opacity:.45;cursor:not-allowed}.admin-activity-page-indicator{min-width:95px;text-align:center;font-size:14px;font-weight:700;color:#344b61}@media(max-width:700px){.admin-activity-pagination{flex-direction:column;align-items:stretch}.admin-activity-pagination-controls{justify-content:space-between}.admin-page-btn{flex:1}}
+</style>
+<style id="wooten-admin-activity-scroll-style">.admin-audit-table-wrap{max-height:none!important;height:auto!important;overflow-x:auto!important;overflow-y:visible!important}</style></head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
   <div class="admin-login-site-preview" aria-hidden="true"></div>
@@ -4732,6 +4737,14 @@ body.statement-processing-active{overflow:hidden!important}
     <div id="docStatus" class="status"></div>
     <div id="docCustomerMeta" class="doc-customer-meta" style="display:none"></div>
     <div id="docList" class="doc-admin-list"></div>
+    <div class="doc-admin-pagination" id="docPagination" hidden>
+      <div class="doc-admin-pagination-summary" id="docPaginationSummary">Showing 0–0 of 0</div>
+      <div class="doc-admin-pagination-controls">
+        <button class="secondary doc-admin-page-btn" id="docPrevPage" type="button">Previous</button>
+        <span class="doc-admin-page-info" id="docPageInfo">Page 1 of 1</span>
+        <button class="secondary doc-admin-page-btn" id="docNextPage" type="button">Next</button>
+      </div>
+    </div>
     <p class="note"><strong>Security:</strong> Documents are stored privately and can only be opened by the customer account they are assigned to. PDF limit: 10 MB per file.</p>
     </div>
 
@@ -5087,7 +5100,15 @@ body.statement-processing-active{overflow:hidden!important}
       <label class="admin-user-active"><input id="adminUserActive" type="checkbox" checked> Active — user may sign in</label><div class="actions"><button class="primary" id="adminUserSave" type="button">Create User</button><button class="secondary" id="adminUserCancel" type="button" hidden>Cancel Editing</button></div><div id="adminUserStatus" class="status"></div>
     </section>
     <section class="admin-user-list-section"><h3>Admin Users</h3><div id="adminUsersList" class="admin-users-list"></div></section>
-    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3><button class="secondary" id="adminAuditRefresh" type="button">Refresh</button></div><p>Latest 100 recorded admin actions, including imports and application reviews.</p><div id="adminAuditStatus" class="status"></div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table></div></section>
+    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3><button class="secondary" id="adminAuditRefresh" type="button">Refresh</button></div><p>Latest 100 recorded admin actions, including imports and application reviews.</p><div id="adminAuditStatus" class="status"></div><div class="admin-audit-table-wrap tablewrap"><table><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table>
+<div class="admin-activity-pagination" id="adminActivityPagination" hidden>
+  <div class="admin-activity-pagination-summary" id="adminActivityPaginationSummary">Showing 0–0 of 0</div>
+  <div class="admin-activity-pagination-controls">
+    <button type="button" class="admin-page-btn" id="adminActivityPrev">Previous</button>
+    <span class="admin-activity-page-indicator" id="adminActivityPageIndicator">Page 1 of 1</span>
+    <button type="button" class="admin-page-btn" id="adminActivityNext">Next</button>
+  </div>
+</div></div></section>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -7758,10 +7779,18 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const status=document.getElementById('docStatus');
   const meta=document.getElementById('docCustomerMeta');
   const list=document.getElementById('docList');
+  const pagination=document.getElementById('docPagination');
+  const paginationSummary=document.getElementById('docPaginationSummary');
+  const pageInfo=document.getElementById('docPageInfo');
+  const prevPage=document.getElementById('docPrevPage');
+  const nextPage=document.getElementById('docNextPage');
   const portalNotification=document.getElementById('docPortalNotification');
   const emailPdf=document.getElementById('docEmailPdf');
   const smsLink=document.getElementById('docSmsLink');
   if(!account||!upload||!load||!status||!list) return;
+  let currentDocuments=[];
+  let documentPage=1;
+  const documentPageSize=20;
 
   function normalize(v){
     let s=String(v||'').replace(/\D/g,'');
@@ -7784,44 +7813,58 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
     return (n/(1024*1024)).toFixed(1)+' MB';
   }
-  function render(data){
-    const docs=Array.isArray(data.documents)?data.documents:[];
+  function renderDocumentPage(){
     list.innerHTML='';
-    if(data.customer){
-      meta.style.display='block';
-      meta.textContent=(data.customer.account_name||'Customer')+' • Customer # '+(data.customer.account_number||'');
-    }
-    if(!docs.length){
+    const total=currentDocuments.length;
+    const pages=Math.max(1,Math.ceil(total/documentPageSize));
+    documentPage=Math.min(Math.max(1,documentPage),pages);
+    const start=(documentPage-1)*documentPageSize;
+    const pageDocs=currentDocuments.slice(start,start+documentPageSize);
+    if(!pageDocs.length){
       const empty=document.createElement('div');
       empty.className='doc-admin-empty';
       empty.textContent='No statements or invoices have been uploaded for this customer.';
       list.appendChild(empty);
-      return;
+    }else{
+      pageDocs.forEach(d=>{
+        const row=document.createElement('div'); row.className='doc-admin-row';
+        const badge=document.createElement('div'); badge.className='doc-admin-badge'; badge.textContent=d.document_type||'document';
+        const main=document.createElement('div'); main.className='doc-admin-main';
+        const strong=document.createElement('strong'); strong.textContent=d.title||d.filename||'Document';
+        const small=document.createElement('small');
+        small.appendChild(document.createTextNode(formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '));
+        const filenameLink=document.createElement('button');
+        filenameLink.type='button';
+        filenameLink.className='communication-pdf-link';
+        filenameLink.textContent=d.filename||'PDF';
+        filenameLink.addEventListener('click',function(){openAdminDocument(d.id);});
+        small.appendChild(filenameLink);
+        main.append(strong,small);
+        const actions=document.createElement('div');
+        actions.className='doc-admin-actions';
+        const id=document.createElement('small');
+        id.textContent='Document #'+d.id;
+        actions.append(id);
+        row.append(badge,main,actions); list.appendChild(row);
+      });
     }
-    docs.forEach(d=>{
-      const row=document.createElement('div'); row.className='doc-admin-row';
-      const badge=document.createElement('div'); badge.className='doc-admin-badge'; badge.textContent=d.document_type||'document';
-      const main=document.createElement('div'); main.className='doc-admin-main';
-      const strong=document.createElement('strong'); strong.textContent=d.title||d.filename||'Document';
-      const small=document.createElement('small');
-      small.appendChild(document.createTextNode(formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '));
-      const filenameLink=document.createElement('button');
-      filenameLink.type='button';
-      filenameLink.className='communication-pdf-link';
-      filenameLink.textContent=d.filename||'PDF';
-      filenameLink.addEventListener('click',function(){openAdminDocument(d.id);});
-      small.appendChild(filenameLink);
-      main.append(strong,small);
-      const actions=document.createElement('div');
-      actions.className='doc-admin-actions';
-
-      const id=document.createElement('small');
-      id.textContent='Document #'+d.id;
-      actions.append(id);
-
-      row.append(badge,main,actions); list.appendChild(row);
-    });
+    if(pagination) pagination.hidden=total===0;
+    if(paginationSummary) paginationSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+documentPageSize,total)+' of '+total:'Showing 0–0 of 0';
+    if(pageInfo) pageInfo.textContent='Page '+documentPage+' of '+pages;
+    if(prevPage) prevPage.disabled=documentPage<=1;
+    if(nextPage) nextPage.disabled=documentPage>=pages;
   }
+  function render(data){
+    currentDocuments=Array.isArray(data.documents)?data.documents:[];
+    documentPage=1;
+    if(data.customer){
+      meta.style.display='block';
+      meta.textContent=(data.customer.account_name||'Customer')+' • Customer # '+(data.customer.account_number||'');
+    }
+    renderDocumentPage();
+  }
+  prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;renderDocumentPage();}});
+  nextPage?.addEventListener('click',()=>{const pages=Math.max(1,Math.ceil(currentDocuments.length/documentPageSize));if(documentPage<pages){documentPage++;renderDocumentPage();}});
 
   async function openAdminDocument(id){
     const key=document.getElementById('adminKey').value.trim();
@@ -7855,6 +7898,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     account.value=acct;
     setStatus('Loading customer documents…');
     meta.style.display='none';
+    if(pagination)pagination.hidden=true;
     list.innerHTML='<div class="admin-document-skeleton" aria-hidden="true"></div>';
     window.wootenAdminSkeleton?.cards(list.querySelector('.admin-document-skeleton'),4,'document');
     try{
@@ -9578,14 +9622,17 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-users-script">
 (()=>{
-  const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus');let loaded=false,loading=false;
+  const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus'),auditPager=get('adminActivityPagination'),auditPagerSummary=get('adminActivityPaginationSummary'),auditPageIndicator=get('adminActivityPageIndicator'),auditPrev=get('adminActivityPrev'),auditNext=get('adminActivityNext');let loaded=false,loading=false,auditPage=1,auditEntries=[];const auditPageSize=20;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const labels={database:'Database & Imports',customer_activity:'Customer Activity',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
-  function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
+  function renderAuditPage(){const total=auditEntries.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=auditEntries.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
+  function renderAudit(entries){auditEntries=Array.isArray(entries)?entries:[];auditPage=1;renderAuditPage();}
+  auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAuditPage();}});
+  auditNext?.addEventListener('click',()=>{const pages=Math.max(1,Math.ceil(auditEntries.length/auditPageSize));if(auditPage<pages){auditPage++;renderAuditPage();}});
   async function load(){if(loading)return;loading=true;auditMessage('');window.wootenAdminSkeleton?.audit(auditBody,7);try{const owner=!!window.wootenAdminUser?.owner;if(owner){const usersRes=await fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),usersData=await usersRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);}const auditRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});let auditData=await auditRes.json().catch(()=>({})),auditOk=auditRes.ok&&auditData.success;if(auditOk&&!(auditData.entries||[]).length){await new Promise(resolve=>setTimeout(resolve,300));const retryRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});const retryData=await retryRes.json().catch(()=>({}));if(retryRes.ok&&retryData.success){auditData=retryData;auditOk=true;}}if(!auditOk){renderAudit([]);throw new Error(auditData.error||'Recent Admin Activity could not be loaded.');}renderAudit(auditData.entries||[]);loaded=true;auditMessage('Recent Admin Activity refreshed.',true);}catch(error){if(auditBody.querySelector('.db-skeleton-row'))renderAudit([]);auditMessage(error.message||'Recent Admin Activity could not be loaded.',false);}finally{loading=false;}}
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
