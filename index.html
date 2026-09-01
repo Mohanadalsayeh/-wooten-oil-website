@@ -258,6 +258,10 @@
   @media (prefers-reduced-motion: reduce) {
     .payment-history-back-to-top { transition: none; }
   }
+
+.dashboard-profile-change{margin-top:18px;text-align:left}
+.dashboard-profile-change .payment-continue{width:auto}
+@media(max-width:700px){.dashboard-profile-change .payment-continue{width:100%}}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-signed-in-person-icon.css">
 
@@ -557,12 +561,45 @@
           </span>
           <span><strong>Statements &amp; Invoices</strong><small>Open or download account documents</small></span>
         </button>
+        <button type="button" class="dashboard-action dashboard-action-password" id="dashboardChangePassword">
+          <span class="dashboard-action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3"/><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M12 14v3"/></svg>
+          </span>
+          <span><strong>Change Password</strong><small>Update the password for this account</small></span>
+        </button>
         <button type="button" class="dashboard-action dashboard-action-logout" id="dashboardLogout">
           <span class="dashboard-action-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M10 5H5v14h5"/><path d="M13 8l4 4-4 4M17 12H9"/></svg>
     </span>
           <span><strong>Log Out</strong><small>Securely sign out of your account</small></span>
         </button>
+      </div>
+
+      <div class="statement-section dashboard-password-change" id="passwordChangeSection" hidden>
+        <div class="statement-section-title"><div><h4>Change Password</h4><p>Change the password for the currently selected customer account.</p></div></div>
+        <div class="profile-change-grid">
+          <label>Current Password<input id="changeCurrentPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter current password"></label>
+          <label>New Password<input id="changeNewPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"></label>
+          <label>Confirm New Password<input id="changeConfirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password"></label>
+          <div class="profile-change-full portal-preview-note"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <button class="payment-continue" type="button" id="changePasswordSubmit">Change Password</button>
+          <button class="portal-secondary-btn" type="button" id="changePasswordCancel" style="width:auto;margin:0">Cancel</button>
+        </div>
+        <div class="customer-documents-status" id="changePasswordStatus" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="statement-section profile-change-request-section dashboard-profile-change" id="profileChangeRequestSection">
+        <div class="statement-section-title"><div><h4>Request a Profile Change</h4><p>Need to update your account information? Submit a profile change request and Wooten Oil will review your request and update your account information as needed.</p></div></div>
+        <div class="profile-change-grid">
+          <label>What needs to change?<select id="profileChangeType"><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
+          <label>Requested New Value<input id="profileChangeValue" type="text" maxlength="500" placeholder="Enter the new information"></label>
+          <label class="profile-change-full">Additional Note<textarea id="profileChangeNote" maxlength="1500" placeholder="Optional details for Wooten Oil…"></textarea></label>
+        </div>
+        <button class="payment-continue" type="button" id="profileChangeSubmit">Submit Change Request</button>
+        <div class="customer-documents-status" id="profileChangeStatus" role="status" aria-live="polite"></div>
+        <div class="profile-change-history"><h4>Recent Profile Change Requests</h4><div id="profileChangeHistory"><div class="notification-empty">Loading your requests…</div></div></div>
       </div>
     </section>
 
@@ -632,17 +669,6 @@
         </div>
       </div>
 
-      <div class="statement-section profile-change-request-section" id="profileChangeRequestSection">
-        <div class="statement-section-title"><div><h4>Request a Profile Change</h4><p>Customer profile information comes from MAS 90. Submit a request here and Wooten Oil will review it before the change is made in MAS 90.</p></div></div>
-        <div class="profile-change-grid">
-          <label>What needs to change?<select id="profileChangeType"><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
-          <label>Requested New Value<input id="profileChangeValue" type="text" maxlength="500" placeholder="Enter the new information"></label>
-          <label class="profile-change-full">Additional Note<textarea id="profileChangeNote" maxlength="1500" placeholder="Optional details for Wooten Oil…"></textarea></label>
-        </div>
-        <button class="payment-continue" type="button" id="profileChangeSubmit">Submit Change Request</button>
-        <div class="customer-documents-status" id="profileChangeStatus" role="status" aria-live="polite"></div>
-        <div class="profile-change-history"><h4>Recent Profile Change Requests</h4><div id="profileChangeHistory"><div class="notification-empty">Open Account Summary to load your requests.</div></div></div>
-      </div>
 
       <div class="statement-data-note">
         Account balances shown here reflect the latest information available in the Wooten Oil customer portal. Payments may take up to 24 business hours to appear.
@@ -1433,10 +1459,12 @@
 <script src="assets/js/password-recovery-v170.js"></script>
 
 <style id="wooten-profile-change-request-style">
-.profile-change-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.profile-change-grid label{display:block;font-weight:800;color:#17324d}.profile-change-grid input,.profile-change-grid select,.profile-change-grid textarea{display:block;width:100%;margin-top:7px;border:1px solid #cbd8e3;border-radius:11px;background:#fff;color:#172d44;padding:11px 13px;font-size:16px;box-sizing:border-box}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:92px;resize:vertical}.profile-change-full{grid-column:1/-1}.profile-change-history{margin-top:20px}.profile-change-row{border:1px solid #dbe4eb;border-radius:11px;padding:13px 14px;margin-top:10px;background:#fff}.profile-change-row-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.profile-change-row-head strong{color:#17324d}.profile-change-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;text-transform:uppercase;background:#fff1d5;color:#8a5700}.profile-change-pill.accepted{background:#def5e8;color:#087241}.profile-change-pill.denied{background:#ffe4e4;color:#a11f1f}.profile-change-row small{display:block;color:#6d7f91;margin-top:5px}.profile-change-response{margin-top:8px;padding:9px 10px;background:#f7fafc;border-radius:8px;color:#34495d}@media(max-width:700px){.profile-change-grid{grid-template-columns:1fr}.profile-change-full{grid-column:auto}}
+.profile-change-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.profile-change-grid label{display:block;font-weight:800;color:#17324d}.profile-change-grid input,.profile-change-grid select,.profile-change-grid textarea{display:block;width:100%;margin-top:7px;border:1px solid #cbd8e3;border-radius:11px;background:#fff;color:#172d44;padding:11px 13px;font-family:inherit;font-size:16px;font-weight:400;line-height:1.5;box-sizing:border-box}.profile-change-grid textarea::placeholder{font-family:inherit;font-weight:400}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:92px;resize:vertical}.profile-change-full{grid-column:1/-1}.profile-change-history{margin-top:20px}.profile-change-row{border:1px solid #dbe4eb;border-radius:11px;padding:13px 14px;margin-top:10px;background:#fff}.profile-change-row-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.profile-change-row-head strong{color:#17324d}.profile-change-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;text-transform:uppercase;background:#fff1d5;color:#8a5700}.profile-change-pill.accepted{background:#def5e8;color:#087241}.profile-change-pill.denied{background:#ffe4e4;color:#a11f1f}.profile-change-row small{display:block;color:#6d7f91;margin-top:5px}.profile-change-response{margin-top:8px;padding:9px 10px;background:#f7fafc;border-radius:8px;color:#34495d}@media(max-width:700px){.profile-change-grid{grid-template-columns:1fr}.profile-change-full{grid-column:auto}}
 </style>
 <script id="wooten-profile-change-request-script">
-(()=>{const g=id=>document.getElementById(id),hist=g('profileChangeHistory'),status=g('profileChangeStatus'),btn=g('profileChangeSubmit');if(!hist||!btn)return;const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));function msg(t,ok=true){status.textContent=t||'';status.className='customer-documents-status'+(t?' show '+(ok?'ok':'bad'):'')}async function load(){try{const r=await fetch('/api/customer/profile-change-requests',{credentials:'same-origin',cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success){hist.innerHTML='<div class="notification-empty">Sign in to view profile change requests.</div>';return}const rows=d.requests||[];hist.innerHTML=rows.length?rows.map(x=>'<div class="profile-change-row"><div class="profile-change-row-head"><strong>'+esc(x.request_number)+' — '+esc(String(x.change_type||'').replaceAll('_',' '))+'</strong><span class="profile-change-pill '+esc(x.status)+'">'+esc(x.status||'pending')+'</span></div><small>Requested: '+esc(x.requested_value)+' • '+esc(new Date(String(x.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</small>'+(x.admin_response?'<div class="profile-change-response"><strong>Wooten Oil response:</strong> '+esc(x.admin_response)+'</div>':'')+'</div>').join(''):'<div class="notification-empty">No profile change requests yet.</div>';}catch(_){hist.innerHTML='<div class="notification-empty">Requests could not be loaded right now.</div>'}}btn.addEventListener('click',async()=>{const value=g('profileChangeValue').value.trim();if(!value){msg('Enter the requested new value.',false);return}if(!confirm('Submit this profile change request to Wooten Oil?\n\nChanges are not made directly in the portal. Wooten Oil will review the request and update MAS 90 if approved.'))return;btn.disabled=true;btn.textContent='Submitting…';try{const r=await fetch('/api/customer/profile-change-requests',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({change_type:g('profileChangeType').value,requested_value:value,note:g('profileChangeNote').value})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Request could not be submitted.');msg('Request '+d.request_number+' submitted to Wooten Oil.',true);g('profileChangeValue').value='';g('profileChangeNote').value='';await load()}catch(e){msg(e.message||'Request could not be submitted.',false)}finally{btn.disabled=false;btn.textContent='Submit Change Request'}});g('dashboardViewAccount')?.addEventListener('click',()=>setTimeout(load,150));setTimeout(()=>{if(document.body.classList.contains('portal-authenticated'))load()},800);})();
+(()=>{const g=id=>document.getElementById(id),open=g('dashboardChangePassword'),section=g('passwordChangeSection'),submit=g('changePasswordSubmit'),cancel=g('changePasswordCancel'),status=g('changePasswordStatus');if(!open||!section||!submit)return;function msg(t,ok=true){status.textContent=t||'';status.className='customer-documents-status'+(t?' show '+(ok?'ok':'bad'):'')}function clear(){g('changeCurrentPassword').value='';g('changeNewPassword').value='';g('changeConfirmPassword').value='';msg('')}function close(){section.hidden=true;clear()}open.addEventListener('click',()=>{section.hidden=false;section.scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>g('changeCurrentPassword')?.focus(),250)});cancel?.addEventListener('click',close);submit.addEventListener('click',async()=>{const current=g('changeCurrentPassword').value,newPassword=g('changeNewPassword').value,confirmPassword=g('changeConfirmPassword').value;if(!current){msg('Enter your current password.',false);return}if(newPassword.length<8||!/[A-Za-z]/.test(newPassword)){msg('Your new password must be at least 8 characters and contain at least one letter.',false);return}if(newPassword!==confirmPassword){msg('The new passwords do not match.',false);return}if(newPassword===current){msg('Choose a new password that is different from your current password.',false);return}if(!confirm('Change your password now? You will be signed out and asked to sign in again with the new password.'))return;submit.disabled=true;submit.textContent='Changing…';try{const r=await fetch('/api/customer/change-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newPassword,confirm_password:confirmPassword})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Password could not be changed.');msg('Password changed successfully. Signing you out…',true);setTimeout(async()=>{try{await fetch('/api/customer/logout',{method:'POST',credentials:'same-origin'})}catch(_){}location.hash='portal';location.reload()},900)}catch(e){msg(e.message||'Password could not be changed.',false)}finally{submit.disabled=false;submit.textContent='Change Password'}})})();
+
+(()=>{const g=id=>document.getElementById(id),hist=g('profileChangeHistory'),status=g('profileChangeStatus'),btn=g('profileChangeSubmit');if(!hist||!btn)return;const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));function msg(t,ok=true){status.textContent=t||'';status.className='customer-documents-status'+(t?' show '+(ok?'ok':'bad'):'')}async function load(){try{const r=await fetch('/api/customer/profile-change-requests',{credentials:'same-origin',cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success){hist.innerHTML='<div class="notification-empty">Sign in to view profile change requests.</div>';return}const rows=d.requests||[];hist.innerHTML=rows.length?rows.map(x=>'<div class="profile-change-row"><div class="profile-change-row-head"><strong>'+esc(x.request_number)+' — '+esc(String(x.change_type||'').replaceAll('_',' '))+'</strong><span class="profile-change-pill '+esc(x.status)+'">'+esc(x.status||'pending')+'</span></div><small>Requested: '+esc(x.requested_value)+' • '+esc(new Date(String(x.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</small>'+(x.admin_response?'<div class="profile-change-response"><strong>Wooten Oil response:</strong> '+esc(x.admin_response)+'</div>':'')+'</div>').join(''):'<div class="notification-empty">No profile change requests yet.</div>';}catch(_){hist.innerHTML='<div class="notification-empty">Requests could not be loaded right now.</div>'}}btn.addEventListener('click',async()=>{const value=g('profileChangeValue').value.trim();if(!value){msg('Enter the requested new value.',false);return}if(!confirm('Submit this profile change request to Wooten Oil?\n\nChanges are not made directly in the portal. Wooten Oil will review the request and update MAS 90 if approved.'))return;btn.disabled=true;btn.textContent='Submitting…';try{const r=await fetch('/api/customer/profile-change-requests',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({change_type:g('profileChangeType').value,requested_value:value,note:g('profileChangeNote').value})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Request could not be submitted.');msg('Request '+d.request_number+' submitted to Wooten Oil.',true);g('profileChangeValue').value='';g('profileChangeNote').value='';await load()}catch(e){msg(e.message||'Request could not be submitted.',false)}finally{btn.disabled=false;btn.textContent='Submit Change Request'}});setTimeout(()=>{if(document.body.classList.contains('portal-authenticated'))load()},500);g('accountSwitcherList')?.addEventListener('click',()=>setTimeout(load,250));})();
 </script>
 </body>
 </html>

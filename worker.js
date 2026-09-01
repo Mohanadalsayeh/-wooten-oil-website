@@ -2789,6 +2789,40 @@ async function customerPasswordResetComplete({ request, env }) {
 }
 __name(customerPasswordResetComplete, "customerPasswordResetComplete");
 
+
+async function customerChangePassword({ request, env }) {
+  try {
+    if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
+    const session = await getCustomerFromSession(request, env);
+    if (!session) return json6({ success: false, error: "Your customer session has expired. Please sign in again." }, 401);
+    let body;
+    try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password change request." }, 400); }
+    const currentPassword = String(body?.current_password ?? body?.currentPassword ?? "");
+    const newPassword = String(body?.new_password ?? body?.newPassword ?? "");
+    const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
+    if (!currentPassword) return json6({ success: false, error: "Enter your current password." }, 400);
+    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword)) return json6({ success: false, error: "Your new password must be at least 8 characters and contain at least one letter." }, 400);
+    if (newPassword.length > 128) return json6({ success: false, error: "Your new password is too long." }, 400);
+    if (newPassword !== confirmPassword) return json6({ success: false, error: "The new passwords do not match." }, 400);
+    if (newPassword === currentPassword) return json6({ success: false, error: "Choose a new password that is different from your current password." }, 400);
+    const customer = await env.DB.prepare(`SELECT id,password_hash,account_number FROM customers WHERE id=? LIMIT 1`).bind(session.id).first();
+    if (!customer || !clean(customer.password_hash) || !(await verifyPassword(currentPassword, customer.password_hash))) {
+      return json6({ success: false, error: "Your current password is incorrect." }, 403);
+    }
+    const passwordHash = await createPasswordHash2(newPassword);
+    const result = await env.DB.prepare(`UPDATE customers SET password_hash=?,must_change_password=0,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(passwordHash, customer.id).run();
+    const changed = Number(result?.meta?.changes ?? result?.changes ?? 0);
+    if (changed < 1) return json6({ success: false, error: "The new password could not be saved." }, 500);
+    // Password changes invalidate every existing session for this customer, including the current one.
+    try { await env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id=?`).bind(customer.id).run(); } catch (e) { console.error("password change session cleanup failed", e); }
+    return json6({ success: true, account_number: customer.account_number, message: "Your password has been changed. Please sign in again." }, 200, { "Set-Cookie": clearSessionCookie() });
+  } catch (e) {
+    console.error("Customer password change failed", e);
+    return json6({ success: false, error: "Password could not be changed right now." }, 500);
+  }
+}
+__name(customerChangePassword, "customerChangePassword");
+
 // functions/api/gmail-oauth.js
 var GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 function json7(data, status = 200) {
@@ -9455,6 +9489,10 @@ var worker_default = {
           env
         });
       }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/customer/change-password") {
+      if (request.method === "POST") return customerChangePassword({ request, env });
       return methodNotAllowed();
     }
     if (url.pathname === "/api/customer/password-reset/start") {
