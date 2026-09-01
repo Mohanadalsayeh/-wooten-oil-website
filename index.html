@@ -400,13 +400,13 @@
   <div class="portal-card portal-activation-card" id="portalActivationCard" aria-live="polite">
     <a class="portal-close" href="#top" aria-label="Close account activation">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
-    <h2>Activate Online Account</h2>
-    <p>Enter your Wooten Oil customer number to begin. If an email is on file, we will send a verification code. Otherwise, contact Wooten Oil for a one-time activation code.</p>
+    <h2 id="activationTitle">Activate Online Account</h2>
+    <p>Enter your <strong>Email Address or Customer Number</strong>. If one email is linked to multiple accounts, you can create a separate password for your shared-email login.</p>
 
     <div class="portal-activation-step">
       <div class="portal-field">
-        <label for="activation-account">Customer #</label>
-        <input id="activation-account" type="text" inputmode="numeric" placeholder="Example: 0001002" autocomplete="username" />
+        <label for="activation-account">Email or Customer #</label>
+        <input id="activation-account" type="text" placeholder="Email address or Customer #" autocomplete="off" />
       </div>
       <div id="activationStatus" class="portal-status" role="status" aria-live="polite"></div>
       <button class="portal-primary-btn" id="activationStart" type="button">Continue</button>
@@ -425,7 +425,7 @@
       </div>
       <div class="portal-field">
         <label for="activation-confirm">Confirm Password</label>
-        <input id="activation-confirm" type="password" minlength="10" maxlength="128" placeholder="Re-enter password" autocomplete="new-password" />
+        <input id="activation-confirm" type="password" minlength="8" maxlength="128" placeholder="Re-enter password" autocomplete="new-password" />
       </div>
       <div class="portal-action-row">
         <button class="portal-primary-btn" id="activationComplete" type="button">Activate Account</button>
@@ -565,7 +565,13 @@
           <span class="dashboard-action-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3"/><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M12 14v3"/></svg>
           </span>
-          <span><strong>Change Password</strong><small>Update the password for this account</small></span>
+          <span><strong>Change Account Password</strong><small>Update the password for this account only</small></span>
+        </button>
+        <button type="button" class="dashboard-action dashboard-action-shared-password" id="dashboardChangeSharedEmailPassword" hidden>
+          <span class="dashboard-action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 8 8 6 8-6"/><path d="M16.5 15.5v-1.7a3.5 3.5 0 0 0-7 0v1.7"/><rect x="8" y="15.5" width="9" height="6" rx="1.5"/></svg>
+          </span>
+          <span><strong>Change Shared Email Password</strong><small>Update the password used for linked-account email login</small></span>
         </button>
         
         <button type="button" class="dashboard-action dashboard-action-profile" id="dashboardProfileChange">
@@ -1472,6 +1478,40 @@
   </div>
 </div>
 
+<div class="portal-action-modal" id="sharedEmailPasswordModal" role="dialog" aria-modal="true" aria-labelledby="sharedEmailPasswordModalTitle" hidden>
+  <div class="portal-action-modal-card portal-action-password-card" role="document">
+    <div class="portal-action-modal-head portal-action-password-head">
+      <div>
+        <div class="portal-action-eyebrow">Wooten Oil Customer Portal</div>
+        <h3 id="sharedEmailPasswordModalTitle">Change Shared Email Password</h3>
+        <p>Update the password used when signing in with your shared email and switching linked accounts.</p>
+        <div class="portal-password-current-user" aria-label="Shared email login">
+          <span>Shared email <strong id="sharedEmailPasswordAddress">—</strong></span>
+          <span class="portal-password-customer-number">Applies to all customer accounts linked to this email.</span>
+        </div>
+      </div>
+      <button class="portal-action-modal-close" type="button" id="sharedEmailPasswordModalClose" aria-label="Close shared email password form">&times;</button>
+    </div>
+    <div class="portal-action-modal-body">
+      <div class="profile-change-grid password-change-grid">
+        <label>Current Shared Email Password<input id="sharedEmailCurrentPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter current shared email password"></label>
+        <label>New Shared Email Password<input id="sharedEmailNewPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"></label>
+        <label>Confirm New Password<input id="sharedEmailConfirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password"></label>
+        <div class="profile-change-full portal-password-rule" role="note">
+          <span class="portal-password-rule-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span>
+          <span>Password must be at least 8 characters and contain at least one letter.</span>
+        </div>
+      </div>
+      <div class="portal-action-modal-actions password-change-actions">
+        <button class="payment-continue" type="button" id="sharedEmailPasswordSubmit">Change Shared Email Password</button>
+        <button class="portal-secondary-btn" type="button" id="sharedEmailPasswordCancel" style="width:auto;margin:0">Cancel</button>
+      </div>
+      <div class="customer-documents-status" id="sharedEmailPasswordStatus" role="status" aria-live="polite"></div>
+      <div class="portal-help portal-password-help">Need login help? <a href="mailto:Support@wootenoil.com">Contact Wooten Oil</a></div>
+    </div>
+  </div>
+</div>
+
 <div class="portal-action-modal" id="profileChangeModal" role="dialog" aria-modal="true" aria-labelledby="profileChangeModalTitle" hidden>
   <div class="portal-action-modal-card portal-action-modal-card-wide" role="document">
     <div class="portal-action-modal-head">
@@ -1537,11 +1577,93 @@
 })();
 </script>
 
+<script id="wooten-smart-first-time-activation-v196">
+(function(){
+  var start=document.getElementById('activationStart');
+  var complete=document.getElementById('activationComplete');
+  var input=document.getElementById('activation-account');
+  var status=document.getElementById('activationStatus');
+  var details=document.getElementById('activationDetails');
+  var instructions=document.getElementById('activationInstructions');
+  var title=document.getElementById('activationTitle');
+  if(!start||!complete||!input||!status||!details||!instructions) return;
+  var activationMode='account';
+  var activationIdentifier='';
+  var resolvedAccount='';
+  function setStatus(message,good){status.className='portal-status show '+(good?'ok':'error');status.textContent=message||'';}
+  function clearStatus(){status.className='portal-status';status.textContent='';}
+  function showLoginAfterActivation(identifier,message){
+    var loginCard=document.querySelector('#customer-login .portal-card:not(.portal-activation-card)');
+    var activationCard=document.getElementById('portalActivationCard');
+    var resetCard=document.getElementById('portalResetCard');
+    var accountCard=document.getElementById('portalAccountCard');
+    if(activationCard) activationCard.classList.remove('show');
+    if(resetCard) resetCard.classList.remove('show');
+    if(accountCard) accountCard.classList.remove('show');
+    if(loginCard) loginCard.style.display='block';
+    var user=document.getElementById('portal-user'),pass=document.getElementById('portal-password'),loginStatus=document.getElementById('portalStatus');
+    if(user) user.value='';
+    if(pass) pass.value='';
+    if(loginStatus){loginStatus.className='portal-status show ok';loginStatus.textContent=message||'Your online login is ready. Please sign in.';}
+    setTimeout(function(){if(user)user.focus();},80);
+  }
+  start.addEventListener('click',async function(e){
+    e.preventDefault();e.stopImmediatePropagation();
+    var identifier=input.value.trim();
+    if(!identifier){setStatus('Enter your Email Address or Customer Number.',false);return;}
+    clearStatus();start.disabled=true;start.textContent='Checking…';
+    try{
+      var r=await fetch('/api/customer/activation/start',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier,account_number:identifier})});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok||d.success===false) throw new Error(d.error||'We could not start online account activation.');
+      activationMode=d.activation_scope||'account';
+      activationIdentifier=d.identifier||identifier;
+      resolvedAccount=d.account_number||'';
+      details.classList.add('show');
+      if(activationMode==='shared_email'){
+        if(title) title.textContent='Set Up Shared Email Login';
+        complete.textContent='Create Shared Email Password';
+        instructions.textContent='A 6-digit verification code was sent to '+(d.email||'your email')+'. This email is linked to '+String(d.linked_count||2)+' customer accounts. Enter the code below and create the password you will use when signing in with this email.';
+      }else{
+        if(title) title.textContent='Activate Online Account';
+        complete.textContent='Activate Account';
+        if(d.method==='email') instructions.textContent='A 6-digit verification code was sent to '+(d.email||'the email address on your account')+'. Enter that code below and create the password for Customer #'+(d.account_number||'')+'.';
+        else instructions.textContent='There is no email address on this account. Please contact Wooten Oil for a one-time 6-digit activation code, then enter it below and create your account password.';
+      }
+      setStatus(d.message||'Verification started.',true);
+      setTimeout(function(){document.getElementById('activation-code')?.focus();},50);
+    }catch(err){setStatus(err.message||'Activation could not be started.',false);}
+    finally{start.disabled=false;start.textContent='Continue';}
+  },true);
+
+  complete.addEventListener('click',async function(e){
+    e.preventDefault();e.stopImmediatePropagation();
+    var identifier=(activationIdentifier||input.value.trim());
+    var code=document.getElementById('activation-code').value.trim();
+    var password=document.getElementById('activation-password').value;
+    var confirm=document.getElementById('activation-confirm').value;
+    if(!identifier||!code||!password||!confirm){setStatus('Enter the verification code and both password fields.',false);return;}
+    if(!/^\d{6}$/.test(code)){setStatus('Enter the 6-digit verification code.',false);return;}
+    if(password.length<8||!/[A-Za-z]/.test(password)){setStatus('Your password must be at least 8 characters and contain at least one letter.',false);return;}
+    if(password!==confirm){setStatus('The passwords do not match.',false);return;}
+    clearStatus();complete.disabled=true;complete.textContent=activationMode==='shared_email'?'Creating…':'Activating…';
+    try{
+      var payload={identifier:identifier,activation_scope:activationMode,account_number:resolvedAccount||identifier,code:code,password:password,confirm_password:confirm};
+      var r=await fetch('/api/customer/activation/set-password',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok||d.success===false) throw new Error(d.error||'Activation failed.');
+      showLoginAfterActivation(identifier,d.message||(activationMode==='shared_email'?'Your shared email login is ready. Sign in with your email and new password.':'Your online account is activated. Sign in with your Customer Number and new password.'));
+    }catch(err){setStatus(err.message||'Activation failed.',false);}
+    finally{complete.disabled=false;complete.textContent=activationMode==='shared_email'?'Create Shared Email Password':'Activate Account';}
+  },true);
+})();
+</script>
 <script src="assets/js/password-recovery-v170.js"></script>
 
 <style id="wooten-profile-change-request-style">
 .profile-change-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.profile-change-grid label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-grid input,.profile-change-grid select,.profile-change-grid textarea{display:block;width:100%;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;outline:none;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.profile-change-grid input:focus,.profile-change-grid select:focus,.profile-change-grid textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-grid textarea::placeholder,.profile-change-grid input::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.profile-change-grid input,.profile-change-grid select{height:54px}.profile-change-grid textarea{min-height:112px;resize:vertical}.profile-change-full{grid-column:1/-1}.profile-change-history{margin-top:24px;padding-top:20px;border-top:1px solid #e5ebf1}.profile-change-history h4{margin:0 0 10px;color:#17324d;font-size:17px}.profile-change-row{border:1px solid #dbe4eb;border-radius:12px;padding:14px 15px;margin-top:10px;background:#f9fbfd}.profile-change-row-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.profile-change-row-head strong{color:#17324d}.profile-change-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;text-transform:uppercase;background:#fff1d5;color:#8a5700}.profile-change-pill.accepted{background:#def5e8;color:#087241}.profile-change-pill.denied{background:#ffe4e4;color:#a11f1f}.profile-change-row small{display:block;color:#6d7f91;margin-top:5px}.profile-change-response{margin-top:8px;padding:9px 10px;background:#fff;border-radius:8px;color:#34495d}.profile-change-items{display:grid;gap:10px}.profile-change-item{position:relative;border:1px solid #e0e8ef;border-radius:16px;background:#fbfcfd;padding:18px}.profile-change-item:first-child{padding:0;border:0;background:transparent}.profile-change-item:not(:first-child){padding:18px}.profile-change-remove{position:static;display:block;width:max-content;margin:8px 0 0 auto;border:1px solid #efb5b5;background:#fff7f7;color:#b52b2b;border-radius:9px;min-height:36px;padding:6px 12px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}.profile-change-remove[hidden]{display:none!important}.profile-change-remove:hover{background:#ffeded}.profile-change-add{margin-top:10px;min-height:44px;border:1px solid #9fc4ef;background:#f4f9ff;color:#1768b6;border-radius:10px;padding:9px 15px;font-family:inherit;font-size:15px;font-weight:800;display:inline-flex;align-items:center;gap:8px;cursor:pointer}.profile-change-add span{font-size:21px;line-height:1}.profile-change-add:hover{background:#eaf4ff}.profile-change-add:disabled{opacity:.55;cursor:not-allowed}.profile-change-note-wrap{margin-top:14px}.profile-change-note-wrap label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-note-wrap textarea{display:block;width:100%;height:120px!important;min-height:120px!important;max-height:220px;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit!important;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;resize:vertical;outline:none}.profile-change-note-wrap textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-note-wrap textarea::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.dashboard-action-profile .dashboard-action-icon{background:#eef6ff;color:#2464d5}
 .portal-action-modal[hidden]{display:none!important}.portal-action-modal{position:fixed;inset:0;z-index:2147483646!important;background:rgba(8,24,40,.72);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}.portal-action-modal-card{position:relative;z-index:1;width:min(690px,100%);max-height:none;overflow:hidden;margin:auto;background:#fff;border-radius:22px;border:1px solid #d4dee8;box-shadow:0 28px 80px rgba(3,20,37,.34)}.portal-action-modal-card-wide{width:min(920px,100%)}.portal-action-password-card{width:min(460px,100%);border-radius:22px}.portal-action-password-head{padding:24px 26px 18px}.portal-action-eyebrow{margin-bottom:8px;color:#c8242a;font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.password-change-grid{grid-template-columns:1fr;gap:16px}.password-change-grid .profile-change-full{grid-column:auto}.password-change-actions{display:grid;grid-template-columns:1fr;gap:10px}.password-change-actions .payment-continue,.password-change-actions .portal-secondary-btn{width:100%!important;min-width:0!important}.portal-action-password-card .portal-preview-note{margin-top:2px}.portal-password-rule{display:flex;align-items:flex-start;gap:8px;margin-top:0;padding:2px 1px;color:#65788a;font-size:12.5px;font-weight:500;line-height:1.45}.portal-password-rule-icon{width:16px;height:16px;flex:0 0 16px;margin-top:1px;color:#58738c}.portal-password-rule-icon svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.portal-action-modal-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:26px 28px 20px;border-bottom:1px solid #e3eaf1;background:#fff;position:relative;z-index:3}.portal-action-modal-head h3{margin:0;color:#17324d;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15}.portal-action-modal-head p{margin:8px 0 0;color:#60758a;font-size:16px;line-height:1.5;max-width:690px}.portal-action-modal-close{border:1px solid #ccd9e5;background:#f7fafc;color:#526a80;border-radius:11px;width:42px;height:42px;font-family:inherit;font-size:26px;line-height:1;cursor:pointer;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;transition:background .15s ease,border-color .15s ease,color .15s ease}.portal-action-modal-close:hover{background:#eef4f8;border-color:#b9cada;color:#17324d}.portal-action-modal-body{padding:24px 28px 28px}.portal-action-modal-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-start;margin-top:22px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:auto!important;min-width:150px;min-height:48px;margin:0!important;padding:11px 20px!important;border-radius:11px!important;font-family:inherit!important;font-size:16px!important;font-weight:700!important;line-height:1.2!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}.portal-action-modal .portal-secondary-btn{border:1px solid #cbd8e3!important;background:#f5f8fb!important;color:#17324d!important}.portal-action-modal .portal-secondary-btn:hover{background:#edf3f8!important}.portal-action-modal .portal-preview-note{margin-top:0;border:1px solid #dbe5ed;background:#f5f8fb;border-radius:11px;padding:13px 15px;color:#5c6f82;font-weight:500}.portal-action-modal textarea{font-family:inherit!important}.portal-action-modal-open{overflow:hidden!important}.portal-action-modal .customer-documents-status{margin-top:14px}.portal-action-password-card #changePasswordStatus.bad{color:#c62828!important;font-weight:700}.portal-action-password-card #changePasswordStatus.info{color:#4d97d4!important;font-weight:650}.portal-action-password-card #changePasswordStatus.ok{color:#14804a!important;font-weight:700}.portal-action-password-head{display:block!important;padding-right:26px}.portal-action-password-head>div:first-child{width:100%;min-width:0}.portal-action-password-head .portal-action-modal-close{position:absolute;top:24px;right:26px}.portal-action-password-head>div:first-child>p{padding-right:54px}.portal-password-current-user{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;box-sizing:border-box;margin-top:12px;padding:9px 12px;border-radius:9px;background:#f3f8fc;color:#667b8e;font-size:12.5px;font-weight:500;line-height:1.35}.portal-password-current-user strong{color:#17324d;font-weight:800}.portal-password-customer-number{display:block}.portal-action-password-card #changePasswordStatus.show{display:flex!important;align-items:flex-start;gap:7px}.portal-status-icon{width:15px;height:15px;flex:0 0 15px;margin-top:1px}.portal-status-icon svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.portal-password-help{margin-top:18px;padding-top:16px;border-top:1px solid #e3eaf1;text-align:center;color:#66798b;font-size:.9rem}.portal-password-help a{color:#126aa2;font-weight:800;text-decoration:none}.portal-password-help a:hover,.portal-password-help a:focus-visible{text-decoration:underline}.portal-action-modal .notification-empty{padding:26px 12px;text-align:center;color:#7a8b9c;background:#fafcfd;border:1px dashed #d7e1ea;border-radius:11px}
+.dashboard-action-shared-password .dashboard-action-icon{background:#eef6ff;color:#2464d5}.dashboard-action-shared-password[hidden]{display:none!important}.portal-action-password-card #sharedEmailPasswordStatus.bad{color:#c62828!important;font-weight:700}.portal-action-password-card #sharedEmailPasswordStatus.info{color:#4d97d4!important;font-weight:650}.portal-action-password-card #sharedEmailPasswordStatus.ok{color:#14804a!important;font-weight:700}.portal-action-password-card #sharedEmailPasswordStatus.show{display:flex!important;align-items:flex-start;gap:7px}
 @media(max-width:700px){.profile-change-grid{grid-template-columns:1fr;gap:14px}.profile-change-full{grid-column:auto}.portal-action-modal{padding:10px;align-items:flex-start}.portal-action-modal-card,.portal-action-modal-card-wide{width:100%;max-height:none;border-radius:18px}.portal-action-modal-head{padding:19px 18px 15px}.portal-action-modal-head h3{font-size:24px}.portal-action-modal-head p{font-size:14px}.portal-action-modal-body{padding:18px}.portal-action-modal-actions{display:grid;grid-template-columns:1fr;gap:10px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:100%!important;min-width:0!important}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:100px}.profile-change-item:not(:first-child){padding:16px}.profile-change-remove{margin-top:10px}.profile-change-add{width:100%;justify-content:center}.profile-change-note-wrap textarea{height:110px!important;min-height:110px!important}}
 </style>
 <script id="wooten-profile-change-request-script">
@@ -1701,6 +1823,67 @@
 
   setTimeout(()=>{ if(document.body.classList.contains('portal-authenticated')) loadProfileRequests(); },500);
   g('accountSwitcherList')?.addEventListener('click',()=>setTimeout(loadProfileRequests,250));
+})();
+</script>
+<script id="wooten-shared-email-password-script">
+(()=>{
+  const g=id=>document.getElementById(id);
+  const button=g('dashboardChangeSharedEmailPassword');
+  const modal=g('sharedEmailPasswordModal');
+  const closeBtn=g('sharedEmailPasswordModalClose');
+  const cancelBtn=g('sharedEmailPasswordCancel');
+  const submit=g('sharedEmailPasswordSubmit');
+  const status=g('sharedEmailPasswordStatus');
+  const emailLabel=g('sharedEmailPasswordAddress');
+  if(!button||!modal||!submit)return;
+  let sharedEmail='';
+  const icons={
+    bad:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4M12 16.5h.01"></path></svg></span>',
+    info:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span>',
+    ok:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.6 2.6L16.5 9"></path></svg></span>'
+  };
+  function setStatus(text,tone='info'){
+    const t=tone==='bad'||tone==='ok'||tone==='info'?tone:'info';
+    status.className='customer-documents-status'+(text?' show '+t:'');
+    if(!text){status.textContent='';return;}
+    const span=document.createElement('span');span.textContent=text;
+    status.innerHTML=icons[t];status.appendChild(span);
+  }
+  function clear(){
+    g('sharedEmailCurrentPassword').value='';g('sharedEmailNewPassword').value='';g('sharedEmailConfirmPassword').value='';setStatus('');
+  }
+  function open(){clear();emailLabel.textContent=sharedEmail||'—';modal.hidden=false;document.body.classList.add('portal-action-modal-open');setTimeout(()=>g('sharedEmailCurrentPassword')?.focus(),120)}
+  function close(){modal.hidden=true;if(g('changePasswordModal')?.hidden!==false&&g('profileChangeModal')?.hidden!==false)document.body.classList.remove('portal-action-modal-open');clear()}
+  async function refreshAvailability(){
+    try{
+      const r=await fetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));
+      const isShared=!!(r.ok&&d.success&&d.authenticated&&d.login_method==='email'&&d.account_scope==='linked');
+      sharedEmail=isShared?String(d.customer?.email||'').trim():'';
+      button.hidden=!isShared;
+    }catch(_){button.hidden=true;sharedEmail='';}
+  }
+  button.addEventListener('click',open);closeBtn?.addEventListener('click',close);cancelBtn?.addEventListener('click',close);
+  modal.addEventListener('click',e=>{if(e.target===modal)close()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)close()});
+  submit.addEventListener('click',async()=>{
+    const current=g('sharedEmailCurrentPassword').value,newPassword=g('sharedEmailNewPassword').value,confirmPassword=g('sharedEmailConfirmPassword').value;
+    if(!current){setStatus('Enter your current shared-email password.','bad');return}
+    if(newPassword.length<8||!/[A-Za-z]/.test(newPassword)){setStatus('Your new password must be at least 8 characters and contain at least one letter.','bad');return}
+    if(newPassword!==confirmPassword){setStatus('The new passwords do not match.','bad');return}
+    if(newPassword===current){setStatus('Choose a new password that is different from your current password.','info');return}
+    if(!confirm('Change the password for this shared email login? You will be signed out of linked-email sessions and asked to sign in again.'))return;
+    submit.disabled=true;submit.textContent='Changing…';setStatus('Checking your shared-email password and updating the login…','info');
+    try{
+      const r=await fetch('/api/customer/change-shared-email-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newPassword,confirm_password:confirmPassword})});
+      const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Shared-email password could not be changed.');
+      setStatus('Shared-email password changed successfully. Signing you out…','ok');
+      setTimeout(async()=>{try{await fetch('/api/customer/logout',{method:'POST',credentials:'same-origin'})}catch(_e){}location.hash='customer-login';location.reload()},650);
+    }catch(e){setStatus(e.message||'Shared-email password could not be changed.','bad')}
+    finally{submit.disabled=false;submit.textContent='Change Shared Email Password'}
+  });
+  setTimeout(refreshAvailability,350);
+  g('accountSwitcherList')?.addEventListener('click',()=>setTimeout(refreshAvailability,250));
+  new MutationObserver(()=>{if(document.body.classList.contains('portal-authenticated'))setTimeout(refreshAvailability,120);else button.hidden=true}).observe(document.body,{attributes:true,attributeFilter:['class']});
 })();
 </script>
 </body>

@@ -1571,6 +1571,41 @@ async function getCustomerFromSession(request, env) {
   return row;
 }
 __name(getCustomerFromSession, "getCustomerFromSession");
+async function ensureSharedEmailCredentialTable(env) {
+  if (!env?.DB) return;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS customer_shared_email_credentials (
+      email_key TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+}
+__name(ensureSharedEmailCredentialTable, "ensureSharedEmailCredentialTable");
+async function getSharedEmailCredential(env, email) {
+  await ensureSharedEmailCredentialTable(env);
+  const emailKey = clean(email).toLowerCase();
+  if (!emailKey) return null;
+  return env.DB.prepare(`SELECT email_key,password_hash FROM customer_shared_email_credentials WHERE email_key=? LIMIT 1`).bind(emailKey).first();
+}
+__name(getSharedEmailCredential, "getSharedEmailCredential");
+async function verifyLegacySharedEmailPassword(env, email, password) {
+  const emailKey = clean(email).toLowerCase();
+  if (!emailKey || !password) return false;
+  const rows = await env.DB.prepare(`
+    SELECT password_hash,account_status
+    FROM customers
+    WHERE lower(trim(email)) = ?
+  `).bind(emailKey).all();
+  for (const row of rows?.results || []) {
+    const status = clean(row.account_status).toLowerCase();
+    if (status && status !== "active") continue;
+    if (clean(row.password_hash) && await verifyPassword(password, row.password_hash)) return true;
+  }
+  return false;
+}
+__name(verifyLegacySharedEmailPassword, "verifyLegacySharedEmailPassword");
 async function customerLoginPost({
   request,
   env
@@ -1614,20 +1649,30 @@ async function customerLoginPost({
       `).bind(normalizedAccount).first();
   }
   if (!customer && loginMethod === "email") {
+    const emailKey = clean(user).toLowerCase();
     const matches = await env.DB.prepare(`
         SELECT *
         FROM customers
-        WHERE lower(trim(email)) = lower(trim(?))
+        WHERE lower(trim(email)) = ?
         ORDER BY account_number
-      `).bind(user).all();
+      `).bind(emailKey).all();
     emailMatches = matches?.results || [];
-    for (const candidate of emailMatches) {
+    const activeMatches = emailMatches.filter((candidate) => {
       const candidateStatus = clean(candidate.account_status).toLowerCase();
-      if (candidateStatus && candidateStatus !== "active") continue;
-      if (!clean(candidate.password_hash)) continue;
-      if (await verifyPassword(password, candidate.password_hash)) {
-        customer = candidate;
-        break;
+      return !candidateStatus || candidateStatus === "active";
+    });
+    const sharedCredential = await getSharedEmailCredential(env, emailKey);
+    if (sharedCredential && clean(sharedCredential.password_hash)) {
+      if (await verifyPassword(password, sharedCredential.password_hash)) customer = activeMatches[0] || null;
+    } else {
+      // Backward-compatible migration: until a shared-email password is created,
+      // an existing linked account password can still establish the email-scoped session.
+      for (const candidate of activeMatches) {
+        if (!clean(candidate.password_hash)) continue;
+        if (await verifyPassword(password, candidate.password_hash)) {
+          customer = candidate;
+          break;
+        }
       }
     }
   }
@@ -2107,110 +2152,108 @@ async function customerActivationStart({
   env
 }) {
   if (!env.DB) {
-    return json5({
-      success: false,
-      error: "Customer database is not configured."
-    }, 503);
+    return json5({ success: false, error: "Customer database is not configured." }, 503);
   }
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json5({
-      success: false,
-      error: "Invalid activation request."
-    }, 400);
-  }
-  const account = normalizeAccount2(
-    body?.account_number || body?.accountNumber
-  );
-  if (!account) {
-    return json5({
-      success: false,
-      error: "Enter your Customer Number."
-    }, 400);
-  }
-  const customer = await getCustomerByAccount(
-    env,
-    account
-  );
-  if (!customer) {
-    return json5({
-      success: false,
-      error: "We could not locate that Customer Number."
-    }, 404);
-  }
-  const status = clean2(customer.account_status).toLowerCase();
-  if (status && status !== "active") {
-    return json5({
-      success: false,
-      error: "This account is not active. Please contact Wooten Oil."
-    }, 403);
-  }
-  if (clean2(customer.password_hash)) {
-    return json5({
-      success: false,
-      already_activated: true,
-      error: "This online account has already been activated. Please use Customer Login."
-    }, 409);
-  }
-  if (clean2(customer.email)) {
-    const recent = await env.DB.prepare(`
-        SELECT id
+  try { body = await request.json(); }
+  catch { return json5({ success: false, error: "Invalid activation request." }, 400); }
 
-        FROM customer_activation_codes
+  const rawIdentifier = clean2(body?.identifier || body?.email || body?.account_number || body?.accountNumber);
+  if (!rawIdentifier) return json5({ success: false, error: "Enter your Email Address or Customer Number." }, 400);
 
-        WHERE
-          customer_id = ?
-          AND purpose = 'email_activation'
-          AND used_at IS NULL
-          AND created_at >
-              datetime('now', '-60 seconds')
+  // Email first-time setup: if the same active email is linked to multiple accounts,
+  // create one dedicated shared-email credential without changing individual account passwords.
+  if (rawIdentifier.includes("@")) {
+    const emailKey = rawIdentifier.toLowerCase();
+    const rows = await env.DB.prepare(`
+      SELECT id,account_number,account_name,email,phone,password_hash,must_change_password,account_status
+      FROM customers
+      WHERE lower(trim(email))=?
+      ORDER BY account_number
+    `).bind(emailKey).all();
+    const active = (rows?.results || []).filter((c) => {
+      const status = clean2(c.account_status).toLowerCase();
+      return !status || status === "active";
+    });
+    if (!active.length) return json5({ success: false, error: "We could not locate an active customer account for that email address." }, 404);
 
+    if (active.length > 1) {
+      const existingShared = await getSharedEmailCredential(env, emailKey);
+      if (existingShared && clean2(existingShared.password_hash)) {
+        return json5({ success: false, already_activated: true, activation_scope: "shared_email", error: "This shared email login has already been set up. Please use Customer Login." }, 409);
+      }
+      const customer = active[0];
+      const recent = await env.DB.prepare(`
+        SELECT id FROM customer_activation_codes
+        WHERE customer_id=? AND purpose='shared_email_activation' AND used_at IS NULL
+          AND created_at > datetime('now','-60 seconds')
         LIMIT 1
       `).bind(customer.id).first();
-    if (recent) {
+      if (!recent) {
+        const code = randomCode();
+        await storeCode(env, customer.id, code, "shared_email_activation");
+        try { await sendActivationEmail(env, customer, code); }
+        catch (error) {
+          console.error(error);
+          return json5({ success: false, error: "We could not send the verification email. Please contact Wooten Oil." }, 503);
+        }
+      }
       return json5({
         success: true,
         method: "email",
-        account_number: customer.account_number,
-        account_name: customer.account_name,
-        email: maskEmail(customer.email),
-        message: "A verification code was already sent to the email address on your account. Please check your inbox."
+        activation_scope: "shared_email",
+        identifier: emailKey,
+        email: maskEmail(emailKey),
+        linked_count: active.length,
+        message: recent ? "A verification code was already sent to this email. Please check your inbox." : "A verification code was sent to your shared email address."
       });
     }
-    const code = randomCode();
-    await storeCode(
-      env,
-      customer.id,
-      code,
-      "email_activation"
-    );
-    try {
-      await sendActivationEmail(
-        env,
-        customer,
-        code
-      );
-    } catch (error) {
-      console.error(error);
-      return json5({
-        success: false,
-        error: "We could not send the verification email. Please contact Wooten Oil."
-      }, 503);
+
+    // One account on this email: activate that specific customer account.
+    body = { ...body, account_number: active[0].account_number };
+  }
+
+  const account = normalizeAccount2(body?.account_number || body?.accountNumber || rawIdentifier);
+  if (!account) return json5({ success: false, error: "Enter a valid Customer Number." }, 400);
+  const customer = await getCustomerByAccount(env, account);
+  if (!customer) return json5({ success: false, error: "We could not locate that Customer Number." }, 404);
+  const status = clean2(customer.account_status).toLowerCase();
+  if (status && status !== "active") return json5({ success: false, error: "This account is not active. Please contact Wooten Oil." }, 403);
+  if (clean2(customer.password_hash)) {
+    return json5({ success: false, already_activated: true, activation_scope: "account", error: "This online account has already been activated. Please use Customer Login." }, 409);
+  }
+  if (clean2(customer.email)) {
+    const recent = await env.DB.prepare(`
+      SELECT id FROM customer_activation_codes
+      WHERE customer_id=? AND purpose='email_activation' AND used_at IS NULL
+        AND created_at > datetime('now','-60 seconds')
+      LIMIT 1
+    `).bind(customer.id).first();
+    if (!recent) {
+      const code = randomCode();
+      await storeCode(env, customer.id, code, "email_activation");
+      try { await sendActivationEmail(env, customer, code); }
+      catch (error) {
+        console.error(error);
+        return json5({ success: false, error: "We could not send the verification email. Please contact Wooten Oil." }, 503);
+      }
     }
     return json5({
       success: true,
       method: "email",
+      activation_scope: "account",
+      identifier: customer.account_number,
       account_number: customer.account_number,
       account_name: customer.account_name,
       email: maskEmail(customer.email),
-      message: "A verification code was sent to the email address on your account."
+      message: recent ? "A verification code was already sent to the email address on your account. Please check your inbox." : "A verification code was sent to the email address on your account."
     });
   }
   return json5({
     success: true,
     method: "office",
+    activation_scope: "account",
+    identifier: customer.account_number,
     account_number: customer.account_number,
     account_name: customer.account_name,
     message: "There is no email address on this account. Please contact Wooten Oil to receive a one-time activation code."
@@ -2279,129 +2322,101 @@ async function customerActivationSetPassword({
   request,
   env
 }) {
-  if (!env.DB) {
-    return json5({
-      success: false,
-      error: "Customer database is not configured."
-    }, 503);
-  }
+  if (!env.DB) return json5({ success: false, error: "Customer database is not configured." }, 503);
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json5({
-      success: false,
-      error: "Invalid password request."
-    }, 400);
-  }
-  const account = normalizeAccount2(body?.account_number);
+  try { body = await request.json(); }
+  catch { return json5({ success: false, error: "Invalid password request." }, 400); }
+
   const code = clean2(body?.code);
   const password = String(body?.password ?? "");
-  const confirmPassword = String(
-    body?.confirm_password ?? body?.confirmPassword ?? ""
-  );
-  if (!account || !code || !password) {
+  const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
+  const activationScope = clean2(body?.activation_scope || body?.activationScope).toLowerCase();
+  const identifier = clean2(body?.identifier || body?.email || body?.account_number);
+  if (!identifier || !code || !password) return json5({ success: false, error: "Verification code and password are required." }, 400);
+  if (confirmPassword && password !== confirmPassword) return json5({ success: false, error: "The passwords do not match." }, 400);
+  if (password.length < 8 || !/[A-Za-z]/.test(password)) return json5({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
+  if (password.length > 128) return json5({ success: false, error: "Your password is too long." }, 400);
+
+  if (activationScope === "shared_email") {
+    const emailKey = identifier.toLowerCase();
+    if (!emailKey.includes("@")) return json5({ success: false, error: "Invalid shared email activation request." }, 400);
+    const rows = await env.DB.prepare(`
+      SELECT id,account_number,account_name,email,account_status
+      FROM customers
+      WHERE lower(trim(email))=?
+      ORDER BY account_number
+    `).bind(emailKey).all();
+    const active = (rows?.results || []).filter((c) => {
+      const status = clean2(c.account_status).toLowerCase();
+      return !status || status === "active";
+    });
+    if (active.length < 2) return json5({ success: false, error: "This email is not linked to multiple active customer accounts." }, 400);
+    const existingShared = await getSharedEmailCredential(env, emailKey);
+    if (existingShared && clean2(existingShared.password_hash)) {
+      return json5({ success: false, already_activated: true, error: "This shared email login has already been set up." }, 409);
+    }
+    const customer = active[0];
+    const activation = await findValidCode(env, customer.id, code);
+    if (!activation || clean2(activation.purpose) !== "shared_email_activation") {
+      return json5({ success: false, error: "The verification code is incorrect or has expired." }, 400);
+    }
+    let passwordHash;
+    try { passwordHash = await createPasswordHash(password); }
+    catch (error) {
+      console.error("Shared email password hashing failed", error);
+      return json5({ success: false, error: "We could not securely create your password. Please try again." }, 500);
+    }
+    try {
+      await ensureSharedEmailCredentialTable(env);
+      await env.DB.prepare(`
+        INSERT INTO customer_shared_email_credentials(email_key,password_hash,created_at,updated_at)
+        VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+        ON CONFLICT(email_key) DO UPDATE SET password_hash=excluded.password_hash,updated_at=CURRENT_TIMESTAMP
+      `).bind(emailKey,passwordHash).run();
+      await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(activation.id).run();
+    } catch (error) {
+      console.error("Shared email activation failed", error);
+      return json5({ success: false, error: "We could not set up the shared email login." }, 500);
+    }
     return json5({
-      success: false,
-      error: "Customer Number, verification code and password are required."
-    }, 400);
+      success: true,
+      activated: true,
+      shared_email_activated: true,
+      activation_scope: "shared_email",
+      email: emailKey,
+      linked_count: active.length,
+      message: "Your shared email login has been set up. Sign in with your email address and new password."
+    });
   }
-  if (confirmPassword && password !== confirmPassword) {
-    return json5({
-      success: false,
-      error: "The passwords do not match."
-    }, 400);
-  }
-  if (password.length < 8 || !/[A-Za-z]/.test(password)) {
-    return json5({
-      success: false,
-      error: "Your password must be at least 8 characters and contain at least one letter."
-    }, 400);
-  }
-  if (password.length > 128) {
-    return json5({
-      success: false,
-      error: "Your password is too long."
-    }, 400);
-  }
-  const customer = await getCustomerByAccount(
-    env,
-    account
-  );
-  if (!customer) {
-    return json5({
-      success: false,
-      error: "Unable to activate this account."
-    }, 400);
-  }
-  if (clean2(customer.password_hash)) {
-    return json5({
-      success: false,
-      already_activated: true,
-      error: "This online account has already been activated."
-    }, 409);
-  }
-  const activation = await findValidCode(
-    env,
-    customer.id,
-    code
-  );
-  if (!activation) {
-    return json5({
-      success: false,
-      error: "The verification code is incorrect or has expired."
-    }, 400);
-  }
+
+  const account = normalizeAccount2(body?.account_number || identifier);
+  if (!account) return json5({ success: false, error: "Customer Number, verification code and password are required." }, 400);
+  const customer = await getCustomerByAccount(env, account);
+  if (!customer) return json5({ success: false, error: "Unable to activate this account." }, 400);
+  if (clean2(customer.password_hash)) return json5({ success: false, already_activated: true, error: "This online account has already been activated." }, 409);
+  const activation = await findValidCode(env, customer.id, code);
+  if (!activation || clean2(activation.purpose) === "shared_email_activation") return json5({ success: false, error: "The verification code is incorrect or has expired." }, 400);
   let passwordHash;
-  try {
-    passwordHash = await createPasswordHash(password);
-  } catch (error) {
-    console.error(
-      "Password hashing failed",
-      error
-    );
-    return json5({
-      success: false,
-      error: "We could not securely create your password. Please try again."
-    }, 500);
+  try { passwordHash = await createPasswordHash(password); }
+  catch (error) {
+    console.error("Password hashing failed", error);
+    return json5({ success: false, error: "We could not securely create your password. Please try again." }, 500);
   }
   try {
     await env.DB.prepare(`
       UPDATE customers
-
-      SET
-        password_hash = ?,
-        must_change_password = 0,
-        account_status = 'active',
-        updated_at = CURRENT_TIMESTAMP
-
-      WHERE id = ?
-    `).bind(
-      passwordHash,
-      customer.id
-    ).run();
-    await env.DB.prepare(`
-      UPDATE customer_activation_codes
-
-      SET used_at = CURRENT_TIMESTAMP
-
-      WHERE id = ?
-    `).bind(
-      activation.id
-    ).run();
+      SET password_hash=?,must_change_password=0,account_status='active',updated_at=CURRENT_TIMESTAMP
+      WHERE id=?
+    `).bind(passwordHash,customer.id).run();
+    await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(activation.id).run();
   } catch (error) {
-    console.error(
-      "Customer activation failed",
-      error
-    );
-    return json5({
-      success: false,
-      error: "We could not activate the online account."
-    }, 500);
+    console.error("Customer activation failed", error);
+    return json5({ success: false, error: "We could not activate the online account." }, 500);
   }
   return json5({
     success: true,
     activated: true,
+    activation_scope: "account",
     account_number: customer.account_number,
     account_name: customer.account_name,
     message: "Your Wooten Oil online account has been activated. You can now sign in."
@@ -2822,6 +2837,52 @@ async function customerChangePassword({ request, env }) {
   }
 }
 __name(customerChangePassword, "customerChangePassword");
+
+async function customerChangeSharedEmailPassword({ request, env }) {
+  try {
+    if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
+    const session = await getCustomerFromSession(request, env);
+    if (!session) return json6({ success: false, error: "Your customer session has expired. Please sign in again." }, 401);
+    const linkedScope = clean(session.login_method).toLowerCase() === "email" && clean(session.session_scope).toLowerCase() === "linked";
+    const emailKey = clean(session.verified_email || session.email).toLowerCase();
+    if (!linkedScope || !emailKey) return json6({ success: false, error: "Shared-email password changes are available only when you sign in with your email address." }, 403);
+    let body;
+    try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password change request." }, 400); }
+    const currentPassword = String(body?.current_password ?? body?.currentPassword ?? "");
+    const newPassword = String(body?.new_password ?? body?.newPassword ?? "");
+    const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
+    if (!currentPassword) return json6({ success: false, error: "Enter your current shared-email password." }, 400);
+    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword)) return json6({ success: false, error: "Your new password must be at least 8 characters and contain at least one letter." }, 400);
+    if (newPassword.length > 128) return json6({ success: false, error: "Your new password is too long." }, 400);
+    if (newPassword !== confirmPassword) return json6({ success: false, error: "The new passwords do not match." }, 400);
+    if (newPassword === currentPassword) return json6({ success: false, error: "Choose a new password that is different from your current password." }, 400);
+
+    const existing = await getSharedEmailCredential(env, emailKey);
+    let currentValid = false;
+    if (existing && clean(existing.password_hash)) currentValid = await verifyPassword(currentPassword, existing.password_hash);
+    else currentValid = await verifyLegacySharedEmailPassword(env, emailKey, currentPassword);
+    if (!currentValid) return json6({ success: false, error: "Your current shared-email password is incorrect." }, 403);
+
+    const passwordHash = await createPasswordHash2(newPassword);
+    await ensureSharedEmailCredentialTable(env);
+    await env.DB.prepare(`
+      INSERT INTO customer_shared_email_credentials(email_key,password_hash,created_at,updated_at)
+      VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      ON CONFLICT(email_key) DO UPDATE SET password_hash=excluded.password_hash,updated_at=CURRENT_TIMESTAMP
+    `).bind(emailKey,passwordHash).run();
+
+    // Sign out every linked-email session for this shared email, but leave account-number sessions alone.
+    await ensureCustomerSessionScopeColumns(env);
+    try {
+      await env.DB.prepare(`DELETE FROM customer_sessions WHERE login_method='email' AND lower(trim(COALESCE(verified_email,'')))=?`).bind(emailKey).run();
+    } catch (e) { console.error("shared email password session cleanup failed", e); }
+    return json6({ success: true, email: emailKey, message: "Your shared-email password has been changed. Please sign in again." }, 200, { "Set-Cookie": clearSessionCookie() });
+  } catch (e) {
+    console.error("Shared email password change failed", e);
+    return json6({ success: false, error: "Shared-email password could not be changed right now." }, 500);
+  }
+}
+__name(customerChangeSharedEmailPassword, "customerChangeSharedEmailPassword");
 
 // functions/api/gmail-oauth.js
 var GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
@@ -9524,6 +9585,10 @@ var worker_default = {
     }
     if (url.pathname === "/api/customer/change-password") {
       if (request.method === "POST") return customerChangePassword({ request, env });
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/customer/change-shared-email-password") {
+      if (request.method === "POST") return customerChangeSharedEmailPassword({ request, env });
       return methodNotAllowed();
     }
     if (url.pathname === "/api/customer/password-reset/start") {
