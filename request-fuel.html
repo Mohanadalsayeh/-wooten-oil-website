@@ -2576,7 +2576,8 @@ body.request-fuel-page .fuel-field{
       </div>
       <div class="portal-field">
         <label for="activation-password">Create Password</label>
-        <input id="activation-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
+        <input id="activation-password" type="password" minlength="8" maxlength="128" placeholder="At least 8 characters" autocomplete="new-password" />
+        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
       </div>
       <div class="portal-field">
         <label for="activation-confirm">Confirm Password</label>
@@ -2619,7 +2620,8 @@ body.request-fuel-page .fuel-field{
       </div>
       <div class="portal-field">
         <label for="reset-password">New Password</label>
-        <input id="reset-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
+        <input id="reset-password" type="password" minlength="8" maxlength="128" placeholder="At least 8 characters" autocomplete="new-password" />
+        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
       </div>
       <div class="portal-field">
         <label for="reset-confirm">Confirm New Password</label>
@@ -4409,7 +4411,7 @@ body.request-fuel-page .fuel-field{
     var confirm=document.getElementById('reset-confirm').value;
     if(!identifier || !code || !password || !confirm){ setStatus(resetStatus,'Enter the reset code and both password fields.',false); return; }
     if(!/^\d{6}$/.test(code)){ setStatus(resetStatus,'Enter the 6-digit reset code.',false); return; }
-    if(password.length<10){ setStatus(resetStatus,'Your password must be at least 10 characters.',false); return; }
+    if(password.length<8 || !/[A-Za-z]/.test(password)){ setStatus(resetStatus,'Your password must be at least 8 characters and contain at least one letter.',false); return; }
     if(password!==confirm){ setStatus(resetStatus,'The passwords do not match.',false); return; }
     clearStatus(resetStatus); resetComplete.disabled=true; resetComplete.textContent='Resetting…';
     try{
@@ -4489,7 +4491,7 @@ body.request-fuel-page .fuel-field{
       return;
     }
     if(password.length<10){
-      setStatus(activationStatus,'Your password must be at least 10 characters.',false);
+      setStatus(activationStatus,'Your password must be at least 8 characters and contain at least one letter.',false);
       return;
     }
     if(password!==confirm){
@@ -5221,5 +5223,6 @@ body.request-fuel-page .fuel-field{
 })();
 </script>
 
+<script src="assets/js/password-recovery-v170.js"></script>
 </body>
 </html>

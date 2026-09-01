@@ -293,6 +293,10 @@ async function ensureFuelRequestHistorySchema(env) {
   if(!columns.includes("customer_account_number")){
     await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN customer_account_number TEXT`).run();
   }
+  if(!columns.includes("decision_status")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_status TEXT NOT NULL DEFAULT 'pending'`).run();
+  if(!columns.includes("decision_note")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_note TEXT`).run();
+  if(!columns.includes("decision_by")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_by TEXT`).run();
+  if(!columns.includes("decision_at")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_at TEXT`).run();
 }
 __name(ensureFuelRequestHistorySchema,"ensureFuelRequestHistorySchema");
 
@@ -316,7 +320,10 @@ async function customerFuelRequestHistoryGet({request,env}) {
         delivery_address,
         notes,
         received_at,
-        email_status
+        email_status,
+        COALESCE(decision_status,'pending') AS status,
+        decision_note AS admin_response,
+        decision_at
       FROM fuel_requests
       WHERE customer_account_number = ?
       ORDER BY datetime(received_at) DESC, rowid DESC
@@ -333,7 +340,10 @@ async function customerFuelRequestHistoryGet({request,env}) {
         delivery_address:String(row.delivery_address||""),
         notes:String(row.notes||""),
         received_at:String(row.received_at||""),
-        email_status:String(row.email_status||"")
+        email_status:String(row.email_status||""),
+        status:String(row.status||"pending"),
+        admin_response:String(row.admin_response||""),
+        decision_at:String(row.decision_at||"")
       }))
     });
   }catch(error){
@@ -2302,10 +2312,10 @@ async function customerActivationSetPassword({
       error: "The passwords do not match."
     }, 400);
   }
-  if (password.length < 10) {
+  if (password.length < 8 || !/[A-Za-z]/.test(password)) {
     return json5({
       success: false,
-      error: "Your password must be at least 10 characters."
+      error: "Your password must be at least 8 characters and contain at least one letter."
     }, 400);
   }
   if (password.length > 128) {
@@ -2640,12 +2650,18 @@ async function sendResetEmail(env, customer, code) {
 }
 __name(sendResetEmail, "sendResetEmail");
 async function sendResetSms(env, customer, code) {
-  const sid = clean3(env.TWILIO_ACCOUNT_SID), token = clean3(env.TWILIO_AUTH_TOKEN), from = clean3(env.TWILIO_FROM_NUMBER);
-  if (!sid || !token || !from) throw new Error("SMS service is not configured.");
-  let to = clean3(customer.phone).replace(/\D/g, "");
-  if (to.length === 10) to = `+1${to}`;
-  else if (!to.startsWith("+")) to = `+${to}`;
-  const body = new URLSearchParams({ To: to, From: from, Body: `Wooten Oil password reset code: ${code}. It expires in ${CODE_MINUTES2} minutes.` });
+  const sid = clean3(env.TWILIO_ACCOUNT_SID), token = clean3(env.TWILIO_AUTH_TOKEN);
+  const messagingServiceSid = clean3(env.TWILIO_MESSAGING_SERVICE_SID);
+  const from = clean3(env.TWILIO_PHONE_NUMBER || env.TWILIO_FROM_NUMBER);
+  if (!sid || !token || (!messagingServiceSid && !from)) throw new Error("SMS service is not configured.");
+  let digits = clean3(customer.phone).replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  if (digits.length !== 10) throw new Error("The phone number on this account is not a complete U.S. number.");
+  const to = `+1${digits}`;
+  const bodyData = { To: to, Body: `WOOTEN OIL CO INC\nPassword reset code: ${code}\nExpires in ${CODE_MINUTES2} minutes.\nPlease do not reply.` };
+  if (messagingServiceSid) bodyData.MessagingServiceSid = messagingServiceSid;
+  else bodyData.From = from;
+  const body = new URLSearchParams(bodyData);
   const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
     method: "POST",
     headers: { "Authorization": `Basic ${btoa(`${sid}:${token}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
@@ -2660,44 +2676,43 @@ __name(sendResetSms, "sendResetSms");
 async function customerPasswordResetStart({ request, env }) {
   if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json6({ success: false, error: "Invalid password reset request." }, 400);
-  }
+  try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password reset request." }, 400); }
   const identifier = clean3(body?.identifier || body?.user || body?.account_number || body?.email);
+  const requestedMethod = clean3(body?.method).toLowerCase();
   if (!identifier) return json6({ success: false, error: "Enter the email address or Customer Number on the account." }, 400);
   const customer = await findCustomer(env, identifier);
   if (!customer) return json6({ success: false, error: "We could not locate an account with that email or Customer Number." }, 404);
   if (clean3(customer.account_status).toLowerCase() && clean3(customer.account_status).toLowerCase() !== "active") return json6({ success: false, error: "This account is not active. Please contact Wooten Oil." }, 403);
   if (!clean3(customer.password_hash)) return json6({ success: false, setup_required: true, account_number: customer.account_number, error: "This online account has not been activated yet. Please use First time here? Activate Online Account." }, 409);
+
+  const emailAvailable = !!clean3(customer.email);
+  let phoneDigits = clean3(customer.phone).replace(/\D/g, "");
+  if (phoneDigits.length === 11 && phoneDigits.startsWith("1")) phoneDigits = phoneDigits.slice(1);
+  const smsConfigured = !!(clean3(env.TWILIO_ACCOUNT_SID) && clean3(env.TWILIO_AUTH_TOKEN) && (clean3(env.TWILIO_MESSAGING_SERVICE_SID) || clean3(env.TWILIO_PHONE_NUMBER) || clean3(env.TWILIO_FROM_NUMBER)));
+  const smsAvailable = phoneDigits.length === 10 && smsConfigured;
+  const methods = [];
+  if (emailAvailable) methods.push({ method: "email", label: "Email", destination: maskEmail2(customer.email) });
+  if (smsAvailable) methods.push({ method: "sms", label: "Text Message", destination: maskPhone(customer.phone) });
+
+  if (!requestedMethod) {
+    if (!methods.length) return json6({ success: true, method: "office", account_number: customer.account_number, methods: [], message: "There is no email address or SMS-capable phone setup available for automatic recovery. Please contact Wooten Oil for password assistance." });
+    return json6({ success: true, method: "choose", account_number: customer.account_number, methods, message: methods.length > 1 ? "Choose where you want to receive your 6-digit verification code." : "Choose the available recovery method to receive your 6-digit verification code." });
+  }
+
+  if (!methods.some(m => m.method === requestedMethod)) return json6({ success: false, error: "That password recovery method is not available for this account." }, 400);
   const recent = await env.DB.prepare(`SELECT id FROM password_reset_tokens WHERE customer_id=? AND used_at IS NULL AND created_at > datetime('now','-60 seconds') LIMIT 1`).bind(customer.id).first();
   if (recent) return json6({ success: false, wait: true, error: "A reset code was already requested recently. Please wait about one minute before trying again." }, 429);
   const code = randomCode2();
-  if (clean3(customer.email)) {
-    await storeResetCode(env, customer.id, code);
-    try {
-      await sendResetEmail(env, customer, code);
-    } catch (e) {
-      console.error(e);
-      return json6({ success: false, error: "We could not send the password reset email. Please contact Wooten Oil." }, 503);
-    }
-    return json6({ success: true, method: "email", account_number: customer.account_number, destination: maskEmail2(customer.email), message: "A 6-digit password reset code was sent to the email address on your account." });
+  await storeResetCode(env, customer.id, code);
+  try {
+    if (requestedMethod === "email") await sendResetEmail(env, customer, code);
+    else await sendResetSms(env, customer, code);
+  } catch (e) {
+    console.error(e);
+    return json6({ success: false, error: requestedMethod === "email" ? "We could not send the password reset email. Please contact Wooten Oil." : "We could not send the password reset text. Please contact Wooten Oil." }, 503);
   }
-  if (clean3(customer.phone)) {
-    if (clean3(env.TWILIO_ACCOUNT_SID) && clean3(env.TWILIO_AUTH_TOKEN) && clean3(env.TWILIO_FROM_NUMBER)) {
-      await storeResetCode(env, customer.id, code);
-      try {
-        await sendResetSms(env, customer, code);
-      } catch (e) {
-        console.error(e);
-        return json6({ success: false, error: "We could not send the password reset text. Please contact Wooten Oil." }, 503);
-      }
-      return json6({ success: true, method: "sms", account_number: customer.account_number, destination: maskPhone(customer.phone), message: "A 6-digit password reset code was sent by text message to the phone number on your account." });
-    }
-    return json6({ success: true, method: "office", account_number: customer.account_number, phone: maskPhone(customer.phone), message: "A phone number is on this account, but text-message password recovery is not enabled yet. Please contact Wooten Oil for password assistance." });
-  }
-  return json6({ success: true, method: "office", account_number: customer.account_number, message: "There is no email address or mobile number available for automatic recovery. Please contact Wooten Oil for password assistance." });
+  const destination = requestedMethod === "email" ? maskEmail2(customer.email) : maskPhone(customer.phone);
+  return json6({ success: true, method: requestedMethod, account_number: customer.account_number, destination, message: `A 6-digit password reset code was sent ${requestedMethod === "email" ? "to your email" : "by text message"}.` });
 }
 __name(customerPasswordResetStart, "customerPasswordResetStart");
 async function customerPasswordResetComplete({ request, env }) {
@@ -2717,7 +2732,7 @@ async function customerPasswordResetComplete({ request, env }) {
       return json6({ success: false, error: "Enter your Customer Number or email, the 6-digit code, and a new password." }, 400);
     }
     if (confirm && password !== confirm) return json6({ success: false, error: "The passwords do not match." }, 400);
-    if (password.length < 10) return json6({ success: false, error: "Your password must be at least 10 characters." }, 400);
+    if (password.length < 8 || !/[A-Za-z]/.test(password)) return json6({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
     if (password.length > 128) return json6({ success: false, error: "Your password is too long." }, 400);
     const customer = await findCustomer(env, identifier);
     if (!customer) return json6({ success: false, error: "The verification code is incorrect or has expired." }, 400);
@@ -4180,6 +4195,22 @@ async function twilioStatusRequest(url,config){
   return {ok:response.ok,status:response.status,code,message,data};
 }
 __name(twilioStatusRequest,"twilioStatusRequest");
+async function adminTwilioBalanceGet({request,env}){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY) return notificationJson({success:false,error:"Unauthorized."},401);
+  const config=twilioConfig(env);
+  if(!config.accountSid||!config.authToken) return notificationJson({success:false,error:"Twilio Account SID or Auth Token is not configured."},400);
+  const balanceTest=await twilioStatusRequest(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Balance.json`,config);
+  if(!balanceTest.ok){
+    const detail=`${balanceTest.message}${balanceTest.code?` — ${balanceTest.code}`:""}`;
+    return notificationJson({success:false,error:detail,balance_error:detail},balanceTest.status||502);
+  }
+  const parsed=Number(balanceTest.data?.balance);
+  if(!Number.isFinite(parsed)) return notificationJson({success:false,error:"Twilio returned an unreadable balance."},502);
+  return notificationJson({success:true,balance:parsed,balance_currency:String(balanceTest.data?.currency||"USD").trim().toUpperCase()});
+}
+__name(adminTwilioBalanceGet,"adminTwilioBalanceGet");
+
 async function adminTwilioStatusGet({request,env}){
   const supplied=request.headers.get("X-Admin-Key")||"";
   if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY) return notificationJson({success:false,error:"Unauthorized."},401);
@@ -4195,6 +4226,20 @@ async function adminTwilioStatusGet({request,env}){
 
   const accountTest=await twilioStatusRequest(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}.json`,config);
   tests.push({key:"authentication",label:"Account authentication",ok:accountTest.ok,code:accountTest.ok?"":accountTest.code,detail:accountTest.ok?`Authenticated as ${String(accountTest.data?.friendly_name||accountTest.data?.sid||config.accountSid)}.`:`${accountTest.message}${accountTest.code?` — ${accountTest.code}`:""}`});
+
+  let balance=null;
+  let balanceCurrency="";
+  let balanceError="";
+  if(accountTest.ok){
+    const balanceTest=await twilioStatusRequest(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Balance.json`,config);
+    if(balanceTest.ok){
+      const parsed=Number(balanceTest.data?.balance);
+      if(Number.isFinite(parsed)) balance=parsed;
+      balanceCurrency=String(balanceTest.data?.currency||"").trim().toUpperCase();
+    }else{
+      balanceError=`${balanceTest.message}${balanceTest.code?` — ${balanceTest.code}`:""}`;
+    }
+  }
 
   let senderOk=false;
   if(accountTest.ok&&config.messagingServiceSid){
@@ -4237,6 +4282,9 @@ async function adminTwilioStatusGet({request,env}){
     missing:config.missing,
     tests,
     test_phone:testPhone,
+    balance,
+    balance_currency:balanceCurrency,
+    balance_error:balanceError,
     account_sid_masked:config.accountSid?`${config.accountSid.slice(0,4)}…${config.accountSid.slice(-4)}`:"",
     sender_label:config.messagingServiceSid?`Messaging Service ${config.messagingServiceSid.slice(0,6)}…`:(config.phoneNumber||"")
   });
@@ -8543,7 +8591,7 @@ async function recordGeneralAdminActivity(env,request){const item=adminGeneralAu
 function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/users"))return "manage_users";
   if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
-  if(path.startsWith("/api/admin/account-applications"))return "applications";
+  if(path.startsWith("/api/admin/account-applications")||path.startsWith("/api/admin/request-center"))return "applications";
   if(path.includes("activation")||path.includes("password-reset-code"))return "activation";
   if(path.includes("gmail")||path.includes("twilio"))return "communications_settings";
   if(path.includes("communication-log"))return "communication";
@@ -8551,6 +8599,20 @@ function adminPermissionForPath(path){
   if(path.includes("notification"))return "notifications";
   if(path.includes("customer")||path.includes("import")||path.includes("database"))return "database";
   return "manage_users";
+}
+function adminTimeZoneOffsetMs(date,timeZone="America/Chicago"){
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date);
+  const values={};for(const part of parts)if(part.type!=="literal")values[part.type]=Number(part.value);
+  return Date.UTC(values.year,values.month-1,values.day,values.hour,values.minute,values.second)-date.getTime();
+}
+function adminNextCentralMidnightIso(){
+  const now=new Date();
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
+  const values={};for(const part of parts)if(part.type!=="literal")values[part.type]=Number(part.value);
+  const nextLocal=new Date(Date.UTC(values.year,values.month-1,values.day+1,0,0,0));
+  let guess=new Date(nextLocal.getTime()-adminTimeZoneOffsetMs(nextLocal));
+  guess=new Date(nextLocal.getTime()-adminTimeZoneOffsetMs(guess));
+  return guess.toISOString().replace("T"," ").replace(".000Z","");
 }
 async function adminSessionFromCredential(env,credential){
   if(!env?.DB||!credential)return null;await ensureAdminUsersTables(env);const tokenHash=await adminSha256(credential);
@@ -8569,7 +8631,7 @@ async function adminAuthLogin({request,env}){
   try{if(!env.DB)return notificationJson({success:false,error:"Admin user database is not configured."},503);const body=await request.json();const username=String(body.username||"").trim();const password=String(body.password||"");if(!username||!password)return notificationJson({success:false,error:"Enter your username and password."},400);
     if(env.ADMIN_IMPORT_KEY&&username==="Admin"&&password===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers();headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY));headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_login","admin_owner","Admin","Signed in");return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});}
     await ensureAdminUsersTables(env);const user=await env.DB.prepare(`SELECT id,username,display_name,password_salt,password_hash,permissions,active FROM admin_users WHERE username=? COLLATE BINARY LIMIT 1`).bind(username).first();if(!user||!Number(user.active))return notificationJson({success:false,error:"Invalid username or password."},401);const hash=await adminPasswordHash(password,user.password_salt);if(hash!==user.password_hash)return notificationJson({success:false,error:"Invalid username or password."},401);
-    const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+12 hours'))`).bind(tokenHash,user.id).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
+    const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);const expiresAt=adminNextCentralMidnightIso();await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,?)`).bind(tokenHash,user.id,expiresAt).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
   }catch(error){console.error("adminAuthLogin failed",error);return notificationJson({success:false,error:"Administrator login is unavailable."},500);}
 }
 async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
@@ -8778,12 +8840,12 @@ function accountApplicationAuthorized(request,env){return Boolean(env.ADMIN_IMPO
 async function adminAccountApplicationsGet({request,env}){
   try{
     if(!accountApplicationAuthorized(request,env)) return notificationJson({success:false,error:"Unauthorized."},401);
-    await ensureAccountApplicationsTable(env);const url=new URL(request.url);
+    await ensureRequestCenterSchema(env);const url=new URL(request.url);
     const page=Math.max(1,Number(url.searchParams.get("page")||1));const perPage=20;const offset=(page-1)*perPage;
     const search=accountApplicationText(url.searchParams.get("search"),100);const status=accountApplicationText(url.searchParams.get("status"),20).toLowerCase();const type=accountApplicationText(url.searchParams.get("type"),20).toLowerCase();
     const clauses=["1=1"],values=[];
     if(search){clauses.push("(application_number LIKE ? OR full_name LIKE ? OR business_name LIKE ? OR email LIKE ? OR phone LIKE ?)");const q=`%${search}%`;values.push(q,q,q,q,q);}
-    if(["new","under_review","approved","declined"].includes(status)){clauses.push("status=?");values.push(status);}
+    if(["pending","accepted","denied"].includes(status)){clauses.push("status=?");values.push(status);}
     if(["business","personal"].includes(type)){clauses.push("application_type=?");values.push(type);}
     const where=clauses.join(" AND ");
     const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE ${where}`).bind(...values).first();
@@ -8796,13 +8858,16 @@ __name(adminAccountApplicationsGet,"adminAccountApplicationsGet");
 async function adminAccountApplicationUpdate({request,env}){
   try{
     if(!accountApplicationAuthorized(request,env)) return notificationJson({success:false,error:"Unauthorized."},401);
-    await ensureAccountApplicationsTable(env);const body=await request.json();const id=Number(body.id);const status=accountApplicationText(body.status,20).toLowerCase();const notes=accountApplicationText(body.admin_notes,3000);
-    if(!Number.isInteger(id)||id<=0||!["new","under_review","approved","declined"].includes(status)) return notificationJson({success:false,error:"Choose a valid application and review status."},400);
-    const existing=await env.DB.prepare(`SELECT application_number,status FROM account_applications WHERE id=? LIMIT 1`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Application not found."},404);const actor=adminRequestActor(request,env);
+    await ensureRequestCenterSchema(env);const body=await request.json();const id=Number(body.id);const status=accountApplicationText(body.status,20).toLowerCase();const notes=accountApplicationText(body.admin_notes,3000);
+    if(!Number.isInteger(id)||id<=0||!["pending","accepted","denied"].includes(status)) return notificationJson({success:false,error:"Choose Pending, Accepted, or Denied."},400);
+    const existing=await env.DB.prepare(`SELECT application_number,status,full_name,email,phone FROM account_applications WHERE id=? LIMIT 1`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Application not found."},404);const actor=adminRequestActor(request,env);
     const result=await env.DB.prepare(`UPDATE account_applications SET status=?,admin_notes=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(status,notes,actor.name,id).run();
     if(!Number(result?.meta?.changes||0)) return notificationJson({success:false,error:"Application not found."},404);
     await adminAudit(env,request,"application_reviewed","account_application",String(existing.application_number||id),`${existing.status} → ${status}`);
-    return notificationJson({success:true});
+    const word=status[0].toUpperCase()+status.slice(1);const message=`Account Application ${existing.application_number} status: ${word}.${notes?`\n\nWooten Oil response: ${notes}`:''}`;
+    let account=null;if(body.portal){account=await env.DB.prepare(`SELECT account_number,account_name,email,phone FROM customers WHERE lower(email)=lower(?) OR phone=? ORDER BY id LIMIT 1`).bind(String(existing.email||''),String(existing.phone||'')).first();}
+    const delivery=await requestDecisionNotify({request,env,accountNumber:account?.account_number||'',email:existing.email,phone:existing.phone,name:existing.full_name,title:`Wooten Oil Account Application — ${word}`,message,portal:!!body.portal&&!!account,emailSend:!!body.email,smsSend:!!body.sms});
+    return notificationJson({success:true,delivery,portal_available:!!account});
   }catch(error){console.error("adminAccountApplicationUpdate failed",error);return notificationJson({success:false,error:"The application review could not be saved."},500);}
 }
 __name(adminAccountApplicationUpdate,"adminAccountApplicationUpdate");
@@ -8852,6 +8917,105 @@ async function adminAccountApplicationFileGet({request,env}){
 __name(adminAccountApplicationFileGet,"adminAccountApplicationFileGet");
 
 
+async function ensureRequestCenterSchema(env){
+  if(!env?.DB) throw new Error("Customer database is not configured.");
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS profile_change_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_number TEXT NOT NULL UNIQUE,
+    account_number TEXT NOT NULL,
+    account_name TEXT,
+    change_type TEXT NOT NULL,
+    current_value TEXT,
+    requested_value TEXT NOT NULL,
+    customer_note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    admin_response TEXT,
+    decided_by TEXT,
+    decided_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_profile_change_account_created ON profile_change_requests(account_number,created_at DESC)`).run();
+  const fuelInfo=await env.DB.prepare(`PRAGMA table_info(fuel_requests)`).all();
+  const fuelCols=new Set((fuelInfo?.results||[]).map(r=>String(r.name||'').toLowerCase()));
+  for(const [name,def] of [['decision_status',"TEXT NOT NULL DEFAULT 'pending'"],['decision_note','TEXT'],['decision_by','TEXT'],['decision_at','TEXT']]) if(!fuelCols.has(name)) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN ${name} ${def}`).run();
+  await ensureAccountApplicationsTable(env);
+  await env.DB.prepare(`UPDATE account_applications SET status='pending' WHERE status IN ('new','under_review')`).run();
+  await env.DB.prepare(`UPDATE account_applications SET status='accepted' WHERE status='approved'`).run();
+  await env.DB.prepare(`UPDATE account_applications SET status='denied' WHERE status='declined'`).run();
+}
+__name(ensureRequestCenterSchema,'ensureRequestCenterSchema');
+
+async function requestCenterCustomerByAccount(env,account){
+  if(!account)return null;
+  return await env.DB.prepare(`SELECT account_number,account_name,email,phone FROM customers WHERE account_number=? LIMIT 1`).bind(String(account)).first();
+}
+__name(requestCenterCustomerByAccount,'requestCenterCustomerByAccount');
+
+async function requestDecisionNotify({request,env,accountNumber,email,phone,name,title,message,portal,emailSend,smsSend}){
+  const result={portal:{sent:false},email:{sent:false},sms:{sent:false}};
+  if(portal&&accountNumber){
+    try{await ensureCustomerNotificationsTable(env);const r=await env.DB.prepare(`INSERT INTO portal_notifications (account_number,title,message,email_sent,action_type,created_at) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(String(accountNumber),title,message,0,'request_status').run();result.portal={sent:true,id:Number(r?.meta?.last_row_id||0)};}catch(e){result.portal={sent:false,error:String(e?.message||e)}}
+  }
+  if(emailSend){
+    if(!email)result.email={sent:false,error:'No email address is available.'};
+    else result.email=await accountApplicationSendEmail(env,{to:String(email),subject:title,html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033;line-height:1.6"><h2>Wooten Oil</h2><p>Hello ${notificationEscapeHtml(name||'Customer')},</p><p style="white-space:pre-wrap">${notificationEscapeHtml(message)}</p><p>Wooten Oil Co. Inc.<br>support@wootenoil.com</p></div>`,text:`Hello ${name||'Customer'},\n\n${message}\n\nWooten Oil Co. Inc.`});
+  }
+  if(smsSend){
+    if(!phone)result.sms={sent:false,error:'No phone number is available.'};
+    else{try{const sent=await twilioSendSms(env,String(phone),`WOOTEN OIL CO INC\n${message}\nPlease do not reply.`,{statusCallbackUrl:twilioCallbackUrl(request,'/api/twilio/message-status')});result.sms={sent:true,sid:String(sent?.sid||'')};}catch(e){result.sms={sent:false,error:String(e?.message||e)}}
+  }
+  return result;
+}
+__name(requestDecisionNotify,'requestDecisionNotify');
+
+async function customerProfileChangeRequests({request,env}){
+  try{
+    await ensureRequestCenterSchema(env);const customer=await getCustomerFromSession(request,env);if(!customer)return notificationJson({success:false,error:'Please sign in first.'},401);
+    if(request.method==='GET'){
+      const rows=await env.DB.prepare(`SELECT id,request_number,change_type,current_value,requested_value,customer_note,status,admin_response,decided_at,created_at FROM profile_change_requests WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT 25`).bind(String(customer.account_number)).all();
+      return notificationJson({success:true,requests:rows?.results||[]});
+    }
+    const body=await request.json();const type=String(body.change_type||'').trim().toLowerCase();const requested=String(body.requested_value||'').trim().slice(0,500);const note=String(body.note||'').trim().slice(0,1500);
+    const allowed={address:'Address',phone:'Phone Number',email:'Email Address',contact:'Contact Name',other:'Other'};if(!allowed[type]||!requested)return notificationJson({success:false,error:'Choose what you want changed and enter the requested new value.'},400);
+    let current='';if(type==='address')current=[customer.address_1,customer.address_2,customer.city,customer.state,customer.zip_code].filter(Boolean).join(', ');else if(type==='phone')current=customer.phone||'';else if(type==='email')current=customer.email||'';else if(type==='contact')current=customer.contact_name||'';
+    const rn=`PCR-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${crypto.randomUUID().replaceAll('-','').slice(0,6).toUpperCase()}`;
+    await env.DB.prepare(`INSERT INTO profile_change_requests (request_number,account_number,account_name,change_type,current_value,requested_value,customer_note) VALUES (?,?,?,?,?,?,?)`).bind(rn,String(customer.account_number),String(customer.account_name||''),type,current,requested,note).run();
+    const supportText=`Profile change request ${rn}\nCustomer #${customer.account_number} — ${customer.account_name||'Customer'}\nChange: ${allowed[type]}\nCurrent: ${current||'—'}\nRequested: ${requested}\nNote: ${note||'—'}`;
+    await accountApplicationSendEmail(env,{to:'support@wootenoil.com',subject:`Profile Change Request — ${rn}`,html:`<pre style="font-family:Arial,sans-serif;white-space:pre-wrap">${notificationEscapeHtml(supportText)}</pre>`,text:supportText}).catch(()=>{});
+    return notificationJson({success:true,request_number:rn,message:'Your profile change request was submitted to Wooten Oil.'});
+  }catch(e){console.error('customerProfileChangeRequests',e);return notificationJson({success:false,error:'Profile change request could not be processed.'},500)}
+}
+__name(customerProfileChangeRequests,'customerProfileChangeRequests');
+
+async function adminRequestCenterGet({request,env}){
+  try{await ensureRequestCenterSchema(env);const u=new URL(request.url),type=String(u.searchParams.get('type')||'profile'),status=String(u.searchParams.get('status')||''),q=String(u.searchParams.get('q')||'').trim().toLowerCase(),page=Math.max(1,Number(u.searchParams.get('page')||1)),per=20,off=(page-1)*per;let rows=[],total=0;
+    if(type==='fuel'){
+      let where='1=1',vals=[];if(status){where+=' AND COALESCE(decision_status,\'pending\')=?';vals.push(status)}if(q){where+=' AND lower(COALESCE(request_number,\'\')||\' \'||COALESCE(customer_name,\'\')||\' \'||COALESCE(email,\'\')||\' \'||COALESCE(phone,\'\')) LIKE ?';vals.push('%'+q+'%')}
+      total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM fuel_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT rowid id,request_number,customer_account_number account_number,customer_name account_name,email,phone,fuel_type,gallons,delivery_date,delivery_address,notes,COALESCE(decision_status,'pending') status,decision_note admin_response,decision_by decided_by,decision_at decided_at,received_at created_at FROM fuel_requests WHERE ${where} ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];
+    }else{
+      let where='1=1',vals=[];if(status){where+=' AND status=?';vals.push(status)}if(q){where+=' AND lower(request_number||\' \'||account_number||\' \'||COALESCE(account_name,\'\')||\' \'||requested_value) LIKE ?';vals.push('%'+q+'%')}
+      total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM profile_change_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT id,request_number,account_number,account_name,change_type,current_value,requested_value,customer_note,status,admin_response,decided_by,decided_at,created_at FROM profile_change_requests WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];for(const row of rows){const c=await requestCenterCustomerByAccount(env,row.account_number);row.email=c?.email||'';row.phone=c?.phone||'';}
+    }
+    return notificationJson({success:true,type,requests:rows,page,total,total_pages:Math.max(1,Math.ceil(total/per))});
+  }catch(e){console.error('adminRequestCenterGet',e);return notificationJson({success:false,error:'Customer requests could not be loaded.'},500)}
+}
+__name(adminRequestCenterGet,'adminRequestCenterGet');
+
+async function adminRequestCenterDecision({request,env}){
+  try{await ensureRequestCenterSchema(env);const b=await request.json(),type=String(b.type||''),id=String(b.id||''),status=String(b.status||'').toLowerCase(),note=String(b.admin_response||'').trim().slice(0,2000);if(!['pending','accepted','denied'].includes(status))return notificationJson({success:false,error:'Choose Pending, Accepted, or Denied.'},400);const actor=adminRequestActor(request,env);let item=null;
+    if(type==='fuel'){item=await env.DB.prepare(`SELECT rowid id,request_number,customer_account_number account_number,customer_name account_name,email,phone FROM fuel_requests WHERE rowid=? LIMIT 1`).bind(Number(id)).first();if(!item)return notificationJson({success:false,error:'Fuel request not found.'},404);await env.DB.prepare(`UPDATE fuel_requests SET decision_status=?,decision_note=?,decision_by=?,decision_at=CURRENT_TIMESTAMP WHERE rowid=?`).bind(status,note,actor.name,Number(id)).run();}
+    else if(type==='profile'){item=await env.DB.prepare(`SELECT id,request_number,account_number,account_name FROM profile_change_requests WHERE id=? LIMIT 1`).bind(Number(id)).first();if(!item)return notificationJson({success:false,error:'Profile change request not found.'},404);const c=await requestCenterCustomerByAccount(env,item.account_number);item={...item,email:c?.email||'',phone:c?.phone||''};await env.DB.prepare(`UPDATE profile_change_requests SET status=?,admin_response=?,decided_by=?,decided_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(status,note,actor.name,Number(id)).run();}
+    else return notificationJson({success:false,error:'Unknown request type.'},400);
+    const word=status[0].toUpperCase()+status.slice(1),kind=type==='fuel'?'Fuel Request':'Profile Change Request',message=`${kind} ${item.request_number} status: ${word}.${note?`\n\nWooten Oil response: ${note}`:''}`;
+    const delivery=await requestDecisionNotify({request,env,accountNumber:item.account_number,email:item.email,phone:item.phone,name:item.account_name,title:`Wooten Oil ${kind} — ${word}`,message,portal:!!b.portal,emailSend:!!b.email,smsSend:!!b.sms});
+    await adminAudit(env,request,`${type}_request_decision`,`${type}_request`,String(item.request_number),`${status}; portal=${!!b.portal}; email=${!!b.email}; sms=${!!b.sms}`);
+    return notificationJson({success:true,status,delivery});
+  }catch(e){console.error('adminRequestCenterDecision',e);return notificationJson({success:false,error:'The request decision could not be saved.'},500)}
+}
+__name(adminRequestCenterDecision,'adminRequestCenterDecision');
+
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -8867,6 +9031,10 @@ var worker_default = {
       if(request.method==="POST")return adminAuthLogout({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname==="/api/customer/profile-change-requests"){
+      if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
+      return methodNotAllowed();
+    }
     if(url.pathname.startsWith("/api/admin/")){
       const authorization=await adminAuthorizeRequest(request,env,url.pathname);
       if(authorization.response)return authorization.response;
@@ -8879,6 +9047,11 @@ var worker_default = {
     }
     if(url.pathname==="/api/admin/audit"){
       if(request.method==="GET")return adminAuditGet({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/request-center"){
+      if(request.method==="GET")return adminRequestCenterGet({request,env});
+      if(request.method==="POST")return adminRequestCenterDecision({request,env});
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/customer-activity"){
@@ -9115,6 +9288,10 @@ var worker_default = {
       return methodNotAllowed();
     }
 
+    if (url.pathname === "/api/admin/twilio/balance") {
+      if (request.method === "GET") return adminTwilioBalanceGet({ request, env });
+      return methodNotAllowed();
+    }
     if (url.pathname === "/api/admin/twilio/status") {
       if (request.method === "GET") return adminTwilioStatusGet({ request, env });
       return methodNotAllowed();
