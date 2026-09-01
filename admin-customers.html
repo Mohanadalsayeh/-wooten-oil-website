@@ -4100,6 +4100,35 @@ body.statement-processing-active{overflow:hidden!important}
 <style id="wooten-admin-activity-ver209-filter-style">
 .admin-activity-search-row{display:grid!important;grid-template-columns:minmax(170px,220px) minmax(0,1fr);gap:14px;align-items:end;width:100%;margin:18px 0 14px}.admin-activity-filter-field,.admin-activity-search-field{min-width:0}.admin-activity-filter-select{width:100%;height:48px;box-sizing:border-box;border:1px solid #cbd8e3;border-radius:11px;background:#fff;color:#17324d;padding:0 38px 0 13px;font:inherit;font-size:15px}.admin-activity-filter-select:focus{outline:none;border-color:#8fb5d5;box-shadow:0 0 0 3px rgba(86,145,194,.12)}.admin-activity-search-wrap{max-width:none!important;width:100%}.admin-activity-search-wrap input{width:100%!important}@media(max-width:760px){.admin-activity-search-row{grid-template-columns:1fr!important}}
 </style>
+
+<style id="wooten-admin-audit-refresh-position-style">
+.admin-audit-table-toolbar{
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+  margin:14px 0 10px;
+}
+.admin-audit-table-toolbar #adminAuditRefresh{
+  margin:0;
+}
+</style>
+
+
+<style id="wooten-admin-search-native-clear-fix">
+#adminActivitySearch::-webkit-search-cancel-button,
+#adminActivitySearch::-webkit-search-decoration{
+  -webkit-appearance:none;
+  appearance:none;
+  display:none;
+}
+#adminActivitySearch::-ms-clear,
+#adminActivitySearch::-ms-reveal{
+  display:none;
+  width:0;
+  height:0;
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -5328,7 +5357,7 @@ body.statement-processing-active{overflow:hidden!important}
       <label class="admin-user-active"><input id="adminUserActive" type="checkbox" checked> Active — user may sign in</label><div class="actions"><button class="primary" id="adminUserSave" type="button">Create User</button><button class="secondary" id="adminUserCancel" type="button" hidden>Cancel Editing</button></div><div id="adminUserStatus" class="status"></div>
     </section>
     <section class="admin-user-list-section"><h3>Admin Users</h3><div id="adminUsersList" class="admin-users-list"></div></section>
-    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3><button class="secondary" id="adminAuditRefresh" type="button">Refresh</button></div><p>Latest 100 recorded admin actions, including imports and application reviews.</p>
+    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3></div><p>Latest 100 recorded admin actions, including imports and application reviews.</p>
 <div class="admin-activity-search-row">
   <div class="admin-activity-filter-field">
     <label class="admin-activity-search-label" for="adminActivityFilter">Filter By</label>
@@ -5351,7 +5380,11 @@ body.statement-processing-active{overflow:hidden!important}
     </div>
   </div>
 </div>
-<div id="adminAuditStatus" class="status"></div><div class="admin-audit-table-wrap tablewrap"><table><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table>
+<div id="adminAuditStatus" class="status"></div>
+<div class="admin-audit-table-toolbar">
+  <button class="secondary" id="adminAuditRefresh" type="button">Refresh</button>
+</div>
+<div class="admin-audit-table-wrap tablewrap"><table><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table>
 <div class="admin-activity-pagination" id="adminActivityPagination" hidden>
   <div class="admin-activity-pagination-summary" id="adminActivityPaginationSummary">Showing 0–0 of 0</div>
   <div class="admin-activity-pagination-controls">
