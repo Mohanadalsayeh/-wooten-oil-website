@@ -9010,14 +9010,23 @@ async function customerProfileChangeRequests({request,env}){
       const rows=await env.DB.prepare(`SELECT id,request_number,change_type,current_value,requested_value,customer_note,status,admin_response,decided_at,created_at FROM profile_change_requests WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT 25`).bind(String(customer.account_number)).all();
       return notificationJson({success:true,requests:rows?.results||[]});
     }
-    const body=await request.json();const type=String(body.change_type||'').trim().toLowerCase();const requested=String(body.requested_value||'').trim().slice(0,500);const note=String(body.note||'').trim().slice(0,1500);
-    const allowed={address:'Address',phone:'Phone Number',email:'Email Address',contact:'Contact Name',other:'Other'};if(!allowed[type]||!requested)return notificationJson({success:false,error:'Choose what you want changed and enter the requested new value.'},400);
-    let current='';if(type==='address')current=[customer.address_1,customer.address_2,customer.city,customer.state,customer.zip_code].filter(Boolean).join(', ');else if(type==='phone')current=customer.phone||'';else if(type==='email')current=customer.email||'';else if(type==='contact')current=customer.contact_name||'';
+    const body=await request.json();const note=String(body.note||'').trim().slice(0,1500);
+    const allowed={address:'Address',phone:'Phone Number',email:'Email Address',contact:'Contact Name',other:'Other'};
+    const incoming=Array.isArray(body.changes)?body.changes:[{change_type:body.change_type,requested_value:body.requested_value}];
+    const changes=incoming.slice(0,5).map(x=>({type:String(x?.change_type||'').trim().toLowerCase(),requested:String(x?.requested_value||'').trim().slice(0,500)})).filter(x=>x.type||x.requested);
+    if(!changes.length||changes.some(x=>!allowed[x.type]||!x.requested))return notificationJson({success:false,error:'Choose what you want changed and enter the requested new value for every change.'},400);
+    if(new Set(changes.map(x=>x.type)).size!==changes.length)return notificationJson({success:false,error:'Choose each type of profile change only once.'},400);
+    const currentFor=type=>{if(type==='address')return [customer.address_1,customer.address_2,customer.city,customer.state,customer.zip_code].filter(Boolean).join(', ');if(type==='phone')return customer.phone||'';if(type==='email')return customer.email||'';if(type==='contact')return customer.contact_name||'';return ''};
+    const normalized=changes.map((x,i)=>({...x,label:allowed[x.type],current:currentFor(x.type),number:i+1}));
+    const type=normalized.length===1?normalized[0].type:'multiple_changes';
+    const current=normalized.length===1?normalized[0].current:normalized.map(x=>`${x.number}. ${x.label}: ${x.current||'—'}`).join('\n');
+    const requested=normalized.length===1?normalized[0].requested:normalized.map(x=>`${x.number}. ${x.label}: ${x.requested}`).join('\n');
     const rn=`PCR-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${crypto.randomUUID().replaceAll('-','').slice(0,6).toUpperCase()}`;
     await env.DB.prepare(`INSERT INTO profile_change_requests (request_number,account_number,account_name,change_type,current_value,requested_value,customer_note) VALUES (?,?,?,?,?,?,?)`).bind(rn,String(customer.account_number),String(customer.account_name||''),type,current,requested,note).run();
-    const supportText=`Profile change request ${rn}\nCustomer #${customer.account_number} — ${customer.account_name||'Customer'}\nChange: ${allowed[type]}\nCurrent: ${current||'—'}\nRequested: ${requested}\nNote: ${note||'—'}`;
+    const changeText=normalized.map(x=>`${x.number}. ${x.label}\n   Current: ${x.current||'—'}\n   Requested: ${x.requested}`).join('\n\n');
+    const supportText=`Profile change request ${rn}\nCustomer #${customer.account_number} — ${customer.account_name||'Customer'}\n\n${changeText}\n\nNote: ${note||'—'}`;
     await accountApplicationSendEmail(env,{to:'support@wootenoil.com',subject:`Profile Change Request — ${rn}`,html:`<pre style="font-family:Arial,sans-serif;white-space:pre-wrap">${notificationEscapeHtml(supportText)}</pre>`,text:supportText}).catch(()=>{});
-    return notificationJson({success:true,request_number:rn,message:'Your profile change request was submitted to Wooten Oil.'});
+    return notificationJson({success:true,request_number:rn,change_count:normalized.length,message:'Your profile change request was submitted to Wooten Oil.'});
   }catch(e){console.error('customerProfileChangeRequests',e);return notificationJson({success:false,error:'Profile change request could not be processed.'},500)}
 }
 __name(customerProfileChangeRequests,'customerProfileChangeRequests');

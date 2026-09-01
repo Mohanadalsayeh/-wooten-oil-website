@@ -1471,10 +1471,18 @@
       <button class="portal-action-modal-close" type="button" id="profileChangeModalClose" aria-label="Close profile change form">&times;</button>
     </div>
     <div class="portal-action-modal-body">
-      <div class="profile-change-grid">
-        <label>What needs to change?<select id="profileChangeType"><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
-        <label>Requested New Value<input id="profileChangeValue" type="text" maxlength="500" placeholder="Enter the new information"></label>
-        <label class="profile-change-full">Additional Note<textarea id="profileChangeNote" maxlength="1500" placeholder="Optional details for Wooten Oil…"></textarea></label>
+      <div class="profile-change-items" id="profileChangeItems">
+        <div class="profile-change-item" data-profile-change-item>
+          <div class="profile-change-grid">
+            <label>What needs to change?<select class="profile-change-type"><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
+            <label>Requested New Value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter the new information"></label>
+          </div>
+          <button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button>
+        </div>
+      </div>
+      <button class="profile-change-add" type="button" id="profileChangeAdd"><span aria-hidden="true">+</span> Add Another Change</button>
+      <div class="profile-change-note-wrap">
+        <label>Additional Note<textarea id="profileChangeNote" maxlength="1500" placeholder="Optional details for Wooten Oil…"></textarea></label>
       </div>
       <div class="portal-action-modal-actions">
         <button class="payment-continue" type="button" id="profileChangeSubmit">Submit Change Request</button>
@@ -1489,9 +1497,9 @@
 <script src="assets/js/password-recovery-v170.js"></script>
 
 <style id="wooten-profile-change-request-style">
-.profile-change-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.profile-change-grid label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-grid input,.profile-change-grid select,.profile-change-grid textarea{display:block;width:100%;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;outline:none;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.profile-change-grid input:focus,.profile-change-grid select:focus,.profile-change-grid textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-grid textarea::placeholder,.profile-change-grid input::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.profile-change-grid input,.profile-change-grid select{height:54px}.profile-change-grid textarea{min-height:112px;resize:vertical}.profile-change-full{grid-column:1/-1}.profile-change-history{margin-top:24px;padding-top:20px;border-top:1px solid #e5ebf1}.profile-change-history h4{margin:0 0 10px;color:#17324d;font-size:17px}.profile-change-row{border:1px solid #dbe4eb;border-radius:12px;padding:14px 15px;margin-top:10px;background:#f9fbfd}.profile-change-row-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.profile-change-row-head strong{color:#17324d}.profile-change-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;text-transform:uppercase;background:#fff1d5;color:#8a5700}.profile-change-pill.accepted{background:#def5e8;color:#087241}.profile-change-pill.denied{background:#ffe4e4;color:#a11f1f}.profile-change-row small{display:block;color:#6d7f91;margin-top:5px}.profile-change-response{margin-top:8px;padding:9px 10px;background:#fff;border-radius:8px;color:#34495d}.dashboard-action-profile .dashboard-action-icon{background:#eef6ff;color:#2464d5}
-.portal-action-modal[hidden]{display:none!important}.portal-action-modal{position:fixed;inset:0;z-index:2147483646!important;background:rgba(8,24,40,.72);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto;overscroll-behavior:contain;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}.portal-action-modal-card{position:relative;z-index:1;width:min(690px,100%);max-height:calc(100vh - 48px);overflow:auto;background:#fff;border-radius:18px;border:1px solid #d4dee8;box-shadow:0 28px 80px rgba(3,20,37,.34)}.portal-action-modal-card-wide{width:min(920px,100%)}.portal-action-modal-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:26px 28px 20px;border-bottom:1px solid #e3eaf1;background:#fff;position:sticky;top:0;z-index:3}.portal-action-modal-head h3{margin:0;color:#17324d;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15}.portal-action-modal-head p{margin:8px 0 0;color:#60758a;font-size:16px;line-height:1.5;max-width:690px}.portal-action-modal-close{border:1px solid #ccd9e5;background:#f7fafc;color:#526a80;border-radius:11px;width:42px;height:42px;font-family:inherit;font-size:26px;line-height:1;cursor:pointer;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;transition:background .15s ease,border-color .15s ease,color .15s ease}.portal-action-modal-close:hover{background:#eef4f8;border-color:#b9cada;color:#17324d}.portal-action-modal-body{padding:24px 28px 28px}.portal-action-modal-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-start;margin-top:22px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:auto!important;min-width:150px;min-height:48px;margin:0!important;padding:11px 20px!important;border-radius:11px!important;font-family:inherit!important;font-size:16px!important;font-weight:700!important;line-height:1.2!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}.portal-action-modal .portal-secondary-btn{border:1px solid #cbd8e3!important;background:#f5f8fb!important;color:#17324d!important}.portal-action-modal .portal-secondary-btn:hover{background:#edf3f8!important}.portal-action-modal .portal-preview-note{margin-top:0;border:1px solid #dbe5ed;background:#f5f8fb;border-radius:11px;padding:13px 15px;color:#5c6f82;font-weight:500}.portal-action-modal textarea{font-family:inherit!important}.portal-action-modal-open{overflow:hidden!important}.portal-action-modal .customer-documents-status{margin-top:14px}.portal-action-modal .notification-empty{padding:26px 12px;text-align:center;color:#7a8b9c;background:#fafcfd;border:1px dashed #d7e1ea;border-radius:11px}
-@media(max-width:700px){.profile-change-grid{grid-template-columns:1fr;gap:14px}.profile-change-full{grid-column:auto}.portal-action-modal{padding:10px;align-items:flex-end}.portal-action-modal-card,.portal-action-modal-card-wide{width:100%;max-height:calc(100vh - 20px);border-radius:18px 18px 0 0}.portal-action-modal-head{padding:19px 18px 15px}.portal-action-modal-head h3{font-size:24px}.portal-action-modal-head p{font-size:14px}.portal-action-modal-body{padding:18px}.portal-action-modal-actions{display:grid;grid-template-columns:1fr;gap:10px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:100%!important;min-width:0!important}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:100px}}
+.profile-change-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.profile-change-grid label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-grid input,.profile-change-grid select,.profile-change-grid textarea{display:block;width:100%;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;outline:none;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.profile-change-grid input:focus,.profile-change-grid select:focus,.profile-change-grid textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-grid textarea::placeholder,.profile-change-grid input::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.profile-change-grid input,.profile-change-grid select{height:54px}.profile-change-grid textarea{min-height:112px;resize:vertical}.profile-change-full{grid-column:1/-1}.profile-change-history{margin-top:24px;padding-top:20px;border-top:1px solid #e5ebf1}.profile-change-history h4{margin:0 0 10px;color:#17324d;font-size:17px}.profile-change-row{border:1px solid #dbe4eb;border-radius:12px;padding:14px 15px;margin-top:10px;background:#f9fbfd}.profile-change-row-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.profile-change-row-head strong{color:#17324d}.profile-change-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;text-transform:uppercase;background:#fff1d5;color:#8a5700}.profile-change-pill.accepted{background:#def5e8;color:#087241}.profile-change-pill.denied{background:#ffe4e4;color:#a11f1f}.profile-change-row small{display:block;color:#6d7f91;margin-top:5px}.profile-change-response{margin-top:8px;padding:9px 10px;background:#fff;border-radius:8px;color:#34495d}.profile-change-items{display:grid;gap:14px}.profile-change-item{position:relative;border:1px solid #e0e8ef;border-radius:14px;background:#fbfcfd;padding:16px}.profile-change-item:first-child{padding:0;border:0;background:transparent}.profile-change-item:not(:first-child){padding-right:86px}.profile-change-remove{position:absolute;top:14px;right:14px;border:1px solid #efb5b5;background:#fff7f7;color:#b52b2b;border-radius:9px;min-height:38px;padding:7px 11px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}.profile-change-remove:hover{background:#ffeded}.profile-change-add{margin-top:14px;min-height:44px;border:1px solid #9fc4ef;background:#f4f9ff;color:#1768b6;border-radius:10px;padding:9px 15px;font-family:inherit;font-size:15px;font-weight:800;display:inline-flex;align-items:center;gap:8px;cursor:pointer}.profile-change-add span{font-size:21px;line-height:1}.profile-change-add:hover{background:#eaf4ff}.profile-change-add:disabled{opacity:.55;cursor:not-allowed}.profile-change-note-wrap{margin-top:18px}.profile-change-note-wrap label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-note-wrap textarea{display:block;width:100%;height:120px!important;min-height:120px!important;max-height:220px;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit!important;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;resize:vertical;outline:none}.profile-change-note-wrap textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-note-wrap textarea::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.dashboard-action-profile .dashboard-action-icon{background:#eef6ff;color:#2464d5}
+.portal-action-modal[hidden]{display:none!important}.portal-action-modal{position:fixed;inset:0;z-index:2147483646!important;background:rgba(8,24,40,.72);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}.portal-action-modal-card{position:relative;z-index:1;width:min(690px,100%);max-height:none;overflow:visible;margin:auto;background:#fff;border-radius:18px;border:1px solid #d4dee8;box-shadow:0 28px 80px rgba(3,20,37,.34)}.portal-action-modal-card-wide{width:min(920px,100%)}.portal-action-modal-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:26px 28px 20px;border-bottom:1px solid #e3eaf1;background:#fff;position:relative;z-index:3}.portal-action-modal-head h3{margin:0;color:#17324d;font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15}.portal-action-modal-head p{margin:8px 0 0;color:#60758a;font-size:16px;line-height:1.5;max-width:690px}.portal-action-modal-close{border:1px solid #ccd9e5;background:#f7fafc;color:#526a80;border-radius:11px;width:42px;height:42px;font-family:inherit;font-size:26px;line-height:1;cursor:pointer;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;transition:background .15s ease,border-color .15s ease,color .15s ease}.portal-action-modal-close:hover{background:#eef4f8;border-color:#b9cada;color:#17324d}.portal-action-modal-body{padding:24px 28px 28px}.portal-action-modal-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-start;margin-top:22px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:auto!important;min-width:150px;min-height:48px;margin:0!important;padding:11px 20px!important;border-radius:11px!important;font-family:inherit!important;font-size:16px!important;font-weight:700!important;line-height:1.2!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}.portal-action-modal .portal-secondary-btn{border:1px solid #cbd8e3!important;background:#f5f8fb!important;color:#17324d!important}.portal-action-modal .portal-secondary-btn:hover{background:#edf3f8!important}.portal-action-modal .portal-preview-note{margin-top:0;border:1px solid #dbe5ed;background:#f5f8fb;border-radius:11px;padding:13px 15px;color:#5c6f82;font-weight:500}.portal-action-modal textarea{font-family:inherit!important}.portal-action-modal-open{overflow:hidden!important}.portal-action-modal .customer-documents-status{margin-top:14px}.portal-action-modal .notification-empty{padding:26px 12px;text-align:center;color:#7a8b9c;background:#fafcfd;border:1px dashed #d7e1ea;border-radius:11px}
+@media(max-width:700px){.profile-change-grid{grid-template-columns:1fr;gap:14px}.profile-change-full{grid-column:auto}.portal-action-modal{padding:10px;align-items:flex-start}.portal-action-modal-card,.portal-action-modal-card-wide{width:100%;max-height:none;border-radius:18px}.portal-action-modal-head{padding:19px 18px 15px}.portal-action-modal-head h3{font-size:24px}.portal-action-modal-head p{font-size:14px}.portal-action-modal-body{padding:18px}.portal-action-modal-actions{display:grid;grid-template-columns:1fr;gap:10px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:100%!important;min-width:0!important}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:100px}.profile-change-item:not(:first-child){padding-right:16px;padding-top:58px}.profile-change-remove{top:12px;right:12px}.profile-change-add{width:100%;justify-content:center}.profile-change-note-wrap textarea{height:110px!important;min-height:110px!important}}
 </style>
 <script id="wooten-profile-change-request-script">
 (()=>{
@@ -1510,7 +1518,9 @@
   const passwordStatus=g('changePasswordStatus');
   const profileStatus=g('profileChangeStatus');
   const historyBox=g('profileChangeHistory');
-  if(!passwordModal||!profileModal||!passwordOpen||!profileOpen||!passwordSubmit||!profileSubmit) return;
+  const profileItems=g('profileChangeItems');
+  const profileAdd=g('profileChangeAdd');
+  if(!passwordModal||!profileModal||!passwordOpen||!profileOpen||!passwordSubmit||!profileSubmit||!profileItems||!profileAdd) return;
 
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   function setStatus(node,text,ok=true){
@@ -1524,11 +1534,19 @@
     g('changeConfirmPassword').value='';
     setStatus(passwordStatus,'');
   }
+  const profileOptions='<option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option>';
+  function profileItemMarkup(){return '<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested New Value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter the new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove aria-label="Remove this change">Remove</button></div>'}
+  function updateProfileRows(){
+    const rows=[...profileItems.querySelectorAll('[data-profile-change-item]')];
+    rows.forEach((row,i)=>{const remove=row.querySelector('[data-profile-change-remove]');if(remove)remove.hidden=rows.length===1||i===0;});
+    profileAdd.disabled=rows.length>=5;
+    profileAdd.title=rows.length>=5?'Up to 5 changes can be submitted in one request.':'';
+  }
   function clearProfile(){
     setStatus(profileStatus,'');
-    g('profileChangeType').value='address';
-    g('profileChangeValue').value='';
+    profileItems.innerHTML='<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested New Value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter the new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button></div>';
     g('profileChangeNote').value='';
+    updateProfileRows();
   }
   function openModal(modal,focusId){
     if(!modal) return;
@@ -1542,8 +1560,27 @@
     if(passwordModal.hidden && profileModal.hidden) body.classList.remove('portal-action-modal-open');
   }
 
+  profileAdd.addEventListener('click',()=>{
+    const rows=[...profileItems.querySelectorAll('[data-profile-change-item]')];
+    if(rows.length>=5)return;
+    const used=new Set(rows.map(row=>row.querySelector('.profile-change-type')?.value).filter(Boolean));
+    profileItems.insertAdjacentHTML('beforeend',profileItemMarkup());
+    const last=profileItems.querySelector('[data-profile-change-item]:last-child .profile-change-type');
+    const next=[...(last?.options||[])].find(option=>!used.has(option.value));
+    if(last&&next)last.value=next.value;
+    updateProfileRows();
+    last?.focus();
+  });
+  profileItems.addEventListener('click',e=>{
+    const remove=e.target.closest('[data-profile-change-remove]');
+    if(!remove)return;
+    const row=remove.closest('[data-profile-change-item]');
+    if(row&&profileItems.querySelectorAll('[data-profile-change-item]').length>1)row.remove();
+    updateProfileRows();
+  });
+
   passwordOpen.addEventListener('click',()=>{ clearPassword(); openModal(passwordModal,'changeCurrentPassword'); });
-  profileOpen.addEventListener('click',async()=>{ clearProfile(); openModal(profileModal,'profileChangeType'); await loadProfileRequests(); });
+  profileOpen.addEventListener('click',async()=>{ clearProfile(); openModal(profileModal,''); setTimeout(()=>profileItems.querySelector('.profile-change-type')?.focus(),120); await loadProfileRequests(); });
   passwordClose?.addEventListener('click',()=>{ closeModal(passwordModal); clearPassword(); });
   passwordCancel?.addEventListener('click',()=>{ closeModal(passwordModal); clearPassword(); });
   profileClose?.addEventListener('click',()=>closeModal(profileModal));
@@ -1582,23 +1619,25 @@
       const d=await r.json().catch(()=>({}));
       if(!r.ok||!d.success){ historyBox.innerHTML='<div class="notification-empty">Sign in to view profile change requests.</div>'; return; }
       const rows=d.requests||[];
-      historyBox.innerHTML=rows.length?rows.map(x=>'<div class="profile-change-row"><div class="profile-change-row-head"><strong>'+esc(x.request_number)+' — '+esc(String(x.change_type||'').replaceAll('_',' '))+'</strong><span class="profile-change-pill '+esc(x.status)+'">'+esc(x.status||'pending')+'</span></div><small>Requested: '+esc(x.requested_value)+' • '+esc(new Date(String(x.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</small>'+(x.admin_response?'<div class="profile-change-response"><strong>Wooten Oil response:</strong> '+esc(x.admin_response)+'</div>':'')+'</div>').join(''):'<div class="notification-empty">No profile change requests yet.</div>';
+      historyBox.innerHTML=rows.length?rows.map(x=>{const ct=String(x.change_type||'').replaceAll('_',' ');const requested=esc(x.requested_value||'').replace(/\n/g,'<br>');return '<div class="profile-change-row"><div class="profile-change-row-head"><strong>'+esc(x.request_number)+' — '+esc(ct)+'</strong><span class="profile-change-pill '+esc(x.status)+'">'+esc(x.status||'pending')+'</span></div><small>Requested: '+requested+' • '+esc(new Date(String(x.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</small>'+(x.admin_response?'<div class="profile-change-response"><strong>Wooten Oil response:</strong> '+esc(x.admin_response)+'</div>':'')+'</div>'}).join(''):'<div class="notification-empty">No profile change requests yet.</div>';
     }catch(_e){ historyBox.innerHTML='<div class="notification-empty">Requests could not be loaded right now.</div>'; }
   }
 
   profileSubmit.addEventListener('click',async()=>{
-    const value=g('profileChangeValue').value.trim();
-    if(!value){ setStatus(profileStatus,'Enter the requested new value.',false); return; }
-    if(!confirm('Submit this profile change request to Wooten Oil?')) return;
+    const rows=[...profileItems.querySelectorAll('[data-profile-change-item]')];
+    const changes=rows.map(row=>({change_type:row.querySelector('.profile-change-type')?.value||'',requested_value:(row.querySelector('.profile-change-value')?.value||'').trim()}));
+    if(changes.some(x=>!x.change_type||!x.requested_value)){ setStatus(profileStatus,'Enter the requested new value for every change.',false); return; }
+    if(new Set(changes.map(x=>x.change_type)).size!==changes.length){ setStatus(profileStatus,'Choose each type of profile change only once.',false); return; }
+    if(!confirm('Submit '+changes.length+' profile change'+(changes.length===1?'':'s')+' to Wooten Oil?')) return;
     profileSubmit.disabled=true;
     profileSubmit.textContent='Submitting…';
     try{
-      const r=await fetch('/api/customer/profile-change-requests',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({change_type:g('profileChangeType').value,requested_value:value,note:g('profileChangeNote').value})});
+      const r=await fetch('/api/customer/profile-change-requests',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,note:g('profileChangeNote').value})});
       const d=await r.json().catch(()=>({}));
       if(!r.ok||!d.success) throw new Error(d.error||'Request could not be submitted.');
       setStatus(profileStatus,'Request '+d.request_number+' submitted to Wooten Oil.',true);
-      g('profileChangeValue').value='';
-      g('profileChangeNote').value='';
+      clearProfile();
+      setStatus(profileStatus,'Request '+d.request_number+' submitted to Wooten Oil.',true);
       await loadProfileRequests();
     }catch(e){ setStatus(profileStatus,e.message||'Request could not be submitted.',false); }
     finally{ profileSubmit.disabled=false; profileSubmit.textContent='Submit Change Request'; }
