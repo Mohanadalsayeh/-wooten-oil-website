@@ -4184,6 +4184,128 @@ body.statement-processing-active{overflow:hidden!important}
 }
 </style>
 
+
+<style id="wooten-customer-requests-ver214-style">
+/* Wider admin access / notification bell panel */
+.admin-header-access,
+.admin-access-card,
+.admin-session-card{
+  min-width:330px!important;
+  width:330px!important;
+  max-width:330px!important;
+}
+
+/* Normalize response textarea typography */
+.request-center-card textarea,
+.customer-request-card textarea,
+.request-decision textarea,
+.request-response textarea,
+textarea[data-request-response]{
+  font-family:inherit!important;
+  font-size:15px!important;
+  font-weight:400!important;
+  line-height:1.45!important;
+  letter-spacing:normal!important;
+}
+
+/* Professional decision/response/action layout */
+.request-decision-grid,
+.request-action-grid,
+.request-center-decision-row{
+  display:grid!important;
+  grid-template-columns:minmax(170px,190px) minmax(0,1fr) auto!important;
+  gap:14px!important;
+  align-items:end!important;
+}
+.request-decision-grid > *,
+.request-action-grid > *,
+.request-center-decision-row > *{
+  min-width:0!important;
+}
+.request-decision-grid label,
+.request-action-grid label,
+.request-center-decision-row label{
+  margin:0!important;
+}
+.request-decision-grid textarea,
+.request-action-grid textarea,
+.request-center-decision-row textarea{
+  min-height:72px!important;
+  resize:vertical!important;
+}
+.request-decision-grid .request-save-btn,
+.request-action-grid .request-save-btn,
+.request-center-decision-row .request-save-btn,
+.request-decision-grid button[data-save-request],
+.request-action-grid button[data-save-request],
+.request-center-decision-row button[data-save-request]{
+  min-width:132px!important;
+  height:48px!important;
+  align-self:end!important;
+  margin:0!important;
+  white-space:nowrap!important;
+}
+
+/* Fallback selectors for current markup */
+.customer-request-card .request-decision{
+  display:grid!important;
+  grid-template-columns:180px minmax(0,1fr) 132px!important;
+  gap:14px!important;
+  align-items:end!important;
+}
+.customer-request-card .request-decision > label:first-child{
+  grid-column:1!important;
+}
+.customer-request-card .request-decision > label:nth-child(2){
+  grid-column:2!important;
+}
+.customer-request-card .request-decision > button{
+  grid-column:3!important;
+  align-self:end!important;
+  height:48px!important;
+  margin:0!important;
+}
+.customer-request-card .request-decision textarea{
+  min-height:72px!important;
+  font-family:inherit!important;
+  font-size:15px!important;
+  font-weight:400!important;
+}
+
+/* Keep notification controls below as a full-width row */
+.customer-request-card .request-notify-row,
+.request-notify-row{
+  grid-column:1/-1!important;
+  margin-top:12px!important;
+}
+
+@media(max-width:900px){
+  .admin-header-access,
+  .admin-access-card,
+  .admin-session-card{
+    width:auto!important;
+    max-width:none!important;
+    min-width:280px!important;
+  }
+  .request-decision-grid,
+  .request-action-grid,
+  .request-center-decision-row,
+  .customer-request-card .request-decision{
+    grid-template-columns:1fr!important;
+  }
+  .customer-request-card .request-decision > label,
+  .customer-request-card .request-decision > button{
+    grid-column:1!important;
+  }
+  .request-decision-grid .request-save-btn,
+  .request-action-grid .request-save-btn,
+  .request-center-decision-row .request-save-btn,
+  .customer-request-card .request-decision > button{
+    width:100%!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -9952,7 +10074,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
  const fmt=v=>v?new Date(String(v).replace(' ','T')+'Z').toLocaleString():'—';
  function msg(t,ok=true){status.textContent=t||'';status.className='status'+(t?' show '+(ok?'ok':'bad'):'')}
  function info(k,v){return '<div class="request-center-info"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>'}
- function render(rows,type){if(!rows.length){list.innerHTML='<div class="request-center-empty">No requests match the selected filters.</div>';return;}list.innerHTML=rows.map(r=>'<article class="request-center-card" data-request-id="'+Number(r.id)+'" data-request-type="'+esc(type)+'"><div class="request-center-head"><div><strong>'+esc(r.request_number||'Request')+' — '+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(r.account_number||'—')+' • Submitted '+esc(fmt(r.created_at))+'</small></div><span class="request-status-pill '+esc(r.status)+'">'+esc(r.status||'pending')+'</span></div><div class="request-center-grid">'+(type==='profile'?(info('Change Type',String(r.change_type||'').replaceAll('_',' '))+info('Current Value',r.current_value)+info('Requested Value',r.requested_value)+info('Customer Note',r.customer_note)): (info('Fuel Type',r.fuel_type)+info('Gallons',r.gallons)+info('Delivery Date',r.delivery_date)+info('Delivery Address',r.delivery_address)+info('Customer Note',r.notes)))+info('Email',r.email)+info('Phone',r.phone)+'</div><div class="request-center-decision"><label>Decision<select data-req-status><option value="pending"'+(r.status==='pending'?' selected':'')+'>Pending</option><option value="accepted"'+(r.status==='accepted'?' selected':'')+'>Accepted</option><option value="denied"'+(r.status==='denied'?' selected':'')+'>Denied</option></select></label><label>Response to Customer<textarea data-req-note placeholder="Optional message for the customer…">'+esc(r.admin_response||'')+'</textarea></label><button class="primary" type="button" data-req-save>Save &amp; Notify</button><div class="request-delivery-options"><strong>Notify customer by</strong><label><input type="checkbox" data-req-portal '+(r.account_number?'checked':'disabled')+'> Portal</label><label><input type="checkbox" data-req-email '+(r.email?'checked':'disabled')+'> Email</label><label><input type="checkbox" data-req-sms '+(r.phone?'':'disabled')+'> SMS</label><small>Choose any combination. Unavailable channels are disabled.</small></div></div></article>').join('')}
+ function render(rows,type){if(!rows.length){list.innerHTML='<div class="request-center-empty">No requests match the selected filters.</div>';return;}list.innerHTML=rows.map(r=>'<article class="request-center-card" data-request-id="'+Number(r.id)+'" data-request-type="'+esc(type)+'"><div class="request-center-head"><div><strong>'+esc(r.request_number||'Request')+' — '+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(r.account_number||'—')+' • Submitted '+esc(fmt(r.created_at))+'</small></div><span class="request-status-pill '+esc(r.status)+'">'+esc(r.status||'pending')+'</span></div><div class="request-center-grid">'+(type==='profile'?(info('Change Type',String(r.change_type||'').replaceAll('_',' '))+info('Current Value',r.current_value)+info('Requested Value',r.requested_value)+info('Customer Note',r.customer_note)): (info('Fuel Type',r.fuel_type)+info('Gallons',r.gallons)+info('Delivery Date',r.delivery_date)+info('Delivery Address',r.delivery_address)+info('Customer Note',r.notes)))+info('Email',r.email)+info('Phone',r.phone)+'</div><div class="request-center-decision-row request-center-decision"><label>Decision<select data-req-status><option value="pending"'+(r.status==='pending'?' selected':'')+'>Pending</option><option value="accepted"'+(r.status==='accepted'?' selected':'')+'>Accepted</option><option value="denied"'+(r.status==='denied'?' selected':'')+'>Denied</option></select></label><label>Response to Customer<textarea data-req-note placeholder="Optional message for the customer…">'+esc(r.admin_response||'')+'</textarea></label><button class="primary" type="button" data-req-save>Save &amp; Notify</button><div class="request-delivery-options"><strong>Notify customer by</strong><label><input type="checkbox" data-req-portal '+(r.account_number?'checked':'disabled')+'> Portal</label><label><input type="checkbox" data-req-email '+(r.email?'checked':'disabled')+'> Email</label><label><input type="checkbox" data-req-sms '+(r.phone?'':'disabled')+'> SMS</label><small>Choose any combination. Unavailable channels are disabled.</small></div></div></article>').join('')}
  async function load(){const type=g('requestCenterType').value;const qs=new URLSearchParams({type,status:g('requestCenterStatusFilter').value,q:g('requestCenterSearch').value,page:String(page)});g('requestCenterLoad').disabled=true;window.wootenAdminSkeleton?.cards(list,4,'request');try{const r=await fetch('/api/admin/request-center?'+qs,{headers:{'X-Admin-Key':key()},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Requests could not be loaded.');render(d.requests||[],type);pages=Number(d.total_pages||1);page=Number(d.page||1);g('requestCenterPagination').hidden=!Number(d.total||0);g('requestCenterPageInfo').textContent='Page '+page+' of '+pages+' • '+Number(d.total||0)+' requests';g('requestCenterPrev').disabled=page<=1;g('requestCenterNext').disabled=page>=pages;msg(Number(d.total||0)+' request(s) found.',true);loaded=true;}catch(e){if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';msg(e.message||'Requests could not be loaded.',false)}finally{g('requestCenterLoad').disabled=false}}
  list.addEventListener('click',async e=>{const b=e.target.closest('[data-req-save]');if(!b)return;const card=b.closest('[data-request-id]'),channels=[card.querySelector('[data-req-portal]'),card.querySelector('[data-req-email]'),card.querySelector('[data-req-sms]')];if(!channels.some(x=>x&&!x.disabled&&x.checked)){msg('Choose at least one available notification method.',false);return}b.disabled=true;b.textContent='Saving…';try{const r=await fetch('/api/admin/request-center',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify({type:card.dataset.requestType,id:card.dataset.requestId,status:card.querySelector('[data-req-status]').value,admin_response:card.querySelector('[data-req-note]').value,portal:!!channels[0]?.checked,email:!!channels[1]?.checked,sms:!!channels[2]?.checked})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Decision could not be saved.');if(channels[2]?.checked)await refreshTwilioBalance();msg('Decision saved and selected customer notifications were processed.',true);await load();}catch(err){msg(err.message||'Decision could not be saved.',false);b.disabled=false;b.textContent='Save & Notify'}});
  g('requestCenterLoad').addEventListener('click',()=>{page=1;load()});g('requestCenterType').addEventListener('change',()=>{page=1;load()});g('requestCenterStatusFilter').addEventListener('change',()=>{page=1;load()});let timer;g('requestCenterSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load()},300)});g('requestCenterPrev').addEventListener('click',()=>{if(page>1){page--;load()}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){page++;load()}});g('admin-tab-btn-requests').addEventListener('click',()=>{if(!loaded)load()});
