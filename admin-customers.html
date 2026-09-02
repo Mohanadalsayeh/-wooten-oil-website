@@ -12754,3 +12754,98 @@ html,body{
 })();
 </script>
 
+
+
+<style id="wooten-admin-mobile-meta-badge-and-sidebar-wheel-ver234">
+/* Ver234 — phone header fine-tuning + consistent desktop sidebar wheel scrolling. */
+
+/* Keep the notification count optically centered inside the red badge. */
+.admin-bell-badge{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  line-height:1 !important;
+  padding:0 !important;
+  min-width:24px !important;
+  width:auto !important;
+  height:24px !important;
+  box-sizing:border-box !important;
+}
+
+@media (max-width:800px){
+  /* Nudge the signed-in identity slightly toward the center/left without changing the card layout. */
+  .admin-header .admin-access-meta{
+    transform:translateX(-10px) !important;
+    padding-right:0 !important;
+  }
+
+  .admin-header .admin-bell-badge{
+    min-width:30px !important;
+    height:30px !important;
+    padding:0 !important;
+    font-size:13px !important;
+    line-height:1 !important;
+    border-width:2px !important;
+    right:-7px !important;
+    top:-9px !important;
+  }
+}
+
+@media (min-width:801px){
+  /* The nav itself remains the single desktop scrolling surface on every admin page. */
+  #adminSidebar.admin-tabs-shell{
+    overscroll-behavior:contain !important;
+  }
+  #adminSidebar .admin-tabs{
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+    -webkit-overflow-scrolling:touch !important;
+    scrollbar-width:none !important;
+    touch-action:pan-y !important;
+  }
+  #adminSidebar .admin-tabs::-webkit-scrollbar{
+    width:0 !important;
+    height:0 !important;
+    display:none !important;
+  }
+}
+</style>
+
+<script id="wooten-admin-sidebar-wheel-ver234">
+(function(){
+  var sidebar = document.getElementById('adminSidebar');
+  if(!sidebar) return;
+
+  function desktop(){ return window.matchMedia('(min-width:801px)').matches; }
+  function scroller(){ return sidebar.querySelector('.admin-tabs'); }
+
+  /*
+   * Some admin pages resize/rebuild their content and older wrapper rules can make
+   * the browser hand the wheel back to the page. Route wheel/touchpad movement to
+   * the actual nav scroller whenever the pointer is over the sidebar.
+   */
+  sidebar.addEventListener('wheel', function(e){
+    if(!desktop()) return;
+    var nav = scroller();
+    if(!nav) return;
+
+    var max = Math.max(0, nav.scrollHeight - nav.clientHeight);
+    if(max <= 0) return;
+
+    var delta = e.deltaY;
+    if(e.deltaMode === 1) delta *= 18;
+    else if(e.deltaMode === 2) delta *= nav.clientHeight;
+    if(!delta) return;
+
+    var before = nav.scrollTop;
+    var next = Math.max(0, Math.min(max, before + delta));
+    if(next === before) return;
+
+    nav.scrollTop = next;
+    e.preventDefault();
+    e.stopPropagation();
+  }, {passive:false});
+})();
+</script>
