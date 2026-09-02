@@ -1678,7 +1678,8 @@
 @media(max-width:700px){.profile-change-grid{grid-template-columns:1fr;gap:14px}.profile-change-full{grid-column:auto}.portal-action-modal{padding:10px;align-items:flex-start}.portal-action-modal-card,.portal-action-modal-card-wide{width:100%;max-height:none;border-radius:18px}.portal-action-modal-head{padding:19px 18px 15px}.portal-action-modal-head h3{font-size:24px}.portal-action-modal-head p{font-size:14px}.portal-action-modal-body{padding:18px}.portal-action-modal-actions{display:grid;grid-template-columns:1fr;gap:10px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:100%!important;min-width:0!important}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:100px}.profile-change-item:not(:first-child){padding:16px}.profile-change-remove{margin-top:10px}.profile-change-add{width:100%;justify-content:center}.profile-change-note-wrap textarea{height:110px!important;min-height:110px!important}}
 </style>
 <style id="wooten-profile-change-compact-professional-style">
-#profileChangeModal .portal-action-modal-card-wide{width:min(870px,100%);border-radius:18px}
+#profileChangeModal{scrollbar-gutter:stable both-edges}
+#profileChangeModal .portal-action-modal-card-wide{width:min(870px,100%);min-width:0;box-sizing:border-box;border-radius:18px}
 #profileChangeModal .profile-change-modal-head{align-items:center;padding:20px 24px 17px}
 #profileChangeModal .profile-change-title-wrap{display:flex;align-items:center;gap:14px;min-width:0}
 #profileChangeModal .profile-change-title-icon{display:grid;place-items:center;flex:0 0 50px;width:50px;height:50px;border-radius:12px;background:#eef5ff;color:#1768c5}
@@ -1693,8 +1694,8 @@
 #profileChangeModal .profile-change-grid label,#profileChangeModal .profile-change-note-wrap label{font-size:13px;font-weight:800}
 #profileChangeModal .profile-change-grid input,#profileChangeModal .profile-change-grid select{height:46px;margin-top:6px;padding:10px 13px;border-radius:9px;font-size:14px}
 #profileChangeModal .profile-change-remove{min-height:30px;margin-top:7px;padding:4px 9px;border:0;background:transparent;font-size:12px}
-#profileChangeModal .profile-change-add{min-height:34px;margin:7px 0 0;padding:4px 3px;border:0;background:transparent;border-radius:5px;font-size:13px}
-#profileChangeModal .profile-change-add:hover{background:transparent;text-decoration:underline;text-underline-offset:3px}
+#profileChangeModal .profile-change-add{min-height:34px;margin:7px 0 0;padding:4px 3px;border:0!important;background:transparent!important;border-radius:0;box-shadow:none!important;transform:none!important;font-size:13px;text-decoration:none}
+#profileChangeModal .profile-change-add:hover,#profileChangeModal .profile-change-add:focus-visible{border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:#1768b6;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px;outline:0}
 #profileChangeModal .profile-change-add span{font-size:18px}
 #profileChangeModal .profile-change-note-wrap{margin-top:12px}
 #profileChangeModal .profile-change-note-wrap label>span{color:#6c7d8e;font-weight:500}
@@ -1708,6 +1709,7 @@
 #profileChangeModal .profile-change-history-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #profileChangeModal .notification-empty{padding:17px 12px;border-style:solid;background:#fbfcfe;font-size:13px}
 #profileChangeModal .profile-change-row{padding:11px 13px;margin-top:8px;border-radius:10px}
+@supports not (scrollbar-gutter:stable){#profileChangeModal{overflow-y:scroll}}
 @media(max-width:700px){#profileChangeModal .profile-change-modal-head{align-items:flex-start;padding:16px 17px 14px}#profileChangeModal .profile-change-title-wrap{gap:10px;padding-right:34px}#profileChangeModal .profile-change-title-icon{flex-basis:40px;width:40px;height:40px;border-radius:10px}#profileChangeModal .profile-change-title-icon svg{width:23px;height:23px}#profileChangeModal .portal-action-modal-head h3{font-size:20px}#profileChangeModal .portal-action-modal-head p{font-size:12.5px}#profileChangeModal .portal-action-modal-close{position:absolute;top:13px;right:13px}#profileChangeModal .portal-action-modal-body{padding:14px 16px 18px}#profileChangeModal .profile-change-item,#profileChangeModal .profile-change-item:first-child,#profileChangeModal .profile-change-item:not(:first-child){padding:12px}#profileChangeModal .profile-change-add{width:auto;justify-content:flex-start}#profileChangeModal .profile-change-note-wrap textarea{height:72px!important;min-height:72px!important}#profileChangeModal .profile-change-modal-actions{display:flex;flex-direction:column-reverse;margin:14px -16px 0;padding:14px 16px 0}#profileChangeModal .portal-action-modal-actions .payment-continue,#profileChangeModal .portal-action-modal-actions .portal-secondary-btn{width:100%!important}}
 </style>
 <script id="wooten-profile-change-request-script">
