@@ -4372,6 +4372,38 @@ textarea[data-request-response]{
 @media(max-width:760px){.request-customer-note-v218{min-height:130px}.request-customer-note-body-v218{margin:0 14px 14px}.request-customer-note-head-v218{padding:14px}}
 </style>
 
+
+<style id="wooten-admin-sidebar-top-align-ver219">
+/* Align the left navigation card with the top of the main admin header */
+#adminSidebar.admin-tabs-shell{
+  margin-top:0!important;
+  top:12px!important;
+  align-self:flex-start!important;
+}
+
+/* Remove any parent offset that pushes the sidebar lower than the main header */
+.admin-layout,
+.admin-shell,
+.admin-page-layout,
+.admin-main-layout{
+  align-items:flex-start!important;
+}
+
+/* Keep current independent scrolling behavior */
+#adminSidebar.admin-tabs-shell{
+  max-height:calc(100vh - 24px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scrollbar-width:none!important;
+  -ms-overflow-style:none!important;
+}
+#adminSidebar.admin-tabs-shell::-webkit-scrollbar{
+  width:0!important;
+  height:0!important;
+  display:none!important;
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
