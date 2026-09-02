@@ -4687,7 +4687,7 @@ textarea[data-request-response]{
             <span class="admin-bell-badge" id="adminNotificationBadge" hidden>0</span>
           </button>
           <div class="admin-bell-menu" id="adminNotificationMenu" hidden>
-            <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications"><svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg></button></div>
+            <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><div class="admin-bell-menu-actions"><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications"><svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg></button><button type="button" id="adminNotificationClose" aria-label="Close admin notifications">&times;</button></div></div>
             <div class="admin-bell-counts" id="adminNotificationCounts"></div>
             <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div><div class="admin-bell-footer"><span>Wooten Oil Admin</span><span aria-hidden="true">•</span><span>Auto-refreshes every 60 seconds</span></div>
           </div>
@@ -12907,23 +12907,6 @@ html,body{
 }
 </style>
 
-<style id="wooten-admin-sidebar-consistent-scroll-ver237">
-/* Ver237 — use one viewport-sized desktop menu on every admin page. */
-@media (min-width:801px){
-  #adminSidebar.admin-tabs-shell{
-    height:calc(100vh - 40px) !important;
-    max-height:calc(100vh - 40px) !important;
-    min-height:360px !important;
-  }
-  #adminSidebar .admin-tabs{
-    height:100% !important;
-    max-height:100% !important;
-    overflow-y:auto !important;
-    overflow-x:hidden !important;
-  }
-}
-</style>
-
 <script id="wooten-admin-sidebar-wheel-ver234">
 (function(){
   var sidebar = document.getElementById('adminSidebar');
@@ -12957,6 +12940,103 @@ html,body{
     nav.scrollTop = next;
     e.preventDefault();
     e.stopPropagation();
-  }, {passive:false,capture:true});
+  }, {passive:false});
+})();
+</script>
+
+<style id="wooten-admin-form-and-popup-close-buttons-ver246">
+/* Style 3: close buttons for full admin forms and dialogs. */
+.db-customer-modal .db-customer-close,
+.schedule-cleanup-dialog .schedule-cleanup-close{
+  width:42px!important;
+  height:42px!important;
+  min-width:42px!important;
+  box-sizing:border-box!important;
+  border:1px solid #d7e1e9!important;
+  border-radius:12px!important;
+  background:#eef3f7!important;
+  color:#17324d!important;
+  padding:0!important;
+  font-family:inherit!important;
+  font-size:26px!important;
+  font-weight:500!important;
+  line-height:1!important;
+  box-shadow:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  cursor:pointer!important;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease!important;
+}
+.db-customer-modal .db-customer-close:hover,
+.schedule-cleanup-dialog .schedule-cleanup-close:hover{
+  background:#e3ebf1!important;
+  border-color:#17324d!important;
+  color:#17324d!important;
+  transform:translateY(-1px);
+}
+.db-customer-modal .db-customer-close:focus-visible,
+.schedule-cleanup-dialog .schedule-cleanup-close:focus-visible{
+  outline:3px solid rgba(47,125,215,.25)!important;
+  outline-offset:2px!important;
+}
+
+/* Style 2: close buttons for compact admin popup menus. */
+.admin-bell-menu-head .admin-bell-menu-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+#adminNotificationClose{
+  width:42px!important;
+  height:42px!important;
+  min-width:42px!important;
+  box-sizing:border-box!important;
+  border:1px solid #d7e1e9!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  color:#17324d!important;
+  padding:0!important;
+  font-family:inherit!important;
+  font-size:26px!important;
+  font-weight:500!important;
+  line-height:1!important;
+  box-shadow:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  cursor:pointer!important;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease!important;
+}
+#adminNotificationClose:hover{
+  background:#eef3f7!important;
+  border-color:#17324d!important;
+  color:#17324d!important;
+  transform:translateY(-1px);
+}
+#adminNotificationClose:focus-visible{
+  outline:3px solid rgba(47,125,215,.25)!important;
+  outline-offset:2px!important;
+}
+@media(max-width:420px){
+  .admin-bell-menu-head .admin-bell-menu-actions{gap:6px}
+  #adminNotificationClose{width:40px!important;height:40px!important;min-width:40px!important}
+}
+</style>
+
+<script id="wooten-admin-notification-popup-close-ver246">
+(function(){
+  var closeButton=document.getElementById('adminNotificationClose');
+  var menu=document.getElementById('adminNotificationMenu');
+  var bell=document.getElementById('adminNotificationBell');
+  if(!closeButton||!menu||!bell)return;
+  closeButton.addEventListener('click',function(event){
+    event.preventDefault();
+    event.stopPropagation();
+    menu.hidden=true;
+    bell.setAttribute('aria-expanded','false');
+    bell.focus({preventScroll:true});
+  });
 })();
 </script>
