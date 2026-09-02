@@ -4687,7 +4687,7 @@ textarea[data-request-response]{
             <span class="admin-bell-badge" id="adminNotificationBadge" hidden>0</span>
           </button>
           <div class="admin-bell-menu" id="adminNotificationMenu" hidden>
-            <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications">↻</button></div>
+            <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications"><svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg></button></div>
             <div class="admin-bell-counts" id="adminNotificationCounts"></div>
             <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div>
           </div>
@@ -12252,7 +12252,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     refresh.classList.add('admin-bell-refresh-btn');
     refresh.setAttribute('type','button');
     refresh.setAttribute('aria-label','Refresh notifications');
-    refresh.innerHTML = '<svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.15 5.45"></path><path d="M20 4v7h-7"></path></svg>';
+    refresh.innerHTML = '<svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg>';
 
     var key = function(){ var el = g('adminKey'); return el ? String(el.value || '').trim() : ''; };
     var esc = function(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]; }); };
@@ -12384,5 +12384,22 @@ html,body{
     max-width:100% !important;
     min-width:0 !important;
   }
+}
+</style>
+
+<style id="wooten-admin-notification-refresh-icon-ver229">
+/* Ver229 — portal-matched dual-arrow refresh icon. */
+#adminNotificationRefresh .admin-bell-refresh-icon{
+  width:20px!important;
+  height:20px!important;
+  fill:none!important;
+  stroke:#2f6f9f!important;
+  stroke-width:1.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+#adminNotificationRefresh:hover .admin-bell-refresh-icon,
+#adminNotificationRefresh:focus-visible .admin-bell-refresh-icon{
+  stroke:#174f78!important;
 }
 </style>
