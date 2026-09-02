@@ -4528,6 +4528,20 @@ textarea[data-request-response]{
 }
 </style>
 
+
+<style id="wooten-admin-sidebar-top-align-ver221">
+/* Ver221 — align the left menu top edge with the Admin Access panel on desktop. */
+:root{
+  --admin-sidebar-lift: 0px;
+}
+@media (min-width: 801px){
+  #adminSidebar.admin-tabs-shell{
+    margin-top: var(--admin-sidebar-lift) !important;
+    top: 12px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -11489,6 +11503,41 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
  setTimeout(load,1200);
 })();
 </script>
+
+<script id="wooten-admin-sidebar-top-align-ver221-script">
+(function(){
+  function syncAdminSidebarTop(){
+    try{
+      var mq = window.matchMedia('(max-width:800px)');
+      if(mq.matches){
+        document.documentElement.style.setProperty('--admin-sidebar-lift','0px');
+        return;
+      }
+      var header = document.querySelector('.admin-header');
+      var workspace = document.querySelector('.admin-workspace');
+      var sidebar = document.getElementById('adminSidebar');
+      if(!header || !workspace || !sidebar){
+        document.documentElement.style.setProperty('--admin-sidebar-lift','0px');
+        return;
+      }
+      var headerRect = header.getBoundingClientRect();
+      var workspaceRect = workspace.getBoundingClientRect();
+      var lift = Math.round(headerRect.top - workspaceRect.top);
+      document.documentElement.style.setProperty('--admin-sidebar-lift', lift + 'px');
+    }catch(_err){
+      document.documentElement.style.setProperty('--admin-sidebar-lift','0px');
+    }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', syncAdminSidebarTop, {once:true});
+  }else{
+    syncAdminSidebarTop();
+  }
+  window.addEventListener('load', syncAdminSidebarTop);
+  window.addEventListener('resize', syncAdminSidebarTop, {passive:true});
+})();
+</script>
+
 </body>
 </html>
 
