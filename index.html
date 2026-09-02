@@ -1542,7 +1542,7 @@
           <button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button>
         </div>
       </div>
-      <button class="profile-change-add" type="button" id="profileChangeAdd"><span aria-hidden="true">+</span> Add another change</button>
+      <button class="profile-change-add" type="button" id="profileChangeAdd"><span class="profile-change-add-plus" aria-hidden="true">+</span><span class="profile-change-add-label">Add another change</span></button>
       <div class="profile-change-note-wrap">
         <label>Additional note <span>(optional)</span><textarea id="profileChangeNote" maxlength="1500" placeholder="Add context for our team…"></textarea></label>
       </div>
@@ -1693,10 +1693,13 @@
 #profileChangeModal .profile-change-grid{gap:14px}
 #profileChangeModal .profile-change-grid label,#profileChangeModal .profile-change-note-wrap label{font-size:13px;font-weight:800}
 #profileChangeModal .profile-change-grid input,#profileChangeModal .profile-change-grid select{height:46px;margin-top:6px;padding:10px 13px;border-radius:9px;font-size:14px}
-#profileChangeModal .profile-change-remove{min-height:30px;margin-top:7px;padding:4px 9px;border:0;background:transparent;font-size:12px}
+#profileChangeModal .profile-change-remove{min-height:30px;margin-top:7px;padding:4px 2px;border:0!important;background:transparent!important;border-radius:0;box-shadow:none!important;transform:none!important;font-size:12px;text-decoration:none}
+#profileChangeModal .profile-change-remove:hover,#profileChangeModal .profile-change-remove:focus-visible{border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:#b52b2b;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px;outline:0}
 #profileChangeModal .profile-change-add{min-height:34px;margin:7px 0 0;padding:4px 3px;border:0!important;background:transparent!important;border-radius:0;box-shadow:none!important;transform:none!important;font-size:13px;text-decoration:none}
-#profileChangeModal .profile-change-add:hover,#profileChangeModal .profile-change-add:focus-visible{border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:#1768b6;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px;outline:0}
-#profileChangeModal .profile-change-add span{font-size:18px}
+#profileChangeModal .profile-change-add:hover,#profileChangeModal .profile-change-add:focus-visible{border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:#1768b6;text-decoration:none;outline:0}
+#profileChangeModal .profile-change-add-plus{font-size:18px;line-height:1;text-decoration:none!important}
+#profileChangeModal .profile-change-add-label{text-decoration:none}
+#profileChangeModal .profile-change-add:hover .profile-change-add-label,#profileChangeModal .profile-change-add:focus-visible .profile-change-add-label{text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
 #profileChangeModal .profile-change-note-wrap{margin-top:12px}
 #profileChangeModal .profile-change-note-wrap label>span{color:#6c7d8e;font-weight:500}
 #profileChangeModal .profile-change-note-wrap textarea{height:78px!important;min-height:78px!important;max-height:150px;margin-top:6px;padding:11px 13px;border-radius:10px;font-size:14px}
@@ -1763,6 +1766,43 @@
     setStatus(passwordStatus,'');
   }
   const profileOptions='<option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option>';
+  let currentProfileValues={address:'',phone:'',email:'',contact:'',other:''};
+  function cleanCurrentValue(value){
+    const text=String(value==null?'':value).trim();
+    return text==='—'||text==='-'?'':text;
+  }
+  function displayedCurrentValue(id){return cleanCurrentValue(g(id)?.textContent||'');}
+  function addressFromCustomer(customer){
+    const direct=cleanCurrentValue(customer?.address||customer?.billing_address||'');
+    if(direct)return direct;
+    const street=[customer?.address1||customer?.address_line1||customer?.address_line_1,customer?.address2||customer?.address_line2||customer?.address_line_2].map(cleanCurrentValue).filter(Boolean).join(', ');
+    const locality=[customer?.city,customer?.state,customer?.zip||customer?.postal_code].map(cleanCurrentValue).filter(Boolean).join(', ');
+    return [street,locality].filter(Boolean).join(', ');
+  }
+  async function loadCurrentProfileValues(){
+    currentProfileValues={
+      address:displayedCurrentValue('acctAddress'),
+      phone:displayedCurrentValue('acctPhone'),
+      email:displayedCurrentValue('acctEmail'),
+      contact:displayedCurrentValue('acctName'),
+      other:''
+    };
+    try{
+      const response=await fetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      const customer=response.ok&&data.success&&data.authenticated?(data.customer||{}):{};
+      currentProfileValues.address=addressFromCustomer(customer)||currentProfileValues.address;
+      currentProfileValues.phone=cleanCurrentValue(customer.phone||customer.phone_number)||currentProfileValues.phone;
+      currentProfileValues.email=cleanCurrentValue(customer.email||customer.email_address)||currentProfileValues.email;
+      currentProfileValues.contact=cleanCurrentValue(customer.contact_name||customer.contact||customer.account_name||customer.name)||currentProfileValues.contact;
+    }catch(_e){}
+  }
+  function fillCurrentProfileValue(row){
+    if(!row)return;
+    const type=row.querySelector('.profile-change-type')?.value||'';
+    const input=row.querySelector('.profile-change-value');
+    if(input)input.value=type==='other'?'':(currentProfileValues[type]||'');
+  }
   function profileItemMarkup(){return '<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested new value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove aria-label="Remove this change">Remove</button></div>'}
   function updateProfileRows(){
     const rows=[...profileItems.querySelectorAll('[data-profile-change-item]')];
@@ -1796,8 +1836,13 @@
     const last=profileItems.querySelector('[data-profile-change-item]:last-child .profile-change-type');
     const next=[...(last?.options||[])].find(option=>!used.has(option.value));
     if(last&&next)last.value=next.value;
+    fillCurrentProfileValue(last?.closest('[data-profile-change-item]'));
     updateProfileRows();
     last?.focus();
+  });
+  profileItems.addEventListener('change',e=>{
+    const select=e.target.closest('.profile-change-type');
+    if(select)fillCurrentProfileValue(select.closest('[data-profile-change-item]'));
   });
   profileItems.addEventListener('click',e=>{
     const remove=e.target.closest('[data-profile-change-remove]');
@@ -1819,7 +1864,7 @@
     if(openSharedFromAccount) openSharedFromAccount.hidden=!emailScopedSession;
   }
   passwordOpen.addEventListener('click',async()=>{ clearPassword(); const currentName=(g('acctName')?.textContent||'Customer Account').trim(); const currentNumber=(g('acctNumber')?.textContent||'').replace(/^\s*(Customer|Account)\s*#?\s*/i,'').trim(); if(passwordCustomerName) passwordCustomerName.textContent=currentName||'Customer Account'; if(passwordCustomerNumber) passwordCustomerNumber.textContent=currentNumber||'—'; await refreshPasswordSessionContext(); openModal(passwordModal,'changeCurrentPassword'); });
-  profileOpen.addEventListener('click',async()=>{ clearProfile(); openModal(profileModal,''); setTimeout(()=>profileItems.querySelector('.profile-change-type')?.focus(),120); await loadProfileRequests(); });
+  profileOpen.addEventListener('click',async()=>{ clearProfile(); openModal(profileModal,''); setTimeout(()=>profileItems.querySelector('.profile-change-type')?.focus(),120); await Promise.all([loadCurrentProfileValues(),loadProfileRequests()]); fillCurrentProfileValue(profileItems.querySelector('[data-profile-change-item]')); });
   passwordClose?.addEventListener('click',()=>{ closeModal(passwordModal); clearPassword(); });
   passwordCancel?.addEventListener('click',()=>{ closeModal(passwordModal); clearPassword(); });
   profileClose?.addEventListener('click',()=>closeModal(profileModal));
@@ -1881,7 +1926,7 @@
       setStatus(profileStatus,'Request '+d.request_number+' submitted to Wooten Oil.','ok');
       await loadProfileRequests();
     }catch(e){ setStatus(profileStatus,e.message||'Request could not be submitted.','bad'); }
-    finally{ profileSubmit.disabled=false; profileSubmit.textContent='Submit Change Request'; }
+    finally{ profileSubmit.disabled=false; profileSubmit.textContent='Submit request'; }
   });
 
   setTimeout(()=>{ if(document.body.classList.contains('portal-authenticated')) loadProfileRequests(); },500);
