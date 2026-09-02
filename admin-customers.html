@@ -11663,9 +11663,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         var sidebar=document.getElementById('adminSidebar');
         var active=document.querySelector('.admin-content .admin-tab-panel.is-active');
         if(!sidebar||!active)return;
+        var nav=sidebar.querySelector('.admin-tabs');
         var sidebarTop=sidebar.getBoundingClientRect().top+window.scrollY;
         var panelBottom=active.getBoundingClientRect().bottom+window.scrollY;
-        var height=Math.max(360,Math.round(panelBottom-sidebarTop));
+        /* Never let a short page panel clip the final navigation items. */
+        var navHeight=nav?Math.ceil(nav.scrollHeight):0;
+        var height=Math.max(360,navHeight,Math.round(panelBottom-sidebarTop));
         document.documentElement.style.setProperty('--admin-sidebar-panel-height',height+'px');
       }catch(_e){}
     });
