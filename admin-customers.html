@@ -2944,6 +2944,55 @@ input[type="file"]:focus-visible{
   .import-last-update small.import-run-in-progress{
     color:#9a6700;
   }
+  .mas90-live-sync{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin:16px 0;
+    padding:15px 16px;
+    border:1px solid #efc56a;
+    border-radius:13px;
+    background:#fff8e7;
+    color:#684b0a;
+    box-shadow:0 7px 18px rgba(110,78,9,.08);
+  }
+  .mas90-live-sync[hidden]{display:none!important}
+  .mas90-live-sync-icon{
+    display:grid;
+    place-items:center;
+    flex:0 0 38px;
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    background:#f1b93e;
+  }
+  .mas90-live-sync-spinner{
+    width:18px;
+    height:18px;
+    border:3px solid rgba(255,255,255,.5);
+    border-top-color:#fff;
+    border-radius:50%;
+    animation:mas90-live-spin .8s linear infinite;
+  }
+  .mas90-live-sync-copy{min-width:0;flex:1}
+  .mas90-live-sync-copy strong{display:block;color:#5b4005;font-size:14px}
+  .mas90-live-sync-copy>span{display:block;margin-top:3px;font-size:12px;line-height:1.45}
+  .mas90-live-sync-track{
+    height:5px;
+    margin-top:9px;
+    overflow:hidden;
+    border-radius:999px;
+    background:rgba(123,84,0,.14);
+  }
+  .mas90-live-sync-track span{
+    display:block;
+    height:100%;
+    width:0;
+    border-radius:inherit;
+    background:#d9990d;
+    transition:width .25s ease;
+  }
+  @keyframes mas90-live-spin{to{transform:rotate(360deg)}}
   @media(max-width:720px){
     .import-last-update{
       margin-top:9px;
@@ -2956,6 +3005,7 @@ input[type="file"]:focus-visible{
     .import-last-update strong::before{
       display:none;
     }
+    .mas90-live-sync{align-items:flex-start;padding:14px}
   }
 </style>
 
@@ -4758,6 +4808,15 @@ textarea[data-request-response]{
     <h2>MAS 90 Database</h2>
     <p>Upload the original Microsoft Access <strong>.mdb</strong> customer database. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
+    <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
+      <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
+      <div class="mas90-live-sync-copy">
+        <strong data-mas90-live-title>Automatic MAS 90 upload in progress</strong>
+        <span data-mas90-live-detail>Checking the current import batch…</span>
+        <div class="mas90-live-sync-track" aria-hidden="true"><span data-mas90-live-progress></span></div>
+      </div>
+    </div>
+
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
       <div>
         <label for="customerFile">Customer File</label>
@@ -4958,6 +5017,15 @@ textarea[data-request-response]{
     <div class="admin-page-label">Database</div>
     <h2>Live Customer Database</h2>
     <p>View customer records stored on the server and choose how each customer receives statements. Customer account data remains read-only; only the Contact delivery selections can be changed.</p>
+
+    <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
+      <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
+      <div class="mas90-live-sync-copy">
+        <strong data-mas90-live-title>Automatic MAS 90 upload in progress</strong>
+        <span data-mas90-live-detail>Checking the current import batch…</span>
+        <div class="mas90-live-sync-track" aria-hidden="true"><span data-mas90-live-progress></span></div>
+      </div>
+    </div>
 
     <div class="db-toolbar">
       <div class="db-field db-search">
@@ -6047,9 +6115,71 @@ function setImportLastUpdate(kind,value,by,mode,status,count,batchNumber,batchCo
   }
 }
 
+let importStatusPollTimer=0;
+let importStatusRequestPending=false;
+
+function renderMas90LiveSync(data){
+  const imports=[
+    {
+      kind:"customers",
+      label:"customers",
+      at:data?.customers_last_import_at||"",
+      by:data?.customers_last_import_by||"Wooten Oil Admin",
+      mode:data?.customers_last_import_mode||"manual",
+      status:data?.customers_last_import_status||"completed",
+      count:Number(data?.customers_last_record_count||0),
+      batch:Number(data?.customers_last_import_batch_number||1),
+      batches:Number(data?.customers_last_import_batch_count||1)
+    },
+    {
+      kind:"payments",
+      label:"payments",
+      at:data?.payments_last_import_at||"",
+      by:data?.payments_last_import_by||"Wooten Oil Admin",
+      mode:data?.payments_last_import_mode||"manual",
+      status:data?.payments_last_import_status||"completed",
+      count:Number(data?.payments_last_record_count||0),
+      batch:Number(data?.payments_last_import_batch_number||1),
+      batches:Number(data?.payments_last_import_batch_count||1)
+    }
+  ];
+  const active=imports
+    .filter(item=>String(item.status).toLowerCase()==="in_progress")
+    .sort((a,b)=>new Date(b.at||0)-new Date(a.at||0))[0];
+
+  document.querySelectorAll("[data-mas90-live-sync]").forEach(box=>{
+    if(!active){box.hidden=true;return;}
+    const automatic=String(active.mode).toLowerCase()==="automatic";
+    const title=box.querySelector("[data-mas90-live-title]");
+    const detail=box.querySelector("[data-mas90-live-detail]");
+    const bar=box.querySelector("[data-mas90-live-progress]");
+    const safeBatches=Math.max(1,active.batches);
+    const safeBatch=Math.max(1,Math.min(active.batch,safeBatches));
+    const percent=Math.max(2,Math.min(100,Math.round((safeBatch/safeBatches)*100)));
+    if(title)title.textContent=automatic?"Automatic MAS 90 upload in progress":`Manual ${active.label} import in progress`;
+    if(detail){
+      const source=automatic?"Automatic MAS 90 Sync":`Started by ${active.by}`;
+      const records=active.count>0?` • ${active.count.toLocaleString()} records`:"";
+      detail.textContent=`Importing ${active.label} • Batch ${safeBatch.toLocaleString()} of ${safeBatches.toLocaleString()}${records} • ${source}`;
+    }
+    if(bar)bar.style.width=percent+"%";
+    box.hidden=false;
+  });
+}
+
+function ensureImportStatusPolling(){
+  if(importStatusPollTimer)return;
+  importStatusPollTimer=window.setInterval(()=>{
+    if(document.visibilityState!=="hidden")loadImportLastUpdates();
+  },3000);
+}
+
 async function loadImportLastUpdates(){
+  ensureImportStatusPolling();
+  if(importStatusRequestPending)return;
   const key=document.getElementById("adminKey")?.value.trim();
-  if(!key) return;
+  if(!key){renderMas90LiveSync(null);return;}
+  importStatusRequestPending=true;
   try{
     const res=await fetch("/api/admin/import-status",{
       headers:{"X-Admin-Key":key,"Accept":"application/json"},
@@ -6059,10 +6189,17 @@ async function loadImportLastUpdates(){
     if(!res.ok || data.success===false) return;
     setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"",data.customers_last_import_mode||"manual",data.customers_last_import_status||"completed",data.customers_last_record_count||0,data.customers_last_import_batch_number||1,data.customers_last_import_batch_count||1);
     setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
+    renderMas90LiveSync(data);
   }catch(e){
     console.warn("Could not load import update times",e);
+  }finally{
+    importStatusRequestPending=false;
   }
 }
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="hidden")loadImportLastUpdates();
+});
 
 
 const aliases={

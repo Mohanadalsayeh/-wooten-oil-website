@@ -8834,6 +8834,7 @@ function adminGeneralAuditDescriptor(request){
   if(path==="/api/admin/audit")return null;
   if(method==="DELETE"&&/^\/api\/admin\/account-applications\/\d+$/.test(path))return null;
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
+  if(method==="GET"&&path==="/api/admin/import-status")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
   const routes={
