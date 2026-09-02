@@ -2175,5 +2175,37 @@
 })();
 </script>
 
+<style id="wooten-single-customer-portal-scrollbar-ver244">
+html.customer-portal-open,
+html.customer-portal-open body{
+  height:100%;
+  overflow:hidden!important;
+}
+html.customer-portal-open #customer-login.portal-overlay{
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+</style>
+
+<script id="wooten-single-customer-portal-scrollbar-ver244-script">
+(function(){
+  var portal=document.getElementById('customer-login');
+  if(!portal)return;
+
+  function syncPortalScrollLock(){
+    var isOpen=window.location.hash==='#customer-login';
+    document.documentElement.classList.toggle('customer-portal-open',isOpen);
+    document.body.classList.toggle('customer-portal-open',isOpen);
+  }
+
+  window.addEventListener('hashchange',syncPortalScrollLock);
+  window.addEventListener('pageshow',syncPortalScrollLock);
+  document.addEventListener('DOMContentLoaded',syncPortalScrollLock,{once:true});
+  syncPortalScrollLock();
+})();
+</script>
+
 </body>
 </html>
