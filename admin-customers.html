@@ -11889,3 +11889,114 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 @media(max-width:760px){.activity-trend-scroll{padding:0 14px 8px}.activity-trend-scroll svg{min-width:520px}.activity-trend-current{margin:0 14px 8px}.activity-trend-legend{padding:2px 14px 12px}.activity-trend-summary{padding:0 14px 14px}.activity-trend-summary>div{border-right:1px solid #edf2f6!important}.activity-balance-chart .activity-donut-layout{padding:6px 14px 14px;grid-template-columns:1fr}}
 @media(max-width:430px){.activity-payment-chart.activity-trend-chart .activity-payment-chart-head,.activity-payment-chart.activity-balance-chart .activity-payment-chart-head{padding:16px 14px 8px}.activity-trend-summary>div{border-right:1px solid #edf2f6!important}}
 </style>
+
+
+<style id="wooten-admin-notification-bell-fix-ver225">
+/* Refine the admin notification button and dropdown in the top-right access panel. */
+.admin-header .admin-access-box{
+  align-items:center !important;
+  overflow:visible !important;
+}
+.admin-header .admin-header-actions{
+  display:flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  flex-wrap:nowrap !important;
+  margin-left:auto !important;
+}
+.admin-header .admin-bell-shell{
+  position:relative !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex:0 0 auto !important;
+  overflow:visible !important;
+  z-index:260 !important;
+}
+.admin-header .admin-bell-btn{
+  position:relative !important;
+  width:50px !important;
+  height:50px !important;
+  min-width:50px !important;
+  min-height:50px !important;
+  padding:0 !important;
+  display:grid !important;
+  place-items:center !important;
+  border:1px solid #c8d7e3 !important;
+  border-radius:14px !important;
+  background:#f8fbfd !important;
+  color:#17324d !important;
+  box-shadow:0 2px 8px rgba(16,43,69,.06) !important;
+  outline:none !important;
+  appearance:none;
+  -webkit-appearance:none;
+  transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+.admin-header .admin-bell-btn:hover,
+.admin-header .admin-bell-btn[aria-expanded="true"]{
+  background:#eef6fc !important;
+  border-color:#98bdd7 !important;
+  box-shadow:0 0 0 3px rgba(36,107,158,.12),0 10px 22px rgba(16,43,69,.10) !important;
+}
+.admin-header .admin-bell-btn:focus,
+.admin-header .admin-bell-btn:active{
+  outline:none !important;
+}
+.admin-header .admin-bell-btn:focus-visible{
+  outline:none !important;
+  box-shadow:0 0 0 3px rgba(36,107,158,.14),0 10px 24px rgba(16,43,69,.10) !important;
+}
+.admin-header .admin-bell-btn svg{
+  width:22px !important;
+  height:22px !important;
+}
+.admin-header .admin-bell-badge{
+  right:-6px !important;
+  top:-7px !important;
+}
+.admin-header .admin-bell-menu{
+  top:calc(100% + 12px) !important;
+  right:0 !important;
+  width:min(420px,calc(100vw - 32px)) !important;
+  border-radius:18px !important;
+  box-shadow:0 20px 55px rgba(12,33,53,.18) !important;
+}
+.admin-header .admin-bell-menu-head{
+  padding:18px 18px 13px !important;
+}
+.admin-header .admin-bell-menu-head button{
+  display:grid !important;
+  place-items:center !important;
+  width:38px !important;
+  height:38px !important;
+  font-size:22px !important;
+}
+.admin-header .admin-bell-counts{
+  gap:9px !important;
+  padding:12px 14px !important;
+}
+.admin-header .admin-bell-count{
+  border:1px solid #e3ebf2 !important;
+}
+@media (max-width:1020px){
+  .admin-header .admin-access-box{
+    width:auto !important;
+    min-width:340px !important;
+  }
+}
+@media (max-width:800px){
+  .admin-header .admin-header-actions{
+    width:100% !important;
+    justify-content:flex-end !important;
+  }
+  .admin-header .admin-bell-menu{
+    position:fixed !important;
+    top:72px !important;
+    right:12px !important;
+    left:12px !important;
+    width:auto !important;
+    max-height:calc(100vh - 90px) !important;
+  }
+}
+</style>
+
