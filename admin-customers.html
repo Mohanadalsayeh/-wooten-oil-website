@@ -4689,7 +4689,7 @@ textarea[data-request-response]{
           <div class="admin-bell-menu" id="adminNotificationMenu" hidden>
             <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications"><svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg></button></div>
             <div class="admin-bell-counts" id="adminNotificationCounts"></div>
-            <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div>
+            <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div><div class="admin-bell-footer"><span>Wooten Oil Admin</span><span aria-hidden="true">•</span><span>Auto-refreshes every 60 seconds</span></div>
           </div>
         </div>
         <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
@@ -9071,6 +9071,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const bulkSelections={monthly:new Set(),weekly:new Set()};
   const openPreviewTypes=new Set();
   let loaded=false,loading=false;
+  const scheduleResultPageSize=20;
 
   document.querySelectorAll('[data-hour-select]').forEach(select=>{
     if(select.options.length)return;
@@ -9194,9 +9195,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const isTest=String(run.run_type||'').startsWith('test_');
       const isTestSend=isTest&&String(run.run_key||'').startsWith('testsend:');
       const baseType=isTest?String(run.run_type).slice(5):run.run_type;
-      const details=rows.length?rows.map(row=>(isTest&&!isTestSend)
-        ?'<div class="schedule-result-row"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>PDF: '+(row.success?'Generated':'Failed')+'</span><span>Payments: '+Number(row.payment_count||0)+'</span><span>Balance: '+esc(money(row.total_balance||0))+(row.error?' • '+esc(row.error):'')+'</span></div>'
+      const details=rows.length?rows.map((row,rowIndex)=>(isTest&&!isTestSend)
+        ?'<div class="schedule-result-row" data-schedule-result-index="'+rowIndex+'"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>PDF: '+(row.success?'Generated':'Failed')+'</span><span>Payments: '+Number(row.payment_count||0)+'</span><span>Balance: '+esc(money(row.total_balance||0))+(row.error?' • '+esc(row.error):'')+'</span></div>'
         :(function(){const generationReason=!row.success&&row.error?('Statement generation failed: '+row.error):'';return '<div class="schedule-result-row"><div class="schedule-customer-cell"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong>'+emailSmsWarningMarkup(row,isTest,isTestSend)+'</div>'+deliveryResultCell('Portal',!!row.portal_notified,row.portal_warning||generationReason)+deliveryResultCell('Email',!!row.email_sent,row.email_warning||generationReason)+deliveryResultCell('SMS',!!row.sms_sent,row.sms_warning||generationReason)+'</div>';}())).join(''):'<div class="schedule-empty">No customers matched this run.</div>';
+      const resultPager=rows.length>scheduleResultPageSize?'<div class="schedule-result-pagination" data-schedule-result-pagination data-page="1"><span class="schedule-result-pagination-summary" data-schedule-result-summary></span><div class="schedule-result-pagination-controls"><button type="button" class="secondary" data-schedule-result-prev>Previous</button><strong data-schedule-result-page-info>Page 1 of 1</strong><button type="button" class="secondary" data-schedule-result-next>Next</button></div></div>':'';
       const type=baseType==='weekly'?'B — Weekly / Biweekly Cycle':baseType==='midmonth'?'Legacy Mid-Month Run':'A — Monthly Cycle';
       const deliveryMetrics=isTest&&!isTestSend
         ?'<span class="schedule-run-metric">Dry test — no delivery attempted</span>'
@@ -9218,8 +9220,32 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       return '<details class="schedule-run"><summary><div class="schedule-run-title"><strong>'+(isTest?(isTestSend?'TEST SEND (LEGACY) — ':'TEST RUN — '):'')+type+'</strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
         (isTest?'<span class="schedule-run-metric">'+(isTestSend?'TEST SEND (LEGACY)':'TEST RUN')+'</span>':'')+'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(run.success_count||0).toLocaleString()+' generated</span>'+ 
         (Number(run.failure_count||0)?'<span class="schedule-run-metric bad">'+Number(run.failure_count)+' failed</span>':'')+
-        deliveryMetrics+combinedLink+'</div></summary><div class="schedule-run-detail">'+details+'</div></details>';
+        deliveryMetrics+combinedLink+'</div></summary><div class="schedule-run-detail">'+details+resultPager+'</div></details>';
     }).join('');
+    initializeScheduleResultPagination();
+  }
+  function setScheduleResultPage(runElement,page){
+    if(!runElement)return;
+    const rows=[...runElement.querySelectorAll('.schedule-result-row')];
+    const pager=runElement.querySelector('[data-schedule-result-pagination]');
+    if(!pager||rows.length<=scheduleResultPageSize)return;
+    const pages=Math.max(1,Math.ceil(rows.length/scheduleResultPageSize));
+    const current=Math.min(Math.max(1,Number(page)||1),pages);
+    pager.dataset.page=String(current);
+    const start=(current-1)*scheduleResultPageSize;
+    const finish=Math.min(start+scheduleResultPageSize,rows.length);
+    rows.forEach((row,index)=>{row.hidden=index<start||index>=finish;});
+    const summary=pager.querySelector('[data-schedule-result-summary]');
+    const pageInfo=pager.querySelector('[data-schedule-result-page-info]');
+    const prev=pager.querySelector('[data-schedule-result-prev]');
+    const next=pager.querySelector('[data-schedule-result-next]');
+    if(summary)summary.textContent='Showing '+(start+1)+'–'+finish+' of '+rows.length;
+    if(pageInfo)pageInfo.textContent='Page '+current+' of '+pages;
+    if(prev)prev.disabled=current<=1;
+    if(next)next.disabled=current>=pages;
+  }
+  function initializeScheduleResultPagination(){
+    report.querySelectorAll('.schedule-run').forEach(runElement=>setScheduleResultPage(runElement,1));
   }
   async function request(path,options={},allowReportedFailure=false){
     const adminKey=key();if(!adminKey){window.ensureAdminLoginKey('Enter your Admin Import Key to manage statement scheduling.');throw new Error('Enter your Admin Import Key first.');}
@@ -9644,7 +9670,18 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   cleanupSelectAll.addEventListener('change',()=>{cleanupList.querySelectorAll('[data-cleanup-key]').forEach(box=>box.checked=cleanupSelectAll.checked);syncCleanupSelection();});
   cleanupList.addEventListener('change',event=>{if(event.target.matches('[data-cleanup-key]'))syncCleanupSelection();});
   cleanupDelete.addEventListener('click',deleteSelectedCleanupFiles);
-  report.addEventListener('click',event=>{const link=event.target.closest('.schedule-combined-pdf-link');if(!link)return;event.preventDefault();event.stopPropagation();openCombinedStatementPdf({runId:Number(link.dataset.scheduleCombinedRun||0),groupId:String(link.dataset.scheduleCombinedGroup||''),part:Number(link.dataset.scheduleCombinedPart||1)});});
+  report.addEventListener('click',event=>{
+    const pagerButton=event.target.closest('[data-schedule-result-prev],[data-schedule-result-next]');
+    if(pagerButton){
+      event.preventDefault();event.stopPropagation();
+      const runElement=pagerButton.closest('.schedule-run'),pager=runElement?.querySelector('[data-schedule-result-pagination]');
+      if(!runElement||!pager)return;
+      const current=Number(pager.dataset.page||1);
+      setScheduleResultPage(runElement,current+(pagerButton.hasAttribute('data-schedule-result-next')?1:-1));
+      return;
+    }
+    const link=event.target.closest('.schedule-combined-pdf-link');if(!link)return;event.preventDefault();event.stopPropagation();openCombinedStatementPdf({runId:Number(link.dataset.scheduleCombinedRun||0),groupId:String(link.dataset.scheduleCombinedGroup||''),part:Number(link.dataset.scheduleCombinedPart||1)});
+  });
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   monthlyEnabled.addEventListener('change',syncCycleEnabledState);
   weeklyEnabled.addEventListener('change',syncCycleEnabledState);
@@ -12403,3 +12440,110 @@ html,body{
   stroke:#174f78!important;
 }
 </style>
+
+
+<style id="wooten-admin-notification-footer-ver230">
+.admin-bell-footer{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:6px;
+  min-height:34px;
+  padding:8px 12px;
+  border-top:1px solid #e6edf3;
+  background:#f8fafc;
+  color:#7a8da0;
+  font-size:11px;
+  font-weight:600;
+  line-height:1.3;
+  text-align:center;
+  box-sizing:border-box;
+}
+.admin-bell-footer span:first-child{
+  color:#5f7488;
+  font-weight:700;
+}
+@media(max-width:800px){
+  .admin-bell-footer{
+    padding:8px 10px;
+    font-size:10.5px;
+  }
+}
+</style>
+
+
+<style id="wooten-admin-sidebar-corner-cleanup-ver231">
+/* Ver231 — remove the square gray wrapper showing behind the rounded desktop sidebar. */
+@media (min-width:801px){
+  #adminSidebar.admin-tabs-shell{
+    background:none!important;
+    background-color:transparent!important;
+    border:0!important;
+    border-radius:18px!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+  }
+  #adminSidebar.admin-tabs-shell::before,
+  #adminSidebar.admin-tabs-shell::after{
+    content:none!important;
+    display:none!important;
+    background:none!important;
+    box-shadow:none!important;
+  }
+  #adminSidebar .admin-tabs{
+    border-radius:18px!important;
+    background:#fff!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    box-shadow:0 12px 32px rgba(15,39,66,.08)!important;
+  }
+}
+</style>
+
+
+
+<style id="wooten-statement-run-report-pagination-ver232">
+.schedule-result-pagination{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:18px;
+  margin-top:14px;
+  padding:14px 2px 2px;
+  border-top:1px solid #e4ebf1;
+}
+.schedule-result-pagination-summary{
+  color:#61768b;
+  font-size:12px;
+  font-weight:700;
+}
+.schedule-result-pagination-controls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+}
+.schedule-result-pagination-controls .secondary{
+  min-width:92px;
+  height:38px;
+  margin:0;
+  padding:0 14px;
+  border-radius:9px;
+  box-shadow:none;
+}
+.schedule-result-pagination-controls strong{
+  min-width:92px;
+  text-align:center;
+  color:#17324d;
+  font-size:12px;
+  white-space:nowrap;
+}
+.schedule-result-row[hidden]{display:none!important}
+@media(max-width:700px){
+  .schedule-result-pagination{grid-template-columns:1fr;gap:10px}
+  .schedule-result-pagination-controls{justify-content:space-between}
+  .schedule-result-pagination-controls .secondary{flex:1 1 0;min-width:0}
+}
+</style>
+
