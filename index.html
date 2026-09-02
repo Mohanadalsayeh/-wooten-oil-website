@@ -708,6 +708,14 @@
 
       <div class="customer-documents-status" id="customerDocumentsStatus" role="status" aria-live="polite"></div>
       <div class="customer-documents-list" id="customerDocumentsList"></div>
+      <div class="customer-documents-pagination" id="customerDocumentsPagination" hidden>
+        <span class="customer-documents-page-summary" id="customerDocumentsPageSummary"></span>
+        <div class="customer-documents-page-controls">
+          <button type="button" id="customerDocumentsPrev">Previous</button>
+          <strong id="customerDocumentsPageInfo">Page 1 of 1</strong>
+          <button type="button" id="customerDocumentsNext">Next</button>
+        </div>
+      </div>
       <div class="customer-documents-footer">Wooten Oil Co Inc. • Secure Customer Documents</div>
     </section>
 
@@ -1536,7 +1544,7 @@
       <div class="profile-change-items" id="profileChangeItems">
         <div class="profile-change-item" data-profile-change-item>
           <div class="profile-change-grid">
-            <label>What needs to change?<select class="profile-change-type"><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
+            <label>What needs to change?<select class="profile-change-type"><option value="">Select a field</option><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
             <label>Requested new value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter new information"></label>
           </div>
           <button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button>
@@ -1695,7 +1703,7 @@
 #profileChangeModal .profile-change-grid input,#profileChangeModal .profile-change-grid select{height:46px;margin-top:6px;padding:10px 13px;border-radius:9px;font-size:14px}
 #profileChangeModal .profile-change-remove{min-height:30px;margin-top:7px;padding:4px 2px;border:0!important;background:transparent!important;border-radius:0;box-shadow:none!important;transform:none!important;font-size:12px;text-decoration:none}
 #profileChangeModal .profile-change-remove:hover,#profileChangeModal .profile-change-remove:focus-visible{border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:#b52b2b;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px;outline:0}
-#profileChangeModal .profile-change-add{min-height:34px;margin:7px 0 0;padding:4px 3px;border:0!important;background:transparent!important;border-radius:0;box-shadow:none!important;transform:none!important;font-size:13px;text-decoration:none}
+#profileChangeModal .profile-change-add{min-height:34px;margin:7px 0 0;padding:4px 3px;border:0!important;background:transparent!important;border-radius:0;box-shadow:none!important;transform:none!important;font-size:14px;text-decoration:none}
 #profileChangeModal .profile-change-add:hover,#profileChangeModal .profile-change-add:focus-visible{border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:#1768b6;text-decoration:none;outline:0}
 #profileChangeModal .profile-change-add-plus{font-size:18px;line-height:1;text-decoration:none!important}
 #profileChangeModal .profile-change-add-label{text-decoration:none}
@@ -1765,7 +1773,7 @@
     g('changeConfirmPassword').value='';
     setStatus(passwordStatus,'');
   }
-  const profileOptions='<option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option>';
+  const profileOptions='<option value="">Select a field</option><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option>';
   let currentProfileValues={address:'',phone:'',email:'',contact:'',other:''};
   function cleanCurrentValue(value){
     const text=String(value==null?'':value).trim();
@@ -1834,7 +1842,7 @@
     const used=new Set(rows.map(row=>row.querySelector('.profile-change-type')?.value).filter(Boolean));
     profileItems.insertAdjacentHTML('beforeend',profileItemMarkup());
     const last=profileItems.querySelector('[data-profile-change-item]:last-child .profile-change-type');
-    const next=[...(last?.options||[])].find(option=>!used.has(option.value));
+    const next=[...(last?.options||[])].find(option=>option.value&&!used.has(option.value));
     if(last&&next)last.value=next.value;
     fillCurrentProfileValue(last?.closest('[data-profile-change-item]'));
     updateProfileRows();
@@ -1864,7 +1872,7 @@
     if(openSharedFromAccount) openSharedFromAccount.hidden=!emailScopedSession;
   }
   passwordOpen.addEventListener('click',async()=>{ clearPassword(); const currentName=(g('acctName')?.textContent||'Customer Account').trim(); const currentNumber=(g('acctNumber')?.textContent||'').replace(/^\s*(Customer|Account)\s*#?\s*/i,'').trim(); if(passwordCustomerName) passwordCustomerName.textContent=currentName||'Customer Account'; if(passwordCustomerNumber) passwordCustomerNumber.textContent=currentNumber||'—'; await refreshPasswordSessionContext(); openModal(passwordModal,'changeCurrentPassword'); });
-  profileOpen.addEventListener('click',async()=>{ clearProfile(); openModal(profileModal,''); setTimeout(()=>profileItems.querySelector('.profile-change-type')?.focus(),120); await Promise.all([loadCurrentProfileValues(),loadProfileRequests()]); fillCurrentProfileValue(profileItems.querySelector('[data-profile-change-item]')); });
+  profileOpen.addEventListener('click',async()=>{ clearProfile(); openModal(profileModal,''); setTimeout(()=>profileItems.querySelector('.profile-change-type')?.focus(),120); await Promise.all([loadCurrentProfileValues(),loadProfileRequests()]); });
   passwordClose?.addEventListener('click',()=>{ closeModal(passwordModal); clearPassword(); });
   passwordCancel?.addEventListener('click',()=>{ closeModal(passwordModal); clearPassword(); });
   profileClose?.addEventListener('click',()=>closeModal(profileModal));
@@ -2094,6 +2102,76 @@
       new MutationObserver(evaluate).observe(badge, {childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:['style','class','hidden']});
     });
   });
+})();
+</script>
+
+<style id="wooten-customer-documents-skeleton-pagination-ver243">
+.customer-document-skeleton{display:grid;grid-template-columns:52px minmax(0,1fr) 112px;gap:14px;align-items:center;padding:13px 14px;border:1px solid #dce4eb;border-radius:13px;background:#fff;overflow:hidden}
+.customer-document-skeleton-icon,.customer-document-skeleton-line,.customer-document-skeleton-button{display:block;background:linear-gradient(90deg,#e9eff4 25%,#f7f9fb 45%,#e9eff4 65%);background-size:220% 100%;animation:customerDocumentShimmer 1.2s ease-in-out infinite}
+.customer-document-skeleton-icon{width:52px;height:52px;border-radius:11px}
+.customer-document-skeleton-copy{display:grid;gap:9px}
+.customer-document-skeleton-line{height:13px;border-radius:7px}
+.customer-document-skeleton-line.title{width:min(310px,72%);height:15px}
+.customer-document-skeleton-line.meta{width:min(245px,58%)}
+.customer-document-skeleton-button{width:112px;height:42px;border-radius:10px}
+.customer-document-skeleton:nth-child(2n) span{animation-delay:.1s}
+@keyframes customerDocumentShimmer{from{background-position:110% 0}to{background-position:-110% 0}}
+.customer-documents-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid #e2e8ee}
+.customer-documents-pagination[hidden]{display:none!important}
+.customer-documents-page-summary{color:#6d7f91;font-size:13px}
+.customer-documents-page-controls{display:flex;align-items:center;gap:10px}
+.customer-documents-page-controls button{min-width:92px;height:40px;padding:0 14px;border:1px solid #ccd9e5;border-radius:9px;background:#fff;color:#294f73;font:inherit;font-weight:700;cursor:pointer}
+.customer-documents-page-controls button:hover:not(:disabled){background:#f3f7fa;border-color:#abc0d2}
+.customer-documents-page-controls button:disabled{opacity:.45;cursor:not-allowed}
+.customer-documents-page-controls strong{min-width:92px;text-align:center;color:#40566c;font-size:13px}
+@media(max-width:700px){.customer-document-skeleton{grid-template-columns:44px minmax(0,1fr)}.customer-document-skeleton-icon{width:44px;height:44px}.customer-document-skeleton-button{display:none}.customer-documents-pagination{align-items:stretch;flex-direction:column}.customer-documents-page-summary{text-align:center}.customer-documents-page-controls{justify-content:space-between}.customer-documents-page-controls button{flex:1;min-width:0}}
+@media(prefers-reduced-motion:reduce){.customer-document-skeleton-icon,.customer-document-skeleton-line,.customer-document-skeleton-button{animation:none}}
+</style>
+
+<script id="wooten-customer-documents-skeleton-pagination-ver243-script">
+(function(){
+  var list=document.getElementById('customerDocumentsList');
+  var pagination=document.getElementById('customerDocumentsPagination');
+  var summary=document.getElementById('customerDocumentsPageSummary');
+  var info=document.getElementById('customerDocumentsPageInfo');
+  var prev=document.getElementById('customerDocumentsPrev');
+  var next=document.getElementById('customerDocumentsNext');
+  var openButton=document.getElementById('dashboardDocuments');
+  var refreshButton=document.getElementById('customerDocumentsRefresh');
+  var search=document.getElementById('customerDocumentsSearch');
+  var typeFilter=document.getElementById('customerDocumentsTypeFilter');
+  if(!list||!pagination||!prev||!next)return;
+  var page=1,pageSize=20,loading=false;
+
+  function rows(){return Array.prototype.slice.call(list.querySelectorAll('.customer-document-row'));}
+  function renderPage(){
+    if(loading)return;
+    var items=rows(),total=items.length;
+    if(!total){pagination.hidden=true;return;}
+    var pages=Math.max(1,Math.ceil(total/pageSize));
+    page=Math.max(1,Math.min(page,pages));
+    var start=(page-1)*pageSize,end=Math.min(start+pageSize,total);
+    items.forEach(function(row,index){row.hidden=index<start||index>=end;});
+    if(summary)summary.textContent='Showing '+(start+1)+'–'+end+' of '+total+' documents';
+    if(info)info.textContent='Page '+page+' of '+pages;
+    prev.disabled=page<=1;next.disabled=page>=pages;
+    pagination.hidden=total<=pageSize;
+  }
+  function skeleton(){
+    loading=true;page=1;pagination.hidden=true;
+    list.innerHTML=Array.from({length:6},function(_,index){return '<div class="customer-document-skeleton" aria-hidden="true"><span class="customer-document-skeleton-icon"></span><span class="customer-document-skeleton-copy"><span class="customer-document-skeleton-line title" style="animation-delay:'+((index%3)*.07)+'s"></span><span class="customer-document-skeleton-line meta" style="animation-delay:'+((index%3)*.07+.05)+'s"></span></span><span class="customer-document-skeleton-button"></span></div>';}).join('');
+  }
+  function resetAndRender(){page=1;setTimeout(renderPage,0);}
+  openButton?.addEventListener('click',skeleton);
+  refreshButton?.addEventListener('click',skeleton);
+  search?.addEventListener('input',resetAndRender);
+  typeFilter?.addEventListener('change',resetAndRender);
+  prev.addEventListener('click',function(){if(page>1){page--;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});}});
+  next.addEventListener('click',function(){var pages=Math.max(1,Math.ceil(rows().length/pageSize));if(page<pages){page++;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});}});
+  new MutationObserver(function(){
+    if(list.querySelector('.customer-document-row,.customer-document-empty')){loading=false;renderPage();}
+  }).observe(list,{childList:true});
+  renderPage();
 })();
 </script>
 
