@@ -8980,23 +8980,24 @@ async function accountApplicationIpHash(request){
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(ip));
   return [...new Uint8Array(digest)].slice(0,12).map(v=>v.toString(16).padStart(2,"0")).join("");
 }
-async function accountApplicationSendEmail(env,{to,subject,html,text}){
+async function accountApplicationSendEmail(env,{to,subject,html,text,from}){
   if(!env.RESEND_API_KEY)return {sent:false,error:"Email service is not configured."};
   try{
-    const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},body:JSON.stringify({from:String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim(),to:[to],subject,html,text})});
+    const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},body:JSON.stringify({from:String(from||env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim(),to:[to],subject,html,text})});
     const result=await response.json().catch(()=>({}));
     return response.ok?{sent:true,id:String(result.id||"")}:{sent:false,error:String(result.message||`Email service returned ${response.status}.`)};
   }catch(error){return {sent:false,error:String(error?.message||"Email could not be sent.")};}
 }
 async function accountApplicationSendNotifications({request,env,applicationNumber,type,data}){
   const applicantName=data.full_name;const accountName=type==="business"?data.business_name:applicantName;const submitted=new Date().toLocaleString("en-US",{timeZone:"America/Chicago",dateStyle:"long",timeStyle:"short"});
+  const applicationsFrom=String(env.APPLICATIONS_FROM_EMAIL||"Wooten Oil Applications <applications@wootenoil.com>").trim();
   const internalHtml=`<h2>New Wooten Oil Account Application</h2><p>A new ${notificationEscapeHtml(type)} account application was submitted.</p><table cellpadding="7" cellspacing="0" style="border-collapse:collapse"><tr><td><strong>Application</strong></td><td>${notificationEscapeHtml(applicationNumber)}</td></tr><tr><td><strong>Applicant</strong></td><td>${notificationEscapeHtml(applicantName)}</td></tr><tr><td><strong>Account name</strong></td><td>${notificationEscapeHtml(accountName)}</td></tr><tr><td><strong>Email</strong></td><td>${notificationEscapeHtml(data.email)}</td></tr><tr><td><strong>Phone</strong></td><td>${notificationEscapeHtml(data.phone)}</td></tr><tr><td><strong>Submitted</strong></td><td>${notificationEscapeHtml(submitted)} Central</td></tr></table><p>Review the application and its private documents in Customer Administration → Account Applications.</p><p><strong>Security:</strong> Identity and Tax ID documents are not attached to this email.</p>`;
   const applicantHtml=`<h2>We received your Wooten Oil account application</h2><p>Hello ${notificationEscapeHtml(applicantName)},</p><p>Your application <strong>${notificationEscapeHtml(applicationNumber)}</strong> has been received. Our team will review it and contact you if additional information is needed.</p><p>Please keep your application number for your records.</p><p>Wooten Oil Co. Inc.<br>support@wootenoil.com</p>`;
   const internalText=`New Wooten Oil ${type} account application\nApplication: ${applicationNumber}\nApplicant: ${applicantName}\nAccount name: ${accountName}\nEmail: ${data.email}\nPhone: ${data.phone}\nSubmitted: ${submitted} Central\n\nReview it in Customer Administration > Account Applications. Sensitive documents are not attached.`;
   const applicantText=`Hello ${applicantName},\n\nWe received your Wooten Oil account application ${applicationNumber}. Our team will review it and contact you if additional information is needed. Please keep this number for your records.\n\nWooten Oil Co. Inc.\nsupport@wootenoil.com`;
   const smsBody=`Wooten Oil: We received your account application ${applicationNumber}. Our team will review it and contact you. Reply STOP to opt out.`;
-  const supportPromise=accountApplicationSendEmail(env,{to:"support@wootenoil.com",subject:`New Wooten Oil Account Application — ${applicationNumber}`,html:internalHtml,text:internalText});
-  const applicantPromise=accountApplicationSendEmail(env,{to:data.email,subject:`Wooten Oil Account Application Received — ${applicationNumber}`,html:applicantHtml,text:applicantText});
+  const supportPromise=accountApplicationSendEmail(env,{from:applicationsFrom,to:"support@wootenoil.com",subject:`New Wooten Oil Account Application — ${applicationNumber}`,html:internalHtml,text:internalText});
+  const applicantPromise=accountApplicationSendEmail(env,{from:applicationsFrom,to:data.email,subject:`Wooten Oil Account Application Received — ${applicationNumber}`,html:applicantHtml,text:applicantText});
   const smsPromise=twilioSendSms(env,data.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")}).then(result=>({sent:true,sid:String(result?.sid||"")})).catch(error=>({sent:false,error:String(error?.message||"SMS could not be sent.")}));
   const [support,applicant,sms]=await Promise.all([supportPromise,applicantPromise,smsPromise]);
   return {support,applicant,sms};
@@ -9207,7 +9208,8 @@ async function customerProfileChangeRequests({request,env}){
     await env.DB.prepare(`INSERT INTO profile_change_requests (request_number,account_number,account_name,change_type,current_value,requested_value,customer_note) VALUES (?,?,?,?,?,?,?)`).bind(rn,String(customer.account_number),String(customer.account_name||''),type,current,requested,note).run();
     const changeText=normalized.map(x=>`${x.number}. ${x.label}\n   Current: ${x.current||'—'}\n   Requested: ${x.requested}`).join('\n\n');
     const supportText=`Profile change request ${rn}\nCustomer #${customer.account_number} — ${customer.account_name||'Customer'}\n\n${changeText}\n\nNote: ${note||'—'}`;
-    await accountApplicationSendEmail(env,{to:'support@wootenoil.com',subject:`Profile Change Request — ${rn}`,html:`<pre style="font-family:Arial,sans-serif;white-space:pre-wrap">${notificationEscapeHtml(supportText)}</pre>`,text:supportText}).catch(()=>{});
+    const applicationsFrom=String(env.APPLICATIONS_FROM_EMAIL||'Wooten Oil Applications <applications@wootenoil.com>').trim();
+    await accountApplicationSendEmail(env,{from:applicationsFrom,to:'support@wootenoil.com',subject:`Profile Change Request — ${rn}`,html:`<pre style="font-family:Arial,sans-serif;white-space:pre-wrap">${notificationEscapeHtml(supportText)}</pre>`,text:supportText}).catch(()=>{});
     return notificationJson({success:true,request_number:rn,change_count:normalized.length,message:'Your profile change request was submitted to Wooten Oil.'});
   }catch(e){console.error('customerProfileChangeRequests',e);return notificationJson({success:false,error:'Profile change request could not be processed.'},500)}
 }
