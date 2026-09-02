@@ -11611,6 +11611,52 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 })();
 </script>
 
+
+<script id="wooten-admin-sidebar-match-panel-ver226-script">
+(function(){
+  var raf=0;
+  function syncSidebarHeight(){
+    cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(function(){
+      try{
+        if(window.matchMedia('(max-width:800px)').matches){
+          document.documentElement.style.removeProperty('--admin-sidebar-panel-height');
+          return;
+        }
+        var sidebar=document.getElementById('adminSidebar');
+        var active=document.querySelector('.admin-content .admin-tab-panel.is-active');
+        if(!sidebar||!active)return;
+        var sidebarTop=sidebar.getBoundingClientRect().top+window.scrollY;
+        var panelBottom=active.getBoundingClientRect().bottom+window.scrollY;
+        var height=Math.max(360,Math.round(panelBottom-sidebarTop));
+        document.documentElement.style.setProperty('--admin-sidebar-panel-height',height+'px');
+      }catch(_e){}
+    });
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',syncSidebarHeight,{once:true});
+  }else syncSidebarHeight();
+  window.addEventListener('load',syncSidebarHeight);
+  window.addEventListener('resize',syncSidebarHeight,{passive:true});
+  document.addEventListener('click',function(e){
+    if(e.target.closest('[data-admin-tab], [data-admin-open], .admin-subtab, [data-admin-subtab]')){
+      setTimeout(syncSidebarHeight,0);
+      setTimeout(syncSidebarHeight,120);
+      setTimeout(syncSidebarHeight,500);
+    }
+  });
+  try{
+    var content=document.querySelector('.admin-content');
+    if(content&&window.ResizeObserver){
+      new ResizeObserver(syncSidebarHeight).observe(content);
+    }
+    if(content&&window.MutationObserver){
+      new MutationObserver(syncSidebarHeight).observe(content,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','style']});
+    }
+  }catch(_e){}
+})();
+</script>
+
 </body>
 </html>
 
@@ -11996,6 +12042,49 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     left:12px !important;
     width:auto !important;
     max-height:calc(100vh - 90px) !important;
+  }
+}
+</style>
+
+
+
+<style id="wooten-admin-sidebar-match-panel-ver226">
+/* Ver226 — keep every navigation item inside the white menu card and align its bottom with the active main panel. */
+@media (min-width:801px){
+  #adminSidebar.admin-tabs-shell{
+    height:var(--admin-sidebar-panel-height,auto)!important;
+    max-height:none!important;
+    min-height:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    background:transparent!important;
+    box-sizing:border-box!important;
+  }
+  #adminSidebar .admin-tabs{
+    display:block!important;
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:100%!important;
+    box-sizing:border-box!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    padding:18px 12px 20px!important;
+    background:#fff!important;
+    border:1px solid var(--line)!important;
+    border-radius:18px!important;
+    box-shadow:0 12px 32px rgba(15,39,66,.08)!important;
+    scrollbar-width:none!important;
+    -ms-overflow-style:none!important;
+    overscroll-behavior:contain;
+  }
+  #adminSidebar .admin-tabs::-webkit-scrollbar{
+    width:0!important;
+    height:0!important;
+    display:none!important;
+  }
+  #adminSidebar .admin-tabs > *:last-child{
+    margin-bottom:0!important;
   }
 }
 </style>
