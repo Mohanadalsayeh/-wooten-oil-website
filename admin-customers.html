@@ -11694,6 +11694,97 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 })();
 </script>
 
+
+<script id="wooten-notification-sound-core-ver235">
+(function(){
+  if(window.WootenNotificationSound) return;
+  var ctx = null;
+  var unlocked = false;
+  var lastPlayedAt = 0;
+
+  function getContext(){
+    if(ctx) return ctx;
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if(!AudioCtx) return null;
+    try{ ctx = new AudioCtx(); }catch(_e){ ctx = null; }
+    return ctx;
+  }
+
+  function unlock(){
+    var c = getContext();
+    if(!c) return;
+    try{
+      if(c.state === 'suspended') c.resume();
+      unlocked = true;
+    }catch(_e){}
+  }
+
+  function tone(c, frequency, start, duration, peak){
+    var osc = c.createOscillator();
+    var gain = c.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peak, start + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.02);
+  }
+
+  function play(){
+    var nowMs = Date.now();
+    if(nowMs - lastPlayedAt < 900) return;
+    var c = getContext();
+    if(!c) return;
+    try{
+      if(c.state === 'suspended') c.resume();
+      if(c.state !== 'running' && !unlocked) return;
+      var t = c.currentTime + 0.01;
+      tone(c, 784, t, 0.15, 0.065);
+      tone(c, 1046.5, t + 0.11, 0.20, 0.055);
+      lastPlayedAt = nowMs;
+    }catch(_e){}
+  }
+
+  ['pointerdown','touchstart','keydown'].forEach(function(evt){
+    window.addEventListener(evt, unlock, {once:true, passive:true});
+  });
+
+  window.WootenNotificationSound = { play:play, unlock:unlock };
+})();
+</script>
+
+<script id="wooten-admin-notification-sound-ver235">
+(function(){
+  function ready(fn){
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, {once:true});
+    else fn();
+  }
+  ready(function(){
+    var badge = document.getElementById('adminNotificationBadge');
+    if(!badge || !window.WootenNotificationSound) return;
+    var baseline = null;
+    var timer = 0;
+    function readCount(){
+      var n = parseInt(String(badge.textContent || '0').replace(/[^0-9]/g,''), 10);
+      return Number.isFinite(n) ? n : 0;
+    }
+    function evaluate(){
+      clearTimeout(timer);
+      timer = setTimeout(function(){
+        var current = readCount();
+        if(baseline === null){ baseline = current; return; }
+        if(current > baseline) window.WootenNotificationSound.play();
+        baseline = current;
+      }, 140);
+    }
+    new MutationObserver(evaluate).observe(badge, {childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:['hidden','style','class']});
+  });
+})();
+</script>
+
 </body>
 </html>
 
