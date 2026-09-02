@@ -1522,10 +1522,13 @@
 
 <div class="portal-action-modal" id="profileChangeModal" role="dialog" aria-modal="true" aria-labelledby="profileChangeModalTitle" hidden>
   <div class="portal-action-modal-card portal-action-modal-card-wide" role="document">
-    <div class="portal-action-modal-head">
-      <div>
-        <h3 id="profileChangeModalTitle">Request a Profile Change</h3>
-        <p>Send a request to update your account information and Wooten Oil will review it.</p>
+    <div class="portal-action-modal-head profile-change-modal-head">
+      <div class="profile-change-title-wrap">
+        <span class="profile-change-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.5"></circle><path d="M3.5 19c.4-4.1 2.6-6.2 6.5-6.2 1.5 0 2.7.3 3.8.9M15 18.5l4.8-4.8 1.5 1.5-4.8 4.8-2.2.7z"></path></svg></span>
+        <div>
+          <h3 id="profileChangeModalTitle">Request a Profile Change</h3>
+          <p>Send a request to update your account information. Wooten Oil will review it.</p>
+        </div>
       </div>
       <button class="portal-action-modal-close" type="button" id="profileChangeModalClose" aria-label="Close profile change form">&times;</button>
     </div>
@@ -1534,21 +1537,21 @@
         <div class="profile-change-item" data-profile-change-item>
           <div class="profile-change-grid">
             <label>What needs to change?<select class="profile-change-type"><option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option></select></label>
-            <label>Requested New Value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter the new information"></label>
+            <label>Requested new value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter new information"></label>
           </div>
           <button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button>
         </div>
       </div>
-      <button class="profile-change-add" type="button" id="profileChangeAdd"><span aria-hidden="true">+</span> Add Another Change</button>
+      <button class="profile-change-add" type="button" id="profileChangeAdd"><span aria-hidden="true">+</span> Add another change</button>
       <div class="profile-change-note-wrap">
-        <label>Additional Note<textarea id="profileChangeNote" maxlength="1500" placeholder="Optional details for Wooten Oil…"></textarea></label>
+        <label>Additional note <span>(optional)</span><textarea id="profileChangeNote" maxlength="1500" placeholder="Add context for our team…"></textarea></label>
       </div>
-      <div class="portal-action-modal-actions">
-        <button class="payment-continue" type="button" id="profileChangeSubmit">Submit Change Request</button>
-        <button class="portal-secondary-btn" type="button" id="profileChangeModalCancel" style="width:auto;margin:0">Close</button>
+      <div class="portal-action-modal-actions profile-change-modal-actions">
+        <button class="portal-secondary-btn" type="button" id="profileChangeModalCancel" style="width:auto;margin:0">Cancel</button>
+        <button class="payment-continue" type="button" id="profileChangeSubmit">Submit request</button>
       </div>
       <div class="customer-documents-status" id="profileChangeStatus" role="status" aria-live="polite"></div>
-      <div class="profile-change-history"><h4>Recent Profile Change Requests</h4><div id="profileChangeHistory"><div class="notification-empty">Loading your requests…</div></div></div>
+      <div class="profile-change-history"><h4><span class="profile-change-history-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>Recent requests</h4><div id="profileChangeHistory"><div class="notification-empty">Loading your requests…</div></div></div>
     </div>
   </div>
 </div>
@@ -1674,6 +1677,39 @@
 .dashboard-action-shared-password .dashboard-action-icon{background:#eef6ff;color:#2464d5}.dashboard-action-shared-password[hidden]{display:none!important}.portal-action-password-card #sharedEmailPasswordStatus.bad{color:#c62828!important;font-weight:700}.portal-action-password-card #sharedEmailPasswordStatus.info{color:#4d97d4!important;font-weight:650}.portal-action-password-card #sharedEmailPasswordStatus.ok{color:#14804a!important;font-weight:700}.portal-action-password-card #sharedEmailPasswordStatus.show{display:flex!important;align-items:flex-start;gap:7px}
 @media(max-width:700px){.profile-change-grid{grid-template-columns:1fr;gap:14px}.profile-change-full{grid-column:auto}.portal-action-modal{padding:10px;align-items:flex-start}.portal-action-modal-card,.portal-action-modal-card-wide{width:100%;max-height:none;border-radius:18px}.portal-action-modal-head{padding:19px 18px 15px}.portal-action-modal-head h3{font-size:24px}.portal-action-modal-head p{font-size:14px}.portal-action-modal-body{padding:18px}.portal-action-modal-actions{display:grid;grid-template-columns:1fr;gap:10px}.portal-action-modal .payment-continue,.portal-action-modal .portal-secondary-btn{width:100%!important;min-width:0!important}.profile-change-grid input,.profile-change-grid select{height:52px}.profile-change-grid textarea{min-height:100px}.profile-change-item:not(:first-child){padding:16px}.profile-change-remove{margin-top:10px}.profile-change-add{width:100%;justify-content:center}.profile-change-note-wrap textarea{height:110px!important;min-height:110px!important}}
 </style>
+<style id="wooten-profile-change-compact-professional-style">
+#profileChangeModal .portal-action-modal-card-wide{width:min(870px,100%);border-radius:18px}
+#profileChangeModal .profile-change-modal-head{align-items:center;padding:20px 24px 17px}
+#profileChangeModal .profile-change-title-wrap{display:flex;align-items:center;gap:14px;min-width:0}
+#profileChangeModal .profile-change-title-icon{display:grid;place-items:center;flex:0 0 50px;width:50px;height:50px;border-radius:12px;background:#eef5ff;color:#1768c5}
+#profileChangeModal .profile-change-title-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#profileChangeModal .portal-action-modal-head h3{font-size:25px;line-height:1.18}
+#profileChangeModal .portal-action-modal-head p{margin-top:5px;font-size:14px;line-height:1.4}
+#profileChangeModal .portal-action-modal-close{width:38px;height:38px;border:0;background:transparent;font-size:25px}
+#profileChangeModal .portal-action-modal-body{padding:18px 24px 22px}
+#profileChangeModal .profile-change-items{gap:9px}
+#profileChangeModal .profile-change-item,#profileChangeModal .profile-change-item:first-child,#profileChangeModal .profile-change-item:not(:first-child){padding:15px;border:1px solid #dce5ed;border-radius:13px;background:#fbfcfe}
+#profileChangeModal .profile-change-grid{gap:14px}
+#profileChangeModal .profile-change-grid label,#profileChangeModal .profile-change-note-wrap label{font-size:13px;font-weight:800}
+#profileChangeModal .profile-change-grid input,#profileChangeModal .profile-change-grid select{height:46px;margin-top:6px;padding:10px 13px;border-radius:9px;font-size:14px}
+#profileChangeModal .profile-change-remove{min-height:30px;margin-top:7px;padding:4px 9px;border:0;background:transparent;font-size:12px}
+#profileChangeModal .profile-change-add{min-height:34px;margin:7px 0 0;padding:4px 3px;border:0;background:transparent;border-radius:5px;font-size:13px}
+#profileChangeModal .profile-change-add:hover{background:transparent;text-decoration:underline;text-underline-offset:3px}
+#profileChangeModal .profile-change-add span{font-size:18px}
+#profileChangeModal .profile-change-note-wrap{margin-top:12px}
+#profileChangeModal .profile-change-note-wrap label>span{color:#6c7d8e;font-weight:500}
+#profileChangeModal .profile-change-note-wrap textarea{height:78px!important;min-height:78px!important;max-height:150px;margin-top:6px;padding:11px 13px;border-radius:10px;font-size:14px}
+#profileChangeModal .profile-change-modal-actions{justify-content:flex-end;margin:16px -24px 0;padding:16px 24px 0;border-top:1px solid #e5ebf1}
+#profileChangeModal .portal-action-modal-actions .payment-continue,#profileChangeModal .portal-action-modal-actions .portal-secondary-btn{min-width:130px;min-height:44px;padding:9px 18px!important;border-radius:9px!important;font-size:14px!important}
+#profileChangeModal .customer-documents-status{margin-top:10px}
+#profileChangeModal .profile-change-history{margin-top:16px;padding-top:15px}
+#profileChangeModal .profile-change-history h4{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:15px}
+#profileChangeModal .profile-change-history-icon{display:inline-grid;place-items:center;color:#1768c5}
+#profileChangeModal .profile-change-history-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#profileChangeModal .notification-empty{padding:17px 12px;border-style:solid;background:#fbfcfe;font-size:13px}
+#profileChangeModal .profile-change-row{padding:11px 13px;margin-top:8px;border-radius:10px}
+@media(max-width:700px){#profileChangeModal .profile-change-modal-head{align-items:flex-start;padding:16px 17px 14px}#profileChangeModal .profile-change-title-wrap{gap:10px;padding-right:34px}#profileChangeModal .profile-change-title-icon{flex-basis:40px;width:40px;height:40px;border-radius:10px}#profileChangeModal .profile-change-title-icon svg{width:23px;height:23px}#profileChangeModal .portal-action-modal-head h3{font-size:20px}#profileChangeModal .portal-action-modal-head p{font-size:12.5px}#profileChangeModal .portal-action-modal-close{position:absolute;top:13px;right:13px}#profileChangeModal .portal-action-modal-body{padding:14px 16px 18px}#profileChangeModal .profile-change-item,#profileChangeModal .profile-change-item:first-child,#profileChangeModal .profile-change-item:not(:first-child){padding:12px}#profileChangeModal .profile-change-add{width:auto;justify-content:flex-start}#profileChangeModal .profile-change-note-wrap textarea{height:72px!important;min-height:72px!important}#profileChangeModal .profile-change-modal-actions{display:flex;flex-direction:column-reverse;margin:14px -16px 0;padding:14px 16px 0}#profileChangeModal .portal-action-modal-actions .payment-continue,#profileChangeModal .portal-action-modal-actions .portal-secondary-btn{width:100%!important}}
+</style>
 <script id="wooten-profile-change-request-script">
 (()=>{
   const g=id=>document.getElementById(id);
@@ -1725,7 +1761,7 @@
     setStatus(passwordStatus,'');
   }
   const profileOptions='<option value="address">Address</option><option value="phone">Phone Number</option><option value="email">Email Address</option><option value="contact">Contact Name</option><option value="other">Other</option>';
-  function profileItemMarkup(){return '<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested New Value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter the new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove aria-label="Remove this change">Remove</button></div>'}
+  function profileItemMarkup(){return '<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested new value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove aria-label="Remove this change">Remove</button></div>'}
   function updateProfileRows(){
     const rows=[...profileItems.querySelectorAll('[data-profile-change-item]')];
     rows.forEach((row,i)=>{const remove=row.querySelector('[data-profile-change-remove]');if(remove)remove.hidden=rows.length===1||i===0;});
@@ -1734,7 +1770,7 @@
   }
   function clearProfile(){
     setStatus(profileStatus,'');
-    profileItems.innerHTML='<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested New Value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter the new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button></div>';
+    profileItems.innerHTML='<div class="profile-change-item" data-profile-change-item><div class="profile-change-grid"><label>What needs to change?<select class="profile-change-type">'+profileOptions+'</select></label><label>Requested new value<input class="profile-change-value" type="text" maxlength="500" placeholder="Enter new information"></label></div><button class="profile-change-remove" type="button" data-profile-change-remove hidden aria-label="Remove this change">Remove</button></div>';
     g('profileChangeNote').value='';
     updateProfileRows();
   }
