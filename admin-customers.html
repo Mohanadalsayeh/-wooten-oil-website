@@ -2941,6 +2941,9 @@ input[type="file"]:focus-visible{
     margin-right:8px;
     color:#2ca55f;
   }
+  .import-last-update small.import-run-in-progress{
+    color:#9a6700;
+  }
   @media(max-width:720px){
     .import-last-update{
       margin-top:9px;
@@ -4778,9 +4781,9 @@ textarea[data-request-response]{
     </div>
 
     <div class="import-last-update" id="customerImportLastUpdate">
-      <span class="import-last-update-label">Last customer file update</span>
+      <span class="import-last-update-label">Last customer upload</span>
       <strong id="customerImportLastUpdateValue">Not imported yet</strong>
-      <small id="customerImportLastUpdateBy">Imported by: —</small>
+      <small id="customerImportLastUpdateBy">Waiting for the first completed upload</small>
     </div>
 
     <div id="status" class="status"></div>
@@ -4880,9 +4883,9 @@ textarea[data-request-response]{
       </div>
 
       <div class="import-last-update" id="paymentImportLastUpdate">
-        <span class="import-last-update-label">Last payment file update</span>
+        <span class="import-last-update-label">Last payment upload</span>
         <strong id="paymentImportLastUpdateValue">Not imported yet</strong>
-        <small id="paymentImportLastUpdateBy">Imported by: —</small>
+        <small id="paymentImportLastUpdateBy">Waiting for the first completed upload</small>
       </div>
 
       <div id="paymentImportStatus" class="status"></div>
@@ -6022,13 +6025,26 @@ function formatImportUpdateDate(value){
   });
 }
 
-function setImportLastUpdate(kind,value,by){
+function setImportLastUpdate(kind,value,by,mode,status,count,batchNumber,batchCount){
   const el=document.getElementById(
     kind==="payments" ? "paymentImportLastUpdateValue" : "customerImportLastUpdateValue"
   );
   if(el) el.textContent=formatImportUpdateDate(value);
   const byEl=document.getElementById(kind==="payments"?"paymentImportLastUpdateBy":"customerImportLastUpdateBy");
-  if(byEl)byEl.textContent="Imported by: "+(by||"—");
+  if(byEl){
+    if(!value){
+      byEl.textContent="Waiting for the first completed upload";
+      byEl.classList.remove("import-run-in-progress");
+      return;
+    }
+    const automatic=String(mode||"").toLowerCase()==="automatic";
+    const completed=String(status||"completed").toLowerCase()==="completed";
+    const source=automatic?"Automatic MAS 90 Sync":"Manual import by "+(by||"Wooten Oil Admin");
+    const progress=completed?"Completed":`In progress — batch ${Number(batchNumber||1).toLocaleString()} of ${Number(batchCount||1).toLocaleString()}`;
+    const records=Number(count||0)>0?Number(count).toLocaleString()+" records":"";
+    byEl.textContent=[source,progress,records].filter(Boolean).join(" • ");
+    byEl.classList.toggle("import-run-in-progress",!completed);
+  }
 }
 
 async function loadImportLastUpdates(){
@@ -6041,8 +6057,8 @@ async function loadImportLastUpdates(){
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok || data.success===false) return;
-    setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"");
-    setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"");
+    setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"",data.customers_last_import_mode||"manual",data.customers_last_import_status||"completed",data.customers_last_record_count||0,data.customers_last_import_batch_number||1,data.customers_last_import_batch_count||1);
+    setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
   }catch(e){
     console.warn("Could not load import update times",e);
   }
@@ -6412,6 +6428,7 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
   let phoneServerMatches=0;
   let currentBatch=0;
   let latestCustomerImportAt="";
+  let latestCustomerImportMeta=null;
   btn.disabled=true; btn.textContent="Importing batch 1 of "+batches;
   if(autoFixEl)autoFixEl.disabled=true;
   renderCustomerPhoneImportSummary({found:sourcePhoneCount,seven:sourceSevenDigitCount,fixed:0,changed:0,matches:0});
@@ -6423,7 +6440,7 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
       const chunk=preparedRows.slice(i,i+chunkSize);
       const res=await fetch("/api/admin/customers-import",{
         method:"POST",
-        headers:{"Content-Type":"application/json","X-Admin-Key":key},
+        headers:{"Content-Type":"application/json","X-Admin-Key":key,"X-Import-Mode":"manual","X-Import-Batch-Number":String(currentBatch),"X-Import-Batch-Count":String(batches),"X-Import-Run-Total":String(total)},
         body:JSON.stringify({customers:chunk,fix_area_code_automatically:fixAreaCodeAutomatically})
       });
       const data=await res.json().catch(()=>({}));
@@ -6443,11 +6460,12 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
       phoneServerMatches+=Number(data.phone_server_matches||0);
       renderCustomerPhoneImportSummary({found:phoneNumbersFound,seven:phoneSevenDigitFound,fixed:phoneAreaCodesFixed,changed:phoneChangedVsServer,matches:phoneServerMatches});
       if(data.imported_at)latestCustomerImportAt=data.imported_at;
+      latestCustomerImportMeta=data;
       document.getElementById("mImported").textContent=imported;
       updateImportProgress("customers",{processed,total,imported,batch:currentBatch,batches,label:"Importing customers"});
       setStatus(`Importing customers: ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches} • ${phoneNumbersFound.toLocaleString()} phone number${phoneNumbersFound===1?"":"s"} found • ${phoneAreaCodesFixed.toLocaleString()} area code${phoneAreaCodesFixed===1?"":"s"} fixed • ${phoneChangedVsServer.toLocaleString()} different vs server • phone updates ${phoneUpdates.toLocaleString()} • rejected format ${phoneRejected.toLocaleString()}${phoneLookupInvalid?` • Twilio invalid/non-US ${phoneLookupInvalid.toLocaleString()}`:""}${phoneLookupErrors?` • lookup errors ${phoneLookupErrors.toLocaleString()}`:""}${reactivationRequired?` • ${reactivationRequired.toLocaleString()} email change${reactivationRequired===1?"":"s"} require reactivation`:""}.`);
     }
-    if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt,window.wootenAdminUser?.display_name||"Wooten Oil Admin");
+    if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt,latestCustomerImportMeta?.imported_by||window.wootenAdminUser?.display_name||"Wooten Oil Admin",latestCustomerImportMeta?.import_mode||"manual",latestCustomerImportMeta?.import_status||"completed",latestCustomerImportMeta?.import_record_count||total,latestCustomerImportMeta?.import_batch_number||batches,latestCustomerImportMeta?.import_batch_count||batches);
     updateImportProgress("customers",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Customer import complete"});
     renderCustomerPhoneImportSummary({found:phoneNumbersFound,seven:phoneSevenDigitFound,fixed:phoneAreaCodesFixed,changed:phoneChangedVsServer,matches:phoneServerMatches});
     setStatus(`Success: ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}. Phone comparison: ${phoneNumbersFound.toLocaleString()} number${phoneNumbersFound===1?"":"s"} found in the import, ${phoneSevenDigitFound.toLocaleString()} had 7 digits, ${phoneAreaCodesFixed.toLocaleString()} area code${phoneAreaCodesFixed===1?"":"s"} fixed${fixAreaCodeAutomatically&&selectedAreaCode?` with ${selectedAreaCode}`:""}, ${phoneChangedVsServer.toLocaleString()} differed from the server, and ${phoneServerMatches.toLocaleString()} already matched. Stored phone updates: ${phoneUpdates.toLocaleString()}. Twilio status: ${phoneLookupInvalid.toLocaleString()} invalid/unverifiable/non-US, ${phoneLookupErrors.toLocaleString()} lookup error${phoneLookupErrors===1?"":"s"}; these Twilio results control SMS eligibility only and never prevent the MDB phone value from being stored.${reactivationRequired?` ${reactivationRequired.toLocaleString()} account${reactivationRequired===1?"":"s"} had an email change and must reactivate online access.`:""}`);
@@ -6670,6 +6688,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
   let skipped=0;
   let currentBatch=0;
   let latestPaymentImportAt="";
+  let latestPaymentImportMeta=null;
   btn.disabled=true;
   btn.textContent="Importing batch 1 of "+batches;
   updateImportProgress("payments",{processed:0,total,imported:0,batch:1,batches,label:"Importing customer payments"});
@@ -6684,7 +6703,11 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
         method:"POST",
         headers:{
           "Content-Type":"application/json",
-          "X-Admin-Key":key
+          "X-Admin-Key":key,
+          "X-Import-Mode":"manual",
+          "X-Import-Batch-Number":String(currentBatch),
+          "X-Import-Batch-Count":String(batches),
+          "X-Import-Run-Total":String(total)
         },
         body:JSON.stringify({payments:chunk})
       });
@@ -6697,13 +6720,14 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       skipped+=Number(data.skipped||0);
       processed+=chunk.length;
       if(data.imported_at) latestPaymentImportAt=data.imported_at;
+      latestPaymentImportMeta=data;
       document.getElementById("pmImported").textContent=imported;
       updateImportProgress("payments",{processed,total,imported,batch:currentBatch,batches,label:"Importing customer payments"});
       setPaymentStatus(`Importing payments: ${imported.toLocaleString()} added • ${processed.toLocaleString()} of ${total.toLocaleString()} processed • batch ${currentBatch} of ${batches}.`);
     }
 
     document.getElementById("pmImported").textContent=imported;
-    if(latestPaymentImportAt) setImportLastUpdate("payments",latestPaymentImportAt,window.wootenAdminUser?.display_name||"Wooten Oil Admin");
+    if(latestPaymentImportAt)setImportLastUpdate("payments",latestPaymentImportAt,latestPaymentImportMeta?.imported_by||window.wootenAdminUser?.display_name||"Wooten Oil Admin",latestPaymentImportMeta?.import_mode||"manual",latestPaymentImportMeta?.import_status||"completed",latestPaymentImportMeta?.import_record_count||total,latestPaymentImportMeta?.import_batch_number||batches,latestPaymentImportMeta?.import_batch_count||batches);
     updateImportProgress("payments",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Payment import complete"});
     setPaymentStatus(
       `Payment import complete: ${imported} new payment(s) added`+

@@ -893,8 +893,8 @@ async function onRequestPost3({ request, env }) {
   const customerRecordCount=parsed.length;
   let importMeta=null;
   try{
-    importMeta=await recordAdminImport(env,"customers",customerRecordCount,adminRequestActor(request,env).name);
-    await adminAudit(env,request,"customer_import","customers","",`${customerRecordCount} records imported; ${skipped} skipped; ${changedEmailAccounts.length} email changes required reactivation; phone numbers found ${phoneNumbersFound}; 7-digit phones ${phoneAreaCodeCandidates}; area codes fixed ${phoneAreaCodeFixed}; different vs server ${phoneChangedVsServer}; server matches ${phoneServerMatches}; phone updates ${phoneUpdated}; phone rejected ${phoneRejected}; phone lookup invalid ${phoneLookupInvalid}; phone lookup errors ${phoneLookupErrors}`);
+    importMeta=await recordAdminImport(env,request,"customers",customerRecordCount,adminRequestActor(request,env).name);
+if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImportAuditRequest(request,importMeta),"customer_import_completed","customers","",`${importMeta.last_record_count} source records; ${importMeta.last_import_mode} import completed in ${importMeta.last_import_batch_count} batch(es)`);
   }catch(error){console.error("Customer import timestamp could not be recorded",error);}
 
   return json3({
@@ -914,7 +914,13 @@ async function onRequestPost3({ request, env }) {
     phone_server_matches:phoneServerMatches,
     fix_area_code_automatically:fixAreaCodeAutomatically,
     default_area_code:fixAreaCodeAutomatically?defaultAreaCode:"",
-    imported_at:importMeta?.last_import_at||new Date().toISOString()
+    imported_at:importMeta?.last_import_at||new Date().toISOString(),
+    import_mode:importMeta?.last_import_mode||"manual",
+    import_status:importMeta?.last_import_status||"completed",
+    imported_by:importMeta?.last_import_by||adminRequestActor(request,env).name,
+    import_record_count:Number(importMeta?.last_record_count||customerRecordCount),
+    import_batch_number:Number(importMeta?.last_import_batch_number||1),
+    import_batch_count:Number(importMeta?.last_import_batch_count||1)
   });
 }
 __name(onRequestPost3, "onRequestPost");
@@ -930,26 +936,65 @@ async function ensureAdminImportMetadataSchema(env){
       import_type TEXT PRIMARY KEY,
       last_import_at TEXT NOT NULL,
       last_record_count INTEGER NOT NULL DEFAULT 0,
-      last_import_by TEXT NOT NULL DEFAULT ''
+      last_import_by TEXT NOT NULL DEFAULT '',
+      last_import_mode TEXT NOT NULL DEFAULT 'manual',
+      last_import_status TEXT NOT NULL DEFAULT 'completed',
+      last_import_batch_number INTEGER NOT NULL DEFAULT 1,
+      last_import_batch_count INTEGER NOT NULL DEFAULT 1
     )
   `).run();
-  const info=await env.DB.prepare(`PRAGMA table_info(admin_import_metadata)`).all();if(!(info?.results||[]).some(row=>String(row.name||"").toLowerCase()==="last_import_by"))await env.DB.prepare(`ALTER TABLE admin_import_metadata ADD COLUMN last_import_by TEXT NOT NULL DEFAULT ''`).run();
+  const info=await env.DB.prepare(`PRAGMA table_info(admin_import_metadata)`).all();
+  const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  const additions=[
+    ["last_import_by","TEXT NOT NULL DEFAULT ''"],
+    ["last_import_mode","TEXT NOT NULL DEFAULT 'manual'"],
+    ["last_import_status","TEXT NOT NULL DEFAULT 'completed'"],
+    ["last_import_batch_number","INTEGER NOT NULL DEFAULT 1"],
+    ["last_import_batch_count","INTEGER NOT NULL DEFAULT 1"]
+  ];
+  for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE admin_import_metadata ADD COLUMN ${name} ${definition}`).run();
 }
 __name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
 
-async function recordAdminImport(env,type,count,actorName="Wooten Oil Admin"){
+function adminImportPositiveInteger(value,fallback,maximum=10000000){
+  const parsed=Math.trunc(Number(value));
+  return Number.isFinite(parsed)&&parsed>0?Math.min(parsed,maximum):fallback;
+}
+__name(adminImportPositiveInteger,"adminImportPositiveInteger");
+
+function adminImportAuditRequest(request,metadata){
+  if(metadata?.last_import_mode!=="automatic")return request;
+  const headers=new Headers(request.headers);
+  headers.delete("X-Admin-Actor-Id");
+  headers.set("X-Admin-Actor-Name","Automatic MAS 90 Sync");
+  headers.set("X-Admin-Actor-Owner","1");
+  return new Request(request.url,{method:"GET",headers});
+}
+__name(adminImportAuditRequest,"adminImportAuditRequest");
+
+async function recordAdminImport(env,request,type,count,actorName="Wooten Oil Admin"){
   await ensureAdminImportMetadataSchema(env);
+  const mode=String(request?.headers?.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic"?"automatic":"manual";
+  const batchNumber=adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Number"),1,1000000);
+  const batchCount=Math.max(batchNumber,adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Count"),1,1000000));
+  const runTotal=adminImportPositiveInteger(request?.headers?.get("X-Import-Run-Total"),Number(count||0),10000000);
+  const status=batchNumber>=batchCount?"completed":"in_progress";
+  const recordedBy=mode==="automatic"?"Automatic MAS 90 Sync":String(actorName||"Wooten Oil Admin");
   await env.DB.prepare(`
-    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count,last_import_by)
-    VALUES (?,CURRENT_TIMESTAMP,?,?)
+    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count)
+    VALUES (?,CURRENT_TIMESTAMP,?,?,?,?,?,?)
     ON CONFLICT(import_type) DO UPDATE SET
       last_import_at=CURRENT_TIMESTAMP,
       last_record_count=excluded.last_record_count,
-      last_import_by=excluded.last_import_by
-  `).bind(String(type||""),Number(count||0),String(actorName||"Wooten Oil Admin")).run();
+      last_import_by=excluded.last_import_by,
+      last_import_mode=excluded.last_import_mode,
+      last_import_status=excluded.last_import_status,
+      last_import_batch_number=excluded.last_import_batch_number,
+      last_import_batch_count=excluded.last_import_batch_count
+  `).bind(String(type||""),runTotal,recordedBy,mode,status,batchNumber,batchCount).run();
 
   const row=await env.DB.prepare(`
-    SELECT last_import_at,last_record_count,last_import_by
+    SELECT last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count
     FROM admin_import_metadata
     WHERE import_type=?
   `).bind(String(type||"")).first();
@@ -969,23 +1014,33 @@ async function adminImportStatusGet({request,env}){
   try{
     await ensureAdminImportMetadataSchema(env);
     const result=await env.DB.prepare(`
-      SELECT import_type,last_import_at,last_record_count,last_import_by
+      SELECT import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count
       FROM admin_import_metadata
       WHERE import_type IN ('customers','payments')
     `).all();
 
     let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
+    let customersMode="manual",paymentsMode="manual",customersStatus="completed",paymentsStatus="completed";
+    let customersBatchNumber=1,customersBatchCount=1,paymentsBatchNumber=1,paymentsBatchCount=1;
 
     for(const row of result?.results||[]){
       if(row.import_type==="customers"){
         customersLast=row.last_import_at||"";
         customersCount=Number(row.last_record_count||0);
         customersBy=row.last_import_by||"";
+        customersMode=row.last_import_mode||"manual";
+        customersStatus=row.last_import_status||"completed";
+        customersBatchNumber=Number(row.last_import_batch_number||1);
+        customersBatchCount=Number(row.last_import_batch_count||1);
       }else if(row.import_type==="payments"){
         paymentsLast=row.last_import_at||"";
         paymentsCount=Number(row.last_record_count||0);
         paymentsBy=row.last_import_by||"";
+        paymentsMode=row.last_import_mode||"manual";
+        paymentsStatus=row.last_import_status||"completed";
+        paymentsBatchNumber=Number(row.last_import_batch_number||1);
+        paymentsBatchCount=Number(row.last_import_batch_count||1);
       }
     }
 
@@ -994,9 +1049,17 @@ async function adminImportStatusGet({request,env}){
       customers_last_import_at:customersLast,
       customers_last_record_count:customersCount,
       customers_last_import_by:customersBy,
+      customers_last_import_mode:customersMode,
+      customers_last_import_status:customersStatus,
+      customers_last_import_batch_number:customersBatchNumber,
+      customers_last_import_batch_count:customersBatchCount,
       payments_last_import_at:paymentsLast,
       payments_last_record_count:paymentsCount,
-      payments_last_import_by:paymentsBy
+      payments_last_import_by:paymentsBy,
+      payments_last_import_mode:paymentsMode,
+      payments_last_import_status:paymentsStatus,
+      payments_last_import_batch_number:paymentsBatchNumber,
+      payments_last_import_batch_count:paymentsBatchCount
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -1149,8 +1212,8 @@ async function adminCustomerPaymentsImport({ request, env }) {
 
   let importMeta=null;
   try{
-    importMeta=await recordAdminImport(env,"payments",valid.length,adminRequestActor(request,env).name);
-    await adminAudit(env,request,"payment_import","payments","",`${valid.length} valid; ${inserted} inserted; ${duplicates} duplicates; ${skipped} skipped`);
+    importMeta=await recordAdminImport(env,request,"payments",valid.length,adminRequestActor(request,env).name);
+if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImportAuditRequest(request,importMeta),"payment_import_completed","payments","",`${importMeta.last_record_count} source records; ${importMeta.last_import_mode} import completed in ${importMeta.last_import_batch_count} batch(es)`);
   }catch(error){
     console.error("Payment import timestamp could not be recorded",error);
   }
@@ -1162,7 +1225,13 @@ async function adminCustomerPaymentsImport({ request, env }) {
     inserted,
     duplicates,
     skipped,
-    imported_at: importMeta?.last_import_at || new Date().toISOString()
+    imported_at:importMeta?.last_import_at||new Date().toISOString(),
+    import_mode:importMeta?.last_import_mode||"manual",
+    import_status:importMeta?.last_import_status||"completed",
+    imported_by:importMeta?.last_import_by||adminRequestActor(request,env).name,
+    import_record_count:Number(importMeta?.last_record_count||valid.length),
+    import_batch_number:Number(importMeta?.last_import_batch_number||1),
+    import_batch_count:Number(importMeta?.last_import_batch_count||1)
   });
 }
 __name(adminCustomerPaymentsImport, "adminCustomerPaymentsImport");
