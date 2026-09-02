@@ -4589,6 +4589,32 @@ textarea[data-request-response]{
 }
 </style>
 
+
+<style id="wooten-admin-sidebar-bottom-align-ver224">
+/* Ver224 — desktop sidebar fills to the same visible bottom edge as the main content. */
+@media (min-width: 801px){
+  #adminSidebar.admin-tabs-shell{
+    height:calc(100vh - 24px)!important;
+    max-height:calc(100vh - 24px)!important;
+    padding-bottom:0!important;
+    background:transparent!important;
+  }
+  #adminSidebar .admin-tabs{
+    min-height:100%!important;
+    height:100%!important;
+    box-sizing:border-box!important;
+    background:#fff!important;
+    padding-bottom:18px!important;
+  }
+  /* Remove the gray/fade strip added previously. */
+  #adminSidebar.admin-tabs-shell::after{
+    content:none!important;
+    display:none!important;
+    background:none!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
