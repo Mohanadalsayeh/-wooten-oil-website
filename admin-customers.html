@@ -12321,3 +12321,68 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 })();
 </script>
+
+
+<style id="wooten-admin-access-overflow-fix-ver228">
+/* Ver228 — keep the wider Admin Access panel inside the viewport without horizontal page overflow. */
+html,body{
+  max-width:100% !important;
+  overflow-x:hidden !important;
+}
+.wrap{
+  width:100% !important;
+  max-width:1560px !important;
+  box-sizing:border-box !important;
+}
+@media (min-width:801px){
+  .admin-header{
+    grid-template-columns:minmax(0,1fr) minmax(380px,420px) !important;
+    width:auto !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+  }
+  .admin-header .admin-access-box{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:420px !important;
+    justify-self:end !important;
+    box-sizing:border-box !important;
+  }
+  .admin-header .admin-access-box > :first-child{
+    min-width:104px !important;
+  }
+  .admin-header .admin-header-actions{
+    min-width:0 !important;
+    max-width:100% !important;
+  }
+  .admin-header .admin-access-btn{
+    max-width:230px !important;
+    padding-left:18px !important;
+    padding-right:18px !important;
+  }
+}
+@media (min-width:801px) and (max-width:1180px){
+  .admin-header{
+    grid-template-columns:minmax(0,1fr) minmax(350px,390px) !important;
+  }
+  .admin-header .admin-access-box{
+    max-width:390px !important;
+    padding-left:15px !important;
+    padding-right:15px !important;
+  }
+  .admin-header .admin-header-actions{
+    gap:10px !important;
+  }
+  .admin-header .admin-access-btn{
+    padding-left:14px !important;
+    padding-right:14px !important;
+  }
+}
+@media (max-width:800px){
+  .admin-header .admin-access-box{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+  }
+}
+</style>
