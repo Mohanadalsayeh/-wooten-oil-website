@@ -12089,3 +12089,235 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 }
 </style>
 
+
+
+<style id="wooten-admin-access-and-bell-fix-ver227">
+/* Ver227 — widen the Admin Access panel and normalize the bell button size. */
+.admin-header .admin-access-box,
+.admin-header-access,
+.admin-access-card,
+.admin-session-card{
+  min-width:420px !important;
+  width:420px !important;
+  max-width:420px !important;
+  padding:18px 18px !important;
+  align-items:center !important;
+  gap:16px !important;
+}
+.admin-header .admin-access-box > :first-child{
+  min-width:0 !important;
+  flex:1 1 auto !important;
+}
+.admin-header .admin-header-actions{
+  display:flex !important;
+  align-items:center !important;
+  gap:14px !important;
+  flex:0 0 auto !important;
+  margin-left:auto !important;
+}
+.admin-header .admin-access-btn{
+  height:56px !important;
+  min-height:56px !important;
+  padding:0 22px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:14px !important;
+  white-space:nowrap !important;
+}
+.admin-header .admin-bell-shell{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex:0 0 auto !important;
+}
+.admin-header .admin-bell-btn{
+  width:56px !important;
+  height:56px !important;
+  min-width:56px !important;
+  min-height:56px !important;
+  border-radius:14px !important;
+}
+.admin-header .admin-bell-btn svg{
+  width:24px !important;
+  height:24px !important;
+}
+.admin-header .admin-bell-badge{
+  right:-7px !important;
+  top:-8px !important;
+}
+.admin-header .admin-bell-menu-head{
+  padding:18px 18px 14px !important;
+}
+#adminNotificationRefresh.admin-bell-refresh-btn{
+  width:42px !important;
+  height:42px !important;
+  min-width:42px !important;
+  min-height:42px !important;
+  padding:0 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border:1px solid #cbd8e3 !important;
+  border-radius:12px !important;
+  background:#f8fbfd !important;
+  color:#2c6389 !important;
+  box-shadow:0 2px 8px rgba(16,43,69,.06) !important;
+  cursor:pointer !important;
+  appearance:none;
+  -webkit-appearance:none;
+  transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+#adminNotificationRefresh.admin-bell-refresh-btn:hover,
+#adminNotificationRefresh.admin-bell-refresh-btn:focus-visible{
+  background:#eef6fc !important;
+  border-color:#99bdd7 !important;
+  box-shadow:0 0 0 3px rgba(36,107,158,.12),0 10px 22px rgba(16,43,69,.10) !important;
+  outline:none !important;
+}
+#adminNotificationRefresh.admin-bell-refresh-btn:disabled{
+  opacity:.82 !important;
+  cursor:wait !important;
+}
+#adminNotificationRefresh .admin-bell-refresh-icon{
+  width:20px !important;
+  height:20px !important;
+  display:block !important;
+  stroke:currentColor !important;
+  stroke-width:2 !important;
+  fill:none !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+  transform-origin:center center !important;
+}
+#adminNotificationRefresh.is-loading .admin-bell-refresh-icon{
+  animation:adminBellRefreshSpin .75s linear infinite;
+}
+@keyframes adminBellRefreshSpin{
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
+}
+@media (max-width:1100px){
+  .admin-header .admin-access-box,
+  .admin-header-access,
+  .admin-access-card,
+  .admin-session-card{
+    min-width:390px !important;
+    width:390px !important;
+    max-width:390px !important;
+  }
+}
+@media (max-width:800px){
+  .admin-header .admin-access-box,
+  .admin-header-access,
+  .admin-access-card,
+  .admin-session-card{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+  }
+  .admin-header .admin-header-actions{
+    width:100% !important;
+    justify-content:flex-end !important;
+  }
+  .admin-header .admin-access-btn,
+  .admin-header .admin-bell-btn{
+    height:52px !important;
+    min-height:52px !important;
+  }
+  .admin-header .admin-bell-btn{
+    width:52px !important;
+    min-width:52px !important;
+  }
+}
+</style>
+
+<script id="wooten-admin-notification-refresh-fix-ver227">
+(function(){
+  function ready(fn){
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, {once:true});
+    else fn();
+  }
+  ready(function(){
+    var g = function(id){ return document.getElementById(id); };
+    var bell = g('adminNotificationBell');
+    var badge = g('adminNotificationBadge');
+    var menu = g('adminNotificationMenu');
+    var list = g('adminNotificationList');
+    var counts = g('adminNotificationCounts');
+    var summary = g('adminNotificationSummary');
+    var refresh = g('adminNotificationRefresh');
+    if(!bell || !menu || !refresh) return;
+
+    refresh.classList.add('admin-bell-refresh-btn');
+    refresh.setAttribute('type','button');
+    refresh.setAttribute('aria-label','Refresh notifications');
+    refresh.innerHTML = '<svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.15 5.45"></path><path d="M20 4v7h-7"></path></svg>';
+
+    var key = function(){ var el = g('adminKey'); return el ? String(el.value || '').trim() : ''; };
+    var esc = function(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]; }); };
+    var labels = { profile:'Profile Change Request', fuel:'Fuel Delivery Request', application:'Account Application' };
+    var time = function(v){
+      if(!v) return '';
+      var d = new Date(String(v).replace(' ','T') + 'Z');
+      if(Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    };
+
+    async function loadNotifications(showBusy){
+      if(showBusy){
+        refresh.disabled = true;
+        refresh.classList.add('is-loading');
+      }
+      try{
+        if(!key()){
+          if(badge) badge.hidden = true;
+          if(summary) summary.textContent = 'Sign in to load notifications';
+          if(counts) counts.innerHTML = '';
+          if(list) list.innerHTML = '<div class="admin-bell-empty">Sign in to load notifications.</div>';
+          return;
+        }
+        var response = await fetch('/api/admin/notification-bell', {
+          headers: {'X-Admin-Key': key()},
+          cache: 'no-store'
+        });
+        var data = await response.json().catch(function(){ return {}; });
+        if(!response.ok || !data.success) throw new Error(data.error || 'Could not load notifications.');
+
+        var total = Number(data.total || 0);
+        if(badge){
+          badge.textContent = total > 99 ? '99+' : String(total);
+          badge.hidden = total === 0;
+        }
+        if(summary) summary.textContent = total ? total + ' pending item' + (total === 1 ? '' : 's') : 'No pending items';
+        if(counts){
+          counts.innerHTML = [['profile','Profile'],['fuel','Fuel'],['applications','Applications']].map(function(item){
+            var keyName = item[0], label = item[1];
+            return '<button type="button" class="admin-bell-count" data-bell-count="' + keyName + '"><strong>' + Number((data.counts || {})[keyName] || 0) + '</strong>' + label + '</button>';
+          }).join('');
+        }
+        var items = Array.isArray(data.items) ? data.items : [];
+        if(list){
+          list.innerHTML = items.length ? items.map(function(x){
+            return '<button class="admin-bell-item" type="button" data-bell-type="' + esc(x.item_type) + '"><span class="admin-bell-dot"></span><span><strong>' + esc(labels[x.item_type] || 'Admin Notification') + ' — ' + esc(x.request_number || '') + '</strong><span>' + esc(x.name || 'Customer') + (x.account ? ' • Customer #' + esc(x.account) : '') + (x.created_at ? ' • ' + esc(time(x.created_at)) : '') + '</span></span></button>';
+          }).join('') : '<div class="admin-bell-empty">No pending customer requests or applications.</div>';
+        }
+      }catch(err){
+        if(list) list.innerHTML = '<div class="admin-bell-empty">' + esc(err && err.message ? err.message : 'Notifications could not be loaded.') + '</div>';
+      }finally{
+        if(showBusy){
+          refresh.disabled = false;
+          refresh.classList.remove('is-loading');
+        }
+      }
+    }
+
+    refresh.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      loadNotifications(true);
+    }, true);
+  });
+})();
+</script>
