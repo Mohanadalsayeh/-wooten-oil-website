@@ -1901,6 +1901,8 @@
   const emailLabel=g('sharedEmailPasswordAddress');
   if(!button||!modal||!submit)return;
   let sharedEmail='';
+  let availabilityGeneration=0;
+  let wasAuthenticated=document.body.classList.contains('portal-authenticated');
   const icons={
     bad:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4M12 16.5h.01"></path></svg></span>',
     info:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span>',
@@ -1919,12 +1921,17 @@
   function open(){clear();emailLabel.textContent=sharedEmail||'—';modal.hidden=false;document.body.classList.add('portal-action-modal-open');setTimeout(()=>g('sharedEmailCurrentPassword')?.focus(),120)}
   function close(){modal.hidden=true;if(g('changePasswordModal')?.hidden!==false&&g('profileChangeModal')?.hidden!==false)document.body.classList.remove('portal-action-modal-open');clear()}
   async function refreshAvailability(){
+    const generation=++availabilityGeneration;
     try{
       const r=await window.wootenCustomerFetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));
+      if(generation!==availabilityGeneration)return;
       const isShared=!!(r.ok&&d.success&&d.authenticated&&d.login_method==='email'&&d.account_scope==='linked');
       sharedEmail=isShared?String(d.customer?.email||'').trim():'';
       button.hidden=!isShared;
-    }catch(_){button.hidden=true;sharedEmail='';}
+    }catch(_){
+      if(generation!==availabilityGeneration)return;
+      if(!document.body.classList.contains('portal-authenticated')){button.hidden=true;sharedEmail='';}
+    }
   }
   button.addEventListener('click',open);closeBtn?.addEventListener('click',close);cancelBtn?.addEventListener('click',close);
   modal.addEventListener('click',e=>{if(e.target===modal)close()});
@@ -1947,7 +1954,13 @@
   });
   setTimeout(refreshAvailability,350);
   g('accountSwitcherList')?.addEventListener('click',()=>setTimeout(refreshAvailability,250));
-  new MutationObserver(()=>{if(document.body.classList.contains('portal-authenticated'))setTimeout(refreshAvailability,120);else button.hidden=true}).observe(document.body,{attributes:true,attributeFilter:['class']});
+  new MutationObserver(()=>{
+    const isAuthenticated=document.body.classList.contains('portal-authenticated');
+    if(isAuthenticated===wasAuthenticated)return;
+    wasAuthenticated=isAuthenticated;
+    if(isAuthenticated)setTimeout(refreshAvailability,120);
+    else{availabilityGeneration+=1;button.hidden=true;sharedEmail='';}
+  }).observe(document.body,{attributes:true,attributeFilter:['class']});
 })();
 </script>
 
