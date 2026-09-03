@@ -13742,7 +13742,7 @@ html,body{
 }
 </style>
 
-<script id="wooten-chatgpt-sidebar-session-ver260">
+<script id="wooten-chatgpt-sidebar-session-ver272">
 (function(){
   var name=document.getElementById('adminSidebarUserName');
   var avatar=document.getElementById('adminSidebarAvatar');
@@ -13761,9 +13761,16 @@ html,body{
   if(accessMeta&&window.MutationObserver){
     new MutationObserver(syncSidebarUser).observe(accessMeta,{childList:true,characterData:true,subtree:true});
   }
+  function closePhoneDrawer(){
+    document.body.classList.remove('admin-drawer-open');
+    var menuButton=document.getElementById('adminMobileMenuBtn');
+    if(menuButton)menuButton.setAttribute('aria-expanded','false');
+  }
   sessionButton&&sessionButton.addEventListener('click',function(){
+    closePhoneDrawer();
     if(accessButton)accessButton.click();
   });
+  accessButton&&accessButton.addEventListener('click',closePhoneDrawer,true);
   window.addEventListener('wooten-admin-auth-changed',syncSidebarUser);
   setTimeout(syncSidebarUser,0);
 })();
