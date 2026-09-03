@@ -1534,8 +1534,7 @@
           <button type="button" class="dashboard-back" id="profileChangeDashboardBack"><svg class="dashboard-back-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>Dashboard</span></button>
           <span class="dashboard-form-name"><span class="dashboard-form-separator" aria-hidden="true">\</span> Request a Profile Change</span>
         </div>
-        <div class="profile-change-title-wrap">
-          <span class="profile-change-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.5"></circle><path d="M3.5 19c.4-4.1 2.6-6.2 6.5-6.2 1.5 0 2.7.3 3.8.9M15 18.5l4.8-4.8 1.5 1.5-4.8 4.8-2.2.7z"></path></svg></span>
+        <div class="profile-change-title-wrap fuel-history-head">
           <div>
             <h3 id="profileChangeModalTitle">Request a Profile Change</h3>
             <p>Send a request to update your account information. Wooten Oil will review it.</p>
@@ -3033,6 +3032,54 @@ html.customer-portal-open #customer-login.portal-overlay{
   setTimeout(function(){loadAccounts(false);},120);
 })();
 </script>
+
+<style id="wooten-profile-change-fuel-history-header-ver276">
+/* Use the same clean title and description treatment as Fuel Request History. */
+#profileChangeModal .profile-change-modal-head{
+  border-bottom:0!important;
+}
+#profileChangeModal .profile-change-title-wrap.fuel-history-head{
+  display:block!important;
+  margin:0!important;
+  padding:0!important;
+}
+#profileChangeModal .profile-change-title-wrap.fuel-history-head>div{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  padding:0 52px 0 0!important;
+}
+#profileChangeModal .profile-change-title-wrap.fuel-history-head h3{
+  margin:0 0 5px!important;
+  color:#15304b!important;
+  font-size:1.25rem!important;
+  font-weight:800!important;
+  line-height:1.25!important;
+  letter-spacing:normal!important;
+}
+#profileChangeModal .profile-change-title-wrap.fuel-history-head p{
+  max-width:690px!important;
+  margin:0!important;
+  color:#6c7986!important;
+  font-size:.9rem!important;
+  font-weight:400!important;
+  line-height:1.45!important;
+}
+#profileChangeModal .portal-action-modal-body{
+  padding-top:0!important;
+}
+@media(max-width:700px){
+  #profileChangeModal .profile-change-title-wrap.fuel-history-head>div{
+    padding-right:42px!important;
+  }
+  #profileChangeModal .profile-change-title-wrap.fuel-history-head h3{
+    font-size:1.25rem!important;
+  }
+  #profileChangeModal .profile-change-title-wrap.fuel-history-head p{
+    font-size:.9rem!important;
+  }
+}
+</style>
 
 </body>
 </html>

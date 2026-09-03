@@ -13921,3 +13921,28 @@ html,body{
   }
 }
 </style>
+
+<style id="wooten-admin-phone-sidebar-footer-clearance-ver274">
+@media(max-width:800px){
+  #adminSidebar .admin-tabs{
+    bottom:calc(88px + env(safe-area-inset-bottom))!important;
+    padding-bottom:38px!important;
+    scroll-padding-bottom:38px!important;
+    overscroll-behavior-y:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y!important;
+  }
+  #adminSidebar .admin-tabs::after{
+    content:""!important;
+    display:block!important;
+    width:100%!important;
+    height:34px!important;
+    min-height:34px!important;
+    pointer-events:none!important;
+  }
+  #adminSidebar .admin-sidebar-footer{
+    height:calc(76px + env(safe-area-inset-bottom))!important;
+    box-shadow:0 -8px 18px rgba(15,39,66,.06)!important;
+  }
+}
+</style>
