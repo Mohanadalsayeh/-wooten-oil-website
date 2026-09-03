@@ -2992,8 +2992,28 @@ input[type="file"]:focus-visible{
     background:#d9990d;
     transition:width .25s ease;
   }
+  .mas90-live-sync-action{
+    flex:0 0 auto;
+    border:1px solid #bd2b31;
+    border-radius:9px;
+    background:#fff;
+    color:#a51f25;
+    padding:9px 12px;
+    font-size:12px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  .mas90-live-sync-action:hover,.mas90-live-sync-action:focus{background:#fff0f0;color:#8d151b}
+  .mas90-live-sync.is-cancelled,.mas90-live-sync.is-interrupted{border-color:#e0a3a6;background:#fff1f1;color:#7f2529}
+  .mas90-live-sync.is-cancelled .mas90-live-sync-icon,.mas90-live-sync.is-interrupted .mas90-live-sync-icon{background:#c53a40}
+  .mas90-live-sync.is-cancelled .mas90-live-sync-spinner,.mas90-live-sync.is-interrupted .mas90-live-sync-spinner{animation:none;border:0}
+  .mas90-live-sync.is-cancelled .mas90-live-sync-spinner::before,.mas90-live-sync.is-interrupted .mas90-live-sync-spinner::before{content:"×";display:block;color:#fff;font-size:23px;line-height:18px;font-weight:700;text-align:center}
+  .mas90-live-sync.is-cancelled .mas90-live-sync-copy strong,.mas90-live-sync.is-interrupted .mas90-live-sync-copy strong{color:#7f2529}
+  .mas90-live-sync.is-cancelled .mas90-live-sync-track,.mas90-live-sync.is-interrupted .mas90-live-sync-track{display:none}
   @keyframes mas90-live-spin{to{transform:rotate(360deg)}}
   @media(max-width:720px){
+    .mas90-live-sync{align-items:flex-start;flex-wrap:wrap}
+    .mas90-live-sync-action{width:100%;margin-left:52px}
     .import-last-update{
       margin-top:9px;
       display:block;
@@ -4815,6 +4835,7 @@ textarea[data-request-response]{
         <span data-mas90-live-detail>Checking the current import batch…</span>
         <div class="mas90-live-sync-track" aria-hidden="true"><span data-mas90-live-progress></span></div>
       </div>
+      <button class="mas90-live-sync-action" data-mas90-cancel type="button" hidden>Cancel Automatic Upload</button>
     </div>
 
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
@@ -5025,6 +5046,7 @@ textarea[data-request-response]{
         <span data-mas90-live-detail>Checking the current import batch…</span>
         <div class="mas90-live-sync-track" aria-hidden="true"><span data-mas90-live-progress></span></div>
       </div>
+      <button class="mas90-live-sync-action" data-mas90-cancel type="button" hidden>Cancel Automatic Upload</button>
     </div>
 
     <div class="db-toolbar">
@@ -6072,6 +6094,39 @@ try{
 }
 </script>
 
+<style id="wooten-admin-form-close-position-ver250">
+/* Match the upper-right position used by the customer portal's full forms. */
+.db-customer-card,
+.db-customer-head,
+.schedule-cleanup-dialog,
+.schedule-cleanup-head{
+  position:relative!important;
+}
+.db-customer-modal .db-customer-close,
+.schedule-cleanup-dialog .schedule-cleanup-close{
+  position:absolute!important;
+  top:30px!important;
+  right:30px!important;
+  margin:0!important;
+  z-index:20!important;
+}
+.db-customer-head,
+.schedule-cleanup-head{
+  padding-right:96px!important;
+}
+@media(max-width:720px){
+  .db-customer-modal .db-customer-close,
+  .schedule-cleanup-dialog .schedule-cleanup-close{
+    top:30px!important;
+    right:30px!important;
+  }
+  .db-customer-head,
+  .schedule-cleanup-head{
+    padding-right:88px!important;
+  }
+}
+</style>
+
 <script>
 let preparedRows=[];
 
@@ -6106,12 +6161,13 @@ function setImportLastUpdate(kind,value,by,mode,status,count,batchNumber,batchCo
       return;
     }
     const automatic=String(mode||"").toLowerCase()==="automatic";
-    const completed=String(status||"completed").toLowerCase()==="completed";
+    const normalizedStatus=String(status||"completed").toLowerCase();
+    const completed=normalizedStatus==="completed";
     const source=automatic?"Automatic MAS 90 Sync":"Manual import by "+(by||"Wooten Oil Admin");
-    const progress=completed?"Completed":`In progress — batch ${Number(batchNumber||1).toLocaleString()} of ${Number(batchCount||1).toLocaleString()}`;
+    const progress=completed?"Completed":normalizedStatus==="cancelled"?"Canceled":normalizedStatus==="interrupted"?"Interrupted — no recent response from the MAS 90 computer":`In progress — batch ${Number(batchNumber||1).toLocaleString()} of ${Number(batchCount||1).toLocaleString()}`;
     const records=Number(count||0)>0?Number(count).toLocaleString()+" records":"";
     byEl.textContent=[source,progress,records].filter(Boolean).join(" • ");
-    byEl.classList.toggle("import-run-in-progress",!completed);
+    byEl.classList.toggle("import-run-in-progress",normalizedStatus==="in_progress");
   }
 }
 
@@ -6146,9 +6202,27 @@ function renderMas90LiveSync(data){
   const active=imports
     .filter(item=>String(item.status).toLowerCase()==="in_progress")
     .sort((a,b)=>new Date(b.at||0)-new Date(a.at||0))[0];
+  const controlStatus=String(data?.import_control_status||"").toLowerCase();
+  const stopped=["cancelled","interrupted"].includes(controlStatus)?controlStatus:"";
 
   document.querySelectorAll("[data-mas90-live-sync]").forEach(box=>{
-    if(!active){box.hidden=true;return;}
+    box.classList.toggle("is-cancelled",stopped==="cancelled");
+    box.classList.toggle("is-interrupted",stopped==="interrupted");
+    const cancelButton=box.querySelector("[data-mas90-cancel]");
+    if(!active&&!stopped){box.hidden=true;if(cancelButton)cancelButton.hidden=true;return;}
+    if(stopped){
+      const title=box.querySelector("[data-mas90-live-title]");
+      const detail=box.querySelector("[data-mas90-live-detail]");
+      if(title)title.textContent=stopped==="cancelled"?"Automatic MAS 90 upload canceled":"Automatic MAS 90 upload interrupted";
+      if(detail){
+        const who=data?.cancel_requested_by?` by ${data.cancel_requested_by}`:"";
+        const when=formatImportUpdateDate(data?.cancel_requested_at||data?.import_control_completed_at||data?.import_control_updated_at||"");
+        detail.textContent=stopped==="cancelled"?`Canceled${who}${when&&when!=="Not imported yet"?` on ${when}`:""}. The next scheduled run can start normally.`:`No batch update was received for more than 10 minutes. The next run can retry safely.`;
+      }
+      if(cancelButton)cancelButton.hidden=true;
+      box.hidden=false;
+      return;
+    }
     const automatic=String(active.mode).toLowerCase()==="automatic";
     const title=box.querySelector("[data-mas90-live-title]");
     const detail=box.querySelector("[data-mas90-live-detail]");
@@ -6163,9 +6237,32 @@ function renderMas90LiveSync(data){
       detail.textContent=`Importing ${active.label} • Batch ${safeBatch.toLocaleString()} of ${safeBatches.toLocaleString()}${records} • ${source}`;
     }
     if(bar)bar.style.width=percent+"%";
+    if(cancelButton){cancelButton.hidden=!(automatic&&controlStatus==="in_progress"&&!data?.cancel_requested);cancelButton.disabled=false;cancelButton.textContent="Cancel Automatic Upload";}
     box.hidden=false;
   });
 }
+
+let importCancelRequestPending=false;
+document.addEventListener("click",async event=>{
+  const button=event.target.closest("[data-mas90-cancel]");
+  if(!button||importCancelRequestPending)return;
+  if(!window.confirm("Cancel the automatic MAS 90 upload?\n\nThe MAS 90 computer will stop after its current batch. Records already imported will remain saved."))return;
+  const key=document.getElementById("adminKey")?.value.trim();
+  if(!key)return;
+  importCancelRequestPending=true;
+  document.querySelectorAll("[data-mas90-cancel]").forEach(item=>{item.disabled=true;item.textContent="Stopping…";});
+  try{
+    const response=await fetch("/api/admin/import-control/cancel",{method:"POST",headers:{"X-Admin-Key":key,"Accept":"application/json"},cache:"no-store"});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok||result.success===false)throw new Error(result.error||"The automatic upload could not be canceled.");
+    await loadImportLastUpdates();
+  }catch(error){
+    window.alert(error.message||"The automatic upload could not be canceled.");
+  }finally{
+    importCancelRequestPending=false;
+    document.querySelectorAll("[data-mas90-cancel]").forEach(item=>{item.disabled=false;item.textContent="Cancel Automatic Upload";});
+  }
+});
 
 function ensureImportStatusPolling(){
   if(importStatusPollTimer)return;

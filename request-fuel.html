@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Request Fuel Delivery | Wooten Oil Co Inc.</title>
   <meta name="description" content="Wooten Oil provides dependable gasoline, on-road diesel, farm diesel, and bulk fuel delivery for farmers, businesses, and gas stations." />
   <style>
@@ -2419,43 +2419,6 @@ body.request-fuel-page .fuel-field{
 </style>
 
 <link rel="stylesheet" href="assets/css/wooten-signed-in-person-icon.css">
-<link rel="stylesheet" href="assets/css/wooten-account-switcher.css">
-
-<link rel="stylesheet" href="assets/css/wooten-ios-mobile-viewport-fix.css">
-
-<link rel="stylesheet" href="assets/css/wooten-modern-checkboxes-v114.css">
-
-<style id="wooten-mobile-back-top-style">
-  .wooten-mobile-back-top{
-    position:fixed;
-    right:18px;
-    bottom:calc(88px + env(safe-area-inset-bottom, 0px));
-    width:48px;
-    height:48px;
-    border:1px solid #cbd8e6;
-    border-radius:16px;
-    background:rgba(255,255,255,.96);
-    color:#15314f;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:0;
-    box-shadow:none;
-    opacity:0;
-    visibility:hidden;
-    pointer-events:none;
-    transform:none;
-    transition:opacity .18s ease,visibility .18s ease,background-color .18s ease,border-color .18s ease;
-    z-index:2147483000;
-    -webkit-tap-highlight-color:transparent;
-  }
-  .wooten-mobile-back-top svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
-  .wooten-mobile-back-top.is-visible{opacity:1;visibility:visible;pointer-events:auto;}
-  .wooten-mobile-back-top:active{background:#f2f6fa;border-color:#afc2d6;}
-  @media (min-width:761px){.wooten-mobile-back-top{display:none!important;}}
-  @media (prefers-reduced-motion:reduce){.wooten-mobile-back-top{transition:none;}}
-</style>
-
 </head>
 <body class="request-fuel-page">
 
@@ -2472,7 +2435,6 @@ body.request-fuel-page .fuel-field{
         <li><a class="nav-link" href="index.html#farm">Farm Fuel</a></li>
         <li><a class="nav-link" href="index.html#stations">Gas Stations</a></li>
         <li><a class="nav-link" href="index.html#oil-card">Fleet Cards</a></li>
-        <li><a class="nav-link" href="open-account.html">Open an Account</a></li>
       </ul>
     </nav>
     <a class="customer-login-link" href="index.html#customer-login">Customer Login</a>
@@ -2513,7 +2475,6 @@ body.request-fuel-page .fuel-field{
       <a class="mobile-only-main-link" href="index.html#farm">Farm Fuel</a>
       <a class="mobile-only-main-link" href="index.html#stations">Gas Stations</a>
       <a class="mobile-only-main-link" href="index.html#oil-card">Fleet Cards</a>
-      <a href="open-account.html">Open an Account</a>
       <a href="index.html#locations">Locations</a>
       <a href="index.html#contact">Contact</a>
       <a class="mobile-login-link" href="index.html#customer-login">Customer Login</a>
@@ -2576,8 +2537,7 @@ body.request-fuel-page .fuel-field{
       </div>
       <div class="portal-field">
         <label for="activation-password">Create Password</label>
-        <input id="activation-password" type="password" minlength="8" maxlength="128" placeholder="At least 8 characters" autocomplete="new-password" />
-        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
+        <input id="activation-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
       </div>
       <div class="portal-field">
         <label for="activation-confirm">Confirm Password</label>
@@ -2620,8 +2580,7 @@ body.request-fuel-page .fuel-field{
       </div>
       <div class="portal-field">
         <label for="reset-password">New Password</label>
-        <input id="reset-password" type="password" minlength="8" maxlength="128" placeholder="At least 8 characters" autocomplete="new-password" />
-        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
+        <input id="reset-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
       </div>
       <div class="portal-field">
         <label for="reset-confirm">Confirm New Password</label>
@@ -2644,10 +2603,6 @@ body.request-fuel-page .fuel-field{
           <span>Welcome back</span>
           <h2 class="account-name" id="acctName">Customer Account</h2>
           <div class="account-number" id="acctNumber"></div>
-        </div>
-        <div class="account-switcher" id="accountSwitcher" hidden>
-          <button class="account-switcher-button" id="accountSwitcherButton" type="button" aria-expanded="false" aria-controls="accountSwitcherPanel"><span>Switch Account</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg></button>
-          <div class="account-switcher-panel" id="accountSwitcherPanel" hidden><div class="account-switcher-title">Choose an account</div><div class="account-switcher-list" id="accountSwitcherList"></div><div class="account-switcher-status" id="accountSwitcherStatus" role="status" aria-live="polite"></div></div>
         </div>
         <button class="dashboard-notification-button" id="dashboardNotifications" type="button" aria-label="Open notifications" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
@@ -3669,11 +3624,6 @@ body.request-fuel-page .fuel-field{
   var desktopCustomerLogout=document.getElementById('desktopCustomerLogout');
   var mobileCustomerAccount=document.getElementById('mobileCustomerAccount');
   var mobileCustomerLogout=document.getElementById('mobileCustomerLogout');
-  var accountSwitcher=document.getElementById('accountSwitcher');
-  var accountSwitcherButton=document.getElementById('accountSwitcherButton');
-  var accountSwitcherPanel=document.getElementById('accountSwitcherPanel');
-  var accountSwitcherList=document.getElementById('accountSwitcherList');
-  var accountSwitcherStatus=document.getElementById('accountSwitcherStatus');
   var activateLink=document.getElementById('portalActivateLink');
   var forgotPassword=document.getElementById('portalForgotPassword');
   var useResetCode=document.getElementById('portalUseResetCode');
@@ -3695,7 +3645,6 @@ body.request-fuel-page .fuel-field{
 
   
   var activePortalCustomer=null;
-  var linkedPortalAccounts=[];
 
   function customerFuelAddress(c){
     var street=[clean(c && c.address1),clean(c && c.address2),clean(c && c.address3)].filter(Boolean).join(', ');
@@ -3761,8 +3710,6 @@ body.request-fuel-page .fuel-field{
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
-  var ACCOUNTS_ENDPOINT='/api/customer/accounts';
-  var ACCOUNT_SWITCH_ENDPOINT='/api/customer/account-switch';
   var ACTIVATE_START_ENDPOINT='/api/customer/activation/start';
   var ACTIVATE_SET_PASSWORD_ENDPOINT='/api/customer/activation/set-password';
   var RESET_START_ENDPOINT='/api/customer/password-reset/start';
@@ -3838,39 +3785,6 @@ body.request-fuel-page .fuel-field{
       if(mobileHeaderNotificationBadge) mobileHeaderNotificationBadge.style.display='none';
     }
   }
-  function setAccountSwitcherOpen(open){
-    if(!accountSwitcherButton || !accountSwitcherPanel) return;
-    accountSwitcherButton.setAttribute('aria-expanded',open?'true':'false');
-    accountSwitcherPanel.hidden=!open;
-  }
-  function renderAccountSwitcher(accounts,currentAccount,autoOpen){
-    linkedPortalAccounts=Array.isArray(accounts)?accounts:[];
-    if(!accountSwitcher || !accountSwitcherList) return;
-    var multiple=linkedPortalAccounts.length>1;
-    accountSwitcher.hidden=!multiple;accountSwitcherList.innerHTML='';
-    if(!multiple){setAccountSwitcherOpen(false);return;}
-    linkedPortalAccounts.forEach(function(account){
-      var isCurrent=String(account.account_number||'')===String(currentAccount||'');
-      var option=document.createElement('button');option.type='button';option.className='account-switcher-option'+(isCurrent?' current':'');option.disabled=isCurrent;option.setAttribute('data-account-number',String(account.account_number||''));
-      var identity=document.createElement('span'),name=document.createElement('strong'),number=document.createElement('small'),side=document.createElement('span');
-      name.textContent=account.account_name||'Customer Account';number.textContent='Customer # '+(account.account_number||'')+(isCurrent?' • Current account':'');side.className='account-switcher-balance';side.innerHTML='<small>Total Balance</small><strong>'+money(account.total_balance)+'</strong>';
-      identity.appendChild(name);identity.appendChild(number);option.appendChild(identity);option.appendChild(side);accountSwitcherList.appendChild(option);
-    });
-    if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status';accountSwitcherStatus.textContent='';}
-    setAccountSwitcherOpen(!!autoOpen);
-  }
-  async function loadLinkedAccounts(autoOpen){
-    try{var response=await fetch(ACCOUNTS_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});var data=await response.json().catch(function(){return {};});if(!response.ok||data.success===false)throw new Error(data.error||'Linked accounts could not be loaded.');renderAccountSwitcher(data.accounts,data.current_account_number,autoOpen);}
-    catch(error){renderAccountSwitcher([],activePortalCustomer&&activePortalCustomer.account_number,false);}
-  }
-  async function switchCustomerAccount(accountNumber,button){
-    if(!accountNumber||!button||button.disabled)return;if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status';accountSwitcherStatus.textContent='';}button.disabled=true;
-    try{var response=await fetch(ACCOUNT_SWITCH_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({account_number:accountNumber})});var data=await response.json().catch(function(){return {};});if(!response.ok||data.success===false||!data.customer)throw new Error(data.error||'The account could not be opened.');showAccount(data.customer);renderAccountSwitcher(data.accounts,data.customer.account_number,false);if(accountCard&&accountCard.scrollIntoView)accountCard.scrollIntoView({behavior:'smooth',block:'start'});}
-    catch(error){button.disabled=false;if(accountSwitcherStatus){accountSwitcherStatus.className='account-switcher-status show';accountSwitcherStatus.textContent=error.message||'The account could not be opened.';}}
-  }
-  if(accountSwitcherButton)accountSwitcherButton.addEventListener('click',function(){setAccountSwitcherOpen(accountSwitcherButton.getAttribute('aria-expanded')!=='true');});
-  if(accountSwitcherList)accountSwitcherList.addEventListener('click',function(event){var option=event.target.closest('.account-switcher-option');if(option)switchCustomerAccount(option.getAttribute('data-account-number'),option);});
-  document.addEventListener('click',function(event){if(accountSwitcher&&!accountSwitcher.contains(event.target))setAccountSwitcherOpen(false);});
   function hideAll(){
     loginCard.style.display='none';
     activationCard.classList.remove('show');
@@ -3943,7 +3857,6 @@ body.request-fuel-page .fuel-field{
       var d=await r.json().catch(function(){return {};});
       if(!r.ok || d.success===false || !d.customer){ updateCustomerMenu(null); return false; }
       showAccount(d.customer);
-      await loadLinkedAccounts(false);
       return true;
     }catch(e){ return false; }
   }
@@ -3985,7 +3898,7 @@ body.request-fuel-page .fuel-field{
         }
         throw new Error(d.error || 'The customer number/email or password is incorrect.');
       }
-      if(d.customer){ showAccount(d.customer); await loadLinkedAccounts(true); }
+      if(d.customer){ showAccount(d.customer); }
       else if(!(await loadCurrentAccount(false))){ throw new Error('Signed in, but the account information could not be loaded.'); }
       document.getElementById('portal-password').value='';
     }catch(err){
@@ -4411,7 +4324,7 @@ body.request-fuel-page .fuel-field{
     var confirm=document.getElementById('reset-confirm').value;
     if(!identifier || !code || !password || !confirm){ setStatus(resetStatus,'Enter the reset code and both password fields.',false); return; }
     if(!/^\d{6}$/.test(code)){ setStatus(resetStatus,'Enter the 6-digit reset code.',false); return; }
-    if(password.length<8 || !/[A-Za-z]/.test(password)){ setStatus(resetStatus,'Your password must be at least 8 characters and contain at least one letter.',false); return; }
+    if(password.length<10){ setStatus(resetStatus,'Your password must be at least 10 characters.',false); return; }
     if(password!==confirm){ setStatus(resetStatus,'The passwords do not match.',false); return; }
     clearStatus(resetStatus); resetComplete.disabled=true; resetComplete.textContent='Resetting…';
     try{
@@ -4491,7 +4404,7 @@ body.request-fuel-page .fuel-field{
       return;
     }
     if(password.length<10){
-      setStatus(activationStatus,'Your password must be at least 8 characters and contain at least one letter.',false);
+      setStatus(activationStatus,'Your password must be at least 10 characters.',false);
       return;
     }
     if(password!==confirm){
@@ -4534,7 +4447,6 @@ body.request-fuel-page .fuel-field{
       await fetch(LOGOUT_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},credentials:'same-origin'});
     }catch(e){}
     updateCustomerMenu(null);
-    renderAccountSwitcher([],null,false);
     form.reset();
     clearStatus(status);
     if(openLogin) showLogin();
@@ -5191,38 +5103,5 @@ body.request-fuel-page .fuel-field{
 })();
 </script>
 
-
-<button type="button" class="wooten-mobile-back-top" id="wootenMobileBackTop" aria-label="Back to top" title="Back to top">
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"></path></svg>
-</button>
-<script id="wooten-mobile-back-top-script">
-(function(){
-  var button=document.getElementById('wootenMobileBackTop');
-  if(!button) return;
-  function isPhone(){
-    return window.matchMedia('(max-width:760px)').matches && window.matchMedia('(pointer:coarse)').matches;
-  }
-  function longPage(){
-    var h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
-    return h > window.innerHeight * 1.55;
-  }
-  function update(){
-    var show=isPhone() && longPage() && window.scrollY > Math.max(420,window.innerHeight*.55);
-    button.classList.toggle('is-visible',show);
-  }
-  button.addEventListener('click',function(){
-    window.scrollTo({top:0,left:0,behavior:'smooth'});
-  });
-  window.addEventListener('scroll',update,{passive:true});
-  window.addEventListener('resize',update,{passive:true});
-  window.addEventListener('load',update,{once:true});
-  if(window.ResizeObserver){
-    try{new ResizeObserver(update).observe(document.body);}catch(_e){}
-  }
-  setTimeout(update,250);
-})();
-</script>
-
-<script src="assets/js/password-recovery-v170.js"></script>
 </body>
 </html>

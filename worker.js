@@ -651,6 +651,10 @@ async function onRequestPost3({ request, env }) {
   if (!env.DB) {
     return json3({ success: false, error: "Customer database is not configured." }, 503);
   }
+  const customerCancellation=await adminAutomaticImportCancellation(env,request);
+  if(customerCancellation?.cancelled){
+    return json3({success:false,cancelled:true,error:"This automatic MAS 90 upload was canceled from the admin page.",cancelled_by:customerCancellation.cancel_requested_by||"Wooten Oil Admin",cancelled_at:customerCancellation.cancel_requested_at||""},409);
+  }
   let body;
   try {
     body = await request.json();
@@ -920,7 +924,10 @@ if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImport
     imported_by:importMeta?.last_import_by||adminRequestActor(request,env).name,
     import_record_count:Number(importMeta?.last_record_count||customerRecordCount),
     import_batch_number:Number(importMeta?.last_import_batch_number||1),
-    import_batch_count:Number(importMeta?.last_import_batch_count||1)
+    import_batch_count:Number(importMeta?.last_import_batch_count||1),
+    cancel_requested:Boolean(importMeta?.cancel_requested),
+    cancelled_by:importMeta?.cancel_requested_by||"",
+    cancelled_at:importMeta?.cancel_requested_at||""
   });
 }
 __name(onRequestPost3, "onRequestPost");
@@ -940,7 +947,8 @@ async function ensureAdminImportMetadataSchema(env){
       last_import_mode TEXT NOT NULL DEFAULT 'manual',
       last_import_status TEXT NOT NULL DEFAULT 'completed',
       last_import_batch_number INTEGER NOT NULL DEFAULT 1,
-      last_import_batch_count INTEGER NOT NULL DEFAULT 1
+      last_import_batch_count INTEGER NOT NULL DEFAULT 1,
+      last_import_run_id TEXT NOT NULL DEFAULT ''
     )
   `).run();
   const info=await env.DB.prepare(`PRAGMA table_info(admin_import_metadata)`).all();
@@ -950,11 +958,69 @@ async function ensureAdminImportMetadataSchema(env){
     ["last_import_mode","TEXT NOT NULL DEFAULT 'manual'"],
     ["last_import_status","TEXT NOT NULL DEFAULT 'completed'"],
     ["last_import_batch_number","INTEGER NOT NULL DEFAULT 1"],
-    ["last_import_batch_count","INTEGER NOT NULL DEFAULT 1"]
+    ["last_import_batch_count","INTEGER NOT NULL DEFAULT 1"],
+    ["last_import_run_id","TEXT NOT NULL DEFAULT ''"]
   ];
   for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE admin_import_metadata ADD COLUMN ${name} ${definition}`).run();
 }
 __name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
+
+async function ensureAdminImportControlSchema(env){
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS admin_import_control (
+      id INTEGER PRIMARY KEY CHECK (id=1),
+      active_run_id TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'idle',
+      active_import_type TEXT NOT NULL DEFAULT '',
+      cancel_requested INTEGER NOT NULL DEFAULT 0,
+      cancel_requested_at TEXT,
+      cancel_requested_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT
+    )
+  `).run();
+}
+__name(ensureAdminImportControlSchema,"ensureAdminImportControlSchema");
+
+function adminImportRunId(request){
+  const value=String(request?.headers?.get("X-Import-Run-Id")||"").trim();
+  return /^[A-Za-z0-9_-]{8,100}$/.test(value)?value:"";
+}
+__name(adminImportRunId,"adminImportRunId");
+
+async function adminAutomaticImportCancellation(env,request){
+  const automatic=String(request?.headers?.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic";
+  const runId=adminImportRunId(request);
+  if(!automatic||!runId||!env?.DB)return null;
+  await ensureAdminImportControlSchema(env);
+  const row=await env.DB.prepare(`SELECT active_run_id,status,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at FROM admin_import_control WHERE id=1`).first();
+  if(!row||String(row.active_run_id||"")!==runId)return {cancelled:false,run_id:runId};
+  return {...row,run_id:runId,cancelled:Number(row.cancel_requested||0)===1||String(row.status||"").toLowerCase()==="cancelled"};
+}
+__name(adminAutomaticImportCancellation,"adminAutomaticImportCancellation");
+
+async function recordAutomaticImportControl(env,request,type,batchNumber,batchCount){
+  const automatic=String(request?.headers?.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic";
+  const runId=adminImportRunId(request);
+  if(!automatic||!runId)return null;
+  await ensureAdminImportControlSchema(env);
+  const normalStatus=String(type)==="payments"&&Number(batchNumber)>=Number(batchCount)?"completed":"in_progress";
+  await env.DB.prepare(`
+    INSERT INTO admin_import_control(id,active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at)
+    VALUES (1,?,?,?,0,NULL,'',CURRENT_TIMESTAMP,CASE WHEN ?='completed' THEN CURRENT_TIMESTAMP ELSE NULL END)
+    ON CONFLICT(id) DO UPDATE SET
+      active_run_id=excluded.active_run_id,
+      status=CASE WHEN admin_import_control.active_run_id=excluded.active_run_id AND admin_import_control.cancel_requested=1 THEN 'cancelled' ELSE excluded.status END,
+      active_import_type=excluded.active_import_type,
+      cancel_requested=CASE WHEN admin_import_control.active_run_id=excluded.active_run_id THEN admin_import_control.cancel_requested ELSE 0 END,
+      cancel_requested_at=CASE WHEN admin_import_control.active_run_id=excluded.active_run_id THEN admin_import_control.cancel_requested_at ELSE NULL END,
+      cancel_requested_by=CASE WHEN admin_import_control.active_run_id=excluded.active_run_id THEN admin_import_control.cancel_requested_by ELSE '' END,
+      updated_at=CURRENT_TIMESTAMP,
+      completed_at=CASE WHEN admin_import_control.active_run_id=excluded.active_run_id AND admin_import_control.cancel_requested=1 THEN CURRENT_TIMESTAMP WHEN excluded.status='completed' THEN CURRENT_TIMESTAMP ELSE NULL END
+  `).bind(runId,normalStatus,String(type||""),normalStatus).run();
+  return await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
+}
+__name(recordAutomaticImportControl,"recordAutomaticImportControl");
 
 function adminImportPositiveInteger(value,fallback,maximum=10000000){
   const parsed=Math.trunc(Number(value));
@@ -975,14 +1041,17 @@ __name(adminImportAuditRequest,"adminImportAuditRequest");
 async function recordAdminImport(env,request,type,count,actorName="Wooten Oil Admin"){
   await ensureAdminImportMetadataSchema(env);
   const mode=String(request?.headers?.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic"?"automatic":"manual";
+  const runId=mode==="automatic"?adminImportRunId(request):"";
   const batchNumber=adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Number"),1,1000000);
   const batchCount=Math.max(batchNumber,adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Count"),1,1000000));
   const runTotal=adminImportPositiveInteger(request?.headers?.get("X-Import-Run-Total"),Number(count||0),10000000);
-  const status=batchNumber>=batchCount?"completed":"in_progress";
+  const control=await recordAutomaticImportControl(env,request,type,batchNumber,batchCount);
+  const cancelled=Number(control?.cancel_requested||0)===1||String(control?.status||"").toLowerCase()==="cancelled";
+  const status=cancelled?"cancelled":(batchNumber>=batchCount?"completed":"in_progress");
   const recordedBy=mode==="automatic"?"Automatic MAS 90 Sync":String(actorName||"Wooten Oil Admin");
   await env.DB.prepare(`
-    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count)
-    VALUES (?,CURRENT_TIMESTAMP,?,?,?,?,?,?)
+    INSERT INTO admin_import_metadata(import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count,last_import_run_id)
+    VALUES (?,CURRENT_TIMESTAMP,?,?,?,?,?,?,?)
     ON CONFLICT(import_type) DO UPDATE SET
       last_import_at=CURRENT_TIMESTAMP,
       last_record_count=excluded.last_record_count,
@@ -990,15 +1059,16 @@ async function recordAdminImport(env,request,type,count,actorName="Wooten Oil Ad
       last_import_mode=excluded.last_import_mode,
       last_import_status=excluded.last_import_status,
       last_import_batch_number=excluded.last_import_batch_number,
-      last_import_batch_count=excluded.last_import_batch_count
-  `).bind(String(type||""),runTotal,recordedBy,mode,status,batchNumber,batchCount).run();
+      last_import_batch_count=excluded.last_import_batch_count,
+      last_import_run_id=excluded.last_import_run_id
+  `).bind(String(type||""),runTotal,recordedBy,mode,status,batchNumber,batchCount,runId).run();
 
   const row=await env.DB.prepare(`
-    SELECT last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count
+    SELECT last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count,last_import_run_id
     FROM admin_import_metadata
     WHERE import_type=?
   `).bind(String(type||"")).first();
-  return row||null;
+  return row?{...row,cancel_requested:cancelled,cancel_requested_at:control?.cancel_requested_at||"",cancel_requested_by:control?.cancel_requested_by||""}:null;
 }
 __name(recordAdminImport,"recordAdminImport");
 
@@ -1013,11 +1083,15 @@ async function adminImportStatusGet({request,env}){
 
   try{
     await ensureAdminImportMetadataSchema(env);
+    await ensureAdminImportControlSchema(env);
+    await env.DB.prepare(`UPDATE admin_import_control SET status='interrupted',updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=1 AND status='in_progress' AND datetime(updated_at)<datetime('now','-10 minutes')`).run();
+    await env.DB.prepare(`UPDATE admin_import_metadata SET last_import_status='interrupted' WHERE last_import_mode='automatic' AND last_import_status='in_progress' AND datetime(last_import_at)<datetime('now','-10 minutes')`).run();
     const result=await env.DB.prepare(`
-      SELECT import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count
+      SELECT import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count,last_import_run_id
       FROM admin_import_metadata
       WHERE import_type IN ('customers','payments')
     `).all();
+    const control=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
 
     let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
@@ -1059,7 +1133,15 @@ async function adminImportStatusGet({request,env}){
       payments_last_import_mode:paymentsMode,
       payments_last_import_status:paymentsStatus,
       payments_last_import_batch_number:paymentsBatchNumber,
-      payments_last_import_batch_count:paymentsBatchCount
+      payments_last_import_batch_count:paymentsBatchCount,
+      active_run_id:control?.active_run_id||"",
+      import_control_status:control?.status||"idle",
+      active_import_type:control?.active_import_type||"",
+      cancel_requested:Number(control?.cancel_requested||0)===1,
+      cancel_requested_at:control?.cancel_requested_at||"",
+      cancel_requested_by:control?.cancel_requested_by||"",
+      import_control_updated_at:control?.updated_at||"",
+      import_control_completed_at:control?.completed_at||""
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -1067,6 +1149,28 @@ async function adminImportStatusGet({request,env}){
   }
 }
 __name(adminImportStatusGet,"adminImportStatusGet");
+
+async function adminImportCancelPost({request,env}){
+  if(!env?.DB)return json3({success:false,error:"Customer database is not configured."},503);
+  try{
+    await ensureAdminImportMetadataSchema(env);
+    await ensureAdminImportControlSchema(env);
+    const control=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by FROM admin_import_control WHERE id=1`).first();
+    if(!control?.active_run_id||String(control.status||"").toLowerCase()!=="in_progress"){
+      return json3({success:false,error:"No automatic MAS 90 upload is currently running."},409);
+    }
+    const actor=adminRequestActor(request,env);
+    await env.DB.prepare(`UPDATE admin_import_control SET status='cancelled',cancel_requested=1,cancel_requested_at=CURRENT_TIMESTAMP,cancel_requested_by=?,updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=1 AND active_run_id=?`).bind(actor.name,String(control.active_run_id)).run();
+    await env.DB.prepare(`UPDATE admin_import_metadata SET last_import_status='cancelled',last_import_at=CURRENT_TIMESTAMP WHERE last_import_mode='automatic' AND last_import_run_id=? AND last_import_status='in_progress'`).bind(String(control.active_run_id)).run();
+    await adminAudit(env,request,"automatic_import_cancelled","database",String(control.active_run_id),`Automatic MAS 90 upload canceled while processing ${control.active_import_type||"data"}`);
+    const saved=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
+    return json3({success:true,cancelled:true,message:"The MAS 90 computer was told to stop after its current batch.",...saved});
+  }catch(error){
+    console.error("adminImportCancelPost failed",error);
+    return json3({success:false,error:"The automatic upload could not be canceled."},500);
+  }
+}
+__name(adminImportCancelPost,"adminImportCancelPost");
 
 // Customer payments import
 async function ensureCustomerPaymentsSchema(env) {
@@ -1150,6 +1254,10 @@ async function adminCustomerPaymentsImport({ request, env }) {
     return json3({ success: false, error: "Unauthorized." }, 401);
   }
   if (!env.DB) return json3({ success:false,error:"Customer database is not configured." },503);
+  const paymentCancellation=await adminAutomaticImportCancellation(env,request);
+  if(paymentCancellation?.cancelled){
+    return json3({success:false,cancelled:true,error:"This automatic MAS 90 upload was canceled from the admin page.",cancelled_by:paymentCancellation.cancel_requested_by||"Wooten Oil Admin",cancelled_at:paymentCancellation.cancel_requested_at||""},409);
+  }
 
   let body;
   try { body = await request.json(); }
@@ -1231,7 +1339,10 @@ if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImport
     imported_by:importMeta?.last_import_by||adminRequestActor(request,env).name,
     import_record_count:Number(importMeta?.last_record_count||valid.length),
     import_batch_number:Number(importMeta?.last_import_batch_number||1),
-    import_batch_count:Number(importMeta?.last_import_batch_count||1)
+    import_batch_count:Number(importMeta?.last_import_batch_count||1),
+    cancel_requested:Boolean(importMeta?.cancel_requested),
+    cancelled_by:importMeta?.cancel_requested_by||"",
+    cancelled_at:importMeta?.cancel_requested_at||""
   });
 }
 __name(adminCustomerPaymentsImport, "adminCustomerPaymentsImport");
@@ -8834,6 +8945,7 @@ function adminGeneralAuditDescriptor(request){
   if(path==="/api/admin/audit")return null;
   if(method==="DELETE"&&/^\/api\/admin\/account-applications\/\d+$/.test(path))return null;
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
+  if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
   if(method==="GET"&&path==="/api/admin/import-status")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
@@ -9491,6 +9603,12 @@ var worker_default = {
     if (url.pathname === "/api/admin/import-status") {
       if (request.method === "GET") {
         return adminImportStatusGet({ request, env });
+      }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/import-control/cancel") {
+      if (request.method === "POST") {
+        return adminImportCancelPost({request,env});
       }
       return methodNotAllowed();
     }
