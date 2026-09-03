@@ -3012,8 +3012,25 @@ input[type="file"]:focus-visible{
   .mas90-live-sync.is-cancelled .mas90-live-sync-track,.mas90-live-sync.is-interrupted .mas90-live-sync-track{display:none}
   @keyframes mas90-live-spin{to{transform:rotate(360deg)}}
   @media(max-width:720px){
-    .mas90-live-sync{align-items:flex-start;flex-wrap:wrap}
-    .mas90-live-sync-action{width:100%;margin-left:52px}
+    .mas90-live-sync{
+      align-items:flex-start;
+      flex-wrap:wrap;
+      min-width:0;
+      padding:14px;
+      box-sizing:border-box;
+    }
+    .mas90-live-sync-action{
+      flex:0 0 100%;
+      display:block;
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      min-height:44px;
+      margin:0;
+      box-sizing:border-box;
+      white-space:normal;
+      line-height:1.25;
+    }
     .import-last-update{
       margin-top:9px;
       display:block;
@@ -3025,7 +3042,6 @@ input[type="file"]:focus-visible{
     .import-last-update strong::before{
       display:none;
     }
-    .mas90-live-sync{align-items:flex-start;padding:14px}
   }
 </style>
 
@@ -4824,9 +4840,6 @@ textarea[data-request-response]{
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="database" data-admin-parent="customers">Live Customer Data</button>
     </nav>
-    <div class="admin-page-label">Customers</div>
-    <h2>MAS 90 Database</h2>
-    <p>Upload the original Microsoft Access <strong>.mdb</strong> customer database. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
     <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
       <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
@@ -4837,6 +4850,10 @@ textarea[data-request-response]{
       </div>
       <button class="mas90-live-sync-action" data-mas90-cancel type="button" hidden>Cancel Automatic Upload</button>
     </div>
+
+    <div class="admin-page-label">Customers</div>
+    <h2>MAS 90 Database</h2>
+    <p>Upload the original Microsoft Access <strong>.mdb</strong> customer database. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
       <div>
@@ -5035,9 +5052,6 @@ textarea[data-request-response]{
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-admin-subtab="database" data-admin-parent="customers">Live Customer Data</button>
     </nav>
-    <div class="admin-page-label">Database</div>
-    <h2>Live Customer Database</h2>
-    <p>View customer records stored on the server and choose how each customer receives statements. Customer account data remains read-only; only the Contact delivery selections can be changed.</p>
 
     <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
       <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
@@ -5048,6 +5062,10 @@ textarea[data-request-response]{
       </div>
       <button class="mas90-live-sync-action" data-mas90-cancel type="button" hidden>Cancel Automatic Upload</button>
     </div>
+
+    <div class="admin-page-label">Database</div>
+    <h2>Live Customer Database</h2>
+    <p>View customer records stored on the server and choose how each customer receives statements. Customer account data remains read-only; only the Contact delivery selections can be changed.</p>
 
     <div class="db-toolbar">
       <div class="db-field db-search">
