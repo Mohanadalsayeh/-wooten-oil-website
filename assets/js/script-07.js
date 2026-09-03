@@ -419,6 +419,7 @@
 
   function renderFuelHistory(rows){
     if(!fuelHistoryList) return;
+    fuelHistoryList.removeAttribute('aria-busy');
     fuelHistoryList.innerHTML='';
 
     if(!Array.isArray(rows) || !rows.length){
@@ -485,8 +486,21 @@
     });
   }
 
+  function renderFuelHistorySkeleton(){
+    if(!fuelHistoryList) return;
+    fuelHistoryList.setAttribute('aria-busy','true');
+    fuelHistoryList.innerHTML=Array.from({length:4},function(_,index){
+      return '<article class="history-skeleton-card fuel-history-skeleton" aria-hidden="true" style="--skeleton-delay:'+((index%4)*.08)+'s">'
+        +'<div class="history-skeleton-top"><span class="history-skeleton-line history-skeleton-title"></span><span class="history-skeleton-line history-skeleton-date"></span></div>'
+        +'<div class="history-skeleton-grid"><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span></div>'
+        +'<span class="history-skeleton-pill"></span>'
+        +'</article>';
+    }).join('');
+  }
+
   async function loadFuelHistory(){
     if(!fuelHistoryList) return;
+    renderFuelHistorySkeleton();
     if(fuelHistoryStatus){
       fuelHistoryStatus.className='fuel-history-status show info';
       fuelHistoryStatus.textContent='Loading fuel request history…';
@@ -511,6 +525,8 @@
         fuelHistoryStatus.textContent='';
       }
     }catch(error){
+      fuelHistoryRows=[];
+      renderFuelHistory(fuelHistoryRows);
       if(fuelHistoryStatus){
         fuelHistoryStatus.className='fuel-history-status show error';
         fuelHistoryStatus.textContent=error.message || 'Fuel request history could not be loaded.';
@@ -573,6 +589,7 @@
 
   function renderPaymentHistory(){
     if(!paymentHistoryList) return;
+    paymentHistoryList.removeAttribute('aria-busy');
     var rows=filteredSortedPayments();
     paymentHistoryList.innerHTML='';
     if(paymentHistoryResultsMeta){
@@ -603,7 +620,19 @@
     });
   }
 
+  function renderPaymentHistorySkeleton(){
+    if(!paymentHistoryList) return;
+    paymentHistoryList.setAttribute('aria-busy','true');
+    paymentHistoryList.innerHTML=Array.from({length:4},function(_,index){
+      return '<article class="history-skeleton-card payment-history-skeleton" aria-hidden="true" style="--skeleton-delay:'+((index%4)*.08)+'s">'
+        +'<div class="history-skeleton-top"><span class="history-skeleton-line history-skeleton-amount"></span><span class="history-skeleton-line history-skeleton-date"></span></div>'
+        +'<div class="history-skeleton-payment-grid"><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span><span class="history-skeleton-block"></span></div>'
+        +'</article>';
+    }).join('');
+  }
+
   async function loadPaymentHistory(){
+    renderPaymentHistorySkeleton();
     if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status show';paymentHistoryStatus.textContent='Loading payment history…';}
     if(paymentHistoryRefresh) paymentHistoryRefresh.disabled=true;
     try{
