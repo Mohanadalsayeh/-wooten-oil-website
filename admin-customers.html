@@ -13947,13 +13947,26 @@ html,body{
 }
 </style>
 
-<style id="wooten-admin-desktop-sidebar-longer-ver282">
-/* Extend the desktop menu card so it visually reaches the lower dashboard row. */
+<style id="wooten-admin-desktop-sidebar-responsive-ver284">
+/* Keep the desktop menu aligned 12px from the top and bottom of the viewport. */
 @media(min-width:801px){
   #adminSidebar.admin-tabs-shell{
-    height:max(720px,calc(100vh - 24px),var(--admin-sidebar-panel-height,0px))!important;
-    min-height:720px!important;
-    max-height:none!important;
+    position:sticky!important;
+    top:12px!important;
+    height:calc(100vh - 24px)!important;
+    height:calc(100dvh - 24px)!important;
+    min-height:0!important;
+    max-height:calc(100vh - 24px)!important;
+    max-height:calc(100dvh - 24px)!important;
+    overflow:hidden!important;
+  }
+  #adminSidebar .admin-tabs{
+    height:100%!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain!important;
   }
 }
 </style>
