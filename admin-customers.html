@@ -3003,6 +3003,9 @@ input[type="file"]:focus-visible{
     font-weight:900;
     white-space:nowrap;
   }
+  .mas90-live-sync-action[hidden]{display:none!important}
+  .mas90-live-sync.is-cancelled [data-mas90-cancel],
+  .mas90-live-sync.is-interrupted [data-mas90-cancel]{display:none!important}
   .mas90-live-sync-action:hover,.mas90-live-sync-action:focus{background:#fff0f0;color:#8d151b}
   .mas90-live-sync.is-cancelled,.mas90-live-sync.is-interrupted{border-color:#e0a3a6;background:#fff1f1;color:#7f2529}
   .mas90-live-sync.is-cancelled .mas90-live-sync-icon,.mas90-live-sync.is-interrupted .mas90-live-sync-icon{background:#c53a40}
@@ -6117,13 +6120,9 @@ let preparedRows=[];
 
 function formatImportUpdateDate(value){
   if(!value) return "Not imported yet";
-  let raw=String(value).trim();
-  // SQLite CURRENT_TIMESTAMP is UTC and has no timezone suffix.
-  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)){
-    raw=raw.replace(" ","T")+"Z";
-  }
-  const d=new Date(raw);
-  if(Number.isNaN(d.getTime())) return String(value);
+  const timestamp=importUpdateTimestamp(value);
+  if(!timestamp) return String(value);
+  const d=new Date(timestamp);
   return d.toLocaleString("en-US",{
     month:"short",
     day:"numeric",
@@ -6131,6 +6130,17 @@ function formatImportUpdateDate(value){
     hour:"numeric",
     minute:"2-digit"
   });
+}
+
+function importUpdateTimestamp(value){
+  if(!value)return 0;
+  let raw=String(value).trim();
+  // SQLite CURRENT_TIMESTAMP is UTC and has no timezone suffix.
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)){
+    raw=raw.replace(" ","T")+"Z";
+  }
+  const timestamp=Date.parse(raw);
+  return Number.isFinite(timestamp)?timestamp:0;
 }
 
 function setImportLastUpdate(kind,value,by,mode,status,count,batchNumber,batchCount){
@@ -6186,9 +6196,19 @@ function renderMas90LiveSync(data){
   ];
   const active=imports
     .filter(item=>String(item.status).toLowerCase()==="in_progress")
-    .sort((a,b)=>new Date(b.at||0)-new Date(a.at||0))[0];
+    .sort((a,b)=>importUpdateTimestamp(b.at)-importUpdateTimestamp(a.at))[0];
   const controlStatus=String(data?.import_control_status||"").toLowerCase();
-  const stopped=["cancelled","interrupted"].includes(controlStatus)?controlStatus:"";
+  const rawStopped=["cancelled","interrupted"].includes(controlStatus)?controlStatus:"";
+  const stoppedAt=importUpdateTimestamp(data?.cancel_requested_at||data?.import_control_completed_at||data?.import_control_updated_at||"");
+  // Keep the canceled run blocked on the server, but retire its live notice once
+  // a newer manual import has completed successfully.
+  const supersededByManual=Boolean(rawStopped&&stoppedAt&&imports.some(item=>{
+    const mode=String(item.mode||"").toLowerCase();
+    const status=String(item.status||"").toLowerCase();
+    return mode==="manual"&&status==="completed"&&importUpdateTimestamp(item.at)>=stoppedAt;
+  }));
+  const terminalNoticeExpired=Boolean(rawStopped&&stoppedAt&&Date.now()-stoppedAt>15*60*1000);
+  const stopped=supersededByManual||terminalNoticeExpired?"":rawStopped;
 
   document.querySelectorAll("[data-mas90-live-sync]").forEach(box=>{
     box.classList.toggle("is-cancelled",stopped==="cancelled");
