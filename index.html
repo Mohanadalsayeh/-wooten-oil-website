@@ -3118,5 +3118,42 @@ html.customer-portal-open #customer-login.portal-overlay{
 }
 </style>
 
+<style id="wooten-exact-portal-header-position-ver279">
+/* Keep the portal name at one exact inset in every dashboard/form state. */
+#customer-login.portal-overlay>.portal-card,
+#customer-login.portal-overlay>#portalAccountCard.portal-card{
+  padding-top:24px!important;
+  padding-left:34px!important;
+  padding-right:34px!important;
+}
+.portal-action-modal .portal-action-modal-head,
+#profileChangeModal .profile-change-modal-head{
+  padding-top:24px!important;
+  padding-left:34px!important;
+  padding-right:34px!important;
+}
+/* Give the close control its own space above the account switcher. */
+#accountSwitcher.account-switcher{
+  margin:18px 0 0 auto!important;
+}
+@media(max-width:700px){
+  #customer-login.portal-overlay>.portal-card,
+  #customer-login.portal-overlay>#portalAccountCard.portal-card{
+    padding-top:20px!important;
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  .portal-action-modal .portal-action-modal-head,
+  #profileChangeModal .profile-change-modal-head{
+    padding-top:20px!important;
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  #accountSwitcher.account-switcher{
+    margin:12px 0 0!important;
+  }
+}
+</style>
+
 </body>
 </html>
