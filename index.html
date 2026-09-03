@@ -2373,14 +2373,34 @@ html.customer-portal-open #customer-login.portal-overlay{
 }
 </style>
 
-<style id="wooten-password-recovery-method-hover-ver254">
-/* Recovery delivery choices keep their normal outline; hover only underlines the text. */
-#resetRecoveryChoices .portal-secondary-btn:not(:disabled):hover{
-  background:#f6f8fa!important;
-  border-color:#ccd6df!important;
+<style id="wooten-password-recovery-method-hover-ver255">
+/* Recovery delivery choices are plain text links with underline-only interaction. */
+#resetRecoveryChoices .portal-secondary-btn{
+  display:block!important;
+  width:max-content!important;
+  max-width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:10px 0 0!important;
+  padding:2px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
   color:#233b52!important;
   box-shadow:none!important;
   filter:none!important;
+  transform:none!important;
+  text-align:left!important;
+  text-decoration:none!important;
+}
+#resetRecoveryChoices .portal-secondary-btn:not(:disabled):hover,
+#resetRecoveryChoices .portal-secondary-btn:not(:disabled):focus-visible{
+  border:0!important;
+  background:transparent!important;
+  color:#233b52!important;
+  box-shadow:none!important;
+  filter:none!important;
+  outline:none!important;
   transform:none!important;
   text-decoration-line:underline!important;
   text-decoration-thickness:1.5px!important;
