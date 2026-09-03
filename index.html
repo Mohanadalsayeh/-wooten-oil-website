@@ -1495,7 +1495,7 @@
   <div class="portal-action-modal-card portal-action-password-card" role="document">
     <div class="portal-action-modal-head portal-action-password-head">
       <div>
-        <div class="portal-action-eyebrow">Wooten Oil Customer Portal</div>
+        <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
         <h3 id="sharedEmailPasswordModalTitle">Change Shared Email Password</h3>
         <p>Update the password used when signing in with your shared email and switching linked accounts.</p>
         <div class="portal-password-current-user" aria-label="Shared email login">
@@ -3077,6 +3077,43 @@ html.customer-portal-open #customer-login.portal-overlay{
   }
   #profileChangeModal .profile-change-title-wrap.fuel-history-head p{
     font-size:.9rem!important;
+  }
+}
+</style>
+
+<style id="wooten-customer-portal-header-label-ver277">
+/* One position and one typographic treatment for every portal form label. */
+#customer-login .portal-card>.portal-eyebrow,
+.portal-action-modal .portal-action-modal-head .portal-eyebrow,
+#profileChangeModal .profile-change-header-stack>.portal-eyebrow{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  margin:0 60px 14px 0!important;
+  padding:0!important;
+  color:#6b7682!important;
+  font-family:inherit!important;
+  font-size:.74rem!important;
+  font-weight:900!important;
+  line-height:1.2!important;
+  letter-spacing:.11em!important;
+  text-transform:uppercase!important;
+}
+.portal-action-modal .portal-action-modal-head,
+#profileChangeModal .profile-change-modal-head{
+  padding-left:34px!important;
+  padding-right:34px!important;
+}
+@media(max-width:700px){
+  #customer-login .portal-card>.portal-eyebrow,
+  .portal-action-modal .portal-action-modal-head .portal-eyebrow,
+  #profileChangeModal .profile-change-header-stack>.portal-eyebrow{
+    margin:0 54px 12px 0!important;
+  }
+  .portal-action-modal .portal-action-modal-head,
+  #profileChangeModal .profile-change-modal-head{
+    padding-left:20px!important;
+    padding-right:20px!important;
   }
 }
 </style>
