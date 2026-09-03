@@ -4803,13 +4803,6 @@ textarea[data-request-response]{
       <div class="admin-nav-group" data-owner-nav>Administration</div>
       <button class="admin-tab" id="admin-tab-btn-users" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-users" data-admin-tab="users" data-admin-label="Admin Users"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2.2 0 4.1.9 5.4 2.4M18 13l1 2 2 .4-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2-.4z"/></svg></span>Admin Users</button>
     </nav>
-    <footer class="admin-sidebar-footer">
-      <button class="admin-sidebar-session" id="adminSidebarSessionButton" type="button" aria-label="Open administrator account options">
-        <span class="admin-sidebar-avatar" id="adminSidebarAvatar" aria-hidden="true">A</span>
-        <span class="admin-sidebar-session-copy"><small>Signed in as</small><strong id="adminSidebarUserName">Administrator</strong></span>
-        <span class="admin-sidebar-session-more" aria-hidden="true">•••</span>
-      </button>
-    </footer>
   </div>
 
   <div class="admin-drawer-backdrop" id="adminDrawerBackdrop" aria-hidden="true"></div>
@@ -13742,40 +13735,6 @@ html,body{
 }
 </style>
 
-<script id="wooten-chatgpt-sidebar-session-ver272">
-(function(){
-  var name=document.getElementById('adminSidebarUserName');
-  var avatar=document.getElementById('adminSidebarAvatar');
-  var sessionButton=document.getElementById('adminSidebarSessionButton');
-  var accessMeta=document.getElementById('adminAccessMeta');
-  var accessButton=document.getElementById('adminAccessOpenBtn');
-  if(!name||!avatar)return;
-
-  function syncSidebarUser(){
-    var user=window.wootenAdminUser||null;
-    var display=String(user&&user.display_name||user&&user.username||'Administrator').trim()||'Administrator';
-    name.textContent=display;
-    avatar.textContent=display.charAt(0).toUpperCase();
-  }
-
-  if(accessMeta&&window.MutationObserver){
-    new MutationObserver(syncSidebarUser).observe(accessMeta,{childList:true,characterData:true,subtree:true});
-  }
-  function closePhoneDrawer(){
-    document.body.classList.remove('admin-drawer-open');
-    var menuButton=document.getElementById('adminMobileMenuBtn');
-    if(menuButton)menuButton.setAttribute('aria-expanded','false');
-  }
-  sessionButton&&sessionButton.addEventListener('click',function(){
-    closePhoneDrawer();
-    if(accessButton)accessButton.click();
-  });
-  accessButton&&accessButton.addEventListener('click',closePhoneDrawer,true);
-  window.addEventListener('wooten-admin-auth-changed',syncSidebarUser);
-  setTimeout(syncSidebarUser,0);
-})();
-</script>
-
 <script id="wooten-admin-notification-badge-fast-start-ver262">
 (function(){
   function ready(callback){
@@ -13922,11 +13881,11 @@ html,body{
 }
 </style>
 
-<style id="wooten-admin-phone-sidebar-footer-clearance-ver274">
+<style id="wooten-admin-phone-sidebar-footer-clearance-ver275">
 @media(max-width:800px){
   #adminSidebar .admin-tabs{
-    bottom:calc(88px + env(safe-area-inset-bottom))!important;
-    padding-bottom:38px!important;
+    bottom:0!important;
+    padding-bottom:calc(38px + env(safe-area-inset-bottom))!important;
     scroll-padding-bottom:38px!important;
     overscroll-behavior-y:contain!important;
     -webkit-overflow-scrolling:touch!important;
@@ -13939,10 +13898,6 @@ html,body{
     height:34px!important;
     min-height:34px!important;
     pointer-events:none!important;
-  }
-  #adminSidebar .admin-sidebar-footer{
-    height:calc(76px + env(safe-area-inset-bottom))!important;
-    box-shadow:0 -8px 18px rgba(15,39,66,.06)!important;
   }
 }
 </style>
