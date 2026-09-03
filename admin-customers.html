@@ -13881,12 +13881,13 @@ html,body{
 }
 </style>
 
-<style id="wooten-admin-phone-sidebar-footer-clearance-ver275">
+<style id="wooten-admin-phone-sidebar-footer-clearance-ver278">
 @media(max-width:800px){
   #adminSidebar .admin-tabs{
     bottom:0!important;
-    padding-bottom:calc(38px + env(safe-area-inset-bottom))!important;
-    scroll-padding-bottom:38px!important;
+    padding-top:6px!important;
+    padding-bottom:calc(14px + env(safe-area-inset-bottom))!important;
+    scroll-padding-bottom:14px!important;
     overscroll-behavior-y:contain!important;
     -webkit-overflow-scrolling:touch!important;
     touch-action:pan-y!important;
@@ -13895,9 +13896,53 @@ html,body{
     content:""!important;
     display:block!important;
     width:100%!important;
-    height:34px!important;
-    min-height:34px!important;
+    height:10px!important;
+    min-height:10px!important;
     pointer-events:none!important;
+  }
+  #adminSidebar .admin-nav-group{
+    margin-top:13px!important;
+    margin-bottom:5px!important;
+  }
+  #adminSidebar .admin-tab{
+    min-height:41px!important;
+    margin-top:2px!important;
+    margin-bottom:2px!important;
+    padding-top:8px!important;
+    padding-bottom:8px!important;
+  }
+}
+</style>
+
+<style id="wooten-admin-phone-sidebar-longer-ver281">
+/* Give the phone navigation more usable vertical room inside the viewport. */
+@media(max-width:800px){
+  #adminSidebar .admin-sidebar-header{
+    height:calc(60px + env(safe-area-inset-top))!important;
+    padding:calc(10px + env(safe-area-inset-top)) 64px 8px 14px!important;
+  }
+  #adminSidebar .admin-sidebar-header .admin-sidebar-brand{
+    min-height:40px!important;
+  }
+  #adminSidebar .admin-tabs{
+    top:calc(60px + env(safe-area-inset-top))!important;
+    bottom:0!important;
+    padding:3px 10px calc(8px + env(safe-area-inset-bottom))!important;
+  }
+  #adminSidebar .admin-nav-group{
+    margin-top:8px!important;
+    margin-bottom:2px!important;
+  }
+  #adminSidebar .admin-tab{
+    min-height:38px!important;
+    margin-top:1px!important;
+    margin-bottom:1px!important;
+    padding-top:6px!important;
+    padding-bottom:6px!important;
+  }
+  #adminSidebar .admin-tabs::after{
+    height:6px!important;
+    min-height:6px!important;
   }
 }
 </style>
