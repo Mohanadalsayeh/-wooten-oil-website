@@ -6103,6 +6103,117 @@ try{
 }
 </script>
 
+<style id="wooten-admin-phone-sidebar-visibility-ver270">
+@media(max-width:800px){
+  .admin-mobile-bar{
+    display:flex!important;
+  }
+  #adminMobileMenuBtn.admin-mobile-menu-btn{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+  #adminSidebar.admin-tabs-shell{
+    display:flex!important;
+    flex-direction:column!important;
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    width:min(86vw,320px)!important;
+    height:100vh!important;
+    height:100dvh!important;
+    max-height:100vh!important;
+    max-height:100dvh!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    transform:translate3d(-105%,0,0)!important;
+    transition:transform .22s ease!important;
+    z-index:10020!important;
+  }
+  body.admin-drawer-open #adminSidebar.admin-tabs-shell{
+    transform:translate3d(0,0,0)!important;
+  }
+  #adminSidebar .admin-sidebar-header,
+  #adminSidebar .admin-sidebar-footer{
+    display:block!important;
+    flex:0 0 auto!important;
+  }
+  #adminSidebar .admin-tabs{
+    display:block!important;
+    flex:1 1 auto!important;
+    min-height:0!important;
+    height:auto!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+  }
+  #adminSidebar #adminDrawerClose{
+    display:block!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+  }
+  body.admin-drawer-open #adminDrawerBackdrop{
+    display:block!important;
+    position:fixed!important;
+    inset:0!important;
+    z-index:10010!important;
+  }
+}
+</style>
+
+<script id="wooten-admin-phone-sidebar-controller-ver270">
+(function(){
+  function ready(callback){
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',callback,{once:true});
+    else callback();
+  }
+  ready(function(){
+    var sidebar=document.getElementById('adminSidebar');
+    var backdrop=document.getElementById('adminDrawerBackdrop');
+    var openButton=document.getElementById('adminMobileMenuBtn');
+    var closeButton=document.getElementById('adminDrawerClose');
+    if(!sidebar||!backdrop||!openButton)return;
+
+    function phone(){return window.matchMedia('(max-width:800px)').matches;}
+    function moveToPhoneLayer(){
+      if(!phone())return;
+      if(backdrop.parentNode!==document.body)document.body.appendChild(backdrop);
+      if(sidebar.parentNode!==document.body)document.body.appendChild(sidebar);
+    }
+    function setOpen(open){
+      moveToPhoneLayer();
+      document.body.classList.toggle('admin-drawer-open',open);
+      openButton.setAttribute('aria-expanded',open?'true':'false');
+    }
+
+    openButton.addEventListener('click',function(event){
+      if(!phone())return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpen(!document.body.classList.contains('admin-drawer-open'));
+    },true);
+    closeButton&&closeButton.addEventListener('click',function(event){
+      if(!phone())return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpen(false);
+    },true);
+    backdrop.addEventListener('click',function(event){
+      if(!phone())return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpen(false);
+    },true);
+    window.addEventListener('pageshow',moveToPhoneLayer);
+    window.addEventListener('resize',moveToPhoneLayer,{passive:true});
+    moveToPhoneLayer();
+  });
+})();
+</script>
+
 <!-- Ver253: comfortable wide-screen admin sizing -->
 <style id="wooten-admin-wide-screen-sizing-ver253">
 /*
@@ -13655,5 +13766,73 @@ html,body{
   });
   window.addEventListener('wooten-admin-auth-changed',syncSidebarUser);
   setTimeout(syncSidebarUser,0);
+})();
+</script>
+
+<script id="wooten-admin-notification-badge-fast-start-ver262">
+(function(){
+  function ready(callback){
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',callback,{once:true});
+    else callback();
+  }
+
+  ready(function(){
+    var keyField=document.getElementById('adminKey');
+    var accessMeta=document.getElementById('adminAccessMeta');
+    var badge=document.getElementById('adminNotificationBadge');
+    var refresh=document.getElementById('adminNotificationRefresh');
+    if(!keyField||!badge||!refresh)return;
+
+    var lastKey='';
+    var pollTimer=0;
+
+    function storageKey(){
+      var user=window.wootenAdminUser||{};
+      var identity=String(user.username||user.display_name||'admin').toLowerCase();
+      return 'wootenAdminNotificationBadgeCache:'+identity;
+    }
+
+    function showCount(total){
+      total=Math.max(0,Number(total)||0);
+      badge.textContent=total>99?'99+':String(total);
+      badge.hidden=total===0;
+    }
+
+    function restoreCount(){
+      try{
+        var cached=JSON.parse(localStorage.getItem(storageKey())||'null');
+        if(!cached||Date.now()-Number(cached.saved_at||0)>43200000)return;
+        showCount(cached.total);
+      }catch(_error){}
+    }
+
+    function saveCount(){
+      if(!String(keyField.value||'').trim())return;
+      var badgeText=String(badge.textContent||'0');
+      var total=parseInt(badgeText.replace(/[^0-9]/g,''),10);
+      if(!Number.isFinite(total))total=0;
+      if(badgeText.indexOf('+')!==-1)total=100;
+      try{localStorage.setItem(storageKey(),JSON.stringify({total:total,saved_at:Date.now()}));}catch(_error){}
+    }
+
+    function checkForLogin(){
+      var key=String(keyField.value||'').trim();
+      if(!key){lastKey='';return;}
+      if(key===lastKey)return;
+      lastKey=key;
+      restoreCount();
+      requestAnimationFrame(function(){refresh.click();});
+    }
+
+    if(window.MutationObserver){
+      new MutationObserver(checkForLogin).observe(accessMeta||document.body,{childList:true,characterData:true,subtree:true});
+      new MutationObserver(saveCount).observe(badge,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
+    }
+
+    pollTimer=setInterval(checkForLogin,50);
+    setTimeout(function(){clearInterval(pollTimer);},10000);
+    window.addEventListener('pageshow',checkForLogin);
+    checkForLogin();
+  });
 })();
 </script>
