@@ -10985,6 +10985,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function startProgress(){let n=8;progress.hidden=false;progressBar.style.width=n+'%';progressTrack.setAttribute('aria-valuenow',String(n));progressCount.textContent='Preparing';return setInterval(()=>{n=Math.min(91,n+(n<60?10:n<80?5:2));progressBar.style.width=n+'%';progressTrack.setAttribute('aria-valuenow',String(n));progressCount.textContent=n+'%';},140);}
   async function finishProgress(handle){clearInterval(handle);progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(r=>setTimeout(r,260));progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');}
+  function keepActivityPagePosition(x,y){
+    const root=document.documentElement,previousBehavior=root.style.scrollBehavior;
+    root.style.scrollBehavior='auto';
+    window.scrollTo(x,y);
+    requestAnimationFrame(()=>window.scrollTo(x,y));
+    setTimeout(()=>{
+      window.scrollTo(x,y);
+      root.style.scrollBehavior=previousBehavior;
+    },80);
+  }
   function empty(text){return '<div class="activity-empty">'+esc(text)+'</div>';}
   function section(title,rows,wide=false,keyName='',meta=null){const total=Number(meta?.total??rows.length),page=Math.max(1,Number(meta?.page||1)),pages=Math.max(1,Number(meta?.pages||1));return '<section class="activity-section'+(wide?' activity-wide':'')+'"'+(keyName?' data-activity-section="'+esc(keyName)+'"':'')+'><div class="activity-section-head"><h3>'+esc(title)+'</h3><span class="activity-count">'+total+'</span></div><div class="activity-list">'+(rows.join('')||empty('No activity recorded.'))+'</div>'+(keyName&&total>20?'<div class="db-pagination activity-pagination"><button class="secondary" type="button" data-activity-page="'+(page-1)+'" data-activity-page-section="'+esc(keyName)+'" '+(page<=1?'disabled':'')+'>Previous 20</button><div class="db-page-info">Page '+page+' of '+pages+' • '+total+' records</div><button class="secondary" type="button" data-activity-page="'+(page+1)+'" data-activity-page-section="'+esc(keyName)+'" '+(page>=pages?'disabled':'')+'>Next 20</button></div>':'')+'</section>';}
   function periodSelect(chartName,selectedMonths){return '<select class="activity-chart-period" data-activity-chart-period data-activity-chart-name="'+chartName+'" aria-label="Chart time period">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[0,'All time']].map(option=>'<option value="'+option[0]+'"'+(Number(selectedMonths)===option[0]?' selected':'')+'>'+option[1]+'</option>').join('')+'</select>';}
@@ -11025,6 +11035,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       activityList.style.minHeight=Math.ceil(activityList.getBoundingClientRect().height)+'px';
       window.wootenAdminSkeleton?.activityRows(activityList,4);
     }
+    keepActivityPagePosition(savedScrollX,savedScrollY);
     try{
       const params=new URLSearchParams({account_number:currentAccount,chart_months:String(chartMonths)});
       Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));
@@ -11034,12 +11045,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       if(!markup)throw new Error('This activity section could not be updated.');
       activityPages[name]=Number(data.pagination?.[name]?.page||activityPages[name]);
       target.outerHTML=markup;
-      requestAnimationFrame(()=>window.scrollTo(savedScrollX,savedScrollY));
+      keepActivityPagePosition(savedScrollX,savedScrollY);
     }catch(error){
       activityPages[name]=previousPage;
       target.innerHTML=previousMarkup;
       target.removeAttribute('aria-busy');
       target.querySelectorAll('button').forEach(button=>button.disabled=false);
+      keepActivityPagePosition(savedScrollX,savedScrollY);
       message(error.message||'This activity section could not be loaded.',false);
     }
   }
@@ -14045,5 +14057,13 @@ html,body{
 @media(prefers-reduced-motion:reduce){
   .activity-table-skeleton-line,
   .activity-table-skeleton-count{animation:none}
+}
+</style>
+
+<style id="wooten-customer-activity-pagination-position-ver288">
+/* Do not let browser scroll anchoring move the page while a table is replaced. */
+#activityDashboard,
+#activityDashboard .activity-section[aria-busy="true"]{
+  overflow-anchor:none!important;
 }
 </style>
