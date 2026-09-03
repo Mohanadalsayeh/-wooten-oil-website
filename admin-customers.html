@@ -14067,3 +14067,42 @@ html,body{
   overflow-anchor:none!important;
 }
 </style>
+
+<style id="wooten-save-notify-icon-ver289">
+.request-save-v217 .request-save-icon{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:21px!important;
+  height:21px!important;
+  flex:0 0 21px!important;
+  font-size:0!important;
+}
+.request-save-v217 .request-save-icon svg{
+  display:block!important;
+  width:21px!important;
+  height:21px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.9!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+</style>
+
+<script id="wooten-save-notify-icon-ver289-script">
+(()=>{
+  const icon='<span class="request-save-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 3 10.5 13.5"></path><path d="m21 3-6.5 18-4-7.5L3 9.5 21 3Z"></path></svg></span>';
+  function updateSaveButtons(){
+    document.querySelectorAll('.request-save-v217').forEach(button=>{
+      if(button.querySelector('.request-save-icon'))return;
+      if(button.textContent.trim()!=='Save & Notify')return;
+      button.innerHTML=icon+' Save &amp; Notify';
+    });
+  }
+  const list=document.getElementById('requestCenterList');
+  if(list)new MutationObserver(updateSaveButtons).observe(list,{childList:true,subtree:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',updateSaveButtons,{once:true});
+  else updateSaveButtons();
+})();
+</script>
