@@ -2501,5 +2501,39 @@ html.customer-portal-open #customer-login.portal-overlay{
 })();
 </script>
 
+<style id="wooten-global-close-hover-ver258">
+/* Style 4: red fill on hover/tap for every true close control. */
+a[aria-label*="close" i]:hover,
+button[aria-label*="close" i]:hover,
+a[aria-label*="close" i]:active,
+button[aria-label*="close" i]:active{
+  background:#b73333!important;
+  border-color:#b73333!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-decoration:none!important;
+  transform:none!important;
+}
+</style>
+
+<style id="wooten-statements-portal-heading-ver259">
+/* Match the Statements & Invoices heading area to the other customer forms. */
+#portalAccountCard:has(#customerDocuments.show){
+  padding-top:24px!important;
+}
+#portalAccountCard:has(#customerDocuments.show)>.portal-eyebrow{
+  display:inline-flex!important;
+  margin-bottom:16px!important;
+}
+@media(max-width:700px){
+  #portalAccountCard:has(#customerDocuments.show){
+    padding-top:18px!important;
+  }
+  #portalAccountCard:has(#customerDocuments.show)>.portal-eyebrow{
+    margin-bottom:12px!important;
+  }
+}
+</style>
+
 </body>
 </html>
