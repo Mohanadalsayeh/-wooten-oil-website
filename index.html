@@ -2545,5 +2545,50 @@ html.customer-portal-open #customer-login.portal-overlay{
 }
 </style>
 
+<style id="wooten-unified-form-top-position-ver262">
+/* Open every full customer/public form at the same viewport position. */
+#customer-login.portal-overlay[role="dialog"],
+.contact-message-overlay[role="dialog"],
+.portal-action-modal[role="dialog"]{
+  align-items:flex-start!important;
+  padding-top:16px!important;
+  padding-bottom:24px!important;
+}
+#customer-login.portal-overlay[role="dialog"]>.portal-card,
+.contact-message-overlay[role="dialog"]>.contact-message-dialog,
+.portal-action-modal[role="dialog"]>.portal-action-modal-card{
+  margin-top:0!important;
+  margin-bottom:24px!important;
+}
+@media(max-width:700px){
+  #customer-login.portal-overlay[role="dialog"],
+  .contact-message-overlay[role="dialog"],
+  .portal-action-modal[role="dialog"]{
+    padding-top:8px!important;
+    padding-bottom:20px!important;
+  }
+  #customer-login.portal-overlay[role="dialog"]>.portal-card,
+  .contact-message-overlay[role="dialog"]>.contact-message-dialog,
+  .portal-action-modal[role="dialog"]>.portal-action-modal-card{
+    margin-top:0!important;
+    margin-bottom:20px!important;
+  }
+}
+</style>
+
+<style id="wooten-payment-refresh-size-ver263">
+/* Match the Payment History refresh control to Fuel Request History. */
+#customerPaymentHistory .payment-history-refresh{
+  width:auto!important;
+  height:40px!important;
+  min-height:40px!important;
+  padding:0 14px!important;
+  box-sizing:border-box!important;
+  font:inherit!important;
+  font-weight:800!important;
+  line-height:1!important;
+}
+</style>
+
 </body>
 </html>
