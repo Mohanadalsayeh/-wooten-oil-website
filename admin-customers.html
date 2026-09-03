@@ -3542,10 +3542,6 @@ input[type="file"]:focus-visible{
 @media(max-width:850px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr 1fr}.admin-user-row{grid-template-columns:1fr}.admin-user-row button{width:100%}}@media(max-width:560px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr}.admin-user-active{width:100%}}
 </style>
 
-<link rel="stylesheet" href="assets/css/wooten-ios-mobile-viewport-fix.css">
-
-<link rel="stylesheet" href="assets/css/wooten-modern-checkboxes-v114.css">
-
 <style id="wooten-mobile-layout-fixes-v115">
 /* Ver115: mobile form consistency and Customer Activity chart containment. */
 @media(max-width:760px){
@@ -4699,7 +4695,7 @@ textarea[data-request-response]{
   <div class="admin-login-dialog" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
     <form id="adminLoginForm" class="admin-login-card" autocomplete="off">
       <div class="admin-login-logo-wrap">
-        <img class="admin-login-logo" src="assets/img/wooten-oil-admin-login-logo.png" alt="Wooten Oil logo">
+        <img class="admin-login-logo" src="assets/img/wooten-oil-admin-login-logo.png" width="640" height="360" alt="Wooten Oil logo" decoding="async">
       </div>
 
       <div class="admin-login-title">
@@ -4718,7 +4714,7 @@ textarea[data-request-response]{
         </div>
 
         <div class="admin-login-field">
-          <label for="adminKeyPrompt">Password / Owner Admin Key</label>
+          <label for="adminKeyPrompt">Password</label>
           <div class="admin-login-input-wrap">
             <span class="admin-login-input-icon" aria-hidden="true">⌕</span>
             <input id="adminKeyPrompt" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Enter password">
@@ -4765,7 +4761,7 @@ textarea[data-request-response]{
             <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div><div class="admin-bell-footer"><span>Wooten Oil Admin</span><span aria-hidden="true">•</span><span>Auto-refreshes every 60 seconds</span></div>
           </div>
         </div>
-        <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
+        <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Sign Out / Change User</button>
       </div>
     </div>
     <div hidden aria-hidden="true">
@@ -5931,7 +5927,7 @@ textarea[data-request-response]{
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-users" role="tabpanel" aria-labelledby="admin-tab-btn-users" data-admin-panel="users">
-    <div class="admin-page-label">Access Control</div><h2>Admin Users &amp; Permissions</h2><p>Create individual administrator accounts and choose exactly which sections each person can access. The owner Admin Import Key always retains full access.</p>
+    <div class="admin-page-label">Access Control</div><h2>Admin Users &amp; Permissions</h2><p>Create individual administrator accounts and choose exactly which sections each person can access. The owner Admin login retains full access.</p>
     <section class="admin-user-editor"><h3 id="adminUserEditorTitle">Add Admin User</h3><input id="adminUserId" type="hidden">
       <div class="admin-user-fields"><div><label for="adminUserDisplayName">Full Name</label><input id="adminUserDisplayName" type="text" maxlength="100" placeholder="Employee name"></div><div><label for="adminUserUsername">Username</label><input id="adminUserUsername" type="text" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9._-]+" aria-describedby="adminUserUsernameHint" placeholder="Example: john.smith"><small class="admin-user-field-hint" id="adminUserUsernameHint">Letters and numbers only; period, underscore, and hyphen are allowed. No spaces.</small></div><div><label for="adminUserPassword">Password</label><input id="adminUserPassword" type="password" minlength="8" autocomplete="new-password" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" aria-describedby="adminUserPasswordHint" placeholder="Letter + number, 8+ characters"><small class="admin-user-field-hint" id="adminUserPasswordHint">At least 8 characters with at least one letter and one number.</small></div></div>
       <div class="admin-user-permissions" role="group" aria-label="Admin permissions"><label><input type="checkbox" value="database"> Database &amp; Imports</label><label><input type="checkbox" value="customer_activity"> Customer Activity</label><label><input type="checkbox" value="notifications"> Notifications</label><label><input type="checkbox" value="statements"> Statements &amp; Invoices</label><label><input type="checkbox" value="communication"> Communication History</label><label><input type="checkbox" value="communications_settings"> Communications Settings</label><label><input type="checkbox" value="applications"> Account Applications</label><label><input type="checkbox" value="activation"> Account Activation</label></div>
@@ -6044,15 +6040,24 @@ textarea[data-request-response]{
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
 <script type="module" id="wooten-mdb-reader-module">
 try{
-  const [{Buffer},mdbModule]=await Promise.all([
-    import("https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm"),
-    import("https://cdn.jsdelivr.net/npm/mdb-reader@3.2.0/+esm")
-  ]);
-  const MDBReader=mdbModule.default;
+  let accessReaderModulesPromise=null;
+
+  function loadAccessReaderModules(){
+    if(!accessReaderModulesPromise){
+      accessReaderModulesPromise=Promise.all([
+        import("https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm"),
+        import("https://cdn.jsdelivr.net/npm/mdb-reader@3.2.0/+esm")
+      ]).then(([bufferModule,mdbModule])=>({Buffer:bufferModule.Buffer,MDBReader:mdbModule.default})).catch(error=>{
+        console.error("MDB reader failed to load",error);
+        window.wootenMdbReaderError=error;
+        accessReaderModulesPromise=null;
+        throw new Error("The Access database reader could not be loaded.");
+      });
+    }
+    return accessReaderModulesPromise;
+  }
 
   function n(v){return String(v||"").replace(/[^a-z0-9]/gi,"").toLowerCase();}
   function score(cols,mode){
@@ -6064,6 +6069,7 @@ try{
   }
 
   window.wootenReadAccessFile=async(file,mode)=>{
+    const {Buffer,MDBReader}=await loadAccessReaderModules();
     const reader=new MDBReader(Buffer.from(await file.arrayBuffer()));
     const names=reader.getTableNames();
     if(!names?.length) throw new Error("No tables were found in this Access database.");
@@ -6381,6 +6387,71 @@ try{
 </style>
 
 <script>
+(function installAdminFetchTimeout(){
+  if(window.__wootenAdminFetchTimeoutInstalled)return;
+  window.__wootenAdminFetchTimeoutInstalled=true;
+  const nativeFetch=window.fetch.bind(window);
+  window.fetch=function(input,init){
+    const options=init||{};
+    const rawUrl=typeof input==='string'||input instanceof URL?String(input):String(input?.url||'');
+    let parsedUrl;
+    try{parsedUrl=new URL(rawUrl,window.location.href);}catch(_error){return nativeFetch(input,init);}
+    if(parsedUrl.origin!==window.location.origin||!parsedUrl.pathname.startsWith('/api/admin/'))return nativeFetch(input,init);
+
+    const method=String(options.method||input?.method||'GET').toUpperCase();
+    const isRead=method==='GET'||method==='HEAD';
+    const isLongRunning=/(?:customers-import|customer-payments-import|customer-notifications|statement|\/upload(?:\/|$)|gmail-portal-sync)/i.test(parsedUrl.pathname);
+    const timeoutMs=isLongRunning?300000:(isRead?20000:60000);
+    const controller=new AbortController();
+    const callerSignal=options.signal||input?.signal||null;
+    let timedOut=false;
+    let removeCallerAbort=null;
+    if(callerSignal){
+      const forwardAbort=()=>controller.abort(callerSignal.reason);
+      if(callerSignal.aborted)forwardAbort();
+      else{
+        callerSignal.addEventListener('abort',forwardAbort,{once:true});
+        removeCallerAbort=()=>callerSignal.removeEventListener('abort',forwardAbort);
+      }
+    }
+    let timer=0;
+    const cleanup=()=>{
+      if(timer)window.clearTimeout(timer);
+      timer=0;
+      removeCallerAbort?.();
+      removeCallerAbort=null;
+    };
+    const timeoutError=()=>{
+      const seconds=Math.round(timeoutMs/1000);
+      return new Error(isRead
+        ?`The admin request timed out after ${seconds} seconds. Please check the connection and try again.`
+        :`The admin request timed out after ${seconds} seconds. Confirm whether the action completed before submitting it again.`);
+    };
+    timer=window.setTimeout(()=>{timedOut=true;controller.abort();cleanup();},timeoutMs);
+    return nativeFetch(input,{...options,signal:controller.signal}).then(response=>{
+      if(method==='HEAD'||response.body===null||[204,205,304].includes(response.status)){
+        cleanup();
+        return response;
+      }
+      ['json','text','blob','arrayBuffer','formData'].forEach(readerName=>{
+        if(typeof response[readerName]!=='function')return;
+        const read=response[readerName].bind(response);
+        Object.defineProperty(response,readerName,{configurable:true,writable:true,value:(...args)=>
+          Promise.resolve().then(()=>read(...args)).catch(error=>{
+            if(timedOut)throw timeoutError();
+            throw error;
+          }).finally(cleanup)
+        });
+      });
+      return response;
+    }).catch(error=>{
+      cleanup();
+      if(timedOut)throw timeoutError();
+      throw error;
+    });
+  };
+})();
+
 let preparedRows=[];
 
 function formatImportUpdateDate(value){
@@ -6426,6 +6497,27 @@ function setImportLastUpdate(kind,value,by,mode,status,count,batchNumber,batchCo
 
 let importStatusPollTimer=0;
 let importStatusRequestPending=false;
+let importStatusPollDelay=30000;
+
+function stopImportStatusPolling(){
+  if(importStatusPollTimer) window.clearTimeout(importStatusPollTimer);
+  importStatusPollTimer=0;
+}
+
+function importStatusPollingAllowed(){
+  return document.visibilityState!=="hidden" && !!document.getElementById("adminKey")?.value.trim();
+}
+
+function scheduleImportStatusPolling(delay=importStatusPollDelay){
+  stopImportStatusPolling();
+  if(!importStatusPollingAllowed())return;
+  importStatusPollTimer=window.setTimeout(()=>{
+    importStatusPollTimer=0;
+    loadImportLastUpdates();
+  },delay);
+}
+
+window.stopImportStatusPolling=stopImportStatusPolling;
 
 function renderMas90LiveSync(data){
   const imports=[
@@ -6517,16 +6609,10 @@ document.addEventListener("click",async event=>{
   }
 });
 
-function ensureImportStatusPolling(){
-  if(importStatusPollTimer)return;
-  importStatusPollTimer=window.setInterval(()=>{
-    if(document.visibilityState!=="hidden")loadImportLastUpdates();
-  },3000);
-}
-
 async function loadImportLastUpdates(){
-  ensureImportStatusPolling();
+  stopImportStatusPolling();
   if(importStatusRequestPending)return;
+  if(document.visibilityState==="hidden")return;
   const key=document.getElementById("adminKey")?.value.trim();
   if(!key){renderMas90LiveSync(null);return;}
   importStatusRequestPending=true;
@@ -6537,6 +6623,9 @@ async function loadImportLastUpdates(){
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok || data.success===false) return;
+    const importInProgress=[data.customers_last_import_status,data.payments_last_import_status]
+      .some(value=>String(value||"").toLowerCase()==="in_progress");
+    importStatusPollDelay=importInProgress?3000:30000;
     setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"",data.customers_last_import_mode||"manual",data.customers_last_import_status||"completed",data.customers_last_record_count||0,data.customers_last_import_batch_number||1,data.customers_last_import_batch_count||1);
     setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
     renderMas90LiveSync(data);
@@ -6544,11 +6633,13 @@ async function loadImportLastUpdates(){
     console.warn("Could not load import update times",e);
   }finally{
     importStatusRequestPending=false;
+    scheduleImportStatusPolling(importStatusPollDelay);
   }
 }
 
 document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState!=="hidden")loadImportLastUpdates();
+  if(document.visibilityState==="hidden")stopImportStatusPolling();
+  else if(document.getElementById("adminKey")?.value.trim())loadImportLastUpdates();
 });
 
 
@@ -6761,7 +6852,7 @@ function updateCustomerPreviewFilters(){
   const sel=document.getElementById("customerStateFilter");
   if(!sel) return;
   const states=[...new Set(preparedRows.map(r=>String(r.state||"").trim().toUpperCase()).filter(Boolean))].sort();
-  sel.innerHTML='<option value="all">All states</option>'+states.map(s=>`<option value="${s}">${s}</option>`).join("");
+  sel.replaceChildren(new Option("All states","all"),...states.map(state=>new Option(state,state)));
 }
 function render(rows,total,skipped){
   document.getElementById("summary").style.display="grid";
@@ -6783,9 +6874,13 @@ function render(rows,total,skipped){
   });
 }
 
+let customerPreviewSearchTimer=0;
 ["customerPreviewSearch","customerStateFilter","customerEmailFilter","customerBalanceFilter","customerPreviewSort"].forEach(id=>{
   const el=document.getElementById(id);
-  if(el) el.addEventListener(id==="customerPreviewSearch"?"input":"change",()=>{if(preparedRows.length) render(preparedRows,Number(document.getElementById("mRows").textContent||preparedRows.length),Number(document.getElementById("mSkipped").textContent||0));});
+  if(!el)return;
+  const refresh=()=>{if(preparedRows.length)render(preparedRows,Number(document.getElementById("mRows").textContent||preparedRows.length),Number(document.getElementById("mSkipped").textContent||0));};
+  if(id==="customerPreviewSearch")el.addEventListener("input",()=>{clearTimeout(customerPreviewSearchTimer);customerPreviewSearchTimer=setTimeout(refresh,220);});
+  else el.addEventListener("change",refresh);
 });
 async function waitForAccessReader(){
   if(window.wootenReadAccessFile) return;
@@ -6797,24 +6892,10 @@ async function waitForAccessReader(){
 }
 async function parseFile(file,mode="customers"){
   const ext=file.name.toLowerCase().split(".").pop();
-
-  if(ext==="mdb"||ext==="accdb"){
-    await waitForAccessReader();
-    const result=await window.wootenReadAccessFile(file,mode);
-    return result;
-  }
-
-  if(ext==="csv"){
-    const text=await file.text();
-    const wb=XLSX.read(text,{type:"string"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    return {rows:XLSX.utils.sheet_to_json(ws,{defval:"",raw:false}),tableName:ws?.name||"CSV"};
-  }
-
-  const buf=await file.arrayBuffer();
-  const wb=XLSX.read(buf,{type:"array",cellText:true,cellDates:false});
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  return {rows:XLSX.utils.sheet_to_json(ws,{defval:"",raw:false}),tableName:wb.SheetNames[0]||"Excel"};
+  if(ext!=="mdb")throw new Error("Only a Microsoft Access *.mdb file can be imported.");
+  if(Number(file.size||0)>50*1024*1024)throw new Error("The Access database file is larger than 50 MB. Choose a file that is 50 MB or smaller.");
+  await waitForAccessReader();
+  return window.wootenReadAccessFile(file,mode);
 }
 
 function isMicrosoftAccessMdb(file){return !!file&&/\.mdb$/i.test(String(file.name||""));}
@@ -6886,7 +6967,7 @@ async function customerImportAreaCodePreflight(key,enabled,sevenDigitCount){
 
 document.getElementById("importBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
-  if(!key){setStatus("Enter your Admin Import Key in the Admin Login window first.",false);return;}
+  if(!key){setStatus("Sign in as an administrator first.",false);return;}
   if(!preparedRows.length){setStatus("Preview a customer file first.",false);return;}
   const btn=document.getElementById("importBtn");
   const autoFixEl=document.getElementById("customerAutoFixAreaCode");
@@ -7075,7 +7156,7 @@ function paymentPreviewFilteredRows(){
 function updatePaymentPreviewFilters(){
   const sel=document.getElementById("paymentDepositTypeFilter");if(!sel)return;
   const types=[...new Set(preparedPaymentRows.map(r=>String(r.deposit_type||"").trim()).filter(Boolean))].sort();
-  sel.innerHTML='<option value="all">All types</option>'+types.map(v=>`<option value="${v}">${v}</option>`).join("");
+  sel.replaceChildren(new Option("All types","all"),...types.map(type=>new Option(type,type)));
 }
 function renderPaymentPreview(rows,total,skipped){
   document.getElementById("paymentImportSummary").style.display="grid";
@@ -7096,9 +7177,13 @@ function renderPaymentPreview(rows,total,skipped){
   });
 }
 
+let paymentPreviewSearchTimer=0;
 ["paymentPreviewSearch","paymentDepositTypeFilter","paymentAmountFilter","paymentPreviewSort"].forEach(id=>{
   const el=document.getElementById(id);
-  if(el) el.addEventListener(id==="paymentPreviewSearch"?"input":"change",()=>{if(preparedPaymentRows.length) renderPaymentPreview(preparedPaymentRows,Number(document.getElementById("pmRows").textContent||preparedPaymentRows.length),Number(document.getElementById("pmSkipped").textContent||0));});
+  if(!el)return;
+  const refresh=()=>{if(preparedPaymentRows.length)renderPaymentPreview(preparedPaymentRows,Number(document.getElementById("pmRows").textContent||preparedPaymentRows.length),Number(document.getElementById("pmSkipped").textContent||0));};
+  if(id==="paymentPreviewSearch")el.addEventListener("input",()=>{clearTimeout(paymentPreviewSearchTimer);paymentPreviewSearchTimer=setTimeout(refresh,220);});
+  else el.addEventListener("change",refresh);
 });
 document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
   const file=document.getElementById("paymentFile").files[0];
@@ -7156,8 +7241,8 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
 document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
   if(!key){
-    window.ensureAdminLoginKey?.("Enter your Admin Import Key to import customer payments.");
-    setPaymentStatus("Enter your Admin Import Key in the Admin Login window first.",false);
+    window.ensureAdminLoginKey?.("Sign in as an administrator to import customer payments.");
+    setPaymentStatus("Sign in as an administrator first.",false);
     return;
   }
   if(!preparedPaymentRows.length){
@@ -7225,7 +7310,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     console.error(e);
     updateImportProgress("payments",{processed,total,imported,batch:currentBatch||1,batches,state:"failed",label:"Payment import stopped"});
     if(String(e.message||"").toLowerCase().includes("unauthorized")){
-      setPaymentStatus("The Admin Import Key is not valid.",false);
+      setPaymentStatus("Your administrator session is invalid or expired.",false);
     }else{
       setPaymentStatus((e.message||"Payment import failed.")+` ${imported.toLocaleString()} payment(s) were added before the error.`,false);
     }
@@ -7336,8 +7421,8 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
   async function loadPayments(){
     const key=document.getElementById("adminKey").value.trim();
     if(!key){
-      window.ensureAdminLoginKey?.("Enter your Admin Import Key to load the live payment database.");
-      setStatus("Enter the Admin Import Key in the Admin Login window first.");
+      window.ensureAdminLoginKey?.("Sign in as an administrator to load the live payment database.");
+      setStatus("Sign in as an administrator first.");
       return;
     }
 
@@ -7450,13 +7535,17 @@ function initDatabaseClearControls(){
   }
 
   function openClearModal(kind){
+    if(!window.wootenAdminUser?.owner){
+      setClearStatus("Only the Wooten Oil Admin can clear a database.");
+      return;
+    }
     target=kind;
     keyInput.value="";
     setClearStatus("");
 
     if(kind==="customers"){
       title.textContent="Clear Customer Database";
-      message.textContent="Choose whether to preserve or remove existing customer login passwords, then enter the Admin Import Key.";
+      message.textContent="Choose whether to preserve or remove existing customer login passwords, then type CLEAR to confirm.";
       warning.innerHTML="<strong>This cannot be undone.</strong> The MAS 90 customer data will be cleared from the server.";
       if(passwordChoice) passwordChoice.style.display="block";
       const keepRadio=passwordChoice?.querySelector('input[value="keep"]');
@@ -7493,10 +7582,20 @@ function initDatabaseClearControls(){
   });
 
   confirmBtn.addEventListener("click",async()=>{
-    const key=keyInput.value.trim();
-    if(!key){
-      setClearStatus("Enter the Admin Import Key before continuing.");
+    if(!window.wootenAdminUser?.owner){
+      setClearStatus("Only the Wooten Oil Admin can clear a database.");
+      return;
+    }
+    const confirmation=keyInput.value.trim().toUpperCase();
+    if(confirmation!=="CLEAR"){
+      setClearStatus("Type CLEAR to confirm this permanent action.");
       keyInput.focus();
+      return;
+    }
+    const sessionKey=(document.getElementById("adminKey")?.value||"").trim();
+    if(!sessionKey){
+      window.ensureAdminLoginKey?.("Sign in as the Wooten Oil Admin to clear a database.");
+      setClearStatus("Your administrator session is missing or expired.");
       return;
     }
     if(!target) return;
@@ -7517,14 +7616,14 @@ function initDatabaseClearControls(){
 
     confirmBtn.disabled=true;
     cancelBtn.disabled=true;
-    setClearStatus("Verifying Admin Import Key and clearing the database…",true);
+    setClearStatus("Clearing the database…",true);
 
     try{
       const res=await fetch("/api/admin/clear-database",{
         method:"POST",
         headers:{
           "Content-Type":"application/json",
-          "X-Admin-Key":key,
+          "X-Admin-Key":sessionKey,
           "Accept":"application/json"
         },
         body:JSON.stringify({database:target,password_action:passwordAction})
@@ -7755,7 +7854,7 @@ async function loadGmailInbox(){
 
   if(!key){
     status.className="status show bad";
-    status.textContent="Enter your Admin Import Key in the Admin Login window first.";
+    status.textContent="Sign in as an administrator first.";
     window.scrollTo({top:0,behavior:"smooth"});
     return;
   }
@@ -7848,7 +7947,7 @@ async function loadGmailPortalSyncStatus(){
   const key=document.getElementById("adminKey").value.trim();
   const status=document.getElementById("gmailPortalSyncStatus");
   const meta=document.getElementById("gmailSyncMeta");
-  if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');status.className="status show bad";status.textContent="Enter your Admin Import Key in the Admin Login window first.";return;}
+  if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');status.className="status show bad";status.textContent="Sign in as an administrator first.";return;}
   try{
     const res=await fetch("/api/admin/gmail-portal-sync/status",{headers:{"X-Admin-Key":key},cache:"no-store"});
     const data=await res.json().catch(()=>({}));
@@ -7863,7 +7962,7 @@ document.getElementById("gmailPortalSyncBtn").addEventListener("click",async()=>
   const key=document.getElementById("adminKey").value.trim();
   const btn=document.getElementById("gmailPortalSyncBtn");
   const status=document.getElementById("gmailPortalSyncStatus");
-  if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');status.className="status show bad";status.textContent="Enter your Admin Import Key in the Admin Login window first.";return;}
+  if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');status.className="status show bad";status.textContent="Sign in as an administrator first.";return;}
   btn.disabled=true;btn.textContent="Syncing…";status.className="status show";status.textContent="Checking Wooten Oil Gmail Sent messages…";
   try{
     const res=await fetch("/api/admin/gmail-portal-sync",{method:"POST",headers:{"X-Admin-Key":key},cache:"no-store"});
@@ -7993,7 +8092,7 @@ async function loadTwilioStatus(){
   if(!key){
     meta.className="twilio-status-meta bad";
     meta.textContent="Admin login required.";
-    window.ensureAdminLoginKey?.("Enter your Admin Import Key to check Twilio.");
+    window.ensureAdminLoginKey?.("Sign in as an administrator to check Twilio.");
     return;
   }
   btn.disabled=true;
@@ -8129,16 +8228,22 @@ async function applyTwilioAreaCode(){
   if(twilioPhoneTools.areaBar)twilioPhoneTools.areaBar.style.width='0%';
   if(twilioPhoneTools.areaProgressTrack)twilioPhoneTools.areaProgressTrack.setAttribute('aria-valuenow','0');
   if(twilioPhoneTools.areaProgressText)twilioPhoneTools.areaProgressText.textContent='Preparing customer phone records…';
-  let cursor=0,total=0,processed=0,updated=0;
+  let cursor=0,total=0,processed=0,updated=0,batchCount=0,maxBatches=10000;
   try{
     while(true){
+      batchCount+=1;
+      if(batchCount>maxBatches)throw new Error('The area-code update stopped because it exceeded the safe batch limit. Refresh the phone tools before trying again.');
+      const previousCursor=cursor;
       const res=await fetch('/api/admin/twilio/phone-tools/apply-area-code',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({default_area_code:area,cursor,limit:100})});
       const data=await res.json().catch(()=>({}));
       if(!res.ok||data.success===false)throw new Error(data.error||'Could not update phone numbers.');
       total=Math.max(total,Number(data.total||0));
       processed+=Number(data.processed_batch||0);
       updated+=Number(data.updated_batch||0);
-      cursor=Number(data.next_cursor||cursor);
+      const nextCursor=Number(data.next_cursor);
+      if(!data.done&&(!Number.isFinite(nextCursor)||nextCursor<=previousCursor))throw new Error('The area-code update stopped because the server did not advance to the next batch.');
+      cursor=Number.isFinite(nextCursor)?nextCursor:previousCursor;
+      if(total>0)maxBatches=Math.min(10000,Math.ceil(total/100)+5);
       const pct=total?Math.min(100,Math.round(processed/total*100)):100;
       if(twilioPhoneTools.areaBar)twilioPhoneTools.areaBar.style.width=pct+'%';
       if(twilioPhoneTools.areaProgressTrack)twilioPhoneTools.areaProgressTrack.setAttribute('aria-valuenow',String(pct));
@@ -8159,9 +8264,9 @@ async function applyTwilioAreaCode(){
 }
 async function runTwilioCustomerLookup(){
   if(!confirm('Check customer phone numbers with Twilio basic Lookup?\n\nPaid Line Type Intelligence is disabled, so this scan will validate numbers without requesting line-type classification.'))return;
-  twilioPhoneTools.lookup.disabled=true;twilioPhoneTools.progress.hidden=false;twilioPhoneTools.progress.classList.remove('is-complete');twilioPhoneTools.bar.style.width='0%';twilioPhoneTools.progressText.textContent='Starting Twilio lookup…';let cursor=0,total=0,processed=0;
+  twilioPhoneTools.lookup.disabled=true;twilioPhoneTools.progress.hidden=false;twilioPhoneTools.progress.classList.remove('is-complete');twilioPhoneTools.bar.style.width='0%';twilioPhoneTools.progressText.textContent='Starting Twilio lookup…';let cursor=0,total=0,processed=0,batchCount=0,maxBatches=10000;
   try{
-    while(true){const res=await fetch('/api/admin/twilio/phone-tools/lookup-batch',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({cursor,limit:20})});const data=await res.json().catch(()=>({}));if(!res.ok||data.success===false)throw new Error(data.error||'Twilio lookup failed.');total=Number(data.total||total||0);processed=Number(data.processed_total||processed);cursor=Number(data.next_cursor||0);const pct=total?Math.min(100,Math.round(processed/total*100)):100;twilioPhoneTools.bar.style.width=pct+'%';twilioPhoneTools.progressText.textContent=processed.toLocaleString()+' of '+total.toLocaleString()+' customer phone numbers checked ('+pct+'%)';if(data.done)break;}
+    while(true){batchCount+=1;if(batchCount>maxBatches)throw new Error('The Twilio lookup stopped because it exceeded the safe batch limit. Refresh the phone tools before trying again.');const previousCursor=cursor;const res=await fetch('/api/admin/twilio/phone-tools/lookup-batch',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({cursor,limit:20})});const data=await res.json().catch(()=>({}));if(!res.ok||data.success===false)throw new Error(data.error||'Twilio lookup failed.');total=Number(data.total||total||0);processed=Number(data.processed_total||processed);const nextCursor=Number(data.next_cursor);if(!data.done&&(!Number.isFinite(nextCursor)||nextCursor<=previousCursor))throw new Error('The Twilio lookup stopped because the server did not advance to the next batch.');cursor=Number.isFinite(nextCursor)?nextCursor:previousCursor;if(total>0)maxBatches=Math.min(10000,Math.ceil(total/20)+5);const pct=total?Math.min(100,Math.round(processed/total*100)):100;twilioPhoneTools.bar.style.width=pct+'%';twilioPhoneTools.progressText.textContent=processed.toLocaleString()+' of '+total.toLocaleString()+' customer phone numbers checked ('+pct+'%)';if(data.done)break;}
     twilioPhoneTools.bar.style.width='100%';twilioPhoneTools.progressText.textContent='Twilio phone check complete.';twilioPhoneTools.progress.classList.add('is-complete');await loadTwilioPhoneTools();await refreshTwilioBalance();
   }catch(error){twilioPhoneTools.progressText.textContent=error.message||'Twilio phone check failed.';}finally{twilioPhoneTools.lookup.disabled=false;}
 }
@@ -8256,7 +8361,7 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
 
   if(!key){
     status.className="status show bad";
-    status.textContent="Enter your Admin Import Key in the Admin Login window first.";
+    status.textContent="Sign in as an administrator first.";
     return;
   }
 
@@ -8351,7 +8456,7 @@ document.getElementById("activationBtn").addEventListener("click",async()=>{
   const result=document.getElementById("activationResult");
 
   if(!key){
-    setStatus("Enter your Admin Import Key in the Admin Login window first.",false);
+    setStatus("Sign in as an administrator first.",false);
     window.scrollTo({top:0,behavior:"smooth"});
     return;
   }
@@ -8428,7 +8533,7 @@ document.getElementById("resetAssistBtn").addEventListener("click",async()=>{
 
   if(!key){
     status.className="status show bad";
-    status.textContent="Enter your Admin Import Key in the Admin Login window first.";
+    status.textContent="Sign in as an administrator first.";
     return;
   }
 
@@ -8764,7 +8869,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
         if(!key){
           actionStatus.className="db-action-status show bad";
-          actionStatus.textContent="Enter the Admin Import Key in the Admin Login window first.";
+          actionStatus.textContent="Sign in as an administrator first.";
           return;
         }
 
@@ -8840,7 +8945,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   async function loadDatabase({silent=false}={}){
     const key=document.getElementById("adminKey").value.trim();
     if(!key){
-      setDbStatus("Enter your Admin Import Key in the Admin Login window first.");
+      setDbStatus("Sign in as an administrator first.");
       return;
     }
 
@@ -9149,7 +9254,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   async function openAdminDocument(id){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');setStatus('Sign in as an administrator first.',false);return;}
 
     const popup=window.open('about:blank','_blank');
     try{
@@ -9174,7 +9279,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   async function loadDocs(){
     const key=document.getElementById('adminKey').value.trim();
     const acct=normalize(account.value);
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');setStatus('Sign in as an administrator first.',false);return;}
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     account.value=acct;
     setStatus('Loading customer documents…');
@@ -9197,7 +9302,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const key=document.getElementById('adminKey').value.trim();
     const acct=normalize(account.value);
     const selected=file.files&&file.files[0];
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');setStatus('Sign in as an administrator first.',false);return;}
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     if(!selected){setStatus('Choose a PDF statement or invoice.',false);return;}
     if(!portalNotification.checked&&!emailPdf.checked&&!smsLink.checked){setStatus('Select at least one Sending Option.',false);return;}
@@ -9231,6 +9336,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-batch-statements-script">
 (function(){
+  if(window.__wootenAdminBatchStatementsInitialized)return;
+  window.__wootenAdminBatchStatementsInitialized=true;
   const loadBtn=document.getElementById('statementLoadCustomers');
   const sendBtn=document.getElementById('statementGenerateSend');
   const list=document.getElementById('statementCustomerList');
@@ -9377,7 +9484,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   async function loadCustomers(){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');setStatus('Sign in as an administrator first.',false);return;}
     loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';
     list.innerHTML='<div class="admin-inline-skeleton" aria-hidden="true">'+Array.from({length:8},(_,r)=>'<div class="admin-inline-skeleton-row statement"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div>';
     beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
@@ -9479,7 +9586,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   sendBtn.addEventListener('click',async function(){
     const key=document.getElementById('adminKey').value.trim();
     const accounts=Array.from(selected);
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to continue.');setStatus('Sign in as an administrator first.',false);return;}
     if(!accounts.length){setStatus('Select at least one customer.',false);return;}
     if(!date.value){setStatus('Choose the statement date.',false);return;}
     if(!portalNotification.checked&&!emailPdf.checked&&!smsLink.checked){setStatus('Choose at least one delivery method: Portal, Email, or SMS.',false);return;}
@@ -9759,14 +9866,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     report.querySelectorAll('.schedule-run').forEach(runElement=>setScheduleResultPage(runElement,1));
   }
   async function request(path,options={},allowReportedFailure=false){
-    const adminKey=key();if(!adminKey){window.ensureAdminLoginKey('Enter your Admin Import Key to manage statement scheduling.');throw new Error('Enter your Admin Import Key first.');}
+    const adminKey=key();if(!adminKey){window.ensureAdminLoginKey('Sign in as an administrator to manage statement scheduling.');throw new Error('Sign in as an administrator first.');}
     const response=await fetch(path,{...options,headers:{...(options.headers||{}),'X-Admin-Key':adminKey,'Accept':'application/json'},cache:'no-store'});
     const data=await response.json().catch(()=>({}));if(!response.ok||(!allowReportedFailure&&data.success===false))throw new Error(data.error||'Statement scheduling request failed.');return data;
   }
   async function openCombinedStatementPdf({runId=0,groupId='',part=1}={}){
     const popup=window.open('about:blank','_blank');
     try{
-      const adminKey=key();if(!adminKey)throw new Error('Enter your Admin Import Key first.');
+      const adminKey=key();if(!adminKey)throw new Error('Sign in as an administrator first.');
       const params=new URLSearchParams();
       if(groupId)params.set('group_id',groupId);else params.set('run_id',String(Number(runId||0)));
       params.set('part',String(Math.max(1,Number(part||1))));
@@ -10255,6 +10362,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 (function(){
   const treeModeHost=document.getElementById('communicationLogCustomers');
   if(treeModeHost&&treeModeHost.dataset.treeMode==='true')return;
+  if(window.__wootenAdminCommunicationLogInitialized)return;
+  window.__wootenAdminCommunicationLogInitialized=true;
   const loadBtn=document.getElementById('communicationLogLoad');
   const backBtn=document.getElementById('communicationLogBack');
   const from=document.getElementById('communicationLogFrom');
@@ -10304,7 +10413,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   async function requestLog(account,page){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to view the communication log.');throw new Error('Sign in as an administrator first.');}
     const res=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
@@ -10412,6 +10521,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-communication-tree-script">
 (function(){
+  if(window.__wootenAdminCommunicationTreeInitialized)return;
+  window.__wootenAdminCommunicationTreeInitialized=true;
   const loadBtn=document.getElementById('communicationLogLoad');
   const from=document.getElementById('communicationLogFrom');
   const to=document.getElementById('communicationLogTo');
@@ -10429,6 +10540,21 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   let customers=[];
   let totalCustomers=0;
   const openNodes=new Map();
+  let communicationLoadGeneration=0;
+  let communicationLoadController=null;
+  const nodeRequestStates=new Map();
+
+  function cancelNodeRequest(account){
+    const state=nodeRequestStates.get(account);
+    if(!state)return;
+    state.generation+=1;
+    if(state.controller)state.controller.abort();
+    state.controller=null;
+  }
+  function cancelAllNodeRequests(){
+    nodeRequestStates.forEach((_state,account)=>cancelNodeRequest(account));
+    nodeRequestStates.clear();
+  }
 
   function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   const now=new Date();
@@ -10452,10 +10578,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     p.set('page_size','20');
     return p;
   }
-  async function requestLog(account,page){
+  async function requestLog(account,page,signal){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
-    const response=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
+    if(!key){window.ensureAdminLoginKey('Sign in as an administrator to view the communication log.');throw new Error('Sign in as an administrator first.');}
+    const response=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store',signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
     return data;
@@ -10533,42 +10659,73 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(pageInfo)pageInfo.textContent='Page '+page+' of '+pages+' • '+Number(data.total||0)+' customers';
   }
   async function loadCustomers(reset){
+    const generation=++communicationLoadGeneration;
+    if(communicationLoadController)communicationLoadController.abort();
+    cancelAllNodeRequests();
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    communicationLoadController=controller;
     if(reset){customerPage=1;openNodes.clear();}
     loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
     window.wootenAdminSkeleton?.cards(customersEl,5,'communication');
     beginAdminActionProgress('communicationLogLoad','Loading communication log…');
     await new Promise(resolve=>requestAnimationFrame(resolve));
+    if(generation!==communicationLoadGeneration||controller?.signal.aborted)return;
     try{
-      const data=await requestLog('',customerPage);
+      const data=await requestLog('',customerPage,controller?.signal);
+      if(generation!==communicationLoadGeneration||controller?.signal.aborted)return;
       customerPage=Number(data.page||customerPage);
       totalCustomers=Number(data.total||0);
       const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
       customers=[];
       if(!loadedCustomers.length){renderCustomers();updateAdminActionProgress('communicationLogLoad',0,0,'Loading communication customers in batches…');}
       for(let i=0;i<loadedCustomers.length;i+=5){
+        if(generation!==communicationLoadGeneration||controller?.signal.aborted)return;
         const chunk=loadedCustomers.slice(i,i+5);
         customers.push(...chunk);
         renderCustomers();
         updateAdminActionProgress('communicationLogLoad',customers.length,loadedCustomers.length,'Loading communication customers in batches…');
         await new Promise(resolve=>setTimeout(resolve,0));
       }
+      if(generation!==communicationLoadGeneration||controller?.signal.aborted)return;
       renderCustomers();renderMainPagination(data);
       setStatus('Showing '+customers.length+' of '+totalCustomers+' customers. Click a customer to expand their communication history.',true);
-    }catch(error){if(customersEl.querySelector('.admin-skeleton-stack'))customersEl.innerHTML='';setStatus(error.message||'Communication log could not be loaded.',false);}
-    finally{hideAdminActionProgress('communicationLogLoad');loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
+    }catch(error){
+      if(generation!==communicationLoadGeneration||controller?.signal.aborted||error?.name==='AbortError')return;
+      if(customersEl.querySelector('.admin-skeleton-stack'))customersEl.innerHTML='';
+      setStatus(error.message||'Communication log could not be loaded.',false);
+    }finally{
+      if(generation===communicationLoadGeneration){
+        if(communicationLoadController===controller)communicationLoadController=null;
+        hideAdminActionProgress('communicationLogLoad');
+        loadBtn.disabled=false;
+        loadBtn.textContent='Load Communication Log';
+      }
+    }
   }
   async function loadNode(account,page){
     const current=openNodes.get(account);
     if(!current)return;
+    let state=nodeRequestStates.get(account);
+    if(!state){state={generation:0,controller:null};nodeRequestStates.set(account,state);}
+    state.generation+=1;
+    if(state.controller)state.controller.abort();
+    const generation=state.generation;
+    const mainGeneration=communicationLoadGeneration;
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    state.controller=controller;
     openNodes.set(account,{loading:true,page:page||1,pages:current.pages||1,total:current.total||0,entries:[]});
     renderCustomers();
     try{
-      const data=await requestLog(account,page||1);
+      const data=await requestLog(account,page||1,controller?.signal);
+      if(generation!==state.generation||mainGeneration!==communicationLoadGeneration||controller?.signal.aborted||!openNodes.has(account))return;
       openNodes.set(account,{loading:false,page:Number(data.page||1),pages:Number(data.pages||1),total:Number(data.total||0),entries:Array.isArray(data.entries)?data.entries:[]});
     }catch(error){
+      if(generation!==state.generation||mainGeneration!==communicationLoadGeneration||controller?.signal.aborted||error?.name==='AbortError'||!openNodes.has(account))return;
       openNodes.set(account,{loading:false,page:1,pages:1,total:0,entries:[],error:error.message||'History could not be loaded.'});
+    }finally{
+      if(generation===state.generation&&state.controller===controller)state.controller=null;
     }
-    renderCustomers();
+    if(generation===state.generation&&mainGeneration===communicationLoadGeneration&&openNodes.has(account))renderCustomers();
   }
   loadBtn.addEventListener('click',()=>loadCustomers(true));
   customersEl.addEventListener('click',function(e){
@@ -10587,7 +10744,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const account=node?node.getAttribute('data-tree-node'):'';
       const state=openNodes.get(account);
       const key=document.getElementById('adminKey').value.trim();
-      if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to resend this SMS.');return;}
+      if(!key){window.ensureAdminLoginKey('Sign in as an administrator to resend this SMS.');return;}
       resend.disabled=true;resend.textContent='Resending…';
       fetch('/api/admin/communication-log/resend',{method:'POST',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({id:id})})
         .then(async response=>{const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'SMS could not be resent.');return data;})
@@ -10606,7 +10763,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }
     const row=e.target.closest('[data-tree-customer]');if(!row)return;
     const account=row.getAttribute('data-tree-customer');
-    if(openNodes.has(account)){openNodes.delete(account);renderCustomers();return;}
+    if(openNodes.has(account)){cancelNodeRequest(account);nodeRequestStates.delete(account);openNodes.delete(account);renderCustomers();return;}
     openNodes.set(account,{loading:true,page:1,pages:1,total:0,entries:[]});
     loadNode(account,1);
   });
@@ -10620,6 +10777,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-login-popup-script">
 (function(){
+  if(window.__wootenAdminLoginInitialized)return;
+  window.__wootenAdminLoginInitialized=true;
   const body=document.body;
   const keyField=document.getElementById('adminKey');
   const overlay=document.getElementById('adminLoginOverlay');
@@ -10632,6 +10791,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const submitBtn=form ? form.querySelector('button[type="submit"]') : null;
   const storageKey='wootenAdminLoginSession';
   let currentUser=null;
+  let adminSessionDay='';
 
   function applyPermissions(user){
     currentUser=user||null;window.wootenAdminUser=currentUser;
@@ -10645,6 +10805,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     ownerOnlyControls.forEach(control=>{control.disabled=!user?.owner;control.setAttribute('aria-disabled',user?.owner?'false':'true');});
     document.querySelectorAll('.admin-user-editor,.admin-user-list-section').forEach(section=>{section.hidden=!user?.owner;});
     document.getElementById('admin-tab-users')?.classList.toggle('admin-user-management-locked',!user?.owner);
+    document.querySelectorAll('#clearCustomerDatabaseBtn,#clearPaymentDatabaseBtn').forEach(button=>{button.hidden=!user?.owner;});
     const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
     if(user?.owner)setTimeout(()=>window.loadWootenAdminUsers?.(),0);
   }
@@ -10669,7 +10830,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   function updateAccessMeta(){
     const hasKey=!!(keyField.value||'').trim();
-    if(openBtn) openBtn.textContent='Logout / Change Key';
+    if(openBtn) openBtn.textContent='Sign Out / Change User';
     if(!accessMeta) return;
     accessMeta.textContent=hasKey ? 'Signed in as '+String(currentUser?.display_name||currentUser?.username||'Administrator') : 'Locked • Login required';
   }
@@ -10700,12 +10861,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   function saveSession(){
+    adminSessionDay=adminCentralDayKey();
     try{
-      sessionStorage.setItem(storageKey, JSON.stringify({login:loginName.value.trim(),key:(keyField.value||'').trim(),user:currentUser,day:adminCentralDayKey()}));
+      sessionStorage.setItem(storageKey, JSON.stringify({login:loginName.value.trim(),key:(keyField.value||'').trim(),user:currentUser,day:adminSessionDay}));
     }catch(_e){}
   }
 
   function clearSession(){
+    adminSessionDay='';
     try{ sessionStorage.removeItem(storageKey); }catch(_e){}
   }
 
@@ -10715,6 +10878,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     clearSession();
     keyField.value='';
     keyPrompt.value='';
+    window.stopImportStatusPolling?.();
     applyPermissions(null);
     updateAccessMeta();
     openLogin({message:message||'Your admin session expired. Please sign in again.'});
@@ -10765,7 +10929,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       }
       loginName.value=String(data.login||check.user?.username||'Admin');
       keyField.value=savedKey;
-      keyPrompt.value=savedKey;
+      keyPrompt.value='';
+      adminSessionDay=String(data.day||adminCentralDayKey());
       applyPermissions(check.user||data.user);
       openAdminDashboard();
       updateAccessMeta();
@@ -10780,7 +10945,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   window.ensureAdminLoginKey=function(message){
     if((keyField.value||'').trim()) return true;
-    openLogin({message:message||'Enter the Admin Import Key to continue.'});
+    openLogin({message:message||'Sign in as an administrator to continue.'});
     return false;
   };
 
@@ -10807,6 +10972,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         return;
       }
       keyField.value=check.token;
+      keyPrompt.value='';
       applyPermissions(check.user);
       openAdminDashboard();
       saveSession();
@@ -10831,10 +10997,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       clearSession();
       keyField.value='';
       keyPrompt.value='';
+      window.stopImportStatusPolling?.();
       applyPermissions(null);
       updateAccessMeta();
       openLogin();
-      setStatus('Signed out. Enter a username and password, or use Admin with the owner key.',false);
+      setStatus('Signed out. Enter a username and password, or use Admin with the owner password.',false);
     });
   }
 
@@ -10856,9 +11023,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!restored) openLogin();
   });
 
-  const adminSessionDayAtLoad=adminCentralDayKey();
   window.setInterval(function(){
-    if((keyField.value||'').trim() && adminCentralDayKey()!==adminSessionDayAtLoad){
+    if((keyField.value||'').trim() && adminSessionDay && adminCentralDayKey()!==adminSessionDay){
       expireAdminSession('Your admin session expired at the end of the day. Please sign in again.');
     }
   },30000);
@@ -10866,48 +11032,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 </script>
 
 
-<div class="database-clear-modal" id="databaseClearModal" aria-hidden="true">
-  <div class="database-clear-backdrop" data-clear-close></div>
-  <div class="database-clear-card" role="dialog" aria-modal="true" aria-labelledby="databaseClearTitle">
-    <div class="database-clear-icon">!</div>
-    <div class="database-clear-eyebrow">Permanent Action</div>
-    <h3 id="databaseClearTitle">Clear Database</h3>
-    <p id="databaseClearMessage">This will permanently remove all records from the selected database on the server.</p>
-
-    <div class="database-clear-warning" id="databaseClearWarning">
-      <strong>This cannot be undone.</strong>
-      Make sure the original MAS 90 / Access file is available before continuing.
-    </div>
-
-    <div class="database-clear-password-choice" id="databaseClearPasswordChoice" style="display:none">
-      <div class="database-clear-choice-title">Customer login passwords</div>
-      <label class="database-clear-radio">
-        <input type="radio" name="customerPasswordAction" value="keep" checked>
-        <span>
-          <strong>Keep login passwords</strong>
-          <small>Clear MAS 90 customer data but preserve existing online login/password information where possible.</small>
-        </span>
-      </label>
-      <label class="database-clear-radio">
-        <input type="radio" name="customerPasswordAction" value="clear">
-        <span>
-          <strong>Clear login passwords too</strong>
-          <small>Remove customer data and their online login/password information.</small>
-        </span>
-      </label>
-    </div>
-
-    <label for="databaseClearAdminKey">Admin Import Key</label>
-    <input id="databaseClearAdminKey" type="password" autocomplete="off" placeholder="Enter Admin Import Key">
-
-    <div id="databaseClearStatus" class="status"></div>
-
-    <div class="database-clear-actions">
-      <button class="secondary" id="databaseClearCancelBtn" type="button">Cancel</button>
-      <button class="danger-db-confirm" id="databaseClearConfirmBtn" type="button">OK — Clear Database</button>
-    </div>
-  </div>
-</div>
 
 <script id="wooten-admin-skeleton-helpers">
 (()=>{
@@ -10929,7 +11053,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 </script>
 <script id="wooten-request-center-script">
 (()=>{
- const g=id=>document.getElementById(id),list=g('requestCenterList'),status=g('requestCenterStatus');let page=1,pages=1,loaded=false;
+ const g=id=>document.getElementById(id),list=g('requestCenterList'),status=g('requestCenterStatus');let page=1,pages=1,loaded=false,loadGeneration=0,loadController=null;
  const key=()=>g('adminKey')?.value||sessionStorage.getItem('wootenAdminKey')||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const fmt=v=>v?new Date(String(v).replace(' ','T')+'Z').toLocaleString():'—';
  function msg(t,ok=true){status.textContent=t||'';status.className='status'+(t?' show '+(ok?'ok':'bad'):'')}
@@ -10946,7 +11070,42 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   'Delivery Address':'<svg viewBox="0 0 24 24"><path d="M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"></path><circle cx="12" cy="9" r="2"></circle></svg>'};return icons[k]||icons['Customer Note'];}
  function channelIcon(k){const icons={Portal:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"></path></svg>',Email:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>',SMS:'<svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4z"></path><path d="M8 9h8M8 12h5"></path></svg>'};return icons[k]||icons.SMS;}
  function info(k,v){return '<div class="request-center-info"><span class="request-center-info-icon" aria-hidden="true">'+requestIcon(k)+'</span><div><span class="request-center-info-label">'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div></div>'}
- function render(rows,type){if(!rows.length){list.innerHTML='<div class="request-center-empty">No requests match the selected filters.</div>';return;}list.innerHTML=rows.map(r=>'<article class="request-center-card request-center-card-v217" data-request-id="'+Number(r.id)+'" data-request-type="'+esc(type)+'"><div class="request-center-head request-center-head-v217"><span class="request-center-request-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"></path><path d="M15 3v4h4"></path><path d="M9 11h6M9 15h6"></path></svg></span><div class="request-center-title-block"><strong>'+esc(r.request_number||'Request')+' — '+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(r.account_number||'—')+' <b>•</b> Submitted '+esc(fmt(r.created_at))+'</small></div><span class="request-status-pill '+esc(r.status)+'"><i></i>'+esc(r.status||'pending')+'</span></div><div class="request-center-layout-v217"><section class="request-details-panel-v217"><div class="request-panel-title-v217"><span class="request-panel-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span><h4>Request Details</h4></div><div class="request-center-grid request-center-grid-v217">'+(type==='profile'?(info('Change Type',String(r.change_type||'').replaceAll('_',' '))+info('Current Value',r.current_value)+info('Requested Value',r.requested_value)):(info('Fuel Type',r.fuel_type)+info('Gallons',r.gallons)+info('Delivery Date',r.delivery_date)+info('Delivery Address',r.delivery_address)))+info('Email',r.email)+info('Phone',r.phone)+'</div><div class="request-customer-note-v218"><div class="request-customer-note-head-v218"><span class="request-center-info-icon" aria-hidden="true">'+requestIcon('Customer Note')+'</span><div><span>Customer Note</span><strong>'+(type==='profile'?'Profile change request':'Fuel delivery request')+'</strong></div></div><div class="request-customer-note-body-v218">'+esc((type==='profile'?r.customer_note:r.notes)||'No customer note was provided with this request.')+'</div></div></section><div class="request-right-column-v217"><section class="request-response-panel-v217"><div class="request-panel-title-v217 request-response-title-v217"><span class="request-panel-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4z"></path></svg></span><h4>Response to Customer</h4></div><div class="request-response-body-v217"><label>Decision<select data-req-status><option value="pending"'+(r.status==='pending'?' selected':'')+'>Pending</option><option value="accepted"'+(r.status==='accepted'?' selected':'')+'>Accepted</option><option value="denied"'+(r.status==='denied'?' selected':'')+'>Denied</option></select></label><label>Message <small>(optional)</small><textarea data-req-note maxlength="500" placeholder="Type an optional message to the customer...">'+esc(r.admin_response||'')+'</textarea><span class="request-char-count-v217">'+String(r.admin_response||'').length+' / 500</span></label><button class="primary request-save-v217" type="button" data-req-save><span aria-hidden="true">↗</span> Save &amp; Notify</button></div></section><section class="request-notify-panel-v217"><div class="request-panel-title-v217 request-notify-title-v217"><span class="request-panel-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg></span><h4>Notify customer by</h4></div><div class="request-delivery-options request-delivery-options-v217"><label><span class="request-channel-icon" aria-hidden="true">'+channelIcon('Portal')+'</span><span>Portal</span><input type="checkbox" data-req-portal '+(r.account_number?'checked':'disabled')+'></label><label><span class="request-channel-icon" aria-hidden="true">'+channelIcon('Email')+'</span><span>Email</span><input type="checkbox" data-req-email '+(r.email?'checked':'disabled')+'></label><label><span class="request-channel-icon" aria-hidden="true">'+channelIcon('SMS')+'</span><span>SMS</span><input type="checkbox" data-req-sms '+(r.phone?'':'disabled')+'></label><small>Choose any combination. Unavailable channels are disabled.</small></div></section></div></div></article>').join('');list.querySelectorAll('[data-req-note]').forEach(t=>t.addEventListener('input',()=>{const c=t.parentElement.querySelector('.request-char-count-v217');if(c)c.textContent=t.value.length+' / 500';}));} async function load(){const type=g('requestCenterType').value;const qs=new URLSearchParams({type,status:g('requestCenterStatusFilter').value,q:g('requestCenterSearch').value,page:String(page)});g('requestCenterLoad').disabled=true;window.wootenAdminSkeleton?.cards(list,4,'request');try{const r=await fetch('/api/admin/request-center?'+qs,{headers:{'X-Admin-Key':key()},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Requests could not be loaded.');render(d.requests||[],type);pages=Number(d.total_pages||1);page=Number(d.page||1);g('requestCenterPagination').hidden=!Number(d.total||0);g('requestCenterPageInfo').textContent='Page '+page+' of '+pages+' • '+Number(d.total||0)+' requests';g('requestCenterPrev').disabled=page<=1;g('requestCenterNext').disabled=page>=pages;msg(Number(d.total||0)+' request(s) found.',true);loaded=true;}catch(e){if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';msg(e.message||'Requests could not be loaded.',false)}finally{g('requestCenterLoad').disabled=false}}
+ function render(rows,type){if(!rows.length){list.innerHTML='<div class="request-center-empty">No requests match the selected filters.</div>';return;}list.innerHTML=rows.map(r=>'<article class="request-center-card request-center-card-v217" data-request-id="'+Number(r.id)+'" data-request-type="'+esc(type)+'"><div class="request-center-head request-center-head-v217"><span class="request-center-request-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"></path><path d="M15 3v4h4"></path><path d="M9 11h6M9 15h6"></path></svg></span><div class="request-center-title-block"><strong>'+esc(r.request_number||'Request')+' — '+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(r.account_number||'—')+' <b>•</b> Submitted '+esc(fmt(r.created_at))+'</small></div><span class="request-status-pill '+esc(r.status)+'"><i></i>'+esc(r.status||'pending')+'</span></div><div class="request-center-layout-v217"><section class="request-details-panel-v217"><div class="request-panel-title-v217"><span class="request-panel-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span><h4>Request Details</h4></div><div class="request-center-grid request-center-grid-v217">'+(type==='profile'?(info('Change Type',String(r.change_type||'').replaceAll('_',' '))+info('Current Value',r.current_value)+info('Requested Value',r.requested_value)):(info('Fuel Type',r.fuel_type)+info('Gallons',r.gallons)+info('Delivery Date',r.delivery_date)+info('Delivery Address',r.delivery_address)))+info('Email',r.email)+info('Phone',r.phone)+'</div><div class="request-customer-note-v218"><div class="request-customer-note-head-v218"><span class="request-center-info-icon" aria-hidden="true">'+requestIcon('Customer Note')+'</span><div><span>Customer Note</span><strong>'+(type==='profile'?'Profile change request':'Fuel delivery request')+'</strong></div></div><div class="request-customer-note-body-v218">'+esc((type==='profile'?r.customer_note:r.notes)||'No customer note was provided with this request.')+'</div></div></section><div class="request-right-column-v217"><section class="request-response-panel-v217"><div class="request-panel-title-v217 request-response-title-v217"><span class="request-panel-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4z"></path></svg></span><h4>Response to Customer</h4></div><div class="request-response-body-v217"><label>Decision<select data-req-status><option value="pending"'+(r.status==='pending'?' selected':'')+'>Pending</option><option value="accepted"'+(r.status==='accepted'?' selected':'')+'>Accepted</option><option value="denied"'+(r.status==='denied'?' selected':'')+'>Denied</option></select></label><label>Message <small>(optional)</small><textarea data-req-note maxlength="500" placeholder="Type an optional message to the customer...">'+esc(r.admin_response||'')+'</textarea><span class="request-char-count-v217">'+String(r.admin_response||'').length+' / 500</span></label><button class="primary request-save-v217" type="button" data-req-save><span aria-hidden="true">↗</span> Save &amp; Notify</button></div></section><section class="request-notify-panel-v217"><div class="request-panel-title-v217 request-notify-title-v217"><span class="request-panel-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg></span><h4>Notify customer by</h4></div><div class="request-delivery-options request-delivery-options-v217"><label><span class="request-channel-icon" aria-hidden="true">'+channelIcon('Portal')+'</span><span>Portal</span><input type="checkbox" data-req-portal '+(r.account_number?'checked':'disabled')+'></label><label><span class="request-channel-icon" aria-hidden="true">'+channelIcon('Email')+'</span><span>Email</span><input type="checkbox" data-req-email '+(r.email?'checked':'disabled')+'></label><label><span class="request-channel-icon" aria-hidden="true">'+channelIcon('SMS')+'</span><span>SMS</span><input type="checkbox" data-req-sms '+(r.phone?'':'disabled')+'></label><small>Choose any combination. Unavailable channels are disabled.</small></div></section></div></div></article>').join('');list.querySelectorAll('[data-req-note]').forEach(t=>t.addEventListener('input',()=>{const c=t.parentElement.querySelector('.request-char-count-v217');if(c)c.textContent=t.value.length+' / 500';}));}
+ async function load(){
+   const generation=++loadGeneration;
+   if(loadController)loadController.abort();
+   const controller=typeof AbortController==='function'?new AbortController():null;
+   loadController=controller;
+   const type=g('requestCenterType').value;
+   const requestedPage=page;
+   const qs=new URLSearchParams({type,status:g('requestCenterStatusFilter').value,q:g('requestCenterSearch').value,page:String(requestedPage)});
+   g('requestCenterLoad').disabled=true;
+   window.wootenAdminSkeleton?.cards(list,4,'request');
+   try{
+     const r=await fetch('/api/admin/request-center?'+qs,{headers:{'X-Admin-Key':key()},cache:'no-store',signal:controller?.signal});
+     const d=await r.json().catch(()=>({}));
+     if(generation!==loadGeneration||controller?.signal.aborted)return;
+     if(!r.ok||!d.success)throw new Error(d.error||'Requests could not be loaded.');
+     render(d.requests||[],type);
+     pages=Number(d.total_pages||1);
+     page=Number(d.page||requestedPage);
+     g('requestCenterPagination').hidden=!Number(d.total||0);
+     g('requestCenterPageInfo').textContent='Page '+page+' of '+pages+' • '+Number(d.total||0)+' requests';
+     g('requestCenterPrev').disabled=page<=1;
+     g('requestCenterNext').disabled=page>=pages;
+     msg(Number(d.total||0)+' request(s) found.',true);
+     loaded=true;
+   }catch(e){
+     if(generation!==loadGeneration||controller?.signal.aborted||e?.name==='AbortError')return;
+     if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';
+     msg(e.message||'Requests could not be loaded.',false);
+   }finally{
+     if(generation===loadGeneration){
+       if(loadController===controller)loadController=null;
+       g('requestCenterLoad').disabled=false;
+     }
+   }
+ }
  list.addEventListener('click',async e=>{const b=e.target.closest('[data-req-save]');if(!b)return;const card=b.closest('[data-request-id]'),channels=[card.querySelector('[data-req-portal]'),card.querySelector('[data-req-email]'),card.querySelector('[data-req-sms]')];if(!channels.some(x=>x&&!x.disabled&&x.checked)){msg('Choose at least one available notification method.',false);return}b.disabled=true;b.textContent='Saving…';try{const r=await fetch('/api/admin/request-center',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify({type:card.dataset.requestType,id:card.dataset.requestId,status:card.querySelector('[data-req-status]').value,admin_response:card.querySelector('[data-req-note]').value,portal:!!channels[0]?.checked,email:!!channels[1]?.checked,sms:!!channels[2]?.checked})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Decision could not be saved.');if(channels[2]?.checked)await refreshTwilioBalance();msg('Decision saved and selected customer notifications were processed.',true);await load();}catch(err){msg(err.message||'Decision could not be saved.',false);b.disabled=false;b.textContent='Save & Notify'}});
  g('requestCenterLoad').addEventListener('click',()=>{page=1;load()});g('requestCenterType').addEventListener('change',()=>{page=1;load()});g('requestCenterStatusFilter').addEventListener('change',()=>{page=1;load()});let timer;g('requestCenterSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load()},300)});g('requestCenterPrev').addEventListener('click',()=>{if(page>1){page--;load()}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){page++;load()}});g('admin-tab-btn-requests').addEventListener('click',()=>{if(!loaded)load()});
 })();
@@ -10954,6 +11113,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-users-script">
 (()=>{
+  if(window.__wootenAdminUsersInitialized)return;
+  window.__wootenAdminUsersInitialized=true;
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus'),auditPager=get('adminActivityPagination'),auditPagerSummary=get('adminActivityPaginationSummary'),auditPageIndicator=get('adminActivityPageIndicator'),auditPrev=get('adminActivityPrev'),auditNext=get('adminActivityNext'),auditSearch=get('adminActivitySearch'),auditSearchClear=get('adminActivitySearchClear'),auditFilter=get('adminActivityFilter');let loaded=false,loading=false,auditPage=1,auditEntries=[];const auditPageSize=20;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const labels={database:'Database & Imports',customer_activity:'Customer Activity',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
@@ -10980,11 +11141,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-customer-activity-script">
 (()=>{
-  const get=id=>document.getElementById(id),search=get('activityCustomerSearch'),searchBtn=get('activityCustomerSearchBtn'),results=get('activitySearchResults'),dashboard=get('activityDashboard'),status=get('activityStatus'),progress=get('activityLoadProgress'),progressBar=get('activityLoadProgressBar'),progressTrack=get('activityLoadProgressTrack'),progressCount=get('activityLoadProgressCount');let timer,currentAccount='',chartMonths=12,paymentChartMonths=12,balanceChartMonths=12;const activityPages={payments:1,documents:1,communications:1,fuel:1,logins:1};
+  const get=id=>document.getElementById(id),search=get('activityCustomerSearch'),searchBtn=get('activityCustomerSearchBtn'),results=get('activitySearchResults'),dashboard=get('activityDashboard'),status=get('activityStatus'),progress=get('activityLoadProgress'),progressBar=get('activityLoadProgressBar'),progressTrack=get('activityLoadProgressTrack'),progressCount=get('activityLoadProgressCount');let timer,currentAccount='',chartMonths=12,paymentChartMonths=12,balanceChartMonths=12,searchRequestGeneration=0,searchRequestController=null,activityRequestGeneration=0,activityRequestController=null;const activityPages={payments:1,documents:1,communications:1,fuel:1,logins:1},chartRequestState={payments:{generation:0,controller:null},balance:{generation:0,controller:null}};
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const money=v=>Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD'});const date=v=>{if(!v)return '—';const parsed=new Date(String(v).replace(' ','T')+(String(v).includes('Z')?'':'Z'));return Number.isNaN(parsed.getTime())?String(v):parsed.toLocaleString();};
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function startProgress(){let n=8;progress.hidden=false;progressBar.style.width=n+'%';progressTrack.setAttribute('aria-valuenow',String(n));progressCount.textContent='Preparing';return setInterval(()=>{n=Math.min(91,n+(n<60?10:n<80?5:2));progressBar.style.width=n+'%';progressTrack.setAttribute('aria-valuenow',String(n));progressCount.textContent=n+'%';},140);}
-  async function finishProgress(handle){clearInterval(handle);progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(r=>setTimeout(r,260));progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');}
+  async function finishProgress(handle,generation){clearInterval(handle);if(generation!==activityRequestGeneration)return;progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(r=>setTimeout(r,260));if(generation!==activityRequestGeneration)return;progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');}
+  function cancelCustomerSearch(){searchRequestGeneration+=1;if(searchRequestController)searchRequestController.abort();searchRequestController=null;searchBtn.disabled=false;searchBtn.textContent='Search Customer';}
+  function cancelActivityCharts(){Object.values(chartRequestState).forEach(state=>{state.generation+=1;if(state.controller)state.controller.abort();state.controller=null;});}
+  function cancelActivityRequest(){activityRequestGeneration+=1;if(activityRequestController)activityRequestController.abort();activityRequestController=null;cancelActivityCharts();progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');progressCount.textContent='Preparing';}
   function keepActivityPagePosition(x,y){
     const root=document.documentElement,previousBehavior=root.style.scrollBehavior;
     root.style.scrollBehavior='auto';
@@ -10998,10 +11162,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function empty(text){return '<div class="activity-empty">'+esc(text)+'</div>';}
   function section(title,rows,wide=false,keyName='',meta=null){const total=Number(meta?.total??rows.length),page=Math.max(1,Number(meta?.page||1)),pages=Math.max(1,Number(meta?.pages||1));return '<section class="activity-section'+(wide?' activity-wide':'')+'"'+(keyName?' data-activity-section="'+esc(keyName)+'"':'')+'><div class="activity-section-head"><h3>'+esc(title)+'</h3><span class="activity-count">'+total+'</span></div><div class="activity-list">'+(rows.join('')||empty('No activity recorded.'))+'</div>'+(keyName&&total>20?'<div class="db-pagination activity-pagination"><button class="secondary" type="button" data-activity-page="'+(page-1)+'" data-activity-page-section="'+esc(keyName)+'" '+(page<=1?'disabled':'')+'>Previous 20</button><div class="db-page-info">Page '+page+' of '+pages+' • '+total+' records</div><button class="secondary" type="button" data-activity-page="'+(page+1)+'" data-activity-page-section="'+esc(keyName)+'" '+(page>=pages?'disabled':'')+'>Next 20</button></div>':'')+'</section>';}
   function periodSelect(chartName,selectedMonths){return '<select class="activity-chart-period" data-activity-chart-period data-activity-chart-name="'+chartName+'" aria-label="Chart time period">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[0,'All time']].map(option=>'<option value="'+option[0]+'"'+(Number(selectedMonths)===option[0]?' selected':'')+'>'+option[1]+'</option>').join('')+'</select>';}
-  function paymentChart(monthlyRows,paymentEntries=[],selectedMonths=paymentChartMonths,currentBalance=0,lastPayment=null){
+  function paymentChart(monthlyRows,paymentEntries=[],selectedMonths=paymentChartMonths,currentBalance=0,lastPayment=null,stats=null){
     const validMonths=(monthlyRows||[]).filter(item=>/^\d{4}-\d{2}$/.test(String(item.month||''))),source=new Map(validMonths.map(item=>[String(item.month),{amount:Number(item.total_amount||0),count:Number(item.payment_count||0)}])),now=new Date();
     const points=(paymentEntries||[]).filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item.chart_date||''))&&Number.isFinite(Number(item.amount))).map((item,index)=>{const parsed=new Date(String(item.chart_date)+'T12:00:00');return {key:String(item.chart_date)+'-'+index,date:String(item.chart_date),label:parsed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}),amount:Number(item.amount||0),reference:item.reference||item.description||'Payment'};}).sort((a,b)=>a.date.localeCompare(b.date));
-    const paymentCount=points.length,paymentTotal=points.reduce((sum,item)=>sum+item.amount,0),averagePayment=paymentCount?paymentTotal/paymentCount:0,maxAmount=Math.max(1,...points.map(item=>Math.max(0,item.amount))),width=Math.max(760,Math.min(16000,points.length*28+115)),height=326,left=68,right=width-28,top=58,bottom=258,plotHeight=bottom-top,step=(right-left)/Math.max(1,points.length-1),y=value=>bottom-(Math.max(0,value)/maxAmount)*plotHeight;
+    const sampledCount=points.length,sampledTotal=points.reduce((sum,item)=>sum+item.amount,0),exactCount=Number(stats?.payment_count),exactTotal=Number(stats?.total_amount),exactAverage=Number(stats?.average_amount),paymentCount=Number.isFinite(exactCount)&&exactCount>=0?Math.floor(exactCount):sampledCount,paymentTotal=Number.isFinite(exactTotal)?exactTotal:sampledTotal,averagePayment=Number.isFinite(exactAverage)?exactAverage:(paymentCount?paymentTotal/paymentCount:0),maxAmount=Math.max(1,...points.map(item=>Math.max(0,item.amount))),width=Math.max(760,Math.min(16000,points.length*28+115)),height=326,left=68,right=width-28,top=58,bottom=258,plotHeight=bottom-top,step=(right-left)/Math.max(1,points.length-1),y=value=>bottom-(Math.max(0,value)/maxAmount)*plotHeight;
     const grids=[0,.25,.5,.75,1].map(factor=>{const py=bottom-factor*plotHeight;return '<line class="activity-trend-grid" x1="'+left+'" y1="'+py+'" x2="'+right+'" y2="'+py+'"></line><text class="activity-trend-axis" x="'+(left-8)+'" y="'+(py+4)+'" text-anchor="end">'+esc(money(maxAmount*factor).replace('.00',''))+'</text>';}).join('');
     const pointData=points.map((item,index)=>{const x=points.length===1?(left+right)/2:left+step*index;return {item,x,y:y(item.amount)};}),labelInterval=Math.max(1,Math.ceil(points.length/10));
     const labels=pointData.map((point,index)=>{const showLabel=index===0||index===points.length-1||index%labelInterval===0;return showLabel?'<text class="activity-trend-axis" x="'+point.x.toFixed(1)+'" y="'+(bottom+20)+'" text-anchor="middle">'+esc(point.item.label)+'</text>':'';}).join('');
@@ -11018,13 +11182,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const fuel=(data.fuel_requests||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.request_number)+' — '+esc(r.fuel_type||'Fuel Request')+'</strong><small>'+esc(r.gallons||'—')+' gallons • '+esc(r.delivery_address||'No address')+'</small></div><div class="activity-row-side"><strong>'+esc(r.delivery_date||'Flexible')+'</strong><small>'+date(r.received_at)+'</small></div></div>');
     const applications=(data.applications||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.application_number)+'</strong><small>'+esc(r.application_type)+' • '+esc(r.business_name||r.full_name||'')+'</small></div><div class="activity-row-side"><strong>'+esc(String(r.status||'new').replaceAll('_',' '))+'</strong><small>'+date(r.created_at)+(r.reviewed_by?' • '+esc(r.reviewed_by):'')+'</small></div></div>');
     const logins=(data.login_activity||[]).map(r=>{const success=r.result==='success';return '<div class="activity-row"><div><strong class="'+(success?'activity-login-success':'activity-login-failed')+'">'+(success?'Successful sign-in':esc(String(r.result||'Login').replaceAll('_',' ')))+'</strong><small>'+esc(r.user_agent||'Device information unavailable')+'</small></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});
-    const pagination=data.pagination||{},charts='<div class="activity-chart-panels">'+paymentChart(data.payment_chart||[],data.fuel_chart_summary||{},paymentChartMonths,total,data.payment_chart_last)+balanceChart(ages,data.payment_chart||[])+'</div>';dashboard.innerHTML='<div class="activity-customer-head"><div><h3>'+esc(c.account_name||'Customer')+'</h3><p>Customer # '+esc(c.account_number||'')+'</p><div class="activity-address">'+esc(address||'No address on file')+'</div></div><span class="activity-status">'+(active?'Active':'Inactive')+'</span></div><div class="activity-contact-line"><span class="activity-chip">'+esc(c.email||'No email')+'</span><span class="activity-chip">'+esc(c.phone||'No phone')+'</span><span class="activity-chip">Cycle '+esc(c.statement_cycle||'B')+'</span><span class="activity-chip">Portal '+(Number(c.online_activated)?'Activated':'Not Activated')+'</span><span class="activity-chip">Delivery: '+[Number(c.portal_enabled)?'Portal':'',Number(c.email_enabled)?'Email':'',Number(c.sms_enabled)?'SMS':''].filter(Boolean).join(', ')+'</span></div><div class="activity-summary-grid">'+[['Current Balance',ages[0]],['Aging 1',ages[1]],['Aging 2',ages[2]],['Aging 3',ages[3]],['Aging 4',ages[4]],['Total Balance',total]].map(x=>'<div class="activity-summary'+(x[0]==='Total Balance'?' activity-summary-total':'')+'"><span>'+x[0]+'</span><strong>'+money(x[1])+'</strong></div>').join('')+'</div>'+charts+'<div class="activity-sections">'+section('Recent Payments',payments,false,'payments',pagination.payments)+section('Statements & Invoices',documents,false,'documents',pagination.documents)+section('Communication History',communications,true,'communications',pagination.communications)+section('Fuel Requests',fuel,false,'fuel',pagination.fuel)+section('Account Applications',applications)+section('Portal Sign-in Activity',logins,true,'logins',pagination.logins)+'</div>';dashboard.hidden=false;results.innerHTML='';message('Customer activity loaded.',true);
+    const pagination=data.pagination||{},charts='<div class="activity-chart-panels">'+paymentChart(data.payment_chart||[],data.payment_chart_entries||data.fuel_chart_summary||[],paymentChartMonths,total,data.payment_chart_last,data.payment_chart_stats||null)+balanceChart(ages,data.payment_chart||[])+'</div>';dashboard.innerHTML='<div class="activity-customer-head"><div><h3>'+esc(c.account_name||'Customer')+'</h3><p>Customer # '+esc(c.account_number||'')+'</p><div class="activity-address">'+esc(address||'No address on file')+'</div></div><span class="activity-status">'+(active?'Active':'Inactive')+'</span></div><div class="activity-contact-line"><span class="activity-chip">'+esc(c.email||'No email')+'</span><span class="activity-chip">'+esc(c.phone||'No phone')+'</span><span class="activity-chip">Cycle '+esc(c.statement_cycle||'B')+'</span><span class="activity-chip">Portal '+(Number(c.online_activated)?'Activated':'Not Activated')+'</span><span class="activity-chip">Delivery: '+[Number(c.portal_enabled)?'Portal':'',Number(c.email_enabled)?'Email':'',Number(c.sms_enabled)?'SMS':''].filter(Boolean).join(', ')+'</span></div><div class="activity-summary-grid">'+[['Current Balance',ages[0]],['Aging 1',ages[1]],['Aging 2',ages[2]],['Aging 3',ages[3]],['Aging 4',ages[4]],['Total Balance',total]].map(x=>'<div class="activity-summary'+(x[0]==='Total Balance'?' activity-summary-total':'')+'"><span>'+x[0]+'</span><strong>'+money(x[1])+'</strong></div>').join('')+'</div>'+charts+'<div class="activity-sections">'+section('Recent Payments',payments,false,'payments',pagination.payments)+section('Statements & Invoices',documents,false,'documents',pagination.documents)+section('Communication History',communications,true,'communications',pagination.communications)+section('Fuel Requests',fuel,false,'fuel',pagination.fuel)+section('Account Applications',applications)+section('Portal Sign-in Activity',logins,true,'logins',pagination.logins)+'</div>';dashboard.hidden=false;results.innerHTML='';message('Customer activity loaded.',true);
   }
   function sectionMarkup(data,name){const p=data.pagination||{};if(name==='payments'){const rows=(data.payments||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.reference||r.description||'Payment')+'</strong><small>Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'')+'</small></div><div class="activity-row-side"><strong>'+money(r.amount)+'</strong><small>Posted '+esc(r.posting_date||r.payment_date||'—')+'</small></div></div>');return section('Recent Payments',rows,false,name,p[name]);}if(name==='documents'){const rows=(data.documents||[]).map(r=>'<div class="activity-row"><div><button class="activity-link" type="button" data-activity-document="'+Number(r.id)+'">'+esc(r.title||r.filename||'PDF Document')+'</button><small>'+esc(String(r.document_type||'document').toUpperCase())+' • '+esc(r.filename||'PDF')+'</small></div><div class="activity-row-side"><strong>'+esc(r.document_date||'—')+'</strong><small>'+date(r.created_at)+'</small></div></div>');return section('Statements & Invoices',rows,false,name,p[name]);}if(name==='communications'){const rows=(data.communications||[]).map(r=>{const channels=[];if(Number(r.portal_sent))channels.push('<span>Portal</span>');if(Number(r.email_sent))channels.push('<span>Email</span>');if(Number(r.sms_sent))channels.push('<span class="'+(String(r.sms_status||'').match(/failed|undelivered|opted/i)?'failed':'')+'">SMS '+esc(r.sms_status||'Sent')+'</span>');return '<div class="activity-row"><div><strong>'+esc(String(r.event_type||'Activity').toUpperCase())+' — '+esc(r.title||'')+'</strong><small>'+esc(r.detail||r.error_text||'')+'</small><div class="activity-delivery">'+channels.join('')+'</div></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});return section('Communication History',rows,true,name,p[name]);}if(name==='fuel'){const rows=(data.fuel_requests||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.request_number)+' — '+esc(r.fuel_type||'Fuel Request')+'</strong><small>'+esc(r.gallons||'—')+' gallons • '+esc(r.delivery_address||'No address')+'</small></div><div class="activity-row-side"><strong>'+esc(r.delivery_date||'Flexible')+'</strong><small>'+date(r.received_at)+'</small></div></div>');return section('Fuel Requests',rows,false,name,p[name]);}if(name==='logins'){const rows=(data.login_activity||[]).map(r=>{const success=r.result==='success';return '<div class="activity-row"><div><strong class="'+(success?'activity-login-success':'activity-login-failed')+'">'+(success?'Successful sign-in':esc(String(r.result||'Login').replaceAll('_',' ')))+'</strong><small>'+esc(r.user_agent||'Device information unavailable')+'</small></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});return section('Portal Sign-in Activity',rows,true,name,p[name]);}return '';}
   async function loadActivitySection(name,page){
     const target=dashboard.querySelector('[data-activity-section="'+name+'"]');
     if(!target||!currentAccount)return;
     if(target.getAttribute('aria-busy')==='true')return;
+    const account=currentAccount,activityGeneration=activityRequestGeneration;
     const previousPage=activityPages[name],previousMarkup=target.innerHTML;
     const savedScrollX=window.scrollX||0,savedScrollY=window.scrollY||0;
     activityPages[name]=Math.max(1,Number(page||1));
@@ -11037,9 +11202,10 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }
     keepActivityPagePosition(savedScrollX,savedScrollY);
     try{
-      const params=new URLSearchParams({account_number:currentAccount,chart_months:String(chartMonths)});
+      const params=new URLSearchParams({account_number:account,chart_months:String(chartMonths),section:name});
       Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));
       const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));
+      if(activityGeneration!==activityRequestGeneration||account!==currentAccount)return;
       if(!response.ok||!data.success)throw new Error(data.error||'This activity section could not be loaded.');
       const markup=sectionMarkup(data,name);
       if(!markup)throw new Error('This activity section could not be updated.');
@@ -11047,6 +11213,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       target.outerHTML=markup;
       keepActivityPagePosition(savedScrollX,savedScrollY);
     }catch(error){
+      if(activityGeneration!==activityRequestGeneration||account!==currentAccount)return;
       activityPages[name]=previousPage;
       target.innerHTML=previousMarkup;
       target.removeAttribute('aria-busy');
@@ -11055,965 +11222,96 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       message(error.message||'This activity section could not be loaded.',false);
     }
   }
-  async function findCustomers(){const q=search.value.trim();dashboard.hidden=true;if(q.length<2){results.innerHTML='';message('Enter at least two letters or numbers.',false);return;}searchBtn.disabled=true;searchBtn.textContent='Searching…';message('');try{const response=await fetch('/api/admin/customer-activity?search='+encodeURIComponent(q),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer search failed.');const rows=data.matches||[];results.innerHTML=rows.length?rows.map(r=>'<button class="activity-search-result" type="button" data-activity-account="'+esc(r.account_number)+'"><span><strong>'+esc(r.account_name||'Customer')+'</strong><small># '+esc(r.account_number)+' • '+esc(r.email||r.phone||'No contact information')+'</small></span><span class="activity-search-balance"><small>Total Balance</small><strong>'+money(r.total_balance)+'</strong></span></button>').join(''):empty('No customers match this search.');message(rows.length+' customer(s) found.',true);if(rows.length===1&&(rows[0].account_number===q.replace(/\D/g,'').padStart(7,'0')||String(rows[0].account_name||'').toLowerCase()===q.toLowerCase()))loadActivity(rows[0].account_number);}catch(error){message(error.message||'Customer search failed.',false);}finally{searchBtn.disabled=false;searchBtn.textContent='Search Customer';}}
-  async function loadActivity(account,changedSection=''){if(account!==currentAccount){currentAccount=account;chartMonths=12;paymentChartMonths=12;balanceChartMonths=12;Object.keys(activityPages).forEach(name=>activityPages[name]=1);}const handle=startProgress();results.innerHTML='';window.wootenAdminSkeleton?.activity(dashboard);message('');try{const params=new URLSearchParams({account_number:account,chart_months:String(chartMonths)});Object.entries(activityPages).forEach(([name,page])=>params.set(name+'_page',String(page)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer activity could not be loaded.');chartMonths=Number(data.chart_months??chartMonths);render(data);if(changedSection)requestAnimationFrame(()=>dashboard.querySelector('[data-activity-section="'+changedSection+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));}catch(error){if(dashboard.querySelector('.admin-activity-skeleton')){dashboard.innerHTML='';dashboard.hidden=true;}message(error.message||'Customer activity could not be loaded.',false);}finally{await finishProgress(handle);}}
-  async function loadActivityChart(name,months){const target=dashboard.querySelector('[data-activity-chart="'+name+'"]');if(!target||!currentAccount)return;const previous=name==='payments'?paymentChartMonths:balanceChartMonths,selected=[3,6,12,24,0].includes(Number(months))?Number(months):12;target.setAttribute('aria-busy','true');target.querySelectorAll('select').forEach(control=>control.disabled=true);try{const params=new URLSearchParams({account_number:currentAccount,chart_months:String(selected)});Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'This chart could not be loaded.');const actual=Number(data.chart_months??selected),c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),totalBalance=ages.reduce((sum,value)=>sum+(Number.isFinite(value)?value:0),0);let markup;if(name==='payments'){paymentChartMonths=actual;markup=paymentChart(data.payment_chart||[],data.fuel_chart_summary||{},actual,totalBalance,data.payment_chart_last);}else{balanceChartMonths=actual;markup=balanceChart(ages,data.payment_chart||[],actual);}target.outerHTML=markup;}catch(error){if(name==='payments')paymentChartMonths=previous;else balanceChartMonths=previous;target.removeAttribute('aria-busy');target.querySelectorAll('select').forEach(control=>{control.disabled=false;control.value=String(previous);});message(error.message||'This chart could not be loaded.',false);}}
-  async function openDocument(id){try{const response=await fetch('/api/admin/customer-activity/documents/'+encodeURIComponent(id)+'/file',{headers:{'X-Admin-Key':key()}});if(!response.ok)throw new Error(await response.text()||'PDF could not be opened.');const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){message(error.message||'PDF could not be opened.',false);}}
-  searchBtn.addEventListener('click',findCustomers);search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findCustomers();}});search.addEventListener('input',()=>{clearTimeout(timer);if(search.value.trim().length>=3)timer=setTimeout(findCustomers,450);});results.addEventListener('click',e=>{const button=e.target.closest('[data-activity-account]');if(button)loadActivity(button.dataset.activityAccount);});dashboard.addEventListener('change',e=>{const selector=e.target.closest('[data-activity-chart-period]');if(!selector)return;loadActivityChart(selector.dataset.activityChartName,selector.value);});dashboard.addEventListener('click',e=>{const pageButton=e.target.closest('[data-activity-page-section]');if(pageButton){e.preventDefault();e.stopPropagation();loadActivitySection(pageButton.dataset.activityPageSection,pageButton.dataset.activityPage);return;}const button=e.target.closest('[data-activity-document]');if(button)openDocument(button.dataset.activityDocument);});
-})();
-</script>
-
-
-<script id="wooten-admin-batch-statements-script">
-(function(){
-  const loadBtn=document.getElementById('statementLoadCustomers');
-  const sendBtn=document.getElementById('statementGenerateSend');
-  const list=document.getElementById('statementCustomerList');
-  const search=document.getElementById('statementCustomerSearch');
-  const date=document.getElementById('statementBatchDate');
-  const paymentCount=document.getElementById('statementPaymentCount');
-  const emailPdf=document.getElementById('statementEmailPdf');
-  const portalNotification=document.getElementById('statementPortalNotification');
-  const smsLink=document.getElementById('statementSmsLink');
-  const phoneScope=document.getElementById('statementPhoneScope');
-  const emailScope=document.getElementById('statementEmailScope');
-  const selectAllVisible=document.getElementById('statementSelectAllVisible');
-  const selectAllCustomers=document.getElementById('statementSelectAllCustomers');
-  const clearSelection=document.getElementById('statementClearSelection');
-  const selectedCount=document.getElementById('statementSelectedCount');
-  const status=document.getElementById('statementBatchStatus');
-  const progress=document.getElementById('statementBatchProgress');
-  const sendReport=document.getElementById('statementSendReport');
-  const customerPagination=document.getElementById('statementCustomerPagination');
-  const customerPrev=document.getElementById('statementCustomerPrev');
-  const customerNext=document.getElementById('statementCustomerNext');
-  const customerPageInfo=document.getElementById('statementCustomerPageInfo');
-
-  if(!loadBtn||!sendBtn||!list) return;
-
-  let customers=[];
-  const selected=new Set();
-  let customerPage=1;
-  const customerPageSize=20;
-
-  function todayLocal(){
-    const d=new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-  if(date && !date.value) date.value=todayLocal();
-
-  function money(v){
-    const n=Number(v||0);
-    return n.toLocaleString('en-US',{style:'currency',currency:'USD'});
-  }
-  function customerAddress(c){
-    const street=[c.address1,c.address2,c.address3].map(v=>String(v||'').trim()).filter(Boolean).join(', ');
-    const cityState=[String(c.city||'').trim(),String(c.state||'').trim()].filter(Boolean).join(', ');
-    const cityLine=[cityState,String(c.zip_code||'').trim()].filter(Boolean).join(' ');
-    return [street,cityLine].filter(Boolean).join(' • ');
-  }
-  function esc(v){
-    return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  }
-  function eligibleCustomers(){
-    return customers.filter(c=>{
-      const hasPhone=!!String(c.phone||'').trim();
-      const hasEmail=!!String(c.email||'').trim();
-      const phoneChoice=phoneScope?phoneScope.value:'all';
-      const emailChoice=emailScope?emailScope.value:'all';
-      const phoneMatch=phoneChoice==='all'||(phoneChoice==='with'?hasPhone:!hasPhone);
-      const emailMatch=emailChoice==='all'||(emailChoice==='with'?hasEmail:!hasEmail);
-      return phoneMatch&&emailMatch;
-    });
-  }
-  function scopeSelectLabel(){
-    const phoneChoice=phoneScope?phoneScope.value:'all';
-    const emailChoice=emailScope?emailScope.value:'all';
-    if(phoneChoice==='all'&&emailChoice==='all')return 'Select All Customers';
-    const parts=[];
-    if(phoneChoice==='with')parts.push('With Phone');
-    if(phoneChoice==='without')parts.push('Without Phone');
-    if(emailChoice==='with')parts.push('With Email');
-    if(emailChoice==='without')parts.push('Without Email');
-    return 'Select All '+parts.join(' & ');
-  }
-  function filteredCustomers(){
-    const q=String(search&&search.value||'').trim().toLowerCase();
-    const eligible=eligibleCustomers();
-    if(!q) return eligible;
-    return eligible.filter(c=>[
-      c.account_number,c.account_name,c.email,c.phone
-    ].join(' ').toLowerCase().includes(q));
-  }
-  function visibleCustomers(){
-    const filtered=filteredCustomers();
-    const pages=Math.max(1,Math.ceil(filtered.length/customerPageSize));
-    customerPage=Math.min(customerPage,pages);
-    const start=(customerPage-1)*customerPageSize;
-    return filtered.slice(start,start+customerPageSize);
-  }
-  function updatePagination(){
-    const filtered=filteredCustomers();
-    const pages=Math.max(1,Math.ceil(filtered.length/customerPageSize));
-    customerPage=Math.min(customerPage,pages);
-    const start=filtered.length?((customerPage-1)*customerPageSize)+1:0;
-    const end=Math.min(customerPage*customerPageSize,filtered.length);
-    if(customerPagination)customerPagination.hidden=filtered.length<=customerPageSize;
-    if(customerPrev)customerPrev.disabled=customerPage<=1;
-    if(customerNext)customerNext.disabled=customerPage>=pages;
-    if(customerPageInfo)customerPageInfo.textContent='Showing '+start+'–'+end+' of '+filtered.length+' • Page '+customerPage+' of '+pages;
-  }
-  function updateCount(){
-    if(selectedCount) selectedCount.textContent=selected.size+' selected';
-    if(selectAllVisible){
-      const visible=visibleCustomers();
-      const checked=visible.length>0 && visible.every(c=>selected.has(c.account_number));
-      selectAllVisible.checked=checked;
-      selectAllVisible.indeterminate=!checked && visible.some(c=>selected.has(c.account_number));
-    }
-    updatePagination();
-  }
-  function render(){
-    const visible=visibleCustomers();
-    if(!visible.length){
-      list.innerHTML='<div class="statement-list-empty">'+(customers.length?'No customers match your search.':'No customers loaded.')+'</div>';
-      updateCount();
-      return;
-    }
-    list.innerHTML=visible.map(c=>{
-      const acct=esc(c.account_number);
-      const hasEmail=!!String(c.email||'').trim();
-      const hasPhone=!!String(c.phone||'').trim();
-      return '<label class="statement-customer-row">'+
-        '<input type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'>'+
-        '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small><small class="statement-customer-address">'+esc(customerAddress(c)||'No address on file')+'</small></span>'+
-        '<span class="statement-money statement-current">'+money(c.current_balance)+'</span>'+
-        '<span class="statement-money statement-previous">'+money(c.previous_balance)+'</span>'+
-        '<span class="statement-money statement-total">'+money(c.total_balance)+'</span>'+
-        '<span class="statement-email '+(hasPhone||hasEmail?'':'statement-no-email')+'">'+
-          esc(hasPhone?c.phone:'No phone on file')+'<br>'+esc(hasEmail?c.email:'No email on file')+'</span>'+
-      '</label>';
-    }).join('');
-    updateCount();
-  }
-
-  function setStatus(message,ok){
-    status.className='status show '+(ok===true?'ok':ok===false?'bad':'');
-    status.textContent=message||'';
-  }
-  function showSendReport({selectedTotal=0,processed=0,succeeded=0,failed=0,portalSent=0,emailSent=0,smsSent=0,batches=0,complete=true,error=''}){
-    if(!sendReport)return;
-    const metric=(value,label)=>'<div class="statement-send-report-metric"><strong>'+Number(value||0).toLocaleString()+'</strong><span>'+esc(label)+'</span></div>';
-    sendReport.innerHTML='<div class="statement-send-report-head"><div><h3>Statement Sending Status Report</h3><p>Statement date: '+esc(date.value||todayLocal())+(error?' • '+esc(error):'')+'</p></div><span class="statement-send-report-status '+(complete?'':'failed')+'">'+(complete?'Completed':'Stopped Early')+'</span></div><div class="statement-send-report-grid">'+
-      metric(selectedTotal,'Customers selected')+metric(processed,'Customers processed')+metric(succeeded,'Statements successful')+metric(failed,'Statements failed')+
-      metric(portalSent,'Portal sent')+metric(emailSent,'Email sent')+metric(smsSent,'SMS sent')+metric(batches,'Batches processed')+'</div>';
-    sendReport.hidden=false;
-  }
-
-  async function loadCustomers(){
-    const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-    loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';
-    beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
-    await new Promise(resolve=>requestAnimationFrame(resolve));
+  async function findCustomers(){
+    const q=search.value.trim();
+    cancelActivityRequest();
+    dashboard.hidden=true;
+    if(q.length<2){cancelCustomerSearch();results.innerHTML='';message('Enter at least two letters or numbers.',false);return;}
+    const generation=++searchRequestGeneration;
+    if(searchRequestController)searchRequestController.abort();
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    searchRequestController=controller;
+    searchBtn.disabled=true;searchBtn.textContent='Searching…';message('');
     try{
-      const res=await fetch('/api/admin/statement-customers',{
-        headers:{'X-Admin-Key':key,'Accept':'application/json'},
-        cache:'no-store'
-      });
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok||data.success===false) throw new Error(data.error||'Customers could not be loaded.');
-      const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
-      customers=[];
-      customerPage=1;
-      if(!loadedCustomers.length){render();updateAdminActionProgress('statementCustomerLoad',0,0,'Loading customers in batches…');}
-      for(let i=0;i<loadedCustomers.length;i+=200){
-        const chunk=loadedCustomers.slice(i,i+200);
-        customers.push(...chunk);
-        render();
-        updateAdminActionProgress('statementCustomerLoad',customers.length,loadedCustomers.length,'Loading customers in batches…');
-        await new Promise(resolve=>setTimeout(resolve,0));
-      }
-      for(const account of Array.from(selected)){
-        if(!customers.some(c=>c.account_number===account)) selected.delete(account);
-      }
-      render();
-      setStatus(customers.length+' customers loaded. Select the customers who should receive a statement.',true);
-    }catch(e){
-      customers=[];selected.clear();render();
-      setStatus(e.message||'Customers could not be loaded.',false);
-    }finally{
-      hideAdminActionProgress('statementCustomerLoad');
-      loadBtn.disabled=false;loadBtn.textContent='Load Customers';
-    }
-  }
-
-  loadBtn.addEventListener('click',loadCustomers);
-  search.addEventListener('input',function(){customerPage=1;render();});
-  function contactFiltersChanged(){
-    customerPage=1;
-    const eligible=new Set(eligibleCustomers().map(c=>c.account_number));
-    for(const account of Array.from(selected)) if(!eligible.has(account)) selected.delete(account);
-    if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
-    render();
-  }
-  if(phoneScope)phoneScope.addEventListener('change',contactFiltersChanged);
-  if(emailScope)emailScope.addEventListener('change',contactFiltersChanged);
-  if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;render();}});
-  if(customerNext)customerNext.addEventListener('click',function(){const pages=Math.max(1,Math.ceil(filteredCustomers().length/customerPageSize));if(customerPage<pages){customerPage++;render();}});
-
-  list.addEventListener('change',function(e){
-    const box=e.target.closest('.statement-customer-check');
-    if(!box) return;
-    const acct=box.getAttribute('data-account');
-    if(box.checked) selected.add(acct); else selected.delete(acct);
-    updateCount();
-  });
-
-  selectAllVisible.addEventListener('change',function(){
-    visibleCustomers().forEach(c=>{
-      if(selectAllVisible.checked) selected.add(c.account_number);
-      else selected.delete(c.account_number);
-    });
-    render();
-  });
-
-  selectAllCustomers.addEventListener('click',function(){
-    eligibleCustomers().forEach(c=>selected.add(c.account_number));
-    render();
-  });
-
-  clearSelection.addEventListener('click',function(){
-    selected.clear();
-    render();
-  });
-
-  async function sendChunk(key,accounts){
-    const res=await fetch('/api/admin/statements/generate',{
-      method:'POST',
-      headers:{
-        'X-Admin-Key':key,
-        'Content-Type':'application/json',
-        'Accept':'application/json'
-      },
-      body:JSON.stringify({
-        accounts,
-        statement_date:date.value||todayLocal(),
-        payment_count:Number(paymentCount&&paymentCount.value||0),
-        portal_notification:!!portalNotification.checked,
-        email_pdf:!!emailPdf.checked,
-        sms_link:!!smsLink.checked
-      })
-    });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok && !Array.isArray(data.results)) throw new Error(data.error||'Statement batch failed.');
-    return data;
-  }
-
-  sendBtn.addEventListener('click',async function(){
-    const key=document.getElementById('adminKey').value.trim();
-    const accounts=Array.from(selected);
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-    if(!accounts.length){setStatus('Select at least one customer.',false);return;}
-    if(!date.value){setStatus('Choose the statement date.',false);return;}
-    if(!portalNotification.checked&&!emailPdf.checked&&!smsLink.checked){setStatus('Choose at least one delivery method: Portal, Email, or SMS.',false);return;}
-
-    const confirmed=window.confirm(
-      'Generate and send '+accounts.length+' statement'+(accounts.length===1?'':'s')+'?\\n\\n'+
-      'Delivery: '+[
-        portalNotification.checked?'Customer Portal':'',
-        emailPdf.checked?'Email PDF':'',
-        smsLink.checked?'SMS secure link':''
-      ].filter(Boolean).join(' + ')+'.'
-    );
-    if(!confirmed) return;
-
-    sendBtn.disabled=true;loadBtn.disabled=true;
-    sendBtn.textContent='Generating Statements…';
-    progress.innerHTML='';
-    if(sendReport){sendReport.hidden=true;sendReport.innerHTML='';}
-    beginAdminActionProgress('statementSend','Generating and sending statements in batches…');
-    updateAdminActionProgress('statementSend',0,accounts.length,'Generating and sending statements in batches…');
-    setStatus('Generating professional PDF statements. Please keep this page open…');
-
-    let completed=0,succeeded=0,failed=0,portalSent=0,emailSent=0,smsSent=0,batchesProcessed=0;
-    try{
-      for(let i=0;i<accounts.length;i+=10){
-        const chunk=accounts.slice(i,i+10);
-        const data=await sendChunk(key,chunk);
-        batchesProcessed++;
-        const rows=Array.isArray(data.results)?data.results:[];
-        rows.forEach(r=>{
-          completed++;
-          if(r.success) succeeded++; else failed++;
-          if(r.portal_notified)portalSent++;
-          if(r.email_sent)emailSent++;
-          if(r.sms_sent)smsSent++;
-          const div=document.createElement('div');
-          div.className='statement-result-row '+(r.success?'ok':'bad');
-          const delivered=[];
-          if(r.portal_notified) delivered.push('Portal');
-          if(r.email_sent) delivered.push('Email');
-          if(r.sms_sent) delivered.push('SMS');
-          div.innerHTML=
-            '<span><strong>'+esc(r.account_name||r.account_number||'Customer')+'</strong> '+
-            (r.success?'— '+esc(r.filename||'Statement PDF'):(r.error?'— '+esc(r.error):''))+
-            '</span>'+
-            '<span>'+(r.success?(delivered.join(' + ')||'PDF generated'):'Failed')+'</span>';
-          progress.prepend(div);
-        });
-
-        sendBtn.textContent='Generating… '+Math.min(i+chunk.length,accounts.length)+' / '+accounts.length;
-        updateAdminActionProgress('statementSend',Math.min(i+chunk.length,accounts.length),accounts.length,'Generating and sending statements in batches…');
-        setStatus('Processed '+completed+' of '+accounts.length+' statements…');
-      }
-
-      setStatus(
-        succeeded+' statement'+(succeeded===1?'':'s')+' generated successfully'+
-        (failed?' • '+failed+' failed':'')+'.',
-        failed===0
-      );
-      showSendReport({selectedTotal:accounts.length,processed:completed,succeeded,failed,portalSent,emailSent,smsSent,batches:batchesProcessed,complete:true});
-      if(smsSent>0) await refreshTwilioBalance();
-
-      if(succeeded){
-        // Keep the generated statements available in the Documents list.
-        const firstSelected=accounts[0];
-        const docAccount=document.getElementById('docAccount');
-        if(docAccount && accounts.length===1){
-          docAccount.value=firstSelected;
-          const docLoadBtn=document.getElementById('docLoadBtn');
-          if(docLoadBtn) docLoadBtn.click();
-        }
-      }
-    }catch(e){
-      setStatus(e.message||'Statement generation stopped because of an error.',false);
-      showSendReport({selectedTotal:accounts.length,processed:completed,succeeded,failed,portalSent,emailSent,smsSent,batches:batchesProcessed,complete:false,error:e.message||'Statement generation stopped because of an error.'});
-    }finally{
-      hideAdminActionProgress('statementSend');
-      sendBtn.disabled=false;loadBtn.disabled=false;
-      sendBtn.textContent='Generate & Send Statements';
-    }
-  });
-})();
-</script>
-
-
-
-
-
-<script id="wooten-admin-communication-log-script">
-(function(){
-  const treeModeHost=document.getElementById('communicationLogCustomers');
-  if(treeModeHost&&treeModeHost.dataset.treeMode==='true')return;
-  const loadBtn=document.getElementById('communicationLogLoad');
-  const backBtn=document.getElementById('communicationLogBack');
-  const from=document.getElementById('communicationLogFrom');
-  const to=document.getElementById('communicationLogTo');
-  const type=document.getElementById('communicationLogType');
-  const search=document.getElementById('communicationLogSearch');
-  const status=document.getElementById('communicationLogStatus');
-  const customersEl=document.getElementById('communicationLogCustomers');
-  const detailEl=document.getElementById('communicationLogDetail');
-  const entriesEl=document.getElementById('communicationLogEntries');
-  const customerNameEl=document.getElementById('communicationLogCustomerName');
-  const customerMetaEl=document.getElementById('communicationLogCustomerMeta');
-  const customersPagination=document.getElementById('communicationLogCustomersPagination');
-  const customersPrev=document.getElementById('communicationLogCustomersPrev');
-  const customersNext=document.getElementById('communicationLogCustomersNext');
-  const customersPageInfo=document.getElementById('communicationLogCustomersPageInfo');
-  const entriesPagination=document.getElementById('communicationLogEntriesPagination');
-  const entriesPrev=document.getElementById('communicationLogEntriesPrev');
-  const entriesNext=document.getElementById('communicationLogEntriesNext');
-  const entriesPageInfo=document.getElementById('communicationLogEntriesPageInfo');
-  if(!loadBtn||!customersEl||!detailEl) return;
-
-  let customerPage=1;
-  let detailPage=1;
-  let activeAccount='';
-  let customerTotal=0;
-
-  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  const now=new Date();
-  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
-  if(!to.value) to.value=dateValue(now);
-  if(!from.value) from.value=dateValue(earlier);
-  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-  function formatDate(v){
-    const d=new Date(String(v||'').replace(' ','T')+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  }
-  function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
-  function params(account,page){
-    const p=new URLSearchParams();
-    if(from.value)p.set('from',from.value);if(to.value)p.set('to',to.value);
-    if(type.value)p.set('type',type.value);if(search.value.trim())p.set('q',search.value.trim());
-    if(account)p.set('account_number',account);
-    p.set('page',String(page||1));
-    p.set('page_size','20');
-    return p;
-  }
-  async function requestLog(account,page){
-    const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
-    const res=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
-    return data;
-  }
-  function renderPagination(container,prev,next,info,data){
-    const total=Number(data&&data.total||0);
-    const page=Math.max(1,Number(data&&data.page||1));
-    const pages=Math.max(1,Number(data&&data.pages||1));
-    if(container) container.hidden=total<=20;
-    if(prev) prev.disabled=page<=1;
-    if(next) next.disabled=page>=pages;
-    if(info) info.textContent='Page '+page+' of '+pages+' • '+total+' record'+(total===1?'':'s');
-  }
-  function renderCustomers(rows){
-    detailEl.hidden=true;customersEl.hidden=false;
-    if(!rows.length){customersEl.innerHTML='<div class="communication-log-empty">No recorded activity was found for this period.</div>';return;}
-    customersEl.innerHTML=rows.map(r=>
-      '<button class="communication-customer-row" type="button" data-account="'+esc(r.account_number)+'" data-name="'+esc(r.account_name)+'" data-phone="'+esc(r.phone||'')+'" data-email="'+esc(r.email||'')+'">'+
-        '<span class="communication-customer-name"><strong>'+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(r.account_number)+'</small></span>'+
-        '<span class="communication-count"><strong>'+Number(r.total_count||0)+'</strong><small>Total</small></span>'+
-        '<span class="communication-count"><strong>'+Number(r.notification_count||0)+'</strong><small>Notices</small></span>'+
-        '<span class="communication-count"><strong>'+Number(r.statement_count||0)+'</strong><small>Statements</small></span>'+
-        '<span class="communication-count"><strong>'+Number(r.invoice_count||0)+'</strong><small>Invoices</small></span>'+
-        '<span class="communication-last">Last sent<br><strong>'+esc(formatDate(r.last_sent_at))+'</strong></span>'+
-      '</button>'
-    ).join('');
-  }
-  function channel(label,sent,attempted){
-    if(!attempted&&!sent)return '';
-    return '<span class="communication-channel '+(sent?'sent':'failed')+'">'+esc(label)+' '+(sent?'Sent':'Failed')+'</span>';
-  }
-  function renderEntries(rows){
-    if(!rows.length){entriesEl.innerHTML='<div class="communication-log-empty">No activity was found for this customer in the selected period.</div>';return;}
-    entriesEl.innerHTML=rows.map(r=>{
-      const error=String(r.error_text||'');
-      const emailAttempted=!!r.email_sent||/email/i.test(error);
-      const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
-      const documentId=Number(r.document_id||0);
-      const detailText=String(r.detail||'');
-      const pdfMatch=documentId?detailText.match(/[^\s<>"']+\.pdf/i):null;
-      const detailHtml=pdfMatch
-        ?esc(detailText.slice(0,pdfMatch.index))+'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+esc(pdfMatch[0])+'</button>'+esc(detailText.slice(pdfMatch.index+pdfMatch[0].length))
-        :esc(detailText);
-      const titleText=esc(r.title||'Customer Communication');
-      const titleHtml=documentId&&!pdfMatch?'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+titleText+'</button>':titleText;
-      return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
-        '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+titleHtml+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
-        '<p>'+detailHtml+'</p><div class="communication-channels">'+
-        channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
-        '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
-    }).join('');
-  }
-  async function loadCustomers(resetPage){
-    if(resetPage===true) customerPage=1;
-    loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
-    try{
-      const data=await requestLog('',customerPage);
-      customerPage=Number(data.page||customerPage);
-      customerTotal=Number(data.total||0);
-      renderCustomers(Array.isArray(data.customers)?data.customers:[]);
-      renderPagination(customersPagination,customersPrev,customersNext,customersPageInfo,data);
-      setStatus('Showing '+(data.customers||[]).length+' of '+Number(data.total||0)+' customer communication record(s).',true);
-    }
-    catch(e){setStatus(e.message||'Communication log could not be loaded.',false);}
-    finally{loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
-  }
-  async function loadCustomerEntries(){
-    if(!activeAccount)return;
-    entriesEl.innerHTML='<div class="communication-log-empty">Loading customer history…</div>';
-    try{
-      const data=await requestLog(activeAccount,detailPage);
-      detailPage=Number(data.page||detailPage);
-      renderEntries(Array.isArray(data.entries)?data.entries:[]);
-      renderPagination(entriesPagination,entriesPrev,entriesNext,entriesPageInfo,data);
-    }catch(err){
-      entriesEl.innerHTML='<div class="communication-log-empty">'+esc(err.message||'History could not be loaded.')+'</div>';
-      if(entriesPagination)entriesPagination.hidden=true;
-    }
-  }
-  loadBtn.addEventListener('click',function(){loadCustomers(true);});
-  customersEl.addEventListener('click',async function(e){
-    const row=e.target.closest('.communication-customer-row');if(!row)return;
-    const account=row.getAttribute('data-account');
-    activeAccount=account;
-    detailPage=1;
-    customerNameEl.textContent=row.getAttribute('data-name')||'Customer';
-    customerMetaEl.textContent='Customer # '+account+' • '+(row.getAttribute('data-phone')||'No phone')+' • '+(row.getAttribute('data-email')||'No email');
-    customersEl.hidden=true;detailEl.hidden=false;
-    if(customersPagination)customersPagination.hidden=true;
-    await loadCustomerEntries();
-  });
-  backBtn.addEventListener('click',function(){
-    detailEl.hidden=true;customersEl.hidden=false;activeAccount='';
-    if(customersPagination)customersPagination.hidden=customerTotal<=20;
-  });
-  if(customersPrev)customersPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;loadCustomers(false);}});
-  if(customersNext)customersNext.addEventListener('click',function(){customerPage++;loadCustomers(false);});
-  if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){detailPage--;loadCustomerEntries();}});
-  if(entriesNext)entriesNext.addEventListener('click',function(){detailPage++;loadCustomerEntries();});
-  [from,to,type].forEach(el=>el&&el.addEventListener('change',function(){loadCustomers(true);}));
-  let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(function(){loadCustomers(true);},350);});
-})();
-</script>
-
-<script id="wooten-admin-communication-tree-script">
-(function(){
-  const loadBtn=document.getElementById('communicationLogLoad');
-  const from=document.getElementById('communicationLogFrom');
-  const to=document.getElementById('communicationLogTo');
-  const type=document.getElementById('communicationLogType');
-  const search=document.getElementById('communicationLogSearch');
-  const status=document.getElementById('communicationLogStatus');
-  const customersEl=document.getElementById('communicationLogCustomers');
-  const pagination=document.getElementById('communicationLogCustomersPagination');
-  const prev=document.getElementById('communicationLogCustomersPrev');
-  const next=document.getElementById('communicationLogCustomersNext');
-  const pageInfo=document.getElementById('communicationLogCustomersPageInfo');
-  if(!loadBtn||!customersEl||customersEl.dataset.treeMode!=='true')return;
-
-  let customerPage=1;
-  let customers=[];
-  let totalCustomers=0;
-  const openNodes=new Map();
-
-  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  const now=new Date();
-  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
-  if(!to.value)to.value=dateValue(now);
-  if(!from.value)from.value=dateValue(earlier);
-  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-  function formatDate(v){
-    const d=new Date(String(v||'').replace(' ','T')+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  }
-  function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
-  function params(account,page){
-    const p=new URLSearchParams();
-    if(from.value)p.set('from',from.value);
-    if(to.value)p.set('to',to.value);
-    if(type.value)p.set('type',type.value);
-    if(search.value.trim())p.set('q',search.value.trim());
-    if(account)p.set('account_number',account);
-    p.set('page',String(page||1));
-    p.set('page_size','20');
-    return p;
-  }
-  async function requestLog(account,page){
-    const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to view the communication log.');throw new Error('Enter your Admin Import Key first.');}
-    const response=await fetch('/api/admin/communication-log?'+params(account,page).toString(),{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok||data.success===false)throw new Error(data.error||'Communication log could not be loaded.');
-    return data;
-  }
-  function channel(label,sent,attempted){
-    if(!attempted&&!sent)return '';
-    return '<span class="communication-channel '+(sent?'sent':'failed')+'">'+esc(label)+' '+(sent?'Sent':'Failed')+'</span>';
-  }
-  function entriesHtml(rows){
-    if(!rows.length)return '<div class="communication-log-empty">No activity was found for this customer in the selected period.</div>';
-    return rows.map(r=>{
-      const error=String(r.error_text||'');
-      const emailAttempted=!!r.email_sent||/email/i.test(error);
-      const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
-      const smsStatus=String(r.sms_status||((r.sms_sent&&r.sms_sid)?'pending':'')).toLowerCase();
-      const smsLabel={delivered:'Delivered',failed:'Failed',pending:'Pending',opted_out:'Opted Out'}[smsStatus]||'';
-      const smsError=String(r.sms_error_message||'');
-      const smsDelivery=smsLabel?'<div class="sms-delivery"><span class="sms-status '+esc(smsStatus)+'">SMS '+esc(smsLabel)+'</span>'+
-        (smsStatus==='failed'?'<button class="sms-resend" type="button" data-sms-resend="'+Number(r.id||0)+'">Resend SMS</button>':'')+
-        (smsError?'<p class="sms-error-detail">'+(r.sms_error_code?'Twilio '+esc(r.sms_error_code)+': ':'')+esc(smsError)+'</p>':'')+'</div>':'';
-      const documentId=Number(r.document_id||0);
-      const detailText=String(r.detail||'');
-      const pdfMatch=documentId?detailText.match(/[^\s<>"']+\.pdf/i):null;
-      const detailHtml=pdfMatch
-        ?esc(detailText.slice(0,pdfMatch.index))+'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+esc(pdfMatch[0])+'</button>'+esc(detailText.slice(pdfMatch.index+pdfMatch[0].length))
-        :esc(detailText);
-      const titleText=esc(r.title||'Customer Communication');
-      const titleHtml=documentId&&!pdfMatch?'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+titleText+'</button>':titleText;
-      return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
-        '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+titleHtml+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
-        '<p>'+detailHtml+'</p><div class="communication-channels">'+
-        channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
-        '</div>'+smsDelivery+(error&&!smsError?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
-    }).join('');
-  }
-  function childHtml(account,state){
-    if(state.loading)return '<div class="communication-log-empty">Loading customer history…</div>';
-    if(state.error)return '<div class="communication-log-empty">'+esc(state.error)+'</div>';
-    const start=state.total?((state.page-1)*20)+1:0;
-    const end=Math.min(state.page*20,state.total);
-    return '<div class="communication-tree-summary"><span>Showing '+start+'–'+end+' of '+state.total+' communication logs</span><span>Page '+state.page+' of '+state.pages+'</span></div>'+
-      '<div class="communication-log-entries">'+entriesHtml(state.entries||[])+'</div>'+
-      (state.total>20?'<div class="db-pagination communication-pagination">'+
-        '<button class="secondary" type="button" data-tree-action="prev" data-account="'+esc(account)+'" '+(state.page<=1?'disabled':'')+'>Previous 20</button>'+
-        '<div class="db-page-info">Page '+state.page+' of '+state.pages+'</div>'+
-        '<button class="secondary" type="button" data-tree-action="next" data-account="'+esc(account)+'" '+(state.page>=state.pages?'disabled':'')+'>Next 20</button>'+
-      '</div>':'');
-  }
-  function renderCustomers(){
-    if(!customers.length){customersEl.innerHTML='<div class="communication-log-empty">No recorded activity was found for this period.</div>';return;}
-    customersEl.innerHTML=customers.map(r=>{
-      const account=String(r.account_number||'');
-      const state=openNodes.get(account);
-      const open=!!state;
-      return '<div class="communication-tree-node '+(open?'is-open':'')+'" data-tree-node="'+esc(account)+'">'+
-        '<button class="communication-customer-row" type="button" data-tree-customer="'+esc(account)+'" aria-expanded="'+(open?'true':'false')+'" data-name="'+esc(r.account_name||'Customer')+'">'+
-          '<span class="communication-tree-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></span>'+
-          '<span class="communication-customer-name"><strong>'+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(account)+'</small></span>'+
-          '<span class="communication-count"><strong>'+Number(r.total_count||0)+'</strong><small>Total</small></span>'+
-          '<span class="communication-count"><strong>'+Number(r.notification_count||0)+'</strong><small>Notices</small></span>'+
-          '<span class="communication-count"><strong>'+Number(r.statement_count||0)+'</strong><small>Statements</small></span>'+
-          '<span class="communication-count"><strong>'+Number(r.invoice_count||0)+'</strong><small>Invoices</small></span>'+
-          '<span class="communication-last">Last sent<br><strong>'+esc(formatDate(r.last_sent_at))+'</strong></span>'+
-        '</button>'+
-        '<div class="communication-tree-children" '+(open?'':'hidden')+'>'+ (open?childHtml(account,state):'') +'</div>'+
-      '</div>';
-    }).join('');
-  }
-  function renderMainPagination(data){
-    const page=Math.max(1,Number(data.page||1));
-    const pages=Math.max(1,Number(data.pages||1));
-    if(pagination)pagination.hidden=Number(data.total||0)<=20;
-    if(prev)prev.disabled=page<=1;
-    if(next)next.disabled=page>=pages;
-    if(pageInfo)pageInfo.textContent='Page '+page+' of '+pages+' • '+Number(data.total||0)+' customers';
-  }
-  async function loadCustomers(reset){
-    if(reset){customerPage=1;openNodes.clear();}
-    loadBtn.disabled=true;loadBtn.textContent='Loading Log…';
-    beginAdminActionProgress('communicationLogLoad','Loading communication log…');
-    await new Promise(resolve=>requestAnimationFrame(resolve));
-    try{
-      const data=await requestLog('',customerPage);
-      customerPage=Number(data.page||customerPage);
-      totalCustomers=Number(data.total||0);
-      const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
-      customers=[];
-      if(!loadedCustomers.length){renderCustomers();updateAdminActionProgress('communicationLogLoad',0,0,'Loading communication customers in batches…');}
-      for(let i=0;i<loadedCustomers.length;i+=5){
-        const chunk=loadedCustomers.slice(i,i+5);
-        customers.push(...chunk);
-        renderCustomers();
-        updateAdminActionProgress('communicationLogLoad',customers.length,loadedCustomers.length,'Loading communication customers in batches…');
-        await new Promise(resolve=>setTimeout(resolve,0));
-      }
-      renderCustomers();renderMainPagination(data);
-      setStatus('Showing '+customers.length+' of '+totalCustomers+' customers. Click a customer to expand their communication history.',true);
-    }catch(error){setStatus(error.message||'Communication log could not be loaded.',false);}
-    finally{hideAdminActionProgress('communicationLogLoad');loadBtn.disabled=false;loadBtn.textContent='Load Communication Log';}
-  }
-  async function loadNode(account,page){
-    const current=openNodes.get(account);
-    if(!current)return;
-    openNodes.set(account,{loading:true,page:page||1,pages:current.pages||1,total:current.total||0,entries:[]});
-    renderCustomers();
-    try{
-      const data=await requestLog(account,page||1);
-      openNodes.set(account,{loading:false,page:Number(data.page||1),pages:Number(data.pages||1),total:Number(data.total||0),entries:Array.isArray(data.entries)?data.entries:[]});
+      const response=await fetch('/api/admin/customer-activity?search='+encodeURIComponent(q),{headers:{'X-Admin-Key':key()},signal:controller?.signal}),data=await response.json().catch(()=>({}));
+      if(generation!==searchRequestGeneration||controller?.signal.aborted)return;
+      if(!response.ok||!data.success)throw new Error(data.error||'Customer search failed.');
+      const rows=data.matches||[];
+      results.innerHTML=rows.length?rows.map(r=>'<button class="activity-search-result" type="button" data-activity-account="'+esc(r.account_number)+'"><span><strong>'+esc(r.account_name||'Customer')+'</strong><small># '+esc(r.account_number)+' • '+esc(r.email||r.phone||'No contact information')+'</small></span><span class="activity-search-balance"><small>Total Balance</small><strong>'+money(r.total_balance)+'</strong></span></button>').join(''):empty('No customers match this search.');
+      message(rows.length+' customer(s) found.',true);
+      if(rows.length===1&&(rows[0].account_number===q.replace(/\D/g,'').padStart(7,'0')||String(rows[0].account_name||'').toLowerCase()===q.toLowerCase()))loadActivity(rows[0].account_number);
     }catch(error){
-      openNodes.set(account,{loading:false,page:1,pages:1,total:0,entries:[],error:error.message||'History could not be loaded.'});
-    }
-    renderCustomers();
-  }
-  loadBtn.addEventListener('click',()=>loadCustomers(true));
-  customersEl.addEventListener('click',function(e){
-    const documentButton=e.target.closest('[data-open-document]');
-    if(documentButton){
-      e.preventDefault();e.stopPropagation();
-      const id=Number(documentButton.getAttribute('data-open-document')||0);
-      if(id&&typeof window.openAdminCustomerDocument==='function')window.openAdminCustomerDocument(id);
-      return;
-    }
-    const resend=e.target.closest('[data-sms-resend]');
-    if(resend){
-      e.preventDefault();e.stopPropagation();
-      const id=Number(resend.getAttribute('data-sms-resend')||0);
-      const node=resend.closest('[data-tree-node]');
-      const account=node?node.getAttribute('data-tree-node'):'';
-      const state=openNodes.get(account);
-      const key=document.getElementById('adminKey').value.trim();
-      if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to resend this SMS.');return;}
-      resend.disabled=true;resend.textContent='Resending…';
-      fetch('/api/admin/communication-log/resend',{method:'POST',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({id:id})})
-        .then(async response=>{const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'SMS could not be resent.');return data;})
-        .then(async()=>{setStatus('SMS resend was accepted by Twilio and is pending delivery.',true);await refreshTwilioBalance();return loadNode(account,state&&state.page||1);})
-        .catch(error=>{setStatus(error.message||'SMS could not be resent.',false);resend.disabled=false;resend.textContent='Resend SMS';});
-      return;
-    }
-    const pager=e.target.closest('[data-tree-action]');
-    if(pager){
-      e.preventDefault();e.stopPropagation();
-      const account=pager.getAttribute('data-account');
-      const state=openNodes.get(account);if(!state)return;
-      const nextPage=pager.getAttribute('data-tree-action')==='next'?state.page+1:state.page-1;
-      if(nextPage>=1&&nextPage<=state.pages)loadNode(account,nextPage);
-      return;
-    }
-    const row=e.target.closest('[data-tree-customer]');if(!row)return;
-    const account=row.getAttribute('data-tree-customer');
-    if(openNodes.has(account)){openNodes.delete(account);renderCustomers();return;}
-    openNodes.set(account,{loading:true,page:1,pages:1,total:0,entries:[]});
-    loadNode(account,1);
-  });
-  if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage--;openNodes.clear();loadCustomers(false);}});
-  if(next)next.addEventListener('click',function(){customerPage++;openNodes.clear();loadCustomers(false);});
-  [from,to,type].forEach(el=>el&&el.addEventListener('change',()=>loadCustomers(true)));
-  let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(()=>loadCustomers(true),350);});
-})();
-</script>
-
-
-<script id="wooten-admin-login-popup-script">
-(function(){
-  const body=document.body;
-  const keyField=document.getElementById('adminKey');
-  const overlay=document.getElementById('adminLoginOverlay');
-  const form=document.getElementById('adminLoginForm');
-  const loginName=document.getElementById('adminLoginName');
-  const keyPrompt=document.getElementById('adminKeyPrompt');
-  const status=document.getElementById('adminLoginStatus');
-  const openBtn=document.getElementById('adminAccessOpenBtn');
-  const accessMeta=document.getElementById('adminAccessMeta');
-  const submitBtn=form ? form.querySelector('button[type="submit"]') : null;
-  const storageKey='wootenAdminLoginSession';
-  let currentUser=null;
-
-  function applyPermissions(user){
-    currentUser=user||null;window.wootenAdminUser=currentUser;
-    const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',activity:'customer_activity',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',activation:'activation'};
-    let firstVisible=null;
-    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
-    document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
-    document.querySelectorAll('[data-admin-open]').forEach(button=>{const section=button.dataset.adminOpen;button.closest('.admin-dashboard-card').hidden=!(user&&(user.owner||permissions.has(mapping[section])));});
-    const ownerOnlyControls=document.querySelectorAll('#admin-tab-users input,#admin-tab-users button:not(#adminAuditRefresh)');
-    ownerOnlyControls.forEach(control=>{control.disabled=!user?.owner;control.setAttribute('aria-disabled',user?.owner?'false':'true');});
-    document.querySelectorAll('.admin-user-editor,.admin-user-list-section').forEach(section=>{section.hidden=!user?.owner;});
-    document.getElementById('admin-tab-users')?.classList.toggle('admin-user-management-locked',!user?.owner);
-    const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
-    if(user?.owner)setTimeout(()=>window.loadWootenAdminUsers?.(),0);
-  }
-
-  function setStatus(message,bad){
-    if(!status) return;
-    status.className='status show '+(bad===false?'ok':'bad');
-    status.textContent=message||'';
-  }
-
-  function clearStatus(){
-    if(!status) return;
-    status.className='status';
-    status.textContent='';
-  }
-
-  function setBusy(busy){
-    if(!submitBtn) return;
-    submitBtn.disabled=!!busy;
-    submitBtn.textContent=busy ? 'Checking…' : 'Sign In';
-  }
-
-  function updateAccessMeta(){
-    const hasKey=!!(keyField.value||'').trim();
-    if(openBtn) openBtn.textContent='Logout / Change Key';
-    if(!accessMeta) return;
-    accessMeta.textContent=hasKey ? 'Signed in as '+String(currentUser?.display_name||currentUser?.username||'Administrator') : 'Locked • Login required';
-  }
-
-  function openLogin(options){
-    const opts=options||{};
-    body.classList.add('admin-login-locked');
-    overlay.setAttribute('aria-hidden','false');
-    if(opts.message) setStatus(opts.message,true); else clearStatus();
-    window.setTimeout(()=>{ keyPrompt.focus(); },40);
-  }
-
-  function closeLogin(){
-    if(!(keyField.value||'').trim()) return;
-    body.classList.remove('admin-login-locked');
-    overlay.setAttribute('aria-hidden','true');
-    clearStatus();
-  }
-
-  function adminCentralDayKey(date){
-    try{
-      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date||new Date());
-      const values={};parts.forEach(part=>{if(part.type!=='literal')values[part.type]=part.value;});
-      return values.year+'-'+values.month+'-'+values.day;
-    }catch(_e){
-      const d=date||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    }
-  }
-
-  function saveSession(){
-    try{
-      sessionStorage.setItem(storageKey, JSON.stringify({login:loginName.value.trim(),key:(keyField.value||'').trim(),user:currentUser,day:adminCentralDayKey()}));
-    }catch(_e){}
-  }
-
-  function clearSession(){
-    try{ sessionStorage.removeItem(storageKey); }catch(_e){}
-  }
-
-  function expireAdminSession(message){
-    const oldKey=(keyField.value||'').trim();
-    if(oldKey)fetch('/api/admin/auth/logout',{method:'POST',headers:{'X-Admin-Key':oldKey}}).catch(()=>{});
-    clearSession();
-    keyField.value='';
-    keyPrompt.value='';
-    applyPermissions(null);
-    updateAccessMeta();
-    openLogin({message:message||'Your admin session expired. Please sign in again.'});
-  }
-
-  function openAdminDashboard(){
-    try{ sessionStorage.setItem('wootenAdminTab','dashboard'); }catch(_e){}
-    if(typeof window.showWootenAdminPage==='function'){
-      window.showWootenAdminPage('dashboard',{updateHash:true});
-      return;
-    }
-    const dashboardTab=document.querySelector('[data-admin-tab="dashboard"]');
-    if(dashboardTab&&!dashboardTab.hidden) dashboardTab.click();
-  }
-
-  async function loginAdmin(username,password){
-    const response = await fetch('/api/admin/auth/login', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify({username,password}),
-      cache:'no-store'
-    });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok||!data.success)return {ok:false,reason:response.status===401?'invalid':'server',error:data.error};
-    return {ok:true,token:data.token,user:data.user};
-  }
-
-  async function validateSession(key){
-    const response=await fetch('/api/admin/auth/me',{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});const data=await response.json().catch(()=>({}));
-    return response.ok&&data.success?{ok:true,user:data.user}:{ok:false};
-  }
-
-  async function tryRestoreSession(){
-    try{
-      const raw=sessionStorage.getItem(storageKey);
-      if(!raw) return false;
-      const data=JSON.parse(raw)||{};
-      const savedKey=String(data.key||'').trim();
-      if(!savedKey) return false;
-      if(String(data.day||'')!==adminCentralDayKey()){
-        clearSession();
-        return false;
-      }
-      const check=await validateSession(savedKey);
-      if(!check.ok){
-        clearSession();
-        return false;
-      }
-      loginName.value=String(data.login||check.user?.username||'Admin');
-      keyField.value=savedKey;
-      keyPrompt.value=savedKey;
-      applyPermissions(check.user||data.user);
-      openAdminDashboard();
-      updateAccessMeta();
-      closeLogin();
-      loadImportLastUpdates();
-      return true;
-    }catch(_e){
-      clearSession();
-      return false;
-    }
-  }
-
-  window.ensureAdminLoginKey=function(message){
-    if((keyField.value||'').trim()) return true;
-    openLogin({message:message||'Enter the Admin Import Key to continue.'});
-    return false;
-  };
-
-  form.addEventListener('submit', async function(e){
-    e.preventDefault();
-    const username=(loginName.value||'').trim();
-    const key=(keyPrompt.value||'').trim();
-    if(!username||!key){
-      setStatus('Enter your username and password.',true);
-      keyPrompt.focus();
-      return;
-    }
-    setBusy(true);
-    clearStatus();
-    try{
-      const check=await loginAdmin(username,key);
-      if(!check.ok){
-        keyField.value='';
-        if(check.reason==='invalid') setStatus('Invalid username or password.',true);
-        else setStatus(check.error||'Could not verify administrator access right now. Please try again.',true);
-        keyPrompt.focus();
-        keyPrompt.select();
-        updateAccessMeta();
-        return;
-      }
-      keyField.value=check.token;
-      applyPermissions(check.user);
-      openAdminDashboard();
-      saveSession();
-      updateAccessMeta();
-      setStatus('Access granted.',false);
-      closeLogin();
-      loadImportLastUpdates();
-    }catch(_error){
-      keyField.value='';
-      setStatus('Could not verify administrator access right now. Please try again.',true);
-      keyPrompt.focus();
-      keyPrompt.select();
-      updateAccessMeta();
+      if(generation!==searchRequestGeneration||controller?.signal.aborted||error?.name==='AbortError')return;
+      message(error.message||'Customer search failed.',false);
     }finally{
-      setBusy(false);
+      if(generation===searchRequestGeneration){if(searchRequestController===controller)searchRequestController=null;searchBtn.disabled=false;searchBtn.textContent='Search Customer';}
     }
-  });
-
-  if(openBtn){
-    openBtn.addEventListener('click',function(){
-      const oldKey=(keyField.value||'').trim();if(oldKey)fetch('/api/admin/auth/logout',{method:'POST',headers:{'X-Admin-Key':oldKey}}).catch(()=>{});
-      clearSession();
-      keyField.value='';
-      keyPrompt.value='';
-      applyPermissions(null);
-      updateAccessMeta();
-      openLogin();
-      setStatus('Signed out. Enter a username and password, or use Admin with the owner key.',false);
-    });
   }
-
-  overlay.addEventListener('click',function(e){
-    if(e.target===overlay || e.target.classList.contains('admin-login-backdrop')){
-      if((keyField.value||'').trim()) closeLogin();
+  async function loadActivity(account,changedSection=''){
+    const generation=++activityRequestGeneration;
+    if(activityRequestController)activityRequestController.abort();
+    cancelActivityCharts();
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    activityRequestController=controller;
+    if(account!==currentAccount){currentAccount=account;chartMonths=12;paymentChartMonths=12;balanceChartMonths=12;Object.keys(activityPages).forEach(name=>activityPages[name]=1);}
+    const handle=startProgress();
+    results.innerHTML='';window.wootenAdminSkeleton?.activity(dashboard);message('');
+    try{
+      const params=new URLSearchParams({account_number:account,chart_months:String(chartMonths)});
+      Object.entries(activityPages).forEach(([name,page])=>params.set(name+'_page',String(page)));
+      const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},signal:controller?.signal}),data=await response.json().catch(()=>({}));
+      if(generation!==activityRequestGeneration||controller?.signal.aborted||account!==currentAccount)return;
+      if(!response.ok||!data.success)throw new Error(data.error||'Customer activity could not be loaded.');
+      chartMonths=Number(data.chart_months??chartMonths);render(data);
+      if(changedSection)requestAnimationFrame(()=>dashboard.querySelector('[data-activity-section="'+changedSection+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));
+    }catch(error){
+      if(generation!==activityRequestGeneration||controller?.signal.aborted||error?.name==='AbortError')return;
+      if(dashboard.querySelector('.admin-activity-skeleton')){dashboard.innerHTML='';dashboard.hidden=true;}
+      message(error.message||'Customer activity could not be loaded.',false);
+    }finally{
+      if(generation===activityRequestGeneration&&activityRequestController===controller)activityRequestController=null;
+      await finishProgress(handle,generation);
     }
-  });
-
-  document.addEventListener('keydown',function(e){
-    if(e.key==='Escape' && body.classList.contains('admin-login-locked') && (keyField.value||'').trim()){
-      closeLogin();
+  }
+  async function loadActivityChart(name,months){
+    const target=dashboard.querySelector('[data-activity-chart="'+name+'"]'),state=chartRequestState[name];
+    if(!target||!currentAccount||!state)return;
+    const account=currentAccount,previous=name==='payments'?paymentChartMonths:balanceChartMonths,selected=[3,6,12,24,0].includes(Number(months))?Number(months):12,generation=++state.generation;
+    if(state.controller)state.controller.abort();
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    state.controller=controller;
+    target.setAttribute('aria-busy','true');target.querySelectorAll('select').forEach(control=>control.disabled=true);
+    try{
+      const params=new URLSearchParams({account_number:account,chart_months:String(selected),section:'charts'});
+      const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store',signal:controller?.signal}),data=await response.json().catch(()=>({}));
+      if(generation!==state.generation||controller?.signal.aborted||account!==currentAccount)return;
+      if(!response.ok||!data.success)throw new Error(data.error||'This chart could not be loaded.');
+      const actual=Number(data.chart_months??selected),c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),totalBalance=ages.reduce((sum,value)=>sum+(Number.isFinite(value)?value:0),0);
+      let markup;
+      if(name==='payments'){paymentChartMonths=actual;markup=paymentChart(data.payment_chart||[],data.payment_chart_entries||data.fuel_chart_summary||[],actual,totalBalance,data.payment_chart_last,data.payment_chart_stats||null);}else{balanceChartMonths=actual;markup=balanceChart(ages,data.payment_chart||[],actual);}
+      target.outerHTML=markup;
+    }catch(error){
+      if(generation!==state.generation||controller?.signal.aborted||error?.name==='AbortError'||account!==currentAccount)return;
+      if(name==='payments')paymentChartMonths=previous;else balanceChartMonths=previous;
+      target.removeAttribute('aria-busy');target.querySelectorAll('select').forEach(control=>{control.disabled=false;control.value=String(previous);});message(error.message||'This chart could not be loaded.',false);
+    }finally{
+      if(generation===state.generation&&state.controller===controller)state.controller=null;
     }
-  });
-
-  loginName.value='Admin';
-  updateAccessMeta();
-  tryRestoreSession().then(function(restored){
-    if(!restored) openLogin();
-  });
-
-  const adminSessionDayAtLoad=adminCentralDayKey();
-  window.setInterval(function(){
-    if((keyField.value||'').trim() && adminCentralDayKey()!==adminSessionDayAtLoad){
-      expireAdminSession('Your admin session expired at the end of the day. Please sign in again.');
-    }
-  },30000);
+  }
+  async function openDocument(id){try{const response=await fetch('/api/admin/customer-activity/documents/'+encodeURIComponent(id)+'/file',{headers:{'X-Admin-Key':key()}});if(!response.ok)throw new Error(await response.text()||'PDF could not be opened.');const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){message(error.message||'PDF could not be opened.',false);}}
+  searchBtn.addEventListener('click',()=>{clearTimeout(timer);findCustomers();});search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);findCustomers();}});search.addEventListener('input',()=>{clearTimeout(timer);cancelCustomerSearch();cancelActivityRequest();if(search.value.trim().length>=3)timer=setTimeout(findCustomers,450);});results.addEventListener('click',e=>{const button=e.target.closest('[data-activity-account]');if(button){cancelCustomerSearch();loadActivity(button.dataset.activityAccount);}});dashboard.addEventListener('change',e=>{const selector=e.target.closest('[data-activity-chart-period]');if(!selector)return;loadActivityChart(selector.dataset.activityChartName,selector.value);});dashboard.addEventListener('click',e=>{const pageButton=e.target.closest('[data-activity-page-section]');if(pageButton){e.preventDefault();e.stopPropagation();loadActivitySection(pageButton.dataset.activityPageSection,pageButton.dataset.activityPage);return;}const button=e.target.closest('[data-activity-document]');if(button)openDocument(button.dataset.activityDocument);});
 })();
 </script>
+
+
+
+
+
+
+
+
+
+
 
 
 <div class="database-clear-modal" id="databaseClearModal" aria-hidden="true">
@@ -12047,8 +11345,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       </label>
     </div>
 
-    <label for="databaseClearAdminKey">Admin Import Key</label>
-    <input id="databaseClearAdminKey" type="password" autocomplete="off" placeholder="Enter Admin Import Key">
+    <label for="databaseClearAdminKey">Type CLEAR to confirm</label>
+    <input id="databaseClearAdminKey" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CLEAR">
 
     <div id="databaseClearStatus" class="status"></div>
 
@@ -12059,31 +11357,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   </div>
 </div>
 
-<script id="wooten-admin-users-script">
-(()=>{
-  const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus');let loaded=false,loading=false;
-  const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const labels={database:'Database & Imports',customer_activity:'Customer Activity',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
-  function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
-  function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
-  function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
-  function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
-  function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
-  async function load(){if(loading)return;loading=true;auditMessage('');try{const owner=!!window.wootenAdminUser?.owner;if(owner){const usersRes=await fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),usersData=await usersRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);}const auditRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});let auditData=await auditRes.json().catch(()=>({})),auditOk=auditRes.ok&&auditData.success;if(auditOk&&!(auditData.entries||[]).length){await new Promise(resolve=>setTimeout(resolve,300));const retryRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});const retryData=await retryRes.json().catch(()=>({}));if(retryRes.ok&&retryData.success){auditData=retryData;auditOk=true;}}if(!auditOk){renderAudit([]);throw new Error(auditData.error||'Recent Admin Activity could not be loaded.');}renderAudit(auditData.entries||[]);loaded=true;auditMessage('Recent Admin Activity refreshed.',true);}catch(error){auditMessage(error.message||'Recent Admin Activity could not be loaded.',false);}finally{loading=false;}}
-  window.loadWootenAdminUsers=load;
-  async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
-  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
-  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
-  if(window.wootenAdminUser?.owner)setTimeout(load,0);
-})();
-</script>
 
 
 
 <script id="wooten-account-applications-script">
 (()=>{
   const get=id=>document.getElementById(id),list=get('applicationList'),loadBtn=get('applicationLoad'),progress=get('applicationLoadProgress'),progressCount=get('applicationLoadProgressCount'),progressTrack=get('applicationLoadProgressTrack'),progressBar=get('applicationLoadProgressBar'),statusBox=get('applicationAdminStatus'),pagination=get('applicationPagination'),pageInfo=get('applicationPageInfo');
-  let page=1,totalPages=1,loaded=false;
+  let page=1,totalPages=1,loaded=false,loadGeneration=0,loadController=null;
   const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   const label=value=>({pending:'Pending',accepted:'Accepted',denied:'Denied',new:'Pending',under_review:'Pending',approved:'Accepted',declined:'Denied'}[value]||value||'Pending');
   const adminKey=()=>get('adminKey')?.value||sessionStorage.getItem('wootenAdminKey')||'';
@@ -12100,7 +11380,65 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       '<div class="application-documents">'+(row.has_tax_document?'<button class="secondary" type="button" data-application-file="tax">Open Tax ID Document</button>':'')+'<button class="secondary" type="button" data-application-file="identity">Open Driver’s License / State ID</button></div>'+
       '<div class="application-review"><label class="application-review-notes">Admin Response / Notes<textarea data-application-notes maxlength="3000" placeholder="Optional response the customer should receive…">'+esc(row.admin_notes||'')+'</textarea></label><label class="application-review-status">Decision<select data-application-status><option value="pending"'+(row.status==='pending'||row.status==='new'||row.status==='under_review'?' selected':'')+'>Pending</option><option value="accepted"'+(row.status==='accepted'||row.status==='approved'?' selected':'')+'>Accepted</option><option value="denied"'+(row.status==='denied'||row.status==='declined'?' selected':'')+'>Denied</option></select><small class="application-review-meta">'+(row.reviewed_by?'Last saved by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(new Date(String(row.reviewed_at).replace(' ','T')+'Z').toLocaleString()):''):'Not reviewed yet')+'</small></label><div class="request-delivery-options"><strong>Notify applicant by</strong><label><input type="checkbox" data-application-portal> Portal</label><label><input type="checkbox" data-application-email checked> Email</label><label><input type="checkbox" data-application-sms> SMS</label><small>Portal is available only if this applicant already has a matching customer portal account.</small></div><button class="primary application-review-save" type="button" data-application-save>Save &amp; Notify</button></div><div class="application-delete-row"><small>Permanently removes this application and all uploaded documents. Main Admin only.</small><button class="danger-db-btn application-delete-btn" type="button" data-application-delete data-application-number="'+esc(row.application_number)+'" data-application-name="'+esc(display)+'">Delete Application</button></div></div></article>';}).join('');
   }
-  async function load(){let value=6;const started=Date.now();progress.hidden=false;progressBar.style.width=value+'%';progressTrack.setAttribute('aria-valuenow',String(value));progressCount.textContent='Preparing';loadBtn.disabled=true;setStatus('');window.wootenAdminSkeleton?.cards(list,4,'application');const progressTimer=setInterval(()=>{value=Math.min(90,value+(value<55?9:value<78?4:2));progressBar.style.width=value+'%';progressTrack.setAttribute('aria-valuenow',String(value));progressCount.textContent='Loading… '+value+'%';},140);try{const params=new URLSearchParams({page:String(page),search:get('applicationSearch').value,status:get('applicationStatusFilter').value,type:get('applicationTypeFilter').value});const response=await fetch('/api/admin/account-applications?'+params,{headers:{'X-Admin-Key':adminKey()}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Applications could not be loaded.');render(data.applications||[]);totalPages=Number(data.total_pages||1);page=Number(data.page||1);pageInfo.textContent='Page '+page+' of '+totalPages+' • '+Number(data.total||0)+' applications';pagination.hidden=Number(data.total||0)===0;get('applicationPrev').disabled=page<=1;get('applicationNext').disabled=page>=totalPages;setStatus(Number(data.total||0)+' account application(s) found.',true);loaded=true;}catch(error){if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';setStatus(error.message||'Applications could not be loaded.',false);}finally{clearInterval(progressTimer);progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(resolve=>setTimeout(resolve,Math.max(350,800-(Date.now()-started))));progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');progressCount.textContent='Preparing';loadBtn.disabled=false;}}
+  async function load(){
+    const generation=++loadGeneration;
+    if(loadController)loadController.abort();
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    loadController=controller;
+    const requestedPage=page;
+    let value=6;
+    const started=Date.now();
+    progress.hidden=false;
+    progressBar.style.width=value+'%';
+    progressTrack.setAttribute('aria-valuenow',String(value));
+    progressCount.textContent='Preparing';
+    loadBtn.disabled=true;
+    setStatus('');
+    window.wootenAdminSkeleton?.cards(list,4,'application');
+    const progressTimer=setInterval(()=>{
+      if(generation!==loadGeneration||controller?.signal.aborted){clearInterval(progressTimer);return;}
+      value=Math.min(90,value+(value<55?9:value<78?4:2));
+      progressBar.style.width=value+'%';
+      progressTrack.setAttribute('aria-valuenow',String(value));
+      progressCount.textContent='Loading… '+value+'%';
+    },140);
+    try{
+      const params=new URLSearchParams({page:String(requestedPage),search:get('applicationSearch').value,status:get('applicationStatusFilter').value,type:get('applicationTypeFilter').value});
+      const response=await fetch('/api/admin/account-applications?'+params,{headers:{'X-Admin-Key':adminKey()},signal:controller?.signal});
+      const data=await response.json().catch(()=>({}));
+      if(generation!==loadGeneration||controller?.signal.aborted)return;
+      if(!response.ok||!data.success)throw new Error(data.error||'Applications could not be loaded.');
+      render(data.applications||[]);
+      totalPages=Number(data.total_pages||1);
+      page=Number(data.page||requestedPage);
+      pageInfo.textContent='Page '+page+' of '+totalPages+' • '+Number(data.total||0)+' applications';
+      pagination.hidden=Number(data.total||0)===0;
+      get('applicationPrev').disabled=page<=1;
+      get('applicationNext').disabled=page>=totalPages;
+      setStatus(Number(data.total||0)+' account application(s) found.',true);
+      loaded=true;
+    }catch(error){
+      if(generation!==loadGeneration||controller?.signal.aborted||error?.name==='AbortError')return;
+      if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';
+      setStatus(error.message||'Applications could not be loaded.',false);
+    }finally{
+      clearInterval(progressTimer);
+      if(generation===loadGeneration){
+        if(loadController===controller)loadController=null;
+        progressBar.style.width='100%';
+        progressTrack.setAttribute('aria-valuenow','100');
+        progressCount.textContent='100%';
+        await new Promise(resolve=>setTimeout(resolve,Math.max(350,800-(Date.now()-started))));
+        if(generation===loadGeneration){
+          progress.hidden=true;
+          progressBar.style.width='0%';
+          progressTrack.setAttribute('aria-valuenow','0');
+          progressCount.textContent='Preparing';
+          loadBtn.disabled=false;
+        }
+      }
+    }
+  }
   async function openFile(card,kind,button){button.disabled=true;const original=button.textContent;button.textContent='Opening…';try{const id=card.dataset.applicationId;const response=await fetch('/api/admin/account-applications/'+encodeURIComponent(id)+'/'+kind,{headers:{'X-Admin-Key':adminKey()}});if(!response.ok)throw new Error(await response.text()||'Document could not be opened.');const url=URL.createObjectURL(await response.blob());const anchor=document.createElement('a');anchor.href=url;anchor.target='_blank';anchor.rel='noopener';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){setStatus(error.message||'Document could not be opened.',false);}finally{button.disabled=false;button.textContent=original;}}
   async function save(card,button){button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/account-applications',{method:'POST',headers:{'X-Admin-Key':adminKey(),'Content-Type':'application/json'},body:JSON.stringify({id:Number(card.dataset.applicationId),status:card.querySelector('[data-application-status]').value,admin_notes:card.querySelector('[data-application-notes]').value,portal:!!card.querySelector('[data-application-portal]')?.checked,email:!!card.querySelector('[data-application-email]')?.checked,sms:!!card.querySelector('[data-application-sms]')?.checked})});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Review could not be saved.');if(card.querySelector('[data-application-sms]')?.checked)await refreshTwilioBalance();setStatus('Application review saved.',true);await load();}catch(error){setStatus(error.message||'Review could not be saved.',false);button.disabled=false;button.textContent='Save Review';}}
   async function deleteApplication(card,button){if(!window.wootenAdminUser?.owner){setStatus('Only the Main Admin can permanently delete account applications.',false);requestAnimationFrame(()=>statusBox.scrollIntoView({behavior:'smooth',block:'center'}));return;}const number=button.dataset.applicationNumber||'',name=button.dataset.applicationName||'this applicant';const confirmed=window.confirm('Permanently delete application '+number+' for '+name+'?\n\nThis will permanently delete the complete application record, private admin notes, Tax ID document, and Driver’s License / State ID file from the server. This action cannot be undone.');if(!confirmed)return;button.disabled=true;button.textContent='Deleting…';try{const response=await fetch('/api/admin/account-applications/'+encodeURIComponent(card.dataset.applicationId),{method:'DELETE',headers:{'X-Admin-Key':adminKey(),'Accept':'application/json'}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Application could not be deleted.');setStatus('Application '+(data.application_number||number)+' and '+Number(data.files_deleted||0)+' uploaded file(s) were permanently deleted.',true);await load();}catch(error){setStatus(error.message||'Application could not be deleted.',false);button.disabled=false;button.textContent='Delete Application';}}
@@ -12159,14 +11497,55 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application'};
  const time=v=>{if(!v)return '';const d=new Date(String(v).replace(' ','T')+'Z');return Number.isNaN(d.getTime())?'':d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});};
+ let notificationLoadPromise=null,notificationLoadKey='',notificationLoadController=null;
  function openTarget(type){menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
- async function load(){if(!key()){badge.hidden=true;list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';counts.innerHTML='';return;}try{const r=await fetch('/api/admin/notification-bell',{headers:{'X-Admin-Key':key()},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Could not load notifications.');const total=Number(d.total||0);badge.textContent=total>99?'99+':String(total);badge.hidden=total===0;summary.textContent=total?total+' pending item'+(total===1?'':'s'):'No pending items';counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications']].map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(d.counts?.[k]||0)+'</strong>'+l+'</button>').join('');const items=d.items||[];list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(x.created_at?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending customer requests or applications.</div>';}catch(e){list.innerHTML='<div class="admin-bell-empty">'+esc(e.message||'Notifications could not be loaded.')+'</div>';}}
+ async function load(){
+   const activeKey=key();
+   if(!activeKey){
+     if(notificationLoadController)notificationLoadController.abort();
+     notificationLoadController=null;
+     notificationLoadPromise=null;
+     notificationLoadKey='';
+     badge.hidden=true;
+     list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';
+     counts.innerHTML='';
+     summary.textContent='Sign in to load notifications';
+     return;
+   }
+   if(notificationLoadPromise&&notificationLoadKey===activeKey)return notificationLoadPromise;
+   if(notificationLoadController)notificationLoadController.abort();
+   const controller=typeof AbortController==='function'?new AbortController():null;
+   const request=(async()=>{
+     try{
+       const r=await fetch('/api/admin/notification-bell',{headers:{'X-Admin-Key':activeKey},cache:'no-store',signal:controller?.signal});
+       const d=await r.json().catch(()=>({}));
+       if(key()!==activeKey)return;
+       if(!r.ok||!d.success)throw new Error(d.error||'Could not load notifications.');
+       const total=Number(d.total||0);
+       badge.textContent=total>99?'99+':String(total);
+       badge.hidden=total===0;
+       summary.textContent=total?total+' pending item'+(total===1?'':'s'):'No pending items';
+       counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications']].map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(d.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
+       const items=d.items||[];
+       list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(x.created_at?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending customer requests or applications.</div>';
+     }catch(e){
+       if(!controller?.signal.aborted&&e?.name!=='AbortError'&&key()===activeKey)list.innerHTML='<div class="admin-bell-empty">'+esc(e.message||'Notifications could not be loaded.')+'</div>';
+     }
+   })();
+   notificationLoadPromise=request;
+   notificationLoadKey=activeKey;
+   notificationLoadController=controller;
+   try{return await request;}
+   finally{if(notificationLoadPromise===request){notificationLoadPromise=null;notificationLoadKey='';notificationLoadController=null;}}
+ }
+ window.wootenLoadAdminNotifications=load;
  bell.addEventListener('click',async e=>{e.stopPropagation();const next=menu.hidden;menu.hidden=!next;bell.setAttribute('aria-expanded',String(next));if(next)await load();});
  refresh?.addEventListener('click',e=>{e.stopPropagation();load();});
  menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType);return}const c=e.target.closest('[data-bell-count]');if(c){openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);}});
  document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
- setInterval(()=>{if(!menu.hidden||key())load();},60000);
+ setInterval(()=>{if(!document.hidden&&(!menu.hidden||key()))load();},60000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&key())load();});
  setTimeout(load,1200);
 })();
 </script>
@@ -12247,9 +11626,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(content&&window.ResizeObserver){
       new ResizeObserver(syncSidebarHeight).observe(content);
     }
-    if(content&&window.MutationObserver){
-      new MutationObserver(syncSidebarHeight).observe(content,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','style']});
-    }
+    /* ResizeObserver already covers content growth. Watching every descendant
+       class/style mutation forced repeated layout reads while skeletons and
+       progress indicators were animating. */
   }catch(_e){}
 })();
 </script>
@@ -12344,9 +11723,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 })();
 </script>
-
-</body>
-</html>
 
 <!-- Ver117 mobile Communication History polish -->
 <style id="wooten-ver117-communication-mobile-fix">
@@ -12929,11 +12305,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   ready(function(){
     var g = function(id){ return document.getElementById(id); };
     var bell = g('adminNotificationBell');
-    var badge = g('adminNotificationBadge');
     var menu = g('adminNotificationMenu');
-    var list = g('adminNotificationList');
-    var counts = g('adminNotificationCounts');
-    var summary = g('adminNotificationSummary');
     var refresh = g('adminNotificationRefresh');
     if(!bell || !menu || !refresh) return;
 
@@ -12942,56 +12314,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     refresh.setAttribute('aria-label','Refresh notifications');
     refresh.innerHTML = '<svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg>';
 
-    var key = function(){ var el = g('adminKey'); return el ? String(el.value || '').trim() : ''; };
-    var esc = function(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]; }); };
-    var labels = { profile:'Profile Change Request', fuel:'Fuel Delivery Request', application:'Account Application' };
-    var time = function(v){
-      if(!v) return '';
-      var d = new Date(String(v).replace(' ','T') + 'Z');
-      if(Number.isNaN(d.getTime())) return '';
-      return d.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
-    };
-
     async function loadNotifications(showBusy){
       if(showBusy){
         refresh.disabled = true;
         refresh.classList.add('is-loading');
       }
       try{
-        if(!key()){
-          if(badge) badge.hidden = true;
-          if(summary) summary.textContent = 'Sign in to load notifications';
-          if(counts) counts.innerHTML = '';
-          if(list) list.innerHTML = '<div class="admin-bell-empty">Sign in to load notifications.</div>';
-          return;
+        if(typeof window.wootenLoadAdminNotifications==='function'){
+          await window.wootenLoadAdminNotifications();
         }
-        var response = await fetch('/api/admin/notification-bell', {
-          headers: {'X-Admin-Key': key()},
-          cache: 'no-store'
-        });
-        var data = await response.json().catch(function(){ return {}; });
-        if(!response.ok || !data.success) throw new Error(data.error || 'Could not load notifications.');
-
-        var total = Number(data.total || 0);
-        if(badge){
-          badge.textContent = total > 99 ? '99+' : String(total);
-          badge.hidden = total === 0;
-        }
-        if(summary) summary.textContent = total ? total + ' pending item' + (total === 1 ? '' : 's') : 'No pending items';
-        if(counts){
-          counts.innerHTML = [['profile','Profile'],['fuel','Fuel'],['applications','Applications']].map(function(item){
-            var keyName = item[0], label = item[1];
-            return '<button type="button" class="admin-bell-count" data-bell-count="' + keyName + '"><strong>' + Number((data.counts || {})[keyName] || 0) + '</strong>' + label + '</button>';
-          }).join('');
-        }
-        var items = Array.isArray(data.items) ? data.items : [];
-        if(list){
-          list.innerHTML = items.length ? items.map(function(x){
-            return '<button class="admin-bell-item" type="button" data-bell-type="' + esc(x.item_type) + '"><span class="admin-bell-dot"></span><span><strong>' + esc(labels[x.item_type] || 'Admin Notification') + ' — ' + esc(x.request_number || '') + '</strong><span>' + esc(x.name || 'Customer') + (x.account ? ' • Customer #' + esc(x.account) : '') + (x.created_at ? ' • ' + esc(time(x.created_at)) : '') + '</span></span></button>';
-          }).join('') : '<div class="admin-bell-empty">No pending customer requests or applications.</div>';
-        }
-      }catch(err){
-        if(list) list.innerHTML = '<div class="admin-bell-empty">' + esc(err && err.message ? err.message : 'Notifications could not be loaded.') + '</div>';
       }finally{
         if(showBusy){
           refresh.disabled = false;
@@ -13009,8 +12340,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 })();
 </script>
-
-
 <style id="wooten-admin-access-overflow-fix-ver228">
 /* Ver228 — keep the wider Admin Access panel inside the viewport without horizontal page overflow. */
 html,body{
@@ -13796,7 +13125,6 @@ html,body{
     if(!keyField||!badge||!refresh)return;
 
     var lastKey='';
-    var pollTimer=0;
 
     function storageKey(){
       var user=window.wootenAdminUser||{};
@@ -13841,8 +13169,6 @@ html,body{
       new MutationObserver(saveCount).observe(badge,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
     }
 
-    pollTimer=setInterval(checkForLogin,50);
-    setTimeout(function(){clearInterval(pollTimer);},10000);
     window.addEventListener('pageshow',checkForLogin);
     checkForLogin();
   });
@@ -14092,7 +13418,7 @@ html,body{
 
 <script id="wooten-save-notify-icon-ver289-script">
 (()=>{
-  const icon='<span class="request-save-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 3 10.5 13.5"></path><path d="m21 3-6.5 18-4-7.5L3 9.5 21 3Z"></path></svg></span>';
+  const icon='<span class="request-save-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"></path><path d="m22 2-7 20-4-9-9-4 20-7Z"></path></svg></span>';
   function updateSaveButtons(){
     document.querySelectorAll('.request-save-v217').forEach(button=>{
       if(button.querySelector('.request-save-icon'))return;
@@ -14106,3 +13432,5 @@ html,body{
   else updateSaveButtons();
 })();
 </script>
+</body>
+</html>

@@ -40,14 +40,30 @@
       const form = event.currentTarget;
       const button = document.getElementById('submitButton');
       const status = document.getElementById('status');
+      if (!navigator.onLine) { status.textContent = 'You appear to be offline. Reconnect and try again.'; return; }
       button.disabled = true; status.textContent = 'Saving your preference…';
+      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      let timedOut = false;
+      let timeoutId = null;
+      const timeout = new Promise(function (_resolve, reject) {
+        timeoutId = setTimeout(function () {
+          timedOut = true;
+          if (controller) controller.abort();
+          reject(new Error('The request took too long. Check your connection and try again.'));
+        }, 20000);
+      });
       try {
-        const response = await fetch('/api/sms-consent', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.name.value,account_number:form.account_number.value,phone:form.phone.value,consent:form.consent.checked,website:form.website.value})});
-        const data = await response.json();
+        const result = await Promise.race([(async function () {
+          const response = await fetch('/api/sms-consent', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.name.value,account_number:form.account_number.value,phone:form.phone.value,consent:form.consent.checked,website:form.website.value}),signal:controller ? controller.signal : undefined});
+          const data = await response.json();
+          return {response:response,data:data};
+        })(), timeout]);
+        const response = result.response;
+        const data = result.data;
         if (!response.ok || !data.success) throw new Error(data.error || 'Unable to save your preference.');
         status.textContent = data.message; form.reset();
-      } catch (error) { status.textContent = error.message || 'Unable to save your preference. Please call (901) 476-2684.'; }
-      finally { button.disabled = false; }
+      } catch (error) { status.textContent = timedOut ? 'The request took too long. Check your connection and try again.' : (error.message || 'Unable to save your preference. Please call (901) 476-2684.'); }
+      finally { if (timeoutId !== null) clearTimeout(timeoutId); button.disabled = false; }
     });
   </script>
 </body>

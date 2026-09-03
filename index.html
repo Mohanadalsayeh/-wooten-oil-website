@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Wooten Oil | Fuel Delivery for Farms, Businesses & Gas Stations</title>
   <meta name="description" content="Wooten Oil provides dependable gasoline, on-road diesel, farm diesel, and bulk fuel delivery for farmers, businesses, and gas stations." />
+  <link rel="preload" as="image" href="assets/img/wooten-hero-background.webp" type="image/webp" fetchpriority="high">
   <link rel="stylesheet" href="assets/css/style-01.css">
 
 <link rel="stylesheet" href="assets/css/style-02.css">
@@ -17,7 +18,7 @@
 <link rel="stylesheet" href="assets/css/style-04.css">
 
 
-<link rel="stylesheet" href="assets/css/style-05.css">
+<link rel="stylesheet" href="assets/css/style-05.css?v=291">
 
 <link rel="stylesheet" href="assets/css/wooten-desktop-menu-nowrap-fix.css">
 
@@ -262,9 +263,6 @@
 </style>
 <link rel="stylesheet" href="assets/css/wooten-signed-in-person-icon.css">
 
-<link rel="stylesheet" href="assets/css/wooten-ios-mobile-viewport-fix.css">
-
-<link rel="stylesheet" href="assets/css/wooten-modern-checkboxes-v114.css">
 
 <style id="wooten-mobile-back-top-style">
   .wooten-mobile-back-top{
@@ -1250,9 +1248,9 @@
 <script src="assets/js/script-01.js"></script>
 
 
-<script src="assets/js/script-02.js"></script>
+<script src="assets/js/script-02.js?v=291"></script>
 
-<script src="assets/js/script-03.js"></script>
+<script src="assets/js/script-03.js?v=291"></script>
 
 <script src="assets/js/script-04.js"></script>
 
@@ -1296,7 +1294,7 @@
   </div>
 </div>
 
-<script src="assets/js/script-07.js"></script>
+<script src="assets/js/script-07.js?v=291"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -1312,7 +1310,7 @@
 <script id="wooten-cookie-consent-script" src="assets/js/wooten-cookie-consent-script.js"></script>
 
 
-<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js"></script>
+<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=291"></script>
 <script id="wooten-mobile-menu-outside-close" src="assets/js/wooten-mobile-menu-outside-close.js"></script>
 
 
@@ -1329,70 +1327,19 @@
 (function () {
   'use strict';
 
-  var PAGE_SIZE = 20;
-  var visibleLimit = PAGE_SIZE;
   var panel = document.getElementById('customerPaymentHistory');
   var list = document.getElementById('paymentHistoryList');
-  var moreWrap = document.getElementById('paymentHistoryLoadMoreWrap');
-  var moreButton = document.getElementById('paymentHistoryLoadMore');
   var topButton = document.getElementById('paymentHistoryBackToTop');
-  if (!panel || !list || !moreWrap || !moreButton || !topButton) return;
-
-  function paymentRows() {
-    var bestContainer = list;
-    var bestCount = list.children.length;
-    Array.prototype.forEach.call(list.querySelectorAll('*'), function (candidate) {
-      if (candidate.children.length > bestCount) {
-        bestContainer = candidate;
-        bestCount = candidate.children.length;
-      }
-    });
-    return Array.prototype.filter.call(bestContainer.children, function (node) {
-      return node.nodeType === 1 && !node.matches('script, style, template');
-    });
-  }
-
-  function applyPageLimit(reset) {
-    if (reset) visibleLimit = PAGE_SIZE;
-    var rows = paymentRows();
-    rows.forEach(function (row, index) {
-      row.hidden = index >= visibleLimit;
-    });
-
-    var remaining = Math.max(0, rows.length - visibleLimit);
-    moreWrap.style.display = remaining ? 'flex' : 'none';
-    moreButton.textContent = remaining > PAGE_SIZE
-      ? 'Show 20 More Payments'
-      : (remaining ? 'Show ' + remaining + ' More Payment' + (remaining === 1 ? '' : 's') : '');
-  }
-
-  moreButton.addEventListener('click', function () {
-    visibleLimit += PAGE_SIZE;
-    applyPageLimit(false);
-  });
-
-  var listObserver = new MutationObserver(function () {
-    applyPageLimit(true);
-  });
-  listObserver.observe(list, { childList: true, subtree: true });
-  applyPageLimit(true);
+  if (!panel || !list || !topButton) return;
 
   function panelIsOpen() {
     var style = window.getComputedStyle(panel);
     return style.display !== 'none' && style.visibility !== 'hidden' && panel.getClientRects().length > 0;
   }
 
-  function scrollAmount() {
-    return Math.max(window.scrollY || 0, document.documentElement.scrollTop || 0, panel.scrollTop || 0);
-  }
-
   function updateTopButton() {
     topButton.classList.toggle('is-visible', panelIsOpen());
   }
-
-  window.addEventListener('scroll', updateTopButton, { passive: true });
-  panel.addEventListener('scroll', updateTopButton, { passive: true });
-  document.addEventListener('scroll', updateTopButton, { passive: true, capture: true });
 
   topButton.addEventListener('click', function () {
     var behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
@@ -1411,8 +1358,7 @@
   });
 
   new MutationObserver(updateTopButton).observe(panel, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
-  new MutationObserver(updateTopButton).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class', 'style', 'hidden'] });
-  window.setTimeout(function () { applyPageLimit(true); updateTopButton(); }, 500);
+  window.setTimeout(updateTopButton, 500);
 })();
 </script>
 
@@ -1635,7 +1581,7 @@
     if(!identifier){setStatus('Enter your Email Address or Customer Number.',false);return;}
     clearStatus();start.disabled=true;start.textContent='Checking…';
     try{
-      var r=await fetch('/api/customer/activation/start',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier,account_number:identifier})});
+      var r=await window.wootenCustomerFetch('/api/customer/activation/start',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier,account_number:identifier})});
       var d=await r.json().catch(function(){return {};});
       if(!r.ok||d.success===false) throw new Error(d.error||'We could not start online account activation.');
       activationMode=d.activation_scope||'account';
@@ -1671,7 +1617,7 @@
     clearStatus();complete.disabled=true;complete.textContent=activationMode==='shared_email'?'Creating…':'Activating…';
     try{
       var payload={identifier:identifier,activation_scope:activationMode,account_number:resolvedAccount||identifier,code:code,password:password,confirm_password:confirm};
-      var r=await fetch('/api/customer/activation/set-password',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
+      var r=await window.wootenCustomerFetch('/api/customer/activation/set-password',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
       var d=await r.json().catch(function(){return {};});
       if(!r.ok||d.success===false) throw new Error(d.error||'Activation failed.');
       showLoginAfterActivation(identifier,d.message||(activationMode==='shared_email'?'Your shared email login is ready. Sign in with your email and new password.':'Your online account is activated. Sign in with your Customer Number and new password.'));
@@ -1680,7 +1626,6 @@
   },true);
 })();
 </script>
-<script src="assets/js/password-recovery-v170.js"></script>
 
 <style id="wooten-profile-change-request-style">
 .profile-change-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.profile-change-grid label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-grid input,.profile-change-grid select,.profile-change-grid textarea{display:block;width:100%;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;outline:none;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.profile-change-grid input:focus,.profile-change-grid select:focus,.profile-change-grid textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-grid textarea::placeholder,.profile-change-grid input::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.profile-change-grid input,.profile-change-grid select{height:54px}.profile-change-grid textarea{min-height:112px;resize:vertical}.profile-change-full{grid-column:1/-1}.profile-change-history{margin-top:24px;padding-top:20px;border-top:1px solid #e5ebf1}.profile-change-history h4{margin:0 0 10px;color:#17324d;font-size:17px}.profile-change-row{border:1px solid #dbe4eb;border-radius:12px;padding:14px 15px;margin-top:10px;background:#f9fbfd}.profile-change-row-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.profile-change-row-head strong{color:#17324d}.profile-change-pill{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;text-transform:uppercase;background:#fff1d5;color:#8a5700}.profile-change-pill.accepted{background:#def5e8;color:#087241}.profile-change-pill.denied{background:#ffe4e4;color:#a11f1f}.profile-change-row small{display:block;color:#6d7f91;margin-top:5px}.profile-change-response{margin-top:8px;padding:9px 10px;background:#fff;border-radius:8px;color:#34495d}.profile-change-items{display:grid;gap:10px}.profile-change-item{position:relative;border:1px solid #e0e8ef;border-radius:16px;background:#fbfcfd;padding:18px}.profile-change-item:first-child{padding:0;border:0;background:transparent}.profile-change-item:not(:first-child){padding:18px}.profile-change-remove{position:static;display:block;width:max-content;margin:8px 0 0 auto;border:1px solid #efb5b5;background:#fff7f7;color:#b52b2b;border-radius:9px;min-height:36px;padding:6px 12px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}.profile-change-remove[hidden]{display:none!important}.profile-change-remove:hover{background:#ffeded}.profile-change-add{margin-top:10px;min-height:44px;border:1px solid #9fc4ef;background:#f4f9ff;color:#1768b6;border-radius:10px;padding:9px 15px;font-family:inherit;font-size:15px;font-weight:800;display:inline-flex;align-items:center;gap:8px;cursor:pointer}.profile-change-add span{font-size:21px;line-height:1}.profile-change-add:hover{background:#eaf4ff}.profile-change-add:disabled{opacity:.55;cursor:not-allowed}.profile-change-note-wrap{margin-top:14px}.profile-change-note-wrap label{display:block;font-weight:800;color:#17324d;font-size:15px;line-height:1.35}.profile-change-note-wrap textarea{display:block;width:100%;height:120px!important;min-height:120px!important;max-height:220px;margin-top:8px;border:1px solid #cbd8e3;border-radius:12px;background:#fff;color:#172d44;padding:13px 15px;font-family:inherit!important;font-size:16px;font-weight:400;line-height:1.45;box-sizing:border-box;resize:vertical;outline:none}.profile-change-note-wrap textarea:focus{border-color:#7eaee7;box-shadow:0 0 0 3px rgba(47,125,215,.12)}.profile-change-note-wrap textarea::placeholder{font-family:inherit;font-weight:400;color:#8190a0}.dashboard-action-profile .dashboard-action-icon{background:#eef6ff;color:#2464d5}
@@ -1799,7 +1744,7 @@
       other:''
     };
     try{
-      const response=await fetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});
+      const response=await window.wootenCustomerFetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});
       const data=await response.json().catch(()=>({}));
       const customer=response.ok&&data.success&&data.authenticated?(data.customer||{}):{};
       currentProfileValues.address=addressFromCustomer(customer)||currentProfileValues.address;
@@ -1865,7 +1810,7 @@
 
   async function refreshPasswordSessionContext(){
     try{
-      const r=await fetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});
+      const r=await window.wootenCustomerFetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});
       const d=await r.json().catch(()=>({}));
       emailScopedSession=!!(r.ok&&d.success&&d.authenticated&&d.login_method==='email'&&d.account_scope==='linked');
       emailScopedAddress=emailScopedSession?String(d.customer?.email||'').trim():'';
@@ -1901,18 +1846,18 @@
     passwordSubmit.textContent='Changing…';
     setStatus(passwordStatus,'Checking your password and updating your account…','info');
     try{
-      const r=await fetch('/api/customer/change-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newPassword,confirm_password:confirmPassword})});
+      const r=await window.wootenCustomerFetch('/api/customer/change-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newPassword,confirm_password:confirmPassword})});
       const d=await r.json().catch(()=>({}));
       if(!r.ok||!d.success) throw new Error(d.error||'Password could not be changed.');
       setStatus(passwordStatus,'Password changed successfully. Signing you out…','ok');
-      setTimeout(async()=>{try{await fetch('/api/customer/logout',{method:'POST',credentials:'same-origin'})}catch(_e){} location.hash='customer-login'; location.reload();},650);
+      setTimeout(async()=>{try{await window.wootenCustomerFetch('/api/customer/logout',{method:'POST',credentials:'same-origin'})}catch(_e){} location.hash='customer-login'; location.reload();},650);
     }catch(e){ setStatus(passwordStatus,e.message||'Password could not be changed.','bad'); }
     finally{ passwordSubmit.disabled=false; passwordSubmit.textContent='Change Password'; }
   });
 
   async function loadProfileRequests(){
     try{
-      const r=await fetch('/api/customer/profile-change-requests',{credentials:'same-origin',cache:'no-store'});
+      const r=await window.wootenCustomerFetch('/api/customer/profile-change-requests',{credentials:'same-origin',cache:'no-store'});
       const d=await r.json().catch(()=>({}));
       if(!r.ok||!d.success){ historyBox.innerHTML='<div class="notification-empty">Sign in to view profile change requests.</div>'; return; }
       const rows=d.requests||[];
@@ -1929,7 +1874,7 @@
     profileSubmit.disabled=true;
     profileSubmit.textContent='Submitting…';
     try{
-      const r=await fetch('/api/customer/profile-change-requests',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,note:g('profileChangeNote').value})});
+      const r=await window.wootenCustomerFetch('/api/customer/profile-change-requests',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes,note:g('profileChangeNote').value})});
       const d=await r.json().catch(()=>({}));
       if(!r.ok||!d.success) throw new Error(d.error||'Request could not be submitted.');
       setStatus(profileStatus,'Request '+d.request_number+' submitted to Wooten Oil.','ok');
@@ -1975,7 +1920,7 @@
   function close(){modal.hidden=true;if(g('changePasswordModal')?.hidden!==false&&g('profileChangeModal')?.hidden!==false)document.body.classList.remove('portal-action-modal-open');clear()}
   async function refreshAvailability(){
     try{
-      const r=await fetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));
+      const r=await window.wootenCustomerFetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));
       const isShared=!!(r.ok&&d.success&&d.authenticated&&d.login_method==='email'&&d.account_scope==='linked');
       sharedEmail=isShared?String(d.customer?.email||'').trim():'';
       button.hidden=!isShared;
@@ -1993,10 +1938,10 @@
     if(!confirm('Change the password for this shared email login? You will be signed out of linked-email sessions and asked to sign in again.'))return;
     submit.disabled=true;submit.textContent='Changing…';setStatus('Checking your shared-email password and updating the login…','info');
     try{
-      const r=await fetch('/api/customer/change-shared-email-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newPassword,confirm_password:confirmPassword})});
+      const r=await window.wootenCustomerFetch('/api/customer/change-shared-email-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:newPassword,confirm_password:confirmPassword})});
       const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Shared-email password could not be changed.');
       setStatus('Shared-email password changed successfully. Signing you out…','ok');
-      setTimeout(async()=>{try{await fetch('/api/customer/logout',{method:'POST',credentials:'same-origin'})}catch(_e){}location.hash='customer-login';location.reload()},650);
+      setTimeout(async()=>{try{await window.wootenCustomerFetch('/api/customer/logout',{method:'POST',credentials:'same-origin'})}catch(_e){}location.hash='customer-login';location.reload()},650);
     }catch(e){setStatus(e.message||'Shared-email password could not be changed.','bad')}
     finally{submit.disabled=false;submit.textContent='Change Shared Email Password'}
   });
@@ -2889,17 +2834,30 @@ html.customer-portal-open #customer-login.portal-overlay{
   var status=document.getElementById('accountSwitcherStatus');
   if(!switcher||!button||!panel||!list||!status)return;
 
+  var customerFetch=window.wootenCustomerFetch||function(input,init){return fetch(input,init);};
   var loading=false;
   var loadedForAccount='';
   var retryTimer=0;
+  var retryAttempts=0;
+  var retryPending=false;
+  var MAX_RETRY_ATTEMPTS=4;
   var ignoreAccountMutationUntil=0;
+  var wasCustomerSignedIn=document.body.classList.contains('customer-signed-in');
 
   function closePanel(){
     panel.hidden=true;
     button.setAttribute('aria-expanded','false');
   }
 
-  function hideSwitcher(){
+  function clearAccountRetry(resetAttempts){
+    clearTimeout(retryTimer);
+    retryTimer=0;
+    retryPending=false;
+    if(resetAttempts!==false) retryAttempts=0;
+  }
+
+  function hideSwitcher(preserveRetry){
+    if(!preserveRetry) clearAccountRetry();
     switcher.hidden=true;
     loadedForAccount='';
     closePanel();
@@ -2907,7 +2865,26 @@ html.customer-portal-open #customer-login.portal-overlay{
 
   function scheduleRetry(){
     clearTimeout(retryTimer);
-    retryTimer=setTimeout(function(){loadAccounts(true);},700);
+    retryTimer=0;
+    if(
+      retryAttempts>=MAX_RETRY_ATTEMPTS ||
+      !document.body.classList.contains('customer-signed-in')
+    ){
+      retryPending=false;
+      return;
+    }
+    if(document.hidden || navigator.onLine===false){
+      retryPending=true;
+      return;
+    }
+    retryPending=false;
+    var delay=Math.min(30000,1000*Math.pow(2,retryAttempts));
+    retryAttempts+=1;
+    retryTimer=setTimeout(function(){
+      retryTimer=0;
+      if(loading){scheduleRetry();return;}
+      loadAccounts(true);
+    },delay);
   }
 
   function accountNumber(value){
@@ -2940,18 +2917,19 @@ html.customer-portal-open #customer-login.portal-overlay{
     loading=true;
     status.textContent='Loading linked accounts…';
     try{
-      var response=await fetch('/api/customer/accounts',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+      var response=await customerFetch('/api/customer/accounts',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
       var data=await response.json().catch(function(){return {};});
       if(!response.ok||data.success===false)throw new Error(data.error||'Linked accounts could not be loaded.');
       var accounts=Array.isArray(data.accounts)?data.accounts:[];
       current=accountNumber(data.current_account_number||current);
       loadedForAccount=current;
+      clearAccountRetry();
       if(data.account_scope!=='linked'||accounts.length<2){hideSwitcher();return;}
       renderAccounts(accounts,current);
       status.textContent='';
       switcher.hidden=false;
     }catch(error){
-      hideSwitcher();
+      hideSwitcher(true);
       if(document.body.classList.contains('customer-signed-in'))scheduleRetry();
     }finally{
       loading=false;
@@ -2968,7 +2946,7 @@ html.customer-portal-open #customer-login.portal-overlay{
     status.textContent='Switching account…';
     list.querySelectorAll('button').forEach(function(item){item.disabled=true;});
     try{
-      var response=await fetch('/api/customer/account-switch',{
+      var response=await customerFetch('/api/customer/account-switch',{
         method:'POST',
         credentials:'same-origin',
         headers:{'Content-Type':'application/json',Accept:'application/json'},
@@ -2986,6 +2964,7 @@ html.customer-portal-open #customer-login.portal-overlay{
       var accounts=Array.isArray(data.accounts)?data.accounts:[];
       var current=accountNumber(customer?.account_number||number);
       loadedForAccount=current;
+      clearAccountRetry();
       if(accounts.length)renderAccounts(accounts,current);
       status.textContent='Account switched.';
       setTimeout(function(){status.textContent='';closePanel();},450);
@@ -3004,7 +2983,7 @@ html.customer-portal-open #customer-login.portal-overlay{
     var open=panel.hidden;
     panel.hidden=!open;
     button.setAttribute('aria-expanded',String(open));
-    if(open)loadAccounts(true);
+    if(open){clearAccountRetry();loadAccounts(true);}
   });
   list.addEventListener('click',function(event){
     var option=event.target.closest('[data-account-number]');
@@ -3017,18 +2996,32 @@ html.customer-portal-open #customer-login.portal-overlay{
     if(event.key==='Escape'&&!panel.hidden){closePanel();button.focus();}
   });
   new MutationObserver(function(){
-    if(document.body.classList.contains('customer-signed-in'))setTimeout(function(){loadAccounts(false);},40);
+    var signedIn=document.body.classList.contains('customer-signed-in');
+    if(signedIn===wasCustomerSignedIn)return;
+    wasCustomerSignedIn=signedIn;
+    if(signedIn)setTimeout(function(){loadAccounts(false);},40);
     else hideSwitcher();
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
   var accountLabel=document.getElementById('acctNumber');
   if(accountLabel){
     new MutationObserver(function(){
       if(Date.now()<ignoreAccountMutationUntil)return;
+      clearAccountRetry();
       setTimeout(function(){loadAccounts(true);},0);
     })
       .observe(accountLabel,{childList:true,characterData:true,subtree:true});
   }
   window.addEventListener('pageshow',function(){setTimeout(function(){loadAccounts(false);},80);});
+  window.addEventListener('online',function(){
+    if(retryPending && document.body.classList.contains('customer-signed-in'))scheduleRetry();
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){
+      if(retryTimer){clearTimeout(retryTimer);retryTimer=0;retryPending=true;}
+    }else if(retryPending && document.body.classList.contains('customer-signed-in')){
+      scheduleRetry();
+    }
+  });
   setTimeout(function(){loadAccounts(false);},120);
 })();
 </script>

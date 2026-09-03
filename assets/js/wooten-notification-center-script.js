@@ -2,7 +2,17 @@
   var NOTIFICATIONS_ENDPOINT='/api/customer/notifications';
   var NOTIFICATIONS_READ_ENDPOINT='/api/customer/notifications/read';
   var NOTIFICATIONS_CLEAR_ENDPOINT='/api/customer/notifications/clear';
+  var customerFetch=window.wootenCustomerFetch||function(input,init){return fetch(input,init);};
   var cachedItems=[];
+  var notificationLoadPromise=null;
+  var notificationLoadController=null;
+  var notificationLoadAccount='';
+  var notificationLoadGeneration=0;
+  var notificationPollTimer=0;
+  var notificationPollFailures=0;
+  var lastNotificationLoadFailed=false;
+  var lastRenderSignature='';
+  var wasCustomerSignedIn=document.body.classList.contains('customer-signed-in');
   window.wootenNotificationCache=window.wootenNotificationCache||[];
 
   function escapeHtml(s){
@@ -45,10 +55,15 @@
     if(els.headerBadge) els.headerBadge.style.display='none';
   }
 
-  function renderItems(items){
+  function renderItems(items,force){
     items=Array.isArray(items)?items:[];
     cachedItems=items;
     window.wootenNotificationCache=items;
+
+    var signature='';
+    try{signature=JSON.stringify(items);}catch(_error){signature=String(Date.now());}
+    if(!force && signature===lastRenderSignature) return;
+    lastRenderSignature=signature;
 
     var els=notificationElements();
     var unread=items.filter(function(n){return !n.read;}).length;
@@ -117,42 +132,79 @@
     }
   }
 
-  window.wootenRenderCustomerNotifications=async function(){
-    try{
-      var response=await fetch(NOTIFICATIONS_ENDPOINT,{
-        method:'GET',
-        headers:{'Accept':'application/json'},
-        credentials:'same-origin',
-        cache:'no-store'
-      });
+  function currentAccountKey(account){
+    var value=String(account||'').trim();
+    if(value) return value;
+    var label=document.getElementById('acctNumber');
+    return String(label && label.textContent || '').replace(/^Customer\s*#\s*/i,'').trim();
+  }
 
-      var data=await response.json().catch(function(){return {};});
+  window.wootenRenderCustomerNotifications=function(account,options){
+    options=options||{};
+    var accountKey=currentAccountKey(account);
 
-      if(response.status===401){
-        renderItems([]);
-        return [];
-      }
-
-      if(!response.ok || data.success===false){
-        throw new Error(data.error||('Notification API error '+response.status));
-      }
-
-      var items=Array.isArray(data.notifications)?data.notifications:[];
-      renderItems(items);
-      return items;
-
-    }catch(error){
-      console.error('Customer notifications load failed',error);
-      renderError(error && error.message ? error.message : 'Unable to load notifications.');
-      return cachedItems;
+    if(notificationLoadPromise){
+      if(!options.supersede && accountKey===notificationLoadAccount) return notificationLoadPromise;
+      if(notificationLoadController) notificationLoadController.abort();
     }
+
+    notificationLoadGeneration+=1;
+    var generation=notificationLoadGeneration;
+    notificationLoadAccount=accountKey;
+    notificationLoadController=typeof AbortController==='function' ? new AbortController() : null;
+    var signal=notificationLoadController ? notificationLoadController.signal : undefined;
+
+    notificationLoadPromise=(async function(){
+      try{
+        var response=await customerFetch(NOTIFICATIONS_ENDPOINT,{
+          method:'GET',
+          headers:{'Accept':'application/json'},
+          credentials:'same-origin',
+          cache:'no-store',
+          signal:signal
+        });
+
+        var data=await response.json().catch(function(){return {};});
+        if(generation!==notificationLoadGeneration) return cachedItems;
+
+        if(response.status===401){
+          lastNotificationLoadFailed=false;
+          renderItems([],true);
+          return [];
+        }
+
+        if(!response.ok || data.success===false){
+          throw new Error(data.error||('Notification API error '+response.status));
+        }
+
+        var items=Array.isArray(data.notifications)?data.notifications:[];
+        lastNotificationLoadFailed=false;
+        renderItems(items);
+        return items;
+      }catch(error){
+        if(generation!==notificationLoadGeneration || (error && error.name==='AbortError')) return cachedItems;
+        lastNotificationLoadFailed=true;
+        console.error('Customer notifications load failed',error);
+        if(!cachedItems.length){
+          renderError(error && error.message ? error.message : 'Unable to load notifications.');
+        }
+        return cachedItems;
+      }finally{
+        if(generation===notificationLoadGeneration){
+          notificationLoadPromise=null;
+          notificationLoadController=null;
+        }
+      }
+    })();
+
+    return notificationLoadPromise;
   };
 
   window.wootenMarkOneCustomerNotificationRead=async function(account,id){
     if(!id) return;
 
     try{
-      var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
+      var response=await customerFetch(NOTIFICATIONS_READ_ENDPOINT,{
         method:'POST',
         credentials:'same-origin',
         headers:{
@@ -168,7 +220,7 @@
         throw new Error(data.error||'Unable to mark notification read.');
       }
 
-      await window.wootenRenderCustomerNotifications();
+      await window.wootenRenderCustomerNotifications('',{supersede:true});
 
     }catch(error){
       console.error('Could not mark notification read',error);
@@ -178,7 +230,7 @@
 
   window.wootenMarkCustomerNotificationsRead=async function(){
     try{
-      var response=await fetch(NOTIFICATIONS_READ_ENDPOINT,{
+      var response=await customerFetch(NOTIFICATIONS_READ_ENDPOINT,{
         method:'POST',
         credentials:'same-origin',
         headers:{
@@ -194,7 +246,7 @@
         throw new Error(data.error||'Unable to mark notifications read.');
       }
 
-      await window.wootenRenderCustomerNotifications();
+      await window.wootenRenderCustomerNotifications('',{supersede:true});
 
     }catch(error){
       console.error('Could not mark notifications read',error);
@@ -218,7 +270,7 @@
     }
 
     try{
-      var response=await fetch(NOTIFICATIONS_CLEAR_ENDPOINT,{
+      var response=await customerFetch(NOTIFICATIONS_CLEAR_ENDPOINT,{
         method:'POST',
         credentials:'same-origin',
         headers:{'Accept':'application/json'}
@@ -229,7 +281,13 @@
         throw new Error(data.error||'Unable to clear notifications.');
       }
 
-      renderItems([]);
+      notificationLoadGeneration+=1;
+      if(notificationLoadController) notificationLoadController.abort();
+      notificationLoadPromise=null;
+      notificationLoadController=null;
+      notificationLoadAccount='';
+      lastNotificationLoadFailed=false;
+      renderItems([],true);
       return true;
     }catch(error){
       console.error('Could not clear notifications',error);
@@ -237,7 +295,10 @@
       await window.wootenRenderCustomerNotifications();
       return false;
     }finally{
-      if(button) button.textContent=originalText;
+      if(button){
+        button.textContent=originalText;
+        button.disabled=!cachedItems.length;
+      }
     }
   };
 
@@ -332,32 +393,82 @@
   }
 
 
+  function canRefreshNotifications(){
+    return document.body.classList.contains('customer-signed-in') &&
+      !document.hidden && navigator.onLine!==false;
+  }
+
+  function clearNotificationPoll(){
+    clearTimeout(notificationPollTimer);
+    notificationPollTimer=0;
+  }
+
+  function scheduleNotificationPoll(delay){
+    clearNotificationPoll();
+    if(!document.body.classList.contains('customer-signed-in')) return;
+    notificationPollTimer=setTimeout(runNotificationPoll,delay);
+  }
+
+  async function runNotificationPoll(){
+    clearNotificationPoll();
+    if(!canRefreshNotifications()) return;
+    await window.wootenRenderCustomerNotifications();
+    notificationPollFailures=lastNotificationLoadFailed
+      ? Math.min(notificationPollFailures+1,4)
+      : 0;
+    scheduleNotificationPoll(Math.min(300000,30000*Math.pow(2,notificationPollFailures)));
+  }
+
   function refreshIfSignedIn(){
-    if(document.body.classList.contains('customer-signed-in')){
-      window.wootenRenderCustomerNotifications();
-    }
+    if(!canRefreshNotifications()) return Promise.resolve(cachedItems);
+    return window.wootenRenderCustomerNotifications();
   }
 
-  // The portal login script appears earlier in the page, so run an explicit
-  // refresh after all scripts have loaded. This fixes customers who were
-  // already logged in when the page was refreshed.
+  function bootstrapNotifications(){
+    setTimeout(function(){
+      refreshIfSignedIn().finally(function(){scheduleNotificationPoll(30000);});
+    },350);
+  }
+
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',function(){
-      setTimeout(refreshIfSignedIn,350);
-      setTimeout(refreshIfSignedIn,1400);
-    });
+    document.addEventListener('DOMContentLoaded',bootstrapNotifications,{once:true});
   }else{
-    setTimeout(refreshIfSignedIn,350);
-    setTimeout(refreshIfSignedIn,1400);
+    bootstrapNotifications();
   }
 
-  window.addEventListener('load',function(){
-    setTimeout(refreshIfSignedIn,600);
+  new MutationObserver(function(){
+    var signedIn=document.body.classList.contains('customer-signed-in');
+    if(signedIn===wasCustomerSignedIn) return;
+    wasCustomerSignedIn=signedIn;
+    if(signedIn){
+      refreshIfSignedIn().finally(function(){scheduleNotificationPoll(30000);});
+    }else{
+      clearNotificationPoll();
+      notificationPollFailures=0;
+      notificationLoadGeneration+=1;
+      if(notificationLoadController) notificationLoadController.abort();
+      notificationLoadPromise=null;
+      notificationLoadController=null;
+      notificationLoadAccount='';
+      renderItems([],true);
+    }
+  }).observe(document.body,{attributes:true,attributeFilter:['class']});
+
+  window.addEventListener('online',function(){
+    if(document.body.classList.contains('customer-signed-in')){
+      refreshIfSignedIn().finally(function(){scheduleNotificationPoll(30000);});
+    }
   });
 
-  setInterval(refreshIfSignedIn,30000);
+  window.addEventListener('offline',clearNotificationPoll);
 
   document.addEventListener('visibilitychange',function(){
-    if(!document.hidden) refreshIfSignedIn();
+    if(document.hidden){
+      clearNotificationPoll();
+      return;
+    }
+    if(document.body.classList.contains('customer-signed-in')){
+      refreshIfSignedIn().finally(function(){scheduleNotificationPoll(30000);});
+    }
   });
 })();

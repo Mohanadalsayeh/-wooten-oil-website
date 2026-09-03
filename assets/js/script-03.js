@@ -47,14 +47,14 @@
     overlay.dataset.stage='sending';
   }
 
-  function showSuccess(requestNumber){
+  function showSuccess(requestNumber,warning){
     title.textContent='Fuel Request Submitted Successfully';
     msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request has been submitted. Please save this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
     yes.style.display='none';
     yes.disabled=false;
     no.style.display='inline-flex';
     no.textContent='Done';
-    if(status) status.textContent="Your request was received by Wooten Oil's website system and the email notification was sent.";
+    if(status) status.textContent=warning||"Your request was received by Wooten Oil's website system and the email notification was sent.";
     overlay.dataset.stage='complete';
     var customerAccount=document.getElementById('fuelCustomerAccount');
     if(customerAccount && customerAccount.value && window.wootenAddCustomerNotification){
@@ -97,7 +97,8 @@
     };
 
     try{
-      const response=await fetch(FORM_ENDPOINT,{
+      const fetchRequest=window.wootenCustomerFetch||window.fetch.bind(window);
+      const response=await fetchRequest(FORM_ENDPOINT,{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
         body:JSON.stringify(payload)
@@ -107,10 +108,14 @@
       if(!response.ok || data.success===false){
         throw new Error(data.error || data.message || 'Wooten Oil server returned an error.');
       }
-      showSuccess(request.requestNumber);
+      showSuccess(request.requestNumber,data.warning||'');
     }catch(err){
       console.error('Fuel request submission failed:',err);
       showError('The request was not confirmed as sent. Please try again.');
+    }finally{
+      if(overlay.dataset.stage==='sending'){
+        showError('The request was not confirmed as sent. Please try again.');
+      }
     }
   }
 

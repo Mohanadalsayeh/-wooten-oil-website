@@ -1,5 +1,95 @@
 /* Customer Portal */
 (function(){
+  /* Keep customer API requests bounded so a lost mobile connection cannot leave
+     a form, history skeleton, or account switcher waiting forever. Callers may
+     pass their own AbortSignal; downloads intentionally continue to use normal
+     browser navigation/streaming instead of this JSON request helper. */
+  function customerFetchWithTimeout(input,init,options){
+    init=Object.assign({},init||{});
+    options=options||{};
+
+    var method=String(init.method||'GET').toUpperCase();
+    var requestedTimeout=Number(options.timeoutMs);
+    var timeoutMs=Number.isFinite(requestedTimeout) && requestedTimeout>0
+      ? requestedTimeout
+      : (method==='GET' ? 12000 : 20000);
+    var timeoutMessage=String(options.timeoutMessage||'The request took too long. Check your connection and try again.');
+    var timeoutId=0;
+    var timedOut=false;
+    var timeoutPromise=null;
+    var controller=typeof AbortController==='function' ? new AbortController() : null;
+    var externalSignal=init.signal;
+    var relayAbort=null;
+
+    function timeoutError(){
+      var error=new Error(timeoutMessage);
+      error.name='TimeoutError';
+      error.code='CUSTOMER_REQUEST_TIMEOUT';
+      return error;
+    }
+
+    if(controller){
+      relayAbort=function(){controller.abort();};
+      if(externalSignal){
+        if(externalSignal.aborted) controller.abort();
+        else externalSignal.addEventListener('abort',relayAbort,{once:true});
+      }
+      init.signal=controller.signal;
+      timeoutId=setTimeout(function(){timedOut=true;controller.abort();},timeoutMs);
+    }else{
+      timeoutPromise=new Promise(function(_resolve,reject){
+        timeoutId=setTimeout(function(){timedOut=true;reject(timeoutError());},timeoutMs);
+      });
+    }
+
+    function cleanup(){
+      clearTimeout(timeoutId);
+      timeoutId=0;
+      if(externalSignal && relayAbort){
+        externalSignal.removeEventListener('abort',relayAbort);
+        relayAbort=null;
+      }
+    }
+
+    var requestPromise=controller
+      ? fetch(input,init)
+      : Promise.race([fetch(input,init),timeoutPromise]);
+
+    return requestPromise.then(function(response){
+      var noBody=method==='HEAD' || !response.body || [204,205,304].indexOf(response.status)!==-1;
+      if(noBody){cleanup();return response;}
+      try{
+        ['json','text','blob','arrayBuffer','formData'].forEach(function(readerName){
+          if(typeof response[readerName]!=='function') return;
+          var read=response[readerName].bind(response);
+          Object.defineProperty(response,readerName,{
+            configurable:true,
+            writable:true,
+            value:function(){
+              var args=arguments;
+              var bodyPromise=Promise.resolve().then(function(){return read.apply(null,args);});
+              if(!controller && timeoutPromise) bodyPromise=Promise.race([bodyPromise,timeoutPromise]);
+              return bodyPromise.catch(function(error){
+                if(timedOut) throw timeoutError();
+                throw error;
+              }).finally(cleanup);
+            }
+          });
+        });
+      }catch(_error){
+        cleanup();
+      }
+      return response;
+    }).catch(function(error){
+      cleanup();
+      if(timedOut) throw timeoutError();
+      throw error;
+    });
+  }
+
+  window.wootenCustomerFetch=window.wootenCustomerFetch||customerFetchWithTimeout;
+  var customerFetch=window.wootenCustomerFetch;
+
   var form=document.getElementById('portalLoginForm');
   var loginCard=document.getElementById('portalLoginCard');
   var activationCard=document.getElementById('portalActivationCard');
@@ -53,6 +143,7 @@
 
   function prefillFuelRequest(c){
     if(!c) return;
+    if(clean(activePortalCustomer && activePortalCustomer.account_number)!==clean(c.account_number)) invalidateCustomerHistoryLoads();
     activePortalCustomer=c;
 
     var account=clean(c.account_number);
@@ -76,6 +167,7 @@
   }
 
   function clearFuelAccountIndicator(){
+    if(activePortalCustomer) invalidateCustomerHistoryLoads();
     activePortalCustomer=null;
     var accountField=document.getElementById('fuelCustomerAccountField');
     var accountInput=document.getElementById('fuelCustomerAccount');
@@ -100,6 +192,8 @@
   var customerNotificationPopupAttachmentList=document.getElementById('customerNotificationPopupAttachmentList');
   var customerNotificationPopupCard=document.getElementById('customerNotificationPopupCard');
   var activeNotificationDocumentId=null;
+  var notificationDetailController=null;
+  var notificationDetailRequestId=0;
   var mobileHeaderNotifications=document.getElementById('mobileHeaderNotifications');
   var mobileHeaderCustomerName=document.getElementById('mobileHeaderCustomerName');
   var mobileHeaderNotificationBadge=document.getElementById('mobileHeaderNotificationBadge');
@@ -110,6 +204,10 @@
   var LOGIN_ENDPOINT='/api/customer/login';
   var ME_ENDPOINT='/api/customer/me';
   var LOGOUT_ENDPOINT='/api/customer/logout';
+  var currentCustomerLoadPromise=null;
+  var currentCustomerLoadController=null;
+  var currentCustomerLoadGeneration=0;
+  var STALE_CUSTOMER_LOAD={stale:true};
   var ACTIVATE_START_ENDPOINT='/api/customer/activation/start';
   var ACTIVATE_SET_PASSWORD_ENDPOINT='/api/customer/activation/set-password';
   var RESET_START_ENDPOINT='/api/customer/password-reset/start';
@@ -131,6 +229,13 @@
   var paymentHistoryStatus=document.getElementById('paymentHistoryStatus');
   var paymentHistoryList=document.getElementById('paymentHistoryList');
   var paymentHistoryTotal=document.getElementById('paymentHistoryTotal');
+  var paymentHistoryLoadMoreWrap=document.getElementById('paymentHistoryLoadMoreWrap');
+  var paymentHistoryLoadMore=document.getElementById('paymentHistoryLoadMore');
+  var PAYMENT_HISTORY_PAGE_SIZE=20;
+  var paymentHistoryPage=0;
+  var paymentHistoryFilteredTotal=0;
+  var paymentHistoryHasMore=false;
+  var paymentHistorySearchTimer=0;
   var paymentHistoryRows=[];
   var PAYMENT_HISTORY_ENDPOINT='/api/customer/payments';
   var customerDocuments=document.getElementById('customerDocuments');
@@ -155,6 +260,55 @@
   var fuelHistoryList=document.getElementById('fuelHistoryList');
   var fuelHistoryRows=[];
   var FUEL_HISTORY_ENDPOINT='/api/customer/fuel-requests';
+  var customerHistoryLoads={
+    documents:{generation:0,controller:null},
+    fuel:{generation:0,controller:null},
+    payments:{generation:0,controller:null}
+  };
+
+  function activeCustomerAccountNumber(){
+    return clean(activePortalCustomer && activePortalCustomer.account_number);
+  }
+
+  function beginCustomerHistoryLoad(name){
+    var state=customerHistoryLoads[name];
+    state.generation+=1;
+    if(state.controller) state.controller.abort();
+    var controller=typeof AbortController==='function' ? new AbortController() : null;
+    state.controller=controller;
+    return {state:state,generation:state.generation,controller:controller,account:activeCustomerAccountNumber()};
+  }
+
+  function customerHistoryLoadIsCurrent(request){
+    return !!request
+      && request.generation===request.state.generation
+      && activeCustomerAccountNumber()===request.account
+      && !(request.controller && request.controller.signal.aborted);
+  }
+
+  function finishCustomerHistoryLoad(request){
+    if(!customerHistoryLoadIsCurrent(request)) return false;
+    if(request.state.controller===request.controller) request.state.controller=null;
+    return true;
+  }
+
+  function invalidateCustomerHistoryLoad(name){
+    var state=customerHistoryLoads[name];
+    if(!state)return;
+    state.generation+=1;
+    if(state.controller)state.controller.abort();
+    state.controller=null;
+    if(name==='payments' && paymentHistoryLoadMore)paymentHistoryLoadMore.disabled=false;
+  }
+
+  function invalidateCustomerHistoryLoads(){
+    Object.keys(customerHistoryLoads).forEach(function(name){
+      invalidateCustomerHistoryLoad(name);
+    });
+    if(customerDocumentsRefresh) customerDocumentsRefresh.disabled=false;
+    if(fuelHistoryRefresh) fuelHistoryRefresh.disabled=false;
+    if(paymentHistoryRefresh) paymentHistoryRefresh.disabled=false;
+  }
 
   function showDashboardView(){
     if(dashboard) dashboard.classList.remove('dashboard-hidden');
@@ -260,16 +414,20 @@
   }
 
   async function loadCustomerDocuments(){
+    var request=beginCustomerHistoryLoad('documents');
     if(customerDocumentsStatus){
       customerDocumentsStatus.className='customer-documents-status show';
       customerDocumentsStatus.textContent='Loading statements and invoices…';
     }
+    if(customerDocumentsRefresh) customerDocumentsRefresh.disabled=true;
     try{
-      var response=await fetch(CUSTOMER_DOCUMENTS_ENDPOINT,{
+      var response=await customerFetch(CUSTOMER_DOCUMENTS_ENDPOINT,{
         method:'GET',credentials:'same-origin',cache:'no-store',
-        headers:{'Accept':'application/json'}
+        headers:{'Accept':'application/json'},
+        signal:request.controller ? request.controller.signal : undefined
       });
       var data=await response.json().catch(function(){return {};});
+      if(!customerHistoryLoadIsCurrent(request)) return;
       if(!response.ok || data.success===false) throw new Error(data.error||'Documents could not be loaded.');
       customerDocumentRows=Array.isArray(data.documents)?data.documents:[];
       renderCustomerDocuments();
@@ -278,12 +436,15 @@
         customerDocumentsStatus.textContent='';
       }
     }catch(error){
+      if(!customerHistoryLoadIsCurrent(request) || error && error.name==='AbortError') return;
       customerDocumentRows=[];
       renderCustomerDocuments();
       if(customerDocumentsStatus){
         customerDocumentsStatus.className='customer-documents-status show error';
         customerDocumentsStatus.textContent=error.message||'Documents could not be loaded.';
       }
+    }finally{
+      if(finishCustomerHistoryLoad(request) && customerDocumentsRefresh) customerDocumentsRefresh.disabled=false;
     }
   }
 
@@ -500,6 +661,7 @@
 
   async function loadFuelHistory(){
     if(!fuelHistoryList) return;
+    var request=beginCustomerHistoryLoad('fuel');
     renderFuelHistorySkeleton();
     if(fuelHistoryStatus){
       fuelHistoryStatus.className='fuel-history-status show info';
@@ -508,13 +670,15 @@
     if(fuelHistoryRefresh) fuelHistoryRefresh.disabled=true;
 
     try{
-      var response=await fetch(FUEL_HISTORY_ENDPOINT,{
+      var response=await customerFetch(FUEL_HISTORY_ENDPOINT,{
         method:'GET',
         credentials:'same-origin',
         cache:'no-store',
-        headers:{'Accept':'application/json'}
+        headers:{'Accept':'application/json'},
+        signal:request.controller ? request.controller.signal : undefined
       });
       var data=await response.json().catch(function(){return {};});
+      if(!customerHistoryLoadIsCurrent(request)) return;
       if(!response.ok || data.success===false){
         throw new Error(data.error || 'Fuel request history could not be loaded.');
       }
@@ -525,6 +689,7 @@
         fuelHistoryStatus.textContent='';
       }
     }catch(error){
+      if(!customerHistoryLoadIsCurrent(request) || error && error.name==='AbortError') return;
       fuelHistoryRows=[];
       renderFuelHistory(fuelHistoryRows);
       if(fuelHistoryStatus){
@@ -532,7 +697,7 @@
         fuelHistoryStatus.textContent=error.message || 'Fuel request history could not be loaded.';
       }
     }finally{
-      if(fuelHistoryRefresh) fuelHistoryRefresh.disabled=false;
+      if(finishCustomerHistoryLoad(request) && fuelHistoryRefresh) fuelHistoryRefresh.disabled=false;
     }
   }
 
@@ -570,21 +735,15 @@
   }
 
   function filteredSortedPayments(){
-    var q=String(paymentHistorySearch && paymentHistorySearch.value || '').trim().toLowerCase();
-    var rows=(paymentHistoryRows||[]).slice();
-    if(q){
-      var tokens=q.split(/\s+/).filter(Boolean);
-      rows=rows.filter(function(r){var h=paymentSearchText(r);return tokens.every(function(t){return h.indexOf(t)!==-1;});});
-    }
-    var sort=String(paymentHistorySort && paymentHistorySort.value || 'newest');
-    rows.sort(function(a,b){
-      if(sort==='oldest') return String(a.payment_date||'').localeCompare(String(b.payment_date||''));
-      if(sort==='amount_desc') return Number(b.amount||0)-Number(a.amount||0);
-      if(sort==='amount_asc') return Number(a.amount||0)-Number(b.amount||0);
-      if(sort==='reference_asc') return String(a.reference||'').localeCompare(String(b.reference||''),undefined,{numeric:true,sensitivity:'base'});
-      return String(b.payment_date||'').localeCompare(String(a.payment_date||''));
-    });
-    return rows;
+    return (paymentHistoryRows||[]).slice();
+  }
+
+  function updatePaymentHistoryLoadMore(){
+    if(!paymentHistoryLoadMoreWrap || !paymentHistoryLoadMore) return;
+    var remaining=Math.max(0,paymentHistoryFilteredTotal-(paymentHistoryRows||[]).length);
+    paymentHistoryLoadMoreWrap.style.display=paymentHistoryHasMore&&remaining?'flex':'none';
+    var nextCount=Math.min(PAYMENT_HISTORY_PAGE_SIZE,remaining);
+    paymentHistoryLoadMore.textContent=nextCount?'Show '+nextCount+' More Payment'+(nextCount===1?'':'s'):'Show More Payments';
   }
 
   function renderPaymentHistory(){
@@ -592,16 +751,19 @@
     paymentHistoryList.removeAttribute('aria-busy');
     var rows=filteredSortedPayments();
     paymentHistoryList.innerHTML='';
+    updatePaymentHistoryLoadMore();
     if(paymentHistoryResultsMeta){
-      var total=(paymentHistoryRows||[]).length;
+      var loaded=(paymentHistoryRows||[]).length;
+      var total=paymentHistoryFilteredTotal;
       var q=String(paymentHistorySearch && paymentHistorySearch.value || '').trim();
-      paymentHistoryResultsMeta.textContent=q ? rows.length+' of '+total+' payments match your search' : (total ? total+' payment'+(total===1?'':'s') : '');
+      paymentHistoryResultsMeta.textContent=total?(loaded<total?'Showing '+loaded+' of '+total+(q?' matching':'')+' payments':total+' payment'+(total===1?'':'s')+(q?' match your search':'')):'';
     }
     if(!rows.length){
       var empty=document.createElement('div');empty.className='payment-history-empty';
-      empty.textContent=(paymentHistoryRows||[]).length?'No payments match your search.':'No payment history is available for this account yet.';
+      empty.textContent=String(paymentHistorySearch && paymentHistorySearch.value || '').trim()?'No payments match your search.':'No payment history is available for this account yet.';
       paymentHistoryList.appendChild(empty);return;
     }
+    var fragment=document.createDocumentFragment();
     rows.forEach(function(r){
       var card=document.createElement('article');card.className='payment-history-card';
       var top=document.createElement('div');top.className='payment-history-card-top';
@@ -616,12 +778,14 @@
       add('Deposit Date',paymentHistoryDate(r.deposit_date));
       add('Posting Date',paymentHistoryDate(r.posting_date||r.payment_date));
       if(String(r.description||'').trim()) add('Description / Memo',r.description,true);
-      card.appendChild(grid);paymentHistoryList.appendChild(card);
+      card.appendChild(grid);fragment.appendChild(card);
     });
+    paymentHistoryList.appendChild(fragment);
   }
 
   function renderPaymentHistorySkeleton(){
     if(!paymentHistoryList) return;
+    if(paymentHistoryLoadMoreWrap) paymentHistoryLoadMoreWrap.style.display='none';
     paymentHistoryList.setAttribute('aria-busy','true');
     paymentHistoryList.innerHTML=Array.from({length:4},function(_,index){
       return '<article class="history-skeleton-card payment-history-skeleton" aria-hidden="true" style="--skeleton-delay:'+((index%4)*.08)+'s">'
@@ -631,22 +795,46 @@
     }).join('');
   }
 
-  async function loadPaymentHistory(){
-    renderPaymentHistorySkeleton();
-    if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status show';paymentHistoryStatus.textContent='Loading payment history…';}
+  async function loadPaymentHistory(options){
+    options=options||{};
+    var append=!!options.append && paymentHistoryPage>0;
+    var requestedPage=append?paymentHistoryPage+1:1;
+    var request=beginCustomerHistoryLoad('payments');
+    if(!append)renderPaymentHistorySkeleton();
+    if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status show';paymentHistoryStatus.textContent=append?'Loading more payments…':'Loading payment history…';}
     if(paymentHistoryRefresh) paymentHistoryRefresh.disabled=true;
+    if(paymentHistoryLoadMore){paymentHistoryLoadMore.disabled=true;if(append)paymentHistoryLoadMore.textContent='Loading…';}
     try{
-      var response=await fetch(PAYMENT_HISTORY_ENDPOINT,{method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+      var params=new URLSearchParams({
+        page:String(requestedPage),
+        page_size:String(PAYMENT_HISTORY_PAGE_SIZE),
+        q:String(paymentHistorySearch && paymentHistorySearch.value || '').trim(),
+        sort:String(paymentHistorySort && paymentHistorySort.value || 'newest')
+      });
+      var response=await customerFetch(PAYMENT_HISTORY_ENDPOINT+'?'+params.toString(),{method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'},signal:request.controller ? request.controller.signal : undefined});
       var data=await response.json().catch(function(){return {};});
+      if(!customerHistoryLoadIsCurrent(request)) return;
       if(!response.ok || data.success===false) throw new Error(data.error||'Payment history could not be loaded.');
-      paymentHistoryRows=Array.isArray(data.payments)?data.payments:[];
+      var incoming=Array.isArray(data.payments)?data.payments:[];
+      paymentHistoryRows=append?paymentHistoryRows.concat(incoming):incoming;
+      paymentHistoryPage=Math.max(1,Number(data.page||requestedPage));
+      paymentHistoryFilteredTotal=Math.max(0,Number(data.total??data.count??paymentHistoryRows.length));
+      paymentHistoryHasMore=data.has_more==null?paymentHistoryRows.length<paymentHistoryFilteredTotal:!!data.has_more;
       if(paymentHistoryTotal) paymentHistoryTotal.textContent=money(data.total_paid||0);
       renderPaymentHistory();
       if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status';paymentHistoryStatus.textContent='';}
     }catch(error){
-      paymentHistoryRows=[];renderPaymentHistory();
+      if(!customerHistoryLoadIsCurrent(request) || error && error.name==='AbortError') return;
+      if(!append){paymentHistoryRows=[];paymentHistoryPage=0;paymentHistoryFilteredTotal=0;paymentHistoryHasMore=false;}
+      renderPaymentHistory();
       if(paymentHistoryStatus){paymentHistoryStatus.className='payment-history-status show error';paymentHistoryStatus.textContent=error.message||'Payment history could not be loaded.';}
-    }finally{if(paymentHistoryRefresh) paymentHistoryRefresh.disabled=false;}
+    }finally{
+      if(finishCustomerHistoryLoad(request)){
+        if(paymentHistoryRefresh)paymentHistoryRefresh.disabled=false;
+        if(paymentHistoryLoadMore)paymentHistoryLoadMore.disabled=false;
+        updatePaymentHistoryLoadMore();
+      }
+    }
   }
 
   function showPaymentHistory(){
@@ -793,29 +981,76 @@
     hideAll();
     accountCard.classList.add('show');
   }
+
+  function invalidateCurrentCustomerLoad(){
+    currentCustomerLoadGeneration+=1;
+    if(currentCustomerLoadController) currentCustomerLoadController.abort();
+    currentCustomerLoadController=null;
+    currentCustomerLoadPromise=null;
+  }
+
+  function fetchCurrentCustomer(){
+    if(currentCustomerLoadPromise) return currentCustomerLoadPromise;
+    var generation=currentCustomerLoadGeneration;
+    var controller=typeof AbortController==='function' ? new AbortController() : null;
+    currentCustomerLoadController=controller;
+    var sharedPromise;
+    sharedPromise=(async function(){
+      var response=await customerFetch(ME_ENDPOINT,{
+        method:'GET',
+        headers:{'Accept':'application/json'},
+        credentials:'same-origin',
+        cache:'no-store',
+        signal:controller ? controller.signal : undefined
+      });
+      var data=await response.json().catch(function(){return {};});
+      return {response:response,data:data,generation:generation};
+    })().finally(function(){
+      if(currentCustomerLoadPromise===sharedPromise){
+        currentCustomerLoadPromise=null;
+        currentCustomerLoadController=null;
+      }
+    });
+    currentCustomerLoadPromise=sharedPromise;
+    return sharedPromise;
+  }
+
+  function currentCustomerLoadIsStale(result){
+    return !result || result.generation!==currentCustomerLoadGeneration;
+  }
+
   async function loadCurrentAccount(silent){
+    var expectedGeneration=currentCustomerLoadGeneration;
     try{
-      var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
+      var result=await fetchCurrentCustomer();
+      if(currentCustomerLoadIsStale(result)) return STALE_CUSTOMER_LOAD;
+      var r=result.response;
       if(r.status===401){ updateCustomerMenu(null); if(!silent) showLogin(); return false; }
-      var d=await r.json().catch(function(){return {};});
+      var d=result.data;
       if(!r.ok || d.success===false || !d.customer){ updateCustomerMenu(null); return false; }
       showAccount(d.customer);
       return true;
-    }catch(e){ return false; }
+    }catch(e){
+      if(expectedGeneration!==currentCustomerLoadGeneration) return STALE_CUSTOMER_LOAD;
+      return false;
+    }
   }
   window.wootenApplyCustomerAccount=function(customer){
     if(!customer||!clean(customer.account_number)) return false;
+    invalidateCurrentCustomerLoad();
     showAccount(customer);
     return true;
   };
   window.wootenRefreshCurrentCustomerAccount=function(){
-    return loadCurrentAccount(true);
+    return loadCurrentAccount(true).then(function(result){return result===STALE_CUSTOMER_LOAD ? true : result;});
   };
   async function refreshCustomerMenu(){
     try{
-      var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});
+      var result=await fetchCurrentCustomer();
+      if(currentCustomerLoadIsStale(result)) return;
+      var r=result.response;
       if(r.status===401){ updateCustomerMenu(null); return; }
-      var d=await r.json().catch(function(){return {};});
+      var d=result.data;
       if(r.ok && d.success!==false && d.customer){ updateCustomerMenu(d.customer); prefillFuelRequest(d.customer); }
       else updateCustomerMenu(null);
     }catch(e){}
@@ -834,7 +1069,7 @@
         password:document.getElementById('portal-password').value,
         remember_me:!!(document.getElementById('portal-remember') && document.getElementById('portal-remember').checked)
       };
-      var r=await fetch(LOGIN_ENDPOINT,{
+      var r=await customerFetch(LOGIN_ENDPOINT,{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
         credentials:'same-origin',
@@ -849,8 +1084,13 @@
         }
         throw new Error(d.error || 'The customer number/email or password is incorrect.');
       }
+      invalidateCurrentCustomerLoad();
       if(d.customer){ showAccount(d.customer); }
-      else if(!(await loadCurrentAccount(false))){ throw new Error('Signed in, but the account information could not be loaded.'); }
+      else{
+        var loginLoad=await loadCurrentAccount(false);
+        if(loginLoad===STALE_CUSTOMER_LOAD) return;
+        if(!loginLoad) throw new Error('Signed in, but the account information could not be loaded.');
+      }
       document.getElementById('portal-password').value='';
       if(openPendingDocument()) return;
     }catch(err){
@@ -868,6 +1108,7 @@
   if(mobileHeaderCustomerName) mobileHeaderCustomerName.addEventListener('click',async function(){
     location.hash='customer-login';
     var ok=await loadCurrentAccount(true);
+    if(ok===STALE_CUSTOMER_LOAD) return;
     if(!ok) showLogin();
     else showDashboardView();
   });
@@ -1020,12 +1261,13 @@
     };
   }
 
-  async function loadExactCustomerNotification(id){
-    var response=await fetch('/api/customer/notifications/detail/'+encodeURIComponent(id),{
+  async function loadExactCustomerNotification(id,signal){
+    var response=await customerFetch('/api/customer/notifications/detail/'+encodeURIComponent(id),{
       method:'GET',
       credentials:'same-origin',
       cache:'no-store',
-      headers:{'Accept':'application/json'}
+      headers:{'Accept':'application/json'},
+      signal:signal
     });
 
     var data=await response.json().catch(function(){return {};});
@@ -1058,8 +1300,22 @@
 
     if(!id) return;
 
+    notificationDetailRequestId+=1;
+    var requestId=notificationDetailRequestId;
+    if(notificationDetailController) notificationDetailController.abort();
+    notificationDetailController=typeof AbortController==='function' ? new AbortController() : null;
+
     try{
-      var fullNotification=await loadExactCustomerNotification(id);
+      var fullNotification=await loadExactCustomerNotification(
+        id,
+        notificationDetailController ? notificationDetailController.signal : undefined
+      );
+      if(
+        requestId!==notificationDetailRequestId ||
+        !customerNotificationPopup ||
+        !customerNotificationPopup.classList.contains('show') ||
+        customerNotificationPopup.getAttribute('data-active-notification-id')!==String(id)
+      ) return;
       if(fullNotification && fallback){
         if(!fullNotification.action_type && fallback.action_type){
           fullNotification.action_type=fallback.action_type;
@@ -1085,6 +1341,7 @@
       }
       renderCustomerNotificationPopup(fullNotification);
     }catch(error){
+      if(requestId!==notificationDetailRequestId || (error && error.name==='AbortError')) return;
       console.error('Notification detail load failed',error);
 
       /* Keep the visible fallback message open. Show a useful attachment error
@@ -1098,6 +1355,8 @@
           'The full notification details could not be loaded. Please refresh the page and try again.'+
           '</div>';
       }
+    }finally{
+      if(requestId===notificationDetailRequestId) notificationDetailController=null;
     }
   }
   window.wootenOpenCustomerNotificationPopup=openCustomerNotificationPopup;
@@ -1115,7 +1374,7 @@
       var notificationId=customerNotificationPopup && customerNotificationPopup.getAttribute('data-active-notification-id');
       if(notificationId){
         try{
-          var resolveResponse=await fetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
+          var resolveResponse=await customerFetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
             method:'GET',
             credentials:'same-origin',
             cache:'no-store',
@@ -1149,7 +1408,7 @@
       var notificationId=customerNotificationPopup && customerNotificationPopup.getAttribute('data-active-notification-id');
       if(notificationId){
         try{
-          var response=await fetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
+          var response=await customerFetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
             method:'GET',
             credentials:'same-origin',
             cache:'no-store',
@@ -1268,6 +1527,11 @@
 
   function closeCustomerNotificationPopup(){
     if(!customerNotificationPopup) return;
+    notificationDetailRequestId+=1;
+    if(notificationDetailController){
+      notificationDetailController.abort();
+      notificationDetailController=null;
+    }
     customerNotificationPopup.classList.remove('show');
     document.body.style.overflow='';
   }
@@ -1332,9 +1596,19 @@
   });
   if(dashboardPayments) dashboardPayments.addEventListener('click',function(){ showPaymentHistory(); });
   if(paymentHistoryBack) paymentHistoryBack.addEventListener('click',function(){ showDashboardView(); });
-  if(paymentHistoryRefresh) paymentHistoryRefresh.addEventListener('click',function(){ loadPaymentHistory(); });
-  if(paymentHistorySearch) paymentHistorySearch.addEventListener('input',function(){ renderPaymentHistory(); });
-  if(paymentHistorySort) paymentHistorySort.addEventListener('change',function(){ renderPaymentHistory(); });
+  if(paymentHistoryRefresh) paymentHistoryRefresh.addEventListener('click',function(){ clearTimeout(paymentHistorySearchTimer);loadPaymentHistory(); });
+  if(paymentHistorySearch) paymentHistorySearch.addEventListener('input',function(){
+    clearTimeout(paymentHistorySearchTimer);
+    invalidateCustomerHistoryLoad('payments');
+    paymentHistoryPage=0;
+    paymentHistoryHasMore=false;
+    updatePaymentHistoryLoadMore();
+    paymentHistorySearchTimer=setTimeout(function(){loadPaymentHistory();},220);
+  });
+  if(paymentHistorySort) paymentHistorySort.addEventListener('change',function(){ clearTimeout(paymentHistorySearchTimer);loadPaymentHistory(); });
+  if(paymentHistoryLoadMore) paymentHistoryLoadMore.addEventListener('click',function(){
+    if(paymentHistoryHasMore)loadPaymentHistory({append:true});
+  });
   if(dashboardDocuments) dashboardDocuments.addEventListener('click',function(){ showCustomerDocuments(); });
   if(customerDocumentsBack) customerDocumentsBack.addEventListener('click',function(){ showDashboardView(); });
   if(customerDocumentsRefresh) customerDocumentsRefresh.addEventListener('click',function(){ loadCustomerDocuments(); });
@@ -1415,7 +1689,7 @@
     if(resetOfficeHelp) resetOfficeHelp.style.display='none';
     resetStart.disabled=true; resetStart.textContent='Checking…';
     try{
-      var r=await fetch(RESET_START_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier})});
+      var r=await customerFetch(RESET_START_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier})});
       var d=await r.json().catch(function(){return {};});
       if(!r.ok || d.success===false){
         if(d.setup_required){ showActivation(d.account_number || identifier); setStatus(activationStatus,d.error || 'This account must be activated first.',false); return; }
@@ -1450,7 +1724,7 @@
     if(password!==confirm){ setStatus(resetStatus,'The passwords do not match.',false); return; }
     clearStatus(resetStatus); resetComplete.disabled=true; resetComplete.textContent='Resetting…';
     try{
-      var r=await fetch(RESET_COMPLETE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier,code:code,password:password,confirm_password:confirm})});
+      var r=await customerFetch(RESET_COMPLETE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({identifier:identifier,code:code,password:password,confirm_password:confirm})});
       var d=await r.json().catch(function(){return {};});
       if(!r.ok || d.success===false) throw new Error(d.error || 'Password reset failed.');
       showLogin();
@@ -1482,7 +1756,7 @@
     activationStart.disabled=true;
     activationStart.textContent='Checking…';
     try{
-      var r=await fetch(ACTIVATE_START_ENDPOINT,{
+      var r=await customerFetch(ACTIVATE_START_ENDPOINT,{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
         credentials:'same-origin',
@@ -1537,7 +1811,7 @@
     activationComplete.disabled=true;
     activationComplete.textContent='Activating…';
     try{
-      var r=await fetch(ACTIVATE_SET_PASSWORD_ENDPOINT,{
+      var r=await customerFetch(ACTIVATE_SET_PASSWORD_ENDPOINT,{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
         credentials:'same-origin',
@@ -1565,8 +1839,9 @@
 
   async function performLogout(button,openLogin){
     if(button) button.disabled=true;
+    invalidateCurrentCustomerLoad();
     try{
-      await fetch(LOGOUT_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},credentials:'same-origin'});
+      await customerFetch(LOGOUT_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},credentials:'same-origin'});
     }catch(e){}
     updateCustomerMenu(null);
     form.reset();
@@ -1585,7 +1860,7 @@
   document.querySelectorAll('a[href="#customer-login"]').forEach(function(link){
     link.addEventListener('click',function(){
       clearStatus(status);
-      loadCurrentAccount(true).then(function(ok){ if(!ok) showLogin(); });
+      loadCurrentAccount(true).then(function(ok){ if(ok===false) showLogin(); });
     });
   });
 
@@ -1593,6 +1868,7 @@
     if(location.hash!=='#customer-login') return;
     clearStatus(status);
     var ok=await loadCurrentAccount(true);
+    if(ok===STALE_CUSTOMER_LOAD) return;
     if(!ok){
       showLogin();
       return;

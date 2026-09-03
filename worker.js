@@ -6,22 +6,204 @@ var json = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.stri
   status,
   headers: {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   }
 }), "json");
 var esc = /* @__PURE__ */ __name((value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"), "esc");
+var schemaSetupByDatabase = new WeakMap();
+function runSchemaSetupOnce(env, key, setup) {
+  if (!env?.DB) return Promise.resolve();
+  let cache = schemaSetupByDatabase.get(env.DB);
+  if (!cache) {
+    cache = new Map();
+    schemaSetupByDatabase.set(env.DB, cache);
+  }
+  if (!cache.has(key)) {
+    const pending = Promise.resolve().then(async()=>{
+      // Separate Worker isolates can cold-start against the same older D1
+      // schema at once. If another isolate wins an ADD COLUMN race, repeat the
+      // idempotent setup so this request continues instead of returning a
+      // transient 500. Every setup registered here uses IF NOT EXISTS and/or
+      // re-reads PRAGMA state, so retrying is safe.
+      for(let attempt=0;;attempt++){
+        try{return await setup();}
+        catch(error){
+          const duplicateColumn=/duplicate\s+column/i.test(String(error?.message||error||""));
+          if(!duplicateColumn||attempt>=12)throw error;
+        }
+      }
+    }).catch((error) => {
+      cache.delete(key);
+      throw error;
+    });
+    cache.set(key, pending);
+  }
+  return cache.get(key);
+}
+__name(runSchemaSetupOnce, "runSchemaSetupOnce");
+async function runDurableMigrationOnce(env,key,migration){
+  if(!env?.DB)return false;
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS portal_schema_migrations (migration_key TEXT PRIMARY KEY,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  const existing=await env.DB.prepare(`SELECT migration_key FROM portal_schema_migrations WHERE migration_key=? LIMIT 1`).bind(String(key)).first();
+  if(existing)return false;
+  await migration();
+  await env.DB.prepare(`INSERT OR IGNORE INTO portal_schema_migrations(migration_key) VALUES (?)`).bind(String(key)).run();
+  return true;
+}
+__name(runDurableMigrationOnce,"runDurableMigrationOnce");
+var PROVIDER_REQUEST_TIMEOUT_MS = 20 * 1e3;
+async function providerFetch(input, init = {}, timeoutMs = PROVIDER_REQUEST_TIMEOUT_MS) {
+  const boundedTimeout = Math.max(1e3, Number(timeoutMs) || PROVIDER_REQUEST_TIMEOUT_MS);
+  let timeoutSignal;
+  let timeoutId = null;
+  if (typeof AbortSignal.timeout === "function") {
+    timeoutSignal = AbortSignal.timeout(boundedTimeout);
+  } else {
+    const timeoutController = new AbortController();
+    timeoutId = setTimeout(() => timeoutController.abort(new DOMException("Provider request timed out.", "TimeoutError")), boundedTimeout);
+    timeoutSignal = timeoutController.signal;
+  }
+  const existingSignal = init?.signal;
+  let signal = timeoutSignal;
+  let existingAbortHandler = null;
+  let timeoutAbortHandler = null;
+  if (existingSignal) {
+    if (existingSignal.aborted) {
+      signal = existingSignal;
+    } else if (typeof AbortSignal.any === "function") {
+      signal = AbortSignal.any([existingSignal, timeoutSignal]);
+    } else {
+      const combined = new AbortController();
+      const forwardAbort = (source) => {
+        if (!combined.signal.aborted) combined.abort(source.reason);
+      };
+      existingAbortHandler = () => forwardAbort(existingSignal);
+      timeoutAbortHandler = () => forwardAbort(timeoutSignal);
+      existingSignal.addEventListener("abort", existingAbortHandler, { once: true });
+      timeoutSignal.addEventListener("abort", timeoutAbortHandler, { once: true });
+      signal = combined.signal;
+    }
+  }
+  try {
+    const response = await fetch(input, { ...init, signal });
+    const method = String(init?.method || "GET").toUpperCase();
+    const hasNoBody = method === "HEAD" || response.body === null || response.status === 204 || response.status === 205 || response.status === 304;
+    const responseBody = hasNoBody ? null : await response.arrayBuffer();
+    return new Response(responseBody, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    });
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+    if (existingSignal && existingAbortHandler) existingSignal.removeEventListener("abort", existingAbortHandler);
+    if (timeoutAbortHandler) timeoutSignal.removeEventListener("abort", timeoutAbortHandler);
+  }
+}
+__name(providerFetch, "providerFetch");
+async function readJsonWithLimit(request, maxBytes) {
+  const contentType = String(request.headers.get("Content-Type") || "").toLowerCase();
+  if (!contentType.startsWith("application/json")) {
+    return { ok: false, status: 415, error: "Request data must be JSON." };
+  }
+  const declaredLength = Number(request.headers.get("Content-Length") || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    return { ok: false, status: 413, error: "Request data is too large." };
+  }
+  try {
+    if (!request.body) return { ok: false, status: 400, error: "Invalid request data." };
+    const reader = request.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return { ok: false, status: 413, error: "Request data is too large." };
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return { ok: false, status: 400, error: "Invalid request data." };
+    }
+    return { ok: true, data };
+  } catch {
+    return { ok: false, status: 400, error: "Invalid request data." };
+  }
+}
+__name(readJsonWithLimit, "readJsonWithLimit");
+async function readTextWithLimit(request,maxBytes){
+  const declaredLength=Number(request.headers.get("Content-Length")||0);
+  if(Number.isFinite(declaredLength)&&declaredLength>maxBytes)return {ok:false,status:413,error:"Request data is too large."};
+  if(!request.body)return {ok:true,text:""};
+  const reader=request.body.getReader(),chunks=[];
+  let total=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      total+=value.byteLength;
+      if(total>maxBytes){await reader.cancel().catch(()=>{});return {ok:false,status:413,error:"Request data is too large."};}
+      chunks.push(value);
+    }
+    const bytes=new Uint8Array(total);
+    let offset=0;
+    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+    return {ok:true,text:new TextDecoder().decode(bytes)};
+  }catch{return {ok:false,status:400,error:"Invalid request data."};}
+}
+__name(readTextWithLimit,"readTextWithLimit");
+async function readFormDataWithLimit(request,maxBytes){
+  const contentType=String(request.headers.get("Content-Type")||"");
+  if(!/^multipart\/form-data\s*;/i.test(contentType))return {ok:false,status:415,error:"Request data must be a multipart form."};
+  const declaredLength=Number(request.headers.get("Content-Length")||0);
+  if(Number.isFinite(declaredLength)&&declaredLength>maxBytes)return {ok:false,status:413,error:"The application and documents are too large."};
+  if(!request.body)return {ok:false,status:400,error:"Invalid application data."};
+  const reader=request.body.getReader(),chunks=[];
+  let total=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      total+=value.byteLength;
+      if(total>maxBytes){
+        await reader.cancel().catch(()=>{});
+        return {ok:false,status:413,error:"The application and documents are too large."};
+      }
+      chunks.push(value);
+    }
+    const bytes=new Uint8Array(total);
+    let offset=0;
+    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+    const form=await new Response(bytes,{headers:{"Content-Type":contentType}}).formData();
+    return {ok:true,form};
+  }catch{
+    return {ok:false,status:400,error:"Invalid application data."};
+  }
+}
+__name(readFormDataWithLimit,"readFormDataWithLimit");
 function validRequestNumber(value) {
   return /^WO-\d{6}-\d{4}$/.test(String(value || ""));
 }
 __name(validRequestNumber, "validRequestNumber");
 async function onRequestPost(context) {
   const { request, env } = context;
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ success: false, error: "Invalid request data." }, 400);
-  }
+  const submissionRate=await portalRateLimitConsume(env,request,"public-fuel-request","fuel",{limit:8,windowSeconds:10*60,blockSeconds:10*60});
+  if(submissionRate.limited)return portalRateLimitResponse(submissionRate);
+  const parsedBody = await readJsonWithLimit(request, 64 * 1024);
+  if (!parsedBody.ok) return json({ success: false, error: parsedBody.error }, parsedBody.status);
+  const body = parsedBody.data;
   const requestNumber = String(body.requestNumber || "").trim();
   const customerName = String(body.customerName || "").trim();
   const phone = String(body.phone || "").trim();
@@ -32,6 +214,13 @@ async function onRequestPost(context) {
   const deliveryDate = String(body.deliveryDate || "").trim();
   const notes = String(body.notes || "").trim();
   const submittedFrom = String(body.submittedFrom || "").trim();
+  const fieldLimits = [
+    [customerName, 200], [phone, 40], [email, 254], [deliveryAddress, 500],
+    [fuelType, 100], [gallons, 24], [deliveryDate, 40], [notes, 2e3], [submittedFrom, 200]
+  ];
+  if (fieldLimits.some(([value, limit]) => value.length > limit)) {
+    return json({ success: false, error: "One or more request fields are too long." }, 400);
+  }
   if (!validRequestNumber(requestNumber)) {
     return json({ success: false, error: "Invalid request number." }, 400);
   }
@@ -47,7 +236,8 @@ async function onRequestPost(context) {
   if (!env.RESEND_API_KEY) {
     return json({ success: false, error: "Email service is not configured yet." }, 503);
   }
-  const receivedAt = (/* @__PURE__ */ new Date()).toISOString();
+  let receivedAt = (/* @__PURE__ */ new Date()).toISOString();
+  let duplicateRequest=false;
   let customerAccountNumber="";
   if(env.DB){
     try{
@@ -62,26 +252,40 @@ async function onRequestPost(context) {
   if (env.DB) {
     try {
       await ensureFuelRequestHistorySchema(env);
-      await env.DB.prepare(`
-        INSERT INTO fuel_requests
-        (request_number, customer_account_number, customer_name, phone, email, delivery_address, fuel_type,
-         gallons, delivery_date, notes, submitted_from, received_at, email_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        requestNumber,
-        customerAccountNumber,
-        customerName,
-        phone,
-        email,
-        deliveryAddress,
-        fuelType,
-        gallons,
-        deliveryDate,
-        notes,
-        submittedFrom,
-        receivedAt,
-        "pending"
-      ).run();
+      const existingRequest=await env.DB.prepare(`
+        SELECT request_number,email_status,received_at FROM fuel_requests WHERE request_number=? LIMIT 1
+      `).bind(requestNumber).first();
+      if(existingRequest){
+        duplicateRequest=true;
+        receivedAt=String(existingRequest.received_at||receivedAt);
+        if(String(existingRequest.email_status||"")==="sent"){
+          return json({success:true,requestNumber,duplicate:true,email_status:"sent"});
+        }
+      }else{
+        const insertResult=await env.DB.prepare(`
+          INSERT INTO fuel_requests
+          (request_number, customer_account_number, customer_name, phone, email, delivery_address, fuel_type,
+           gallons, delivery_date, notes, submitted_from, received_at, email_status)
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          WHERE NOT EXISTS (SELECT 1 FROM fuel_requests WHERE request_number=? LIMIT 1)
+        `).bind(
+          requestNumber,
+          customerAccountNumber,
+          customerName,
+          phone,
+          email,
+          deliveryAddress,
+          fuelType,
+          gallons,
+          deliveryDate,
+          notes,
+          submittedFrom,
+          receivedAt,
+          "pending",
+          requestNumber
+        ).run();
+        duplicateRequest=Number(insertResult?.meta?.changes||0)===0;
+      }
     } catch (error) {
       console.error("D1 insert failed", error);
       return json({
@@ -159,7 +363,7 @@ async function onRequestPost(context) {
   let resendResponse;
   let resendData = {};
   try {
-    resendResponse = await fetch("https://api.resend.com/emails", {
+    resendResponse = await providerFetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${env.RESEND_API_KEY}`,
@@ -180,10 +384,13 @@ async function onRequestPost(context) {
       ).bind("network_error", requestNumber).run().catch(() => {
       });
     }
-    return json({
-      success: false,
-      error: "The order was saved, but the email notification could not be sent. Please call Wooten Oil."
-    }, 502);
+    if(env.DB)return json({
+      success:true,
+      requestNumber,
+      duplicate:duplicateRequest,
+      warning:"Your request was saved, but the email notification is delayed. Please call Wooten Oil if the request is urgent."
+    },202);
+    return json({success:false,error:"The request could not be delivered. Please call Wooten Oil."},502);
   }
   if (!resendResponse.ok) {
     console.error("Resend error", resendData);
@@ -193,10 +400,13 @@ async function onRequestPost(context) {
       ).bind(`failed_${resendResponse.status}`, requestNumber).run().catch(() => {
       });
     }
-    return json({
-      success: false,
-      error: "The order was saved, but the email notification could not be sent. Please call Wooten Oil."
-    }, 502);
+    if(env.DB)return json({
+      success:true,
+      requestNumber,
+      duplicate:duplicateRequest,
+      warning:"Your request was saved, but the email notification is delayed. Please call Wooten Oil if the request is urgent."
+    },202);
+    return json({success:false,error:"The request could not be delivered. Please call Wooten Oil."},502);
   }
   if (email) {
     try {
@@ -245,7 +455,7 @@ Please keep your confirmation number for your records.
 
 Wooten Oil Company`
       };
-      const customerResponse = await fetch("https://api.resend.com/emails", {
+      const customerResponse = await providerFetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${env.RESEND_API_KEY}`,
@@ -273,6 +483,7 @@ Wooten Oil Company`
   return json({
     success: true,
     requestNumber,
+    duplicate:duplicateRequest,
     emailId: resendData.id || null
   });
 }
@@ -288,6 +499,30 @@ __name(onRequestGet, "onRequestGet");
 
 async function ensureFuelRequestHistorySchema(env) {
   if(!env.DB) return;
+  return runSchemaSetupOnce(env,"fuel-request-history",async()=>{
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS fuel_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      request_number TEXT NOT NULL UNIQUE,
+      customer_account_number TEXT,
+      customer_name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      email TEXT,
+      delivery_address TEXT NOT NULL,
+      fuel_type TEXT NOT NULL,
+      gallons TEXT NOT NULL,
+      delivery_date TEXT,
+      notes TEXT,
+      submitted_from TEXT,
+      received_at TEXT NOT NULL,
+      email_status TEXT NOT NULL DEFAULT 'pending',
+      resend_email_id TEXT,
+      decision_status TEXT NOT NULL DEFAULT 'pending',
+      decision_note TEXT,
+      decision_by TEXT,
+      decision_at TEXT
+    )
+  `).run();
   const info=await env.DB.prepare(`PRAGMA table_info(fuel_requests)`).all();
   const columns=(info?.results||[]).map(r=>String(r.name||"").toLowerCase());
   if(!columns.includes("customer_account_number")){
@@ -297,6 +532,9 @@ async function ensureFuelRequestHistorySchema(env) {
   if(!columns.includes("decision_note")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_note TEXT`).run();
   if(!columns.includes("decision_by")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_by TEXT`).run();
   if(!columns.includes("decision_at")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_at TEXT`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_fuel_requests_request_number ON fuel_requests(request_number)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_fuel_requests_account_received ON fuel_requests(customer_account_number,received_at DESC)`).run();
+  });
 }
 __name(ensureFuelRequestHistorySchema,"ensureFuelRequestHistorySchema");
 
@@ -358,7 +596,9 @@ var json2 = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.str
   status,
   headers: {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   }
 }), "json");
 var esc2 = /* @__PURE__ */ __name((value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"), "esc");
@@ -371,7 +611,7 @@ function validReference(value) {
 }
 __name(validReference, "validReference");
 async function sendResend(env, payload, idempotencyKey) {
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await providerFetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${env.RESEND_API_KEY}`,
@@ -390,21 +630,17 @@ async function sendResend(env, payload, idempotencyKey) {
 __name(sendResend, "sendResend");
 async function onRequestPost2(context) {
   const { request, env } = context;
+  const submissionRate=await portalRateLimitConsume(env,request,"public-contact-message","contact",{limit:8,windowSeconds:10*60,blockSeconds:10*60});
+  if(submissionRate.limited)return portalRateLimitResponse(submissionRate);
   if (!env.RESEND_API_KEY) {
     return json2({
       success: false,
       error: "Email service is not configured yet."
     }, 503);
   }
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json2({
-      success: false,
-      error: "Invalid request data."
-    }, 400);
-  }
+  const parsedBody=await readJsonWithLimit(request,64*1024);
+  if(!parsedBody.ok)return json2({success:false,error:parsedBody.error},parsedBody.status);
+  const body=parsedBody.data;
   const referenceNumber = String(body.referenceNumber || "").trim();
   const name = String(body.name || "").trim();
   const email = String(body.email || "").trim();
@@ -613,7 +849,9 @@ var json3 = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.str
   status,
   headers: {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   }
 }), "json");
 var text = /* @__PURE__ */ __name((v) => String(v ?? "").trim(), "text");
@@ -629,6 +867,7 @@ function accountNumber(v) {
 }
 __name(accountNumber, "accountNumber");
 async function ensureCustomerStatementCycleColumn(env){
+  return runSchemaSetupOnce(env,"customer-statement-cycle",async()=>{
   const info=await env.DB.prepare(`PRAGMA table_info(customers)`).all();
   const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   if(!columns.has("statement_cycle")){
@@ -639,8 +878,7 @@ async function ensureCustomerStatementCycleColumn(env){
   if(Number(migration?.meta?.changes||0)>0){
     await env.DB.prepare(`UPDATE customers SET statement_cycle=CASE WHEN upper(trim(COALESCE(statement_cycle,''))) IN ('C','W') THEN 'B' ELSE 'A' END,updated_at=CURRENT_TIMESTAMP`).run();
   }
-  await env.DB.prepare(`UPDATE customers SET statement_cycle='B' WHERE upper(trim(COALESCE(statement_cycle,''))) IN ('C','W')`).run();
-  await env.DB.prepare(`UPDATE customers SET statement_cycle='A' WHERE upper(trim(COALESCE(statement_cycle,''))) NOT IN ('A','B')`).run();
+  });
 }
 __name(ensureCustomerStatementCycleColumn,"ensureCustomerStatementCycleColumn");
 async function onRequestPost3({ request, env }) {
@@ -656,11 +894,11 @@ async function onRequestPost3({ request, env }) {
     return json3({success:false,cancelled:true,error:"This automatic MAS 90 upload was canceled from the admin page.",cancelled_by:customerCancellation.cancel_requested_by||"Wooten Oil Admin",cancelled_at:customerCancellation.cancel_requested_at||""},409);
   }
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json3({ success: false, error: "Invalid request data." }, 400);
+  const parsedBody=await readJsonWithLimit(request,8*1024*1024);
+  if(!parsedBody.ok){
+    return json3({success:false,error:parsedBody.error||"Invalid request data."},parsedBody.status||400);
   }
+  body=parsedBody.data;
   const customers = Array.isArray(body?.customers) ? body.customers : [];
   if (!customers.length) {
     return json3({ success: false, error: "No customer records were supplied." }, 400);
@@ -938,6 +1176,7 @@ function onRequestGet3() {
 __name(onRequestGet3, "onRequestGet");
 
 async function ensureAdminImportMetadataSchema(env){
+  return runSchemaSetupOnce(env,"admin-import-metadata",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS admin_import_metadata (
       import_type TEXT PRIMARY KEY,
@@ -962,10 +1201,12 @@ async function ensureAdminImportMetadataSchema(env){
     ["last_import_run_id","TEXT NOT NULL DEFAULT ''"]
   ];
   for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE admin_import_metadata ADD COLUMN ${name} ${definition}`).run();
+  });
 }
 __name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
 
 async function ensureAdminImportControlSchema(env){
+  return runSchemaSetupOnce(env,"admin-import-control",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS admin_import_control (
       id INTEGER PRIMARY KEY CHECK (id=1),
@@ -979,6 +1220,7 @@ async function ensureAdminImportControlSchema(env){
       completed_at TEXT
     )
   `).run();
+  });
 }
 __name(ensureAdminImportControlSchema,"ensureAdminImportControlSchema");
 
@@ -1174,6 +1416,7 @@ __name(adminImportCancelPost,"adminImportCancelPost");
 
 // Customer payments import
 async function ensureCustomerPaymentsSchema(env) {
+  return runSchemaSetupOnce(env,"customer-payments",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS customer_payments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1221,6 +1464,7 @@ async function ensureCustomerPaymentsSchema(env) {
     CREATE INDEX IF NOT EXISTS idx_customer_payments_account_date
     ON customer_payments (account_number, payment_date DESC, id DESC)
   `).run();
+  });
 }
 __name(ensureCustomerPaymentsSchema, "ensureCustomerPaymentsSchema");
 
@@ -1259,9 +1503,11 @@ async function adminCustomerPaymentsImport({ request, env }) {
     return json3({success:false,cancelled:true,error:"This automatic MAS 90 upload was canceled from the admin page.",cancelled_by:paymentCancellation.cancel_requested_by||"Wooten Oil Admin",cancelled_at:paymentCancellation.cancel_requested_at||""},409);
   }
 
-  let body;
-  try { body = await request.json(); }
-  catch { return json3({ success:false,error:"Invalid request data." },400); }
+  const parsedBody=await readJsonWithLimit(request,8*1024*1024);
+  if(!parsedBody.ok){
+    return json3({success:false,error:parsedBody.error||"Invalid request data."},parsedBody.status||400);
+  }
+  const body=parsedBody.data;
 
   const payments = Array.isArray(body?.payments) ? body.payments : [];
   if (!payments.length) return json3({ success:false,error:"No payment records were supplied." },400);
@@ -1355,18 +1601,41 @@ async function customerPaymentsGet({request,env}){
   try{
     await ensureCustomerPaymentsSchema(env);
     const account=paymentAccount(customer.account_number);
-    const result=await env.DB.prepare(`
+    const url=new URL(request.url);
+    const page=Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get("page")||"1",10)||1));
+    const pageSize=Math.max(1,Math.min(50,Number.parseInt(url.searchParams.get("page_size")||"20",10)||20));
+    const offset=(page-1)*pageSize;
+    const search=paymentText(url.searchParams.get("q")||"",160).toLowerCase();
+    const tokens=search.split(/\s+/).filter(Boolean).slice(0,8);
+    const sort=String(url.searchParams.get("sort")||"newest").toLowerCase();
+    const orderBy={
+      newest:"payment_date DESC,id DESC",
+      oldest:"payment_date ASC,id ASC",
+      amount_desc:"amount DESC,id DESC",
+      amount_asc:"amount ASC,id ASC",
+      reference_asc:"CASE WHEN trim(reference)<>'' AND trim(reference) NOT GLOB '*[^0-9]*' THEN 0 ELSE 1 END ASC,CASE WHEN trim(reference)<>'' AND trim(reference) NOT GLOB '*[^0-9]*' THEN CAST(reference AS INTEGER) END ASC,reference COLLATE NOCASE ASC,id ASC"
+    }[sort]||"payment_date DESC,id DESC";
+    const searchText=`lower(COALESCE(payment_date,'')||' '||COALESCE(posting_date,'')||' '||COALESCE(deposit_date,'')||' '||CAST(COALESCE(amount,0) AS TEXT)||' '||COALESCE(reference,'')||' '||COALESCE(source_invoice_no,'')||' '||COALESCE(deposit_no,'')||' '||COALESCE(description,''))`;
+    const searchSql=tokens.map(()=>` AND ${searchText} LIKE ? ESCAPE '\\'`).join("");
+    const searchBindings=tokens.map(token=>`%${token.replace(/[\\%_]/g,"\\$&")}%`);
+    const [result,totals]=await Promise.all([
+      env.DB.prepare(`
       SELECT
         id,account_number,payment_date,posting_date,deposit_date,deposit_no,
-        source_invoice_no AS invoice_no,amount,reference,description,imported_at
+        source_invoice_no AS invoice_no,amount,reference,description,imported_at,
+        COUNT(*) OVER() AS filtered_count
       FROM customer_payments
-      WHERE account_number=?
-      ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
-      LIMIT 5000
-    `).bind(account).all();
+      WHERE account_number=?${searchSql}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    `).bind(account,...searchBindings,pageSize,offset).all(),
+      env.DB.prepare(`SELECT COUNT(*) AS payment_count,COALESCE(SUM(COALESCE(amount,0)),0) AS total_paid FROM customer_payments WHERE account_number=?`).bind(account).first()
+    ]);
     const rows=result?.results||[];
-    const totalPaid=rows.reduce((sum,r)=>sum+paymentAmount(r.amount),0);
-    return notificationJson({success:true,count:rows.length,total_paid:totalPaid,payments:rows});
+    const accountCount=Math.max(0,Number(totals?.payment_count||0));
+    const filteredCount=tokens.length?Math.max(0,Number(rows[0]?.filtered_count||0)):accountCount;
+    const totalPaid=paymentAmount(totals?.total_paid);
+    return notificationJson({success:true,count:accountCount,total:filteredCount,total_paid:totalPaid,page,page_size:pageSize,has_more:offset+rows.length<filteredCount,payments:rows});
   }catch(error){
     console.error('customerPaymentsGet failed',error);
     return notificationJson({success:false,error:"Payment history could not be loaded."},500);
@@ -1382,7 +1651,9 @@ var json4 = /* @__PURE__ */ __name((data, status = 200, extraHeaders = {}) => ne
   headers: {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-    ...extraHeaders
+    ...extraHeaders,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   }
 }), "json");
 function clean(v) {
@@ -1437,6 +1708,66 @@ async function sha256(value) {
   );
 }
 __name(sha256, "sha256");
+var rateLimitCleanupByDatabase = new WeakMap();
+async function ensurePortalRateLimitSchema(env){
+  return runSchemaSetupOnce(env,"portal-rate-limits",async()=>{
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS portal_rate_limits (key_hash TEXT PRIMARY KEY,attempt_count INTEGER NOT NULL DEFAULT 0,window_started_at INTEGER NOT NULL,blocked_until INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL)`).run();
+    await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_portal_rate_limits_updated ON portal_rate_limits(updated_at)`).run();
+  });
+}
+async function portalRateLimitConsume(env,request,scope,identifier,{limit=10,windowSeconds=900,blockSeconds=900}={}){
+  try{
+    if(!env?.DB)return {limited:false,keyHash:"",retryAfter:0};
+    await ensurePortalRateLimitSchema(env);
+    const now=Math.floor(Date.now()/1000);
+    const lastCleanup=Number(rateLimitCleanupByDatabase.get(env.DB)||0);
+    if(now-lastCleanup>3600){
+      rateLimitCleanupByDatabase.set(env.DB,now);
+      await env.DB.prepare(`DELETE FROM portal_rate_limits WHERE updated_at<?`).bind(now-7*24*60*60).run();
+    }
+    const ip=String(request.headers.get("CF-Connecting-IP")||"").trim()||"unknown";
+    const normalizedIdentifier=String(identifier||"").trim().toLowerCase().slice(0,254)||"unknown";
+    const secret=String(env.AUTH_RATE_LIMIT_SECRET||env.ADMIN_IMPORT_KEY||"wooten-portal-rate-limit");
+    const keyHash=await sha256(`${scope}\u0000${ip}\u0000${normalizedIdentifier}\u0000${secret}`);
+    const windowCutoff=now-Math.max(60,Number(windowSeconds)||900);
+    const blockedUntil=now+Math.max(60,Number(blockSeconds)||900);
+    const safeLimit=Math.max(2,Math.min(100,Number(limit)||10));
+    const row=await env.DB.prepare(`
+      INSERT INTO portal_rate_limits(key_hash,attempt_count,window_started_at,blocked_until,updated_at)
+      VALUES(?,1,?,0,?)
+      ON CONFLICT(key_hash) DO UPDATE SET
+        blocked_until=CASE
+          WHEN portal_rate_limits.blocked_until>? THEN portal_rate_limits.blocked_until
+          WHEN portal_rate_limits.window_started_at<=? THEN 0
+          WHEN portal_rate_limits.attempt_count>=? THEN ?
+          ELSE 0
+        END,
+        attempt_count=CASE WHEN portal_rate_limits.window_started_at<=? THEN 1 ELSE portal_rate_limits.attempt_count+1 END,
+        window_started_at=CASE WHEN portal_rate_limits.window_started_at<=? THEN ? ELSE portal_rate_limits.window_started_at END,
+        updated_at=?
+      RETURNING attempt_count,blocked_until
+    `).bind(keyHash,now,now,now,windowCutoff,safeLimit,blockedUntil,windowCutoff,windowCutoff,now,now).first();
+    const retryAfter=Math.max(0,Number(row?.blocked_until||0)-now);
+    return {limited:retryAfter>0,keyHash,retryAfter};
+  }catch(error){
+    console.error("Portal rate limit check failed",error);
+    return {limited:false,keyHash:"",retryAfter:0};
+  }
+}
+async function portalRateLimitClear(env,keyHash){
+  if(!env?.DB||!keyHash)return;
+  await env.DB.prepare(`DELETE FROM portal_rate_limits WHERE key_hash=?`).bind(keyHash).run().catch(error=>console.error("Portal rate limit reset failed",error));
+}
+function portalRateLimitResponse(result){
+  return new Response(JSON.stringify({success:false,error:"Too many attempts. Please wait and try again."}),{
+    status:429,
+    headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Retry-After":String(Math.max(1,Math.ceil(Number(result?.retryAfter||60))))}
+  });
+}
+__name(ensurePortalRateLimitSchema,"ensurePortalRateLimitSchema");
+__name(portalRateLimitConsume,"portalRateLimitConsume");
+__name(portalRateLimitClear,"portalRateLimitClear");
+__name(portalRateLimitResponse,"portalRateLimitResponse");
 async function verifyPassword(password, storedHash) {
   const value = clean(storedHash);
   if (!value) {
@@ -1620,6 +1951,7 @@ function publicCustomer(customer) {
 __name(publicCustomer, "publicCustomer");
 async function ensureCustomerSessionScopeColumns(env) {
   if (!env?.DB) return;
+  return runSchemaSetupOnce(env,"customer-session-scope",async()=>{
   const addColumn = async (sql) => {
     try {
       await env.DB.prepare(sql).run();
@@ -1638,10 +1970,13 @@ async function ensureCustomerSessionScopeColumns(env) {
   if (!columns.has("verified_email")) {
     await addColumn(`ALTER TABLE customer_sessions ADD COLUMN verified_email TEXT`);
   }
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_customer_sessions_expires ON customer_sessions(expires_at)`).run();
+  });
 }
 __name(ensureCustomerSessionScopeColumns, "ensureCustomerSessionScopeColumns");
 async function createSession(env, customerId, rememberMe = false, loginMethod = "account", verifiedEmail = "") {
   await ensureCustomerSessionScopeColumns(env);
+  await env.DB.prepare(`DELETE FROM customer_sessions WHERE expires_at<=?`).bind(new Date().toISOString()).run().catch((error)=>console.error("Expired customer sessions could not be cleaned up",error));
   const token = randomToken();
   const tokenHash = await sha256(token);
   const now = /* @__PURE__ */ new Date();
@@ -1675,8 +2010,10 @@ async function createSession(env, customerId, rememberMe = false, loginMethod = 
 __name(createSession, "createSession");
 async function ensureCustomerLoginActivityTable(env){
   if(!env?.DB)return;
+  return runSchemaSetupOnce(env,"customer-login-activity",async()=>{
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS customer_login_activity (id INTEGER PRIMARY KEY AUTOINCREMENT,customer_id INTEGER,account_number TEXT NOT NULL,result TEXT NOT NULL,user_agent TEXT,ip_hash TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_customer_login_activity_account_created ON customer_login_activity(account_number,created_at DESC,id DESC)`).run();
+  });
 }
 async function recordCustomerLoginActivity(env,request,customer,result){
   try{await ensureCustomerLoginActivityTable(env);const ipHash=await accountApplicationIpHash(request);await env.DB.prepare(`INSERT INTO customer_login_activity(customer_id,account_number,result,user_agent,ip_hash) VALUES (?,?,?,?,?)`).bind(Number(customer?.id||0)||null,String(customer?.account_number||""),String(result||"unknown").slice(0,40),String(request.headers.get("User-Agent")||"").slice(0,300),ipHash||null).run();}catch(error){console.error("Customer login activity could not be recorded",error);}
@@ -1739,15 +2076,16 @@ async function getCustomerFromSession(request, env) {
   if (!row) {
     return null;
   }
-  if (clean(row.account_status).toLowerCase() !== "active") {
+  const accountStatus=clean(row.account_status).toLowerCase();
+  if (accountStatus && accountStatus !== "active") {
     return null;
   }
   env.DB.prepare(`
     UPDATE customer_sessions
-    SET last_seen_at = ?
+    SET last_seen_at = CURRENT_TIMESTAMP
     WHERE id = ?
+      AND (last_seen_at IS NULL OR datetime(last_seen_at) < datetime('now','-5 minutes'))
   `).bind(
-    now,
     row.session_id
   ).run().catch(
     (error) => console.error(
@@ -1760,6 +2098,7 @@ async function getCustomerFromSession(request, env) {
 __name(getCustomerFromSession, "getCustomerFromSession");
 async function ensureSharedEmailCredentialTable(env) {
   if (!env?.DB) return;
+  return runSchemaSetupOnce(env,"shared-email-credentials",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS customer_shared_email_credentials (
       email_key TEXT PRIMARY KEY,
@@ -1768,6 +2107,7 @@ async function ensureSharedEmailCredentialTable(env) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+  });
 }
 __name(ensureSharedEmailCredentialTable, "ensureSharedEmailCredentialTable");
 async function getSharedEmailCredential(env, email) {
@@ -1803,15 +2143,9 @@ async function customerLoginPost({
       error: "Customer database is not configured."
     }, 503);
   }
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json4({
-      success: false,
-      error: "Invalid login request."
-    }, 400);
-  }
+  const parsedBody=await readJsonWithLimit(request,32*1024);
+  if(!parsedBody.ok)return json4({success:false,error:parsedBody.error||"Invalid login request."},parsedBody.status||400);
+  const body=parsedBody.data;
   const user = clean(
     body?.user || body?.account_number || body?.email
   );
@@ -1823,9 +2157,16 @@ async function customerLoginPost({
       error: "Enter your Customer Number and password."
     }, 400);
   }
+  if(user.length>254||password.length>256)return json4({success:false,error:"Customer Number or password is incorrect."},401);
+  const loginIpRate=await portalRateLimitConsume(env,request,"customer-login-ip","all",{limit:100,windowSeconds:15*60,blockSeconds:15*60});
+  if(loginIpRate.limited)return portalRateLimitResponse(loginIpRate);
+  const loginRateIdentifier=user.includes("@")?user.toLowerCase():normalizeAccount(user)||user;
+  const loginRate=await portalRateLimitConsume(env,request,"customer-login",loginRateIdentifier,{limit:10,windowSeconds:15*60,blockSeconds:15*60});
+  if(loginRate.limited)return portalRateLimitResponse(loginRate);
   let customer = null;
   let emailMatches = [];
   const loginMethod = user.includes("@") ? "email" : "account";
+  let linkedEmailSession = false;
   const normalizedAccount = loginMethod === "account" ? normalizeAccount(user) : "";
   if (normalizedAccount) {
     customer = await env.DB.prepare(`
@@ -1850,17 +2191,15 @@ async function customerLoginPost({
     });
     const sharedCredential = await getSharedEmailCredential(env, emailKey);
     if (sharedCredential && clean(sharedCredential.password_hash)) {
-      if (await verifyPassword(password, sharedCredential.password_hash)) customer = activeMatches[0] || null;
-    } else {
-      // Backward-compatible migration: until a shared-email password is created,
-      // an existing linked account password can still establish the email-scoped session.
-      for (const candidate of activeMatches) {
-        if (!clean(candidate.password_hash)) continue;
-        if (await verifyPassword(password, candidate.password_hash)) {
-          customer = candidate;
-          break;
-        }
+      if (await verifyPassword(password, sharedCredential.password_hash)) {
+        customer = activeMatches[0] || null;
+        linkedEmailSession = !!customer;
       }
+    } else if(activeMatches.length===1) {
+      // A single-account email may use that account's password. Multi-account
+      // email access requires its dedicated Shared Email Login credential.
+      const candidate=activeMatches[0];
+      if(clean(candidate.password_hash)&&await verifyPassword(password,candidate.password_hash))customer=candidate;
     }
   }
   if (!customer) {
@@ -1910,20 +2249,22 @@ async function customerLoginPost({
       error: "Customer Number or password is incorrect."
     }, 401);
   }
+  const sessionLoginMethod=loginMethod==="email"&&linkedEmailSession?"email":"account";
   const token = await createSession(
     env,
     customer.id,
     rememberMe,
-    loginMethod,
-    loginMethod === "email" ? user : ""
+    sessionLoginMethod,
+    sessionLoginMethod === "email" ? user : ""
   );
   await recordCustomerLoginActivity(env,request,customer,"success");
+  await portalRateLimitClear(env,loginRate.keyHash);
   return json4(
     {
       success: true,
       customer: publicCustomer(customer),
-      login_method: loginMethod,
-      account_scope: loginMethod === "email" ? "linked" : "single"
+      login_method: sessionLoginMethod,
+      account_scope: sessionLoginMethod === "email" ? "linked" : "single"
     },
     200,
     {
@@ -1976,9 +2317,9 @@ async function customerAccountSwitchPost({request,env}) {
   if (!env.DB) return json4({success:false,error:"Customer database is not configured."},503);
   const current = await getCustomerFromSession(request,env);
   if (!current) return json4({success:false,authenticated:false},401);
-  let body;
-  try { body = await request.json(); }
-  catch { return json4({success:false,error:"Invalid account switch request."},400); }
+  const parsedBody=await readJsonWithLimit(request,32*1024);
+  if(!parsedBody.ok)return json4({success:false,error:parsedBody.error||"Invalid account switch request."},parsedBody.status||400);
+  const body=parsedBody.data;
   const targetAccount = normalizeAccount(body?.account_number);
   if (!targetAccount) return json4({success:false,error:"Choose an account."},400);
   const linkedScope = isLinkedEmailSession(current);
@@ -2071,7 +2412,9 @@ var json5 = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.str
   status,
   headers: {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   }
 }), "json");
 function clean2(v) {
@@ -2252,7 +2595,7 @@ async function sendActivationEmail(env, customer, code) {
     );
   }
   const fromAddress = clean2(env.FUEL_FROM_EMAIL) || "fuel@wootenoil.com";
-  const response = await fetch(
+  const response = await providerFetch(
     "https://api.resend.com/emails",
     {
       method: "POST",
@@ -2347,12 +2690,18 @@ async function customerActivationStart({
   if (!env.DB) {
     return json5({ success: false, error: "Customer database is not configured." }, 503);
   }
-  let body;
-  try { body = await request.json(); }
-  catch { return json5({ success: false, error: "Invalid activation request." }, 400); }
+  const parsedBody=await readJsonWithLimit(request,32*1024);
+  if(!parsedBody.ok)return json5({success:false,error:parsedBody.error||"Invalid activation request."},parsedBody.status||400);
+  let body=parsedBody.data;
 
   const rawIdentifier = clean2(body?.identifier || body?.email || body?.account_number || body?.accountNumber);
   if (!rawIdentifier) return json5({ success: false, error: "Enter your Email Address or Customer Number." }, 400);
+  if(rawIdentifier.length>254)return json5({success:false,error:"Enter a valid Email Address or Customer Number."},400);
+  const sendIpRate=await portalRateLimitConsume(env,request,"activation-code-send-ip","all",{limit:30,windowSeconds:30*60,blockSeconds:30*60});
+  if(sendIpRate.limited)return portalRateLimitResponse(sendIpRate);
+  const sendRateIdentifier=rawIdentifier.includes("@")?rawIdentifier.toLowerCase():normalizeAccount2(rawIdentifier)||rawIdentifier;
+  const sendRate=await portalRateLimitConsume(env,request,"activation-code-send",sendRateIdentifier,{limit:5,windowSeconds:30*60,blockSeconds:30*60});
+  if(sendRate.limited)return portalRateLimitResponse(sendRate);
 
   // Email first-time setup: if the same active email is linked to multiple accounts,
   // create one dedicated shared-email credential without changing individual account passwords.
@@ -2463,15 +2812,9 @@ async function customerActivationVerify({
       error: "Customer database is not configured."
     }, 503);
   }
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json5({
-      success: false,
-      error: "Invalid verification request."
-    }, 400);
-  }
+  const parsedBody=await readJsonWithLimit(request,32*1024);
+  if(!parsedBody.ok)return json5({success:false,error:parsedBody.error||"Invalid verification request."},parsedBody.status||400);
+  const body=parsedBody.data;
   const account = normalizeAccount2(
     body?.account_number
   );
@@ -2482,6 +2825,10 @@ async function customerActivationVerify({
       error: "Enter your Customer Number and verification code."
     }, 400);
   }
+  const activationIpRate=await portalRateLimitConsume(env,request,"activation-code-ip","all",{limit:100,windowSeconds:15*60,blockSeconds:15*60});
+  if(activationIpRate.limited)return portalRateLimitResponse(activationIpRate);
+  const activationRate=await portalRateLimitConsume(env,request,"activation-code",account,{limit:10,windowSeconds:15*60,blockSeconds:15*60});
+  if(activationRate.limited)return portalRateLimitResponse(activationRate);
   const customer = await getCustomerByAccount(
     env,
     account
@@ -2503,6 +2850,7 @@ async function customerActivationVerify({
       error: "The verification code is incorrect or has expired."
     }, 400);
   }
+  await portalRateLimitClear(env,activationRate.keyHash);
   return json5({
     success: true,
     verified: true,
@@ -2516,9 +2864,9 @@ async function customerActivationSetPassword({
   env
 }) {
   if (!env.DB) return json5({ success: false, error: "Customer database is not configured." }, 503);
-  let body;
-  try { body = await request.json(); }
-  catch { return json5({ success: false, error: "Invalid password request." }, 400); }
+  const parsedBody=await readJsonWithLimit(request,32*1024);
+  if(!parsedBody.ok)return json5({success:false,error:parsedBody.error||"Invalid password request."},parsedBody.status||400);
+  const body=parsedBody.data;
 
   const code = clean2(body?.code);
   const password = String(body?.password ?? "");
@@ -2529,6 +2877,11 @@ async function customerActivationSetPassword({
   if (confirmPassword && password !== confirmPassword) return json5({ success: false, error: "The passwords do not match." }, 400);
   if (password.length < 8 || !/[A-Za-z]/.test(password)) return json5({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
   if (password.length > 128) return json5({ success: false, error: "Your password is too long." }, 400);
+  const activationIpRate=await portalRateLimitConsume(env,request,"activation-code-ip","all",{limit:100,windowSeconds:15*60,blockSeconds:15*60});
+  if(activationIpRate.limited)return portalRateLimitResponse(activationIpRate);
+  const activationRateIdentifier=identifier.includes("@")?identifier.toLowerCase():normalizeAccount2(identifier)||identifier;
+  const activationRate=await portalRateLimitConsume(env,request,"activation-code",activationRateIdentifier,{limit:10,windowSeconds:15*60,blockSeconds:15*60});
+  if(activationRate.limited)return portalRateLimitResponse(activationRate);
 
   if (activationScope === "shared_email") {
     const emailKey = identifier.toLowerCase();
@@ -2560,17 +2913,19 @@ async function customerActivationSetPassword({
       return json5({ success: false, error: "We could not securely create your password. Please try again." }, 500);
     }
     try {
+      const consumed=await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')`).bind(activation.id).run();
+      if(Number(consumed?.meta?.changes??consumed?.changes??0)!==1)return json5({success:false,error:"The verification code is incorrect or has expired."},400);
       await ensureSharedEmailCredentialTable(env);
       await env.DB.prepare(`
         INSERT INTO customer_shared_email_credentials(email_key,password_hash,created_at,updated_at)
         VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
         ON CONFLICT(email_key) DO UPDATE SET password_hash=excluded.password_hash,updated_at=CURRENT_TIMESTAMP
       `).bind(emailKey,passwordHash).run();
-      await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(activation.id).run();
     } catch (error) {
       console.error("Shared email activation failed", error);
       return json5({ success: false, error: "We could not set up the shared email login." }, 500);
     }
+    await portalRateLimitClear(env,activationRate.keyHash);
     return json5({
       success: true,
       activated: true,
@@ -2596,16 +2951,18 @@ async function customerActivationSetPassword({
     return json5({ success: false, error: "We could not securely create your password. Please try again." }, 500);
   }
   try {
+    const consumed=await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')`).bind(activation.id).run();
+    if(Number(consumed?.meta?.changes??consumed?.changes??0)!==1)return json5({success:false,error:"The verification code is incorrect or has expired."},400);
     await env.DB.prepare(`
       UPDATE customers
       SET password_hash=?,must_change_password=0,account_status='active',updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).bind(passwordHash,customer.id).run();
-    await env.DB.prepare(`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(activation.id).run();
   } catch (error) {
     console.error("Customer activation failed", error);
     return json5({ success: false, error: "We could not activate the online account." }, 500);
   }
+  await portalRateLimitClear(env,activationRate.keyHash);
   return json5({
     success: true,
     activated: true,
@@ -2694,7 +3051,9 @@ var json6 = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.str
   status,
   headers: {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   }
 }), "json");
 function clean3(v) {
@@ -2774,6 +3133,7 @@ async function storeResetCode(env, customerId, code) {
 __name(storeResetCode, "storeResetCode");
 
 async function ensureSharedEmailPasswordResetTable(env) {
+  return runSchemaSetupOnce(env,"shared-email-password-reset",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS shared_email_password_reset_tokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2785,6 +3145,7 @@ async function ensureSharedEmailPasswordResetTable(env) {
     )
   `).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_shared_email_reset_email ON shared_email_password_reset_tokens(email_key,created_at)`).run().catch(()=>{});
+  });
 }
 __name(ensureSharedEmailPasswordResetTable, "ensureSharedEmailPasswordResetTable");
 async function sharedEmailResetHash(emailKey, code) {
@@ -2804,7 +3165,7 @@ __name(storeSharedEmailResetCode, "storeSharedEmailResetCode");
 async function sendSharedEmailResetEmail(env, email, code) {
   if (!env.RESEND_API_KEY) throw new Error("Email service is not configured.");
   const fromAddress = clean3(env.FUEL_FROM_EMAIL) || "support@wootenoil.com";
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await providerFetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json", "User-Agent": "WootenOilCustomerPortal/1.0" },
     body: JSON.stringify({
@@ -2880,7 +3241,7 @@ async function adminGeneratePasswordResetCode({ request, env }) {
     console.error("adminGeneratePasswordResetCode failed", error);
     return json6({
       success: false,
-      error: "The password reset code could not be generated. " + String(error?.message || error)
+      error: "The password reset code could not be generated. Please try again."
     }, 500);
   }
 }
@@ -2889,7 +3250,7 @@ __name(adminGeneratePasswordResetCode, "adminGeneratePasswordResetCode");
 async function sendResetEmail(env, customer, code) {
   if (!env.RESEND_API_KEY) throw new Error("Email service is not configured.");
   const fromAddress = clean3(env.FUEL_FROM_EMAIL) || "support@wootenoil.com";
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await providerFetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json", "User-Agent": "WootenOilCustomerPortal/1.0" },
     body: JSON.stringify({
@@ -2919,7 +3280,7 @@ async function sendResetSms(env, customer, code) {
   if (messagingServiceSid) bodyData.MessagingServiceSid = messagingServiceSid;
   else bodyData.From = from;
   const body = new URLSearchParams(bodyData);
-  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
+  const response = await providerFetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
     method: "POST",
     headers: { "Authorization": `Basic ${btoa(`${sid}:${token}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString()
@@ -2932,11 +3293,22 @@ async function sendResetSms(env, customer, code) {
 __name(sendResetSms, "sendResetSms");
 async function customerPasswordResetStart({ request, env }) {
   if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
-  let body;
-  try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password reset request." }, 400); }
+  const parsedBody=await readJsonWithLimit(request,32*1024);
+  if(!parsedBody.ok)return json6({success:false,error:parsedBody.error||"Invalid password reset request."},parsedBody.status||400);
+  const body=parsedBody.data;
   const identifier = clean3(body?.identifier || body?.user || body?.account_number || body?.email);
   const requestedMethod = clean3(body?.method).toLowerCase();
   if (!identifier) return json6({ success: false, error: "Enter the email address or Customer Number on the account." }, 400);
+  if(identifier.length>254)return json6({success:false,error:"Enter a valid email address or Customer Number."},400);
+  const discoveryRateIdentifier=identifier.includes("@")?identifier.toLowerCase():normalizeAccount3(identifier)||identifier;
+  const discoveryIpRate=await portalRateLimitConsume(env,request,"password-reset-discovery-ip","all",{limit:40,windowSeconds:30*60,blockSeconds:30*60});
+  if(discoveryIpRate.limited)return portalRateLimitResponse(discoveryIpRate);
+  const discoveryRate=await portalRateLimitConsume(env,request,"password-reset-discovery",discoveryRateIdentifier,{limit:15,windowSeconds:30*60,blockSeconds:30*60});
+  if(discoveryRate.limited)return portalRateLimitResponse(discoveryRate);
+  if(requestedMethod){
+    const sendRate=await portalRateLimitConsume(env,request,"password-reset-send",discoveryRateIdentifier,{limit:5,windowSeconds:30*60,blockSeconds:30*60});
+    if(sendRate.limited)return portalRateLimitResponse(sendRate);
+  }
 
   // Shared-email recovery is an email-level credential. Never attach it to a specific customer account.
   if (identifier.includes("@")) {
@@ -3022,12 +3394,9 @@ __name(customerPasswordResetStart, "customerPasswordResetStart");
 async function customerPasswordResetComplete({ request, env }) {
   try {
     if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
-    let body;
-    try {
-      body = await request.json();
-    } catch (e) {
-      return json6({ success: false, error: "Invalid password reset request body." }, 400);
-    }
+    const parsedBody=await readJsonWithLimit(request,32*1024);
+    if(!parsedBody.ok)return json6({success:false,error:parsedBody.error||"Invalid password reset request body."},parsedBody.status||400);
+    const body=parsedBody.data;
     const identifier = clean3(body?.identifier || body?.account_number || body?.email);
     const code = clean3(body?.code);
     const password = String(body?.password ?? "");
@@ -3038,6 +3407,11 @@ async function customerPasswordResetComplete({ request, env }) {
     if (confirm && password !== confirm) return json6({ success: false, error: "The passwords do not match." }, 400);
     if (password.length < 8 || !/[A-Za-z]/.test(password)) return json6({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
     if (password.length > 128) return json6({ success: false, error: "Your password is too long." }, 400);
+    const resetIpRate=await portalRateLimitConsume(env,request,"password-reset-code-ip","all",{limit:100,windowSeconds:15*60,blockSeconds:15*60});
+    if(resetIpRate.limited)return portalRateLimitResponse(resetIpRate);
+    const resetRateIdentifier=identifier.includes("@")?identifier.toLowerCase():normalizeAccount3(identifier)||identifier;
+    const resetRate=await portalRateLimitConsume(env,request,"password-reset-code",resetRateIdentifier,{limit:10,windowSeconds:15*60,blockSeconds:15*60});
+    if(resetRate.limited)return portalRateLimitResponse(resetRate);
 
     // For an email identifier, first check for a valid Shared Email Login reset token.
     if (identifier.includes("@")) {
@@ -3055,10 +3429,12 @@ async function customerPasswordResetComplete({ request, env }) {
         const existingShared = await getSharedEmailCredential(env,emailKey);
         if (!existingShared) return json6({ success: false, error: "This Shared Email Login is not set up. Please use First Time Login." }, 409);
         const passwordHash = await createPasswordHash2(password);
+        const consumed=await env.DB.prepare(`UPDATE shared_email_password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')`).bind(sharedToken.id).run();
+        if(Number(consumed?.meta?.changes??consumed?.changes??0)!==1)return json6({success:false,error:"The verification code is incorrect or has expired. Please request a new code."},400);
         await env.DB.prepare(`UPDATE customer_shared_email_credentials SET password_hash=?,updated_at=CURRENT_TIMESTAMP WHERE email_key=?`).bind(passwordHash,emailKey).run();
-        await env.DB.prepare(`UPDATE shared_email_password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=?`).bind(sharedToken.id).run().catch(()=>{});
         await ensureCustomerSessionScopeColumns(env);
         await env.DB.prepare(`DELETE FROM customer_sessions WHERE login_method='email' AND lower(trim(COALESCE(verified_email,'')))=?`).bind(emailKey).run().catch(()=>{});
+        await portalRateLimitClear(env,resetRate.keyHash);
         return json6({ success: true, reset_scope: "shared_email", email: emailKey, message: "Your Shared Email Login password has been reset. You can now sign in with your email and new password." });
       }
     }
@@ -3078,6 +3454,8 @@ async function customerPasswordResetComplete({ request, env }) {
     `).bind(customer.id, hash).first();
     if (!token) return json6({ success: false, error: "The verification code is incorrect or has expired. Please request a new code." }, 400);
     const passwordHash = await createPasswordHash2(password);
+    const consumed=await env.DB.prepare(`UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')`).bind(token.id).run();
+    if(Number(consumed?.meta?.changes??consumed?.changes??0)!==1)return json6({success:false,error:"The verification code is incorrect or has expired. Please request a new code."},400);
     const update = await env.DB.prepare(`
       UPDATE customers
       SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
@@ -3093,15 +3471,11 @@ async function customerPasswordResetComplete({ request, env }) {
       console.error("must_change_password cleanup failed", e);
     }
     try {
-      await env.DB.prepare(`UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(token.id).run();
-    } catch (e) {
-      console.error("reset token cleanup failed", e);
-    }
-    try {
       await env.DB.prepare(`DELETE FROM customer_sessions WHERE customer_id = ?`).bind(customer.id).run();
     } catch (e) {
       console.error("session cleanup failed", e);
     }
+    await portalRateLimitClear(env,resetRate.keyHash);
     return json6({
       success: true,
       account_number: customer.account_number,
@@ -3109,10 +3483,9 @@ async function customerPasswordResetComplete({ request, env }) {
     });
   } catch (e) {
     console.error("Password reset complete unexpected error", e);
-    const msg = clean3(e?.message) || String(e || "Unknown server error");
     return json6({
       success: false,
-      error: `Password reset server error: ${msg}`
+      error: "Password reset could not be completed right now. Please try again or contact Wooten Oil."
     }, 500);
   }
 }
@@ -3124,8 +3497,9 @@ async function customerChangePassword({ request, env }) {
     if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
     const session = await getCustomerFromSession(request, env);
     if (!session) return json6({ success: false, error: "Your customer session has expired. Please sign in again." }, 401);
-    let body;
-    try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password change request." }, 400); }
+    const parsedBody=await readJsonWithLimit(request,32*1024);
+    if(!parsedBody.ok)return json6({success:false,error:parsedBody.error||"Invalid password change request."},parsedBody.status||400);
+    const body=parsedBody.data;
     const currentPassword = String(body?.current_password ?? body?.currentPassword ?? "");
     const newPassword = String(body?.new_password ?? body?.newPassword ?? "");
     const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
@@ -3134,6 +3508,8 @@ async function customerChangePassword({ request, env }) {
     if (newPassword.length > 128) return json6({ success: false, error: "Your new password is too long." }, 400);
     if (newPassword !== confirmPassword) return json6({ success: false, error: "The new passwords do not match." }, 400);
     if (newPassword === currentPassword) return json6({ success: false, error: "Choose a new password that is different from your current password." }, 400);
+    const passwordRate=await portalRateLimitConsume(env,request,"customer-change-password",String(session.account_number||session.id||""),{limit:10,windowSeconds:15*60,blockSeconds:15*60});
+    if(passwordRate.limited)return portalRateLimitResponse(passwordRate);
     const customer = await env.DB.prepare(`SELECT id,password_hash,account_number FROM customers WHERE id=? LIMIT 1`).bind(session.id).first();
     if (!customer || !clean(customer.password_hash) || !(await verifyPassword(currentPassword, customer.password_hash))) {
       return json6({ success: false, error: "Your current password is incorrect." }, 403);
@@ -3160,8 +3536,9 @@ async function customerChangeSharedEmailPassword({ request, env }) {
     const linkedScope = clean(session.login_method).toLowerCase() === "email" && clean(session.session_scope).toLowerCase() === "linked";
     const emailKey = clean(session.verified_email || session.email).toLowerCase();
     if (!linkedScope || !emailKey) return json6({ success: false, error: "Shared-email password changes are available only when you sign in with your email address." }, 403);
-    let body;
-    try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password change request." }, 400); }
+    const parsedBody=await readJsonWithLimit(request,32*1024);
+    if(!parsedBody.ok)return json6({success:false,error:parsedBody.error||"Invalid password change request."},parsedBody.status||400);
+    const body=parsedBody.data;
     const currentPassword = String(body?.current_password ?? body?.currentPassword ?? "");
     const newPassword = String(body?.new_password ?? body?.newPassword ?? "");
     const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
@@ -3170,6 +3547,8 @@ async function customerChangeSharedEmailPassword({ request, env }) {
     if (newPassword.length > 128) return json6({ success: false, error: "Your new password is too long." }, 400);
     if (newPassword !== confirmPassword) return json6({ success: false, error: "The new passwords do not match." }, 400);
     if (newPassword === currentPassword) return json6({ success: false, error: "Choose a new password that is different from your current password." }, 400);
+    const passwordRate=await portalRateLimitConsume(env,request,"customer-change-shared-password",emailKey,{limit:10,windowSeconds:15*60,blockSeconds:15*60});
+    if(passwordRate.limited)return portalRateLimitResponse(passwordRate);
 
     const existing = await getSharedEmailCredential(env, emailKey);
     let currentValid = false;
@@ -3205,7 +3584,9 @@ function json7(data, status = 200) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff"
     }
   });
 }
@@ -3228,7 +3609,11 @@ p{line-height:1.55;color:#5f6f7e}
     status,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY"
     }
   });
 }
@@ -3248,6 +3633,21 @@ function constantTimeEqual(a, b) {
   return diff === 0;
 }
 __name(constantTimeEqual, "constantTimeEqual");
+function gmailSetupCredential(request) {
+  const headerKey = String(request.headers.get("X-Gmail-Setup-Key") || "").trim();
+  if (headerKey) return headerKey;
+  const authorization = String(request.headers.get("Authorization") || "");
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i);
+  if (bearer?.[1]) return bearer[1].trim();
+  // Legacy support only. New setup clients should use a request header so the
+  // long-lived setup key is not written to browser history or access logs.
+  return String(new URL(request.url).searchParams.get("key") || "");
+}
+__name(gmailSetupCredential, "gmailSetupCredential");
+function gmailSetupAuthorized(request, env) {
+  return constantTimeEqual(gmailSetupCredential(request), requiredEnv(env, "GMAIL_SETUP_KEY"));
+}
+__name(gmailSetupAuthorized, "gmailSetupAuthorized");
 function bytesToBase64Url(bytes) {
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
@@ -3304,6 +3704,7 @@ function callbackUrl(request) {
 __name(callbackUrl, "callbackUrl");
 async function ensureTable(env) {
   if (!env?.DB) throw new Error("D1 binding DB is not available.");
+  return runSchemaSetupOnce(env,"gmail-oauth-tokens",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS gmail_oauth_tokens (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -3316,10 +3717,11 @@ async function ensureTable(env) {
       updated_at TEXT NOT NULL
     )
   `).run();
+  });
 }
 __name(ensureTable, "ensureTable");
 async function fetchGoogleEmail(accessToken) {
-  const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+  const r = await providerFetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   if (!r.ok) return "";
@@ -3329,10 +3731,7 @@ async function fetchGoogleEmail(accessToken) {
 __name(fetchGoogleEmail, "fetchGoogleEmail");
 async function gmailOAuthStart({ request, env }) {
   try {
-    const url = new URL(request.url);
-    const suppliedKey = url.searchParams.get("key") || "";
-    const setupKey = requiredEnv(env, "GMAIL_SETUP_KEY");
-    if (!constantTimeEqual(suppliedKey, setupKey)) {
+    if (!gmailSetupAuthorized(request, env)) {
       return json7({ success: false, error: "Unauthorized Gmail setup request." }, 401);
     }
     const clientId = requiredEnv(env, "GOOGLE_GMAIL_CLIENT_ID");
@@ -3350,32 +3749,46 @@ async function gmailOAuthStart({ request, env }) {
     auth.searchParams.set("prompt", "consent");
     auth.searchParams.set("include_granted_scopes", "true");
     auth.searchParams.set("state", state);
-    return Response.redirect(auth.toString(), 302);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "Location": auth.toString(),
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff"
+      }
+    });
   } catch (error) {
-    return json7({ success: false, error: String(error?.message || error) }, 500);
+    console.error("Gmail OAuth start failed", error);
+    return json7({ success: false, error: "Gmail setup could not be started." }, 500);
   }
 }
 __name(gmailOAuthStart, "gmailOAuthStart");
 async function gmailOAuthCallback({ request, env }) {
   try {
     const url = new URL(request.url);
-    const googleError = url.searchParams.get("error");
-    if (googleError) {
-      return html(`<h1>Gmail connection canceled</h1><p class="bad">${googleError}</p>`, 400);
-    }
-    const code = url.searchParams.get("code") || "";
     const state = url.searchParams.get("state") || "";
-    if (!code || !state) {
-      return html("<h1>Gmail connection failed</h1><p class='bad'>Missing authorization code or state.</p>", 400);
-    }
     const stateSecret = requiredEnv(env, "GMAIL_OAUTH_STATE_SECRET");
-    const verified = await verifyState(state, stateSecret);
+    let verified = null;
+    try {
+      verified = await verifyState(state, stateSecret);
+    } catch {
+      verified = null;
+    }
     if (!verified || verified.purpose !== "wooten-gmail-oauth") {
       return html("<h1>Gmail connection failed</h1><p class='bad'>Invalid or expired setup session.</p>", 400);
     }
+    const googleError = url.searchParams.get("error");
+    if (googleError) {
+      return html(`<h1>Gmail connection canceled</h1><p class="bad">${esc(googleError)}</p>`, 400);
+    }
+    const code = url.searchParams.get("code") || "";
+    if (!code) {
+      return html("<h1>Gmail connection failed</h1><p class='bad'>Missing authorization code.</p>", 400);
+    }
     const clientId = requiredEnv(env, "GOOGLE_GMAIL_CLIENT_ID");
     const clientSecret = requiredEnv(env, "GOOGLE_GMAIL_CLIENT_SECRET");
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    const tokenResponse = await providerFetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -3388,7 +3801,7 @@ async function gmailOAuthCallback({ request, env }) {
     });
     const token = await tokenResponse.json();
     if (!tokenResponse.ok || !token?.access_token) {
-      return html(`<h1>Gmail connection failed</h1><p class="bad">${String(token?.error_description || token?.error || "Token exchange failed.")}</p>`, 400);
+      return html(`<h1>Gmail connection failed</h1><p class="bad">${esc(token?.error_description || token?.error || "Token exchange failed.")}</p>`, 400);
     }
     await ensureTable(env);
     const existing = await env.DB.prepare(
@@ -3424,20 +3837,18 @@ async function gmailOAuthCallback({ request, env }) {
     return html(`
       <h1>Wooten Oil Gmail Connected</h1>
       <p class="ok">Authorization completed successfully.</p>
-      <p>${googleEmail ? `Connected mailbox: <strong>${googleEmail}</strong>` : "The Gmail mailbox is connected."}</p>
+      <p>${googleEmail ? `Connected mailbox: <strong>${esc(googleEmail)}</strong>` : "The Gmail mailbox is connected."}</p>
       <p>You can close this page and return to the Wooten Oil setup.</p>
     `);
   } catch (error) {
-    return html(`<h1>Gmail connection failed</h1><p class="bad">${String(error?.message || error)}</p>`, 500);
+    console.error("Gmail OAuth callback failed", error);
+    return html("<h1>Gmail connection failed</h1><p class='bad'>The Gmail connection could not be completed.</p>", 500);
   }
 }
 __name(gmailOAuthCallback, "gmailOAuthCallback");
 async function gmailOAuthStatus({ request, env }) {
   try {
-    const url = new URL(request.url);
-    const suppliedKey = url.searchParams.get("key") || "";
-    const setupKey = requiredEnv(env, "GMAIL_SETUP_KEY");
-    if (!constantTimeEqual(suppliedKey, setupKey)) {
+    if (!gmailSetupAuthorized(request, env)) {
       return json7({ success: false, error: "Unauthorized." }, 401);
     }
     await ensureTable(env);
@@ -3456,7 +3867,8 @@ async function gmailOAuthStatus({ request, env }) {
       updated_at: row?.updated_at || null
     });
   } catch (error) {
-    return json7({ success: false, error: String(error?.message || error) }, 500);
+    console.error("Gmail OAuth status failed", error);
+    return json7({ success: false, error: "Gmail connection status could not be loaded." }, 500);
   }
 }
 __name(gmailOAuthStatus, "gmailOAuthStatus");
@@ -3495,7 +3907,7 @@ async function getGmailAccessToken(env) {
     "GOOGLE_GMAIL_CLIENT_SECRET"
   );
 
-  const tokenResponse = await fetch(
+  const tokenResponse = await providerFetch(
     "https://oauth2.googleapis.com/token",
     {
       method: "POST",
@@ -3579,20 +3991,7 @@ async function gmailTestMessages({
         );
       }
     } else {
-      const suppliedKey =
-        url.searchParams.get("key") || "";
-
-      const setupKey = requiredEnv(
-        env,
-        "GMAIL_SETUP_KEY"
-      );
-
-      if (
-        !constantTimeEqual(
-          suppliedKey,
-          setupKey
-        )
-      ) {
+      if (!gmailSetupAuthorized(request, env)) {
         return json7(
           {
             success: false,
@@ -3606,7 +4005,7 @@ async function gmailTestMessages({
     const accessToken =
       await getGmailAccessToken(env);
 
-    const listResponse = await fetch(
+    const listResponse = await providerFetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25",
       {
         headers: {
@@ -3698,7 +4097,7 @@ async function gmailTestMessages({
 
     for (const item of messageIds) {
       const messageResponse =
-        await fetch(
+        await providerFetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
           {
             headers: {
@@ -3816,12 +4215,11 @@ async function gmailTestMessages({
     });
 
   } catch (error) {
+    console.error("Gmail test messages failed", error);
     return json7(
       {
         success: false,
-        error: String(
-          error?.message || error
-        )
+        error: "Gmail messages could not be loaded."
       },
       500
     );
@@ -3836,6 +4234,7 @@ __name(
 // Customer portal notifications
 async function ensureCustomerNotificationsTable(env) {
   if (!env?.DB) throw new Error("Customer database is not configured.");
+  return runSchemaSetupOnce(env,"customer-notifications",async()=>{
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS portal_notifications (
@@ -3885,7 +4284,7 @@ async function ensureCustomerNotificationsTable(env) {
       await env.DB.prepare(`ALTER TABLE portal_notifications ADD COLUMN sms_updated_at TEXT`).run();
     }
   }catch(error){
-    console.error("portal notification action columns check failed",error);
+    throw error;
   }
 
   await env.DB.prepare(`
@@ -3905,10 +4304,16 @@ async function ensureCustomerNotificationsTable(env) {
     CREATE INDEX IF NOT EXISTS idx_portal_notification_attachments_account_notification
     ON portal_notification_attachments(account_number, notification_id, id)
   `).run();
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_portal_notifications_action
+    ON portal_notifications(action_type,action_id)
+  `).run();
+  });
 }
 __name(ensureCustomerNotificationsTable, "ensureCustomerNotificationsTable");
 
 async function ensureAdminCommunicationLogTable(env){
+  return runSchemaSetupOnce(env,"admin-communication-log",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS admin_communication_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3955,10 +4360,13 @@ async function ensureAdminCommunicationLogTable(env){
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
-  await env.DB.prepare(`
-    UPDATE admin_communication_log SET sms_status='pending'
-    WHERE COALESCE(sms_status,'')='' AND sms_sent=1 AND COALESCE(sms_sid,'')<>''
-  `).run();
+  await runDurableMigrationOnce(env,"admin-communication-sms-status-v291",async()=>{
+    await env.DB.prepare(`
+      UPDATE admin_communication_log SET sms_status='pending'
+      WHERE COALESCE(sms_status,'')='' AND sms_sent=1 AND COALESCE(sms_sid,'')<>''
+    `).run();
+  });
+  });
 }
 __name(ensureAdminCommunicationLogTable,"ensureAdminCommunicationLogTable");
 
@@ -3966,16 +4374,18 @@ async function backfillAdminCommunicationLog(env){
   await ensureCustomerNotificationsTable(env);
   await ensureCustomerDocumentsTable(env);
   await ensureAdminCommunicationLogTable(env);
+  await runDurableMigrationOnce(env,"admin-communication-log-backfill-v291",async()=>{
   await env.DB.prepare(`
     INSERT OR IGNORE INTO admin_communication_log
-      (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
+      (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,sms_status,created_at)
     SELECT
       n.account_number,
       CASE WHEN d.document_type IN ('statement','invoice') THEN d.document_type ELSE 'notification' END,
       n.title,
       n.message,
       'notification',n.id,1,COALESCE(n.email_sent,0),COALESCE(n.sms_sent,0),
-      COALESCE(n.email_id,''),COALESCE(n.sms_sid,''),COALESCE(n.sms_error,''),n.created_at
+      COALESCE(n.email_id,''),COALESCE(n.sms_sid,''),COALESCE(n.sms_error,''),
+      CASE WHEN COALESCE(n.sms_sent,0)=1 AND COALESCE(n.sms_sid,'')<>'' THEN 'pending' ELSE '' END,n.created_at
     FROM portal_notifications n
     LEFT JOIN portal_customer_documents d
       ON n.action_type='customer_documents' AND n.action_id=d.id
@@ -3993,8 +4403,34 @@ async function backfillAdminCommunicationLog(env){
       WHERE n.action_type='customer_documents' AND n.action_id=d.id
     )
   `).run();
+  });
 }
 __name(backfillAdminCommunicationLog,"backfillAdminCommunicationLog");
+
+async function syncAdminCommunicationLogNotifications(env,notificationIds){
+  const ids=[...new Set((Array.isArray(notificationIds)?notificationIds:[]).map(Number).filter(id=>Number.isSafeInteger(id)&&id>0))];
+  if(!ids.length)return;
+  await ensureCustomerNotificationsTable(env);
+  await ensureAdminCommunicationLogTable(env);
+  for(let start=0;start<ids.length;start+=80){
+    const chunk=ids.slice(start,start+80);
+    const placeholders=chunk.map(()=>"?").join(",");
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO admin_communication_log
+        (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,sms_status,created_at)
+      SELECT n.account_number,
+        CASE WHEN d.document_type IN ('statement','invoice') THEN d.document_type ELSE 'notification' END,
+        n.title,n.message,'notification',n.id,1,COALESCE(n.email_sent,0),COALESCE(n.sms_sent,0),
+        COALESCE(n.email_id,''),COALESCE(n.sms_sid,''),COALESCE(n.sms_error,''),
+        CASE WHEN COALESCE(n.sms_sent,0)=1 AND COALESCE(n.sms_sid,'')<>'' THEN 'pending' ELSE '' END,n.created_at
+      FROM portal_notifications n
+      LEFT JOIN portal_customer_documents d
+        ON n.action_type='customer_documents' AND n.action_id=d.id
+      WHERE n.id IN (${placeholders})
+    `).bind(...chunk).run();
+  }
+}
+__name(syncAdminCommunicationLogNotifications,"syncAdminCommunicationLogNotifications");
 
 async function adminCommunicationLogGet({request,env}){
   try{
@@ -4081,7 +4517,7 @@ async function adminCommunicationLogGet({request,env}){
     return notificationJson({success:true,page:safePage,page_size:pageSize,total,pages,customers:result?.results||[]});
   }catch(error){
     console.error("adminCommunicationLogGet failed",error);
-    return notificationJson({success:false,error:"Communication log could not be loaded. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"Communication log could not be loaded. Please try again."},500);
   }
 }
 __name(adminCommunicationLogGet,"adminCommunicationLogGet");
@@ -4132,7 +4568,7 @@ async function adminCommunicationLogResend({request,env}){
     return notificationJson({success:true,status:"pending",sms_sid:sent.sid||"",log_id:newId,attempt_no:attempt});
   }catch(error){
     console.error("adminCommunicationLogResend failed",error);
-    return notificationJson({success:false,error:"The SMS could not be resent. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"The SMS could not be resent. Please try again."},500);
   }
 }
 __name(adminCommunicationLogResend,"adminCommunicationLogResend");
@@ -4142,7 +4578,9 @@ function notificationJson(data, status = 200) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer"
     }
   });
 }
@@ -4280,7 +4718,7 @@ async function twilioSendSms(env,to,body,options={}){
   if(config.messagingServiceSid) params.set("MessagingServiceSid",config.messagingServiceSid);
   else params.set("From",config.phoneNumber);
   if(options.statusCallbackUrl) params.set("StatusCallback",String(options.statusCallbackUrl));
-  const response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Messages.json`,{
+  const response=await providerFetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Messages.json`,{
     method:"POST",
     headers:{"Authorization":`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,"Content-Type":"application/x-www-form-urlencoded"},
     body:params.toString()
@@ -4324,7 +4762,9 @@ async function twilioRememberOptOut(env,phone,optedOut,type=""){
 }
 __name(twilioRememberOptOut,"twilioRememberOptOut");
 async function twilioMessageStatusPost({request,env}){
-  const params=new URLSearchParams(await request.text());
+  const parsedBody=await readTextWithLimit(request,32*1024);
+  if(!parsedBody.ok)return notificationJson({success:false,error:parsedBody.error},parsedBody.status);
+  const params=new URLSearchParams(parsedBody.text);
   if(!await twilioValidateWebhook(request,params,env)) return notificationJson({success:false,error:"Invalid Twilio signature."},403);
   await ensureCustomerNotificationsTable(env);
   await ensureAdminCommunicationLogTable(env);
@@ -4361,7 +4801,9 @@ async function twilioMessageStatusPost({request,env}){
 }
 __name(twilioMessageStatusPost,"twilioMessageStatusPost");
 async function twilioIncomingMessagePost({request,env}){
-  const params=new URLSearchParams(await request.text());
+  const parsedBody=await readTextWithLimit(request,32*1024);
+  if(!parsedBody.ok)return notificationJson({success:false,error:parsedBody.error},parsedBody.status);
+  const params=new URLSearchParams(parsedBody.text);
   if(!await twilioValidateWebhook(request,params,env)) return notificationJson({success:false,error:"Invalid Twilio signature."},403);
   const phone=String(params.get("From")||"");
   const optType=String(params.get("OptOutType")||"").trim().toUpperCase();
@@ -4375,6 +4817,49 @@ async function twilioIncomingMessagePost({request,env}){
   return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>',{status:200,headers:{"Content-Type":"text/xml; charset=utf-8"}});
 }
 __name(twilioIncomingMessagePost,"twilioIncomingMessagePost");
+
+async function ensureSmsConsentSchema(env){
+  return runSchemaSetupOnce(env,"sms-consent-events",async()=>{
+    await ensureAdminCommunicationLogTable(env);
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS sms_consent_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone_e164 TEXT NOT NULL,
+      account_number TEXT,
+      full_name TEXT NOT NULL,
+      consent_version TEXT NOT NULL,
+      ip_hash TEXT,
+      user_agent TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`).run();
+    await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_sms_consent_phone_created ON sms_consent_events(phone_e164,created_at DESC,id DESC)`).run();
+  });
+}
+__name(ensureSmsConsentSchema,"ensureSmsConsentSchema");
+async function smsConsentPost({request,env}){
+  try{
+    if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+    const rate=await portalRateLimitConsume(env,request,"public-sms-consent","sms-consent",{limit:8,windowSeconds:10*60,blockSeconds:10*60});
+    if(rate.limited)return portalRateLimitResponse(rate);
+    const parsed=await readJsonWithLimit(request,32*1024);
+    if(!parsed.ok)return notificationJson({success:false,error:parsed.error||"Invalid sign-up request."},parsed.status||400);
+    const body=parsed.data;
+    if(String(body.website||"").trim())return notificationJson({success:true,message:"Your preference was received."});
+    const name=String(body.name||"").trim().slice(0,120);
+    const account=body.account_number?normalizeAccount(String(body.account_number)):"";
+    const phone=twilioNormalizePhone(body.phone||"");
+    const consent=body.consent===true||body.consent===1||body.consent==="1"||body.consent==="true";
+    if(!name||!phone||!consent)return notificationJson({success:false,error:"Enter your name and a valid U.S. mobile number, then agree to receive transactional text messages."},400);
+    await ensureSmsConsentSchema(env);
+    const ipHash=await accountApplicationIpHash(request);
+    await env.DB.prepare(`INSERT INTO sms_consent_events(phone_e164,account_number,full_name,consent_version,ip_hash,user_agent) VALUES (?,?,?,?,?,?)`).bind(phone,account||null,name,"transactional-sms-v1",ipHash||null,String(request.headers.get("User-Agent")||"").slice(0,300)).run();
+    await env.DB.prepare(`INSERT INTO sms_contact_preferences(phone_e164,opted_out,opt_out_type,updated_at) VALUES (?,0,'WEB_SIGNUP',CURRENT_TIMESTAMP) ON CONFLICT(phone_e164) DO UPDATE SET opted_out=0,opt_out_type='WEB_SIGNUP',updated_at=CURRENT_TIMESTAMP`).bind(phone).run();
+    return notificationJson({success:true,message:"You are signed up for Wooten Oil transactional text messages. Reply STOP at any time to unsubscribe."});
+  }catch(error){
+    console.error("smsConsentPost failed",error);
+    return notificationJson({success:false,error:"Your text-message preference could not be saved. Please call (901) 476-2684."},500);
+  }
+}
+__name(smsConsentPost,"smsConsentPost");
 
 async function ensurePortalDocumentLinksTable(env){
   await env.DB.prepare(`
@@ -4597,7 +5082,7 @@ async function portalDocumentLinkGet({request,env}){
 }
 __name(portalDocumentLinkGet,"portalDocumentLinkGet");
 async function twilioStatusRequest(url,config){
-  const response=await fetch(url,{headers:{Authorization:`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,Accept:"application/json"}});
+  const response=await providerFetch(url,{headers:{Authorization:`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,Accept:"application/json"}});
   const data=await response.json().catch(()=>({}));
   const code=String(data?.code||response.status||"");
   const message=String(data?.message||data?.detail||data?.status||`HTTP ${response.status}`);
@@ -4702,6 +5187,7 @@ __name(adminTwilioStatusGet,"adminTwilioStatusGet");
 
 async function ensureTwilioPhoneToolsSchema(env){
   if(!env.DB) throw new Error("Customer database is not configured.");
+  return runSchemaSetupOnce(env,"twilio-phone-tools",async()=>{
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS twilio_phone_settings (
     id INTEGER PRIMARY KEY CHECK(id=1),
     default_area_code TEXT NOT NULL DEFAULT '',
@@ -4732,6 +5218,7 @@ async function ensureTwilioPhoneToolsSchema(env){
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_twilio_sms_verification_status ON twilio_sms_verification(status,updated_at DESC)`).run();
+  });
 }
 __name(ensureTwilioPhoneToolsSchema,"ensureTwilioPhoneToolsSchema");
 function adminTwilioAuthorized(request,env){
@@ -4764,7 +5251,7 @@ async function twilioLookupPhone(env,phone){
   if(!config.accountSid||!config.authToken)throw new Error("Twilio account SID and auth token are required for Lookup.");
   const auth=btoa(`${config.accountSid}:${config.authToken}`);
   const endpoint=`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(phone)}`;
-  const response=await fetch(endpoint,{headers:{Authorization:`Basic ${auth}`,Accept:"application/json"}});
+  const response=await providerFetch(endpoint,{headers:{Authorization:`Basic ${auth}`,Accept:"application/json"}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(String(data?.message||data?.detail||`Twilio Lookup failed (${response.status}).`));error.twilioCode=String(data?.code||response.status||"");throw error;}
   return data||{};
@@ -4779,7 +5266,7 @@ async function adminTwilioPhoneToolsGet({request,env}){
     const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.account_number IS NULL THEN 1 ELSE 0 END) AS not_checked_count FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE trim(COALESCE(c.phone,''))<>''`).first();
     const rows=await env.DB.prepare(`SELECT l.account_number,c.account_name,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at FROM twilio_phone_lookup_cache l LEFT JOIN customers c ON c.account_number=l.account_number ORDER BY datetime(l.checked_at) DESC,l.account_number LIMIT 100`).all();
     return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),not_checked_count:Number(lookupStats?.not_checked_count||0)},results:rows?.results||[]});
-  }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+  }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:"Phone tools could not be loaded. Please try again."},500);}
 }
 __name(adminTwilioPhoneToolsGet,"adminTwilioPhoneToolsGet");
 async function adminTwilioPhoneResultsGet({request,env}){
@@ -4814,7 +5301,7 @@ async function adminTwilioPhoneResultsGet({request,env}){
     const listParams=[...params,pageSize,offset];
     const rows=await env.DB.prepare(listSql).bind(...listParams).all();
     return notificationJson({success:true,group,q,page:safePage,page_size:pageSize,pages,total,results:rows?.results||[]});
-  }catch(error){console.error("adminTwilioPhoneResultsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+  }catch(error){console.error("adminTwilioPhoneResultsGet failed",error);return notificationJson({success:false,error:"Phone results could not be loaded. Please try again."},500);}
 }
 __name(adminTwilioPhoneResultsGet,"adminTwilioPhoneResultsGet");
 async function adminTwilioPhoneSettingsPost({request,env}){
@@ -4825,7 +5312,7 @@ async function adminTwilioPhoneSettingsPost({request,env}){
     if(!/^[2-9]\d{2}$/.test(area))return notificationJson({success:false,error:"Enter a valid 3-digit U.S. area code."},400);
     await env.DB.prepare(`UPDATE twilio_phone_settings SET default_area_code=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(area).run();
     return notificationJson({success:true,default_area_code:area});
-  }catch(error){return notificationJson({success:false,error:String(error?.message||error)},500);}
+  }catch(error){console.error("adminTwilioPhoneSettingsPost failed",error);return notificationJson({success:false,error:"Phone settings could not be saved. Please try again."},500);}
 }
 __name(adminTwilioPhoneSettingsPost,"adminTwilioPhoneSettingsPost");
 async function adminTwilioApplyAreaCodePost({request,env}){
@@ -4841,15 +5328,16 @@ async function adminTwilioApplyAreaCodePost({request,env}){
     const total=Math.max(0,Number(totals?.n||0));
     const maxId=Math.max(0,Number(totals?.max_id||0));
     const rows=await env.DB.prepare(`SELECT id,phone FROM customers WHERE trim(COALESCE(phone,''))<>'' AND id>? ORDER BY id LIMIT ?`).bind(cursor,limit).all();
-    const list=rows?.results||[];let updated=0;
+    const list=rows?.results||[];let updated=0;const updates=[];
     for(const row of list){
       const digits=String(row.phone||"").replace(/\D/g,"");
-      if(digits.length===7){const formatted=`(${area}) ${digits.slice(0,3)}-${digits.slice(3)}`;await env.DB.prepare(`UPDATE customers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(formatted,row.id).run();updated++;}
+      if(digits.length===7){const formatted=`(${area}) ${digits.slice(0,3)}-${digits.slice(3)}`;updates.push(env.DB.prepare(`UPDATE customers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(formatted,row.id));updated++;}
     }
+    for(let start=0;start<updates.length;start+=100)await env.DB.batch(updates.slice(start,start+100));
     const nextCursor=list.length?Number(list[list.length-1].id||cursor):cursor;
     const done=list.length===0||nextCursor>=maxId;
     return notificationJson({success:true,default_area_code:area,total,processed_batch:list.length,updated_batch:updated,next_cursor:nextCursor,done});
-  }catch(error){console.error("adminTwilioApplyAreaCodePost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+  }catch(error){console.error("adminTwilioApplyAreaCodePost failed",error);return notificationJson({success:false,error:"Area-code updates could not be completed. Please try again."},500);}
 }
 __name(adminTwilioApplyAreaCodePost,"adminTwilioApplyAreaCodePost");
 async function adminTwilioLookupBatchPost({request,env}){
@@ -4861,7 +5349,7 @@ async function adminTwilioLookupBatchPost({request,env}){
     const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();const total=Number(totalRow?.n||0);
     const rows=await env.DB.prepare(`SELECT account_number,phone FROM customers WHERE trim(COALESCE(phone,''))<>'' ORDER BY id LIMIT ? OFFSET ?`).bind(limit,cursor).all();
     const list=rows?.results||[];let processed=0;
-    for(const row of list){
+    const processLookupRow=async(row)=>{
       const raw=String(row.phone||"");const normalized=twilioUsPhoneWithArea(raw,area);let valid=0,lineType="",carrier="",errorCode="",national="";
       if(!normalized){errorCode="INVALID_FORMAT";}
       else{
@@ -4869,9 +5357,12 @@ async function adminTwilioLookupBatchPost({request,env}){
         catch(error){valid=-1;errorCode=String(error?.twilioCode||"LOOKUP_ERROR");}
       }
       await env.DB.prepare(`INSERT INTO twilio_phone_lookup_cache(account_number,raw_phone,normalized_phone,national_format,valid,line_type,carrier_name,error_code,checked_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET raw_phone=excluded.raw_phone,normalized_phone=excluded.normalized_phone,national_format=excluded.national_format,valid=excluded.valid,line_type=CASE WHEN twilio_phone_lookup_cache.raw_phone=excluded.raw_phone THEN twilio_phone_lookup_cache.line_type ELSE '' END,carrier_name=CASE WHEN twilio_phone_lookup_cache.raw_phone=excluded.raw_phone THEN twilio_phone_lookup_cache.carrier_name ELSE '' END,error_code=excluded.error_code,checked_at=CURRENT_TIMESTAMP`).bind(String(row.account_number||""),raw,normalized,national,valid,lineType,carrier,errorCode).run();processed++;
+    };
+    for(let start=0;start<list.length;start+=5){
+      await Promise.all(list.slice(start,start+5).map(processLookupRow));
     }
     const next=cursor+list.length;return notificationJson({success:true,total,processed_batch:processed,processed_total:Math.min(next,total),next_cursor:next,done:next>=total||list.length===0});
-  }catch(error){console.error("adminTwilioLookupBatchPost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+  }catch(error){console.error("adminTwilioLookupBatchPost failed",error);return notificationJson({success:false,error:"The phone lookup batch could not be completed. Please try again."},500);}
 }
 __name(adminTwilioLookupBatchPost,"adminTwilioLookupBatchPost");
 async function adminTwilioVerifySmsPost({request,env}){
@@ -4902,7 +5393,7 @@ async function adminTwilioVerifySmsPost({request,env}){
     const initialStatus=twilioDeliveryStatus(sent?.status||"");
     await env.DB.prepare(`INSERT INTO twilio_sms_verification(account_number,phone_e164,sms_sid,status,error_code,error_message,sent_at,delivered_at,updated_at) VALUES(?,?,?,?,?,'',CURRENT_TIMESTAMP,CASE WHEN ?='delivered' THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET phone_e164=excluded.phone_e164,sms_sid=excluded.sms_sid,status=excluded.status,error_code='',error_message='',sent_at=CURRENT_TIMESTAMP,delivered_at=CASE WHEN excluded.status='delivered' THEN CURRENT_TIMESTAMP ELSE NULL END,updated_at=CURRENT_TIMESTAMP`).bind(account,currentPhone,String(sent?.sid||""),initialStatus,"",initialStatus).run();
     return notificationJson({success:true,account_number:account,phone_e164:currentPhone,sid:String(sent?.sid||""),status:initialStatus});
-  }catch(error){console.error("adminTwilioVerifySmsPost failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
+  }catch(error){console.error("adminTwilioVerifySmsPost failed",error);return notificationJson({success:false,error:"The verification text could not be sent. Please try again."},500);}
 }
 __name(adminTwilioVerifySmsPost,"adminTwilioVerifySmsPost");
 
@@ -4916,12 +5407,11 @@ async function adminSendCustomerNotification({ request, env }) {
       return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
     }
 
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return notificationJson({ success: false, error: "Invalid request data." }, 400);
+    const parsedBody=await readJsonWithLimit(request,16*1024*1024);
+    if(!parsedBody.ok){
+      return notificationJson({success:false,error:parsedBody.error||"Invalid request data."},parsedBody.status||400);
     }
+    const body=parsedBody.data;
 
     const sendAllWithEmail =
       body?.send_all_with_email === true ||
@@ -5022,9 +5512,16 @@ async function adminSendCustomerNotification({ request, env }) {
         WHERE email IS NOT NULL
           AND trim(email) <> ''
         ORDER BY account_number
+        LIMIT 2001
       `).all();
 
       const allRows = result?.results || [];
+      if(allRows.length>2000){
+        return notificationJson({
+          success:false,
+          error:"This broadcast has more than 2,000 recipients. Split it into smaller groups before sending. No notifications or emails were sent."
+        },413);
+      }
       const isUsableEmail = (value) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 
@@ -5101,7 +5598,7 @@ async function adminSendCustomerNotification({ request, env }) {
         }));
 
         try {
-          const emailResponse = await fetch("https://api.resend.com/emails/batch", {
+          const emailResponse = await providerFetch("https://api.resend.com/emails/batch", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${env.RESEND_API_KEY}`,
@@ -5124,6 +5621,12 @@ async function adminSendCustomerNotification({ request, env }) {
               )
             );
             console.error("Bulk customer notification email batch failed", emailData);
+            if(emailResponse.status===429||emailResponse.status>=500){
+              const remaining=Math.max(0,records.length-(i+chunk.length));
+              emailsFailed+=remaining;
+              if(remaining)emailErrors.push(`${remaining} remaining email(s) were not attempted because the email provider was unavailable.`);
+              break;
+            }
             continue;
           }
 
@@ -5157,6 +5660,12 @@ async function adminSendCustomerNotification({ request, env }) {
           emailsFailed += chunk.length;
           emailErrors.push(String(error?.message || error));
           console.error("Bulk customer notification email error", error);
+          if(error?.name==="TimeoutError"||error?.name==="AbortError"){
+            const remaining=Math.max(0,records.length-(i+chunk.length));
+            emailsFailed+=remaining;
+            if(remaining)emailErrors.push(`${remaining} remaining email(s) were not attempted after the provider timed out.`);
+            break;
+          }
         }
       }
 
@@ -5165,6 +5674,12 @@ async function adminSendCustomerNotification({ request, env }) {
         warning =
           `${emailsFailed} email(s) could not be sent. ` +
           `Their portal notifications were still saved.`;
+      }
+
+      try{
+        await syncAdminCommunicationLogNotifications(env,records.map(record=>record.notification_id));
+      }catch(error){
+        console.error("Bulk notification communication log sync failed",error);
       }
 
       return notificationJson({
@@ -5285,7 +5800,7 @@ async function adminSendCustomerNotification({ request, env }) {
         try {
           const fromAddress = String(env.FUEL_FROM_EMAIL || "support@wootenoil.com").trim();
 
-          const emailResponse = await fetch("https://api.resend.com/emails", {
+          const emailResponse = await providerFetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${env.RESEND_API_KEY}`,
@@ -5314,7 +5829,7 @@ async function adminSendCustomerNotification({ request, env }) {
                 }))
               } : {})
             })
-          });
+          }, 60 * 1e3);
 
           const emailData = await emailResponse.json().catch(() => ({}));
 
@@ -5436,7 +5951,7 @@ async function adminSendCustomerNotification({ request, env }) {
 
     return notificationJson({
       success: false,
-      error: "The portal notification could not be saved. " + String(error?.message || error)
+      error: "The portal notification could not be saved. Please try again."
     }, 500);
   }
 }
@@ -5460,12 +5975,6 @@ async function customerNotificationsGet({ request, env }) {
 
     await ensureCustomerNotificationsTable(env);
     await ensureCustomerDocumentsTable(env);
-
-    try {
-      await syncGmailSentToPortal(env, { force: false, maxMessages: 50 });
-    } catch (syncError) {
-      console.error("Customer notification Gmail sync skipped", syncError);
-    }
 
     const account = normalizeNotificationAccount(customer.account_number);
 
@@ -5494,8 +6003,14 @@ async function customerNotificationsGet({ request, env }) {
       SELECT id, notification_id, filename, content_type, size_bytes
       FROM portal_notification_attachments
       WHERE account_number = ?
+        AND notification_id IN (
+          SELECT id FROM portal_notifications
+          WHERE account_number = ?
+          ORDER BY datetime(created_at) DESC, id DESC
+          LIMIT 50
+        )
       ORDER BY notification_id DESC, id ASC
-    `).bind(account).all();
+    `).bind(account,account).all();
 
     const attachmentsByNotification = new Map();
     for (const row of attachmentResult?.results || []) {
@@ -5538,7 +6053,7 @@ async function customerNotificationsGet({ request, env }) {
 
     return notificationJson({
       success: false,
-      error: "Notifications could not be loaded. " + String(error?.message || error)
+      error: "Notifications could not be loaded. Please try again."
     }, 500);
   }
 }
@@ -5711,7 +6226,7 @@ async function customerNotificationDetailGet({ request, env }) {
     console.error("customerNotificationDetailGet failed", error);
     return notificationJson({
       success: false,
-      error: "Notification could not be opened. " + String(error?.message || error)
+      error: "Notification could not be opened. Please try again."
     }, 500);
   }
 }
@@ -5791,12 +6306,9 @@ async function customerNotificationsReadPost({ request, env }) {
 
     const account = normalizeNotificationAccount(customer.account_number);
 
-    let body = {};
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
+    const parsedBody=await readJsonWithLimit(request,8*1024);
+    if(!parsedBody.ok)return notificationJson({success:false,error:parsedBody.error||"Invalid notification update."},parsedBody.status||400);
+    const body=parsedBody.data;
 
     const id = Number(body?.id || 0);
     const markAll = body?.all === true || body?.mark_all === true;
@@ -5823,7 +6335,7 @@ async function customerNotificationsReadPost({ request, env }) {
 
     return notificationJson({
       success: false,
-      error: String(error?.message || error)
+      error: "The notification could not be updated. Please try again."
     }, 500);
   }
 }
@@ -5870,11 +6382,11 @@ async function customerNotificationsClearPost({ request, env }) {
     `).bind(account).run();
 
     if (env.NOTIFICATION_ATTACHMENTS) {
-      for (const attachment of attachments) {
-        const key = String(attachment?.object_key || "").trim();
-        if (!key) continue;
-        try { await env.NOTIFICATION_ATTACHMENTS.delete(key); } catch (error) {
-          console.error("Notification attachment cleanup failed", key, error);
+      const keys=[...new Set(attachments.map(attachment=>String(attachment?.object_key||"").trim()).filter(Boolean))];
+      for(let start=0;start<keys.length;start+=1000){
+        const chunk=keys.slice(start,start+1000);
+        try{await env.NOTIFICATION_ATTACHMENTS.delete(chunk);}catch(error){
+          console.error("Notification attachment cleanup failed",`${chunk.length} object(s)`,error);
         }
       }
     }
@@ -5887,7 +6399,7 @@ async function customerNotificationsClearPost({ request, env }) {
     console.error("customerNotificationsClearPost failed", error);
     return notificationJson({
       success: false,
-      error: String(error?.message || error)
+      error: "Notifications could not be cleared. Please try again."
     }, 500);
   }
 }
@@ -5897,6 +6409,7 @@ __name(customerNotificationsClearPost, "customerNotificationsClearPost");
 
 async function ensureGmailPortalSyncTables(env) {
   if (!env?.DB) throw new Error("Customer database is not configured.");
+  return runSchemaSetupOnce(env,"gmail-portal-sync",async()=>{
   await ensureCustomerNotificationsTable(env);
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS gmail_portal_sync (
@@ -5924,6 +6437,7 @@ async function ensureGmailPortalSyncTables(env) {
     VALUES (1,NULL,0,NULL,'')
     ON CONFLICT(id) DO NOTHING
   `).run();
+  });
 }
 __name(ensureGmailPortalSyncTables,"ensureGmailPortalSyncTables");
 
@@ -6039,9 +6553,10 @@ async function gmailSyncLoadAttachments({message,accessToken}) {
     if(part.inline_data){
       try{bytes=gmailSyncDecodeBytes(part.inline_data);}catch{bytes=new Uint8Array();}
     } else if(part.attachment_id){
-      const ar=await fetch(
+      const ar=await providerFetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(part.attachment_id)}`,
-        {headers:{Authorization:`Bearer ${accessToken}`}}
+        {headers:{Authorization:`Bearer ${accessToken}`}},
+        30 * 1e3
       );
       const ad=await ar.json().catch(()=>({}));
       if(!ar.ok || !ad?.data) continue;
@@ -6154,26 +6669,27 @@ async function syncGmailSentToPortal(env,options={}) {
     listUrl.searchParams.set("maxResults",String(maxMessages));
     listUrl.searchParams.set("q","in:sent newer_than:2d");
 
-    const lr=await fetch(listUrl.toString(),{headers:{Authorization:`Bearer ${accessToken}`}});
+    const lr=await providerFetch(listUrl.toString(),{headers:{Authorization:`Bearer ${accessToken}`}});
     const ld=await lr.json().catch(()=>({}));
     if(!lr.ok) throw new Error(ld?.error?.message||"Unable to read Gmail Sent messages.");
 
     let checked=0,matched=0,created=0,duplicates=0,unmatched=0,attachmentMessages=0,attachmentsFound=0;
+    const createdNotificationIds=[];
     let newest=Number(state?.last_internal_date||0);
     const cutoff=newest>0?newest-120000:Date.now()-30*60*1000;
 
-    for(const item of ld.messages||[]){
-      const mr=await fetch(
+    const processGmailMessage=async(item)=>{
+      const mr=await providerFetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
         {headers:{Authorization:`Bearer ${accessToken}`}}
       );
       const m=await mr.json().catch(()=>({}));
-      if(!mr.ok) continue;
+      if(!mr.ok) return;
       checked++;
 
       const internalDate=Number(m.internalDate||0);
       if(internalDate>newest) newest=internalDate;
-      if(internalDate&&internalDate<cutoff) continue;
+      if(internalDate&&internalDate<cutoff) return;
 
       const subject=(gmailSyncHeader(m.payload,"Subject")||"(No subject)").trim().slice(0,160);
       const body=gmailSyncBody(m.payload)||String(m.snippet||"").trim().slice(0,5000)||"(Email message)";
@@ -6231,6 +6747,7 @@ async function syncGmailSentToPortal(env,options={}) {
           ).run();
 
           const notificationId=ins?.meta?.last_row_id||ins?.meta?.last_insert_rowid||null;
+          if(notificationId)createdNotificationIds.push(Number(notificationId));
 
           if(notificationId && gmailAttachments.length){
             try{
@@ -6256,6 +6773,17 @@ async function syncGmailSentToPortal(env,options={}) {
         }
       }
       if(!any) unmatched++;
+    };
+
+    const gmailItems=(ld.messages||[]).slice(0,maxMessages);
+    for(let start=0;start<gmailItems.length;start+=5){
+      await Promise.all(gmailItems.slice(start,start+5).map(processGmailMessage));
+    }
+
+    try{
+      await syncAdminCommunicationLogNotifications(env,createdNotificationIds);
+    }catch(error){
+      console.error("Gmail notification communication log sync failed",error);
     }
 
     await env.DB.prepare(`
@@ -6452,7 +6980,7 @@ async function adminCustomerOnlineDeactivate({ request, env }) {
     console.error("adminCustomerOnlineDeactivate failed", error);
     return new Response(JSON.stringify({
       success: false,
-      error: "Could not deactivate the online account. " + String(error?.message || error)
+      error: "Could not deactivate the online account. Please try again."
     }), {
       status: 500,
       headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
@@ -6463,6 +6991,7 @@ __name(adminCustomerOnlineDeactivate, "adminCustomerOnlineDeactivate");
 
 async function ensureAdminContactPreferencesTable(env) {
   if (!env?.DB) throw new Error("Customer database is not configured.");
+  return runSchemaSetupOnce(env,"admin-contact-preferences",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS admin_customer_contact_preferences (
       account_number TEXT PRIMARY KEY,
@@ -6472,6 +7001,7 @@ async function ensureAdminContactPreferencesTable(env) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+  });
 }
 __name(ensureAdminContactPreferencesTable, "ensureAdminContactPreferencesTable");
 
@@ -6531,7 +7061,7 @@ async function adminCustomerContactPreferencesPost({ request, env }) {
     });
   } catch (error) {
     console.error("adminCustomerContactPreferencesPost failed", error);
-    return notificationJson({ success: false, error: "Contact preference could not be updated. " + String(error?.message || error) }, 500);
+    return notificationJson({ success: false, error: "Contact preference could not be updated. Please try again." }, 500);
   }
 }
 __name(adminCustomerContactPreferencesPost, "adminCustomerContactPreferencesPost");
@@ -6683,7 +7213,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
     console.error("adminCustomersDatabaseGet failed", error);
     return new Response(JSON.stringify({
       success: false,
-      error: "Could not load customer database. " + String(error?.message || error)
+      error: "Could not load customer database. Please try again."
     }), {
       status: 500,
       headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
@@ -6789,7 +7319,7 @@ async function adminCustomerPaymentsDatabaseGet({request,env}){
     });
   }catch(error){
     console.error("adminCustomerPaymentsDatabaseGet failed",error);
-    return json3({success:false,error:"Could not load customer payments database. "+String(error?.message||error)},500);
+    return json3({success:false,error:"Could not load customer payments database. Please try again."},500);
   }
 }
 __name(adminCustomerPaymentsDatabaseGet,"adminCustomerPaymentsDatabaseGet");
@@ -6797,9 +7327,11 @@ __name(adminCustomerPaymentsDatabaseGet,"adminCustomerPaymentsDatabaseGet");
 
 
 async function adminClearDatabasePost({request,env}){
-  const supplied=request.headers.get("X-Admin-Key")||"";
-  if(!env.ADMIN_IMPORT_KEY || supplied!==env.ADMIN_IMPORT_KEY){
-    return json3({success:false,error:"Invalid Admin Import Key."},401);
+  // Authorization is performed before routing and stamps this trusted actor
+  // header.  Keep this destructive operation owner-only even when a staff
+  // administrator has the normal database permission.
+  if(request.headers.get("X-Admin-Actor-Owner")!=="1"){
+    return json3({success:false,error:"Only the Wooten Oil Admin can clear a database."},403);
   }
   if(!env.DB){
     return json3({success:false,error:"Customer database is not configured."},503);
@@ -6934,7 +7466,7 @@ async function adminClearDatabasePost({request,env}){
     });
   }catch(error){
     console.error("adminClearDatabasePost failed",error);
-    return json3({success:false,error:"Database could not be cleared. "+String(error?.message||error)},500);
+    return json3({success:false,error:"Database could not be cleared. Please try again."},500);
   }
 }
 __name(adminClearDatabasePost,"adminClearDatabasePost");
@@ -6949,8 +7481,10 @@ function methodNotAllowed() {
     {
       status: 405,
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store"
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer"
       }
     }
   );
@@ -6959,6 +7493,7 @@ __name(methodNotAllowed, "methodNotAllowed");
 
 async function ensureCustomerDocumentsTable(env){
   if(!env.DB) return;
+  return runSchemaSetupOnce(env,"customer-documents",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS portal_customer_documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6977,6 +7512,7 @@ async function ensureCustomerDocumentsTable(env){
     CREATE INDEX IF NOT EXISTS idx_portal_customer_documents_account_date
     ON portal_customer_documents(account_number, document_date, created_at, id)
   `).run();
+  });
 }
 __name(ensureCustomerDocumentsTable,"ensureCustomerDocumentsTable");
 
@@ -7039,7 +7575,7 @@ async function adminCustomerDocumentSendEmail(env,customer,pdfBytes,filename,tit
     const fromAddress=String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim();
     const typeLabel=type==="invoice"?"Invoice":"Statement";
     const dateLabel=documentDate?statementPdfDate(documentDate):"";
-    const response=await fetch("https://api.resend.com/emails",{
+    const response=await providerFetch("https://api.resend.com/emails",{
       method:"POST",
       headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},
       body:JSON.stringify({
@@ -7048,7 +7584,7 @@ async function adminCustomerDocumentSendEmail(env,customer,pdfBytes,filename,tit
         text:`Hello ${customer.account_name||"Customer"},\n\nYour ${title}${dateLabel?` dated ${dateLabel}`:""} is attached as a PDF.\n\nWooten Oil Co Inc.`,
         attachments:[{filename,content:statementBytesToBase64(pdfBytes)}]
       })
-    });
+    }, 60 * 1e3);
     const data=await response.json().catch(()=>({}));
     return response.ok?{sent:true,id:data.id||""}:{sent:false,reason:data?.message||data?.error||"email_failed"};
   }catch(error){
@@ -7069,7 +7605,14 @@ async function adminCustomerDocumentUpload({request,env}){
       return notificationJson({success:false,error:"Document storage is not configured. Add the NOTIFICATION_ATTACHMENTS R2 binding."},503);
     }
 
-    const form=await request.formData();
+    const parsedForm=await readFormDataWithLimit(request,12*1024*1024);
+    if(!parsedForm.ok){
+      const message=parsedForm.status===413
+        ? "The PDF upload is too large. Choose a PDF that is 10 MB or smaller."
+        : "The document upload data is invalid.";
+      return notificationJson({success:false,error:message},parsedForm.status||400);
+    }
+    const form=parsedForm.form;
     const account=normalizeNotificationAccount(form.get("account_number")||"");
     const type=customerDocumentType(form.get("document_type"));
     const documentDate=String(form.get("document_date")||"").trim().slice(0,10);
@@ -7094,13 +7637,16 @@ async function adminCustomerDocumentUpload({request,env}){
 
     if(!(file instanceof File)) return notificationJson({success:false,error:"Choose a PDF statement or invoice."},400);
     const filename=notificationSafeFilename(file.name||"document.pdf");
-    const contentType=String(file.type||"application/pdf").toLowerCase();
-    if(contentType!=="application/pdf" && !filename.toLowerCase().endsWith(".pdf")){
+    const contentType=String(file.type||"").toLowerCase();
+    if(!filename.toLowerCase().endsWith(".pdf") || (contentType&&contentType!=="application/pdf"&&contentType!=="application/octet-stream")){
       return notificationJson({success:false,error:"Statements and invoices must be PDF files."},400);
     }
     if(file.size<=0) return notificationJson({success:false,error:"The selected PDF is empty."},400);
     if(file.size>10*1024*1024) return notificationJson({success:false,error:"PDF files must be 10 MB or smaller."},413);
     const pdfBytes=new Uint8Array(await file.arrayBuffer());
+    if(pdfBytes.length<5 || new TextDecoder().decode(pdfBytes.subarray(0,5))!=="%PDF-"){
+      return notificationJson({success:false,error:"The selected file is not a valid PDF."},400);
+    }
 
     await ensureCustomerDocumentsTable(env);
     const title=customerDocumentTitle(type,rawTitle,filename);
@@ -7233,7 +7779,7 @@ async function adminCustomerDocumentUpload({request,env}){
     }
   }catch(error){
     console.error("adminCustomerDocumentUpload failed",error);
-    return notificationJson({success:false,error:"Document upload failed. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"The document could not be uploaded. Please try again."},500);
   }
 }
 __name(adminCustomerDocumentUpload,"adminCustomerDocumentUpload");
@@ -7895,7 +8441,7 @@ async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,t
   try{
     const fromAddress=String(env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim();
     const dateLabel=statementPdfDate(statementDate);
-    const response=await fetch("https://api.resend.com/emails",{
+    const response=await providerFetch("https://api.resend.com/emails",{
       method:"POST",
       headers:{
         "Authorization":`Bearer ${env.RESEND_API_KEY}`,
@@ -7922,7 +8468,7 @@ async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,t
           content:statementBytesToBase64(pdfBytes)
         }]
       })
-    });
+    }, 60 * 1e3);
     const data=await response.json().catch(()=>({}));
     return response.ok?{sent:true,id:data.id||""}:{sent:false,reason:data?.message||data?.error||"email_failed"};
   }catch(error){
@@ -8236,7 +8782,7 @@ async function adminGenerateStatementsPost({request,env}){
         results.push({
           account_number:account,
           success:false,
-          error:String(error?.message||error)
+          error:"Statement generation failed for this customer."
         });
       }
     }
@@ -8267,12 +8813,13 @@ async function adminGenerateStatementsPost({request,env}){
 
   }catch(error){
     console.error("adminGenerateStatementsPost failed",error);
-    return notificationJson({success:false,error:"Statements could not be generated. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"Statements could not be generated. Please try again."},500);
   }
 }
 __name(adminGenerateStatementsPost,"adminGenerateStatementsPost");
 
 async function ensureStatementSchedulingSchema(env){
+  return runSchemaSetupOnce(env,"statement-scheduling",async()=>{
   await ensureCustomerStatementCycleColumn(env);
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS statement_schedule_config (
@@ -8359,6 +8906,7 @@ async function ensureStatementSchedulingSchema(env){
     )
   `).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_statement_run_delivery_guard_run ON statement_run_delivery_guard(run_id,account_number)`).run();
+  });
 }
 __name(ensureStatementSchedulingSchema,"ensureStatementSchedulingSchema");
 
@@ -8686,7 +9234,7 @@ async function adminStatementScheduling({request,env}){
     return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
-    return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"Statement scheduling settings could not be processed. Please try again."},500);
   }
 }
 __name(adminStatementScheduling,"adminStatementScheduling");
@@ -8699,7 +9247,7 @@ async function adminStatementSchedulingPreview({request,env}){
     const config=await statementScheduleConfig(env);
     const customers=await statementScheduleCustomers(env,type,config);
     return notificationJson({success:true,type,count:customers.length,customers});
-  }catch(error){return notificationJson({success:false,error:"Scheduled customers could not be previewed. "+String(error?.message||error)},500);}
+  }catch(error){console.error("Scheduled customer preview failed",error);return notificationJson({success:false,error:"Scheduled customers could not be previewed. Please try again."},500);}
 }
 __name(adminStatementSchedulingPreview,"adminStatementSchedulingPreview");
 
@@ -8802,7 +9350,7 @@ async function adminStatementSchedulingPdfCleanup({request,env}){
     return notificationJson({success:true,deleted_count:requested.length,deleted_keys:requested});
   }catch(error){
     console.error("Statement PDF cleanup failed",error);
-    return notificationJson({success:false,error:"Statement PDF cleanup could not be processed. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"Statement PDF cleanup could not be processed. Please try again."},500);
   }
 }
 __name(adminStatementSchedulingPdfCleanup,"adminStatementSchedulingPdfCleanup");
@@ -8831,7 +9379,7 @@ async function adminStatementSchedulingRun({request,env}){
     const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,accountNumbers:normalized});
     return notificationJson(started);
   }
-  catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
+  catch(error){console.error("Scheduled statement run failed",error);return notificationJson({success:false,error:"Scheduled statement run failed. Please try again."},500);}
 }
 __name(adminStatementSchedulingRun,"adminStatementSchedulingRun");
 
@@ -8894,7 +9442,7 @@ async function adminStatementSchedulingTestAll({request,env}){
     return notificationJson({success:true,selected_only:true,test_send:false,dry_run:true,total_selected:types.reduce((sum,type)=>sum+validated[type].length,0),cycles:types,combined_group_id:combinedGroupId,runs:created});
   }catch(error){
     console.error("Selected Test All Cycles failed",error);
-    return notificationJson({success:false,error:"Selected-customer Test All Cycles failed. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"Selected-customer Test All Cycles failed. Please try again."},500);
   }
 }
 __name(adminStatementSchedulingTestAll,"adminStatementSchedulingTestAll");
@@ -8910,31 +9458,61 @@ async function adminStatementSchedulingContinue({request,env}){
     return notificationJson(progress);
   }catch(error){
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status='failed',failure_count=CASE WHEN failure_count<1 THEN 1 ELSE failure_count END,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(runId).run().catch(()=>{});
-    return notificationJson({success:false,error:"Statement batch could not continue. "+String(error?.message||error)},500);
+    return notificationJson({success:false,error:"Statement batch could not continue. Please try again."},500);
   }
 }
 __name(adminStatementSchedulingContinue,"adminStatementSchedulingContinue");
 
 const ADMIN_PERMISSION_KEYS=["database","customer_activity","notifications","statements","communication","communications_settings","applications","activation"];
+// Public-ingress routes that the MAS 90 uploader may call with ADMIN_IMPORT_KEY
+// after ADMIN_OWNER_PASSWORD enables split owner/import credentials. Scheduled
+// Gmail and statement work runs in-process and therefore needs no raw-key HTTP
+// route. Keep this list method-specific so the import key cannot read or mutate
+// any other admin resource.
+const ADMIN_IMPORT_KEY_ROUTE_ALLOWLIST=new Set([
+  "POST /api/admin/customers-import",
+  "POST /api/admin/customer-payments-import"
+]);
+function adminOwnerPasswordConfigured(env){return String(env?.ADMIN_OWNER_PASSWORD||"").length>0;}
+function adminOwnerLoginPassword(env){const ownerPassword=String(env?.ADMIN_OWNER_PASSWORD||"");return ownerPassword||String(env?.ADMIN_IMPORT_KEY||"");}
+function adminImportKeyRouteAllowed(method,path){return ADMIN_IMPORT_KEY_ROUTE_ALLOWLIST.has(`${String(method||"").toUpperCase()} ${String(path||"")}`);}
+function adminImportCredentialMatches(env,credential){const importKey=String(env?.ADMIN_IMPORT_KEY||"");return !!importKey&&constantTimeEqual(credential,importKey);}
+function adminLegacyRawOwnerCredential(env,credential){return !adminOwnerPasswordConfigured(env)&&adminImportCredentialMatches(env,credential);}
+function adminRawImportCredentialAccess(request,env,path){
+  const credential=String(request?.headers?.get("X-Admin-Key")||"");
+  if(!adminImportCredentialMatches(env,credential))return "none";
+  if(!adminOwnerPasswordConfigured(env))return "legacy_owner";
+  return adminImportKeyRouteAllowed(request?.method,path)?"automation":"denied";
+}
 async function ensureAdminUsersTables(env){
   if(!env?.DB) throw new Error("Admin user database is not configured.");
+  return runSchemaSetupOnce(env,"admin-users",async()=>{
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,permissions TEXT NOT NULL DEFAULT '[]',active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const userInfo=await env.DB.prepare(`PRAGMA table_info(admin_users)`).all();const userColumns=new Set((userInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   const userAdditions=[["username","TEXT NOT NULL DEFAULT ''"],["display_name","TEXT NOT NULL DEFAULT ''"],["password_salt","TEXT NOT NULL DEFAULT ''"],["password_hash","TEXT NOT NULL DEFAULT ''"],["permissions","TEXT NOT NULL DEFAULT '[]'"],["active","INTEGER NOT NULL DEFAULT 1"],["created_at","TEXT"],["updated_at","TEXT"]];
   for(const [name,definition] of userAdditions)if(!userColumns.has(name))await env.DB.prepare(`ALTER TABLE admin_users ADD COLUMN ${name} ${definition}`).run();
-  await env.DB.prepare(`UPDATE admin_users SET created_at=COALESCE(created_at,CURRENT_TIMESTAMP),updated_at=COALESCE(updated_at,CURRENT_TIMESTAMP),permissions=COALESCE(NULLIF(permissions,''),'[]'),active=COALESCE(active,1)`).run();
+  await runDurableMigrationOnce(env,"admin-users-normalize-v291",async()=>{
+    await env.DB.prepare(`UPDATE admin_users SET created_at=COALESCE(created_at,CURRENT_TIMESTAMP),updated_at=COALESCE(updated_at,CURRENT_TIMESTAMP),permissions=COALESCE(NULLIF(permissions,''),'[]'),active=COALESCE(active,1) WHERE created_at IS NULL OR updated_at IS NULL OR permissions IS NULL OR permissions='' OR active IS NULL`).run();
+  });
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL,expires_at TEXT NOT NULL,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE)`).run();
   const sessionInfo=await env.DB.prepare(`PRAGMA table_info(admin_sessions)`).all();const sessionColumns=new Set((sessionInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   const sessionAdditions=[["token_hash","TEXT NOT NULL DEFAULT ''"],["user_id","INTEGER NOT NULL DEFAULT 0"],["expires_at","TEXT NOT NULL DEFAULT ''"],["last_seen_at","TEXT"],["created_at","TEXT"]];
   for(const [name,definition] of sessionAdditions)if(!sessionColumns.has(name))await env.DB.prepare(`ALTER TABLE admin_sessions ADD COLUMN ${name} ${definition}`).run();
-  await env.DB.prepare(`UPDATE admin_sessions SET last_seen_at=COALESCE(last_seen_at,CURRENT_TIMESTAMP),created_at=COALESCE(created_at,CURRENT_TIMESTAMP)`).run();
+  await runDurableMigrationOnce(env,"admin-sessions-normalize-v291",async()=>{
+    await env.DB.prepare(`UPDATE admin_sessions SET last_seen_at=COALESCE(last_seen_at,CURRENT_TIMESTAMP),created_at=COALESCE(created_at,CURRENT_TIMESTAMP) WHERE last_seen_at IS NULL OR created_at IS NULL`).run();
+  });
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_sessions_user ON admin_sessions(user_id,expires_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT,actor_user_id INTEGER,actor_name TEXT NOT NULL,action_type TEXT NOT NULL,target_type TEXT,target_id TEXT,detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const auditInfo=await env.DB.prepare(`PRAGMA table_info(admin_audit_log)`).all();const auditColumns=new Set((auditInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   const auditAdditions=[["id","INTEGER"],["actor_user_id","INTEGER"],["actor_name","TEXT NOT NULL DEFAULT 'Wooten Oil Admin'"],["action_type","TEXT NOT NULL DEFAULT 'activity'"],["target_type","TEXT"],["target_id","TEXT"],["detail","TEXT"],["created_at","TEXT"]];
   for(const [name,definition] of auditAdditions)if(!auditColumns.has(name))await env.DB.prepare(`ALTER TABLE admin_audit_log ADD COLUMN ${name} ${definition}`).run();
-  await env.DB.prepare(`UPDATE admin_audit_log SET id=COALESCE(id,rowid),created_at=COALESCE(created_at,CURRENT_TIMESTAMP),actor_name=CASE WHEN actor_name='Wooten Oil Owner' THEN 'Wooten Oil Admin' ELSE COALESCE(NULLIF(actor_name,''),'Wooten Oil Admin') END,action_type=COALESCE(NULLIF(action_type,''),'activity')`).run();
+  await runDurableMigrationOnce(env,"admin-audit-normalize-v291",async()=>{
+    await env.DB.prepare(`UPDATE admin_audit_log SET id=COALESCE(id,rowid),created_at=COALESCE(created_at,CURRENT_TIMESTAMP),actor_name=CASE WHEN actor_name='Wooten Oil Owner' THEN 'Wooten Oil Admin' ELSE COALESCE(NULLIF(actor_name,''),'Wooten Oil Admin') END,action_type=COALESCE(NULLIF(action_type,''),'activity') WHERE id IS NULL OR created_at IS NULL OR actor_name IS NULL OR actor_name='' OR actor_name='Wooten Oil Owner' OR action_type IS NULL OR action_type=''`).run();
+  });
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC,id DESC)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_owner_sessions (token_hash TEXT PRIMARY KEY,expires_at TEXT NOT NULL,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_owner_sessions_expires ON admin_owner_sessions(expires_at)`).run();
+  });
 }
 __name(ensureAdminUsersTables,"ensureAdminUsersTables");
 function adminBytesHex(bytes){return [...bytes].map(v=>v.toString(16).padStart(2,"0")).join("");}
@@ -8942,15 +9520,19 @@ function adminHexBytes(hex){const clean=String(hex||"");const out=new Uint8Array
 async function adminSha256(value){return adminBytesHex(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value||"")))));}
 async function adminPasswordHash(password,saltHex){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(password||"")),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:adminHexBytes(saltHex),iterations:100000},key,256);return adminBytesHex(new Uint8Array(bits));}
 function adminSafePermissions(value){let source=value;try{if(typeof source==="string")source=JSON.parse(source);}catch{source=[];}return [...new Set((Array.isArray(source)?source:[]).map(v=>String(v||"")).filter(v=>ADMIN_PERMISSION_KEYS.includes(v)))];}
-function adminRequestActor(request,env){const ownerHeader=request.headers.get("X-Admin-Actor-Owner");return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Admin"),owner:ownerHeader!==null?ownerHeader==="1":((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
+function adminRequestActor(request,env){const ownerHeader=request.headers.get("X-Admin-Actor-Owner");return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Admin"),owner:ownerHeader!==null?ownerHeader==="1":adminLegacyRawOwnerCredential(env,request.headers.get("X-Admin-Key")||"")};}
 async function ensureAdminAuditV2(env){
   if(!env?.DB)throw new Error("Admin activity database is not configured.");
+  return runSchemaSetupOnce(env,"admin-audit-v2",async()=>{
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_audit_log_v2 (id INTEGER PRIMARY KEY AUTOINCREMENT,actor_user_id INTEGER,actor_name TEXT NOT NULL DEFAULT 'Wooten Oil Admin',action_type TEXT NOT NULL DEFAULT 'activity',target_type TEXT,target_id TEXT,detail TEXT,source TEXT NOT NULL DEFAULT 'v2',legacy_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_audit_v2_created ON admin_audit_log_v2(created_at DESC,id DESC)`).run();
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_audit_v2_legacy ON admin_audit_log_v2(source,legacy_id) WHERE legacy_id IS NOT NULL`).run();
   try{
-    await env.DB.prepare(`INSERT OR IGNORE INTO admin_audit_log_v2(actor_user_id,actor_name,action_type,target_type,target_id,detail,source,legacy_id,created_at) SELECT actor_user_id,COALESCE(NULLIF(actor_name,''),'Wooten Oil Admin'),COALESCE(NULLIF(action_type,''),'activity'),target_type,target_id,detail,'legacy',COALESCE(CAST(id AS TEXT),CAST(rowid AS TEXT)),COALESCE(created_at,CURRENT_TIMESTAMP) FROM admin_audit_log`).run();
+    await runDurableMigrationOnce(env,"admin-audit-v2-legacy-copy-v291",async()=>{
+      await env.DB.prepare(`INSERT OR IGNORE INTO admin_audit_log_v2(actor_user_id,actor_name,action_type,target_type,target_id,detail,source,legacy_id,created_at) SELECT actor_user_id,COALESCE(NULLIF(actor_name,''),'Wooten Oil Admin'),COALESCE(NULLIF(action_type,''),'activity'),target_type,target_id,detail,'legacy',COALESCE(CAST(id AS TEXT),CAST(rowid AS TEXT)),COALESCE(created_at,CURRENT_TIMESTAMP) FROM admin_audit_log`).run();
+    });
   }catch(error){console.warn("Legacy admin activity could not be copied",error);}
+  });
 }
 async function adminAudit(env,request,action,targetType="",targetId="",detail=""){try{await ensureAdminAuditV2(env);const actor=adminRequestActor(request,env);await env.DB.prepare(`INSERT INTO admin_audit_log_v2(actor_user_id,actor_name,action_type,target_type,target_id,detail) VALUES (?,?,?,?,?,?)`).bind(actor.id,actor.name,String(action||""),String(targetType||""),String(targetId||""),String(detail||"").slice(0,2000)).run();}catch(error){console.error("Admin audit could not be recorded",error);}}
 function adminGeneralAuditDescriptor(request){
@@ -8960,6 +9542,7 @@ function adminGeneralAuditDescriptor(request){
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
   if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
   if(method==="GET"&&path==="/api/admin/import-status")return null;
+  if(method==="GET"&&path==="/api/admin/notification-bell")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
   const routes={
@@ -9028,43 +9611,140 @@ function adminNextCentralMidnightIso(){
 async function adminSessionFromCredential(env,credential){
   if(!env?.DB||!credential)return null;await ensureAdminUsersTables(env);const tokenHash=await adminSha256(credential);
   const row=await env.DB.prepare(`SELECT s.token_hash,s.user_id,s.expires_at,u.username,u.display_name,u.permissions,u.active FROM admin_sessions s JOIN admin_users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1 AND s.expires_at>CURRENT_TIMESTAMP LIMIT 1`).bind(tokenHash).first();
-  if(!row)return null;await env.DB.prepare(`UPDATE admin_sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE token_hash=?`).bind(tokenHash).run();return {...row,permissions:adminSafePermissions(row.permissions)};
+  if(!row)return null;await env.DB.prepare(`UPDATE admin_sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE token_hash=? AND (last_seen_at IS NULL OR datetime(last_seen_at)<datetime('now','-5 minutes'))`).bind(tokenHash).run();return {...row,permissions:adminSafePermissions(row.permissions)};
+}
+async function adminOwnerSessionFromCredential(env,credential){
+  if(!env?.DB||!/^woa_[a-f0-9]{64}$/i.test(String(credential||"")))return null;
+  await ensureAdminUsersTables(env);
+  const tokenHash=await adminSha256(credential);
+  const row=await env.DB.prepare(`SELECT token_hash,expires_at FROM admin_owner_sessions WHERE token_hash=? AND expires_at>CURRENT_TIMESTAMP LIMIT 1`).bind(tokenHash).first();
+  if(!row)return null;
+  await env.DB.prepare(`UPDATE admin_owner_sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE token_hash=? AND (last_seen_at IS NULL OR datetime(last_seen_at)<datetime('now','-5 minutes'))`).bind(tokenHash).run();
+  return {token_hash:tokenHash,display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS};
+}
+async function adminCreateOwnerSession(env){
+  await ensureAdminUsersTables(env);
+  const token=`woa_${randomToken()}`;
+  const tokenHash=await adminSha256(token);
+  const expiresAt=new Date(Date.now()+8*60*60*1000).toISOString().slice(0,19).replace("T"," ");
+  await env.DB.prepare(`DELETE FROM admin_owner_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();
+  await env.DB.prepare(`INSERT INTO admin_owner_sessions(token_hash,expires_at) VALUES (?,?)`).bind(tokenHash,expiresAt).run();
+  return token;
 }
 async function adminAuthorizeRequest(request,env,path){
   const credential=String(request.headers.get("X-Admin-Key")||"");
-  if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
+  const rawImportAccess=adminRawImportCredentialAccess(request,env,path);
+  if(rawImportAccess==="legacy_owner"){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
+  if(rawImportAccess==="automation"){const headers=new Headers(request.headers);const actorName=String(request.headers.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic"?"Automatic MAS 90 Sync":"MAS 90 Import";headers.set("X-Admin-Actor-Name",actorName);headers.set("X-Admin-Actor-Owner","0");return {request:new Request(request,{headers}),actor:{name:actorName,owner:false,permissions:["database"],automation:true}};}
+  if(rawImportAccess==="denied")return {response:notificationJson({success:false,error:"The import credential is not authorized for this admin endpoint."},403)};
+  const ownerSession=await adminOwnerSessionFromCredential(env,credential);if(ownerSession){const headers=new Headers(request.headers);headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY||""));headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:ownerSession};}
   const session=await adminSessionFromCredential(env,credential);if(!session)return {response:notificationJson({success:false,error:"Your admin session is invalid or expired."},401)};
   if(path.startsWith("/api/admin/users"))return {response:notificationJson({success:false,error:"Only the Wooten Oil Admin can manage administrator users."},403)};
+  if(path==="/api/admin/clear-database")return {response:notificationJson({success:false,error:"Only the Wooten Oil Admin can clear a database."},403)};
   if(!path.startsWith("/api/admin/audit")){const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};}
   const headers=new Headers(request.headers);headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY||""));headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");return {request:new Request(request,{headers}),actor:{id:session.user_id,name:session.display_name,owner:false,permissions:session.permissions}};
 }
 async function adminAuthLogin({request,env}){
-  try{if(!env.DB)return notificationJson({success:false,error:"Admin user database is not configured."},503);const body=await request.json();const username=String(body.username||"").trim();const password=String(body.password||"");if(!username||!password)return notificationJson({success:false,error:"Enter your username and password."},400);
-    if(env.ADMIN_IMPORT_KEY&&username==="Admin"&&password===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers();headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY));headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_login","admin_owner","Admin","Signed in");return notificationJson({success:true,token:password,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});}
+  try{if(!env.DB)return notificationJson({success:false,error:"Admin user database is not configured."},503);const parsedBody=await readJsonWithLimit(request,32*1024);if(!parsedBody.ok)return notificationJson({success:false,error:parsedBody.error||"Invalid administrator login request."},parsedBody.status||400);const body=parsedBody.data;const username=String(body.username||"").trim();const password=String(body.password||"");if(!username||!password)return notificationJson({success:false,error:"Enter your username and password."},400);
+    if(username.length>60||password.length>256)return notificationJson({success:false,error:"Invalid username or password."},401);const adminLoginIpRate=await portalRateLimitConsume(env,request,"admin-login-ip","all",{limit:100,windowSeconds:15*60,blockSeconds:15*60});if(adminLoginIpRate.limited)return portalRateLimitResponse(adminLoginIpRate);const adminLoginRate=await portalRateLimitConsume(env,request,"admin-login",username.toLowerCase(),{limit:10,windowSeconds:15*60,blockSeconds:15*60});if(adminLoginRate.limited)return portalRateLimitResponse(adminLoginRate);
+    const ownerLoginPassword=adminOwnerLoginPassword(env);if(ownerLoginPassword&&username==="Admin"&&constantTimeEqual(password,ownerLoginPassword)){const token=await adminCreateOwnerSession(env);const headers=new Headers();headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_login","admin_owner","Admin","Signed in");await portalRateLimitClear(env,adminLoginRate.keyHash);return notificationJson({success:true,token,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});}
     await ensureAdminUsersTables(env);const user=await env.DB.prepare(`SELECT id,username,display_name,password_salt,password_hash,permissions,active FROM admin_users WHERE username=? COLLATE BINARY LIMIT 1`).bind(username).first();if(!user||!Number(user.active))return notificationJson({success:false,error:"Invalid username or password."},401);const hash=await adminPasswordHash(password,user.password_salt);if(hash!==user.password_hash)return notificationJson({success:false,error:"Invalid username or password."},401);
-    const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);const expiresAt=adminNextCentralMidnightIso();await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,?)`).bind(tokenHash,user.id,expiresAt).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
+    const token=crypto.randomUUID()+crypto.randomUUID();const tokenHash=await adminSha256(token);const expiresAt=adminNextCentralMidnightIso();await env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at<=CURRENT_TIMESTAMP`).run();await env.DB.prepare(`INSERT INTO admin_sessions(token_hash,user_id,expires_at) VALUES (?,?,?)`).bind(tokenHash,user.id,expiresAt).run();const permissions=adminSafePermissions(user.permissions);const auditHeaders=new Headers();auditHeaders.set("X-Admin-Actor-Id",String(user.id));auditHeaders.set("X-Admin-Actor-Name",user.display_name);auditHeaders.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"admin_login","admin_user",String(user.id),"Signed in");await portalRateLimitClear(env,adminLoginRate.keyHash);return notificationJson({success:true,token,user:{id:user.id,username:user.username,display_name:user.display_name,owner:false,permissions}});
   }catch(error){console.error("adminAuthLogin failed",error);return notificationJson({success:false,error:"Administrator login is unavailable."},500);}
 }
-async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
-async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(!credential||!env?.DB)return notificationJson({success:true});if(credential===String(env.ADMIN_IMPORT_KEY||"")){const headers=new Headers();headers.set("X-Admin-Key",credential);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_owner","Admin","Signed out");return notificationJson({success:true});}await ensureAdminUsersTables(env);const session=await adminSessionFromCredential(env,credential);if(session){const headers=new Headers();headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_user",String(session.user_id),"Signed out");}await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();return notificationJson({success:true});}
+async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(adminLegacyRawOwnerCredential(env,credential))return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const ownerSession=await adminOwnerSessionFromCredential(env,credential);if(ownerSession)return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
+async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(!credential||!env?.DB)return notificationJson({success:true});if(adminLegacyRawOwnerCredential(env,credential)){const headers=new Headers();headers.set("X-Admin-Key",credential);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_owner","Admin","Signed out");return notificationJson({success:true});}await ensureAdminUsersTables(env);const ownerSession=await adminOwnerSessionFromCredential(env,credential);if(ownerSession){const headers=new Headers();headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_owner","Admin","Signed out");await env.DB.prepare(`DELETE FROM admin_owner_sessions WHERE token_hash=?`).bind(ownerSession.token_hash).run();return notificationJson({success:true});}const session=await adminSessionFromCredential(env,credential);if(session){const headers=new Headers();headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_user",String(session.user_id),"Signed out");}await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();return notificationJson({success:true});}
 async function adminUsersApi({request,env}){
   try{await ensureAdminUsersTables(env);if(request.method==="GET"){const users=await env.DB.prepare(`SELECT id,username,display_name,permissions,active,created_at,updated_at FROM admin_users ORDER BY display_name COLLATE NOCASE`).all();return notificationJson({success:true,users:(users?.results||[]).map(u=>({...u,permissions:adminSafePermissions(u.permissions)}))});}
     const body=await request.json();const id=Number(body.id||0);const username=String(body.username||"").trim().slice(0,60);const displayName=String(body.display_name||"").trim().slice(0,100);const password=String(body.password||"");const permissions=adminSafePermissions(body.permissions);const active=body.active===false||body.active===0?0:1;if(!username||!displayName)return notificationJson({success:false,error:"Enter the user's name and username."},400);if(!/^[A-Za-z0-9._-]+$/.test(username))return notificationJson({success:false,error:"Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed."},400);if((!id||password)&&!(password.length>=8&&/[A-Za-z]/.test(password)&&/\d/.test(password)))return notificationJson({success:false,error:"Password must contain at least 8 characters, including at least one letter and one number."},400);const duplicateUser=await env.DB.prepare(`SELECT id FROM admin_users WHERE username=? COLLATE NOCASE AND id<>? LIMIT 1`).bind(username,id||0).first();if(duplicateUser)return notificationJson({success:false,error:"That username is already in use."},409);
-    let userId=id;if(id){const existing=await env.DB.prepare(`SELECT id FROM admin_users WHERE id=?`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Admin user not found."},404);if(password){const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,password_salt=?,password_hash=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active,id).run();}else await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,JSON.stringify(permissions),active,id).run();if(!active)await env.DB.prepare(`DELETE FROM admin_sessions WHERE user_id=?`).bind(id).run();}
+    let userId=id;if(id){const existing=await env.DB.prepare(`SELECT id FROM admin_users WHERE id=?`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Admin user not found."},404);if(password){const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,password_salt=?,password_hash=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active,id).run();}else await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,JSON.stringify(permissions),active,id).run();if(password||!active)await env.DB.prepare(`DELETE FROM admin_sessions WHERE user_id=?`).bind(id).run();}
     else{const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);const result=await env.DB.prepare(`INSERT INTO admin_users(username,display_name,password_salt,password_hash,permissions,active) VALUES (?,?,?,?,?,?)`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active).run();userId=Number(result?.meta?.last_row_id||result?.meta?.last_insert_rowid||0);}
     await adminAudit(env,request,id?"admin_user_updated":"admin_user_created","admin_user",String(userId),`${displayName} (${username})`);return notificationJson({success:true,id:userId});
-  }catch(error){console.error("adminUsersApi failed",error);const technicalDetail=String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,240);const errorText=technicalDetail.toLowerCase();const duplicate=errorText.includes("unique")||errorText.includes("constraint failed")&&errorText.includes("username");return notificationJson({success:false,error:duplicate?"That username is already in use.":`The admin user could not be saved.${technicalDetail?` Technical detail: ${technicalDetail}`:""}`},duplicate?409:500);}
+  }catch(error){console.error("adminUsersApi failed",error);const errorText=String(error?.message||error||"").toLowerCase();const duplicate=errorText.includes("unique")||errorText.includes("constraint failed")&&errorText.includes("username");return notificationJson({success:false,error:duplicate?"That username is already in use.":"The admin user could not be saved. Please try again."},duplicate?409:500);}
 }
-async function adminAuditGet({request,env}){try{await ensureAdminAuditV2(env);const rows=await env.DB.prepare(`SELECT id,actor_name,action_type,target_type,target_id,detail,created_at FROM admin_audit_log_v2 ORDER BY created_at DESC,id DESC LIMIT 100`).all();return notificationJson({success:true,entries:rows?.results||[],storage_version:2});}catch(error){console.error("adminAuditGet failed",error);return notificationJson({success:false,error:"Admin activity could not be loaded. "+String(error?.message||error)},500);}}
+async function adminAuditGet({request,env}){try{await ensureAdminAuditV2(env);const rows=await env.DB.prepare(`SELECT id,actor_name,action_type,target_type,target_id,detail,created_at FROM admin_audit_log_v2 ORDER BY created_at DESC,id DESC LIMIT 100`).all();return notificationJson({success:true,entries:rows?.results||[],storage_version:2});}catch(error){console.error("adminAuditGet failed",error);return notificationJson({success:false,error:"Admin activity could not be loaded. Please try again."},500);}}
+
+function downsampleCustomerActivityChart(rows,maxPoints=400){
+  const source=Array.isArray(rows)?rows:[];
+  const limit=Math.max(2,Math.floor(Number(maxPoints)||400));
+  if(source.length<=limit)return source;
+  const sampled=[];
+  const lastIndex=source.length-1;
+  for(let index=0;index<limit;index++){
+    sampled.push(source[Math.round(index*lastIndex/(limit-1))]);
+  }
+  return sampled;
+}
+__name(downsampleCustomerActivityChart,"downsampleCustomerActivityChart");
+
+function customerActivityPaymentStats(rows){
+  const source=Array.isArray(rows)?rows:(rows?[rows]:[]);
+  let count=0,total=0;
+  for(const row of source){
+    const rowCount=Number(row?.payment_count||0);
+    const rowTotal=Number(row?.total_amount||0);
+    if(Number.isFinite(rowCount))count+=Math.max(0,rowCount);
+    if(Number.isFinite(rowTotal))total+=rowTotal;
+  }
+  return {
+    payment_count:count,
+    total_amount:total,
+    average_amount:count?total/count:0
+  };
+}
+__name(customerActivityPaymentStats,"customerActivityPaymentStats");
 
 async function adminCustomerActivityGet({request,env}){
   try{
     if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
-    const url=new URL(request.url);const search=String(url.searchParams.get("search")||"").trim().slice(0,160);const account=normalizeNotificationAccount(url.searchParams.get("account_number")||"");
+    const url=new URL(request.url);const search=String(url.searchParams.get("search")||"").trim().slice(0,160);const account=normalizeNotificationAccount(url.searchParams.get("account_number")||"");const requestedSection=String(url.searchParams.get("section")||"").trim().toLowerCase();
     if(!account){
       if(search.length<2)return notificationJson({success:true,matches:[]});
       const q=`%${search}%`;const rows=await env.DB.prepare(`SELECT account_number,account_name,email,phone,current_balance,account_status,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number LIKE ? OR account_name LIKE ? OR email LIKE ? OR phone LIKE ? ORDER BY CASE WHEN account_number=? THEN 0 ELSE 1 END,account_name COLLATE NOCASE LIMIT 20`).bind(q,q,q,q,normalizeNotificationAccount(search)).all();
       return notificationJson({success:true,matches:rows?.results||[]});
+    }
+    if(requestedSection==="charts"){
+      await ensureCustomerPaymentsSchema(env);
+      const customer=await env.DB.prepare(`SELECT account_number,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4 FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
+      if(!customer)return notificationJson({success:false,error:"Customer was not found."},404);
+      const requestedChartMonths=Number.parseInt(url.searchParams.get("chart_months")||"12",10);
+      const chartMonths=[3,6,12,24,0].includes(requestedChartMonths)?requestedChartMonths:12;
+      const chartStartModifier=chartMonths?`-${Math.max(0,chartMonths-1)} months`:"-100 years";
+      const safeRows=async(promise,label)=>{try{return (await promise)?.results||[];}catch(error){console.error(`Customer activity ${label} query failed`,error);return [];}};
+      const [paymentChart,lastChartPayment,paymentChartEntries]=await Promise.all([
+        safeRows(env.DB.prepare(`WITH normalized AS (SELECT amount,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,7) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2) ELSE NULL END AS month FROM customer_payments WHERE account_number=?) SELECT month,SUM(COALESCE(amount,0)) AS total_amount,COUNT(*) AS payment_count FROM normalized WHERE month IS NOT NULL AND month>=strftime('%Y-%m','now',?) GROUP BY month ORDER BY month DESC`).bind(account,chartStartModifier).all(),"payment chart"),
+        safeRows(env.DB.prepare(`SELECT amount,payment_date,posting_date,deposit_date FROM customer_payments WHERE account_number=? ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT 1`).bind(account).all(),"last chart payment"),
+        safeRows(env.DB.prepare(`WITH normalized AS (SELECT id,amount,payment_date,posting_date,deposit_date,reference,description,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,10) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),4,2) ELSE NULL END AS chart_date FROM customer_payments WHERE account_number=?) SELECT id,amount,payment_date,posting_date,deposit_date,reference,description,chart_date FROM normalized WHERE chart_date IS NOT NULL AND substr(chart_date,1,7)>=strftime('%Y-%m','now',?) ORDER BY chart_date ASC,id ASC LIMIT 5000`).bind(account,chartStartModifier).all(),"individual payment chart")
+      ]);
+      const sampledEntries=downsampleCustomerActivityChart(paymentChartEntries,400);
+      return notificationJson({success:true,customer,payment_chart:paymentChart,payment_chart_entries:sampledEntries,fuel_chart_summary:sampledEntries,payment_chart_stats:customerActivityPaymentStats(paymentChart),payment_chart_last:lastChartPayment[0]||null,chart_months:chartMonths});
+    }
+    if(requestedSection){
+      const allowedSections=new Set(["payments","documents","communications","fuel","logins"]);
+      if(!allowedSections.has(requestedSection))return notificationJson({success:false,error:"Unknown customer activity section."},400);
+      const setup={
+        payments:()=>ensureCustomerPaymentsSchema(env),
+        documents:()=>ensureCustomerDocumentsTable(env),
+        communications:()=>ensureAdminCommunicationLogTable(env),
+        fuel:()=>ensureFuelRequestHistorySchema(env).catch(()=>{}),
+        logins:()=>ensureCustomerLoginActivityTable(env)
+      }[requestedSection];
+      await setup();
+      const customer=await env.DB.prepare(`SELECT account_number,email,phone FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
+      if(!customer)return notificationJson({success:false,error:"Customer was not found."},404);
+      const pageSize=20;
+      const page=Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get(`${requestedSection}_page`)||"1",10)||1));
+      const offset=(page-1)*pageSize;
+      let result;
+      if(requestedSection==="payments")result=await env.DB.prepare(`SELECT id,payment_date,posting_date,deposit_date,reference,source_invoice_no AS invoice_no,amount,description,COUNT(*) OVER() AS total_count FROM customer_payments WHERE account_number=? ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset).all();
+      else if(requestedSection==="documents")result=await env.DB.prepare(`SELECT id,document_type,title,document_date,filename,size_bytes,created_at,COUNT(*) OVER() AS total_count FROM portal_customer_documents WHERE account_number=? ORDER BY COALESCE(document_date,created_at) DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset).all();
+      else if(requestedSection==="communications")result=await env.DB.prepare(`SELECT id,event_type,title,detail,portal_sent,email_sent,sms_sent,sms_status,sms_error_code,error_text,created_at,COUNT(*) OVER() AS total_count FROM admin_communication_log WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset).all();
+      else if(requestedSection==="fuel")result=await env.DB.prepare(`SELECT request_number,fuel_type,gallons,delivery_date,delivery_address,email_status,received_at,COUNT(*) OVER() AS total_count FROM fuel_requests WHERE customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)) ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(account,String(customer.email||""),String(customer.phone||""),pageSize,offset).all();
+      else result=await env.DB.prepare(`SELECT result,user_agent,created_at,COUNT(*) OVER() AS total_count FROM customer_login_activity WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset).all();
+      const rows=result?.results||[];
+      const total=Number(rows[0]?.total_count||0);
+      const responseKey={payments:"payments",documents:"documents",communications:"communications",fuel:"fuel_requests",logins:"login_activity"}[requestedSection];
+      return notificationJson({success:true,[responseKey]:rows,pagination:{[requestedSection]:{page,page_size:pageSize,total,pages:Math.max(1,Math.ceil(total/pageSize))}}});
     }
     await Promise.all([ensureCustomerPaymentsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
     const customer=await env.DB.prepare(`SELECT id,account_number,account_name,email,phone,address1,address2,address3,city,state,zip_code,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,credit_hold,credit_limit,terms_description,salesperson_name,statement_cycle,account_status,updated_at,CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated,COALESCE((SELECT email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS email_enabled,COALESCE((SELECT sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS sms_enabled,COALESCE((SELECT portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS portal_enabled FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
@@ -9087,14 +9767,16 @@ async function adminCustomerActivityGet({request,env}){
       safeRows(env.DB.prepare(`WITH normalized AS (SELECT id,amount,payment_date,posting_date,deposit_date,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,10) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),4,2) ELSE NULL END AS chart_date FROM customer_payments WHERE account_number=?) SELECT id,amount,payment_date,posting_date,deposit_date,chart_date FROM normalized WHERE chart_date IS NOT NULL AND substr(chart_date,1,7)>=strftime('%Y-%m','now',?) ORDER BY chart_date ASC,id ASC LIMIT 5000`).bind(account,chartStartModifier).all(),"individual payment chart")
     ]);
     const pagination={};for(const [name,rows] of Object.entries({payments,documents,communications,fuel:fuelRequests,logins})){const total=Number(rows[0]?.total_count||0);pagination[name]={page:pages[name],page_size:pageSize,total,pages:Math.max(1,Math.ceil(total/pageSize))};}
+    const sampledPaymentChartEntries=downsampleCustomerActivityChart(paymentChartEntries,400);
     await adminAudit(env,request,"customer_activity_viewed","customer",account,String(customer.account_name||"Customer"));
-    return notificationJson({success:true,customer,payments,documents,communications,fuel_requests:fuelRequests,applications,login_activity:logins,payment_chart:paymentChart,payment_chart_entries:paymentChartEntries,payment_chart_last:lastChartPayment[0]||null,fuel_chart_summary:paymentChartEntries,fuel_chart_stats:fuelChartSummary[0]||{},chart_months:chartMonths,pagination});
-  }catch(error){console.error("adminCustomerActivityGet failed",error);return notificationJson({success:false,error:"Customer activity could not be loaded. "+String(error?.message||error)},500);}
+    return notificationJson({success:true,customer,payments,documents,communications,fuel_requests:fuelRequests,applications,login_activity:logins,payment_chart:paymentChart,payment_chart_entries:sampledPaymentChartEntries,payment_chart_stats:customerActivityPaymentStats(paymentChart),payment_chart_last:lastChartPayment[0]||null,fuel_chart_summary:sampledPaymentChartEntries,fuel_chart_stats:fuelChartSummary[0]||{},chart_months:chartMonths,pagination});
+  }catch(error){console.error("adminCustomerActivityGet failed",error);return notificationJson({success:false,error:"Customer activity could not be loaded. Please try again."},500);}
 }
 __name(adminCustomerActivityGet,"adminCustomerActivityGet");
 
 async function ensureAccountApplicationsTable(env){
   if(!env?.DB) throw new Error("Customer database is not configured.");
+  return runSchemaSetupOnce(env,"account-applications",async()=>{
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS account_applications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -9120,7 +9802,7 @@ async function ensureAccountApplicationsTable(env){
       identity_document_key TEXT NOT NULL,
       identity_document_name TEXT NOT NULL,
       identity_document_type TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'new',
+      status TEXT NOT NULL DEFAULT 'pending',
       admin_notes TEXT,
       reviewed_by TEXT,
       reviewed_at TEXT,
@@ -9143,9 +9825,12 @@ async function ensureAccountApplicationsTable(env){
   const info=await env.DB.prepare(`PRAGMA table_info(account_applications)`).all();const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   if(!columns.has("reviewed_by"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_by TEXT`).run();
   if(!columns.has("reviewed_at"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_at TEXT`).run();
-  await env.DB.prepare(`UPDATE account_applications SET reviewed_by='Wooten Oil Admin' WHERE reviewed_by='Wooten Oil Owner'`).run();
+  await runDurableMigrationOnce(env,"account-applications-reviewer-name-v291",async()=>{
+    await env.DB.prepare(`UPDATE account_applications SET reviewed_by='Wooten Oil Admin' WHERE reviewed_by='Wooten Oil Owner'`).run();
+  });
   const additions=[["sms_confirmation_consent","INTEGER NOT NULL DEFAULT 0"],["support_email_sent","INTEGER NOT NULL DEFAULT 0"],["support_email_id","TEXT"],["applicant_email_sent","INTEGER NOT NULL DEFAULT 0"],["applicant_email_id","TEXT"],["confirmation_sms_sent","INTEGER NOT NULL DEFAULT 0"],["confirmation_sms_sid","TEXT"],["notification_error","TEXT"],["notification_sent_at","TEXT"]];
   for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN ${name} ${definition}`).run();
+  });
 }
 __name(ensureAccountApplicationsTable,"ensureAccountApplicationsTable");
 
@@ -9178,7 +9863,7 @@ async function accountApplicationIpHash(request){
 async function accountApplicationSendEmail(env,{to,subject,html,text,from}){
   if(!env.RESEND_API_KEY)return {sent:false,error:"Email service is not configured."};
   try{
-    const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},body:JSON.stringify({from:String(from||env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim(),to:[to],subject,html,text})});
+    const response=await providerFetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":`Bearer ${env.RESEND_API_KEY}`,"Content-Type":"application/json","User-Agent":"WootenOilCustomerPortal/1.0"},body:JSON.stringify({from:String(from||env.FUEL_FROM_EMAIL||"support@wootenoil.com").trim(),to:[to],subject,html,text})});
     const result=await response.json().catch(()=>({}));
     return response.ok?{sent:true,id:String(result.id||"")}:{sent:false,error:String(result.message||`Email service returned ${response.status}.`)};
   }catch(error){return {sent:false,error:String(error?.message||"Email could not be sent.")};}
@@ -9198,11 +9883,15 @@ async function accountApplicationSendNotifications({request,env,applicationNumbe
   return {support,applicant,sms};
 }
 async function accountApplicationPost({request,env}){
-  let taxKey="",identityKey="";
+  let taxKey="",identityKey="",applicationNumber="",applicationSaved=false;
   try{
     if(!env.DB) return notificationJson({success:false,error:"Account application database is not configured."},503);
     if(!env.NOTIFICATION_ATTACHMENTS) return notificationJson({success:false,error:"Secure application document storage is not configured."},503);
-    const form=await request.formData();
+    const submissionRate=await portalRateLimitConsume(env,request,"public-account-application","application",{limit:5,windowSeconds:10*60,blockSeconds:10*60});
+    if(submissionRate.limited)return portalRateLimitResponse(submissionRate);
+    const parsedForm=await readFormDataWithLimit(request,22*1024*1024);
+    if(!parsedForm.ok)return notificationJson({success:false,error:parsedForm.error},parsedForm.status);
+    const form=parsedForm.form;
     if(accountApplicationText(form.get("website"),100)) return notificationJson({success:true,application_number:"RECEIVED"});
     const type=accountApplicationText(form.get("application_type"),20).toLowerCase();
     if(!["business","personal"].includes(type)) return notificationJson({success:false,error:"Choose Business or Personal account."},400);
@@ -9225,7 +9914,7 @@ async function accountApplicationPost({request,env}){
     const [identityBytes,taxBytes]=await Promise.all([accountApplicationVerifiedBytes(identityInfo),taxInfo?accountApplicationVerifiedBytes(taxInfo):Promise.resolve(null)]);
     await ensureAccountApplicationsTable(env);
     const date=new Date().toISOString().slice(0,10).replaceAll("-","");
-    const applicationNumber=`WOA-${date}-${crypto.randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
+    applicationNumber=`WOA-${date}-${crypto.randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
     const folder=`account-applications/${applicationNumber}`;
     identityKey=`${folder}/identity-${crypto.randomUUID()}-${identityInfo.name}`;
     await env.NOTIFICATION_ATTACHMENTS.put(identityKey,identityBytes,{httpMetadata:{contentType:identityInfo.type,contentDisposition:`inline; filename="${identityInfo.name.replace(/"/g,"")}"`},customMetadata:{application_number:applicationNumber,document_kind:"identity"}});
@@ -9233,17 +9922,19 @@ async function accountApplicationPost({request,env}){
     const ipHash=await accountApplicationIpHash(request);
     await env.DB.prepare(`
       INSERT INTO account_applications
-      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,sms_confirmation_consent,submitted_ip_hash)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,1,ipHash).run();
+      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,status,sms_confirmation_consent,submitted_ip_hash)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,"pending",1,ipHash).run();
+    applicationSaved=true;
     const delivery=await accountApplicationSendNotifications({request,env,applicationNumber,type,data});
     const errors=[!delivery.support.sent?`Support email: ${delivery.support.error}`:"",!delivery.applicant.sent?`Applicant email: ${delivery.applicant.error}`:"",!delivery.sms.sent?`Confirmation SMS: ${delivery.sms.error}`:""].filter(Boolean).join(" | ").slice(0,2000);
     await env.DB.prepare(`UPDATE account_applications SET support_email_sent=?,support_email_id=?,applicant_email_sent=?,applicant_email_id=?,confirmation_sms_sent=?,confirmation_sms_sid=?,notification_error=?,notification_sent_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE application_number=?`).bind(delivery.support.sent?1:0,delivery.support.id||null,delivery.applicant.sent?1:0,delivery.applicant.id||null,delivery.sms.sent?1:0,delivery.sms.sid||null,errors||null,applicationNumber).run();
     return notificationJson({success:true,application_number:applicationNumber,confirmations:{support_email:delivery.support.sent,applicant_email:delivery.applicant.sent,sms:delivery.sms.sent}});
   }catch(error){
     console.error("accountApplicationPost failed",error);
+    if(applicationSaved)return notificationJson({success:true,application_number:applicationNumber,warning:"Your application was received, but one or more confirmations could not be completed."},202);
     if(env?.NOTIFICATION_ATTACHMENTS){if(taxKey)try{await env.NOTIFICATION_ATTACHMENTS.delete(taxKey);}catch{}if(identityKey)try{await env.NOTIFICATION_ATTACHMENTS.delete(identityKey);}catch{}}
-    return notificationJson({success:false,error:String(error?.message||"The application could not be submitted.")},500);
+    return notificationJson({success:false,error:"The application could not be submitted. Please try again."},500);
   }
 }
 __name(accountApplicationPost,"accountApplicationPost");
@@ -9331,6 +10022,7 @@ __name(adminAccountApplicationFileGet,"adminAccountApplicationFileGet");
 
 async function ensureRequestCenterSchema(env){
   if(!env?.DB) throw new Error("Customer database is not configured.");
+  return runSchemaSetupOnce(env,"request-center",async()=>{
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS profile_change_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     request_number TEXT NOT NULL UNIQUE,
@@ -9352,9 +10044,16 @@ async function ensureRequestCenterSchema(env){
   const fuelCols=new Set((fuelInfo?.results||[]).map(r=>String(r.name||'').toLowerCase()));
   for(const [name,def] of [['decision_status',"TEXT NOT NULL DEFAULT 'pending'"],['decision_note','TEXT'],['decision_by','TEXT'],['decision_at','TEXT']]) if(!fuelCols.has(name)) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN ${name} ${def}`).run();
   await ensureAccountApplicationsTable(env);
-  await env.DB.prepare(`UPDATE account_applications SET status='pending' WHERE status IN ('new','under_review')`).run();
-  await env.DB.prepare(`UPDATE account_applications SET status='accepted' WHERE status='approved'`).run();
-  await env.DB.prepare(`UPDATE account_applications SET status='denied' WHERE status='declined'`).run();
+  await runDurableMigrationOnce(env,"request-center-status-normalize-v291",async()=>{
+    await env.DB.prepare(`UPDATE account_applications SET status='pending' WHERE status IN ('new','under_review')`).run();
+    await env.DB.prepare(`UPDATE account_applications SET status='accepted' WHERE status='approved'`).run();
+    await env.DB.prepare(`UPDATE account_applications SET status='denied' WHERE status='declined'`).run();
+    await env.DB.prepare(`UPDATE profile_change_requests SET status='pending' WHERE status IS NULL OR trim(status)=''`).run();
+    await env.DB.prepare(`UPDATE fuel_requests SET decision_status='pending' WHERE decision_status IS NULL OR trim(decision_status)=''`).run();
+  });
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_profile_change_status_created ON profile_change_requests(status,created_at DESC,id DESC)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_fuel_requests_decision_received ON fuel_requests(decision_status,received_at DESC)`).run();
+  });
 }
 __name(ensureRequestCenterSchema,'ensureRequestCenterSchema');
 
@@ -9377,6 +10076,14 @@ async function requestDecisionNotify({request,env,accountNumber,email,phone,name
     if(!phone)result.sms={sent:false,error:'No phone number is available.'};
     else{try{const sent=await twilioSendSms(env,String(phone),`WOOTEN OIL CO INC\n${message}\nPlease do not reply.`,{statusCallbackUrl:twilioCallbackUrl(request,'/api/twilio/message-status')});result.sms={sent:true,sid:String(sent?.sid||'')};}catch(e){result.sms={sent:false,error:String(e?.message||e)}}}
   }
+  if(result.portal?.id){
+    try{
+      const smsStatus=result.sms?.sent?'pending':(smsSend&&result.sms?.error?'failed':'');
+      await env.DB.prepare(`UPDATE portal_notifications SET email_sent=?,email_id=?,sms_sent=?,sms_sid=?,sms_error=?,sms_status=?,sms_updated_at=CURRENT_TIMESTAMP WHERE id=? AND account_number=?`).bind(result.email?.sent?1:0,String(result.email?.id||''),result.sms?.sent?1:0,String(result.sms?.sid||''),String(result.sms?.error||''),smsStatus,Number(result.portal.id),String(accountNumber)).run();
+      await syncAdminCommunicationLogNotifications(env,[result.portal.id]);
+    }
+    catch(error){console.error('Request decision communication log sync failed',error);}
+  }
   return result;
 }
 __name(requestDecisionNotify,'requestDecisionNotify');
@@ -9388,7 +10095,11 @@ async function customerProfileChangeRequests({request,env}){
       const rows=await env.DB.prepare(`SELECT id,request_number,change_type,current_value,requested_value,customer_note,status,admin_response,decided_at,created_at FROM profile_change_requests WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT 25`).bind(String(customer.account_number)).all();
       return notificationJson({success:true,requests:rows?.results||[]});
     }
-    const body=await request.json();const note=String(body.note||'').trim().slice(0,1500);
+    const submissionRate=await portalRateLimitConsume(env,request,'customer-profile-change',String(customer.account_number||''),{limit:10,windowSeconds:60*60,blockSeconds:60*60});
+    if(submissionRate.limited)return portalRateLimitResponse(submissionRate);
+    const parsedBody=await readJsonWithLimit(request,32*1024);
+    if(!parsedBody.ok)return notificationJson({success:false,error:parsedBody.error||'Invalid profile change request.'},parsedBody.status||400);
+    const body=parsedBody.data;const note=String(body.note||'').trim().slice(0,1500);
     const allowed={address:'Address',phone:'Phone Number',email:'Email Address',contact:'Contact Name',other:'Other'};
     const incoming=Array.isArray(body.changes)?body.changes:[{change_type:body.change_type,requested_value:body.requested_value}];
     const changes=incoming.slice(0,5).map(x=>({type:String(x?.change_type||'').trim().toLowerCase(),requested:String(x?.requested_value||'').trim().slice(0,500)})).filter(x=>x.type||x.requested);
@@ -9417,7 +10128,14 @@ async function adminRequestCenterGet({request,env}){
       total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM fuel_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT rowid id,request_number,customer_account_number account_number,customer_name account_name,email,phone,fuel_type,gallons,delivery_date,delivery_address,notes,COALESCE(decision_status,'pending') status,decision_note admin_response,decision_by decided_by,decision_at decided_at,received_at created_at FROM fuel_requests WHERE ${where} ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];
     }else{
       let where='1=1',vals=[];if(status){where+=' AND status=?';vals.push(status)}if(q){where+=' AND lower(request_number||\' \'||account_number||\' \'||COALESCE(account_name,\'\')||\' \'||requested_value) LIKE ?';vals.push('%'+q+'%')}
-      total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM profile_change_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT id,request_number,account_number,account_name,change_type,current_value,requested_value,customer_note,status,admin_response,decided_by,decided_at,created_at FROM profile_change_requests WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];for(const row of rows){const c=await requestCenterCustomerByAccount(env,row.account_number);row.email=c?.email||'';row.phone=c?.phone||'';}
+      total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM profile_change_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT id,request_number,account_number,account_name,change_type,current_value,requested_value,customer_note,status,admin_response,decided_by,decided_at,created_at FROM profile_change_requests WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];
+      const accounts=[...new Set(rows.map(row=>String(row.account_number||"")).filter(Boolean))];
+      if(accounts.length){
+        const placeholders=accounts.map(()=>"?").join(",");
+        const customerRows=await env.DB.prepare(`SELECT account_number,email,phone FROM customers WHERE account_number IN (${placeholders})`).bind(...accounts).all();
+        const contacts=new Map((customerRows?.results||[]).map(customer=>[String(customer.account_number||""),customer]));
+        for(const row of rows){const customer=contacts.get(String(row.account_number||""));row.email=customer?.email||"";row.phone=customer?.phone||"";}
+      }
     }
     return notificationJson({success:true,type,requests:rows,page,total,total_pages:Math.max(1,Math.ceil(total/per))});
   }catch(e){console.error('adminRequestCenterGet',e);return notificationJson({success:false,error:'Customer requests could not be loaded.'},500)}
@@ -9441,12 +10159,16 @@ __name(adminRequestCenterDecision,'adminRequestCenterDecision');
 async function adminNotificationBellGet({request,env}){
   try{
     await ensureRequestCenterSchema(env);
-    const profileCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM profile_change_requests WHERE COALESCE(status,'pending')='pending'`).first())?.total||0);
-    const fuelCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending'`).first())?.total||0);
-    const applicationCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE COALESCE(status,'pending')='pending'`).first())?.total||0);
-    const profileRows=(await env.DB.prepare(`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' ORDER BY datetime(created_at) DESC,id DESC LIMIT 8`).all())?.results||[];
-    const fuelRows=(await env.DB.prepare(`SELECT 'fuel' AS item_type,rowid AS id,request_number,customer_name AS name,customer_account_number AS account,received_at AS created_at FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' ORDER BY datetime(received_at) DESC,rowid DESC LIMIT 8`).all())?.results||[];
-    const appRows=(await env.DB.prepare(`SELECT 'application' AS item_type,id,application_number AS request_number,COALESCE(NULLIF(business_name,''),full_name) AS name,'' AS account,created_at FROM account_applications WHERE COALESCE(status,'pending')='pending' ORDER BY datetime(created_at) DESC,id DESC LIMIT 8`).all())?.results||[];
+    const [profileCountRow,fuelCountRow,applicationCountRow,profileResult,fuelResult,appResult]=await Promise.all([
+      env.DB.prepare(`SELECT COUNT(*) AS total FROM profile_change_requests WHERE status='pending'`).first(),
+      env.DB.prepare(`SELECT COUNT(*) AS total FROM fuel_requests WHERE decision_status='pending'`).first(),
+      env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE status='pending'`).first(),
+      env.DB.prepare(`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at FROM profile_change_requests WHERE status='pending' ORDER BY created_at DESC,id DESC LIMIT 8`).all(),
+      env.DB.prepare(`SELECT 'fuel' AS item_type,rowid AS id,request_number,customer_name AS name,customer_account_number AS account,received_at AS created_at FROM fuel_requests WHERE decision_status='pending' ORDER BY received_at DESC,rowid DESC LIMIT 8`).all(),
+      env.DB.prepare(`SELECT 'application' AS item_type,id,application_number AS request_number,COALESCE(NULLIF(business_name,''),full_name) AS name,'' AS account,created_at FROM account_applications WHERE status='pending' ORDER BY created_at DESC,id DESC LIMIT 8`).all()
+    ]);
+    const profileCount=Number(profileCountRow?.total||0),fuelCount=Number(fuelCountRow?.total||0),applicationCount=Number(applicationCountRow?.total||0);
+    const profileRows=profileResult?.results||[],fuelRows=fuelResult?.results||[],appRows=appResult?.results||[];
     const items=[...profileRows,...fuelRows,...appRows].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,10);
     return notificationJson({success:true,total:profileCount+fuelCount+applicationCount,counts:{profile:profileCount,fuel:fuelCount,applications:applicationCount},items});
   }catch(error){
@@ -9456,9 +10178,37 @@ async function adminNotificationBellGet({request,env}){
 }
 __name(adminNotificationBellGet,'adminNotificationBellGet');
 
+function secureAssetResponse(response){
+  const headers=new Headers(response.headers);
+  headers.set("X-Content-Type-Options","nosniff");
+  headers.set("Referrer-Policy","strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy","camera=(), microphone=(), geolocation=()");
+  const contentType=String(headers.get("Content-Type")||"").toLowerCase();
+  if(contentType.includes("text/html")){
+    headers.set("X-Frame-Options","DENY");
+    headers.set("Content-Security-Policy","base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
+  }
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+__name(secureAssetResponse,"secureAssetResponse");
+
+function rejectCrossSitePortalWrite(request,url){
+  const method=String(request.method||"GET").toUpperCase();
+  if(!["POST","PUT","PATCH","DELETE"].includes(method))return null;
+  const browserWrite=url.pathname.startsWith("/api/customer/")||["/api/fuel-request","/api/contact-message","/api/account-applications","/api/sms-consent"].includes(url.pathname);
+  if(!browserWrite)return null;
+  const origin=String(request.headers.get("Origin")||"").trim();
+  const fetchSite=String(request.headers.get("Sec-Fetch-Site")||"").trim().toLowerCase();
+  if((origin&&origin!==url.origin)||fetchSite==="cross-site")return notificationJson({success:false,error:"Cross-site requests are not allowed."},403);
+  return null;
+}
+__name(rejectCrossSitePortalWrite,"rejectCrossSitePortalWrite");
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const crossSiteResponse=rejectCrossSitePortalWrite(request,url);
+    if(crossSiteResponse)return crossSiteResponse;
     if(url.pathname==="/api/admin/auth/login"){
       if(request.method==="POST")return adminAuthLogin({request,env});
       return methodNotAllowed();
@@ -9473,6 +10223,10 @@ var worker_default = {
     }
     if(url.pathname==="/api/customer/profile-change-requests"){
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/sms-consent"){
+      if(request.method==="POST")return smsConsentPost({request,env});
       return methodNotAllowed();
     }
     if(url.pathname.startsWith("/api/admin/")){
@@ -9974,7 +10728,11 @@ var worker_default = {
   return methodNotAllowed();
 }
 
-return env.ASSETS.fetch(request);
+if(/^\/(?:README[^/]*\.txt|ARCHITECTURE\.txt|index-stage1-backup\.html|worker\.js(?:\.map)?)$/i.test(url.pathname)){
+  return new Response("Not found.",{status:404,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer"}});
+}
+
+return secureAssetResponse(await env.ASSETS.fetch(request));
 
   },
 
