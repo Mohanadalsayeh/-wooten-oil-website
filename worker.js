@@ -1620,16 +1620,23 @@ function publicCustomer(customer) {
 __name(publicCustomer, "publicCustomer");
 async function ensureCustomerSessionScopeColumns(env) {
   if (!env?.DB) return;
+  const addColumn = async (sql) => {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch (error) {
+      if (!/duplicate column/i.test(String(error?.message || error))) throw error;
+    }
+  };
   const info = await env.DB.prepare(`PRAGMA table_info(customer_sessions)`).all();
   const columns = new Set((info?.results || []).map((row) => String(row.name || "").toLowerCase()));
   if (!columns.has("login_method")) {
-    await env.DB.prepare(`ALTER TABLE customer_sessions ADD COLUMN login_method TEXT NOT NULL DEFAULT 'account'`).run();
+    await addColumn(`ALTER TABLE customer_sessions ADD COLUMN login_method TEXT NOT NULL DEFAULT 'account'`);
   }
   if (!columns.has("session_scope")) {
-    await env.DB.prepare(`ALTER TABLE customer_sessions ADD COLUMN session_scope TEXT NOT NULL DEFAULT 'single'`).run();
+    await addColumn(`ALTER TABLE customer_sessions ADD COLUMN session_scope TEXT NOT NULL DEFAULT 'single'`);
   }
   if (!columns.has("verified_email")) {
-    await env.DB.prepare(`ALTER TABLE customer_sessions ADD COLUMN verified_email TEXT`).run();
+    await addColumn(`ALTER TABLE customer_sessions ADD COLUMN verified_email TEXT`);
   }
 }
 __name(ensureCustomerSessionScopeColumns, "ensureCustomerSessionScopeColumns");
@@ -1935,8 +1942,14 @@ function linkedAccountSummary(customer) {
   };
 }
 __name(linkedAccountSummary, "linkedAccountSummary");
+function isLinkedEmailSession(customer) {
+  const emailLogin = clean(customer?.login_method).toLowerCase() === "email";
+  const linkedMarker = clean(customer?.session_scope).toLowerCase() === "linked" || Boolean(clean(customer?.verified_email));
+  return emailLogin && linkedMarker;
+}
+__name(isLinkedEmailSession, "isLinkedEmailSession");
 async function customerLinkedAccounts(customer, env) {
-  const email = clean(customer?.email).toLowerCase();
+  const email = clean(customer?.verified_email || customer?.email).toLowerCase();
   if (!email) return [linkedAccountSummary(customer)];
   const rows = await env.DB.prepare(`
     SELECT account_number,account_name,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,account_status
@@ -1954,7 +1967,7 @@ async function customerAccountsGet({request,env}) {
   if (!env.DB) return json4({success:false,error:"Customer database is not configured."},503);
   const customer = await getCustomerFromSession(request,env);
   if (!customer) return json4({success:false,authenticated:false},401);
-  const linkedScope = clean(customer.login_method).toLowerCase() === "email" && clean(customer.session_scope).toLowerCase() === "linked";
+  const linkedScope = isLinkedEmailSession(customer);
   const accounts = linkedScope ? await customerLinkedAccounts(customer,env) : [linkedAccountSummary(customer)];
   return json4({success:true,current_account_number:customer.account_number,account_scope:linkedScope?"linked":"single",accounts});
 }
@@ -1968,7 +1981,7 @@ async function customerAccountSwitchPost({request,env}) {
   catch { return json4({success:false,error:"Invalid account switch request."},400); }
   const targetAccount = normalizeAccount(body?.account_number);
   if (!targetAccount) return json4({success:false,error:"Choose an account."},400);
-  const linkedScope = clean(current.login_method).toLowerCase() === "email" && clean(current.session_scope).toLowerCase() === "linked";
+  const linkedScope = isLinkedEmailSession(current);
   if (!linkedScope) return json4({success:false,error:"Account switching is available only when you sign in with your email address."},403);
   const email = clean(current.verified_email).toLowerCase();
   if (!email) return json4({success:false,error:"No linked accounts are available for this email login."},403);
@@ -2009,7 +2022,7 @@ async function customerMeGet({
       authenticated: false
     }, 401);
   }
-  const linkedScope = clean(customer.login_method).toLowerCase() === "email" && clean(customer.session_scope).toLowerCase() === "linked";
+  const linkedScope = isLinkedEmailSession(customer);
   return json4({
     success: true,
     authenticated: true,
