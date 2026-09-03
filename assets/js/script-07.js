@@ -774,6 +774,14 @@
       return true;
     }catch(e){ return false; }
   }
+  window.wootenApplyCustomerAccount=function(customer){
+    if(!customer||!clean(customer.account_number)) return false;
+    showAccount(customer);
+    return true;
+  };
+  window.wootenRefreshCurrentCustomerAccount=function(){
+    return loadCurrentAccount(true);
+  };
   async function refreshCustomerMenu(){
     try{
       var r=await fetch(ME_ENDPOINT,{method:'GET',headers:{'Accept':'application/json'},credentials:'same-origin',cache:'no-store'});

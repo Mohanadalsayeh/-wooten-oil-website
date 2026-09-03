@@ -2881,7 +2881,7 @@ html.customer-portal-open #customer-login.portal-overlay{
 }
 </style>
 
-<script id="wooten-account-switcher-restore-ver267">
+<script id="wooten-account-switcher-restore-ver273">
 (function(){
   var switcher=document.getElementById('accountSwitcher');
   var button=document.getElementById('accountSwitcherButton');
@@ -2893,6 +2893,7 @@ html.customer-portal-open #customer-login.portal-overlay{
   var loading=false;
   var loadedForAccount='';
   var retryTimer=0;
+  var ignoreAccountMutationUntil=0;
 
   function closePanel(){
     panel.hidden=true;
@@ -2960,6 +2961,11 @@ html.customer-portal-open #customer-login.portal-overlay{
 
   async function switchAccount(number,option){
     if(!number||option.getAttribute('aria-current')==='true')return;
+    var originalButtonText=button.querySelector('span')?.textContent||'Switch Account';
+    var buttonText=button.querySelector('span');
+    switcher.classList.add('is-switching');
+    button.disabled=true;
+    if(buttonText)buttonText.textContent='Switching…';
     status.textContent='Switching account…';
     list.querySelectorAll('button').forEach(function(item){item.disabled=true;});
     try{
@@ -2971,9 +2977,25 @@ html.customer-portal-open #customer-login.portal-overlay{
       });
       var data=await response.json().catch(function(){return {};});
       if(!response.ok||data.success===false)throw new Error(data.error||'The account could not be switched.');
-      window.location.reload();
+      var customer=data.customer||null;
+      ignoreAccountMutationUntil=Date.now()+1000;
+      var applied=customer&&typeof window.wootenApplyCustomerAccount==='function'&&window.wootenApplyCustomerAccount(customer);
+      if(!applied&&typeof window.wootenRefreshCurrentCustomerAccount==='function'){
+        applied=await window.wootenRefreshCurrentCustomerAccount();
+      }
+      if(!applied)throw new Error('The account switched, but its information could not be refreshed.');
+      var accounts=Array.isArray(data.accounts)?data.accounts:[];
+      var current=accountNumber(customer?.account_number||number);
+      loadedForAccount=current;
+      if(accounts.length)renderAccounts(accounts,current);
+      status.textContent='Account switched.';
+      setTimeout(function(){status.textContent='';closePanel();},450);
     }catch(error){
       status.textContent=error.message||'The account could not be switched.';
+    }finally{
+      switcher.classList.remove('is-switching');
+      button.disabled=false;
+      if(buttonText)buttonText.textContent=originalButtonText;
       list.querySelectorAll('button').forEach(function(item){item.disabled=false;});
     }
   }
@@ -3001,7 +3023,10 @@ html.customer-portal-open #customer-login.portal-overlay{
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
   var accountLabel=document.getElementById('acctNumber');
   if(accountLabel){
-    new MutationObserver(function(){setTimeout(function(){loadAccounts(true);},0);})
+    new MutationObserver(function(){
+      if(Date.now()<ignoreAccountMutationUntil)return;
+      setTimeout(function(){loadAccounts(true);},0);
+    })
       .observe(accountLabel,{childList:true,characterData:true,subtree:true});
   }
   window.addEventListener('pageshow',function(){setTimeout(function(){loadAccounts(false);},80);});
