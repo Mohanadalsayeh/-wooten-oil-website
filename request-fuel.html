@@ -1172,9 +1172,11 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
 .customer-account-details{display:none;margin-top:4px}
 .customer-account-details.show{display:block;animation:dashboardDetailsIn .24s ease both}
 .customer-dashboard.dashboard-hidden{display:none}
-.details-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e3e8ed;color:#667585;font-weight:850;font-size:.86rem}
+.details-toolbar{display:flex;align-items:center;justify-content:flex-start;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e3e8ed;color:#667585;font-weight:850;font-size:.86rem}
 .dashboard-back{border:0;border-radius:9px;padding:9px 12px;background:#eef3f7;color:#20394f;font:inherit;font-weight:900;cursor:pointer}
 .dashboard-back:hover{background:#e2eaf0}
+.dashboard-form-name{display:inline-flex;align-items:center;gap:10px;min-width:0;margin-left:0!important;padding-right:0!important;white-space:nowrap;color:#667585}
+.dashboard-form-separator{color:#9aa7b3;font-weight:700}
 .customer-account-details .payment-panel{scroll-margin-top:20px}
 @keyframes dashboardDetailsIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes dashboardBalanceIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -1187,6 +1189,8 @@ body.customer-signed-in .mobile-menu-panel .mobile-customer-account,body.custome
  .dashboard-actions{grid-template-columns:1fr}
  .dashboard-action{min-height:82px}
  .dashboard-welcome{padding-right:40px}
+ .details-toolbar{gap:8px}
+ .dashboard-form-name{gap:8px;overflow:hidden;text-overflow:ellipsis;font-size:.78rem!important}
 }
 @media(prefers-reduced-motion:reduce){.portal-account.show .dashboard-balance-card,.customer-account-details.show{animation:none!important}}
 </style>
@@ -2660,7 +2664,7 @@ body.request-fuel-page .fuel-field{
     <section class="customer-account-details" id="customerAccountDetails" aria-label="Detailed account information">
       <div class="details-toolbar">
         <button type="button" class="dashboard-back" id="dashboardBack">← Dashboard</button>
-        <span>Account Details</span>
+        <span class="dashboard-form-name"><span class="dashboard-form-separator" aria-hidden="true">\</span> Account Details</span>
       </div>
 
       <div class="account-grid">
