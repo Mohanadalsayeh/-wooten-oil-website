@@ -10920,8 +10920,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
  };
  const cards=(target,count=4,kind='default')=>{if(!target)return;target.innerHTML='<div class="admin-skeleton-stack" aria-hidden="true">'+Array.from({length:count},()=>card(kind)).join('')+'</div>';};
  const audit=(tbody,count=7)=>{if(!tbody)return;tbody.innerHTML=Array.from({length:count},(_,r)=>'<tr class="db-skeleton-row admin-audit-skeleton" aria-hidden="true">'+['medium','short','medium','long'].map((w,c)=>'<td><span class="db-skeleton-cell '+w+'" style="animation-delay:'+(((r+c)%5)*.06)+'s"></span></td>').join('')+'</tr>').join('');};
- const activity=(target)=>{if(!target)return;target.hidden=false;target.innerHTML='<div class="admin-activity-skeleton" aria-hidden="true"><div class="admin-activity-skeleton-head">'+card()+card()+card()+'</div><div class="admin-activity-skeleton-grid"><div class="admin-skeleton-card tall">'+line('md')+'<div style="height:18px"></div>'+line('full')+'<div style="height:12px"></div>'+line('lg')+'</div><div class="admin-skeleton-card tall">'+line('sm')+'<div style="height:18px"></div>'+line('full')+'<div style="height:12px"></div>'+line('md')+'</div><div class="admin-skeleton-card tall">'+line('md')+'<div style="height:18px"></div>'+line('lg')+'<div style="height:12px"></div>'+line('full')+'</div></div>'+card()+card()+'</div>';};
- window.wootenAdminSkeleton={cards,audit,activity};
+ const activityRowsMarkup=(count=4)=>Array.from({length:count},(_,index)=>'<div class="activity-row activity-table-skeleton-row" aria-hidden="true" style="--activity-skeleton-delay:'+((index%4)*.08)+'s"><div><span class="activity-table-skeleton-line title"></span><span class="activity-table-skeleton-line detail"></span></div><div class="activity-row-side"><span class="activity-table-skeleton-line value"></span><span class="activity-table-skeleton-line date"></span></div></div>').join('');
+ const activitySection=(title,wide=false)=>'<section class="activity-section activity-table-skeleton-section'+(wide?' activity-wide':'')+'" aria-busy="true"><div class="activity-section-head"><h3>'+title+'</h3><span class="activity-count activity-table-skeleton-count" aria-hidden="true"></span></div><div class="activity-list">'+activityRowsMarkup(4)+'</div></section>';
+ const activityRows=(target,count=4)=>{if(!target)return;target.innerHTML=activityRowsMarkup(count);};
+ const activity=(target)=>{if(!target)return;target.hidden=false;target.innerHTML='<div class="admin-activity-skeleton" aria-hidden="true"><div class="admin-activity-skeleton-head">'+card()+card()+card()+'</div><div class="activity-sections activity-sections-skeleton">'+activitySection('Recent Payments')+activitySection('Statements &amp; Invoices')+activitySection('Communication History',true)+activitySection('Fuel Requests')+activitySection('Portal Sign-in Activity',true)+'</div></div>';};
+ window.wootenAdminSkeleton={cards,audit,activity,activityRows};
 })();
 </script>
 <script id="wooten-request-center-script">
@@ -11008,7 +11011,31 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const pagination=data.pagination||{},charts='<div class="activity-chart-panels">'+paymentChart(data.payment_chart||[],data.fuel_chart_summary||{},paymentChartMonths,total,data.payment_chart_last)+balanceChart(ages,data.payment_chart||[])+'</div>';dashboard.innerHTML='<div class="activity-customer-head"><div><h3>'+esc(c.account_name||'Customer')+'</h3><p>Customer # '+esc(c.account_number||'')+'</p><div class="activity-address">'+esc(address||'No address on file')+'</div></div><span class="activity-status">'+(active?'Active':'Inactive')+'</span></div><div class="activity-contact-line"><span class="activity-chip">'+esc(c.email||'No email')+'</span><span class="activity-chip">'+esc(c.phone||'No phone')+'</span><span class="activity-chip">Cycle '+esc(c.statement_cycle||'B')+'</span><span class="activity-chip">Portal '+(Number(c.online_activated)?'Activated':'Not Activated')+'</span><span class="activity-chip">Delivery: '+[Number(c.portal_enabled)?'Portal':'',Number(c.email_enabled)?'Email':'',Number(c.sms_enabled)?'SMS':''].filter(Boolean).join(', ')+'</span></div><div class="activity-summary-grid">'+[['Current Balance',ages[0]],['Aging 1',ages[1]],['Aging 2',ages[2]],['Aging 3',ages[3]],['Aging 4',ages[4]],['Total Balance',total]].map(x=>'<div class="activity-summary'+(x[0]==='Total Balance'?' activity-summary-total':'')+'"><span>'+x[0]+'</span><strong>'+money(x[1])+'</strong></div>').join('')+'</div>'+charts+'<div class="activity-sections">'+section('Recent Payments',payments,false,'payments',pagination.payments)+section('Statements & Invoices',documents,false,'documents',pagination.documents)+section('Communication History',communications,true,'communications',pagination.communications)+section('Fuel Requests',fuel,false,'fuel',pagination.fuel)+section('Account Applications',applications)+section('Portal Sign-in Activity',logins,true,'logins',pagination.logins)+'</div>';dashboard.hidden=false;results.innerHTML='';message('Customer activity loaded.',true);
   }
   function sectionMarkup(data,name){const p=data.pagination||{};if(name==='payments'){const rows=(data.payments||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.reference||r.description||'Payment')+'</strong><small>Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'')+'</small></div><div class="activity-row-side"><strong>'+money(r.amount)+'</strong><small>Posted '+esc(r.posting_date||r.payment_date||'—')+'</small></div></div>');return section('Recent Payments',rows,false,name,p[name]);}if(name==='documents'){const rows=(data.documents||[]).map(r=>'<div class="activity-row"><div><button class="activity-link" type="button" data-activity-document="'+Number(r.id)+'">'+esc(r.title||r.filename||'PDF Document')+'</button><small>'+esc(String(r.document_type||'document').toUpperCase())+' • '+esc(r.filename||'PDF')+'</small></div><div class="activity-row-side"><strong>'+esc(r.document_date||'—')+'</strong><small>'+date(r.created_at)+'</small></div></div>');return section('Statements & Invoices',rows,false,name,p[name]);}if(name==='communications'){const rows=(data.communications||[]).map(r=>{const channels=[];if(Number(r.portal_sent))channels.push('<span>Portal</span>');if(Number(r.email_sent))channels.push('<span>Email</span>');if(Number(r.sms_sent))channels.push('<span class="'+(String(r.sms_status||'').match(/failed|undelivered|opted/i)?'failed':'')+'">SMS '+esc(r.sms_status||'Sent')+'</span>');return '<div class="activity-row"><div><strong>'+esc(String(r.event_type||'Activity').toUpperCase())+' — '+esc(r.title||'')+'</strong><small>'+esc(r.detail||r.error_text||'')+'</small><div class="activity-delivery">'+channels.join('')+'</div></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});return section('Communication History',rows,true,name,p[name]);}if(name==='fuel'){const rows=(data.fuel_requests||[]).map(r=>'<div class="activity-row"><div><strong>'+esc(r.request_number)+' — '+esc(r.fuel_type||'Fuel Request')+'</strong><small>'+esc(r.gallons||'—')+' gallons • '+esc(r.delivery_address||'No address')+'</small></div><div class="activity-row-side"><strong>'+esc(r.delivery_date||'Flexible')+'</strong><small>'+date(r.received_at)+'</small></div></div>');return section('Fuel Requests',rows,false,name,p[name]);}if(name==='logins'){const rows=(data.login_activity||[]).map(r=>{const success=r.result==='success';return '<div class="activity-row"><div><strong class="'+(success?'activity-login-success':'activity-login-failed')+'">'+(success?'Successful sign-in':esc(String(r.result||'Login').replaceAll('_',' ')))+'</strong><small>'+esc(r.user_agent||'Device information unavailable')+'</small></div><div class="activity-row-side"><small>'+date(r.created_at)+'</small></div></div>';});return section('Portal Sign-in Activity',rows,true,name,p[name]);}return '';}
-  async function loadActivitySection(name,page){const target=dashboard.querySelector('[data-activity-section="'+name+'"]');if(!target||!currentAccount)return;const previousPage=activityPages[name];activityPages[name]=Math.max(1,Number(page||1));target.setAttribute('aria-busy','true');target.querySelectorAll('button').forEach(button=>button.disabled=true);try{const params=new URLSearchParams({account_number:currentAccount,chart_months:String(chartMonths)});Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'This activity section could not be loaded.');const markup=sectionMarkup(data,name);if(!markup)throw new Error('This activity section could not be updated.');activityPages[name]=Number(data.pagination?.[name]?.page||activityPages[name]);target.outerHTML=markup;}catch(error){activityPages[name]=previousPage;target.removeAttribute('aria-busy');target.querySelectorAll('button').forEach(button=>button.disabled=false);message(error.message||'This activity section could not be loaded.',false);}}
+  async function loadActivitySection(name,page){
+    const target=dashboard.querySelector('[data-activity-section="'+name+'"]');
+    if(!target||!currentAccount)return;
+    const previousPage=activityPages[name],previousMarkup=target.innerHTML;
+    activityPages[name]=Math.max(1,Number(page||1));
+    target.setAttribute('aria-busy','true');
+    target.querySelectorAll('button').forEach(button=>button.disabled=true);
+    window.wootenAdminSkeleton?.activityRows(target.querySelector('.activity-list'),4);
+    try{
+      const params=new URLSearchParams({account_number:currentAccount,chart_months:String(chartMonths)});
+      Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));
+      const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.success)throw new Error(data.error||'This activity section could not be loaded.');
+      const markup=sectionMarkup(data,name);
+      if(!markup)throw new Error('This activity section could not be updated.');
+      activityPages[name]=Number(data.pagination?.[name]?.page||activityPages[name]);
+      target.outerHTML=markup;
+    }catch(error){
+      activityPages[name]=previousPage;
+      target.innerHTML=previousMarkup;
+      target.removeAttribute('aria-busy');
+      target.querySelectorAll('button').forEach(button=>button.disabled=false);
+      message(error.message||'This activity section could not be loaded.',false);
+    }
+  }
   async function findCustomers(){const q=search.value.trim();dashboard.hidden=true;if(q.length<2){results.innerHTML='';message('Enter at least two letters or numbers.',false);return;}searchBtn.disabled=true;searchBtn.textContent='Searching…';message('');try{const response=await fetch('/api/admin/customer-activity?search='+encodeURIComponent(q),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer search failed.');const rows=data.matches||[];results.innerHTML=rows.length?rows.map(r=>'<button class="activity-search-result" type="button" data-activity-account="'+esc(r.account_number)+'"><span><strong>'+esc(r.account_name||'Customer')+'</strong><small># '+esc(r.account_number)+' • '+esc(r.email||r.phone||'No contact information')+'</small></span><span class="activity-search-balance"><small>Total Balance</small><strong>'+money(r.total_balance)+'</strong></span></button>').join(''):empty('No customers match this search.');message(rows.length+' customer(s) found.',true);if(rows.length===1&&(rows[0].account_number===q.replace(/\D/g,'').padStart(7,'0')||String(rows[0].account_name||'').toLowerCase()===q.toLowerCase()))loadActivity(rows[0].account_number);}catch(error){message(error.message||'Customer search failed.',false);}finally{searchBtn.disabled=false;searchBtn.textContent='Search Customer';}}
   async function loadActivity(account,changedSection=''){if(account!==currentAccount){currentAccount=account;chartMonths=12;paymentChartMonths=12;balanceChartMonths=12;Object.keys(activityPages).forEach(name=>activityPages[name]=1);}const handle=startProgress();results.innerHTML='';window.wootenAdminSkeleton?.activity(dashboard);message('');try{const params=new URLSearchParams({account_number:account,chart_months:String(chartMonths)});Object.entries(activityPages).forEach(([name,page])=>params.set(name+'_page',String(page)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()}}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Customer activity could not be loaded.');chartMonths=Number(data.chart_months??chartMonths);render(data);if(changedSection)requestAnimationFrame(()=>dashboard.querySelector('[data-activity-section="'+changedSection+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));}catch(error){if(dashboard.querySelector('.admin-activity-skeleton')){dashboard.innerHTML='';dashboard.hidden=true;}message(error.message||'Customer activity could not be loaded.',false);}finally{await finishProgress(handle);}}
   async function loadActivityChart(name,months){const target=dashboard.querySelector('[data-activity-chart="'+name+'"]');if(!target||!currentAccount)return;const previous=name==='payments'?paymentChartMonths:balanceChartMonths,selected=[3,6,12,24,0].includes(Number(months))?Number(months):12;target.setAttribute('aria-busy','true');target.querySelectorAll('select').forEach(control=>control.disabled=true);try{const params=new URLSearchParams({account_number:currentAccount,chart_months:String(selected)});Object.entries(activityPages).forEach(([sectionName,sectionPage])=>params.set(sectionName+'_page',String(sectionPage)));const response=await fetch('/api/admin/customer-activity?'+params.toString(),{headers:{'X-Admin-Key':key()},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'This chart could not be loaded.');const actual=Number(data.chart_months??selected),c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),totalBalance=ages.reduce((sum,value)=>sum+(Number.isFinite(value)?value:0),0);let markup;if(name==='payments'){paymentChartMonths=actual;markup=paymentChart(data.payment_chart||[],data.fuel_chart_summary||{},actual,totalBalance,data.payment_chart_last);}else{balanceChartMonths=actual;markup=balanceChart(ages,data.payment_chart||[],actual);}target.outerHTML=markup;}catch(error){if(name==='payments')paymentChartMonths=previous;else balanceChartMonths=previous;target.removeAttribute('aria-busy');target.querySelectorAll('select').forEach(control=>{control.disabled=false;control.value=String(previous);});message(error.message||'This chart could not be loaded.',false);}}
@@ -13979,5 +14006,37 @@ html,body{
   min-height:54px!important;
   margin:0!important;
   box-sizing:border-box!important;
+}
+</style>
+
+<style id="wooten-customer-activity-table-skeletons-ver286">
+/* Loading rows for the five Customer Activity Dashboard history tables. */
+.activity-table-skeleton-row{pointer-events:none}
+.activity-table-skeleton-line,
+.activity-table-skeleton-count{
+  display:block;
+  border-radius:7px;
+  background:linear-gradient(90deg,#e8eef3 24%,#f8fafc 45%,#e8eef3 66%);
+  background-size:230% 100%;
+  animation:activityTableSkeletonShimmer 1.25s ease-in-out infinite;
+  animation-delay:var(--activity-skeleton-delay,0s);
+}
+.activity-table-skeleton-line.title{width:min(280px,78%);height:15px}
+.activity-table-skeleton-line.detail{width:min(390px,92%);height:12px;margin-top:8px}
+.activity-table-skeleton-line.value{width:88px;height:15px;margin-left:auto}
+.activity-table-skeleton-line.date{width:112px;height:12px;margin:8px 0 0 auto}
+.activity-table-skeleton-count{width:34px;height:24px;border-radius:999px}
+@keyframes activityTableSkeletonShimmer{
+  from{background-position:115% 0}
+  to{background-position:-115% 0}
+}
+@media(max-width:760px){
+  .activity-table-skeleton-line.value,
+  .activity-table-skeleton-line.date{margin-left:0}
+  .activity-table-skeleton-line.value{margin-top:4px}
+}
+@media(prefers-reduced-motion:reduce){
+  .activity-table-skeleton-line,
+  .activity-table-skeleton-count{animation:none}
 }
 </style>
