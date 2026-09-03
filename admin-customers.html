@@ -13836,3 +13836,81 @@ html,body{
   });
 })();
 </script>
+
+<style id="wooten-admin-phone-sidebar-regions-ver271">
+/* On phones, reserve permanent top and bottom regions around the scrolling menu. */
+@media(max-width:800px){
+  body > #adminSidebar.admin-tabs-shell,
+  #adminSidebar.admin-tabs-shell{
+    display:block!important;
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    width:min(86vw,320px)!important;
+    height:100vh!important;
+    height:100dvh!important;
+    max-height:none!important;
+    padding:0!important;
+    overflow:hidden!important;
+    background:#fff!important;
+  }
+  #adminSidebar .admin-sidebar-header{
+    display:block!important;
+    position:absolute!important;
+    top:0!important;
+    right:0!important;
+    left:0!important;
+    height:calc(68px + env(safe-area-inset-top))!important;
+    padding:calc(14px + env(safe-area-inset-top)) 64px 12px 14px!important;
+    border-bottom:1px solid #e8edf2!important;
+    background:#fff!important;
+    overflow:hidden!important;
+    z-index:5!important;
+  }
+  #adminSidebar .admin-sidebar-header .admin-sidebar-brand{
+    display:flex!important;
+    align-items:center!important;
+    min-height:40px!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+  }
+  #adminSidebar .admin-tabs{
+    display:block!important;
+    position:absolute!important;
+    top:calc(68px + env(safe-area-inset-top))!important;
+    right:0!important;
+    bottom:calc(76px + env(safe-area-inset-bottom))!important;
+    left:0!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:10px 12px 14px!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    background:#fff!important;
+    z-index:2!important;
+  }
+  #adminSidebar .admin-sidebar-footer{
+    display:block!important;
+    position:absolute!important;
+    right:0!important;
+    bottom:0!important;
+    left:0!important;
+    height:calc(76px + env(safe-area-inset-bottom))!important;
+    padding:10px 12px calc(12px + env(safe-area-inset-bottom))!important;
+    border-top:1px solid #e8edf2!important;
+    background:#fff!important;
+    overflow:hidden!important;
+    z-index:5!important;
+  }
+  #adminSidebar #adminDrawerClose{
+    display:block!important;
+    position:absolute!important;
+    top:calc(12px + env(safe-area-inset-top))!important;
+    right:12px!important;
+    z-index:8!important;
+  }
+}
+</style>
