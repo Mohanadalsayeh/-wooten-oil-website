@@ -6847,7 +6847,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
     await ensureTwilioPhoneToolsSchema(env);
     const url = new URL(request.url);
     const page = Math.max(1, Math.min(100000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
-    const pageSize = Math.max(10, Math.min(100, Number.parseInt(url.searchParams.get("page_size") || "50", 10) || 50));
+    const pageSize = Math.max(10, Math.min(1000, Number.parseInt(url.searchParams.get("page_size") || "50", 10) || 50));
     const search = String(url.searchParams.get("search") || "").trim().slice(0, 160);
     const email = String(url.searchParams.get("email") || "all");
     const phone = String(url.searchParams.get("phone") || "all");
@@ -6995,7 +6995,7 @@ async function adminCustomerPaymentsDatabaseGet({request,env}){
 
     const url=new URL(request.url);
     const page=Math.max(1,parseInt(url.searchParams.get("page")||"1",10)||1);
-    const pageSize=Math.min(100,Math.max(10,parseInt(url.searchParams.get("page_size")||"50",10)||50));
+    const pageSize=Math.min(1000,Math.max(10,parseInt(url.searchParams.get("page_size")||"50",10)||50));
     const search=(url.searchParams.get("search")||"").trim().slice(0,200);
     const depType=(url.searchParams.get("deposit_type")||"all").trim().slice(0,100);
     const dateFrom=(url.searchParams.get("date_from")||"").trim().slice(0,10);

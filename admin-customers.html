@@ -13758,7 +13758,7 @@ html,body{
 })();
 </script>
 
-<style id="wooten-admin-table-pdf-ver306-style">
+<style id="wooten-admin-table-pdf-ver307-style">
 /* Match Twilio validation rows to the typography used by the other admin tables. */
 .twilio-lookup-table,
 .twilio-lookup-table th,
@@ -13835,7 +13835,7 @@ html,body{
 }
 </style>
 
-<script id="wooten-admin-table-pdf-ver306">
+<script id="wooten-admin-table-pdf-ver307">
 (function(){
   'use strict';
   const tableContainerSelector='.tablewrap,.db-tablewrap,#inboxTableWrap,.twilio-lookup-results,.schedule-cleanup-list';
@@ -13905,6 +13905,176 @@ html,body{
     };
   }
 
+  function value(id,fallback=''){
+    const element=document.getElementById(id);
+    return element?String(element.value??fallback):String(fallback);
+  }
+
+  function adminHeaders(){
+    const key=value('adminKey').trim();
+    if(!key)throw new Error('Enter your Admin Import Key before exporting this table.');
+    return {'X-Admin-Key':key,'Accept':'application/json'};
+  }
+
+  function money(value){
+    const number=Number(value||0);
+    return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number.isFinite(number)?number:0);
+  }
+
+  function displayDate(value){
+    if(!value)return '-';
+    const source=String(value).trim();
+    let match=source.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(match)return match[2]+'-'+match[3]+'-'+match[1];
+    match=source.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if(match)return String(match[1]).padStart(2,'0')+'-'+String(match[2]).padStart(2,'0')+'-'+match[3];
+    return source;
+  }
+
+  function normalizedData(headers,rows){
+    const keep=headers.map((header,index)=>({header:cleanText(header),index})).filter(item=>item.header&&!/^actions?$/i.test(item.header));
+    return {
+      headers:keep.map(item=>item.header),
+      rows:rows.map(row=>keep.map(item=>cleanText(row[item.index]??''))).filter(row=>row.some(Boolean))
+    };
+  }
+
+  async function fetchJson(url){
+    const response=await fetch(url,{headers:adminHeaders(),cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.success===false)throw new Error(data.error||'The table records could not be loaded.');
+    return data;
+  }
+
+  async function fetchEveryPage(endpoint,baseParams,rowKey,onProgress){
+    const pageSize=1000;
+    async function getPage(page){
+      const params=new URLSearchParams(baseParams);
+      params.set('page',String(page));
+      params.set('page_size',String(pageSize));
+      const data=await fetchJson(endpoint+'?'+params.toString());
+      return {page:Number(data.page||page),pages:Math.max(1,Number(data.pages||1)),total:Math.max(0,Number(data.total||0)),rows:Array.isArray(data[rowKey])?data[rowKey]:[]};
+    }
+    const first=await getPage(1);
+    const pages=first.pages;
+    const pageRows=new Array(pages);
+    pageRows[0]=first.rows;
+    let received=first.rows.length;
+    onProgress?.(received,first.total,'Loading records');
+    const concurrency=4;
+    for(let start=2;start<=pages;start+=concurrency){
+      const numbers=[];
+      for(let page=start;page<start+concurrency&&page<=pages;page++)numbers.push(page);
+      const batch=await Promise.all(numbers.map(getPage));
+      batch.forEach(result=>{pageRows[result.page-1]=result.rows;received+=result.rows.length;});
+      onProgress?.(received,first.total,'Loading records');
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    return pageRows.flat();
+  }
+
+  function filteredInboxMessagesForPdf(){
+    const source=typeof inboxMessages!=='undefined'&&Array.isArray(inboxMessages)?inboxMessages:[];
+    const search=value('inboxSearch').trim().toLowerCase();
+    const typeFilter=value('inboxTypeFilter');
+    const sortBy=value('inboxSort','newest');
+    const rows=source.filter(message=>{
+      if(typeFilter&&message.type!==typeFilter)return false;
+      if(!search)return true;
+      return [message.customer_name,message.account_number,message.customer_email,message.type,message.subject,message.from,message.snippet]
+        .map(item=>String(item||'').toLowerCase()).join(' ').includes(search);
+    });
+    const dateValue=message=>{const date=new Date(message?.date||'');return Number.isNaN(date.getTime())?0:date.getTime();};
+    const textValue=item=>String(item||'').trim().toLowerCase();
+    const accountValue=item=>{const number=parseInt(String(item||'').replace(/\D/g,''),10);return Number.isFinite(number)?number:0;};
+    rows.sort((a,b)=>{
+      if(sortBy==='oldest')return dateValue(a)-dateValue(b);
+      if(sortBy==='name-az')return textValue(a.customer_name).localeCompare(textValue(b.customer_name));
+      if(sortBy==='name-za')return textValue(b.customer_name).localeCompare(textValue(a.customer_name));
+      if(sortBy==='account-asc')return accountValue(a.account_number)-accountValue(b.account_number);
+      if(sortBy==='account-desc')return accountValue(b.account_number)-accountValue(a.account_number);
+      if(sortBy==='type')return textValue(a.type).localeCompare(textValue(b.type))||dateValue(b)-dateValue(a);
+      if(sortBy==='subject')return textValue(a.subject).localeCompare(textValue(b.subject));
+      return dateValue(b)-dateValue(a);
+    });
+    return rows;
+  }
+
+  async function allTableData(table,onProgress){
+    const title=tableName(table);
+    if(title==='MAS 90 Customer Database'&&typeof customerPreviewFilteredRows==='function'){
+      const rows=customerPreviewFilteredRows();
+      return normalizedData(
+        ['Customer #','Customer / Company','Address 1','Address 2','City','State','ZIP','Phone','Email','Statement Cycle','Current Balance','Aging 1','Aging 2','Aging 3','Aging 4'],
+        rows.map(row=>[row.account_number,row.account_name,row.address1,row.address2,row.city,row.state,row.zip_code,row.phone,row.email,row.statement_cycle,row.current_balance,row.aging_category_1,row.aging_category_2,row.aging_category_3,row.aging_category_4])
+      );
+    }
+    if(title==='Customer Payments Import'&&typeof paymentPreviewFilteredRows==='function'){
+      const rows=paymentPreviewFilteredRows();
+      return normalizedData(
+        ['Deposit Date','Deposit No','Deposit Type','Customer No','Check No','Posting Date','Customer Name','Invoice No','Cash Amount Applied','Discount Amount Applied'],
+        rows.map(row=>[displayDate(row.deposit_date),row.deposit_no,row.deposit_type,row.account_number,row.check_no,displayDate(row.posting_date),row.customer_name,row.invoice_no,money(row.cash_amount_applied),money(row.discount_amount_applied)])
+      );
+    }
+    if(title==='Live Customer Database'){
+      const rows=await fetchEveryPage('/api/admin/customers-database',{
+        search:value('dbSearch').trim(),email:value('dbEmailFilter','all'),phone:value('dbPhoneFilter','all'),online:value('dbOnlineFilter','all'),status:value('dbStatusFilter','all'),sort:value('dbSort','account_asc')
+      },'customers',onProgress);
+      return normalizedData(
+        ['Customer #','Contact','Customer / Company','Email','Phone','Current Balance','Status','Online Account'],
+        rows.map(row=>{
+          const contact=[];
+          if(String(row.phone||'').trim())contact.push('Phone');
+          if(String(row.email||'').trim())contact.push('Email');
+          if(Number(row.online_activated))contact.push('Portal');
+          const status=String(row.account_status||'').trim()||'Active';
+          return [row.account_number,contact.join(', ')||'-',row.account_name,row.email||'-',row.phone||'-',money(row.current_balance),status,Number(row.online_activated)?'Activated':'Not activated'];
+        })
+      );
+    }
+    if(title==='Live Customer Payments Database'){
+      const rows=await fetchEveryPage('/api/admin/customer-payments-database',{
+        search:value('livePaymentSearch').trim(),deposit_type:value('livePaymentDepositType','all'),date_from:value('livePaymentFromDate'),date_to:value('livePaymentToDate'),amount:value('livePaymentAmountFilter','all'),sort:value('livePaymentSort','posting_desc')
+      },'payments',onProgress);
+      return normalizedData(
+        ['Deposit Date','Deposit No','Deposit Type','Customer No','Check No','Posting Date','Customer Name','Invoice No','Cash Amount Applied','Discount Amount Applied'],
+        rows.map(row=>[displayDate(row.deposit_date),row.deposit_no,row.deposit_type,row.account_number,row.reference,displayDate(row.posting_date||row.payment_date),row.customer_name,row.invoice_no,money(row.amount),money(row.discount_amount)])
+      );
+    }
+    if(title==='Customer Messages'){
+      const rows=filteredInboxMessagesForPdf();
+      return normalizedData(
+        ['Customer','Account #','Type','Received','Subject','From','Email','Message'],
+        rows.map(message=>{const date=new Date(message.date||'');const received=message.date&&!Number.isNaN(date.getTime())?date.toLocaleString():message.date;return [message.customer_name||'-',message.account_number||'-',message.type||'Message',received||'-',message.subject||'(No subject)',message.from||'',message.customer_email||'-',message.snippet||''];})
+      );
+    }
+    if(title==='Recent Admin Activity'){
+      const data=await fetchJson('/api/admin/audit');
+      const query=value('adminActivitySearch').trim().toLowerCase();
+      const filter=value('adminActivityFilter','all');
+      const rows=(Array.isArray(data.entries)?data.entries:[]).filter(row=>{
+        if(!query)return true;
+        const created=new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString();
+        const fields={date:[created],admin:[row.actor_name],action:[String(row.action_type||'').replaceAll('_',' ')],details:[row.detail||row.target_id||'']};
+        fields.all=[...fields.date,...fields.admin,...fields.action,...fields.details];
+        return (fields[filter]||fields.all).some(item=>String(item||'').toLowerCase().includes(query));
+      });
+      return normalizedData(['Date','Admin','Action','Details'],rows.map(row=>[new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString(),row.actor_name,String(row.action_type||'').replaceAll('_',' '),row.detail||row.target_id||'-']));
+    }
+    if(title==='Twilio Phone Validation'&&typeof twilioResultsState!=='undefined'){
+      const rows=await fetchEveryPage('/api/admin/twilio/phone-tools/results',{group:twilioResultsState.group||'all',q:twilioResultsState.search||''},'results',onProgress);
+      return normalizedData(
+        ['Customer','Phone','Status','SMS Capability','Checked'],
+        rows.map(row=>{
+          const valid=row.valid===null||row.valid===undefined||row.valid===''?'Not checked':Number(row.valid)===1?'Valid':Number(row.valid)===0?'Invalid':'Lookup Error'+(row.error_code?' - '+row.error_code:'');
+          const capability=typeof twilioSmsCapability==='function'?twilioSmsCapability(row).label:'-';
+          return [[row.account_number,row.account_name].filter(Boolean).join(' - '),row.national_format||row.customer_phone||row.normalized_phone||row.raw_phone||'-',valid,capability,row.checked_at||'-'];
+        })
+      );
+    }
+    return extractTable(table);
+  }
+
   function wrapText(value,maxChars,maxLines){
     const source=asciiText(value)||'-';
     const words=source.split(' ');
@@ -13946,22 +14116,23 @@ html,body{
     return weights.map(weight=>minimum+extra*(weight/totalWeight));
   }
 
-  function preparePdfPages(data){
+  async function preparePdfPages(data,onProgress){
     const pageWidth=792,pageHeight=612,margin=32,available=pageWidth-margin*2;
     const widths=columnWidths(data.headers,data.rows,available);
     const headerLines=data.headers.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.56))),4));
     const headerHeight=Math.max(24,Math.max(...headerLines.map(lines=>lines.length))*9+8);
     const printableHeight=(pageHeight-72)-headerHeight-42;
-    const preparedRows=data.rows.map(row=>{
-      const lines=row.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.52))),10));
-      return {lines,height:Math.max(20,Math.max(...lines.map(value=>value.length))*9+7)};
-    });
     const pages=[[]];
     let used=0;
-    preparedRows.forEach(row=>{
+    for(let index=0;index<data.rows.length;index++){
+      const source=data.rows[index];
+      const lines=source.map((text,column)=>wrapText(text,Math.max(3,Math.floor((widths[column]-6)/(7.5*.52))),10));
+      const row={lines,height:Math.max(20,Math.max(...lines.map(value=>value.length))*9+7)};
       if(pages[pages.length-1].length&&used+row.height>printableHeight){pages.push([]);used=0;}
       pages[pages.length-1].push(row);used+=row.height;
-    });
+      if(index%250===0){onProgress?.(index,data.rows.length,'Preparing pages');await new Promise(resolve=>setTimeout(resolve,0));}
+    }
+    onProgress?.(data.rows.length,data.rows.length,'Preparing pages');
     return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages};
   }
 
@@ -13969,12 +14140,12 @@ html,body{
     return 'BT '+color+' rg /'+font+' '+size+' Tf 1 0 0 1 '+x.toFixed(2)+' '+y.toFixed(2)+' Tm ('+pdfEscape(text)+') Tj ET\n';
   }
 
-  function pageContent(title,layout,rows,pageIndex,pageCount){
+  function pageContent(title,totalRecords,layout,rows,pageIndex,pageCount){
     const {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight}=layout;
     let out='';
     out+=textCommand(title,margin,pageHeight-34,'F2',15,'0.04 0.14 0.25');
     const generated=new Date().toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-    out+=textCommand('Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
+    out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
     out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
     let top=pageHeight-72;
     out+='0.94 0.96 0.98 rg '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re f\n';
@@ -14003,20 +14174,23 @@ html,body{
     return out;
   }
 
-  function buildPdf(title,data){
-    const layout=preparePdfPages(data);
+  async function buildPdf(title,data,onProgress){
+    const layout=await preparePdfPages(data,onProgress);
     const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','',
       '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
       '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'];
     const pageIds=[];
-    layout.pages.forEach((rows,index)=>{
-      const content=pageContent(title,layout,rows,index,layout.pages.length);
+    for(let index=0;index<layout.pages.length;index++){
+      const rows=layout.pages[index];
+      const content=pageContent(title,data.rows.length,layout,rows,index,layout.pages.length);
       const contentId=objects.length;
       objects.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');
       const pageId=objects.length;
       objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+contentId+' 0 R >>');
       pageIds.push(pageId);
-    });
+      if(index%20===0){onProgress?.(index,layout.pages.length,'Building PDF');await new Promise(resolve=>setTimeout(resolve,0));}
+    }
+    onProgress?.(layout.pages.length,layout.pages.length,'Building PDF');
     objects[2]='<< /Type /Pages /Count '+pageIds.length+' /Kids ['+pageIds.map(id=>id+' 0 R').join(' ')+'] >>';
     let pdf='%PDF-1.4\n';
     const offsets=[0];
@@ -14031,10 +14205,11 @@ html,body{
     return new Blob([pdf],{type:'application/pdf'});
   }
 
-  function exportTablePdf(table){
+  async function exportTablePdf(table,onProgress){
     const title=tableName(table);
-    const data=extractTable(table);
-    const blob=buildPdf(title,data);
+    const data=await allTableData(table,onProgress);
+    if(!data.rows.length)throw new Error('Load the table data before exporting it.');
+    const blob=await buildPdf(title,data,onProgress);
     const safeName=(title.replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()||'Table')+'.pdf';
     const url=URL.createObjectURL(blob);
     const link=document.createElement('a');
@@ -14066,12 +14241,17 @@ html,body{
     button.type='button';
     button.className='secondary table-pdf-export-button';
     button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span>';
-    button.addEventListener('click',()=>{
+    button.addEventListener('click',async()=>{
       const current=container.querySelector('table');
       if(!current)return;
+      const label=button.querySelector('span');
       button.disabled=true;
-      try{exportTablePdf(current);}catch(error){window.alert(error.message||'The table could not be exported.');}
-      finally{button.disabled=false;}
+      function progress(done,total,stage){
+        const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;
+        if(label)label.textContent=stage+(percent?' '+percent+'%':'…');
+      }
+      try{await exportTablePdf(current,progress);}catch(error){window.alert(error.message||'The table could not be exported.');}
+      finally{button.disabled=false;if(label)label.textContent='Export PDF';}
     });
     toolbar.appendChild(button);
     container.parentNode.insertBefore(toolbar,container);
