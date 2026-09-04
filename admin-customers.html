@@ -13758,7 +13758,7 @@ html,body{
 })();
 </script>
 
-<style id="wooten-admin-table-pdf-ver307-style">
+<style id="wooten-admin-table-pdf-ver308-style">
 /* Match Twilio validation rows to the typography used by the other admin tables. */
 .twilio-lookup-table,
 .twilio-lookup-table th,
@@ -13829,13 +13829,32 @@ html,body{
   stroke-linecap:round;
   stroke-linejoin:round;
 }
+.admin-audit-table-toolbar{
+  justify-content:space-between!important;
+  gap:12px;
+}
+.admin-audit-table-toolbar .table-pdf-export-toolbar{
+  min-height:0;
+  margin:0;
+}
+.admin-audit-table-toolbar .table-pdf-export-button{
+  width:auto!important;
+}
 @media(max-width:700px){
   .table-pdf-export-toolbar{justify-content:stretch}
   .table-pdf-export-button{width:100%!important}
+  .admin-audit-table-toolbar{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .admin-audit-table-toolbar #adminAuditRefresh,
+  .admin-audit-table-toolbar .table-pdf-export-button{
+    width:100%!important;
+  }
 }
 </style>
 
-<script id="wooten-admin-table-pdf-ver307">
+<script id="wooten-admin-table-pdf-ver308">
 (function(){
   'use strict';
   const tableContainerSelector='.tablewrap,.db-tablewrap,#inboxTableWrap,.twilio-lookup-results,.schedule-cleanup-list';
@@ -14254,7 +14273,15 @@ html,body{
       finally{button.disabled=false;if(label)label.textContent='Export PDF';}
     });
     toolbar.appendChild(button);
-    container.parentNode.insertBefore(toolbar,container);
+    const inlineHost=tableName(table)==='Recent Admin Activity'
+      ?document.querySelector('.admin-audit-table-toolbar')
+      :null;
+    if(inlineHost){
+      toolbar.classList.add('is-inline-action');
+      inlineHost.appendChild(toolbar);
+    }else{
+      container.parentNode.insertBefore(toolbar,container);
+    }
     container._wootenPdfToolbar=toolbar;
     syncToolbar(container);
   }
