@@ -5614,6 +5614,7 @@ textarea[data-request-response]{
     <div class="actions">
       <button class="primary" id="docUploadBtn" type="button">Upload Document</button>
       <button class="secondary" id="docLoadBtn" type="button">View Customer Documents</button>
+      <button class="secondary table-pdf-export-button" id="docExportPdfBtn" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
     </div>
     <div id="docStatus" class="status"></div>
     <div id="docCustomerMeta" class="doc-customer-meta" style="display:none"></div>
@@ -9134,6 +9135,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const file=document.getElementById('docFile');
   const upload=document.getElementById('docUploadBtn');
   const load=document.getElementById('docLoadBtn');
+  const exportPdf=document.getElementById('docExportPdfBtn');
   const status=document.getElementById('docStatus');
   const meta=document.getElementById('docCustomerMeta');
   const list=document.getElementById('docList');
@@ -9215,6 +9217,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function render(data){
     currentDocuments=Array.isArray(data.documents)?data.documents:[];
     documentPage=1;
+    if(exportPdf)exportPdf.disabled=currentDocuments.length===0;
     if(data.customer){
       meta.style.display='block';
       meta.textContent=(data.customer.account_name||'Customer')+' • Customer # '+(data.customer.account_number||'');
@@ -9223,6 +9226,29 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;renderDocumentPage();}});
   nextPage?.addEventListener('click',()=>{const pages=Math.max(1,Math.ceil(currentDocuments.length/documentPageSize));if(documentPage<pages){documentPage++;renderDocumentPage();}});
+  exportPdf?.addEventListener('click',async()=>{
+    if(!currentDocuments.length){setStatus('Load customer documents before exporting.',false);return;}
+    if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}
+    const label=exportPdf.querySelector('span');
+    exportPdf.disabled=true;
+    try{
+      await window.WootenAdminTablePdf.exportData(
+        'Customer Documents',
+        ['Customer #','Document Type','Title / Invoice Number','Document Date','PDF File','Size','Document #'],
+        currentDocuments.map(documentRow=>[
+          normalize(account.value),
+          String(documentRow.document_type||'Document').replace(/^./,character=>character.toUpperCase()),
+          documentRow.title||documentRow.filename||'Document',
+          formatDate(documentRow.document_date||documentRow.created_at),
+          documentRow.filename||'PDF',
+          formatSize(documentRow.size_bytes),
+          documentRow.id
+        ]),
+        (done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');}
+      );
+    }catch(error){setStatus(error.message||'The customer documents table could not be exported.',false);}
+    finally{exportPdf.disabled=false;if(label)label.textContent='Export PDF';}
+  });
 
   async function openAdminDocument(id){
     const key=document.getElementById('adminKey').value.trim();
@@ -9254,6 +9280,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     account.value=acct;
+    currentDocuments=[];
+    if(exportPdf)exportPdf.disabled=true;
     setStatus('Loading customer documents…');
     meta.style.display='none';
     if(pagination)pagination.hidden=true;
@@ -13758,7 +13786,7 @@ html,body{
 })();
 </script>
 
-<style id="wooten-admin-table-pdf-ver308-style">
+<style id="wooten-admin-table-pdf-ver309-style">
 /* Match Twilio validation rows to the typography used by the other admin tables. */
 .twilio-lookup-table,
 .twilio-lookup-table th,
@@ -13854,7 +13882,7 @@ html,body{
 }
 </style>
 
-<script id="wooten-admin-table-pdf-ver308">
+<script id="wooten-admin-table-pdf-ver309">
 (function(){
   'use strict';
   const tableContainerSelector='.tablewrap,.db-tablewrap,#inboxTableWrap,.twilio-lookup-results,.schedule-cleanup-list';
@@ -14236,6 +14264,23 @@ html,body{
     document.body.appendChild(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
   }
+
+  async function exportDataPdf(title,headers,rows,onProgress){
+    const data=normalizedData(headers,rows);
+    if(!data.rows.length)throw new Error('Load the table data before exporting it.');
+    const blob=await buildPdf(title,data,onProgress);
+    const safeName=(String(title||'Table').replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()||'Table')+'.pdf';
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;link.download=safeName;link.style.display='none';
+    document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }
+
+  window.WootenAdminTablePdf={
+    ...(window.WootenAdminTablePdf||{}),
+    exportData:exportDataPdf
+  };
 
   function tableHasRows(table){
     return [...table.tBodies].some(body=>[...body.rows].some(row=>row.cells.length&&cleanText(row.textContent)));
