@@ -5657,30 +5657,25 @@ textarea[data-request-response]{
             <option value="20">20 payments</option>
           </select>
         </div>
+        <div class="statement-contact-filter-item statement-phone-filter">
+          <label for="statementPhoneScope">Customers to Show — Phone</label>
+          <select class="statement-contact-filter-select" id="statementPhoneScope" aria-label="Filter customers by phone number">
+            <option value="all">All</option>
+            <option value="with">With phone</option>
+            <option value="without">Without phone</option>
+          </select>
+        </div>
+        <div class="statement-contact-filter-item statement-email-filter">
+          <label for="statementEmailScope">Customers to Show — Email</label>
+          <select class="statement-contact-filter-select" id="statementEmailScope" aria-label="Filter customers by email address">
+            <option value="all">All</option>
+            <option value="with">With email</option>
+            <option value="without">Without email</option>
+          </select>
+        </div>
         <div class="statement-search-field">
           <label for="statementCustomerSearch">Find Customer</label>
           <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
-        </div>
-        <div>
-          <label>Customers to Show</label>
-          <div class="statement-contact-filters">
-            <div class="statement-contact-filter-item">
-              <small>Phone</small>
-              <select class="statement-contact-filter-select" id="statementPhoneScope" aria-label="Filter customers by phone number">
-                <option value="all">All</option>
-                <option value="with">With phone</option>
-                <option value="without">Without phone</option>
-              </select>
-            </div>
-            <div class="statement-contact-filter-item">
-              <small>Email</small>
-              <select class="statement-contact-filter-select" id="statementEmailScope" aria-label="Filter customers by email address">
-                <option value="all">All</option>
-                <option value="with">With email</option>
-                <option value="without">Without email</option>
-              </select>
-            </div>
-          </div>
         </div>
         <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
           <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
@@ -5719,6 +5714,7 @@ textarea[data-request-response]{
       <div class="actions statement-send-actions">
         <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
         <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
+        <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
       </div>
       <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
         <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
@@ -13786,7 +13782,7 @@ html,body{
 })();
 </script>
 
-<style id="wooten-admin-table-pdf-ver309-style">
+<style id="wooten-admin-table-pdf-ver310-style">
 /* Match Twilio validation rows to the typography used by the other admin tables. */
 .twilio-lookup-table,
 .twilio-lookup-table th,
@@ -13882,7 +13878,7 @@ html,body{
 }
 </style>
 
-<script id="wooten-admin-table-pdf-ver309">
+<script id="wooten-admin-table-pdf-ver310">
 (function(){
   'use strict';
   const tableContainerSelector='.tablewrap,.db-tablewrap,#inboxTableWrap,.twilio-lookup-results,.schedule-cleanup-list';
@@ -14346,5 +14342,85 @@ html,body{
   const observer=new MutationObserver(queueScan);
   observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','hidden','class']});
   queueScan();
+})();
+</script>
+
+<style id="wooten-statement-customer-toolbar-ver310-style">
+@media(min-width:1301px){
+  #documentSectionSendStatements .statement-batch-controls{
+    grid-template-columns:minmax(150px,.8fr) minmax(190px,1.05fr) minmax(150px,.78fr) minmax(150px,.78fr) minmax(230px,1.25fr)!important;
+    align-items:end!important;
+  }
+}
+@media(min-width:701px) and (max-width:1300px){
+  #documentSectionSendStatements .statement-batch-controls{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #documentSectionSendStatements .statement-search-field{
+    grid-column:1/-1;
+  }
+}
+#documentSectionSendStatements .statement-batch-controls>div:not(.statement-delivery-options){
+  min-width:0;
+}
+#documentSectionSendStatements .statement-batch-controls label{
+  white-space:nowrap;
+}
+#documentSectionSendStatements .statement-contact-filter-select,
+#documentSectionSendStatements #statementBatchDate,
+#documentSectionSendStatements #statementCustomerSearch{
+  height:46px;
+  min-height:46px;
+}
+</style>
+
+<script id="wooten-statement-customers-pdf-ver310">
+(function(){
+  const button=document.getElementById('statementExportCustomersPdf');
+  const status=document.getElementById('statementBatchStatus');
+  if(!button)return;
+  const field=(id,fallback='')=>String(document.getElementById(id)?.value??fallback);
+  const money=value=>Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
+  const address=customer=>{
+    const street=[customer.address1,customer.address2,customer.address3].map(value=>String(value||'').trim()).filter(Boolean).join(', ');
+    const cityState=[String(customer.city||'').trim(),String(customer.state||'').trim()].filter(Boolean).join(', ');
+    const cityLine=[cityState,String(customer.zip_code||'').trim()].filter(Boolean).join(' ');
+    return [street,cityLine].filter(Boolean).join(' - ');
+  };
+  button.addEventListener('click',async()=>{
+    const key=field('adminKey').trim();
+    if(!key){window.ensureAdminLoginKey?.('Enter your Admin Import Key to continue.');return;}
+    if(!window.WootenAdminTablePdf?.exportData){if(status){status.className='status show bad';status.textContent='The PDF exporter is not available. Refresh the page and try again.';}return;}
+    const label=button.querySelector('span');
+    button.disabled=true;
+    if(label)label.textContent='Loading Records…';
+    try{
+      const response=await fetch('/api/admin/statement-customers',{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.success===false)throw new Error(data.error||'Statement customers could not be loaded.');
+      const query=field('statementCustomerSearch').trim().toLowerCase();
+      const phoneChoice=field('statementPhoneScope','all');
+      const emailChoice=field('statementEmailScope','all');
+      const customers=(Array.isArray(data.customers)?data.customers:[]).filter(customer=>{
+        const hasPhone=!!String(customer.phone||'').trim();
+        const hasEmail=!!String(customer.email||'').trim();
+        if(phoneChoice!=='all'&&(phoneChoice==='with'?!hasPhone:hasPhone))return false;
+        if(emailChoice!=='all'&&(emailChoice==='with'?!hasEmail:hasEmail))return false;
+        if(query&&![customer.account_number,customer.account_name,customer.email,customer.phone].join(' ').toLowerCase().includes(query))return false;
+        return true;
+      });
+      await window.WootenAdminTablePdf.exportData(
+        'Statement Customers',
+        ['Customer #','Customer / Company','Address','Current','Previous','Total','Phone','Email'],
+        customers.map(customer=>[customer.account_number,customer.account_name||'Customer',address(customer)||'-',money(customer.current_balance),money(customer.previous_balance),money(customer.total_balance),customer.phone||'No phone on file',customer.email||'No email on file']),
+        (done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');}
+      );
+    }catch(error){
+      if(status){status.className='status show bad';status.textContent=error.message||'The statement customer table could not be exported.';}
+    }finally{
+      button.disabled=false;
+      if(label)label.textContent='Export PDF';
+    }
+  });
 })();
 </script>
