@@ -4966,7 +4966,7 @@ textarea[data-request-response]{
     </div>
 
     <div class="tablewrap" id="tablewrap" style="display:none">
-      <table>
+      <table data-pdf-table-name="MAS 90 Customer Database">
         <thead><tr>
           <th>Account #</th><th>Name</th><th>Address 1</th><th>Address 2</th>
           <th>City</th><th>State</th><th>ZIP</th><th>Phone</th><th>Email</th><th>Statement Cycle</th><th>Current Balance</th><th>Aging 1</th><th>Aging 2</th><th>Aging 3</th><th>Aging 4</th>
@@ -5055,7 +5055,7 @@ textarea[data-request-response]{
       </div>
 
       <div class="tablewrap payments-preview-wrap" id="paymentPreviewWrap" style="display:none">
-        <table class="payment-database-table">
+        <table class="payment-database-table" data-pdf-table-name="Customer Payments Import">
           <thead><tr>
             <th>Deposit Date</th><th>Deposit No</th><th>Deposit Type</th><th>Customer No</th><th>Check No</th>
             <th>Posting Date</th><th>Customer Name</th><th>Invoice No</th><th>Cash Amount Applied</th><th>Discount Amount Applied</th>
@@ -5169,7 +5169,7 @@ textarea[data-request-response]{
     </div>
 
     <div class="db-tablewrap" id="dbTableWrap" style="display:none">
-      <table class="db-table">
+      <table class="db-table" data-pdf-table-name="Live Customer Database">
         <thead>
           <tr>
             <th>Customer #</th>
@@ -5267,7 +5267,7 @@ textarea[data-request-response]{
       </div>
 
       <div class="db-tablewrap live-payment-tablewrap" id="livePaymentTableWrap" style="display:none">
-        <table class="db-table live-payment-table">
+        <table class="db-table live-payment-table" data-pdf-table-name="Live Customer Payments Database">
           <thead>
             <tr>
               <th>Deposit Date</th>
@@ -5352,7 +5352,7 @@ textarea[data-request-response]{
     </div>
 
     <div id="inboxTableWrap" style="display:none">
-      <table>
+      <table data-pdf-table-name="Customer Messages">
         <thead><tr>
           <th>Customer Name</th>
           <th>Account #</th>
@@ -5428,7 +5428,7 @@ textarea[data-request-response]{
         <div class="twilio-fax-note">Fax note: Twilio does not provide fax as a reliable separate line type. Fax numbers may appear as landline or unknown and should be manually verified.</div>
         <div class="twilio-tool-note">SMS capability: a valid number stays unverified for SMS until a test SMS receives a Twilio <b>delivered</b> status, unless a previous saved mobile classification already exists.</div>
         <div class="twilio-phone-progress" id="twilioLookupProgress" hidden>
-          <div class="twilio-phone-progress-track"><div class="twilio-phone-progress-bar" id="twilioLookupProgressBar"></div></div>
+          <div class="twilio-phone-progress-track" id="twilioLookupProgressTrack" role="progressbar" aria-label="Twilio phone validation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="twilio-phone-progress-bar" id="twilioLookupProgressBar"></div></div>
           <div class="twilio-phone-progress-text" id="twilioLookupProgressText">Preparing…</div>
         </div>
         <div class="twilio-lookup-summary" id="twilioLookupSummary"></div>
@@ -6008,7 +6008,7 @@ textarea[data-request-response]{
 <div class="admin-audit-table-toolbar">
   <button class="secondary" id="adminAuditRefresh" type="button">Refresh</button>
 </div>
-<div class="admin-audit-table-wrap tablewrap"><table><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table>
+<div class="admin-audit-table-wrap tablewrap"><table data-pdf-table-name="Recent Admin Activity"><thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody id="adminAuditBody"></tbody></table>
 <div class="admin-activity-pagination" id="adminActivityPagination" hidden>
   <div class="admin-activity-pagination-summary" id="adminActivityPaginationSummary">Showing 0–0 of 0</div>
   <div class="admin-activity-pagination-controls">
@@ -8079,11 +8079,27 @@ async function loadTwilioStatus(){
 document.getElementById("twilioStatusBtn")?.addEventListener("click",loadTwilioStatus);
 
 const twilioPhoneTools={
-  area:document.getElementById("twilioDefaultAreaCode"),save:document.getElementById("twilioSaveAreaCode"),apply:document.getElementById("twilioApplyAreaCode"),areaStatus:document.getElementById("twilioAreaStatus"),areaProgress:document.getElementById("twilioAreaCodeProgress"),areaProgressTrack:document.getElementById("twilioAreaCodeProgressTrack"),areaBar:document.getElementById("twilioAreaCodeProgressBar"),areaProgressText:document.getElementById("twilioAreaCodeProgressText"),lookup:document.getElementById("twilioLookupCustomers"),refresh:document.getElementById("twilioRefreshLookupResults"),progress:document.getElementById("twilioLookupProgress"),bar:document.getElementById("twilioLookupProgressBar"),progressText:document.getElementById("twilioLookupProgressText"),summary:document.getElementById("twilioLookupSummary"),panel:document.getElementById("twilioResultsPanel"),results:document.getElementById("twilioLookupResults"),resultsTitle:document.getElementById("twilioResultsTitle"),resultsSearch:document.getElementById("twilioResultsSearch"),prev:document.getElementById("twilioResultsPrev"),next:document.getElementById("twilioResultsNext"),pageInfo:document.getElementById("twilioResultsPageInfo")
+  area:document.getElementById("twilioDefaultAreaCode"),save:document.getElementById("twilioSaveAreaCode"),apply:document.getElementById("twilioApplyAreaCode"),areaStatus:document.getElementById("twilioAreaStatus"),areaProgress:document.getElementById("twilioAreaCodeProgress"),areaProgressTrack:document.getElementById("twilioAreaCodeProgressTrack"),areaBar:document.getElementById("twilioAreaCodeProgressBar"),areaProgressText:document.getElementById("twilioAreaCodeProgressText"),lookup:document.getElementById("twilioLookupCustomers"),refresh:document.getElementById("twilioRefreshLookupResults"),progress:document.getElementById("twilioLookupProgress"),progressTrack:document.getElementById("twilioLookupProgressTrack"),bar:document.getElementById("twilioLookupProgressBar"),progressText:document.getElementById("twilioLookupProgressText"),summary:document.getElementById("twilioLookupSummary"),panel:document.getElementById("twilioResultsPanel"),results:document.getElementById("twilioLookupResults"),resultsTitle:document.getElementById("twilioResultsTitle"),resultsSearch:document.getElementById("twilioResultsSearch"),prev:document.getElementById("twilioResultsPrev"),next:document.getElementById("twilioResultsNext"),pageInfo:document.getElementById("twilioResultsPageInfo")
 };
 const twilioResultsState={group:"",page:1,pageSize:50,total:0,pages:1,search:"",searchTimer:null};
+let twilioLookupRunning=false;
+let twilioLookupProgressTimer=null;
+let twilioLookupHideTimer=null;
 function twilioEsc(value){return String(value==null?"":value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));}
 function twilioAdminHeaders(json=false){const key=document.getElementById("adminKey").value.trim();const headers={"X-Admin-Key":key,"Accept":"application/json"};if(json)headers["Content-Type"]="application/json";return headers;}
+function twilioValidationCompletedLabel(date=new Date()){
+  const stamp=date.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  return 'Verification completed • '+stamp+' Central Time';
+}
+function resetTwilioLookupProgress(){
+  clearTimeout(twilioLookupProgressTimer);clearTimeout(twilioLookupHideTimer);
+  if(!twilioPhoneTools.progress)return;
+  twilioPhoneTools.progress.hidden=true;
+  twilioPhoneTools.progress.classList.remove('is-complete');
+  if(twilioPhoneTools.bar)twilioPhoneTools.bar.style.width='0%';
+  if(twilioPhoneTools.progressTrack)twilioPhoneTools.progressTrack.setAttribute('aria-valuenow','0');
+  if(twilioPhoneTools.progressText)twilioPhoneTools.progressText.textContent='Preparing…';
+}
 function twilioTypeLabel(value){const key=String(value||"");return ({mobile:"Mobile",landline:"Landline",fixedVoip:"Fixed VoIP",nonFixedVoip:"Non-fixed VoIP",tollFree:"Toll-free",personal:"Personal",premium:"Premium",sharedCost:"Shared cost",uan:"Universal access",voicemail:"Voicemail",pager:"Pager",unknown:"Unknown"})[key]||key||"Unknown";}
 function twilioGroupLabel(value){return ({all:"All phones",valid:"Valid phones",invalid:"Invalid phones",error:"Lookup errors",unchecked:"Not checked"})[value]||"Phone results";}
 function renderTwilioLookupData(data){
@@ -8145,7 +8161,7 @@ function renderTwilioResults(data){
   if(twilioPhoneTools.next)twilioPhoneTools.next.disabled=twilioResultsState.page>=twilioResultsState.pages;
   if(!twilioPhoneTools.results)return;
   if(!rows.length){twilioPhoneTools.results.innerHTML='<div class="schedule-empty">No matching phone records.</div>';return;}
-  twilioPhoneTools.results.innerHTML='<table class="twilio-lookup-table"><thead><tr><th>Customer</th><th>Phone</th><th>Status</th><th>SMS Capability</th><th>Checked</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+twilioEsc(r.account_number||'')+'</b><br><span class="twilio-muted">'+twilioEsc(r.account_name||'')+'</span></td><td>'+twilioEsc(r.national_format||r.customer_phone||r.normalized_phone||r.raw_phone||'—')+'</td><td>'+twilioResultStatusMarkup(r.valid,r.error_code)+'</td><td>'+twilioSmsCapabilityMarkup(r)+'</td><td>'+twilioEsc(r.checked_at||'—')+'</td><td>'+twilioSmsVerifyActionMarkup(r)+'</td></tr>').join('')+'</tbody></table>';
+  twilioPhoneTools.results.innerHTML='<table class="twilio-lookup-table" data-pdf-table-name="Twilio Phone Validation"><thead><tr><th>Customer</th><th>Phone</th><th>Status</th><th>SMS Capability</th><th>Checked</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+twilioEsc(r.account_number||'')+'</b><br><span class="twilio-muted">'+twilioEsc(r.account_name||'')+'</span></td><td>'+twilioEsc(r.national_format||r.customer_phone||r.normalized_phone||r.raw_phone||'—')+'</td><td>'+twilioResultStatusMarkup(r.valid,r.error_code)+'</td><td>'+twilioSmsCapabilityMarkup(r)+'</td><td>'+twilioEsc(r.checked_at||'—')+'</td><td>'+twilioSmsVerifyActionMarkup(r)+'</td></tr>').join('')+'</tbody></table>';
 }
 async function loadTwilioResults(){
   if(!twilioResultsState.group||!twilioPhoneTools.panel)return;
@@ -8217,11 +8233,14 @@ async function applyTwilioAreaCode(){
 }
 async function runTwilioCustomerLookup(){
   if(!confirm('Check customer phone numbers with Twilio basic Lookup?\n\nPaid Line Type Intelligence is disabled, so this scan will validate numbers without requesting line-type classification.'))return;
-  twilioPhoneTools.lookup.disabled=true;twilioPhoneTools.progress.hidden=false;twilioPhoneTools.progress.classList.remove('is-complete');twilioPhoneTools.bar.style.width='0%';twilioPhoneTools.progressText.textContent='Starting Twilio lookup…';let cursor=0,total=0,processed=0;
+  clearTimeout(twilioLookupProgressTimer);clearTimeout(twilioLookupHideTimer);twilioLookupRunning=true;twilioPhoneTools.lookup.disabled=true;twilioPhoneTools.progress.hidden=false;twilioPhoneTools.progress.classList.remove('is-complete');twilioPhoneTools.bar.style.width='0%';if(twilioPhoneTools.progressTrack)twilioPhoneTools.progressTrack.setAttribute('aria-valuenow','0');twilioPhoneTools.progressText.textContent='Starting a new Twilio phone check…';let cursor=0,total=0,processed=0;
   try{
-    while(true){const res=await fetch('/api/admin/twilio/phone-tools/lookup-batch',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({cursor,limit:20})});const data=await res.json().catch(()=>({}));if(!res.ok||data.success===false)throw new Error(data.error||'Twilio lookup failed.');total=Number(data.total||total||0);processed=Number(data.processed_total||processed);cursor=Number(data.next_cursor||0);const pct=total?Math.min(100,Math.round(processed/total*100)):100;twilioPhoneTools.bar.style.width=pct+'%';twilioPhoneTools.progressText.textContent=processed.toLocaleString()+' of '+total.toLocaleString()+' customer phone numbers checked ('+pct+'%)';if(data.done)break;}
-    twilioPhoneTools.bar.style.width='100%';twilioPhoneTools.progressText.textContent='Twilio phone check complete.';twilioPhoneTools.progress.classList.add('is-complete');await loadTwilioPhoneTools();await refreshTwilioBalance();
-  }catch(error){twilioPhoneTools.progressText.textContent=error.message||'Twilio phone check failed.';}finally{twilioPhoneTools.lookup.disabled=false;}
+    while(true){const res=await fetch('/api/admin/twilio/phone-tools/lookup-batch',{method:'POST',headers:twilioAdminHeaders(true),body:JSON.stringify({cursor,limit:20})});const data=await res.json().catch(()=>({}));if(!res.ok||data.success===false)throw new Error(data.error||'Twilio lookup failed.');total=Number(data.total||total||0);processed=Number(data.processed_total||processed);cursor=Number(data.next_cursor||0);const pct=total?Math.min(100,Math.round(processed/total*100)):100;twilioPhoneTools.bar.style.width=pct+'%';if(twilioPhoneTools.progressTrack)twilioPhoneTools.progressTrack.setAttribute('aria-valuenow',String(pct));twilioPhoneTools.progressText.textContent='Current scan: '+processed.toLocaleString()+' of '+total.toLocaleString()+' customer phone numbers checked ('+pct+'%)';if(data.done)break;}
+    const finalTotal=Math.max(total,processed);twilioPhoneTools.bar.style.width='100%';if(twilioPhoneTools.progressTrack)twilioPhoneTools.progressTrack.setAttribute('aria-valuenow','100');twilioPhoneTools.progressText.textContent=finalTotal.toLocaleString()+' of '+finalTotal.toLocaleString()+' customer phone numbers checked (100%)';await loadTwilioPhoneTools();await refreshTwilioBalance();
+    const completedText=twilioValidationCompletedLabel();
+    twilioLookupProgressTimer=setTimeout(()=>{if(twilioLookupRunning)return;twilioPhoneTools.progress.classList.add('is-complete');twilioPhoneTools.progressText.textContent=completedText;},700);
+    twilioLookupHideTimer=setTimeout(()=>{if(!twilioLookupRunning)twilioPhoneTools.progress.hidden=true;},8700);
+  }catch(error){twilioPhoneTools.progress.classList.add('is-complete');twilioPhoneTools.progressText.textContent='Twilio phone check stopped: '+(error.message||'Unknown error.');}finally{twilioLookupRunning=false;twilioPhoneTools.lookup.disabled=false;}
 }
 let twilioVerifyPollTimer=null;
 function scheduleTwilioVerifyRefresh(attempt=0){
@@ -8246,7 +8265,7 @@ async function verifyTwilioVoipSms(account,button){
 twilioPhoneTools.save?.addEventListener('click',saveTwilioAreaCode);
 twilioPhoneTools.apply?.addEventListener('click',applyTwilioAreaCode);
 twilioPhoneTools.lookup?.addEventListener('click',runTwilioCustomerLookup);
-twilioPhoneTools.refresh?.addEventListener('click',loadTwilioPhoneTools);
+twilioPhoneTools.refresh?.addEventListener('click',async()=>{if(!twilioLookupRunning)resetTwilioLookupProgress();await loadTwilioPhoneTools();});
 twilioPhoneTools.area?.addEventListener('input',()=>{twilioPhoneTools.area.value=twilioPhoneTools.area.value.replace(/\D/g,'').slice(0,3);});
 twilioPhoneTools.summary?.addEventListener('click',event=>{const btn=event.target.closest('[data-twilio-group]');if(btn)selectTwilioResultsGroup(btn.dataset.twilioGroup);});
 twilioPhoneTools.results?.addEventListener('click',event=>{const btn=event.target.closest('[data-twilio-verify-sms]');if(btn)verifyTwilioVoipSms(btn.dataset.twilioVerifySms,btn);});
@@ -9850,7 +9869,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       const data=await request('/api/admin/statement-scheduling/pdf-cleanup');const files=Array.isArray(data.files)?data.files:[];
       cleanupCount.textContent=files.length.toLocaleString()+' file'+(files.length===1?'':'s')+' eligible';
       if(!files.length){cleanupList.innerHTML='<div class="schedule-empty">No combined statement PDFs are 90 days old or older.</div>';return;}
-      cleanupList.innerHTML='<table class="schedule-cleanup-table"><thead><tr><th style="width:38px"></th><th>File name</th><th>Date / time</th><th>Size</th></tr></thead><tbody>'+files.map(file=>'<tr><td><input class="schedule-cleanup-select" type="checkbox" data-cleanup-key="'+esc(file.key)+'"></td><td><strong>'+esc(file.filename||'Combined Statement PDF')+'</strong><small>'+esc(file.scope==='group'?'Test All combined PDF':'Statement run combined PDF')+'</small></td><td>'+esc(cleanupFormatDate(file.uploaded_at||file.created_at))+'</td><td>'+esc(cleanupFormatBytes(file.size))+'</td></tr>').join('')+'</tbody></table>';
+      cleanupList.innerHTML='<table class="schedule-cleanup-table" data-pdf-table-name="90-Day PDF Cleanup"><thead><tr><th style="width:38px"></th><th>File name</th><th>Date / time</th><th>Size</th></tr></thead><tbody>'+files.map(file=>'<tr><td><input class="schedule-cleanup-select" type="checkbox" data-cleanup-key="'+esc(file.key)+'"></td><td><strong>'+esc(file.filename||'Combined Statement PDF')+'</strong><small>'+esc(file.scope==='group'?'Test All combined PDF':'Statement run combined PDF')+'</small></td><td>'+esc(cleanupFormatDate(file.uploaded_at||file.created_at))+'</td><td>'+esc(cleanupFormatBytes(file.size))+'</td></tr>').join('')+'</tbody></table>';
       syncCleanupSelection();
     }catch(error){cleanupCount.textContent='Could not load files';cleanupList.innerHTML='<div class="schedule-empty">'+esc(error.message||'PDF cleanup list could not be loaded.')+'</div>';}
     finally{cleanupBtn.disabled=false;}
@@ -13736,5 +13755,344 @@ html,body{
     bell.setAttribute('aria-expanded','false');
     bell.focus({preventScroll:true});
   });
+})();
+</script>
+
+<style id="wooten-admin-table-pdf-ver306-style">
+/* Match Twilio validation rows to the typography used by the other admin tables. */
+.twilio-lookup-table,
+.twilio-lookup-table th,
+.twilio-lookup-table td{
+  font-size:13px!important;
+}
+.twilio-lookup-table th{
+  color:#61758a!important;
+  font-weight:700!important;
+  text-transform:none!important;
+  letter-spacing:normal!important;
+}
+.twilio-lookup-table td{
+  color:#17324d;
+  font-weight:400!important;
+}
+.twilio-lookup-table td b,
+.twilio-lookup-table .twilio-valid,
+.twilio-lookup-table .twilio-invalid,
+.twilio-lookup-table .twilio-error,
+.twilio-lookup-table .twilio-type,
+.twilio-lookup-table .twilio-sms-capability{
+  font-size:13px!important;
+  font-weight:700!important;
+}
+
+/* Reusable toolbar added to every current and future generated table. */
+.table-pdf-export-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  min-height:44px;
+  margin:10px 0 8px;
+}
+.table-pdf-export-toolbar[hidden]{display:none!important}
+.table-pdf-export-button{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  min-height:42px!important;
+  padding:9px 14px!important;
+  border:1px solid #c8d7e4!important;
+  border-radius:9px!important;
+  background:#fff!important;
+  color:#17324d!important;
+  font-size:13px!important;
+  font-weight:400!important;
+  line-height:1!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.table-pdf-export-button:hover,
+.table-pdf-export-button:focus,
+.table-pdf-export-button:focus-visible,
+.table-pdf-export-button:active{
+  background:#eef4f8!important;
+  color:#17324d!important;
+  font-weight:400!important;
+  transform:none!important;
+}
+.table-pdf-export-button svg{
+  width:18px;
+  height:18px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+@media(max-width:700px){
+  .table-pdf-export-toolbar{justify-content:stretch}
+  .table-pdf-export-button{width:100%!important}
+}
+</style>
+
+<script id="wooten-admin-table-pdf-ver306">
+(function(){
+  'use strict';
+  const tableContainerSelector='.tablewrap,.db-tablewrap,#inboxTableWrap,.twilio-lookup-results,.schedule-cleanup-list';
+  let scanQueued=false;
+
+  function cleanText(value){
+    return String(value==null?'':value)
+      .replace(/\u00a0/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function asciiText(value){
+    return cleanText(value)
+      .replace(/[–—]/g,'-')
+      .replace(/→/g,'->')
+      .replace(/←/g,'<-')
+      .replace(/•/g,'-')
+      .replace(/[“”]/g,'"')
+      .replace(/[‘’]/g,"'")
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^\x20-\x7e]/g,'?');
+  }
+
+  function pdfEscape(value){
+    return asciiText(value).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+  }
+
+  function cellText(cell){
+    const copy=cell.cloneNode(true);
+    copy.querySelectorAll('svg,button,input,select,textarea').forEach(node=>node.remove());
+    return cleanText(copy.textContent);
+  }
+
+  function tableName(table){
+    const named=cleanText(table.getAttribute('data-pdf-table-name'));
+    if(named)return named;
+    let node=table.parentElement;
+    while(node&&node!==document.body){
+      const direct=[...node.children].find(child=>child.matches&&child.matches('h1,h2,h3'));
+      if(direct){const title=cleanText(direct.textContent);if(title)return title;}
+      node=node.parentElement;
+    }
+    return 'Table';
+  }
+
+  function extractTable(table){
+    const headerRow=table.tHead&&table.tHead.rows.length?table.tHead.rows[table.tHead.rows.length-1]:null;
+    let headers=headerRow?[...headerRow.cells].map(cellText):[];
+    const bodyRows=[...table.tBodies].flatMap(body=>[...body.rows]);
+    let columnCount=headers.length;
+    bodyRows.forEach(row=>{columnCount=Math.max(columnCount,row.cells.length);});
+    if(!columnCount)throw new Error('This table does not have any columns to export.');
+    while(headers.length<columnCount)headers.push('Column '+(headers.length+1));
+    const rows=bodyRows.map(row=>{
+      const values=[...row.cells].map(cellText);
+      while(values.length<columnCount)values.push('');
+      return values.slice(0,columnCount);
+    }).filter(row=>row.some(Boolean));
+    if(!rows.length)throw new Error('Load the table data before exporting it.');
+    const keep=headers.map((header,index)=>({header:cleanText(header),index})).filter(item=>item.header&&!/^actions?$/i.test(item.header));
+    if(!keep.length)throw new Error('This table does not have printable columns.');
+    return {
+      headers:keep.map(item=>item.header),
+      rows:rows.map(row=>keep.map(item=>row[item.index]||''))
+    };
+  }
+
+  function wrapText(value,maxChars,maxLines){
+    const source=asciiText(value)||'-';
+    const words=source.split(' ');
+    const lines=[];
+    let line='';
+    function pushLongWord(word){
+      while(word.length>maxChars){lines.push(word.slice(0,maxChars));word=word.slice(maxChars);if(lines.length>=maxLines)return '';}
+      return word;
+    }
+    for(let word of words){
+      if(lines.length>=maxLines)break;
+      if(word.length>maxChars)word=pushLongWord(word);
+      if(!word)continue;
+      const candidate=line?line+' '+word:word;
+      if(candidate.length<=maxChars)line=candidate;
+      else{if(line)lines.push(line);line=word;}
+    }
+    if(line&&lines.length<maxLines)lines.push(line);
+    if(!lines.length)lines.push('-');
+    const originalLength=source.length;
+    const shownLength=lines.join(' ').length;
+    if(shownLength<originalLength&&lines.length){
+      const last=lines.length-1;
+      lines[last]=(lines[last].slice(0,Math.max(1,maxChars-3))+'...').slice(0,maxChars);
+    }
+    return lines;
+  }
+
+  function columnWidths(headers,rows,available){
+    const count=headers.length;
+    const minimum=Math.min(48,available/count);
+    const weights=headers.map((header,index)=>{
+      let longest=Math.min(30,Math.max(6,asciiText(header).length));
+      rows.slice(0,100).forEach(row=>{longest=Math.max(longest,Math.min(30,asciiText(row[index]).length));});
+      return longest;
+    });
+    const extra=Math.max(0,available-minimum*count);
+    const totalWeight=weights.reduce((sum,value)=>sum+value,0)||1;
+    return weights.map(weight=>minimum+extra*(weight/totalWeight));
+  }
+
+  function preparePdfPages(data){
+    const pageWidth=792,pageHeight=612,margin=32,available=pageWidth-margin*2;
+    const widths=columnWidths(data.headers,data.rows,available);
+    const headerLines=data.headers.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.56))),4));
+    const headerHeight=Math.max(24,Math.max(...headerLines.map(lines=>lines.length))*9+8);
+    const printableHeight=(pageHeight-72)-headerHeight-42;
+    const preparedRows=data.rows.map(row=>{
+      const lines=row.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.52))),10));
+      return {lines,height:Math.max(20,Math.max(...lines.map(value=>value.length))*9+7)};
+    });
+    const pages=[[]];
+    let used=0;
+    preparedRows.forEach(row=>{
+      if(pages[pages.length-1].length&&used+row.height>printableHeight){pages.push([]);used=0;}
+      pages[pages.length-1].push(row);used+=row.height;
+    });
+    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages};
+  }
+
+  function textCommand(text,x,y,font,size,color){
+    return 'BT '+color+' rg /'+font+' '+size+' Tf 1 0 0 1 '+x.toFixed(2)+' '+y.toFixed(2)+' Tm ('+pdfEscape(text)+') Tj ET\n';
+  }
+
+  function pageContent(title,layout,rows,pageIndex,pageCount){
+    const {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight}=layout;
+    let out='';
+    out+=textCommand(title,margin,pageHeight-34,'F2',15,'0.04 0.14 0.25');
+    const generated=new Date().toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    out+=textCommand('Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
+    out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
+    let top=pageHeight-72;
+    out+='0.94 0.96 0.98 rg '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re f\n';
+    out+='0.80 0.85 0.89 RG 0.55 w '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re S\n';
+    let x=margin;
+    widths.forEach((width,index)=>{
+      if(index)out+='0.84 0.88 0.91 RG 0.4 w '+x.toFixed(2)+' '+(top-headerHeight).toFixed(2)+' m '+x.toFixed(2)+' '+top.toFixed(2)+' l S\n';
+      headerLines[index].forEach((line,lineIndex)=>{out+=textCommand(line,x+3,top-12-lineIndex*9,'F2',7.5,'0.08 0.19 0.30');});
+      x+=width;
+    });
+    top-=headerHeight;
+    rows.forEach((row,rowIndex)=>{
+      const bottom=top-row.height;
+      if(rowIndex%2===1)out+='0.985 0.99 0.995 rg '+margin+' '+bottom.toFixed(2)+' '+available+' '+row.height.toFixed(2)+' re f\n';
+      out+='0.84 0.88 0.91 RG 0.4 w '+margin+' '+bottom.toFixed(2)+' '+available+' '+row.height.toFixed(2)+' re S\n';
+      let cellX=margin;
+      widths.forEach((width,index)=>{
+        if(index)out+='0.88 0.91 0.94 RG 0.35 w '+cellX.toFixed(2)+' '+bottom.toFixed(2)+' m '+cellX.toFixed(2)+' '+top.toFixed(2)+' l S\n';
+        row.lines[index].forEach((line,lineIndex)=>{out+=textCommand(line,cellX+3,top-11-lineIndex*9,'F1',7.5,'0.10 0.19 0.28');});
+        cellX+=width;
+      });
+      top=bottom;
+    });
+    out+=textCommand('Wooten Oil Customer Administration',margin,22,'F1',8,'0.38 0.46 0.55');
+    out+=textCommand('Page '+(pageIndex+1)+' of '+pageCount,pageWidth/2-22,22,'F2',8,'0.20 0.29 0.38');
+    return out;
+  }
+
+  function buildPdf(title,data){
+    const layout=preparePdfPages(data);
+    const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'];
+    const pageIds=[];
+    layout.pages.forEach((rows,index)=>{
+      const content=pageContent(title,layout,rows,index,layout.pages.length);
+      const contentId=objects.length;
+      objects.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');
+      const pageId=objects.length;
+      objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+contentId+' 0 R >>');
+      pageIds.push(pageId);
+    });
+    objects[2]='<< /Type /Pages /Count '+pageIds.length+' /Kids ['+pageIds.map(id=>id+' 0 R').join(' ')+'] >>';
+    let pdf='%PDF-1.4\n';
+    const offsets=[0];
+    for(let id=1;id<objects.length;id++){
+      offsets[id]=pdf.length;
+      pdf+=id+' 0 obj\n'+objects[id]+'\nendobj\n';
+    }
+    const xref=pdf.length;
+    pdf+='xref\n0 '+objects.length+'\n0000000000 65535 f \n';
+    for(let id=1;id<objects.length;id++)pdf+=String(offsets[id]).padStart(10,'0')+' 00000 n \n';
+    pdf+='trailer\n<< /Size '+objects.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+    return new Blob([pdf],{type:'application/pdf'});
+  }
+
+  function exportTablePdf(table){
+    const title=tableName(table);
+    const data=extractTable(table);
+    const blob=buildPdf(title,data);
+    const safeName=(title.replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()||'Table')+'.pdf';
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;link.download=safeName;link.style.display='none';
+    document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }
+
+  function tableHasRows(table){
+    return [...table.tBodies].some(body=>[...body.rows].some(row=>row.cells.length&&cleanText(row.textContent)));
+  }
+
+  function syncToolbar(container){
+    const toolbar=container._wootenPdfToolbar;
+    if(!toolbar)return;
+    const table=container.querySelector('table');
+    const unavailable=!table||container.hidden||container.style.display==='none'||!tableHasRows(table);
+    if(toolbar.hidden!==unavailable)toolbar.hidden=unavailable;
+  }
+
+  function attachTable(table){
+    const container=table.closest(tableContainerSelector)||table.parentElement;
+    if(!container)return;
+    if(container._wootenPdfToolbar){syncToolbar(container);return;}
+    const toolbar=document.createElement('div');
+    toolbar.className='table-pdf-export-toolbar';
+    toolbar.hidden=true;
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='secondary table-pdf-export-button';
+    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span>';
+    button.addEventListener('click',()=>{
+      const current=container.querySelector('table');
+      if(!current)return;
+      button.disabled=true;
+      try{exportTablePdf(current);}catch(error){window.alert(error.message||'The table could not be exported.');}
+      finally{button.disabled=false;}
+    });
+    toolbar.appendChild(button);
+    container.parentNode.insertBefore(toolbar,container);
+    container._wootenPdfToolbar=toolbar;
+    syncToolbar(container);
+  }
+
+  function scanTables(){
+    scanQueued=false;
+    document.querySelectorAll('table').forEach(attachTable);
+    document.querySelectorAll(tableContainerSelector).forEach(syncToolbar);
+  }
+
+  function queueScan(){
+    if(scanQueued)return;
+    scanQueued=true;
+    requestAnimationFrame(scanTables);
+  }
+
+  const observer=new MutationObserver(queueScan);
+  observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','hidden','class']});
+  queueScan();
 })();
 </script>
