@@ -5722,7 +5722,7 @@ textarea[data-request-response]{
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
           <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
-          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
+          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
         </div>
         <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
           <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
@@ -9581,7 +9581,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   if(!loadBtn||!sendBtn||!list) return;
 
   let customers=[];
-  const selected=new Set();
+  const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   let customerPage=1;
   const customerPageSize=20;
 
@@ -9654,6 +9654,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   function updateCount(){
     if(selectedCount) selectedCount.textContent=selected.size+' selected';
+    const exportButton=document.getElementById('statementExportCustomersPdf');
+    if(exportButton) exportButton.disabled=selected.size===0||exportButton.dataset.exporting==='true';
     if(selectAllVisible){
       const visible=visibleCustomers();
       const checked=visible.length>0 && visible.every(c=>selected.has(c.account_number));
@@ -11370,7 +11372,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   if(!loadBtn||!sendBtn||!list) return;
 
   let customers=[];
-  const selected=new Set();
+  const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   let customerPage=1;
   const customerPageSize=20;
 
@@ -11443,6 +11445,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   function updateCount(){
     if(selectedCount) selectedCount.textContent=selected.size+' selected';
+    const exportButton=document.getElementById('statementExportCustomersPdf');
+    if(exportButton) exportButton.disabled=selected.size===0||exportButton.dataset.exporting==='true';
     if(selectAllVisible){
       const visible=visibleCustomers();
       const checked=visible.length>0 && visible.every(c=>selected.has(c.account_number));
@@ -14612,26 +14616,21 @@ html,body{
   };
   button.addEventListener('click',async()=>{
     const key=field('adminKey').trim();
+    const selectedAccounts=new Set(Array.from(window.WootenStatementSelectedAccounts||[]).map(account=>String(account)));
+    if(!selectedAccounts.size){button.disabled=true;return;}
     if(!key){window.ensureAdminLoginKey?.('Enter your Admin Import Key to continue.');return;}
     if(!window.WootenAdminTablePdf?.exportData){if(status){status.className='status show bad';status.textContent='The PDF exporter is not available. Refresh the page and try again.';}return;}
     const label=button.querySelector('span');
+    button.dataset.exporting='true';
     button.disabled=true;
     if(label)label.textContent='Loading Records…';
     try{
       const response=await fetch('/api/admin/statement-customers',{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
       const data=await response.json().catch(()=>({}));
       if(!response.ok||data.success===false)throw new Error(data.error||'Statement customers could not be loaded.');
-      const query=field('statementCustomerSearch').trim().toLowerCase();
-      const phoneChoice=field('statementPhoneScope','all');
-      const emailChoice=field('statementEmailScope','all');
-      const customers=(Array.isArray(data.customers)?data.customers:[]).filter(customer=>{
-        const hasPhone=!!String(customer.phone||'').trim();
-        const hasEmail=!!String(customer.email||'').trim();
-        if(phoneChoice!=='all'&&(phoneChoice==='with'?!hasPhone:hasPhone))return false;
-        if(emailChoice!=='all'&&(emailChoice==='with'?!hasEmail:hasEmail))return false;
-        if(query&&![customer.account_number,customer.account_name,customer.email,customer.phone].join(' ').toLowerCase().includes(query))return false;
-        return true;
-      });
+      const customers=(Array.isArray(data.customers)?data.customers:[])
+        .filter(customer=>selectedAccounts.has(String(customer.account_number||'')));
+      if(!customers.length)throw new Error('The selected customer records are no longer available. Reload the customer list and try again.');
       await window.WootenAdminTablePdf.exportData(
         'Statement Customers',
         ['Customer #','Customer / Company','Address','Current','Previous','Total','Phone','Email'],
@@ -14641,7 +14640,8 @@ html,body{
     }catch(error){
       if(status){status.className='status show bad';status.textContent=error.message||'The statement customer table could not be exported.';}
     }finally{
-      button.disabled=false;
+      delete button.dataset.exporting;
+      button.disabled=!(window.WootenStatementSelectedAccounts&&window.WootenStatementSelectedAccounts.size);
       if(label)label.textContent='Export PDF';
     }
   });
