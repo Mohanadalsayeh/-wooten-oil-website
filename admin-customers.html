@@ -4858,6 +4858,23 @@ textarea[data-request-response]{
     <h2>MAS 90 Database</h2>
     <p>Upload the original Microsoft Access <strong>.mdb</strong> customer database. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
+    <section class="mas90-remote-request" id="mas90RemoteRequestPanel" aria-labelledby="mas90RemoteRequestTitle">
+      <div class="mas90-remote-request-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7.5" ry="3"></ellipse><path d="M4.5 5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V5M4.5 11v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path d="M15.5 8.5h5m-2.2-2.2 2.2 2.2-2.2 2.2"></path></svg>
+      </div>
+      <div class="mas90-remote-request-copy">
+        <span class="mas90-remote-request-kicker">Secure remote retrieval</span>
+        <h3 id="mas90RemoteRequestTitle">Retrieve Current MAS 90 Data</h3>
+        <p>Queue the office computer to export and upload current customer and payment data. The office computer must be powered on and connected.</p>
+        <div class="mas90-remote-request-status" id="mas90RemoteRequestStatus" aria-live="polite">
+          <strong id="mas90RemoteRequestStatusTitle">Ready to request</strong>
+          <span id="mas90RemoteRequestStatusDetail">Master Admin confirmation is required.</span>
+        </div>
+        <div class="mas90-remote-request-progress" id="mas90RemoteRequestProgress" hidden role="progressbar" aria-label="Remote MAS 90 retrieval progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="mas90RemoteRequestProgressBar"></span></div>
+      </div>
+      <button class="primary mas90-remote-request-button" id="mas90RemoteRequestButton" type="button">Request MAS 90 Sync</button>
+    </section>
+
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
       <div>
         <label for="customerFile">Customer File</label>
@@ -6247,6 +6264,42 @@ function renderMas90LiveSync(data){
   });
 }
 
+function renderMas90RemoteRequest(remote,importData){
+  const button=document.getElementById("mas90RemoteRequestButton");
+  const title=document.getElementById("mas90RemoteRequestStatusTitle");
+  const detail=document.getElementById("mas90RemoteRequestStatusDetail");
+  const panel=document.getElementById("mas90RemoteRequestPanel");
+  const progress=document.getElementById("mas90RemoteRequestProgress");
+  const bar=document.getElementById("mas90RemoteRequestProgressBar");
+  if(!button||!title||!detail||!panel||!progress||!bar)return;
+  const status=String(remote?.status||"idle").toLowerCase();
+  const automaticActive=String(importData?.import_control_status||"").toLowerCase()==="in_progress"&&!importData?.cancel_requested;
+  const active=["queued","claimed","running","cancel_requested"].includes(status);
+  const labels={
+    queued:"Request queued",
+    claimed:"Office computer accepted the request",
+    running:"MAS 90 retrieval in progress",
+    cancel_requested:"Cancellation requested",
+    completed:"MAS 90 retrieval completed",
+    failed:"MAS 90 retrieval failed",
+    cancelled:"MAS 90 retrieval canceled"
+  };
+  panel.dataset.status=status;
+  title.textContent=automaticActive&&!active?"Automatic MAS 90 sync in progress":labels[status]||"Ready to request";
+  const requested=remote?.requested_at?formatImportUpdateDate(remote.requested_at):"";
+  const requestedBy=String(remote?.requested_by||"");
+  const requestLine=[requestedBy?`Requested by ${requestedBy}`:"",requested&&requested!=="Not imported yet"?requested:""].filter(Boolean).join(" • ");
+  detail.textContent=String(remote?.message||"")||requestLine||(automaticActive?"Wait for the current automatic upload to finish.":"Master Admin confirmation is required.");
+  if(String(remote?.message||"")&&requestLine&&status!=="idle")detail.textContent+=` • ${requestLine}`;
+  const showProgress=["queued","claimed","running","cancel_requested"].includes(status);
+  const percent=status==="queued"?2:status==="claimed"?5:Math.max(0,Math.min(100,Number(remote?.progress_percent||0)));
+  progress.hidden=!showProgress;
+  progress.setAttribute("aria-valuenow",String(percent));
+  bar.style.width=percent+"%";
+  button.disabled=active||automaticActive;
+  button.textContent=status==="queued"?"Request Queued":status==="claimed"?"Starting…":status==="running"?"Sync in Progress":status==="cancel_requested"?"Stopping…":automaticActive?"Automatic Sync in Progress":"Request MAS 90 Sync";
+}
+
 let importCancelRequestPending=false;
 document.addEventListener("click",async event=>{
   const button=event.target.closest("[data-mas90-cancel]");
@@ -6280,7 +6333,7 @@ async function loadImportLastUpdates(){
   ensureImportStatusPolling();
   if(importStatusRequestPending)return;
   const key=document.getElementById("adminKey")?.value.trim();
-  if(!key){renderMas90LiveSync(null);return;}
+  if(!key){renderMas90LiveSync(null);renderMas90RemoteRequest(null,null);return;}
   importStatusRequestPending=true;
   try{
     const res=await fetch("/api/admin/import-status",{
@@ -6292,6 +6345,7 @@ async function loadImportLastUpdates(){
     setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"",data.customers_last_import_mode||"manual",data.customers_last_import_status||"completed",data.customers_last_record_count||0,data.customers_last_import_batch_number||1,data.customers_last_import_batch_count||1);
     setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
     renderMas90LiveSync(data);
+    renderMas90RemoteRequest(data.remote_sync_request||null,data);
   }catch(e){
     console.warn("Could not load import update times",e);
   }finally{
@@ -12051,6 +12105,81 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 })();
 </script>
 
+<style id="wooten-mas90-remote-request-style-ver297">
+.mas90-remote-request{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;margin:20px 0;padding:18px;border:1px solid #d4e1ec;border-radius:14px;background:#f8fbfd;box-shadow:0 7px 20px rgba(22,50,77,.05)}
+.mas90-remote-request-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#eaf2fb;color:#1f63a8;flex:0 0 auto}.mas90-remote-request-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.mas90-remote-request-copy{min-width:0}.mas90-remote-request-kicker{display:block;margin-bottom:3px;color:#657a8e;font-size:11px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}.mas90-remote-request h3{margin:0;color:#17324d;font-size:17px}.mas90-remote-request p{margin:5px 0 0;color:#687b8e;font-size:13px;line-height:1.45}
+.mas90-remote-request-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 9px;margin-top:10px}.mas90-remote-request-status strong{color:#17324d;font-size:13px}.mas90-remote-request-status span{color:#687b8e;font-size:12px}
+.mas90-remote-request-progress{height:6px;margin-top:10px;overflow:hidden;border-radius:999px;background:#dce6ee}.mas90-remote-request-progress[hidden]{display:none!important}.mas90-remote-request-progress span{display:block;width:0;height:100%;border-radius:inherit;background:#2e79c7;transition:width .25s ease}
+.mas90-remote-request[data-status="queued"],.mas90-remote-request[data-status="claimed"],.mas90-remote-request[data-status="running"],.mas90-remote-request[data-status="cancel_requested"]{border-color:#e6c36b;background:#fff9e9}.mas90-remote-request[data-status="queued"] .mas90-remote-request-icon,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-icon,.mas90-remote-request[data-status="running"] .mas90-remote-request-icon{background:#f6c654;color:#674808}.mas90-remote-request[data-status="queued"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="running"] .mas90-remote-request-progress span{background:#d99a13}
+.mas90-remote-request[data-status="completed"]{border-color:#b9dcc8;background:#f2fbf6}.mas90-remote-request[data-status="completed"] .mas90-remote-request-icon{background:#dff3e7;color:#22734a}.mas90-remote-request[data-status="failed"],.mas90-remote-request[data-status="cancelled"]{border-color:#e4b2b4;background:#fff5f5}.mas90-remote-request[data-status="failed"] .mas90-remote-request-icon,.mas90-remote-request[data-status="cancelled"] .mas90-remote-request-icon{background:#f4dada;color:#a52b31}
+.mas90-remote-request-button{min-width:190px;white-space:nowrap}.mas90-remote-request-button:disabled{opacity:.66;cursor:not-allowed}
+.mas90-request-modal{position:fixed;inset:0;z-index:100500;display:flex;align-items:center;justify-content:center;padding:18px}.mas90-request-modal[hidden]{display:none!important}.mas90-request-modal-backdrop{position:absolute;inset:0;background:rgba(8,24,40,.58);backdrop-filter:blur(3px)}.mas90-request-dialog{position:relative;width:min(520px,100%);max-height:calc(100dvh - 28px);overflow:auto;border:1px solid #d7e1e9;border-radius:18px;background:#fff;box-shadow:0 26px 70px rgba(8,28,47,.28)}
+.mas90-request-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 20px 16px;border-bottom:1px solid #e5ebf0}.mas90-request-head h3{margin:0;color:#17324d;font-size:21px}.mas90-request-head p{margin:5px 0 0;color:#718396;font-size:13px;line-height:1.45}.mas90-request-close{display:inline-flex;align-items:center;justify-content:center;flex:0 0 40px;width:40px;height:40px;border:1px solid #d7e1e9;border-radius:50%;background:transparent;color:#17324d;font-size:25px;line-height:1;cursor:pointer}.mas90-request-close:hover{background:#eef3f7;border-color:#17324d}.mas90-request-close:focus-visible{outline:3px solid rgba(47,125,215,.25);outline-offset:2px}
+.mas90-request-body{padding:20px}.mas90-request-field label{display:block;margin-bottom:7px;color:#17324d;font-size:13px;font-weight:900}.mas90-request-field input{width:100%;height:48px;box-sizing:border-box;border:1px solid #cbd7e2;border-radius:11px;padding:0 13px;background:#fff;color:#172033;font:inherit}.mas90-request-field input:focus{outline:3px solid rgba(47,125,215,.18);border-color:#2f7dd7}.mas90-request-hint{display:block;margin-top:7px;color:#718396;font-size:12px;line-height:1.4}
+.mas90-request-confirm{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:13px;border:1px solid #dce5ed;border-radius:11px;background:#f7fafc;color:#31485d;font-size:13px;line-height:1.45;cursor:pointer}.mas90-request-confirm input{flex:0 0 auto;width:19px;height:19px;margin:1px 0 0;accent-color:#c8282f}.mas90-request-message{display:none;margin-top:14px;padding:10px 12px;border-radius:9px;font-size:13px;line-height:1.4}.mas90-request-message.show{display:block}.mas90-request-message.bad{background:#fff0f0;color:#9a242a}.mas90-request-message.ok{background:#edf8f2;color:#246b47}
+.mas90-request-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.mas90-request-actions button{min-width:145px}.mas90-request-modal-open{overflow:hidden!important}
+@media(max-width:720px){.mas90-remote-request{grid-template-columns:auto minmax(0,1fr);align-items:start;padding:15px}.mas90-remote-request-button{grid-column:1/-1;width:100%;min-width:0;min-height:46px}.mas90-request-modal{padding:10px}.mas90-request-dialog{border-radius:15px}.mas90-request-head{padding:17px 16px 14px}.mas90-request-body{padding:17px 16px}.mas90-request-actions{padding:0 16px 17px;display:grid;grid-template-columns:1fr}.mas90-request-actions button{width:100%;min-width:0}.mas90-request-actions .primary{order:-1}}
+</style>
+
+<div class="mas90-request-modal" id="mas90RequestModal" hidden aria-hidden="true">
+  <div class="mas90-request-modal-backdrop" data-mas90-request-close></div>
+  <form class="mas90-request-dialog" id="mas90RequestForm" role="dialog" aria-modal="true" aria-labelledby="mas90RequestDialogTitle" autocomplete="off">
+    <header class="mas90-request-head">
+      <div><h3 id="mas90RequestDialogTitle">Confirm MAS 90 Retrieval</h3><p>This will ask the office computer to export and upload current customer and payment data.</p></div>
+      <button class="mas90-request-close" type="button" data-mas90-request-close aria-label="Close">&times;</button>
+    </header>
+    <div class="mas90-request-body">
+      <div class="mas90-request-field">
+        <label for="mas90MasterPassword">Master Admin Password</label>
+        <input id="mas90MasterPassword" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Enter the Master Admin password">
+        <small class="mas90-request-hint">The password for an individual admin user will not authorize this request.</small>
+      </div>
+      <label class="mas90-request-confirm" for="mas90RequestConfirmed"><input id="mas90RequestConfirmed" type="checkbox"><span>I confirm that I want the office computer to retrieve and upload both current customer data and payment data.</span></label>
+      <div class="mas90-request-message" id="mas90RequestMessage" aria-live="polite"></div>
+    </div>
+    <div class="mas90-request-actions"><button class="secondary" type="button" data-mas90-request-close>Cancel</button><button class="primary" id="mas90RequestSubmit" type="submit">Confirm Request</button></div>
+  </form>
+</div>
+
+<script id="wooten-mas90-remote-request-ver297">
+(function(){
+  const trigger=document.getElementById('mas90RemoteRequestButton');
+  const modal=document.getElementById('mas90RequestModal');
+  const form=document.getElementById('mas90RequestForm');
+  const password=document.getElementById('mas90MasterPassword');
+  const confirmed=document.getElementById('mas90RequestConfirmed');
+  const message=document.getElementById('mas90RequestMessage');
+  const submit=document.getElementById('mas90RequestSubmit');
+  if(!trigger||!modal||!form||!password||!confirmed||!message||!submit)return;
+  let pending=false;
+  function showMessage(text,good){message.textContent=text||'';message.className='mas90-request-message'+(text?' show '+(good?'ok':'bad'):'');}
+  function open(){if(trigger.disabled)return;form.reset();showMessage('');modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.classList.add('mas90-request-modal-open');setTimeout(()=>password.focus(),40);}
+  function close(){if(pending)return;modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.classList.remove('mas90-request-modal-open');password.value='';confirmed.checked=false;showMessage('');trigger.focus({preventScroll:true});}
+  trigger.addEventListener('click',open);
+  modal.querySelectorAll('[data-mas90-request-close]').forEach(item=>item.addEventListener('click',close));
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.hidden)close();});
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const masterPassword=password.value;
+    if(!masterPassword){showMessage('Enter the Master Admin password.');password.focus();return;}
+    if(!confirmed.checked){showMessage('Check the confirmation box before requesting the retrieval.');confirmed.focus();return;}
+    const adminKey=document.getElementById('adminKey')?.value.trim()||'';
+    if(!adminKey){showMessage('Your admin session has expired. Sign in again.');return;}
+    pending=true;submit.disabled=true;submit.textContent='Queuing Request…';showMessage('');
+    try{
+      const response=await fetch('/api/admin/mas90-sync-request',{method:'POST',headers:{'X-Admin-Key':adminKey,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({master_password:masterPassword,confirmed:true}),cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      password.value='';
+      if(!response.ok||data.success===false)throw new Error(data.error||'The MAS 90 retrieval request could not be queued.');
+      if(typeof renderMas90RemoteRequest==='function')renderMas90RemoteRequest(data.remote_sync_request||null,null);
+      modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.classList.remove('mas90-request-modal-open');confirmed.checked=false;
+      if(typeof loadImportLastUpdates==='function')await loadImportLastUpdates();
+    }catch(error){password.value='';showMessage(error.message||'The MAS 90 retrieval request could not be queued.');password.focus();}
+    finally{pending=false;submit.disabled=false;submit.textContent='Confirm Request';}
+  });
+})();
+</script>
 </body>
 </html>
 

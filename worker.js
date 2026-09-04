@@ -1092,6 +1092,7 @@ async function adminImportStatusGet({request,env}){
       WHERE import_type IN ('customers','payments')
     `).all();
     const control=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
+    const remoteSync=await mas90SyncStatusRow(env);
 
     let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
@@ -1141,7 +1142,8 @@ async function adminImportStatusGet({request,env}){
       cancel_requested_at:control?.cancel_requested_at||"",
       cancel_requested_by:control?.cancel_requested_by||"",
       import_control_updated_at:control?.updated_at||"",
-      import_control_completed_at:control?.completed_at||""
+      import_control_completed_at:control?.completed_at||"",
+      remote_sync_request:mas90SyncPublicStatus(remoteSync)
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -1171,6 +1173,223 @@ async function adminImportCancelPost({request,env}){
   }
 }
 __name(adminImportCancelPost,"adminImportCancelPost");
+
+let mas90SyncSchemaReady=false;
+async function ensureMas90SyncRequestSchema(env){
+  if(!env?.DB)throw new Error("Customer database is not configured.");
+  if(mas90SyncSchemaReady)return;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS mas90_sync_control (
+      id INTEGER PRIMARY KEY CHECK (id=1),
+      request_id TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'idle',
+      requested_by TEXT NOT NULL DEFAULT '',
+      requested_at TEXT,
+      claimed_at TEXT,
+      agent_name TEXT NOT NULL DEFAULT '',
+      agent_last_seen_at TEXT,
+      stage TEXT NOT NULL DEFAULT '',
+      progress_percent INTEGER NOT NULL DEFAULT 0,
+      status_message TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT
+    )
+  `).run();
+  await env.DB.prepare(`INSERT OR IGNORE INTO mas90_sync_control(id,status,updated_at) VALUES (1,'idle',CURRENT_TIMESTAMP)`).run();
+  mas90SyncSchemaReady=true;
+}
+__name(ensureMas90SyncRequestSchema,"ensureMas90SyncRequestSchema");
+
+function mas90SyncPublicStatus(row){
+  return {
+    request_id:String(row?.request_id||""),
+    status:String(row?.status||"idle"),
+    requested_by:String(row?.requested_by||""),
+    requested_at:row?.requested_at||"",
+    claimed_at:row?.claimed_at||"",
+    agent_name:String(row?.agent_name||""),
+    agent_last_seen_at:row?.agent_last_seen_at||"",
+    stage:String(row?.stage||""),
+    progress_percent:Math.max(0,Math.min(100,Number(row?.progress_percent||0))),
+    message:String(row?.status_message||""),
+    updated_at:row?.updated_at||"",
+    completed_at:row?.completed_at||""
+  };
+}
+__name(mas90SyncPublicStatus,"mas90SyncPublicStatus");
+
+async function mas90SyncStatusRow(env){
+  await ensureMas90SyncRequestSchema(env);
+  let row=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
+  const status=String(row?.status||"").toLowerCase();
+  let updatedRaw=String(row?.updated_at||"").trim();
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updatedRaw))updatedRaw=updatedRaw.replace(" ","T")+"Z";
+  const updatedAt=Date.parse(updatedRaw);
+  if(["claimed","running"].includes(status)&&Number.isFinite(updatedAt)&&Date.now()-updatedAt>30*60*1000){
+    await env.DB.prepare(`
+      UPDATE mas90_sync_control
+      SET status='failed',stage='connection',progress_percent=0,
+          status_message='The MAS 90 computer stopped responding before the request finished.',
+          updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP
+      WHERE id=1 AND request_id=? AND status IN ('claimed','running')
+    `).bind(String(row.request_id||"")).run();
+    row=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
+  }
+  return row;
+}
+__name(mas90SyncStatusRow,"mas90SyncStatusRow");
+
+async function mas90MasterPasswordMatches(value,env){
+  const supplied=String(value||"");
+  const expected=String(env?.ADMIN_IMPORT_KEY||"");
+  if(!supplied||!expected)return false;
+  const [suppliedHash,expectedHash]=await Promise.all([adminSha256(supplied),adminSha256(expected)]);
+  let difference=suppliedHash.length^expectedHash.length;
+  const length=Math.max(suppliedHash.length,expectedHash.length);
+  for(let index=0;index<length;index++)difference|=(suppliedHash.charCodeAt(index)||0)^(expectedHash.charCodeAt(index)||0);
+  return difference===0;
+}
+__name(mas90MasterPasswordMatches,"mas90MasterPasswordMatches");
+
+async function adminMas90SyncRequestPost({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  try{
+    const body=await request.json().catch(()=>({}));
+    if(body.confirmed!==true)return notificationJson({success:false,error:"Confirm that you want to retrieve current MAS 90 data."},400);
+    if(!await mas90MasterPasswordMatches(body.master_password,env)){
+      await adminAudit(env,request,"mas90_sync_request_denied","database","","Incorrect master admin password");
+      return notificationJson({success:false,error:"The master admin password is incorrect."},403);
+    }
+    await ensureMas90SyncRequestSchema(env);
+    await ensureAdminImportControlSchema(env);
+    const importControl=await env.DB.prepare(`SELECT status,cancel_requested FROM admin_import_control WHERE id=1`).first();
+    if(String(importControl?.status||"").toLowerCase()==="in_progress"&&Number(importControl?.cancel_requested||0)!==1){
+      return notificationJson({success:false,error:"An automatic MAS 90 upload is already in progress."},409);
+    }
+    const existing=await mas90SyncStatusRow(env);
+    const existingStatus=String(existing?.status||"idle").toLowerCase();
+    if(["queued","claimed","running","cancel_requested"].includes(existingStatus)){
+      return notificationJson({success:false,error:"A MAS 90 retrieval request is already pending or running.",remote_sync_request:mas90SyncPublicStatus(existing)},409);
+    }
+    const requestId=crypto.randomUUID();
+    const actor=adminRequestActor(request,env);
+    const saved=await env.DB.prepare(`
+      UPDATE mas90_sync_control
+      SET request_id=?,status='queued',requested_by=?,requested_at=CURRENT_TIMESTAMP,
+          claimed_at=NULL,agent_name='',stage='queued',progress_percent=0,
+          status_message='Waiting for the MAS 90 office computer.',updated_at=CURRENT_TIMESTAMP,completed_at=NULL
+      WHERE id=1 AND status NOT IN ('queued','claimed','running','cancel_requested')
+    `).bind(requestId,String(actor.name||"Wooten Oil Admin")).run();
+    if(Number(saved?.meta?.changes||0)!==1){
+      const current=await mas90SyncStatusRow(env);
+      return notificationJson({success:false,error:"A MAS 90 retrieval request is already pending or running.",remote_sync_request:mas90SyncPublicStatus(current)},409);
+    }
+    await adminAudit(env,request,"mas90_sync_requested","database",requestId,"Current customer and payment data requested from the MAS 90 office computer");
+    return notificationJson({success:true,message:"The retrieval request is queued for the MAS 90 computer.",remote_sync_request:mas90SyncPublicStatus(await mas90SyncStatusRow(env))});
+  }catch(error){
+    console.error("adminMas90SyncRequestPost failed",error);
+    return notificationJson({success:false,error:"The MAS 90 retrieval request could not be queued."},500);
+  }
+}
+__name(adminMas90SyncRequestPost,"adminMas90SyncRequestPost");
+
+async function mas90AgentAuthorized(request,env){
+  return await mas90MasterPasswordMatches(request.headers.get("X-Admin-Key")||"",env);
+}
+__name(mas90AgentAuthorized,"mas90AgentAuthorized");
+
+function mas90AgentName(request){
+  return String(request.headers.get("X-MAS90-Agent-Name")||"MAS 90 Office Computer").trim().replace(/\s+/g," ").slice(0,100)||"MAS 90 Office Computer";
+}
+__name(mas90AgentName,"mas90AgentName");
+
+async function mas90AgentNextGet({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  if(!await mas90AgentAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    await ensureMas90SyncRequestSchema(env);
+    const agentName=mas90AgentName(request);
+    await env.DB.prepare(`UPDATE mas90_sync_control SET agent_name=?,agent_last_seen_at=CURRENT_TIMESTAMP WHERE id=1`).bind(agentName).run();
+    const row=await mas90SyncStatusRow(env);
+    const status=String(row?.status||"idle").toLowerCase();
+    if(status==="queued")return notificationJson({success:true,action:"run",request:mas90SyncPublicStatus(row)});
+    if(status==="cancel_requested")return notificationJson({success:true,action:"cancel",request:mas90SyncPublicStatus(row)});
+    return notificationJson({success:true,action:"none",request:mas90SyncPublicStatus(row)});
+  }catch(error){
+    console.error("mas90AgentNextGet failed",error);
+    return notificationJson({success:false,error:"The MAS 90 request queue could not be checked."},500);
+  }
+}
+__name(mas90AgentNextGet,"mas90AgentNextGet");
+
+async function mas90AgentClaimPost({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  if(!await mas90AgentAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    const body=await request.json().catch(()=>({}));
+    const requestId=String(body.request_id||"").trim();
+    if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
+    await ensureMas90SyncRequestSchema(env);
+    const agentName=mas90AgentName(request);
+    const claimed=await env.DB.prepare(`
+      UPDATE mas90_sync_control
+      SET status='claimed',claimed_at=COALESCE(claimed_at,CURRENT_TIMESTAMP),agent_name=?,
+          agent_last_seen_at=CURRENT_TIMESTAMP,stage='starting',progress_percent=1,
+          status_message='The MAS 90 computer accepted the request.',updated_at=CURRENT_TIMESTAMP
+      WHERE id=1 AND request_id=? AND status='queued'
+    `).bind(agentName,requestId).run();
+    const row=await mas90SyncStatusRow(env);
+    if(Number(claimed?.meta?.changes||0)!==1&&!(String(row?.request_id||"")===requestId&&["claimed","running"].includes(String(row?.status||"").toLowerCase()))){
+      return notificationJson({success:false,error:String(row?.status||"")==="cancel_requested"?"This request was canceled.":"This request is no longer available.",request:mas90SyncPublicStatus(row)},409);
+    }
+    if(Number(claimed?.meta?.changes||0)===1){
+      const auditHeaders=new Headers(request.headers);auditHeaders.set("X-Admin-Actor-Name",agentName);auditHeaders.set("X-Admin-Actor-Owner","0");
+      await adminAudit(env,new Request(request.url,{headers:auditHeaders}),"mas90_sync_claimed","database",requestId,"MAS 90 office computer accepted the retrieval request");
+    }
+    return notificationJson({success:true,request:mas90SyncPublicStatus(row)});
+  }catch(error){
+    console.error("mas90AgentClaimPost failed",error);
+    return notificationJson({success:false,error:"The MAS 90 request could not be claimed."},500);
+  }
+}
+__name(mas90AgentClaimPost,"mas90AgentClaimPost");
+
+async function mas90AgentStatusPost({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  if(!await mas90AgentAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    const body=await request.json().catch(()=>({}));
+    const requestId=String(body.request_id||"").trim();
+    const status=String(body.status||"running").trim().toLowerCase();
+    if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
+    if(!["running","completed","failed","cancelled"].includes(status))return notificationJson({success:false,error:"Invalid request status."},400);
+    await ensureMas90SyncRequestSchema(env);
+    const current=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
+    if(String(current?.request_id||"")!==requestId)return notificationJson({success:false,error:"This request is no longer current."},409);
+    if(String(current?.status||"").toLowerCase()==="cancel_requested"&&status==="running")return notificationJson({success:false,cancel_requested:true,error:"Cancellation was requested.",request:mas90SyncPublicStatus(current)},409);
+    const stage=String(body.stage||"").trim().replace(/\s+/g," ").slice(0,60);
+    const message=String(body.message||"").trim().replace(/\s+/g," ").slice(0,500);
+    const progress=Math.max(0,Math.min(100,Math.round(Number(body.progress_percent||0))));
+    const agentName=mas90AgentName(request);
+    const terminal=["completed","failed","cancelled"].includes(status);
+    await env.DB.prepare(`
+      UPDATE mas90_sync_control
+      SET status=?,agent_name=?,agent_last_seen_at=CURRENT_TIMESTAMP,stage=?,progress_percent=?,
+          status_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE completed_at END
+      WHERE id=1 AND request_id=?
+    `).bind(status,agentName,stage,progress,message,terminal?1:0,requestId).run();
+    const row=await mas90SyncStatusRow(env);
+    if(terminal){
+      const auditHeaders=new Headers(request.headers);auditHeaders.set("X-Admin-Actor-Name",agentName);auditHeaders.set("X-Admin-Actor-Owner","0");
+      await adminAudit(env,new Request(request.url,{headers:auditHeaders}),`mas90_sync_${status}`,"database",requestId,message||`MAS 90 retrieval ${status}`);
+    }
+    return notificationJson({success:true,cancel_requested:String(row?.status||"").toLowerCase()==="cancel_requested",request:mas90SyncPublicStatus(row)});
+  }catch(error){
+    console.error("mas90AgentStatusPost failed",error);
+    return notificationJson({success:false,error:"The MAS 90 request status could not be updated."},500);
+  }
+}
+__name(mas90AgentStatusPost,"mas90AgentStatusPost");
 
 // Customer payments import
 async function ensureCustomerPaymentsSchema(env) {
@@ -8946,6 +9165,7 @@ function adminGeneralAuditDescriptor(request){
   if(method==="DELETE"&&/^\/api\/admin\/account-applications\/\d+$/.test(path))return null;
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
   if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
+  if(method==="POST"&&path==="/api/admin/mas90-sync-request")return null;
   if(method==="GET"&&path==="/api/admin/import-status")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
@@ -8988,6 +9208,7 @@ function adminGeneralAuditDescriptor(request){
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/users"))return "manage_users";
+  if(path.includes("mas90-sync"))return "database";
   if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
   if(path.startsWith("/api/admin/account-applications")||path.startsWith("/api/admin/request-center"))return "applications";
   if(path.includes("activation")||path.includes("password-reset-code"))return "activation";
@@ -9458,6 +9679,18 @@ var worker_default = {
       if(request.method==="POST")return adminAuthLogout({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname==="/api/mas90-agent/sync/next"){
+      if(request.method==="GET")return mas90AgentNextGet({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/mas90-agent/sync/claim"){
+      if(request.method==="POST")return mas90AgentClaimPost({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/mas90-agent/sync/status"){
+      if(request.method==="POST")return mas90AgentStatusPost({request,env});
+      return methodNotAllowed();
+    }
     if(url.pathname==="/api/customer/profile-change-requests"){
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
@@ -9610,6 +9843,10 @@ var worker_default = {
       if (request.method === "POST") {
         return adminImportCancelPost({request,env});
       }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/mas90-sync-request") {
+      if (request.method === "POST") return adminMas90SyncRequestPost({request,env});
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/gmail-inbox") {
