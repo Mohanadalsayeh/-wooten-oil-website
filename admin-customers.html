@@ -4761,9 +4761,9 @@ textarea[data-request-response]{
 
 <div class="wrap">
 
-  <div class="admin-header">
-    <div>
-      <div class="admin-brand-kicker">Wooten Oil</div>
+  <div class="admin-header wooten-admin-header-v301">
+    <div class="admin-header-main-v301">
+      <div class="admin-brand-kicker"><span class="admin-header-mark-v301" aria-hidden="true">WO</span> Wooten Oil</div>
       <h1>Customer Administration</h1>
       <p>Monitor customer accounts, documents, communications, applications, and administrative activity.</p>
     </div>
@@ -4786,6 +4786,10 @@ textarea[data-request-response]{
         </div>
         <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
       </div>
+    </div>
+    <div class="admin-header-meta-v301">
+      <span class="admin-header-section-v301" id="adminHeaderSectionLabel">Overview</span>
+      <span class="admin-dashboard-date" id="adminDashboardDate"></span>
     </div>
     <div hidden aria-hidden="true">
       <input id="adminKey" type="password" autocomplete="off">
@@ -4828,7 +4832,6 @@ textarea[data-request-response]{
 
   <div class="card admin-tab-panel admin-dashboard-panel is-active" id="admin-tab-dashboard" role="tabpanel" aria-labelledby="admin-tab-btn-dashboard" data-admin-panel="dashboard">
     <div class="admin-dashboard-grid">
-      <section class="admin-dashboard-welcome"><div><h2>Wooten Oil Administration</h2><p>Choose a section to manage customer accounts and portal operations.</p></div><div class="admin-dashboard-date" id="adminDashboardDate"></div></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">C</div><h3>Customer Center</h3><p>Import customer data, review live accounts, and open a complete customer activity record.</p><button class="admin-dashboard-link" type="button" data-admin-open="customers">Open customer database →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">D</div><h3>Documents</h3><p>Manage statements and invoices, send documents, and monitor scheduled statement runs.</p><button class="admin-dashboard-link" type="button" data-admin-open="documents">Open documents →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">A</div><h3>Applications</h3><p>Review new customer applications and record the decision under the signed-in administrator.</p><button class="admin-dashboard-link" type="button" data-admin-open="applications">Review applications →</button></section>
@@ -8808,6 +8811,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const validParents=new Set(tabs.map(t=>t.dataset.adminTab));
   const validPanels=new Set(panels.map(p=>p.dataset.adminPanel));
   const currentPage=document.getElementById("adminCurrentPage");
+  const headerPage=document.getElementById("adminHeaderSectionLabel");
   const mobileTitle=document.getElementById("adminMobileTitle");
   const mobileMenuBtn=document.getElementById("adminMobileMenuBtn");
   const drawerClose=document.getElementById("adminDrawerClose");
@@ -8847,6 +8851,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const activeTab=tabs.find(tab=>tab.dataset.adminTab===parent);
     const label=activeTab?.dataset.adminLabel||activeTab?.textContent.trim()||"Overview";
     if(currentPage)currentPage.textContent=label;
+    if(headerPage)headerPage.textContent=label;
     if(mobileTitle)mobileTitle.textContent=label;
     document.body.classList.remove("admin-drawer-open");
     mobileMenuBtn?.setAttribute("aria-expanded","false");
@@ -12274,6 +12279,259 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   syncPlacement();
 })();
 </script>
+
+<style id="wooten-admin-unified-header-and-request-send-icon-ver301">
+/* Ver301 — Option 1 unified admin header. */
+.admin-header.wooten-admin-header-v301{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  align-items:center !important;
+  gap:22px !important;
+  margin-left:278px !important;
+  margin-bottom:18px !important;
+  padding:22px !important;
+  border:1px solid var(--line) !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  box-shadow:0 12px 32px rgba(15,39,66,.08) !important;
+  box-sizing:border-box !important;
+  overflow:visible !important;
+}
+.admin-header.wooten-admin-header-v301 > .admin-header-main-v301{
+  display:block !important;
+  min-width:0 !important;
+}
+.admin-header.wooten-admin-header-v301 .admin-brand-kicker{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  margin:0 0 8px !important;
+  color:var(--red) !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+  letter-spacing:.12em !important;
+}
+.admin-header-mark-v301{
+  display:inline-grid !important;
+  place-items:center !important;
+  flex:0 0 36px !important;
+  width:36px !important;
+  height:36px !important;
+  border-radius:10px !important;
+  background:var(--red) !important;
+  color:#fff !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  letter-spacing:0 !important;
+}
+.admin-header.wooten-admin-header-v301 h1{
+  margin:0 0 7px !important;
+  font-size:30px !important;
+}
+.admin-header.wooten-admin-header-v301 p{
+  max-width:780px !important;
+  margin:0 !important;
+}
+.admin-header.wooten-admin-header-v301 .admin-access-box{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:16px !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  justify-self:end !important;
+}
+.admin-header.wooten-admin-header-v301 .admin-access-box > :first-child{
+  display:block !important;
+  flex:0 1 auto !important;
+  min-width:132px !important;
+}
+.admin-header.wooten-admin-header-v301 .admin-access-meta{
+  transform:none !important;
+}
+.admin-header.wooten-admin-header-v301 .admin-header-actions{
+  display:flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  width:auto !important;
+  min-width:0 !important;
+  margin:0 !important;
+}
+.admin-header.wooten-admin-header-v301 .admin-access-btn{
+  max-width:none !important;
+}
+.admin-header-meta-v301{
+  grid-column:1 / -1 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:16px !important;
+  padding-top:14px !important;
+  border-top:1px solid var(--line) !important;
+}
+.admin-header-section-v301{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:9px !important;
+  color:var(--navy) !important;
+  font-size:14px !important;
+  font-weight:700 !important;
+}
+.admin-header-section-v301::before{
+  content:"";
+  display:block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--red);
+}
+.admin-header.wooten-admin-header-v301 .admin-dashboard-date{
+  margin:0 !important;
+  color:#64748b !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+}
+.admin-content-heading{
+  display:none !important;
+}
+.admin-dashboard-grid > .admin-dashboard-card:nth-child(1) .admin-dashboard-card-icon{
+  background:#fff0ef !important;
+  color:var(--red) !important;
+}
+.admin-dashboard-grid > .admin-dashboard-card:nth-child(2) .admin-dashboard-card-icon{
+  background:#fff7df !important;
+  color:#a66b00 !important;
+}
+.admin-dashboard-grid > .admin-dashboard-card:nth-child(3) .admin-dashboard-card-icon{
+  background:#eaf1fa !important;
+  color:#173a61 !important;
+}
+
+/* Paper-plane icon and the exact same hover/focus behavior as Load Requests. */
+#requestCenterLoad,
+.request-save-v217{
+  transition:box-shadow .15s ease !important;
+}
+.request-save-v217::before{
+  content:"";
+  display:block;
+  flex:0 0 20px;
+  width:20px;
+  height:20px;
+  background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.request-save-v217 > span[aria-hidden="true"]{
+  display:none !important;
+}
+#requestCenterLoad:hover,
+#requestCenterLoad:focus,
+#requestCenterLoad:focus-visible,
+.request-save-v217:hover,
+.request-save-v217:focus,
+.request-save-v217:focus-visible{
+  background:var(--red) !important;
+  color:#fff !important;
+  transform:none !important;
+  filter:none !important;
+  outline:none !important;
+  box-shadow:0 0 0 2px rgba(31,78,121,.18),0 4px 12px rgba(15,39,66,.10) !important;
+}
+
+@media(min-width:801px) and (max-width:1180px){
+  .admin-header.wooten-admin-header-v301{
+    grid-template-columns:minmax(0,1fr) !important;
+    align-items:stretch !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-access-box{
+    width:100% !important;
+    justify-content:flex-start !important;
+    justify-self:stretch !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-access-box > :first-child{
+    margin-right:auto !important;
+  }
+}
+
+@media(max-width:800px){
+  .admin-header.wooten-admin-header-v301{
+    grid-template-columns:minmax(0,1fr) !important;
+    align-items:stretch !important;
+    gap:16px !important;
+    margin:12px 0 !important;
+    padding:16px !important;
+    border-radius:16px !important;
+  }
+  .admin-header.wooten-admin-header-v301 > .admin-header-main-v301{
+    display:block !important;
+  }
+  .admin-header.wooten-admin-header-v301 h1{
+    font-size:24px !important;
+  }
+  .admin-header.wooten-admin-header-v301 p{
+    font-size:14px !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-access-box{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:12px !important;
+    width:100% !important;
+    justify-self:stretch !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-access-box > :first-child{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    gap:12px !important;
+    width:100% !important;
+    min-width:0 !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-access-meta{
+    min-width:0 !important;
+    text-align:right !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-header-actions{
+    display:grid !important;
+    grid-template-columns:52px minmax(0,1fr) !important;
+    gap:10px !important;
+    width:100% !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-access-btn{
+    width:100% !important;
+    max-width:none !important;
+  }
+  .admin-header-meta-v301{
+    align-items:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+}
+
+@media(max-width:430px){
+  .admin-header.wooten-admin-header-v301{
+    padding:14px !important;
+  }
+  .admin-header.wooten-admin-header-v301 .admin-brand-kicker{
+    margin-bottom:7px !important;
+  }
+  .admin-header-mark-v301{
+    flex-basis:32px !important;
+    width:32px !important;
+    height:32px !important;
+    border-radius:9px !important;
+    font-size:12px !important;
+  }
+}
+</style>
 </body>
 </html>
 
