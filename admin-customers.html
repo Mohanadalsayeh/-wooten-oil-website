@@ -5640,7 +5640,12 @@ textarea[data-request-response]{
         </div>
       </div>
 
-      <div class="statement-batch-controls">
+      <div class="statement-filter-panel">
+        <div class="statement-filter-heading">
+          <strong>Statement &amp; Customer Filters</strong>
+          <span>Choose the statement details, then narrow the customer list.</span>
+        </div>
+        <div class="statement-batch-controls">
         <div>
           <label for="statementBatchDate">Statement Date</label>
           <input id="statementBatchDate" type="date">
@@ -5658,7 +5663,7 @@ textarea[data-request-response]{
           </select>
         </div>
         <div class="statement-contact-filter-item statement-phone-filter">
-          <label for="statementPhoneScope">Customers to Show — Phone</label>
+          <label for="statementPhoneScope">Phone Availability</label>
           <select class="statement-contact-filter-select" id="statementPhoneScope" aria-label="Filter customers by phone number">
             <option value="all">All</option>
             <option value="with">With phone</option>
@@ -5666,7 +5671,7 @@ textarea[data-request-response]{
           </select>
         </div>
         <div class="statement-contact-filter-item statement-email-filter">
-          <label for="statementEmailScope">Customers to Show — Email</label>
+          <label for="statementEmailScope">Email Availability</label>
           <select class="statement-contact-filter-select" id="statementEmailScope" aria-label="Filter customers by email address">
             <option value="all">All</option>
             <option value="with">With email</option>
@@ -5677,7 +5682,10 @@ textarea[data-request-response]{
           <label for="statementCustomerSearch">Find Customer</label>
           <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
         </div>
-        <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
+        </div>
+      </div>
+
+      <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
           <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
             <strong>Sending Options</strong>
             <span>Choose how the selected account statements are delivered.</span>
@@ -5709,30 +5717,31 @@ textarea[data-request-response]{
             </label>
           </div>
         </div>
-      </div>
 
-      <div class="actions statement-send-actions">
-        <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
-        <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
-        <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
-      </div>
-      <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
-        <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
-        <div class="preview-progress-track" id="statementCustomerLoadProgressTrack" role="progressbar" aria-label="Statement customer loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementCustomerLoadProgressBar"></span></div>
-      </div>
-      <div class="preview-progress" id="statementSendProgress" hidden>
-        <div class="preview-progress-head"><strong id="statementSendProgressLabel">Generating and sending statements…</strong><span id="statementSendProgressCount">Preparing</span></div>
-        <div class="preview-progress-track" id="statementSendProgressTrack" role="progressbar" aria-label="Statement generation and sending progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementSendProgressBar"></span></div>
-      </div>
+      <div class="statement-action-panel">
+        <div class="actions statement-send-actions">
+          <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
+          <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
+          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
+        </div>
+        <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
+          <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
+          <div class="preview-progress-track" id="statementCustomerLoadProgressTrack" role="progressbar" aria-label="Statement customer loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementCustomerLoadProgressBar"></span></div>
+        </div>
+        <div class="preview-progress" id="statementSendProgress" hidden>
+          <div class="preview-progress-head"><strong id="statementSendProgressLabel">Generating and sending statements…</strong><span id="statementSendProgressCount">Preparing</span></div>
+          <div class="preview-progress-track" id="statementSendProgressTrack" role="progressbar" aria-label="Statement generation and sending progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementSendProgressBar"></span></div>
+        </div>
 
-      <div class="statement-selection-toolbar">
-        <label class="statement-select-all">
-          <input id="statementSelectAllVisible" type="checkbox">
-          <span>Select all shown</span>
-        </label>
-        <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
-        <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
-        <span class="statement-selected-count" id="statementSelectedCount">0 selected</span>
+        <div class="statement-selection-toolbar">
+          <label class="statement-select-all">
+            <input id="statementSelectAllVisible" type="checkbox">
+            <span>Select all shown</span>
+          </label>
+          <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
+          <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
+          <span class="statement-selected-count" id="statementSelectedCount">0 selected</span>
+        </div>
       </div>
 
       <div id="statementBatchStatus" class="status"></div>
@@ -6135,6 +6144,208 @@ try{
   window.wootenMdbReaderError=error;
 }
 </script>
+
+<style id="wooten-statement-form-organization-ver312">
+/* Send Account Statements: clear visual groups with stable desktop and mobile alignment. */
+#documentSectionSendStatements .statement-filter-panel{
+  margin-top:18px;
+  padding:16px;
+  border-radius:14px;
+  background:#f6f9fc;
+}
+#documentSectionSendStatements .statement-filter-heading,
+#documentSectionSendStatements .statement-delivery-heading{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:9px!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+#documentSectionSendStatements .statement-filter-heading strong,
+#documentSectionSendStatements .statement-delivery-heading strong{
+  color:#17324d;
+  font-size:13px;
+  font-weight:900;
+}
+#documentSectionSendStatements .statement-filter-heading span,
+#documentSectionSendStatements .statement-delivery-heading span{
+  color:#68798a;
+  font-size:12px;
+  line-height:1.4;
+}
+#documentSectionSendStatements .statement-batch-controls{
+  display:grid!important;
+  grid-template-columns:minmax(165px,.8fr) minmax(205px,1fr) minmax(165px,.82fr) minmax(165px,.82fr) minmax(260px,1.35fr)!important;
+  gap:14px!important;
+  align-items:end!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:13px 0 0!important;
+}
+#documentSectionSendStatements .statement-batch-controls>div{
+  min-width:0!important;
+}
+#documentSectionSendStatements .statement-batch-controls label{
+  display:block!important;
+  margin:0 0 7px!important;
+  color:#536273!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  line-height:1.2!important;
+  letter-spacing:.04em!important;
+  text-transform:uppercase!important;
+  white-space:normal!important;
+}
+#documentSectionSendStatements #statementBatchDate,
+#documentSectionSendStatements #statementPaymentCount,
+#documentSectionSendStatements #statementPhoneScope,
+#documentSectionSendStatements #statementEmailScope,
+#documentSectionSendStatements #statementCustomerSearch{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:48px!important;
+  min-height:48px!important;
+  box-sizing:border-box!important;
+}
+#documentSectionSendStatements .statement-delivery-card-section{
+  margin-top:14px!important;
+  padding:16px!important;
+  border:1px solid #d7e2eb!important;
+  border-radius:14px!important;
+  background:#fff!important;
+}
+#documentSectionSendStatements .statement-delivery-card-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+#documentSectionSendStatements .statement-delivery-card-grid .schedule-option-shell{
+  grid-template-columns:56px minmax(0,1fr) 42px!important;
+  gap:14px!important;
+  min-height:112px!important;
+  padding:14px!important;
+}
+#documentSectionSendStatements .statement-delivery-card-grid .schedule-option-copy{
+  min-width:0!important;
+}
+#documentSectionSendStatements .statement-delivery-card-grid .schedule-option-copy small{
+  display:block!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+#documentSectionSendStatements .statement-action-panel{
+  margin-top:14px;
+  padding:14px;
+  border-radius:14px;
+  background:#f6f9fc;
+}
+#documentSectionSendStatements .statement-action-panel .statement-send-actions{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:10px!important;
+  margin:0!important;
+}
+#documentSectionSendStatements .statement-action-panel .statement-send-actions button{
+  width:auto!important;
+  min-height:46px!important;
+  margin:0!important;
+}
+#documentSectionSendStatements .statement-action-panel .statement-selection-toolbar{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:10px!important;
+  margin:14px 0 0!important;
+  padding:14px 0 0!important;
+  border-top:1px solid #dbe5ed!important;
+}
+#documentSectionSendStatements .statement-selected-count{
+  margin-left:auto!important;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#fff;
+  color:#43596d;
+  white-space:nowrap;
+}
+#documentSectionSendStatements .statement-action-panel .preview-progress{
+  margin-top:12px!important;
+}
+
+@media(min-width:701px) and (max-width:1300px){
+  #documentSectionSendStatements .statement-batch-controls{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #documentSectionSendStatements .statement-search-field{
+    grid-column:1/-1!important;
+  }
+  #documentSectionSendStatements .statement-delivery-card-grid{
+    grid-template-columns:1fr!important;
+  }
+  #documentSectionSendStatements .statement-delivery-card-grid .schedule-option-shell{
+    min-height:86px!important;
+  }
+}
+
+@media(max-width:700px){
+  #documentSectionSendStatements .statement-filter-panel,
+  #documentSectionSendStatements .statement-delivery-card-section,
+  #documentSectionSendStatements .statement-action-panel{
+    padding:12px!important;
+    border-radius:12px!important;
+  }
+  #documentSectionSendStatements .statement-filter-heading,
+  #documentSectionSendStatements .statement-delivery-heading{
+    display:block!important;
+  }
+  #documentSectionSendStatements .statement-filter-heading span,
+  #documentSectionSendStatements .statement-delivery-heading span{
+    display:block!important;
+    margin-top:4px!important;
+  }
+  #documentSectionSendStatements .statement-batch-controls,
+  #documentSectionSendStatements .statement-delivery-card-grid{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:12px!important;
+  }
+  #documentSectionSendStatements .statement-delivery-card-grid .schedule-option-shell{
+    min-height:96px!important;
+  }
+  #documentSectionSendStatements .statement-action-panel .statement-send-actions{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #documentSectionSendStatements .statement-action-panel .statement-send-actions button{
+    width:100%!important;
+  }
+  #documentSectionSendStatements .statement-action-panel .statement-selection-toolbar{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #documentSectionSendStatements .statement-select-all,
+  #documentSectionSendStatements .statement-selected-count{
+    width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  #documentSectionSendStatements .statement-selected-count{
+    margin:0!important;
+    text-align:center!important;
+  }
+  #documentSectionSendStatements #statementSelectAllCustomers,
+  #documentSectionSendStatements #statementClearSelection{
+    width:100%!important;
+    min-width:0!important;
+  }
+}
+
+@media(max-width:430px){
+  #documentSectionSendStatements .statement-action-panel .statement-selection-toolbar{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}
+</style>
 
 <style id="wooten-request-center-flat-ver304">
 /* Ver304 — cleaner Customer Requests layout with one outer request card. */
@@ -9145,6 +9356,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const smsLink=document.getElementById('docSmsLink');
   if(!account||!upload||!load||!status||!list) return;
   let currentDocuments=[];
+  let currentDocumentCustomer=null;
   let documentPage=1;
   const documentPageSize=20;
 
@@ -9212,6 +9424,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   function render(data){
     currentDocuments=Array.isArray(data.documents)?data.documents:[];
+    currentDocumentCustomer=data.customer||null;
     documentPage=1;
     if(exportPdf)exportPdf.disabled=currentDocuments.length===0;
     if(data.customer){
@@ -9226,13 +9439,17 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!currentDocuments.length){setStatus('Load customer documents before exporting.',false);return;}
     if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}
     const label=exportPdf.querySelector('span');
+    const customerNumber=normalize(currentDocumentCustomer?.account_number||account.value);
+    const customerName=String(currentDocumentCustomer?.account_name||'Customer').trim()||'Customer';
+    const pdfTitle='Customer Documents - Customer # '+customerNumber+' - '+customerName;
     exportPdf.disabled=true;
     try{
       await window.WootenAdminTablePdf.exportData(
-        'Customer Documents',
-        ['Customer #','Document Type','Title / Invoice Number','Document Date','PDF File','Size','Document #'],
+        pdfTitle,
+        ['Customer #','Customer Name','Document Type','Title / Invoice Number','Document Date','PDF File','Size','Document #'],
         currentDocuments.map(documentRow=>[
-          normalize(account.value),
+          customerNumber,
+          customerName,
           String(documentRow.document_type||'Document').replace(/^./,character=>character.toUpperCase()),
           documentRow.title||documentRow.filename||'Document',
           formatDate(documentRow.document_date||documentRow.created_at),
@@ -9277,6 +9494,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!acct){setStatus('Enter a valid Customer Number.',false);return;}
     account.value=acct;
     currentDocuments=[];
+    currentDocumentCustomer=null;
     if(exportPdf)exportPdf.disabled=true;
     setStatus('Loading customer documents…');
     meta.style.display='none';
@@ -13782,7 +14000,7 @@ html,body{
 })();
 </script>
 
-<style id="wooten-admin-table-pdf-ver310-style">
+<style id="wooten-admin-table-pdf-ver311-style">
 /* Match Twilio validation rows to the typography used by the other admin tables. */
 .twilio-lookup-table,
 .twilio-lookup-table th,
@@ -13878,7 +14096,7 @@ html,body{
 }
 </style>
 
-<script id="wooten-admin-table-pdf-ver310">
+<script id="wooten-admin-table-pdf-ver311">
 (function(){
   'use strict';
   const tableContainerSelector='.tablewrap,.db-tablewrap,#inboxTableWrap,.twilio-lookup-results,.schedule-cleanup-list';
