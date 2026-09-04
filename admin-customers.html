@@ -6236,7 +6236,7 @@ try{
 }
 #documentSectionSendStatements .statement-action-panel{
   margin-top:14px;
-  padding:14px;
+  padding:14px 14px 8px;
   border-radius:14px;
   background:#f6f9fc;
 }
@@ -6256,14 +6256,19 @@ try{
   display:flex!important;
   align-items:center!important;
   flex-wrap:wrap!important;
-  gap:10px!important;
-  margin:14px 0 0!important;
-  padding:14px 0 0!important;
+  gap:6px!important;
+  margin:10px 0 0!important;
+  padding:10px 0 0!important;
   border-top:1px solid #dbe5ed!important;
 }
 #documentSectionSendStatements .statement-action-panel .statement-select-all{
   align-self:stretch!important;
   min-height:46px!important;
+  padding:0 6px 0 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
   box-sizing:border-box!important;
 }
 #documentSectionSendStatements .statement-selected-count{
@@ -6276,6 +6281,10 @@ try{
 }
 #documentSectionSendStatements .statement-action-panel .preview-progress{
   margin-top:12px!important;
+}
+#documentSectionSendStatements #statementBatchStatus{
+  margin-top:8px!important;
+  margin-bottom:0!important;
 }
 
 @media(min-width:701px) and (max-width:1300px){
@@ -6299,6 +6308,9 @@ try{
   #documentSectionSendStatements .statement-action-panel{
     padding:12px!important;
     border-radius:12px!important;
+  }
+  #documentSectionSendStatements .statement-action-panel{
+    padding-bottom:6px!important;
   }
   #documentSectionSendStatements .statement-filter-heading,
   #documentSectionSendStatements .statement-delivery-heading{
