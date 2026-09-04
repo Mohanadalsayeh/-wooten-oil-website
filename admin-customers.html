@@ -6139,6 +6139,191 @@ try{
 }
 </script>
 
+<style id="wooten-request-center-flat-ver304">
+/* Ver304 — cleaner Customer Requests layout with one outer request card. */
+.request-center-card-v217{
+  border:1px solid #d8e2ea!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  box-shadow:0 8px 24px rgba(31,55,82,.06)!important;
+  overflow:hidden!important;
+}
+
+.request-center-layout-v217{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.75fr) minmax(310px,.85fr)!important;
+  align-items:stretch!important;
+  gap:0!important;
+  padding:0!important;
+}
+
+/* Remove the nested card treatment while preserving the existing sections. */
+.request-details-panel-v217,
+.request-response-panel-v217,
+.request-notify-panel-v217{
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+
+.request-details-panel-v217{
+  display:flex!important;
+  flex-direction:column!important;
+  min-width:0!important;
+  padding:24px!important;
+}
+
+.request-right-column-v217{
+  display:block!important;
+  min-width:0!important;
+  border-left:1px solid #dfe7ee!important;
+}
+
+.request-response-panel-v217{
+  padding:24px!important;
+}
+
+.request-notify-panel-v217{
+  border-top:1px solid #dfe7ee!important;
+  padding:22px 24px 16px!important;
+}
+
+.request-panel-title-v217,
+.request-response-panel-v217 .request-panel-title-v217,
+.request-notify-panel-v217 .request-panel-title-v217{
+  min-height:0!important;
+  margin:0!important;
+  padding:0 0 18px!important;
+  border:0!important;
+  background:transparent!important;
+}
+
+.request-notify-panel-v217 .request-panel-title-v217{
+  padding-bottom:8px!important;
+}
+
+.request-center-grid-v217{
+  flex:0 0 auto!important;
+  margin:0!important;
+  gap:0!important;
+  border-top:1px solid #e1e8ee!important;
+}
+
+.request-center-info{
+  min-height:82px!important;
+  padding:15px 12px!important;
+  border:0!important;
+  border-bottom:1px solid #e1e8ee!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+
+.request-center-info:nth-child(odd){
+  border-right:1px solid #e1e8ee!important;
+}
+
+/* Customer note becomes one quiet row instead of another box inside a box. */
+.request-customer-note-v218{
+  flex:0 0 auto!important;
+  min-height:0!important;
+  margin:20px 0 0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:11px!important;
+  background:#f5f8fb!important;
+  overflow:hidden!important;
+}
+
+.request-customer-note-head-v218{
+  padding:15px 16px 7px!important;
+}
+
+.request-customer-note-body-v218{
+  flex:0 0 auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0 16px 16px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+
+.request-response-body-v217{
+  padding:0!important;
+  gap:16px!important;
+}
+
+.request-delivery-options-v217{
+  padding:0!important;
+  background:transparent!important;
+}
+
+/* Keep the selected paper-plane icon and prevent any hover movement. */
+.request-save-v217,
+.request-save-v217:hover,
+.request-save-v217:focus,
+.request-save-v217:focus-visible,
+.request-save-v217:active{
+  font-weight:400!important;
+  transform:none!important;
+  translate:none!important;
+  margin:0!important;
+  filter:none!important;
+  text-shadow:none!important;
+  transition:background-color .15s ease,box-shadow .15s ease!important;
+}
+
+@media(max-width:1050px){
+  .request-center-layout-v217{
+    grid-template-columns:1fr!important;
+  }
+  .request-right-column-v217{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    border-top:1px solid #dfe7ee!important;
+    border-left:0!important;
+  }
+  .request-response-panel-v217{
+    border-right:1px solid #dfe7ee!important;
+  }
+  .request-notify-panel-v217{
+    border-top:0!important;
+  }
+}
+
+@media(max-width:760px){
+  .request-center-layout-v217{
+    padding:0!important;
+  }
+  .request-details-panel-v217,
+  .request-response-panel-v217{
+    padding:18px!important;
+  }
+  .request-notify-panel-v217{
+    padding:18px 18px 14px!important;
+  }
+  .request-right-column-v217{
+    grid-template-columns:1fr!important;
+  }
+  .request-response-panel-v217{
+    border-right:0!important;
+  }
+  .request-notify-panel-v217{
+    border-top:1px solid #dfe7ee!important;
+  }
+  .request-center-grid-v217{
+    grid-template-columns:1fr!important;
+  }
+  .request-center-info:nth-child(odd){
+    border-right:0!important;
+  }
+}
+</style>
+
 <script>
 let preparedRows=[];
 
@@ -12275,14 +12460,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 })();
 </script>
 
-<style id="wooten-request-save-paper-plane-ver302">
-/* Ver302 — keep the existing admin design and use the selected paper-plane icon. */
+<style id="wooten-request-save-paper-plane-ver303">
+/* Ver303 — keep the selected paper-plane icon with normal-weight text in every state. */
 .request-save-v217,
 .request-save-v217:hover,
 .request-save-v217:focus,
 .request-save-v217:focus-visible,
 .request-save-v217:active{
-  font-weight:800 !important;
+  font-weight:400 !important;
   transform:none !important;
   filter:none !important;
   text-shadow:none !important;
