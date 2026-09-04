@@ -1293,6 +1293,75 @@ async function adminMas90SyncRequestPost({request,env}){
 }
 __name(adminMas90SyncRequestPost,"adminMas90SyncRequestPost");
 
+async function adminMas90SyncCancelPost({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  try{
+    const body=await request.json().catch(()=>({}));
+    if(body.confirmed!==true)return notificationJson({success:false,error:"Confirm that you want to cancel this MAS 90 retrieval."},400);
+    const requestId=String(body.request_id||"").trim();
+    if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
+    await ensureMas90SyncRequestSchema(env);
+    const before=await mas90SyncStatusRow(env);
+    if(String(before?.request_id||"")!==requestId){
+      return notificationJson({success:false,error:"This retrieval request is no longer current.",remote_sync_request:mas90SyncPublicStatus(before)},409);
+    }
+    const beforeStatus=String(before?.status||"idle").toLowerCase();
+    if(beforeStatus==="cancel_requested"){
+      return notificationJson({success:true,message:"Cancellation has already been requested.",remote_sync_request:mas90SyncPublicStatus(before)});
+    }
+    if(beforeStatus==="cancelled"){
+      return notificationJson({success:true,cancelled:true,message:"This retrieval was already canceled.",remote_sync_request:mas90SyncPublicStatus(before)});
+    }
+    if(!["queued","claimed","running"].includes(beforeStatus)){
+      return notificationJson({success:false,error:"This MAS 90 retrieval is no longer active.",remote_sync_request:mas90SyncPublicStatus(before)},409);
+    }
+    const actor=adminRequestActor(request,env);
+    const cancelled=await env.DB.prepare(`
+      UPDATE mas90_sync_control
+      SET status=CASE WHEN status='queued' THEN 'cancelled' ELSE 'cancel_requested' END,
+          stage=CASE WHEN status='queued' THEN 'cancelled' ELSE 'stopping' END,
+          progress_percent=CASE WHEN status='queued' THEN 0 ELSE progress_percent END,
+          status_message=CASE WHEN status='queued'
+            THEN 'Retrieval canceled before the office computer started.'
+            ELSE 'Cancellation requested. The MAS 90 office computer will stop at the next safe checkpoint.' END,
+          updated_at=CURRENT_TIMESTAMP,
+          completed_at=CASE WHEN status='queued' THEN CURRENT_TIMESTAMP ELSE completed_at END
+      WHERE id=1 AND request_id=? AND status IN ('queued','claimed','running')
+    `).bind(requestId).run();
+    const current=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
+    if(Number(cancelled?.meta?.changes||0)!==1){
+      const currentStatus=String(current?.status||"idle").toLowerCase();
+      if(String(current?.request_id||"")===requestId&&currentStatus==="cancel_requested"){
+        return notificationJson({success:true,message:"Cancellation has already been requested.",remote_sync_request:mas90SyncPublicStatus(current)});
+      }
+      return notificationJson({success:false,error:"This MAS 90 retrieval finished before it could be canceled.",remote_sync_request:mas90SyncPublicStatus(current)},409);
+    }
+    const status=String(current?.status||"").toLowerCase();
+    const immediate=status==="cancelled";
+    await adminAudit(
+      env,
+      request,
+      immediate?"mas90_sync_cancelled":"mas90_sync_cancel_requested",
+      "database",
+      requestId,
+      immediate
+        ?`Queued MAS 90 retrieval canceled by ${actor.name||"Wooten Oil Admin"}`
+        :`Cancellation requested by ${actor.name||"Wooten Oil Admin"}; the office computer will stop at a safe checkpoint`
+    );
+    return notificationJson({
+      success:true,
+      cancelled:immediate,
+      cancel_requested:!immediate,
+      message:immediate?"The queued retrieval was canceled.":"Cancellation was sent to the MAS 90 office computer.",
+      remote_sync_request:mas90SyncPublicStatus(current)
+    });
+  }catch(error){
+    console.error("adminMas90SyncCancelPost failed",error);
+    return notificationJson({success:false,error:"The MAS 90 retrieval could not be canceled."},500);
+  }
+}
+__name(adminMas90SyncCancelPost,"adminMas90SyncCancelPost");
+
 async function mas90AgentAuthorized(request,env){
   return await mas90MasterPasswordMatches(request.headers.get("X-Admin-Key")||"",env);
 }
@@ -1339,6 +1408,10 @@ async function mas90AgentClaimPost({request,env}){
       WHERE id=1 AND request_id=? AND status='queued'
     `).bind(agentName,requestId).run();
     const row=await mas90SyncStatusRow(env);
+    const rowStatus=String(row?.status||"").toLowerCase();
+    if(String(row?.request_id||"")===requestId&&["cancel_requested","cancelled"].includes(rowStatus)){
+      return notificationJson({success:false,cancel_requested:true,error:"This request was canceled.",request:mas90SyncPublicStatus(row)},409);
+    }
     if(Number(claimed?.meta?.changes||0)!==1&&!(String(row?.request_id||"")===requestId&&["claimed","running"].includes(String(row?.status||"").toLowerCase()))){
       return notificationJson({success:false,error:String(row?.status||"")==="cancel_requested"?"This request was canceled.":"This request is no longer available.",request:mas90SyncPublicStatus(row)},409);
     }
@@ -1366,19 +1439,30 @@ async function mas90AgentStatusPost({request,env}){
     await ensureMas90SyncRequestSchema(env);
     const current=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
     if(String(current?.request_id||"")!==requestId)return notificationJson({success:false,error:"This request is no longer current."},409);
-    if(String(current?.status||"").toLowerCase()==="cancel_requested"&&status==="running")return notificationJson({success:false,cancel_requested:true,error:"Cancellation was requested.",request:mas90SyncPublicStatus(current)},409);
+    if(String(current?.status||"").toLowerCase()==="cancel_requested"&&["running","completed"].includes(status))return notificationJson({success:false,cancel_requested:true,error:"Cancellation was requested.",request:mas90SyncPublicStatus(current)},409);
     const stage=String(body.stage||"").trim().replace(/\s+/g," ").slice(0,60);
     const message=String(body.message||"").trim().replace(/\s+/g," ").slice(0,500);
-    const progress=Math.max(0,Math.min(100,Math.round(Number(body.progress_percent||0))));
+    const progressValue=Number(body.progress_percent||0);
+    const progress=Number.isFinite(progressValue)?Math.max(0,Math.min(100,Math.round(progressValue))):0;
     const agentName=mas90AgentName(request);
     const terminal=["completed","failed","cancelled"].includes(status);
-    await env.DB.prepare(`
+    const allowedCurrentStatuses=status==="running"||status==="completed"
+      ?["claimed","running"]
+      :["claimed","running","cancel_requested"];
+    const placeholders=allowedCurrentStatuses.map(()=>"?").join(",");
+    const saved=await env.DB.prepare(`
       UPDATE mas90_sync_control
       SET status=?,agent_name=?,agent_last_seen_at=CURRENT_TIMESTAMP,stage=?,progress_percent=?,
           status_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE completed_at END
-      WHERE id=1 AND request_id=?
-    `).bind(status,agentName,stage,progress,message,terminal?1:0,requestId).run();
+      WHERE id=1 AND request_id=? AND status IN (${placeholders})
+    `).bind(status,agentName,stage,progress,message,terminal?1:0,requestId,...allowedCurrentStatuses).run();
     const row=await mas90SyncStatusRow(env);
+    if(Number(saved?.meta?.changes||0)!==1){
+      const currentStatus=String(row?.status||"").toLowerCase();
+      if(currentStatus===status&&terminal)return notificationJson({success:true,cancel_requested:false,request:mas90SyncPublicStatus(row)});
+      if(currentStatus==="cancel_requested")return notificationJson({success:false,cancel_requested:true,error:"Cancellation was requested.",request:mas90SyncPublicStatus(row)},409);
+      return notificationJson({success:false,error:"This request is no longer active.",request:mas90SyncPublicStatus(row)},409);
+    }
     if(terminal){
       const auditHeaders=new Headers(request.headers);auditHeaders.set("X-Admin-Actor-Name",agentName);auditHeaders.set("X-Admin-Actor-Owner","0");
       await adminAudit(env,new Request(request.url,{headers:auditHeaders}),`mas90_sync_${status}`,"database",requestId,message||`MAS 90 retrieval ${status}`);
@@ -9166,6 +9250,7 @@ function adminGeneralAuditDescriptor(request){
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
   if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
   if(method==="POST"&&path==="/api/admin/mas90-sync-request")return null;
+  if(method==="POST"&&path==="/api/admin/mas90-sync-cancel")return null;
   if(method==="GET"&&path==="/api/admin/import-status")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
@@ -9847,6 +9932,10 @@ var worker_default = {
     }
     if (url.pathname === "/api/admin/mas90-sync-request") {
       if (request.method === "POST") return adminMas90SyncRequestPost({request,env});
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/mas90-sync-cancel") {
+      if (request.method === "POST") return adminMas90SyncCancelPost({request,env});
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/gmail-inbox") {

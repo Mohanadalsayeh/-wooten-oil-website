@@ -6340,6 +6340,7 @@ document.addEventListener("click",async event=>{
   mas90RemoteCancelRequestPending=true;
   button.disabled=true;
   button.textContent="Requesting Cancellation…";
+  let failureMessage="";
   try{
     const response=await fetch("/api/admin/mas90-sync-cancel",{
       method:"POST",
@@ -6348,14 +6349,22 @@ document.addEventListener("click",async event=>{
       cache:"no-store"
     });
     const result=await response.json().catch(()=>({}));
-    if(!response.ok||result.success===false)throw new Error(result.error||"The retrieval could not be canceled.");
+    const fallback=response.status===404
+      ?"The updated worker.js is not installed. Replace worker.js with the file from this update, wait for deployment to finish, and try again."
+      :"The retrieval could not be canceled.";
+    if(!response.ok||result.success===false)throw new Error(result.error||fallback);
     renderMas90RemoteRequest(result.remote_sync_request||null,null);
   }catch(error){
-    window.alert(error.message||"The retrieval could not be canceled.");
+    failureMessage=error.message||"The retrieval could not be canceled.";
   }finally{
     mas90RemoteCancelRequestPending=false;
+    if(failureMessage){
+      button.disabled=false;
+      button.textContent=status==="queued"?"Cancel Request":"Cancel Retrieval";
+    }
     await loadImportLastUpdates();
   }
+  if(failureMessage)window.alert(failureMessage);
 });
 
 let importCancelRequestPending=false;
