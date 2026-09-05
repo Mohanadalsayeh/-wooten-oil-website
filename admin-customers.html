@@ -16090,8 +16090,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   background:#fff!important;
 }
 </style>
-<style id="wooten-admin-sidebar-fixed-sections-ver355-final">
-/* Final cascade guard: later Ver354 compatibility rules must not reclaim the middle scroller. */
+<style id="wooten-admin-sidebar-full-height-ver356">
+/* Ver356: full-height left menu with an always-visible header and footer. */
 #adminSidebar .admin-tabs{
   display:flex!important;
   flex-direction:column!important;
@@ -16104,6 +16104,20 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 }
 #adminSidebar .admin-sidebar-brand,
 #adminSidebar .admin-sidebar-footer{flex:0 0 auto!important}
+#adminSidebar .admin-sidebar-brand{
+  display:flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  position:sticky!important;
+  top:0!important;
+  transform:none!important;
+  z-index:20!important;
+}
+#adminSidebar .admin-sidebar-footer{
+  position:sticky!important;
+  bottom:0!important;
+  z-index:20!important;
+}
 #adminSidebar .admin-sidebar-scroll-region{
   flex:1 1 0!important;
   width:100%!important;
@@ -16115,13 +16129,23 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 @media(min-width:801px){
   #adminSidebar.admin-tabs-shell{
     position:fixed!important;
-    top:12px!important;
+    top:0!important;
+    bottom:0!important;
     left:max(24px,calc((100vw - 1560px) / 2 + 24px))!important;
     width:250px!important;
-    height:calc(100dvh - 24px)!important;
-    max-height:calc(100dvh - 24px)!important;
+    height:100vh!important;
+    height:100dvh!important;
+    min-height:100vh!important;
+    min-height:100dvh!important;
+    max-height:100dvh!important;
+    margin:0!important;
     padding:0!important;
     overflow:hidden!important;
+  }
+  #adminSidebar .admin-tabs{
+    min-height:100%!important;
+    border-top-left-radius:0!important;
+    border-bottom-left-radius:0!important;
   }
   #adminSidebar .admin-tabs{overflow:hidden!important}
 }
