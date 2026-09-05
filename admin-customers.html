@@ -10043,7 +10043,6 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 })();
 </script>
 
-
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -15485,3 +15484,32 @@ html,body{
   });
 })();
 </script>
+
+<style id="wooten-navy-whisper-hover-ver339">
+/* Style 4 — Navy Whisper: one quiet hover language for portal data tables. */
+table tbody tr:not(.db-skeleton-row):not(.admin-audit-skeleton){
+  transition:background-color .14s ease;
+}
+table tbody tr:not(.db-skeleton-row):not(.admin-audit-skeleton):hover>td,
+table tbody tr:not(.db-skeleton-row):not(.admin-audit-skeleton):focus-within>td{
+  background:#f4f8fb!important;
+}
+
+/* Use the same Navy Whisper hover in the portal's custom dropdown menus. */
+.collections-action-popover button:hover,
+.collections-action-popover button:focus-visible,
+.admin-bell-menu .admin-bell-item:hover,
+.admin-bell-menu .admin-bell-item:focus-visible,
+.admin-bell-menu .admin-bell-count:hover,
+.admin-bell-menu .admin-bell-count:focus-visible{
+  background:#f4f8fb!important;
+}
+
+/* Loading placeholders never react as live table records. */
+table tbody tr.db-skeleton-row:hover>td,
+table tbody tr.db-skeleton-row:focus-within>td,
+table tbody tr.admin-audit-skeleton:hover>td,
+table tbody tr.admin-audit-skeleton:focus-within>td{
+  background:#fff!important;
+}
+</style>
