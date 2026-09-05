@@ -14704,7 +14704,7 @@ html,body{
 }
 </style>
 
-<script id="wooten-admin-sidebar-wheel-ver234">
+<script id="wooten-admin-sidebar-wheel-ver343">
 (function(){
   var sidebar = document.getElementById('adminSidebar');
   if(!sidebar) return;
@@ -14718,12 +14718,11 @@ html,body{
    * the actual nav scroller whenever the pointer is over the sidebar.
    */
   sidebar.addEventListener('wheel', function(e){
-    if(!desktop()) return;
+    if(!desktop() || e.ctrlKey) return;
     var nav = scroller();
     if(!nav) return;
 
     var max = Math.max(0, nav.scrollHeight - nav.clientHeight);
-    if(max <= 0) return;
 
     var delta = e.deltaY;
     if(e.deltaMode === 1) delta *= 18;
@@ -14732,12 +14731,11 @@ html,body{
 
     var before = nav.scrollTop;
     var next = Math.max(0, Math.min(max, before + delta));
-    if(next === before) return;
 
     nav.scrollTop = next;
     e.preventDefault();
     e.stopPropagation();
-  }, {passive:false});
+  }, {passive:false,capture:true});
 })();
 </script>
 
@@ -15485,6 +15483,28 @@ html,body{
 })();
 </script>
 
+<style id="wooten-admin-sidebar-viewport-ver343">
+@media(min-width:801px){
+  #adminSidebar.admin-tabs-shell{
+    position:sticky!important;
+    top:20px!important;
+    align-self:start!important;
+    height:calc(100vh - 40px)!important;
+    height:calc(100dvh - 40px)!important;
+    max-height:calc(100dvh - 40px)!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  #adminSidebar .admin-tabs{
+    height:100%!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain!important;
+    scroll-behavior:auto!important;
+  }
+}
+</style>
 <style id="wooten-navy-whisper-hover-ver342">
 /* Non-table records use the same background-only hover as table rows. */
 body :is(.activity-row:not(.activity-skeleton-row),.mas90-health-run-row,
