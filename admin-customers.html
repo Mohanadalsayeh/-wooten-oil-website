@@ -13544,3 +13544,34 @@ html,body{
   }
 }
 </style>
+
+<style id="wooten-admin-sidebar-footer-width-fix-ver250">
+/* Ver250 — neutralize the old horizontal-tab alignment that narrowed the footer. */
+#adminSidebar .admin-tabs{
+  align-items:stretch !important;
+}
+#adminSidebar .admin-sidebar-brand,
+#adminSidebar .admin-sidebar-scroll-region,
+#adminSidebar .admin-sidebar-footer{
+  width:100% !important;
+  max-width:none !important;
+  align-self:stretch !important;
+  box-sizing:border-box !important;
+}
+#adminSidebar .admin-sidebar-footer{
+  left:auto !important;
+  right:auto !important;
+  border-radius:0 0 18px 18px !important;
+}
+@media (max-width:800px){
+  body > #adminSidebar .admin-tabs{
+    align-items:stretch !important;
+  }
+  body > #adminSidebar .admin-sidebar-footer{
+    width:100% !important;
+    max-width:none !important;
+    align-self:stretch !important;
+    border-radius:0 !important;
+  }
+}
+</style>
