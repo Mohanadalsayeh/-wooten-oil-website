@@ -6408,6 +6408,15 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
   }
   function render(data){
     healthData=data||{};renderOffice(healthData);renderSchedule(healthData);renderFreshness(healthData);renderCurrent(healthData);renderLatest(healthData);renderRecent(healthData);renderDiagnostics(healthData);renderAlerts(healthData);
+    if(typeof renderMas90RemoteRequest==='function'){
+      const activeImport=healthData.active_import||{};
+      renderMas90RemoteRequest(healthData.remote_sync_request||null,{
+        import_control_status:activeImport.status||'idle',
+        cancel_requested:activeImport.cancel_requested===true,
+        import_control_updated_at:activeImport.updated_at||'',
+        import_control_completed_at:activeImport.completed_at||''
+      });
+    }
     const busy=runIsActive(healthData.current_run)||activeStatuses.has(String(healthData.remote_sync_request?.status||'').toLowerCase())||String(healthData.active_import?.status||'').toLowerCase()==='in_progress';const request=get('mas90HealthRequestSync');if(request){request.disabled=busy;request.textContent=busy?'Sync in Progress':'Request MAS 90 Sync';}
     const download=get('mas90HealthDownload');if(download)download.disabled=false;
     const overall=String(healthData.overall_status||'unknown').toLowerCase(),dashboard=get('mas90HealthDashboardState');if(dashboard){const label={healthy:'Online • Data current',running:'Synchronization in progress',warning:'Attention needed',offline:'Office computer offline',failed:'Latest synchronization failed',not_configured:'Health reporting not installed'}[overall]||'Health status available';dashboard.textContent=label;dashboard.dataset.tone=statusTone(overall);}
@@ -7146,6 +7155,7 @@ async function loadImportLastUpdates(){
     setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
     renderMas90LiveSync(data);
     renderMas90RemoteRequest(data.remote_sync_request||null,data);
+    if(document.getElementById('admin-tab-automation')?.classList.contains('is-active')&&typeof window.loadMas90AutomationHealth==='function')window.loadMas90AutomationHealth({force:true});
   }catch(e){
     console.warn("Could not load import update times",e);
   }finally{
@@ -13248,7 +13258,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       if(typeof renderMas90RemoteRequest==='function')renderMas90RemoteRequest(data.remote_sync_request||null,null);
       modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.classList.remove('mas90-request-modal-open');confirmed.checked=false;
       if(typeof loadImportLastUpdates==='function')await loadImportLastUpdates();
-      if(document.getElementById('admin-tab-automation')?.classList.contains('is-active')&&typeof window.loadMas90AutomationHealth==='function')await window.loadMas90AutomationHealth({force:true});
+      if(typeof window.loadMas90AutomationHealth==='function')await window.loadMas90AutomationHealth({force:true});
     }catch(error){password.value='';showMessage(error.message||'The MAS 90 retrieval request could not be queued.');password.focus();}
     finally{pending=false;submit.disabled=false;submit.textContent='Confirm Request';}
   });
