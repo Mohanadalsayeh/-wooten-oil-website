@@ -901,6 +901,7 @@ async function onRequestPost3({ request, env }) {
   let importMeta=null;
   try{
     importMeta=await recordAdminImport(env,request,"customers",customerRecordCount,adminRequestActor(request,env).name);
+    await recordMas90LiveBatchProgress(env,request,"customers",{success:customerRecordCount,failure:skipped});
 if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImportAuditRequest(request,importMeta),"customer_import_completed","customers","",`${importMeta.last_record_count} source records; ${importMeta.last_import_mode} import completed in ${importMeta.last_import_batch_count} batch(es)`);
   }catch(error){console.error("Customer import timestamp could not be recorded",error);}
 
@@ -1044,7 +1045,7 @@ __name(adminImportAuditRequest,"adminImportAuditRequest");
 async function recordAdminImport(env,request,type,count,actorName="Wooten Oil Admin"){
   await ensureAdminImportMetadataSchema(env);
   const mode=String(request?.headers?.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic"?"automatic":"manual";
-  const runId=mode==="automatic"?adminImportRunId(request):"";
+  const runId=adminImportRunId(request);
   const batchNumber=adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Number"),1,1000000);
   const batchCount=Math.max(batchNumber,adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Count"),1,1000000));
   const runTotal=adminImportPositiveInteger(request?.headers?.get("X-Import-Run-Total"),Number(count||0),10000000);
@@ -1074,6 +1075,75 @@ async function recordAdminImport(env,request,type,count,actorName="Wooten Oil Ad
   return row?{...row,cancel_requested:cancelled,cancel_requested_at:control?.cancel_requested_at||"",cancel_requested_by:control?.cancel_requested_by||""}:null;
 }
 __name(recordAdminImport,"recordAdminImport");
+
+async function recordMas90LiveBatchProgress(env,request,type,counts={}){
+  const automatic=String(request?.headers?.get("X-Import-Mode")||"").trim().toLowerCase()==="automatic";
+  const runId=adminImportRunId(request);
+  if(!runId||!env?.DB)return null;
+  await ensureMas90SyncRequestSchema(env);
+  await ensureMas90HealthSchema(env);
+  const importType=String(type||"").toLowerCase()==="payments"?"payments":"customers";
+  const batchNumber=adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Number"),1,1000000);
+  const batchCount=Math.max(batchNumber,adminImportPositiveInteger(request?.headers?.get("X-Import-Batch-Count"),1,1000000));
+  const safeCount=value=>Math.max(0,Math.min(100000000,Math.round(Number(value)||0)));
+  await env.DB.prepare(`
+    INSERT INTO mas90_import_batch_progress
+      (run_id,import_type,batch_number,success_count,failure_count,inserted_count,duplicate_count,updated_at)
+    VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+    ON CONFLICT(run_id,import_type,batch_number) DO UPDATE SET
+      success_count=excluded.success_count,
+      failure_count=excluded.failure_count,
+      inserted_count=excluded.inserted_count,
+      duplicate_count=excluded.duplicate_count,
+      updated_at=CURRENT_TIMESTAMP
+  `).bind(
+    runId,importType,batchNumber,safeCount(counts.success),safeCount(counts.failure),
+    safeCount(counts.inserted),safeCount(counts.duplicates)
+  ).run();
+  const totals=await env.DB.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN import_type='customers' THEN success_count ELSE 0 END),0) customers_success_count,
+      COALESCE(SUM(CASE WHEN import_type='customers' THEN failure_count ELSE 0 END),0) customers_failure_count,
+      COALESCE(SUM(CASE WHEN import_type='payments' THEN success_count ELSE 0 END),0) payments_success_count,
+      COALESCE(SUM(CASE WHEN import_type='payments' THEN failure_count ELSE 0 END),0) payments_failure_count,
+      COALESCE(SUM(CASE WHEN import_type='payments' THEN inserted_count ELSE 0 END),0) payments_inserted_count,
+      COALESCE(SUM(CASE WHEN import_type='payments' THEN duplicate_count ELSE 0 END),0) payments_duplicate_count
+    FROM mas90_import_batch_progress WHERE run_id=?
+  `).bind(runId).first();
+  const values=[
+    safeCount(totals?.customers_success_count),safeCount(totals?.customers_failure_count),
+    safeCount(totals?.payments_success_count),safeCount(totals?.payments_failure_count),
+    safeCount(totals?.payments_inserted_count),safeCount(totals?.payments_duplicate_count)
+  ];
+  if(automatic){
+    await env.DB.prepare(`
+      UPDATE mas90_sync_control SET
+        summary_available=1,customers_success_count=?,customers_failure_count=?,payments_success_count=?,
+        payments_failure_count=?,payments_inserted_count=?,payments_duplicate_count=?,updated_at=CURRENT_TIMESTAMP
+      WHERE id=1 AND request_id=? AND status IN ('claimed','running','cancel_requested')
+    `).bind(...values,runId).run();
+    await env.DB.prepare(`
+      UPDATE mas90_automation_runs SET
+        customers_success_count=?,customers_failure_count=?,payments_success_count=?,payments_failure_count=?,
+        payments_inserted_count=?,payments_duplicate_count=?,updated_at=CURRENT_TIMESTAMP
+      WHERE run_id=? AND status IN ('queued','claimed','starting','running','cancel_requested')
+    `).bind(...values,runId).run();
+  }else{
+    const actor=adminRequestActor(request,env);
+    const completed=batchNumber>=batchCount;
+    const label=importType==="payments"?"payment":"customer";
+    await upsertMas90AutomationRun(env,{
+      run_id:runId,run_type:"manual",agent_name:String(actor.name||"Wooten Oil Admin"),
+      status:completed?"completed":"running",stage:`manual_${importType}`,
+      progress_percent:Math.round(batchNumber/batchCount*100),
+      message:completed?`Manual ${label} import completed by ${actor.name||"Wooten Oil Admin"}.`:`Manual ${label} import by ${actor.name||"Wooten Oil Admin"} • batch ${batchNumber} of ${batchCount}.`,
+      customers_success_count:values[0],customers_failure_count:values[1],payments_success_count:values[2],
+      payments_failure_count:values[3],payments_inserted_count:values[4],payments_duplicate_count:values[5]
+    },{sendAlert:false});
+  }
+  return totals;
+}
+__name(recordMas90LiveBatchProgress,"recordMas90LiveBatchProgress");
 
 async function adminImportStatusGet({request,env}){
   const supplied=request.headers.get("X-Admin-Key")||"";
@@ -1336,6 +1406,20 @@ async function ensureMas90HealthSchema(env){
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mas90_automation_runs_id ON mas90_automation_runs(run_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_automation_runs_updated ON mas90_automation_runs(updated_at DESC)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_automation_runs_type_date ON mas90_automation_runs(run_type,scheduled_date,status)`).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS mas90_import_batch_progress (
+      run_id TEXT NOT NULL,
+      import_type TEXT NOT NULL,
+      batch_number INTEGER NOT NULL,
+      success_count INTEGER NOT NULL DEFAULT 0,
+      failure_count INTEGER NOT NULL DEFAULT 0,
+      inserted_count INTEGER NOT NULL DEFAULT 0,
+      duplicate_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (run_id,import_type,batch_number)
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_import_batch_progress_run ON mas90_import_batch_progress(run_id,import_type,batch_number)`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS mas90_health_alerts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1736,6 +1820,7 @@ async function cleanupMas90HealthHistory(env){
   await ensureMas90HealthSchema(env);
   await ensureMas90SyncRequestSchema(env);
   await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE datetime(created_at)<datetime('now','-90 days')`).run();
+  await env.DB.prepare(`DELETE FROM mas90_import_batch_progress WHERE datetime(updated_at)<datetime('now','-90 days')`).run();
   await env.DB.prepare(`DELETE FROM mas90_health_alerts WHERE datetime(created_at)<datetime('now','-365 days')`).run();
   await env.DB.prepare(`DELETE FROM mas90_automation_runs WHERE datetime(created_at)<datetime('now','-365 days')`).run();
 }
@@ -2413,6 +2498,7 @@ async function adminCustomerPaymentsImport({ request, env }) {
   let importMeta=null;
   try{
     importMeta=await recordAdminImport(env,request,"payments",valid.length,adminRequestActor(request,env).name);
+    await recordMas90LiveBatchProgress(env,request,"payments",{success:valid.length,failure:skipped,inserted,duplicates});
 if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImportAuditRequest(request,importMeta),"payment_import_completed","payments","",`${importMeta.last_record_count} source records; ${importMeta.last_import_mode} import completed in ${importMeta.last_import_batch_count} batch(es)`);
   }catch(error){
     console.error("Payment import timestamp could not be recorded",error);
@@ -10012,7 +10098,106 @@ async function adminStatementSchedulingContinue({request,env}){
 }
 __name(adminStatementSchedulingContinue,"adminStatementSchedulingContinue");
 
-const ADMIN_PERMISSION_KEYS=["database","customer_activity","notifications","statements","communication","communications_settings","applications","activation"];
+async function ensureCreditCollectionsSchema(env){
+  if(!env?.DB)throw new Error("Customer database is not configured.");
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS admin_collection_accounts (account_number TEXT PRIMARY KEY,collection_status TEXT NOT NULL DEFAULT 'unassigned',follow_up_date TEXT NOT NULL DEFAULT '',promised_amount REAL NOT NULL DEFAULT 0,promised_date TEXT NOT NULL DEFAULT '',private_notes TEXT NOT NULL DEFAULT '',updated_by TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_collection_status_followup ON admin_collection_accounts(collection_status,follow_up_date)").run();
+}
+__name(ensureCreditCollectionsSchema,"ensureCreditCollectionsSchema");
+
+function creditCollectionHoldSql(alias="c"){
+  return "upper(trim(COALESCE("+alias+".credit_hold,''))) IN ('Y','YES','TRUE','1','HOLD','ON')";
+}
+__name(creditCollectionHoldSql,"creditCollectionHoldSql");
+
+async function adminCreditCollections({request,env}){
+  const supplied=request.headers.get("X-Admin-Key")||"";
+  if(!env.ADMIN_IMPORT_KEY||supplied!==env.ADMIN_IMPORT_KEY)return notificationJson({success:false,error:"Unauthorized."},401);
+  if(!env.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  try{
+    await Promise.all([ensureCreditCollectionsSchema(env),ensureCustomerPaymentsSchema(env)]);
+    if(request.method==="POST"){
+      const body=await request.json().catch(()=>({}));
+      const accountDigits=String(body.account_number||"").replace(/\D/g,"");
+      const account=accountDigits?accountDigits.padStart(7,"0").slice(-7):"";
+      const allowed=new Set(["unassigned","watch","contact_needed","contacted","promise_to_pay","dispute","resolved"]);
+      const status=String(body.collection_status||"unassigned").toLowerCase();
+      const followUp=String(body.follow_up_date||"").trim();
+      const promisedDate=String(body.promised_date||"").trim();
+      const promisedAmount=Math.max(0,Number(body.promised_amount||0)||0);
+      const notes=String(body.private_notes||"").trim().slice(0,3000);
+      if(!account||!allowed.has(status))return notificationJson({success:false,error:"Select a valid customer and collection status."},400);
+      if((followUp&&!/^\d{4}-\d{2}-\d{2}$/.test(followUp))||(promisedDate&&!/^\d{4}-\d{2}-\d{2}$/.test(promisedDate)))return notificationJson({success:false,error:"Enter a valid follow-up or promise date."},400);
+      const customer=await env.DB.prepare("SELECT account_number,account_name FROM customers WHERE account_number=? LIMIT 1").bind(account).first();
+      if(!customer)return notificationJson({success:false,error:"Customer account was not found."},404);
+      const actor=adminRequestActor(request,env);
+      await env.DB.prepare("INSERT INTO admin_collection_accounts(account_number,collection_status,follow_up_date,promised_amount,promised_date,private_notes,updated_by,updated_at) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(account_number) DO UPDATE SET collection_status=excluded.collection_status,follow_up_date=excluded.follow_up_date,promised_amount=excluded.promised_amount,promised_date=excluded.promised_date,private_notes=excluded.private_notes,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP").bind(account,status,followUp,promisedAmount,promisedDate,notes,String(actor.name||"Wooten Oil Admin")).run();
+      await adminAudit(env,request,"collection_account_updated","customer",account,"Collection status saved as "+status.replace(/_/g," ")+(followUp?" • Follow-up "+followUp:""));
+      const saved=await env.DB.prepare("SELECT account_number,collection_status,follow_up_date,promised_amount,promised_date,private_notes,updated_by,updated_at FROM admin_collection_accounts WHERE account_number=?").bind(account).first();
+      return notificationJson({success:true,collection:saved});
+    }
+    if(request.method!=="GET")return methodNotAllowed();
+
+    const url=new URL(request.url);
+    const page=Math.max(1,Number.parseInt(url.searchParams.get("page")||"1",10)||1);
+    const pageSize=20;
+    const search=String(url.searchParams.get("search")||"").trim().slice(0,160);
+    const view=String(url.searchParams.get("view")||"all").toLowerCase();
+    const collectionStatus=String(url.searchParams.get("collection_status")||"all").toLowerCase();
+    const sort=String(url.searchParams.get("sort")||"risk_desc").toLowerCase();
+    const minimum=Math.max(0,Number(url.searchParams.get("minimum")||0)||0);
+    const totalExpr="(COALESCE(c.current_balance,0)+COALESCE(c.aging_category_1,0)+COALESCE(c.aging_category_2,0)+COALESCE(c.aging_category_3,0)+COALESCE(c.aging_category_4,0))";
+    const pastDueExpr="(COALESCE(c.aging_category_1,0)+COALESCE(c.aging_category_2,0)+COALESCE(c.aging_category_3,0)+COALESCE(c.aging_category_4,0))";
+    const older60Expr="(COALESCE(c.aging_category_2,0)+COALESCE(c.aging_category_3,0)+COALESCE(c.aging_category_4,0))";
+    const older90Expr="(COALESCE(c.aging_category_3,0)+COALESCE(c.aging_category_4,0))";
+    const holdExpr=creditCollectionHoldSql("c");
+    const activeExpr="(c.account_status IS NULL OR trim(c.account_status)='' OR lower(trim(c.account_status))='active')";
+    const where=[activeExpr,totalExpr+">0.004"];
+    const args=[];
+    if(search){
+      const q="%"+search+"%";
+      where.push("(c.account_number LIKE ? OR c.account_name LIKE ? OR c.email LIKE ? OR c.phone LIKE ?)");
+      args.push(q,q,q,q);
+    }
+    if(minimum>0){where.push(totalExpr+">=?");args.push(minimum);}
+    if(view==="past_due")where.push(pastDueExpr+">0.004");
+    else if(view==="older_60")where.push(older60Expr+">0.004");
+    else if(view==="older_90")where.push(older90Expr+">0.004");
+    else if(view==="credit_hold")where.push(holdExpr);
+    else if(view==="over_limit")where.push("COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0)");
+    else if(view==="missing_contact")where.push("(trim(COALESCE(c.email,''))='' AND trim(COALESCE(c.phone,''))='')");
+    else if(view==="follow_up_due")where.push("trim(COALESCE(cc.follow_up_date,''))<>'' AND date(cc.follow_up_date)<=date('now')");
+    const validStatuses=new Set(["unassigned","watch","contact_needed","contacted","promise_to_pay","dispute","resolved"]);
+    if(validStatuses.has(collectionStatus)){
+      if(collectionStatus==="unassigned")where.push("(cc.collection_status IS NULL OR trim(cc.collection_status)='' OR cc.collection_status='unassigned')");
+      else{where.push("cc.collection_status=?");args.push(collectionStatus);}
+    }
+    const orderSql={
+      balance_desc:totalExpr+" DESC,c.account_number",
+      past_due_desc:pastDueExpr+" DESC,"+totalExpr+" DESC,c.account_number",
+      oldest_desc:"COALESCE(c.aging_category_4,0) DESC,"+older90Expr+" DESC,"+totalExpr+" DESC,c.account_number",
+      name_asc:"c.account_name COLLATE NOCASE,c.account_number",
+      follow_up_asc:"CASE WHEN trim(COALESCE(cc.follow_up_date,''))='' THEN 1 ELSE 0 END,date(cc.follow_up_date),"+totalExpr+" DESC",
+      risk_desc:"CASE WHEN "+holdExpr+" THEN 1 ELSE 0 END DESC,CASE WHEN COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0) THEN 1 ELSE 0 END DESC,COALESCE(c.aging_category_4,0) DESC,"+older90Expr+" DESC,"+totalExpr+" DESC"
+    }[sort]||totalExpr+" DESC,c.account_number";
+    const joins=" LEFT JOIN admin_collection_accounts cc ON cc.account_number=c.account_number ";
+    const whereSql=" WHERE "+where.join(" AND ");
+    const count=await env.DB.prepare("SELECT COUNT(*) AS total FROM customers c"+joins+whereSql).bind(...args).first();
+    const total=Math.max(0,Number(count?.total||0));
+    const pages=Math.max(1,Math.ceil(total/pageSize));
+    const safePage=Math.min(page,pages);
+    const summary=await env.DB.prepare("SELECT SUM(CASE WHEN "+totalExpr+">0 THEN "+totalExpr+" ELSE 0 END) AS total_ar,SUM(CASE WHEN "+pastDueExpr+">0 THEN "+pastDueExpr+" ELSE 0 END) AS past_due,SUM(CASE WHEN "+older90Expr+">0 THEN "+older90Expr+" ELSE 0 END) AS older_90,SUM(CASE WHEN "+holdExpr+" THEN 1 ELSE 0 END) AS credit_holds,SUM(CASE WHEN COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0) THEN 1 ELSE 0 END) AS over_limit,SUM(CASE WHEN trim(COALESCE(cc.follow_up_date,''))<>'' AND date(cc.follow_up_date)<=date('now') AND COALESCE(cc.collection_status,'')<>'resolved' THEN 1 ELSE 0 END) AS follow_up_due,COUNT(*) AS accounts FROM customers c"+joins+" WHERE "+activeExpr+" AND "+totalExpr+">0.004").first();
+    const sql="SELECT c.account_number,c.account_name,c.email,c.phone,c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4,c.credit_hold,c.credit_limit,c.account_status,"+totalExpr+" AS total_balance,"+pastDueExpr+" AS past_due,"+older60Expr+" AS older_60,"+older90Expr+" AS older_90,COALESCE(NULLIF(cc.collection_status,''),'unassigned') AS collection_status,COALESCE(cc.follow_up_date,'') AS follow_up_date,COALESCE(cc.promised_amount,0) AS promised_amount,COALESCE(cc.promised_date,'') AS promised_date,COALESCE(cc.private_notes,'') AS private_notes,COALESCE(cc.updated_by,'') AS collection_updated_by,COALESCE(cc.updated_at,'') AS collection_updated_at,COALESCE((SELECT p.payment_date FROM customer_payments p WHERE p.account_number=c.account_number ORDER BY date(p.payment_date) DESC,p.id DESC LIMIT 1),'') AS last_payment_date,COALESCE((SELECT p.amount FROM customer_payments p WHERE p.account_number=c.account_number ORDER BY date(p.payment_date) DESC,p.id DESC LIMIT 1),0) AS last_payment_amount FROM customers c"+joins+whereSql+" ORDER BY "+orderSql+" LIMIT ? OFFSET ?";
+    const result=await env.DB.prepare(sql).bind(...args,pageSize,(safePage-1)*pageSize).all();
+    return notificationJson({success:true,read_only_financials:true,page:safePage,page_size:pageSize,total,pages,summary:{total_ar:Number(summary?.total_ar||0),past_due:Number(summary?.past_due||0),older_90:Number(summary?.older_90||0),credit_holds:Number(summary?.credit_holds||0),over_limit:Number(summary?.over_limit||0),follow_up_due:Number(summary?.follow_up_due||0),accounts:Number(summary?.accounts||0)},accounts:result?.results||[]});
+  }catch(error){
+    console.error("adminCreditCollections failed",error);
+    return notificationJson({success:false,error:"Credit and Collections information could not be loaded. "+String(error?.message||error)},500);
+  }
+}
+__name(adminCreditCollections,"adminCreditCollections");
+
+const ADMIN_PERMISSION_KEYS=["database","customer_activity","collections","notifications","statements","communication","communications_settings","applications","activation"];
 async function ensureAdminUsersTables(env){
   if(!env?.DB) throw new Error("Admin user database is not configured.");
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,permissions TEXT NOT NULL DEFAULT '[]',active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
@@ -10060,6 +10245,7 @@ function adminGeneralAuditDescriptor(request){
   if(method==="POST"&&path==="/api/admin/mas90-sync-cancel")return null;
   if(method==="GET"&&path==="/api/admin/mas90-health")return null;
   if(method==="GET"&&path==="/api/admin/import-status")return null;
+  if(path==="/api/admin/credit-collections")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
   const routes={
@@ -10101,6 +10287,7 @@ function adminGeneralAuditDescriptor(request){
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/users"))return "manage_users";
+  if(path.startsWith("/api/admin/credit-collections"))return "collections";
   if(path.includes("mas90-sync")||path.includes("mas90-health"))return "database";
   if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
   if(path.startsWith("/api/admin/account-applications")||path.startsWith("/api/admin/request-center"))return "applications";
@@ -10693,6 +10880,13 @@ var worker_default = {
     if (url.pathname === "/api/admin/customer-contact-preferences") {
       if (request.method === "POST") {
         return adminCustomerContactPreferencesPost({ request, env });
+      }
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/credit-collections") {
+      if (request.method === "GET" || request.method === "POST") {
+        return adminCreditCollections({ request, env });
       }
       return methodNotAllowed();
     }
