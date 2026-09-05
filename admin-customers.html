@@ -4783,6 +4783,7 @@ textarea[data-request-response]{
     <button class="admin-drawer-close" id="adminDrawerClose" type="button" aria-label="Close administration menu" hidden>&times;</button>
     <nav class="admin-tabs" role="tablist" aria-label="Wooten Oil admin pages">
       <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">WO</span> WOOTEN OIL</div>
+      <div class="admin-sidebar-scroll-region">
       <div class="admin-nav-group">Overview</div>
       <button class="admin-tab" id="admin-tab-btn-dashboard" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-dashboard" data-admin-tab="dashboard" data-admin-label="Overview"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>Dashboard</button>
       <div class="admin-nav-group">Customers</div>
@@ -4800,6 +4801,11 @@ textarea[data-request-response]{
       <button class="admin-tab" id="admin-tab-btn-requests" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-requests" data-admin-tab="requests" data-admin-label="Customer Requests"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M17 13l2 2-2 2"/></svg></span>Customer Requests</button>
       <div class="admin-nav-group" data-owner-nav>Administration</div>
       <button class="admin-tab" id="admin-tab-btn-users" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-users" data-admin-tab="users" data-admin-label="Admin Users"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2.2 0 4.1.9 5.4 2.4M18 13l1 2 2 .4-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2-.4z"/></svg></span>Admin Users</button>
+      </div>
+      <footer class="admin-sidebar-footer" id="adminSidebarFooter">
+        <span class="admin-sidebar-footer-status" aria-hidden="true"></span>
+        <span class="admin-sidebar-footer-copy"><small>SIGNED IN AS</small><strong id="adminSidebarSignedIn">Administrator</strong></span>
+      </footer>
     </nav>
   </div>
 
@@ -13138,7 +13144,7 @@ html,body{
   if(!sidebar) return;
 
   function desktop(){ return window.matchMedia('(min-width:801px)').matches; }
-  function scroller(){ return sidebar.querySelector('.admin-tabs'); }
+  function scroller(){ return sidebar.querySelector('.admin-sidebar-scroll-region')||sidebar.querySelector('.admin-tabs'); }
 
   /*
    * Some admin pages resize/rebuild their content and older wrapper rules can make
@@ -13292,7 +13298,7 @@ html,body{
     min-width:0 !important;
   }
 
-  #adminSidebar .admin-tabs{
+  #adminSidebar .admin-sidebar-scroll-region{
     width:100% !important;
     height:100% !important;
     min-height:0 !important;
@@ -13305,29 +13311,29 @@ html,body{
     scrollbar-color:transparent transparent !important;
   }
 
-  #adminSidebar .admin-tabs.admin-scrollbar-hot,
-  #adminSidebar .admin-tabs:focus-within{
+  #adminSidebar .admin-sidebar-scroll-region.admin-scrollbar-hot,
+  #adminSidebar .admin-sidebar-scroll-region:focus-within{
     scrollbar-color:#9eafbd transparent !important;
   }
 
-  #adminSidebar .admin-tabs::-webkit-scrollbar{
+  #adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar{
     display:block !important;
     width:5px !important;
     height:0 !important;
   }
-  #adminSidebar .admin-tabs::-webkit-scrollbar-track{
+  #adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar-track{
     background:transparent !important;
   }
-  #adminSidebar .admin-tabs::-webkit-scrollbar-thumb{
+  #adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar-thumb{
     min-height:34px;
     border-radius:999px !important;
     background:transparent !important;
   }
-  #adminSidebar .admin-tabs.admin-scrollbar-hot::-webkit-scrollbar-thumb,
-  #adminSidebar .admin-tabs:focus-within::-webkit-scrollbar-thumb{
+  #adminSidebar .admin-sidebar-scroll-region.admin-scrollbar-hot::-webkit-scrollbar-thumb,
+  #adminSidebar .admin-sidebar-scroll-region:focus-within::-webkit-scrollbar-thumb{
     background:#9eafbd !important;
   }
-  #adminSidebar .admin-tabs.admin-scrollbar-hot::-webkit-scrollbar-thumb:hover{
+  #adminSidebar .admin-sidebar-scroll-region.admin-scrollbar-hot::-webkit-scrollbar-thumb:hover{
     background:#7f93a5 !important;
   }
 }
@@ -13336,7 +13342,7 @@ html,body{
 <script id="wooten-admin-sidebar-scrollbar-hover-ver247">
 (function(){
   var sidebar=document.getElementById('adminSidebar');
-  var nav=sidebar&&sidebar.querySelector('.admin-tabs');
+  var nav=sidebar&&sidebar.querySelector('.admin-sidebar-scroll-region');
   if(!nav)return;
 
   var edgeWidth=14;
@@ -13352,5 +13358,141 @@ html,body{
   nav.addEventListener('pointermove',update,{passive:true});
   nav.addEventListener('pointerleave',clear,{passive:true});
   window.addEventListener('resize',function(){if(!desktop())clear();},{passive:true});
+})();
+</script>
+
+<style id="wooten-admin-sidebar-fixed-header-footer-ver248">
+/* Ver248 — only the middle navigation list scrolls; the brand and account footer stay fixed. */
+#adminSidebar .admin-tabs{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) auto !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+#adminSidebar .admin-sidebar-brand{
+  min-width:0 !important;
+  min-height:67px !important;
+  margin:0 !important;
+  padding:17px 20px 14px !important;
+  border-bottom:1px solid #e8edf2 !important;
+  background:#fff !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+#adminSidebar .admin-sidebar-scroll-region{
+  min-width:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:none !important;
+  padding:7px 12px 13px !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+#adminSidebar .admin-sidebar-scroll-region .admin-nav-group:first-child{
+  margin-top:8px !important;
+}
+#adminSidebar .admin-sidebar-footer{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  min-width:0 !important;
+  min-height:57px !important;
+  margin:0 !important;
+  padding:10px 16px !important;
+  border-top:1px solid #e3eaf0 !important;
+  background:#f8fafc !important;
+  color:#17324d !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+#adminSidebar .admin-sidebar-footer-status{
+  flex:0 0 auto !important;
+  width:8px !important;
+  height:8px !important;
+  border-radius:50% !important;
+  background:#28a36a !important;
+  box-shadow:0 0 0 3px rgba(40,163,106,.12) !important;
+}
+#adminSidebar .admin-sidebar-footer.is-locked .admin-sidebar-footer-status{
+  background:#9aa9b6 !important;
+  box-shadow:0 0 0 3px rgba(122,141,158,.12) !important;
+}
+#adminSidebar .admin-sidebar-footer-copy{
+  display:block !important;
+  min-width:0 !important;
+  line-height:1.15 !important;
+}
+#adminSidebar .admin-sidebar-footer-copy small,
+#adminSidebar .admin-sidebar-footer-copy strong{
+  display:block !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+#adminSidebar .admin-sidebar-footer-copy small{
+  margin-bottom:3px !important;
+  color:#8190a0 !important;
+  font-size:9px !important;
+  font-weight:900 !important;
+  letter-spacing:.09em !important;
+}
+#adminSidebar .admin-sidebar-footer-copy strong{
+  color:#17324d !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+}
+@media (max-width:800px){
+  body > #adminSidebar .admin-tabs{
+    display:grid !important;
+    grid-template-rows:auto minmax(0,1fr) auto !important;
+    padding:0 !important;
+    overflow:hidden !important;
+  }
+  body > #adminSidebar .admin-sidebar-brand{
+    min-height:calc(67px + env(safe-area-inset-top)) !important;
+    padding:calc(17px + env(safe-area-inset-top)) 70px 14px 18px !important;
+  }
+  body > #adminSidebar .admin-sidebar-scroll-region{
+    padding:7px 12px 13px !important;
+    scrollbar-width:none !important;
+  }
+  body > #adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar{
+    display:none !important;
+    width:0 !important;
+    height:0 !important;
+  }
+  body > #adminSidebar .admin-sidebar-footer{
+    min-height:calc(57px + env(safe-area-inset-bottom)) !important;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom)) !important;
+  }
+}
+</style>
+
+<script id="wooten-admin-sidebar-footer-session-ver248">
+(function(){
+  var footer=document.getElementById('adminSidebarFooter');
+  var footerName=document.getElementById('adminSidebarSignedIn');
+  var accessMeta=document.getElementById('adminAccessMeta');
+  if(!footer||!footerName)return;
+
+  function syncFooter(){
+    var meta=String(accessMeta&&accessMeta.textContent||'').trim();
+    var match=meta.match(/^Signed in as\s+(.+)$/i);
+    var currentUser=window.wootenAdminUser;
+    var name=match&&match[1]
+      ? match[1]
+      : currentUser&&(currentUser.display_name||currentUser.username)
+        ? String(currentUser.display_name||currentUser.username)
+        : 'Not signed in';
+    footerName.textContent=name;
+    footer.classList.toggle('is-locked',!match&&!currentUser);
+  }
+
+  syncFooter();
+  if(accessMeta){
+    new MutationObserver(syncFooter).observe(accessMeta,{childList:true,characterData:true,subtree:true});
+  }
 })();
 </script>
