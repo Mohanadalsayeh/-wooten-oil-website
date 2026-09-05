@@ -12923,7 +12923,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     <div class="mas90-failure-body">
       <p class="mas90-failure-status" id="mas90FailureStatus">Loading failure records…</p>
       <div class="mas90-failure-table-wrap">
-        <table class="mas90-failure-table" id="mas90FailureTable" data-pdf-table-name="MAS 90 Import Failures"><thead></thead><tbody><tr><td class="mas90-failure-loading">Loading…</td></tr></tbody></table>
+        <table class="mas90-failure-table" id="mas90FailureTable" data-pdf-table-name="MAS 90 Import Failures" data-pdf-empty="true"><thead></thead><tbody><tr><td class="mas90-failure-loading">Loading…</td></tr></tbody></table>
       </div>
     </div>
   </section>
@@ -12974,10 +12974,12 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       :['Source Row','Customer #','Customer Name','Date','Amount','Reference','Invoice #','Failure Reason'];
     table.tHead.innerHTML='<tr>'+headers.map(header=>'<th>'+esc(header)+'</th>').join('')+'</tr>';
     if(!rows.length){
+      table.dataset.pdfEmpty='true';
       table.tBodies[0].innerHTML='<tr><td class="mas90-failure-empty" colspan="'+headers.length+'">No failed records were saved for this retrieval.</td></tr>';
       statusBox.textContent='No failed records found.';
       return;
     }
+    delete table.dataset.pdfEmpty;
     table.tBodies[0].innerHTML=rows.map(row=>{
       const values=customers
         ?[row.source_row_number,row.account_number||'—',row.customer_name||'—',row.reason||'Validation failed.']
@@ -13001,6 +13003,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     subtitle.textContent='Failed source records and validation reasons.';
     statusBox.className='mas90-failure-status';
     statusBox.textContent='Loading failure records…';
+    table.dataset.pdfEmpty='true';
     table.tHead.innerHTML='';
     table.tBodies[0].innerHTML='<tr><td class="mas90-failure-loading">Loading…</td></tr>';
     try{render(recordType,await fetchFailures(requestId,recordType));}
@@ -14881,6 +14884,7 @@ html,body{
   };
 
   function tableHasRows(table){
+    if(table?.dataset?.pdfEmpty==='true')return false;
     return [...table.tBodies].some(body=>[...body.rows].some(row=>row.cells.length&&cleanText(row.textContent)));
   }
 
