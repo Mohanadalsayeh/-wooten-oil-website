@@ -13270,9 +13270,9 @@ let pagingRequests=false;
 @media(max-width:720px){.mas90-remote-request{grid-template-columns:auto minmax(0,1fr);align-items:start;padding:15px}.mas90-remote-request-summary{grid-template-columns:1fr}.mas90-remote-request-actions{grid-column:1/-1;width:100%;min-width:0}.mas90-remote-request-actions button{width:100%;min-width:0;max-width:100%;min-height:46px;white-space:normal}.mas90-request-modal{padding:10px}.mas90-request-dialog{border-radius:15px}.mas90-request-head{padding:17px 16px 14px}.mas90-request-body{padding:17px 16px}.mas90-request-actions{padding:0 16px 17px;display:grid;grid-template-columns:1fr}.mas90-request-actions button{width:100%;min-width:0}.mas90-request-actions .primary{order:-1}}
 </style>
 
-<style id="wooten-mas90-desktop-organization-style-ver328">
+<style id="wooten-mas90-desktop-organization-style-ver345">
 @media(min-width:1100px){
-  #admin-tab-customers .mas90-remote-request{
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request{
     grid-template-columns:52px minmax(0,1fr) 238px;
     grid-template-rows:auto auto auto auto auto;
     align-items:start;
@@ -13280,32 +13280,32 @@ let pagingRequests=false;
     row-gap:0;
     padding:20px;
   }
-  #admin-tab-customers .mas90-remote-request-icon{grid-column:1;grid-row:1/4;margin-top:1px}
-  #admin-tab-customers .mas90-remote-request-copy{display:contents}
-  #admin-tab-customers .mas90-remote-request-kicker{grid-column:2;grid-row:1}
-  #admin-tab-customers .mas90-remote-request h3{grid-column:2;grid-row:2}
-  #admin-tab-customers .mas90-remote-request p{grid-column:2;grid-row:3;max-width:820px}
-  #admin-tab-customers .mas90-remote-request-status{
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-icon{grid-column:1;grid-row:1/4;margin-top:1px}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-copy{display:contents}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-kicker{grid-column:2;grid-row:1}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request h3{grid-column:2;grid-row:2}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request p{grid-column:2;grid-row:3;max-width:820px}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-status{
     grid-column:1/-1;
     grid-row:4;
     margin-top:18px;
     padding-top:16px;
     border-top:1px solid #e6c36b;
   }
-  #admin-tab-customers .mas90-remote-request[data-status="completed"] .mas90-remote-request-status{border-top-color:#b9dcc8}
-  #admin-tab-customers .mas90-remote-request[data-status="failed"] .mas90-remote-request-status,
-  #admin-tab-customers .mas90-remote-request[data-status="cancelled"] .mas90-remote-request-status{border-top-color:#e4b2b4}
-  #admin-tab-customers .mas90-remote-request-progress{grid-column:1/-1;grid-row:5;margin-top:12px}
-  #admin-tab-customers .mas90-remote-request-actions{
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request[data-status="completed"] .mas90-remote-request-status{border-top-color:#b9dcc8}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request[data-status="failed"] .mas90-remote-request-status,
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request[data-status="cancelled"] .mas90-remote-request-status{border-top-color:#e4b2b4}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-progress{grid-column:1/-1;grid-row:5;margin-top:12px}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-actions{
     grid-column:3;
     grid-row:1/4;
     align-self:center;
     width:238px;
     min-width:238px;
   }
-  #admin-tab-customers .mas90-remote-request-actions button{width:238px;min-width:238px;max-width:238px}
-  #admin-tab-customers .mas90-remote-request-summary{grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
-  #admin-tab-customers .mas90-remote-request-summary>div{align-content:flex-start}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-actions button{width:238px;min-width:238px;max-width:238px}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-summary{grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-summary>div{align-content:flex-start}
   #admin-tab-customers .mas90-live-sync,
   #admin-tab-database .mas90-live-sync{
     display:grid;
@@ -13322,8 +13322,8 @@ let pagingRequests=false;
   }
 }
 @media(min-width:721px) and (max-width:1099px){
-  #admin-tab-customers .mas90-remote-request-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
-  #admin-tab-customers .mas90-remote-request-actions,
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  :is(#admin-tab-customers,#admin-tab-database) .mas90-remote-request-actions,
   #admin-tab-customers .mas90-live-sync-action,
   #admin-tab-database .mas90-live-sync-action{width:210px;min-width:210px;max-width:210px}
 }
