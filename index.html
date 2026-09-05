@@ -1900,7 +1900,7 @@
   const status=g('sharedEmailPasswordStatus');
   const emailLabel=g('sharedEmailPasswordAddress');
   if(!button||!modal||!submit)return;
-  let sharedEmail='';
+  let sharedEmail='',availabilityGeneration=0;
   const icons={
     bad:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4M12 16.5h.01"></path></svg></span>',
     info:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span>',
@@ -1916,15 +1916,19 @@
   function clear(){
     g('sharedEmailCurrentPassword').value='';g('sharedEmailNewPassword').value='';g('sharedEmailConfirmPassword').value='';setStatus('');
   }
-  function open(){clear();emailLabel.textContent=sharedEmail||'—';modal.hidden=false;document.body.classList.add('portal-action-modal-open');setTimeout(()=>g('sharedEmailCurrentPassword')?.focus(),120)}
+  async function open(){await refreshAvailability();if(button.hidden||!sharedEmail)return;clear();emailLabel.textContent=sharedEmail;modal.hidden=false;document.body.classList.add('portal-action-modal-open');setTimeout(()=>g('sharedEmailCurrentPassword')?.focus(),120)}
   function close(){modal.hidden=true;if(g('changePasswordModal')?.hidden!==false&&g('profileChangeModal')?.hidden!==false)document.body.classList.remove('portal-action-modal-open');clear()}
   async function refreshAvailability(){
+    const generation=++availabilityGeneration;
+    button.hidden=true;sharedEmail='';
+    if(!document.body.classList.contains('customer-signed-in'))return;
     try{
       const r=await window.wootenCustomerFetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));
+      if(generation!==availabilityGeneration||!document.body.classList.contains('customer-signed-in'))return;
       const isShared=!!(r.ok&&d.success&&d.authenticated&&d.login_method==='email'&&d.account_scope==='linked');
       sharedEmail=isShared?String(d.customer?.email||'').trim():'';
       button.hidden=!isShared;
-    }catch(_){button.hidden=true;sharedEmail='';}
+    }catch(_){if(generation===availabilityGeneration){button.hidden=true;sharedEmail='';}}
   }
   button.addEventListener('click',open);closeBtn?.addEventListener('click',close);cancelBtn?.addEventListener('click',close);
   modal.addEventListener('click',e=>{if(e.target===modal)close()});
@@ -1947,7 +1951,14 @@
   });
   setTimeout(refreshAvailability,350);
   g('accountSwitcherList')?.addEventListener('click',()=>setTimeout(refreshAvailability,250));
-  new MutationObserver(()=>{if(document.body.classList.contains('portal-authenticated'))setTimeout(refreshAvailability,120);else button.hidden=true}).observe(document.body,{attributes:true,attributeFilter:['class']});
+  let signedIn=document.body.classList.contains('customer-signed-in');
+  new MutationObserver(()=>{
+    const next=document.body.classList.contains('customer-signed-in');
+    if(next===signedIn)return;
+    signedIn=next;
+    ++availabilityGeneration;button.hidden=true;sharedEmail='';
+    if(next)refreshAvailability();else close();
+  }).observe(document.body,{attributes:true,attributeFilter:['class']});
 })();
 </script>
 
@@ -3205,6 +3216,11 @@ html.customer-portal-open #customer-login.portal-overlay{
 }
 </style>
 
+<style id="wooten-shared-email-visibility-ver346">
+#dashboardChangeSharedEmailPassword[hidden],
+#changePasswordOpenSharedEmail[hidden]{display:none!important}
+body:not(.customer-signed-in) #dashboardChangeSharedEmailPassword{display:none!important}
+</style>
 <style id="wooten-customer-navy-whisper-hover-ver341">
 /* Keep menu geometry fixed; only the fill changes on mouse hover. */
 body.customer-signed-in #mobile-menu.mobile-menu-panel :is(a,button):not(.mobile-menu-close),
