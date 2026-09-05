@@ -6743,7 +6743,10 @@ function renderMas90RemoteRequest(remote,importData){
       const paymentFailure=Math.max(0,Number(remote?.payments_failure_count||0));
       const paymentInserted=Math.max(0,Number(remote?.payments_inserted_count||0));
       const paymentDuplicates=Math.max(0,Number(remote?.payments_duplicate_count||0));
-      summary.innerHTML=`<div><strong>Customers</strong><span>${customerSuccess.toLocaleString()} successful</span><span class="${customerFailure>0?'has-failures':''}">${customerFailure.toLocaleString()} failed</span></div><div><strong>Payments</strong><span>${paymentSuccess.toLocaleString()} successful</span><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span><span class="${paymentFailure>0?'has-failures':''}">${paymentFailure.toLocaleString()} failed</span></div>`;
+      const failureControl=(kind,count)=>count>0
+        ?`<button type="button" class="has-failures" data-mas90-failure-kind="${kind}" aria-label="Open ${count.toLocaleString()} failed ${kind} records">${count.toLocaleString()} failed</button>`
+        :`<span>${count.toLocaleString()} failed</span>`;
+      summary.innerHTML=`<div><strong>Customers</strong><span>${customerSuccess.toLocaleString()} successful</span>${failureControl('customers',customerFailure)}</div><div><strong>Payments</strong><span>${paymentSuccess.toLocaleString()} successful</span><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div>`;
     }else summary.textContent="";
   }
   const showProgress=["queued","claimed","running","cancel_requested"].includes(status);
@@ -12830,7 +12833,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 .mas90-remote-request-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#eaf2fb;color:#1f63a8;flex:0 0 auto}.mas90-remote-request-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .mas90-remote-request-copy{min-width:0}.mas90-remote-request-kicker{display:block;margin-bottom:3px;color:#657a8e;font-size:11px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}.mas90-remote-request h3{margin:0;color:#17324d;font-size:17px}.mas90-remote-request p{margin:5px 0 0;color:#687b8e;font-size:13px;line-height:1.45}
 .mas90-remote-request-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 9px;margin-top:10px}.mas90-remote-request-status strong{color:#17324d;font-size:13px}.mas90-remote-request-status span{color:#687b8e;font-size:12px}
-.mas90-remote-request-summary{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.mas90-remote-request-summary[hidden]{display:none!important}.mas90-remote-request-summary>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 10px;border:1px solid #cfe5d8;border-radius:9px;background:#fff}.mas90-remote-request-summary strong{margin-right:auto}.mas90-remote-request-summary span{padding:3px 7px;border-radius:999px;background:#e8f6ee;color:#216b47!important;font-weight:800}.mas90-remote-request-summary span.has-failures{background:#fde8e8;color:#a52b31!important}
+.mas90-remote-request-summary{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.mas90-remote-request-summary[hidden]{display:none!important}.mas90-remote-request-summary>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 10px;border:1px solid #cfe5d8;border-radius:9px;background:#fff}.mas90-remote-request-summary strong{margin-right:auto}.mas90-remote-request-summary span,.mas90-remote-request-summary button{padding:3px 7px;border:0;border-radius:999px;background:#e8f6ee;color:#216b47!important;font:inherit;font-weight:800}.mas90-remote-request-summary button.has-failures{background:#fde8e8;color:#a52b31!important;cursor:pointer;text-decoration:underline;text-underline-offset:2px}.mas90-remote-request-summary button.has-failures:hover,.mas90-remote-request-summary button.has-failures:focus{background:#f9cccc;color:#861d23!important}.mas90-remote-request-summary button.has-failures:focus-visible{outline:3px solid rgba(165,43,49,.2);outline-offset:2px}
 .mas90-remote-request-progress{height:6px;margin-top:10px;overflow:hidden;border-radius:999px;background:#dce6ee}.mas90-remote-request-progress[hidden]{display:none!important}.mas90-remote-request-progress span{display:block;width:0;height:100%;border-radius:inherit;background:#2e79c7;transition:width .25s ease}
 .mas90-remote-request[data-status="queued"],.mas90-remote-request[data-status="claimed"],.mas90-remote-request[data-status="running"],.mas90-remote-request[data-status="cancel_requested"]{border-color:#e6c36b;background:#fff9e9}.mas90-remote-request[data-status="queued"] .mas90-remote-request-icon,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-icon,.mas90-remote-request[data-status="running"] .mas90-remote-request-icon{background:#f6c654;color:#674808}.mas90-remote-request[data-status="queued"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="running"] .mas90-remote-request-progress span{background:#d99a13}
 .mas90-remote-request[data-status="cancel_requested"] .mas90-remote-request-icon{background:#f4dada;color:#a52b31}.mas90-remote-request[data-status="cancel_requested"] .mas90-remote-request-progress span{background:#c13b42}
@@ -12901,6 +12904,111 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }catch(error){password.value='';showMessage(error.message||'The MAS 90 retrieval request could not be queued.');password.focus();}
     finally{pending=false;submit.disabled=false;submit.textContent='Confirm Request';}
   });
+})();
+</script>
+
+<style id="wooten-mas90-failure-results-ver324">
+.mas90-failure-dialog{width:min(1050px,100%);overflow:hidden}.mas90-failure-body{padding:18px 20px 22px}.mas90-failure-status{margin:0 0 12px;color:#61758a;font-size:13px}.mas90-failure-status.bad{padding:10px 12px;border-radius:9px;background:#fff0f0;color:#98252b}.mas90-failure-table-wrap{max-height:min(58dvh,560px);overflow:auto;border:1px solid #d7e1e9;border-radius:11px;background:#fff}.mas90-failure-table{width:100%;border-collapse:collapse;min-width:760px}.mas90-failure-table th{position:sticky;top:0;z-index:1;padding:10px;background:#eef3f7;color:#30495f;font-size:11px;font-weight:900;text-align:left;text-transform:uppercase;letter-spacing:.035em}.mas90-failure-table td{padding:10px;border-top:1px solid #e7edf2;color:#273e53;font-size:12px;vertical-align:top}.mas90-failure-table td:last-child{min-width:220px;color:#92272d;font-weight:700}.mas90-failure-table tbody tr:nth-child(even){background:#fafcfd}.mas90-failure-empty{padding:24px;text-align:center;color:#718396}.mas90-failure-body>.table-pdf-export-toolbar{margin:0 0 12px}.mas90-failure-loading{padding:28px;text-align:center;color:#61758a}
+@media(max-width:720px){.mas90-failure-dialog{width:100%;max-height:calc(100dvh - 20px)}.mas90-failure-body{padding:14px}.mas90-failure-table-wrap{max-height:60dvh}}
+</style>
+
+<div class="mas90-request-modal" id="mas90FailureModal" hidden aria-hidden="true">
+  <div class="mas90-request-modal-backdrop" data-mas90-failure-close></div>
+  <section class="mas90-request-dialog mas90-failure-dialog" role="dialog" aria-modal="true" aria-labelledby="mas90FailureTitle">
+    <header class="mas90-request-head">
+      <div><h3 id="mas90FailureTitle">MAS 90 Import Failures</h3><p id="mas90FailureSubtitle">Failed source records and validation reasons.</p></div>
+      <button class="mas90-request-close" type="button" data-mas90-failure-close aria-label="Close">&times;</button>
+    </header>
+    <div class="mas90-failure-body">
+      <p class="mas90-failure-status" id="mas90FailureStatus">Loading failure records…</p>
+      <div class="mas90-failure-table-wrap">
+        <table class="mas90-failure-table" id="mas90FailureTable" data-pdf-table-name="MAS 90 Import Failures"><thead></thead><tbody><tr><td class="mas90-failure-loading">Loading…</td></tr></tbody></table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script id="wooten-mas90-failure-results-script-ver324">
+(function(){
+  const modal=document.getElementById('mas90FailureModal');
+  const title=document.getElementById('mas90FailureTitle');
+  const subtitle=document.getElementById('mas90FailureSubtitle');
+  const statusBox=document.getElementById('mas90FailureStatus');
+  const table=document.getElementById('mas90FailureTable');
+  if(!modal||!title||!subtitle||!statusBox||!table)return;
+  let lastTrigger=null;
+  let loading=false;
+  const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  function close(){
+    if(loading)return;
+    modal.hidden=true;
+    modal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('mas90-request-modal-open');
+    lastTrigger?.focus({preventScroll:true});
+  }
+  async function fetchFailures(requestId,recordType){
+    const all=[];
+    let page=1,pages=1;
+    const adminKey=document.getElementById('adminKey')?.value.trim()||'';
+    do{
+      const params=new URLSearchParams({request_id:requestId,record_type:recordType,page:String(page),page_size:'1000'});
+      const response=await fetch('/api/admin/mas90-sync-failures?'+params.toString(),{headers:{'X-Admin-Key':adminKey,'Accept':'application/json'},cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.success===false)throw new Error(data.error||'Failure records could not be loaded.');
+      all.push(...(Array.isArray(data.failures)?data.failures:[]));
+      pages=Math.max(1,Number(data.pages||1));
+      statusBox.textContent='Loading '+all.length.toLocaleString()+' of '+Number(data.total||all.length).toLocaleString()+' records…';
+      page++;
+    }while(page<=pages);
+    return all;
+  }
+  function render(recordType,rows){
+    const customers=recordType==='customers';
+    const reportTitle=customers?'MAS 90 Customer Import Failures':'MAS 90 Payment Import Failures';
+    title.textContent=reportTitle;
+    subtitle.textContent=rows.length.toLocaleString()+' failed source record'+(rows.length===1?'':'s')+' with validation reasons.';
+    table.setAttribute('data-pdf-table-name',reportTitle);
+    const headers=customers
+      ?['Source Row','Customer #','Customer Name','Failure Reason']
+      :['Source Row','Customer #','Customer Name','Date','Amount','Reference','Invoice #','Failure Reason'];
+    table.tHead.innerHTML='<tr>'+headers.map(header=>'<th>'+esc(header)+'</th>').join('')+'</tr>';
+    if(!rows.length){
+      table.tBodies[0].innerHTML='<tr><td class="mas90-failure-empty" colspan="'+headers.length+'">No failed records were saved for this retrieval.</td></tr>';
+      statusBox.textContent='No failed records found.';
+      return;
+    }
+    table.tBodies[0].innerHTML=rows.map(row=>{
+      const values=customers
+        ?[row.source_row_number,row.account_number||'—',row.customer_name||'—',row.reason||'Validation failed.']
+        :[row.source_row_number,row.account_number||'—',row.customer_name||'—',row.record_date||'—',row.amount||'—',row.reference||'—',row.invoice_no||'—',row.reason||'Validation failed.'];
+      return '<tr>'+values.map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>';
+    }).join('');
+    statusBox.textContent=rows.length.toLocaleString()+' failure record'+(rows.length===1?'':'s')+' loaded. Use Export PDF above the table to save or print all records.';
+    statusBox.classList.remove('bad');
+  }
+  async function open(trigger){
+    const recordType=String(trigger.dataset.mas90FailureKind||'').toLowerCase();
+    const panel=document.getElementById('mas90RemoteRequestPanel');
+    const requestId=String(panel?.dataset.requestId||'').trim();
+    if(!requestId||!['customers','payments'].includes(recordType))return;
+    lastTrigger=trigger;
+    loading=true;
+    modal.hidden=false;
+    modal.setAttribute('aria-hidden','false');
+    document.body.classList.add('mas90-request-modal-open');
+    title.textContent=recordType==='customers'?'MAS 90 Customer Import Failures':'MAS 90 Payment Import Failures';
+    subtitle.textContent='Failed source records and validation reasons.';
+    statusBox.className='mas90-failure-status';
+    statusBox.textContent='Loading failure records…';
+    table.tHead.innerHTML='';
+    table.tBodies[0].innerHTML='<tr><td class="mas90-failure-loading">Loading…</td></tr>';
+    try{render(recordType,await fetchFailures(requestId,recordType));}
+    catch(error){statusBox.textContent=error.message||'Failure records could not be loaded.';statusBox.classList.add('bad');table.tBodies[0].innerHTML='<tr><td class="mas90-failure-empty">No records available.</td></tr>';}
+    finally{loading=false;}
+  }
+  document.addEventListener('click',event=>{const trigger=event.target.closest('[data-mas90-failure-kind]');if(trigger)open(trigger);});
+  modal.querySelectorAll('[data-mas90-failure-close]').forEach(item=>item.addEventListener('click',close));
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.hidden)close();});
 })();
 </script>
 

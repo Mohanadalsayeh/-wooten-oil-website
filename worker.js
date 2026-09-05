@@ -1216,6 +1216,24 @@ async function ensureMas90SyncRequestSchema(env){
     ["payments_inserted_count","INTEGER NOT NULL DEFAULT 0"],
     ["payments_duplicate_count","INTEGER NOT NULL DEFAULT 0"]
   ])if(!columns.has(name))await env.DB.prepare(`ALTER TABLE mas90_sync_control ADD COLUMN ${name} ${definition}`).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS mas90_sync_failures (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      request_id TEXT NOT NULL,
+      record_type TEXT NOT NULL,
+      source_row_number INTEGER NOT NULL DEFAULT 0,
+      account_number TEXT NOT NULL DEFAULT '',
+      customer_name TEXT NOT NULL DEFAULT '',
+      record_date TEXT NOT NULL DEFAULT '',
+      amount TEXT NOT NULL DEFAULT '',
+      reference TEXT NOT NULL DEFAULT '',
+      invoice_no TEXT NOT NULL DEFAULT '',
+      reason TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(request_id,record_type,source_row_number)
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_sync_failures_request_type ON mas90_sync_failures(request_id,record_type,source_row_number)`).run();
   await env.DB.prepare(`INSERT OR IGNORE INTO mas90_sync_control(id,status,updated_at) VALUES (1,'idle',CURRENT_TIMESTAMP)`).run();
   mas90SyncSchemaReady=true;
 }
@@ -1315,6 +1333,7 @@ async function adminMas90SyncRequestPost({request,env}){
       const current=await mas90SyncStatusRow(env);
       return notificationJson({success:false,error:"A MAS 90 retrieval request is already pending or running.",remote_sync_request:mas90SyncPublicStatus(current)},409);
     }
+    await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE request_id<>?`).bind(requestId).run();
     await adminAudit(env,request,"mas90_sync_requested","database",requestId,"Current customer and payment data requested from the MAS 90 office computer");
     return notificationJson({success:true,message:"The retrieval request is queued for the MAS 90 computer.",remote_sync_request:mas90SyncPublicStatus(await mas90SyncStatusRow(env))});
   }catch(error){
@@ -1520,6 +1539,79 @@ async function mas90AgentStatusPost({request,env}){
   }
 }
 __name(mas90AgentStatusPost,"mas90AgentStatusPost");
+
+async function mas90AgentFailuresPost({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  if(!await mas90AgentAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    const body=await request.json().catch(()=>({}));
+    const requestId=String(body.request_id||"").trim();
+    const recordType=String(body.record_type||"").trim().toLowerCase();
+    const batchNumber=Math.max(1,Math.round(Number(body.batch_number||1))||1);
+    const failures=Array.isArray(body.failures)?body.failures:[];
+    if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
+    if(!["customers","payments"].includes(recordType))return notificationJson({success:false,error:"Invalid failure record type."},400);
+    if(!failures.length||failures.length>200)return notificationJson({success:false,error:"Each failure-detail batch must contain between 1 and 200 records."},400);
+    await ensureMas90SyncRequestSchema(env);
+    const current=await env.DB.prepare(`SELECT request_id,status FROM mas90_sync_control WHERE id=1`).first();
+    if(String(current?.request_id||"")!==requestId||!["claimed","running"].includes(String(current?.status||"").toLowerCase())){
+      return notificationJson({success:false,error:"This retrieval request is no longer active."},409);
+    }
+    if(batchNumber===1)await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE request_id=? AND record_type=?`).bind(requestId,recordType).run();
+    const clean=(value,max)=>String(value??"").trim().replace(/\s+/g," ").slice(0,max);
+    const statement=env.DB.prepare(`
+      INSERT OR REPLACE INTO mas90_sync_failures
+        (request_id,record_type,source_row_number,account_number,customer_name,record_date,amount,reference,invoice_no,reason,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+    `);
+    const rows=failures.map(item=>statement.bind(
+      requestId,
+      recordType,
+      Math.max(1,Math.round(Number(item?.source_row_number||0))||1),
+      clean(item?.account_number,40),
+      clean(item?.customer_name,250),
+      clean(item?.record_date,60),
+      clean(item?.amount,60),
+      clean(item?.reference,150),
+      clean(item?.invoice_no,100),
+      clean(item?.reason,500)||"The source record did not pass validation."
+    ));
+    await env.DB.batch(rows);
+    return notificationJson({success:true,saved:rows.length,batch_number:batchNumber});
+  }catch(error){
+    console.error("mas90AgentFailuresPost failed",error);
+    return notificationJson({success:false,error:"The failed MAS 90 record details could not be saved."},500);
+  }
+}
+__name(mas90AgentFailuresPost,"mas90AgentFailuresPost");
+
+async function adminMas90SyncFailuresGet({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  try{
+    await ensureMas90SyncRequestSchema(env);
+    const url=new URL(request.url);
+    const requestId=String(url.searchParams.get("request_id")||"").trim();
+    const recordType=String(url.searchParams.get("record_type")||"").trim().toLowerCase();
+    const page=Math.max(1,Math.round(Number(url.searchParams.get("page")||1))||1);
+    const pageSize=Math.max(1,Math.min(1000,Math.round(Number(url.searchParams.get("page_size")||1000))||1000));
+    if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
+    if(!["customers","payments"].includes(recordType))return notificationJson({success:false,error:"Invalid failure record type."},400);
+    const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS total FROM mas90_sync_failures WHERE request_id=? AND record_type=?`).bind(requestId,recordType).first();
+    const total=Math.max(0,Number(totalRow?.total||0));
+    const pages=Math.max(1,Math.ceil(total/pageSize));
+    const safePage=Math.min(page,pages);
+    const result=await env.DB.prepare(`
+      SELECT source_row_number,account_number,customer_name,record_date,amount,reference,invoice_no,reason
+      FROM mas90_sync_failures WHERE request_id=? AND record_type=?
+      ORDER BY source_row_number ASC LIMIT ? OFFSET ?
+    `).bind(requestId,recordType,pageSize,(safePage-1)*pageSize).all();
+    return notificationJson({success:true,request_id:requestId,record_type:recordType,total,page:safePage,pages,failures:result?.results||[]});
+  }catch(error){
+    console.error("adminMas90SyncFailuresGet failed",error);
+    return notificationJson({success:false,error:"The failed MAS 90 records could not be loaded."},500);
+  }
+}
+__name(adminMas90SyncFailuresGet,"adminMas90SyncFailuresGet");
 
 // Customer payments import
 async function ensureCustomerPaymentsSchema(env) {
@@ -9840,6 +9932,10 @@ var worker_default = {
       if(request.method==="POST")return mas90AgentStatusPost({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname==="/api/mas90-agent/sync/failures"){
+      if(request.method==="POST")return mas90AgentFailuresPost({request,env});
+      return methodNotAllowed();
+    }
     if(url.pathname==="/api/customer/profile-change-requests"){
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
@@ -10000,6 +10096,10 @@ var worker_default = {
     }
     if (url.pathname === "/api/admin/mas90-sync-cancel") {
       if (request.method === "POST") return adminMas90SyncCancelPost({request,env});
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/mas90-sync-failures") {
+      if (request.method === "GET") return adminMas90SyncFailuresGet({request,env});
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/gmail-inbox") {
