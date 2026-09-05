@@ -671,6 +671,9 @@ async function onRequestPost3({ request, env }) {
 
   await ensureCustomerStatementCycleColumn(env);
   await ensureTwilioPhoneToolsSchema(env);
+  if(typeof body?.fix_area_code_automatically==="boolean"){
+    await env.DB.prepare(`UPDATE twilio_phone_settings SET fix_area_code_automatically=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(body.fix_area_code_automatically?1:0).run();
+  }
   const areaSetting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
   const defaultAreaCode=String(areaSetting?.default_area_code||"").replace(/\D/g,"");
   const fixAreaCodeAutomatically=body?.fix_area_code_automatically===true;
@@ -4998,6 +5001,11 @@ async function ensureTwilioPhoneToolsSchema(env){
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`).run();
   await env.DB.prepare(`INSERT OR IGNORE INTO twilio_phone_settings(id,default_area_code) VALUES(1,'')`).run();
+  const phoneSettingInfo=await env.DB.prepare(`PRAGMA table_info(twilio_phone_settings)`).all();
+  const phoneSettingColumns=new Set((phoneSettingInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  if(!phoneSettingColumns.has("fix_area_code_automatically")){
+    await env.DB.prepare(`ALTER TABLE twilio_phone_settings ADD COLUMN fix_area_code_automatically INTEGER NOT NULL DEFAULT 1`).run();
+  }
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS twilio_phone_lookup_cache (
     account_number TEXT PRIMARY KEY,
     raw_phone TEXT NOT NULL DEFAULT '',
@@ -5064,11 +5072,14 @@ async function adminTwilioPhoneToolsGet({request,env}){
   try{
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureTwilioPhoneToolsSchema(env);
-    const setting=await env.DB.prepare(`SELECT default_area_code FROM twilio_phone_settings WHERE id=1`).first();
+    const setting=await env.DB.prepare(`SELECT default_area_code,fix_area_code_automatically FROM twilio_phone_settings WHERE id=1`).first();
+    if(new URL(request.url).searchParams.get("settings_only")==="1"){
+      return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),fix_area_code_automatically:Number(setting?.fix_area_code_automatically)!==0});
+    }
     const phoneStats=await env.DB.prepare(`SELECT COUNT(*) AS customer_phone_count,SUM(CASE WHEN length(replace(replace(replace(replace(replace(replace(trim(phone),'(',''),')',''),'-',''),' ',''),'.',''),'+',''))=7 THEN 1 ELSE 0 END) AS seven_digit_count FROM customers WHERE trim(COALESCE(phone,''))<>''`).first();
     const lookupStats=await env.DB.prepare(`SELECT SUM(CASE WHEN l.valid=1 THEN 1 ELSE 0 END) AS valid_count,SUM(CASE WHEN l.valid=0 THEN 1 ELSE 0 END) AS invalid_count,SUM(CASE WHEN l.valid=-1 THEN 1 ELSE 0 END) AS error_count,SUM(CASE WHEN l.account_number IS NULL THEN 1 ELSE 0 END) AS not_checked_count FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) WHERE trim(COALESCE(c.phone,''))<>''`).first();
     const rows=await env.DB.prepare(`SELECT l.account_number,c.account_name,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at FROM twilio_phone_lookup_cache l LEFT JOIN customers c ON c.account_number=l.account_number ORDER BY datetime(l.checked_at) DESC,l.account_number LIMIT 100`).all();
-    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),not_checked_count:Number(lookupStats?.not_checked_count||0)},results:rows?.results||[]});
+    return notificationJson({success:true,default_area_code:String(setting?.default_area_code||""),fix_area_code_automatically:Number(setting?.fix_area_code_automatically)!==0,stats:{customer_phone_count:Number(phoneStats?.customer_phone_count||0),seven_digit_count:Number(phoneStats?.seven_digit_count||0),valid_count:Number(lookupStats?.valid_count||0),invalid_count:Number(lookupStats?.invalid_count||0),error_count:Number(lookupStats?.error_count||0),not_checked_count:Number(lookupStats?.not_checked_count||0)},results:rows?.results||[]});
   }catch(error){console.error("adminTwilioPhoneToolsGet failed",error);return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioPhoneToolsGet,"adminTwilioPhoneToolsGet");
@@ -5111,10 +5122,20 @@ async function adminTwilioPhoneSettingsPost({request,env}){
   try{
     if(!adminTwilioAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     await ensureTwilioPhoneToolsSchema(env);
-    const body=await request.json().catch(()=>({}));const area=String(body?.default_area_code||"").replace(/\D/g,"");
-    if(!/^[2-9]\d{2}$/.test(area))return notificationJson({success:false,error:"Enter a valid 3-digit U.S. area code."},400);
-    await env.DB.prepare(`UPDATE twilio_phone_settings SET default_area_code=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(area).run();
-    return notificationJson({success:true,default_area_code:area});
+    const body=await request.json().catch(()=>({}));
+    const hasArea=Object.prototype.hasOwnProperty.call(body,"default_area_code");
+    const hasFix=typeof body?.fix_area_code_automatically==="boolean";
+    if(!hasArea&&!hasFix)return notificationJson({success:false,error:"No customer import setting was supplied."},400);
+    const current=await env.DB.prepare(`SELECT default_area_code,fix_area_code_automatically FROM twilio_phone_settings WHERE id=1`).first();
+    let area=String(current?.default_area_code||"").replace(/\D/g,"");
+    let fixAreaCodeAutomatically=Number(current?.fix_area_code_automatically)!==0;
+    if(hasArea){
+      area=String(body.default_area_code||"").replace(/\D/g,"");
+      if(!/^[2-9]\d{2}$/.test(area))return notificationJson({success:false,error:"Enter a valid 3-digit U.S. area code."},400);
+    }
+    if(hasFix)fixAreaCodeAutomatically=body.fix_area_code_automatically;
+    await env.DB.prepare(`UPDATE twilio_phone_settings SET default_area_code=?,fix_area_code_automatically=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(area,fixAreaCodeAutomatically?1:0).run();
+    return notificationJson({success:true,default_area_code:area,fix_area_code_automatically:fixAreaCodeAutomatically});
   }catch(error){return notificationJson({success:false,error:String(error?.message||error)},500);}
 }
 __name(adminTwilioPhoneSettingsPost,"adminTwilioPhoneSettingsPost");

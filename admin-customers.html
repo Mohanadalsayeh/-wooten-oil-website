@@ -4896,7 +4896,7 @@ textarea[data-request-response]{
     </div>
     <label class="customer-import-phone-option" for="customerAutoFixAreaCode">
       <input id="customerAutoFixAreaCode" type="checkbox" checked>
-      <span>Fix Area Code Automatically<small>When ON, imported 7-digit phone numbers receive the Default U.S. Area Code saved under Twilio settings before being stored. When OFF, the MDB phone is stored as imported without adding an area code.</small></span>
+      <span>Fix Area Code Automatically<small>When ON, imported 7-digit phone numbers receive the Default U.S. Area Code saved under Twilio settings before being stored. When OFF, the MDB phone is stored as imported without adding an area code. This saved setting applies to manual imports, the 8:00 PM schedule, and portal-requested MAS 90 syncs.</small></span>
     </label>
 
     <div class="preview-progress" id="customerPreviewProgress" hidden>
@@ -7169,13 +7169,52 @@ function renderCustomerPhoneImportSummary(stats){
 }
 async function customerImportAreaCodePreflight(key,enabled,sevenDigitCount){
   if(!enabled||!sevenDigitCount)return "";
-  const res=await fetch('/api/admin/twilio/phone-tools',{headers:{'X-Admin-Key':key},cache:'no-store'});
+  const res=await fetch('/api/admin/twilio/phone-tools?settings_only=1',{headers:{'X-Admin-Key':key},cache:'no-store'});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||data.success===false)throw new Error(data.error||'Could not read the saved Twilio area-code setting.');
   const area=String(data.default_area_code||'').replace(/\D/g,'');
   if(!/^[2-9]\d{2}$/.test(area))throw new Error('Fix Area Code Automatically is selected, but a valid Default U.S. Area Code has not been saved in Twilio settings.');
   return area;
 }
+
+async function saveCustomerImportAreaCodeSetting(enabled){
+  const key=document.getElementById("adminKey")?.value.trim()||"";
+  if(!key)throw new Error("Your admin session has expired. Sign in again.");
+  const res=await fetch('/api/admin/twilio/phone-tools/settings',{method:'POST',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({fix_area_code_automatically:!!enabled}),cache:'no-store'});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.success===false)throw new Error(data.error||'Could not save the automatic area-code setting.');
+  return !!data.fix_area_code_automatically;
+}
+
+async function loadCustomerImportAreaCodeSetting(){
+  const checkbox=document.getElementById("customerAutoFixAreaCode");
+  const key=document.getElementById("adminKey")?.value.trim()||"";
+  if(!checkbox||!key)return;
+  try{
+    const res=await fetch('/api/admin/twilio/phone-tools?settings_only=1',{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.success===false)throw new Error(data.error||'Could not load the automatic area-code setting.');
+    if(typeof data.fix_area_code_automatically==='boolean')checkbox.checked=data.fix_area_code_automatically;
+  }catch(error){
+    setStatus(error.message||'Could not load the automatic area-code setting.',false);
+  }
+}
+window.loadCustomerImportAreaCodeSetting=loadCustomerImportAreaCodeSetting;
+
+document.getElementById("customerAutoFixAreaCode")?.addEventListener("change",async event=>{
+  const checkbox=event.currentTarget;
+  const selected=!!checkbox.checked;
+  checkbox.disabled=true;
+  try{
+    await saveCustomerImportAreaCodeSetting(selected);
+    setStatus(`Fix Area Code Automatically saved as ${selected?"ON":"OFF"} for manual and automatic MAS 90 imports.`,true);
+  }catch(error){
+    checkbox.checked=!selected;
+    setStatus(error.message||'Could not save the automatic area-code setting.',false);
+  }finally{
+    checkbox.disabled=false;
+  }
+});
 
 document.getElementById("importBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
@@ -7186,6 +7225,7 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
   const fixAreaCodeAutomatically=!!autoFixEl?.checked;
   const importConfirmed=confirm(`Upload / Update ${preparedRows.length.toLocaleString()} customer record${preparedRows.length===1?"":"s"}?\n\nExisting customers will be updated by account number and new customers will be added. Customer passwords and existing statement cycles will not be overwritten. Customer phone numbers will be replaced by the values in the imported MDB file.\n\nFix Area Code Automatically: ${fixAreaCodeAutomatically?"ON":"OFF"}`);
   if(!importConfirmed)return;
+  try{await saveCustomerImportAreaCodeSetting(fixAreaCodeAutomatically);}catch(error){setStatus(error.message||'Could not save the automatic area-code setting.',false);return;}
   const sourcePhoneCount=preparedRows.reduce((n,row)=>n+(String(row.phone||"").trim()?1:0),0);
   const sourceSevenDigitCount=preparedRows.reduce((n,row)=>n+(customerImportPhoneDigits(row.phone).length===7?1:0),0);
   let selectedAreaCode="";
@@ -8340,6 +8380,8 @@ function twilioGroupLabel(value){return ({all:"All phones",valid:"Valid phones",
 function renderTwilioLookupData(data){
   const st=data?.stats||{};
   if(twilioPhoneTools.area&&data?.default_area_code!==undefined)twilioPhoneTools.area.value=data.default_area_code||"";
+  const customerAutoFixAreaCode=document.getElementById("customerAutoFixAreaCode");
+  if(customerAutoFixAreaCode&&typeof data?.fix_area_code_automatically==='boolean')customerAutoFixAreaCode.checked=data.fix_area_code_automatically;
   if(twilioPhoneTools.areaStatus){twilioPhoneTools.areaStatus.className="twilio-save-status";twilioPhoneTools.areaStatus.textContent=(Number(st.seven_digit_count)||0).toLocaleString()+" seven-digit customer number(s)";}
   if(twilioPhoneTools.summary){
     const chips=[
@@ -11210,6 +11252,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       updateAccessMeta();
       closeLogin();
       loadImportLastUpdates();
+      window.loadCustomerImportAreaCodeSetting?.();
       return true;
     }catch(_e){
       clearSession();
@@ -11253,6 +11296,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       setStatus('Access granted.',false);
       closeLogin();
       loadImportLastUpdates();
+      window.loadCustomerImportAreaCodeSetting?.();
     }catch(_error){
       keyField.value='';
       setStatus('Could not verify administrator access right now. Please try again.',true);
@@ -12316,6 +12360,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       updateAccessMeta();
       closeLogin();
       loadImportLastUpdates();
+      window.loadCustomerImportAreaCodeSetting?.();
       return true;
     }catch(_e){
       clearSession();
@@ -12359,6 +12404,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       setStatus('Access granted.',false);
       closeLogin();
       loadImportLastUpdates();
+      window.loadCustomerImportAreaCodeSetting?.();
     }catch(_error){
       keyField.value='';
       setStatus('Could not verify administrator access right now. Please try again.',true);
@@ -13113,7 +13159,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   #admin-tab-documents > *,
   #admin-tab-documents #documentSectionCustomerDocuments,
   #admin-tab-documents #documentSectionSendStatements,
-  #admin-tab-documents #documentSectionSchedule{
+  #admin-tab-documents #documentSectionStatementScheduling{
     max-width:100% !important;
     min-width:0 !important;
     box-sizing:border-box !important;
@@ -13533,6 +13579,74 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
 })();
 </script>
+
+<style id="wooten-statement-scheduling-mobile-width-ver320">
+/* Keep Statement Scheduling at the same phone width as the other document tabs. */
+@media(max-width:800px){
+  #documentSectionStatementScheduling{
+    display:block;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    overflow-x:hidden!important;
+    box-sizing:border-box!important;
+  }
+  #documentSectionStatementScheduling[hidden]{display:none!important}
+  #documentSectionStatementScheduling > *,
+  #documentSectionStatementScheduling .schedule-card,
+  #documentSectionStatementScheduling .statement-scheduling-grid,
+  #documentSectionStatementScheduling .schedule-report-heading,
+  #documentSectionStatementScheduling .schedule-report-actions,
+  #documentSectionStatementScheduling .schedule-report-search,
+  #documentSectionStatementScheduling .schedule-report,
+  #documentSectionStatementScheduling .schedule-run-record,
+  #documentSectionStatementScheduling .schedule-run,
+  #documentSectionStatementScheduling .schedule-run summary,
+  #documentSectionStatementScheduling .schedule-run-title,
+  #documentSectionStatementScheduling .schedule-run-metrics,
+  #documentSectionStatementScheduling .schedule-run-detail,
+  #documentSectionStatementScheduling .schedule-result-pagination{
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  #documentSectionStatementScheduling .statement-scheduling-grid,
+  #documentSectionStatementScheduling .schedule-shared-fields,
+  #documentSectionStatementScheduling .schedule-report-search-row{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #documentSectionStatementScheduling .schedule-fields,
+  #documentSectionStatementScheduling .schedule-result-row{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #documentSectionStatementScheduling .schedule-run-title > *,
+  #documentSectionStatementScheduling .schedule-result-row > *{
+    min-width:0!important;
+    overflow-wrap:anywhere;
+  }
+  #documentSectionStatementScheduling .schedule-run-title span{text-align:right}
+  #documentSectionStatementScheduling .schedule-combined-pdf-link{
+    max-width:100%!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere;
+  }
+  #documentSectionStatementScheduling .schedule-preview-list{
+    max-width:100%!important;
+    overflow-x:hidden!important;
+  }
+}
+@media(max-width:430px){
+  #documentSectionStatementScheduling .schedule-result-row{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #documentSectionStatementScheduling .schedule-run-title{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:5px;
+  }
+  #documentSectionStatementScheduling .schedule-run-title span{text-align:left}
+}
+</style>
 
 
 <style id="wooten-admin-access-overflow-fix-ver228">
