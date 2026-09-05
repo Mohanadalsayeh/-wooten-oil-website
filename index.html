@@ -3280,8 +3280,8 @@ body.customer-signed-in .header-notification-item:focus-visible,
 body.customer-signed-in #dashboardNotificationList .notification-item:hover,
 body.customer-signed-in #dashboardNotificationList .notification-item:focus,
 body.customer-signed-in #dashboardNotificationList .notification-item:focus-visible,
-body.customer-signed-in #mobile-menu.mobile-menu-panel a:hover,
-body.customer-signed-in #mobile-menu.mobile-menu-panel a:focus-visible,
+body.customer-signed-in #mobile-menu.mobile-menu-panel a:not(.mobile-menu-close):hover,
+body.customer-signed-in #mobile-menu.mobile-menu-panel a:not(.mobile-menu-close):focus-visible,
 body.customer-signed-in #mobile-menu.mobile-menu-panel button:hover,
 body.customer-signed-in #mobile-menu.mobile-menu-panel button:focus-visible{
   background:#f4f8fb!important;
@@ -3303,4 +3303,30 @@ body.customer-signed-in #customer-login table tbody tr.db-skeleton-row:focus-wit
 </style>
 
 </body>
+<style id="wooten-customer-close-and-login-hover-ver347">
+/* Close controls must override ordinary navigation-item hover fills. */
+body #mobile-menu.mobile-menu-panel a.mobile-menu-close:is(:hover,:active),
+body #customer-login .portal-close:is(:hover,:active),
+body #headerNotificationsClose:is(:hover,:active),
+body #customerNotificationPopupClose:is(:hover,:active){
+  background:#b73333!important;
+  border-color:#b73333!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  box-shadow:none!important;
+  text-decoration:none!important;
+  transform:none!important;
+}
+body #portalSignIn,
+body #portalSignIn:is(:hover,:focus,:active),
+body #mobile-menu.mobile-menu-panel a.mobile-login-link,
+body #mobile-menu.mobile-menu-panel a.mobile-login-link:is(:hover,:focus,:active){
+  background:#d52529!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  border-color:#d52529!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+</style>
 </html>
