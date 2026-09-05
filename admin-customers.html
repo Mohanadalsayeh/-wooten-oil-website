@@ -4783,7 +4783,7 @@ textarea[data-request-response]{
     <button class="admin-drawer-close" id="adminDrawerClose" type="button" aria-label="Close administration menu" hidden>&times;</button>
     <nav class="admin-tabs" role="tablist" aria-label="Wooten Oil admin pages">
       <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">WO</span> WOOTEN OIL</div>
-      <div class="admin-sidebar-scroll-region">
+      <div class="admin-sidebar-scroll-region" tabindex="0" aria-label="Administration menu choices">
       <div class="admin-nav-group">Overview</div>
       <button class="admin-tab" id="admin-tab-btn-dashboard" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-dashboard" data-admin-tab="dashboard" data-admin-label="Overview"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>Dashboard</button>
       <div class="admin-nav-group">Customers</div>
@@ -13496,3 +13496,51 @@ html,body{
   }
 })();
 </script>
+
+<style id="wooten-admin-sidebar-scroll-repair-ver249">
+/* Ver249 — force the center menu to be the bounded scrolling surface. */
+#adminSidebar .admin-tabs{
+  display:flex !important;
+  flex-direction:column !important;
+  height:100% !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+#adminSidebar .admin-sidebar-brand,
+#adminSidebar .admin-sidebar-footer{
+  flex:0 0 auto !important;
+}
+#adminSidebar .admin-sidebar-scroll-region{
+  flex:1 1 0 !important;
+  width:100% !important;
+  height:0 !important;
+  min-height:0 !important;
+  max-height:none !important;
+  overflow-x:hidden !important;
+  overflow-y:scroll !important;
+  overscroll-behavior:contain !important;
+  touch-action:pan-y !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+#adminSidebar .admin-sidebar-scroll-region:focus{
+  outline:none !important;
+}
+#adminSidebar .admin-sidebar-scroll-region:focus-visible{
+  outline:2px solid rgba(23,58,97,.22) !important;
+  outline-offset:-3px !important;
+}
+@media (max-width:800px){
+  body > #adminSidebar .admin-tabs{
+    display:flex !important;
+    flex-direction:column !important;
+    height:100% !important;
+    min-height:0 !important;
+  }
+  body > #adminSidebar .admin-sidebar-scroll-region{
+    flex:1 1 0 !important;
+    height:0 !important;
+    min-height:0 !important;
+    overflow-y:scroll !important;
+  }
+}
+</style>
