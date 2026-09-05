@@ -1901,8 +1901,6 @@
   const emailLabel=g('sharedEmailPasswordAddress');
   if(!button||!modal||!submit)return;
   let sharedEmail='';
-  let availabilityGeneration=0;
-  let wasAuthenticated=document.body.classList.contains('portal-authenticated');
   const icons={
     bad:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4M12 16.5h.01"></path></svg></span>',
     info:'<span class="portal-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span>',
@@ -1921,17 +1919,12 @@
   function open(){clear();emailLabel.textContent=sharedEmail||'—';modal.hidden=false;document.body.classList.add('portal-action-modal-open');setTimeout(()=>g('sharedEmailCurrentPassword')?.focus(),120)}
   function close(){modal.hidden=true;if(g('changePasswordModal')?.hidden!==false&&g('profileChangeModal')?.hidden!==false)document.body.classList.remove('portal-action-modal-open');clear()}
   async function refreshAvailability(){
-    const generation=++availabilityGeneration;
     try{
       const r=await window.wootenCustomerFetch('/api/customer/me',{credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));
-      if(generation!==availabilityGeneration)return;
       const isShared=!!(r.ok&&d.success&&d.authenticated&&d.login_method==='email'&&d.account_scope==='linked');
       sharedEmail=isShared?String(d.customer?.email||'').trim():'';
       button.hidden=!isShared;
-    }catch(_){
-      if(generation!==availabilityGeneration)return;
-      if(!document.body.classList.contains('portal-authenticated')){button.hidden=true;sharedEmail='';}
-    }
+    }catch(_){button.hidden=true;sharedEmail='';}
   }
   button.addEventListener('click',open);closeBtn?.addEventListener('click',close);cancelBtn?.addEventListener('click',close);
   modal.addEventListener('click',e=>{if(e.target===modal)close()});
@@ -1954,13 +1947,7 @@
   });
   setTimeout(refreshAvailability,350);
   g('accountSwitcherList')?.addEventListener('click',()=>setTimeout(refreshAvailability,250));
-  new MutationObserver(()=>{
-    const isAuthenticated=document.body.classList.contains('portal-authenticated');
-    if(isAuthenticated===wasAuthenticated)return;
-    wasAuthenticated=isAuthenticated;
-    if(isAuthenticated)setTimeout(refreshAvailability,120);
-    else{availabilityGeneration+=1;button.hidden=true;sharedEmail='';}
-  }).observe(document.body,{attributes:true,attributeFilter:['class']});
+  new MutationObserver(()=>{if(document.body.classList.contains('portal-authenticated'))setTimeout(refreshAvailability,120);else button.hidden=true}).observe(document.body,{attributes:true,attributeFilter:['class']});
 })();
 </script>
 
@@ -3215,6 +3202,61 @@ html.customer-portal-open #customer-login.portal-overlay{
   .history-skeleton-line,
   .history-skeleton-block,
   .history-skeleton-pill{animation:none}
+}
+</style>
+
+<style id="wooten-customer-navy-whisper-hover-ver340">
+/* Style 4 — Navy Whisper for signed-in customer records and custom menus. */
+body.customer-signed-in #customer-login table tbody tr:not(.db-skeleton-row),
+body.customer-signed-in .customer-document-row,
+body.customer-signed-in .payment-history-card,
+body.customer-signed-in .fuel-history-card,
+body.customer-signed-in .statement-aging-row:not(.statement-aging-total),
+body.customer-signed-in .profile-change-row{
+  transition:background-color .14s ease,border-color .14s ease;
+}
+body.customer-signed-in #customer-login table tbody tr:not(.db-skeleton-row):hover>td,
+body.customer-signed-in #customer-login table tbody tr:not(.db-skeleton-row):focus-within>td,
+body.customer-signed-in .customer-document-row:hover,
+body.customer-signed-in .customer-document-row:focus-within,
+body.customer-signed-in .payment-history-card:hover,
+body.customer-signed-in .payment-history-card:focus-within,
+body.customer-signed-in .fuel-history-card:hover,
+body.customer-signed-in .fuel-history-card:focus-within,
+body.customer-signed-in .statement-aging-row:not(.statement-aging-total):hover,
+body.customer-signed-in .statement-aging-row:not(.statement-aging-total):focus-within,
+body.customer-signed-in .profile-change-row:hover,
+body.customer-signed-in .profile-change-row:focus-within{
+  background:#f4f8fb!important;
+}
+
+/* Match the same hover on every custom dropdown/menu customers can open. */
+body.customer-signed-in #accountSwitcher .account-switcher-option:hover,
+body.customer-signed-in #accountSwitcher .account-switcher-option:focus-visible,
+body.customer-signed-in .header-notification-item:hover,
+body.customer-signed-in .header-notification-item:focus-visible,
+body.customer-signed-in #dashboardNotificationList .notification-item:hover,
+body.customer-signed-in #dashboardNotificationList .notification-item:focus,
+body.customer-signed-in #dashboardNotificationList .notification-item:focus-visible,
+body.customer-signed-in #mobile-menu.mobile-menu-panel a:hover,
+body.customer-signed-in #mobile-menu.mobile-menu-panel a:focus-visible,
+body.customer-signed-in #mobile-menu.mobile-menu-panel button:hover,
+body.customer-signed-in #mobile-menu.mobile-menu-panel button:focus-visible{
+  background:#f4f8fb!important;
+  outline:none;
+}
+
+/* Preserve the current-account indicator while the account switcher is open. */
+body.customer-signed-in #accountSwitcher .account-switcher-option[aria-current="true"]{
+  background:#eaf1f6!important;
+}
+
+/* Skeleton placeholders are not interactive records. */
+body.customer-signed-in .history-skeleton-card:hover,
+body.customer-signed-in .history-skeleton-card:focus-within,
+body.customer-signed-in #customer-login table tbody tr.db-skeleton-row:hover>td,
+body.customer-signed-in #customer-login table tbody tr.db-skeleton-row:focus-within>td{
+  background:#fff!important;
 }
 </style>
 
