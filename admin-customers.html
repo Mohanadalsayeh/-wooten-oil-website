@@ -6048,9 +6048,28 @@ textarea[data-request-response]{
       <div><div class="admin-page-label">Accounts Receivable</div><h2>Credit &amp; Collections Center</h2><p>Prioritize past-due accounts, review recent payments, and record collection follow-ups. Balances and aging are read-only from MAS 90.</p></div>
       <div class="collections-heading-actions"><button class="secondary" id="collectionsExportPdf" type="button">Export PDF</button><button class="primary" id="collectionsRefresh" type="button">Refresh</button></div>
     </div>
+    <style>
+      .collections-summary>div{position:relative}
+      .collections-summary .collections-hint{display:none;position:absolute;top:100%;left:0;z-index:30;box-sizing:border-box;width:100%;padding:12px;background:#111;color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:400;line-height:1.5;text-transform:none;letter-spacing:normal;white-space:normal;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+      .collections-summary>div:not(.hint-dismissed):is(:hover,:focus-within)>.collections-hint{display:block}
+      .collections-summary>div:focus-visible{outline:2px solid #163b5d;outline-offset:3px}
+    </style>
     <div class="collections-summary" aria-label="Portfolio summary">
-      <div><span>Total A/R</span><strong id="collectionsTotalAr">$0.00</strong></div><div><span>Past Due</span><strong id="collectionsPastDue">$0.00</strong></div><div><span>90+ Aging</span><strong id="collectionsOlder90">$0.00</strong></div><div><span>Credit Holds</span><strong id="collectionsCreditHolds">0</strong></div><div><span>Over Limit</span><strong id="collectionsOverLimit">0</strong></div><div><span>Follow-ups Due</span><strong id="collectionsFollowUps">0</strong></div>
+      <div tabindex="0" aria-describedby="collectionsHintAr"><span>Total A/R</span><strong id="collectionsTotalAr">$0.00</strong><div class="collections-hint" id="collectionsHintAr" role="tooltip">Total money owed by active customers, including current and overdue balances.</div></div>
+      <div tabindex="0" aria-describedby="collectionsHintPastDue"><span>Past Due</span><strong id="collectionsPastDue">$0.00</strong><div class="collections-hint" id="collectionsHintPastDue" role="tooltip">Overdue balances in MAS 90 Aging Categories 1–4. Already included in Total A/R.</div></div>
+      <div tabindex="0" aria-describedby="collectionsHint90"><span>90+ Aging</span><strong id="collectionsOlder90">$0.00</strong><div class="collections-hint" id="collectionsHint90" role="tooltip">Balances in MAS 90 Aging Categories 3 and 4. The day ranges depend on your MAS 90 settings. Already included in Past Due.</div></div>
+      <div tabindex="0" aria-describedby="collectionsHintHolds"><span>Credit Holds</span><strong id="collectionsCreditHolds">0</strong><div class="collections-hint" id="collectionsHintHolds" role="tooltip">Number of active customers with outstanding balances marked on credit hold in MAS 90.</div></div>
+      <div tabindex="0" aria-describedby="collectionsHintLimit"><span>Over Limit</span><strong id="collectionsOverLimit">0</strong><div class="collections-hint" id="collectionsHintLimit" role="tooltip">Number of active customers whose balance exceeds their assigned credit limit. Accounts without a positive limit are excluded.</div></div>
+      <div tabindex="0" aria-describedby="collectionsHintFollowUp"><span>Follow-ups Due</span><strong id="collectionsFollowUps">0</strong><div class="collections-hint" id="collectionsHintFollowUp" role="tooltip">Number of active customers with outstanding balances and an unresolved collection follow-up scheduled for today or earlier.</div></div>
     </div>
+    <script>
+      document.querySelectorAll('.collections-summary>[aria-describedby]').forEach(function(card){
+        ['mouseenter','focusin'].forEach(function(event){card.addEventListener(event,function(){card.classList.remove('hint-dismissed');});});
+      });
+      document.addEventListener('keydown',function(event){
+        if(event.key==='Escape')document.querySelectorAll('.collections-summary>[aria-describedby]').forEach(function(card){card.classList.add('hint-dismissed');});
+      });
+    </script>
     <div class="collections-filters">
       <div><label for="collectionsSearch">Find Customer</label><input id="collectionsSearch" type="search" placeholder="Customer #, name, email, or phone"></div>
       <div><label for="collectionsView">Worklist</label><select id="collectionsView"><option value="all">All balances</option><option value="past_due">Past due</option><option value="older_60">60+ days</option><option value="older_90">90+ days</option><option value="credit_hold">Credit hold</option><option value="over_limit">Over credit limit</option><option value="missing_contact">Missing contact</option><option value="follow_up_due">Follow-ups due</option></select></div>
