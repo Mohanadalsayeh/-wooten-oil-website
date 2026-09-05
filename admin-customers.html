@@ -4868,6 +4868,7 @@ textarea[data-request-response]{
           <div class="mas90-remote-request-status" id="mas90RemoteRequestStatus" aria-live="polite">
             <strong id="mas90RemoteRequestStatusTitle">Ready to request</strong>
             <span id="mas90RemoteRequestStatusDetail">Master Admin confirmation is required.</span>
+            <div class="mas90-remote-request-summary" id="mas90RemoteRequestSummary" hidden></div>
           </div>
           <div class="mas90-remote-request-progress" id="mas90RemoteRequestProgress" hidden role="progressbar" aria-label="Remote MAS 90 retrieval progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="mas90RemoteRequestProgressBar"></span></div>
         </div>
@@ -6614,6 +6615,10 @@ let importStatusPollTimer=0;
 let importStatusRequestPending=false;
 
 function renderMas90LiveSync(data){
+  if(mas90ManualFileSelected()){
+    document.querySelectorAll("[data-mas90-live-sync]").forEach(box=>box.hidden=true);
+    return;
+  }
   const imports=[
     {
       kind:"customers",
@@ -6698,10 +6703,16 @@ function renderMas90RemoteRequest(remote,importData){
   const cancelButton=document.getElementById("mas90RemoteCancelButton");
   const title=document.getElementById("mas90RemoteRequestStatusTitle");
   const detail=document.getElementById("mas90RemoteRequestStatusDetail");
+  const summary=document.getElementById("mas90RemoteRequestSummary");
   const panel=document.getElementById("mas90RemoteRequestPanel");
   const progress=document.getElementById("mas90RemoteRequestProgress");
   const bar=document.getElementById("mas90RemoteRequestProgressBar");
   if(!button||!title||!detail||!panel||!progress||!bar)return;
+  if(mas90ManualFileSelected()){
+    panel.hidden=true;
+    return;
+  }
+  panel.hidden=false;
   const status=String(remote?.status||"idle").toLowerCase();
   const automaticActive=String(importData?.import_control_status||"").toLowerCase()==="in_progress"&&!importData?.cancel_requested;
   const active=["queued","claimed","running","cancel_requested"].includes(status);
@@ -6722,6 +6733,19 @@ function renderMas90RemoteRequest(remote,importData){
   const requestLine=[requestedBy?`Requested by ${requestedBy}`:"",requested&&requested!=="Not imported yet"?requested:""].filter(Boolean).join(" • ");
   detail.textContent=String(remote?.message||"")||requestLine||(automaticActive?"Wait for the current automatic upload to finish.":"Master Admin confirmation is required.");
   if(String(remote?.message||"")&&requestLine&&status!=="idle")detail.textContent+=` • ${requestLine}`;
+  if(summary){
+    const showSummary=status==="completed"&&remote?.summary_available===true;
+    summary.hidden=!showSummary;
+    if(showSummary){
+      const customerSuccess=Math.max(0,Number(remote?.customers_success_count||0));
+      const customerFailure=Math.max(0,Number(remote?.customers_failure_count||0));
+      const paymentSuccess=Math.max(0,Number(remote?.payments_success_count||0));
+      const paymentFailure=Math.max(0,Number(remote?.payments_failure_count||0));
+      const paymentInserted=Math.max(0,Number(remote?.payments_inserted_count||0));
+      const paymentDuplicates=Math.max(0,Number(remote?.payments_duplicate_count||0));
+      summary.innerHTML=`<div><strong>Customers</strong><span>${customerSuccess.toLocaleString()} successful</span><span class="${customerFailure>0?'has-failures':''}">${customerFailure.toLocaleString()} failed</span></div><div><strong>Payments</strong><span>${paymentSuccess.toLocaleString()} successful</span><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span><span class="${paymentFailure>0?'has-failures':''}">${paymentFailure.toLocaleString()} failed</span></div>`;
+    }else summary.textContent="";
+  }
   const showProgress=["queued","claimed","running","cancel_requested"].includes(status);
   const percent=status==="queued"?2:status==="claimed"?5:Math.max(0,Math.min(100,Number(remote?.progress_percent||0)));
   progress.hidden=!showProgress;
@@ -7111,13 +7135,27 @@ async function parseFile(file,mode="customers"){
 }
 
 function isMicrosoftAccessMdb(file){return !!file&&/\.mdb$/i.test(String(file.name||""));}
+function mas90ManualFileSelected(){
+  return Boolean(document.getElementById("customerFile")?.files?.length||document.getElementById("paymentFile")?.files?.length);
+}
+function syncMas90ManualImportPanels(){
+  const manual=mas90ManualFileSelected();
+  document.querySelectorAll("[data-mas90-live-sync]").forEach(box=>{
+    if(manual)box.hidden=true;
+  });
+  const remotePanel=document.getElementById("mas90RemoteRequestPanel");
+  if(remotePanel)remotePanel.hidden=manual;
+  if(!manual&&typeof loadImportLastUpdates==="function")loadImportLastUpdates();
+}
 document.getElementById("customerFile").addEventListener("change",event=>{
   const file=event.target.files?.[0];
   if(file&&!isMicrosoftAccessMdb(file)){event.target.value="";setStatus("Only a Microsoft Access *.mdb file can be selected.",false);}
+  syncMas90ManualImportPanels();
 });
 document.getElementById("paymentFile").addEventListener("change",event=>{
   const file=event.target.files?.[0];
   if(file&&!isMicrosoftAccessMdb(file)){event.target.value="";setPaymentStatus("Only a Microsoft Access *.mdb file can be selected.",false);}
+  syncMas90ManualImportPanels();
 });
 
 document.getElementById("previewBtn").addEventListener("click",async()=>{
@@ -12792,6 +12830,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 .mas90-remote-request-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#eaf2fb;color:#1f63a8;flex:0 0 auto}.mas90-remote-request-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .mas90-remote-request-copy{min-width:0}.mas90-remote-request-kicker{display:block;margin-bottom:3px;color:#657a8e;font-size:11px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}.mas90-remote-request h3{margin:0;color:#17324d;font-size:17px}.mas90-remote-request p{margin:5px 0 0;color:#687b8e;font-size:13px;line-height:1.45}
 .mas90-remote-request-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 9px;margin-top:10px}.mas90-remote-request-status strong{color:#17324d;font-size:13px}.mas90-remote-request-status span{color:#687b8e;font-size:12px}
+.mas90-remote-request-summary{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.mas90-remote-request-summary[hidden]{display:none!important}.mas90-remote-request-summary>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 10px;border:1px solid #cfe5d8;border-radius:9px;background:#fff}.mas90-remote-request-summary strong{margin-right:auto}.mas90-remote-request-summary span{padding:3px 7px;border-radius:999px;background:#e8f6ee;color:#216b47!important;font-weight:800}.mas90-remote-request-summary span.has-failures{background:#fde8e8;color:#a52b31!important}
 .mas90-remote-request-progress{height:6px;margin-top:10px;overflow:hidden;border-radius:999px;background:#dce6ee}.mas90-remote-request-progress[hidden]{display:none!important}.mas90-remote-request-progress span{display:block;width:0;height:100%;border-radius:inherit;background:#2e79c7;transition:width .25s ease}
 .mas90-remote-request[data-status="queued"],.mas90-remote-request[data-status="claimed"],.mas90-remote-request[data-status="running"],.mas90-remote-request[data-status="cancel_requested"]{border-color:#e6c36b;background:#fff9e9}.mas90-remote-request[data-status="queued"] .mas90-remote-request-icon,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-icon,.mas90-remote-request[data-status="running"] .mas90-remote-request-icon{background:#f6c654;color:#674808}.mas90-remote-request[data-status="queued"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="running"] .mas90-remote-request-progress span{background:#d99a13}
 .mas90-remote-request[data-status="cancel_requested"] .mas90-remote-request-icon{background:#f4dada;color:#a52b31}.mas90-remote-request[data-status="cancel_requested"] .mas90-remote-request-progress span{background:#c13b42}
@@ -12803,7 +12842,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 .mas90-request-body{padding:20px}.mas90-request-field label{display:block;margin-bottom:7px;color:#17324d;font-size:13px;font-weight:900}.mas90-request-field input{width:100%;height:48px;box-sizing:border-box;border:1px solid #cbd7e2;border-radius:11px;padding:0 13px;background:#fff;color:#172033;font:inherit}.mas90-request-field input:focus{outline:3px solid rgba(47,125,215,.18);border-color:#2f7dd7}.mas90-request-hint{display:block;margin-top:7px;color:#718396;font-size:12px;line-height:1.4}
 .mas90-request-confirm{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:13px;border:1px solid #dce5ed;border-radius:11px;background:#f7fafc;color:#31485d;font-size:13px;line-height:1.45;cursor:pointer}.mas90-request-confirm input{flex:0 0 auto;width:19px;height:19px;margin:1px 0 0;accent-color:#c8282f}.mas90-request-message{display:none;margin-top:14px;padding:10px 12px;border-radius:9px;font-size:13px;line-height:1.4}.mas90-request-message.show{display:block}.mas90-request-message.bad{background:#fff0f0;color:#9a242a}.mas90-request-message.ok{background:#edf8f2;color:#246b47}
 .mas90-request-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.mas90-request-actions button{min-width:145px}.mas90-request-modal-open{overflow:hidden!important}
-@media(max-width:720px){.mas90-remote-request{grid-template-columns:auto minmax(0,1fr);align-items:start;padding:15px}.mas90-remote-request-actions{grid-column:1/-1;width:100%;min-width:0}.mas90-remote-request-actions button{width:100%;min-width:0;max-width:100%;min-height:46px;white-space:normal}.mas90-request-modal{padding:10px}.mas90-request-dialog{border-radius:15px}.mas90-request-head{padding:17px 16px 14px}.mas90-request-body{padding:17px 16px}.mas90-request-actions{padding:0 16px 17px;display:grid;grid-template-columns:1fr}.mas90-request-actions button{width:100%;min-width:0}.mas90-request-actions .primary{order:-1}}
+@media(max-width:720px){.mas90-remote-request{grid-template-columns:auto minmax(0,1fr);align-items:start;padding:15px}.mas90-remote-request-summary{grid-template-columns:1fr}.mas90-remote-request-actions{grid-column:1/-1;width:100%;min-width:0}.mas90-remote-request-actions button{width:100%;min-width:0;max-width:100%;min-height:46px;white-space:normal}.mas90-request-modal{padding:10px}.mas90-request-dialog{border-radius:15px}.mas90-request-head{padding:17px 16px 14px}.mas90-request-body{padding:17px 16px}.mas90-request-actions{padding:0 16px 17px;display:grid;grid-template-columns:1fr}.mas90-request-actions button{width:100%;min-width:0}.mas90-request-actions .primary{order:-1}}
 </style>
 
 <div class="mas90-request-modal" id="mas90RequestModal" hidden aria-hidden="true">

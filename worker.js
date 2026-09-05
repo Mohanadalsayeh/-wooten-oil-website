@@ -1194,10 +1194,28 @@ async function ensureMas90SyncRequestSchema(env){
       stage TEXT NOT NULL DEFAULT '',
       progress_percent INTEGER NOT NULL DEFAULT 0,
       status_message TEXT NOT NULL DEFAULT '',
+      summary_available INTEGER NOT NULL DEFAULT 0,
+      customers_success_count INTEGER NOT NULL DEFAULT 0,
+      customers_failure_count INTEGER NOT NULL DEFAULT 0,
+      payments_success_count INTEGER NOT NULL DEFAULT 0,
+      payments_failure_count INTEGER NOT NULL DEFAULT 0,
+      payments_inserted_count INTEGER NOT NULL DEFAULT 0,
+      payments_duplicate_count INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       completed_at TEXT
     )
   `).run();
+  const info=await env.DB.prepare(`PRAGMA table_info(mas90_sync_control)`).all();
+  const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  for(const [name,definition] of [
+    ["summary_available","INTEGER NOT NULL DEFAULT 0"],
+    ["customers_success_count","INTEGER NOT NULL DEFAULT 0"],
+    ["customers_failure_count","INTEGER NOT NULL DEFAULT 0"],
+    ["payments_success_count","INTEGER NOT NULL DEFAULT 0"],
+    ["payments_failure_count","INTEGER NOT NULL DEFAULT 0"],
+    ["payments_inserted_count","INTEGER NOT NULL DEFAULT 0"],
+    ["payments_duplicate_count","INTEGER NOT NULL DEFAULT 0"]
+  ])if(!columns.has(name))await env.DB.prepare(`ALTER TABLE mas90_sync_control ADD COLUMN ${name} ${definition}`).run();
   await env.DB.prepare(`INSERT OR IGNORE INTO mas90_sync_control(id,status,updated_at) VALUES (1,'idle',CURRENT_TIMESTAMP)`).run();
   mas90SyncSchemaReady=true;
 }
@@ -1215,6 +1233,13 @@ function mas90SyncPublicStatus(row){
     stage:String(row?.stage||""),
     progress_percent:Math.max(0,Math.min(100,Number(row?.progress_percent||0))),
     message:String(row?.status_message||""),
+    summary_available:Number(row?.summary_available||0)===1,
+    customers_success_count:Math.max(0,Number(row?.customers_success_count||0)),
+    customers_failure_count:Math.max(0,Number(row?.customers_failure_count||0)),
+    payments_success_count:Math.max(0,Number(row?.payments_success_count||0)),
+    payments_failure_count:Math.max(0,Number(row?.payments_failure_count||0)),
+    payments_inserted_count:Math.max(0,Number(row?.payments_inserted_count||0)),
+    payments_duplicate_count:Math.max(0,Number(row?.payments_duplicate_count||0)),
     updated_at:row?.updated_at||"",
     completed_at:row?.completed_at||""
   };
@@ -1280,7 +1305,10 @@ async function adminMas90SyncRequestPost({request,env}){
       UPDATE mas90_sync_control
       SET request_id=?,status='queued',requested_by=?,requested_at=CURRENT_TIMESTAMP,
           claimed_at=NULL,agent_name='',stage='queued',progress_percent=0,
-          status_message='Waiting for the MAS 90 office computer.',updated_at=CURRENT_TIMESTAMP,completed_at=NULL
+          status_message='Waiting for the MAS 90 office computer.',summary_available=0,
+          customers_success_count=0,customers_failure_count=0,payments_success_count=0,
+          payments_failure_count=0,payments_inserted_count=0,payments_duplicate_count=0,
+          updated_at=CURRENT_TIMESTAMP,completed_at=NULL
       WHERE id=1 AND status NOT IN ('queued','claimed','running','cancel_requested')
     `).bind(requestId,String(actor.name||"Wooten Oil Admin")).run();
     if(Number(saved?.meta?.changes||0)!==1){
@@ -1447,6 +1475,17 @@ async function mas90AgentStatusPost({request,env}){
     const message=String(body.message||"").trim().replace(/\s+/g," ").slice(0,500);
     const progressValue=Number(body.progress_percent||0);
     const progress=Number.isFinite(progressValue)?Math.max(0,Math.min(100,Math.round(progressValue))):0;
+    const safeCount=name=>{
+      const value=Number(body?.[name]);
+      return Number.isFinite(value)&&value>=0?Math.round(value):null;
+    };
+    const customersSuccess=safeCount("customers_success_count");
+    const customersFailure=safeCount("customers_failure_count");
+    const paymentsSuccess=safeCount("payments_success_count");
+    const paymentsFailure=safeCount("payments_failure_count");
+    const paymentsInserted=safeCount("payments_inserted_count");
+    const paymentsDuplicates=safeCount("payments_duplicate_count");
+    const hasSummary=[customersSuccess,customersFailure,paymentsSuccess,paymentsFailure,paymentsInserted,paymentsDuplicates].some(value=>value!==null);
     const agentName=mas90AgentName(request);
     const terminal=["completed","failed","cancelled"].includes(status);
     const allowedCurrentStatuses=status==="running"||status==="completed"
@@ -1456,9 +1495,13 @@ async function mas90AgentStatusPost({request,env}){
     const saved=await env.DB.prepare(`
       UPDATE mas90_sync_control
       SET status=?,agent_name=?,agent_last_seen_at=CURRENT_TIMESTAMP,stage=?,progress_percent=?,
-          status_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE completed_at END
+          status_message=?,summary_available=CASE WHEN ?=1 THEN 1 ELSE summary_available END,
+          customers_success_count=COALESCE(?,customers_success_count),customers_failure_count=COALESCE(?,customers_failure_count),
+          payments_success_count=COALESCE(?,payments_success_count),payments_failure_count=COALESCE(?,payments_failure_count),
+          payments_inserted_count=COALESCE(?,payments_inserted_count),payments_duplicate_count=COALESCE(?,payments_duplicate_count),
+          updated_at=CURRENT_TIMESTAMP,completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE completed_at END
       WHERE id=1 AND request_id=? AND status IN (${placeholders})
-    `).bind(status,agentName,stage,progress,message,terminal?1:0,requestId,...allowedCurrentStatuses).run();
+    `).bind(status,agentName,stage,progress,message,hasSummary?1:0,customersSuccess,customersFailure,paymentsSuccess,paymentsFailure,paymentsInserted,paymentsDuplicates,terminal?1:0,requestId,...allowedCurrentStatuses).run();
     const row=await mas90SyncStatusRow(env);
     if(Number(saved?.meta?.changes||0)!==1){
       const currentStatus=String(row?.status||"").toLowerCase();
