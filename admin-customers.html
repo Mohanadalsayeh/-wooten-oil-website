@@ -15485,7 +15485,21 @@ html,body{
 })();
 </script>
 
-<style id="wooten-navy-whisper-hover-ver341">
+<style id="wooten-navy-whisper-hover-ver342">
+/* Non-table records use the same background-only hover as table rows. */
+body :is(.activity-row:not(.activity-skeleton-row),.mas90-health-run-row,
+ .mas90-health-result-card,.mas90-health-diagnostic-grid>div,
+ .statement-customer-row,.schedule-preview-row,.schedule-run>summary,
+ .doc-admin-row,.communication-customer-row,.admin-user-row):hover,
+body :is(.activity-row:not(.activity-skeleton-row),.mas90-health-run-row,
+ .mas90-health-result-card,.mas90-health-diagnostic-grid>div,
+ .statement-customer-row,.schedule-preview-row,.schedule-run>summary,
+ .doc-admin-row,.communication-customer-row,.admin-user-row):focus-within{
+  background:#f4f8fb!important;
+  box-shadow:none!important;
+}
+/* This button-row had a separate border-changing hover rule. */
+body .communication-customer-row:hover{border-color:#d8e1ea!important}
 /* Flat menu interaction: never draw a mouse-hover border or shadow. */
 body #collectionsActionMenu button,
 body #adminNotificationMenu .admin-bell-item,
