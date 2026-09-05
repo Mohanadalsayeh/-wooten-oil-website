@@ -429,6 +429,241 @@
   }
 
 </style>
+<style id="wooten-admin-sidebar-fixed-sections-ver355">
+/* Ver355 — fixed sidebar header/footer with one independently scrolling menu region. */
+#adminSidebar .admin-tabs{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+#adminSidebar .admin-sidebar-brand,
+#adminSidebar .admin-sidebar-footer{
+  flex:0 0 auto!important;
+  width:100%!important;
+  max-width:none!important;
+  align-self:stretch!important;
+  box-sizing:border-box!important;
+}
+#adminSidebar .admin-sidebar-brand{
+  min-width:0!important;
+  min-height:67px!important;
+  margin:0!important;
+  padding:17px 20px 14px!important;
+  border-bottom:1px solid #e8edf2!important;
+  background:#fff!important;
+  position:relative!important;
+  z-index:2!important;
+}
+#adminSidebar .admin-sidebar-scroll-region{
+  flex:1 1 0!important;
+  width:100%!important;
+  height:0!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:none!important;
+  padding:7px 12px 13px!important;
+  overflow-x:hidden!important;
+  overflow-y:scroll!important;
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-gutter:stable!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:transparent transparent!important;
+  box-sizing:border-box!important;
+}
+#adminSidebar .admin-sidebar-scroll-region .admin-nav-group:first-child{margin-top:8px!important}
+#adminSidebar .admin-sidebar-scroll-region:focus{outline:none!important}
+#adminSidebar .admin-sidebar-scroll-region:focus-visible{
+  outline:2px solid rgba(23,58,97,.22)!important;
+  outline-offset:-3px!important;
+}
+#adminSidebar .admin-sidebar-scroll-region.admin-scrollbar-hot,
+#adminSidebar .admin-sidebar-scroll-region:focus-within{
+  scrollbar-color:#9eafbd transparent!important;
+}
+#adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar{
+  display:block!important;
+  width:5px!important;
+  height:0!important;
+}
+#adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar-track{background:transparent!important}
+#adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar-thumb{
+  min-height:34px;
+  border-radius:999px!important;
+  background:transparent!important;
+}
+#adminSidebar .admin-sidebar-scroll-region.admin-scrollbar-hot::-webkit-scrollbar-thumb,
+#adminSidebar .admin-sidebar-scroll-region:focus-within::-webkit-scrollbar-thumb{
+  background:#9eafbd!important;
+}
+#adminSidebar .admin-sidebar-scroll-region.admin-scrollbar-hot::-webkit-scrollbar-thumb:hover{
+  background:#7f93a5!important;
+}
+#adminSidebar .admin-sidebar-footer{
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  min-width:0!important;
+  min-height:57px!important;
+  margin:0!important;
+  padding:10px 16px!important;
+  border-top:1px solid #e3eaf0!important;
+  border-radius:0 0 18px 18px!important;
+  background:#f8fafc!important;
+  color:#17324d!important;
+  position:relative!important;
+  left:auto!important;
+  right:auto!important;
+  z-index:2!important;
+}
+#adminSidebar .admin-sidebar-footer-status{
+  flex:0 0 auto!important;
+  width:8px!important;
+  height:8px!important;
+  border-radius:50%!important;
+  background:#28a36a!important;
+  box-shadow:0 0 0 3px rgba(40,163,106,.12)!important;
+}
+#adminSidebar .admin-sidebar-footer.is-locked .admin-sidebar-footer-status{
+  background:#9aa9b6!important;
+  box-shadow:0 0 0 3px rgba(122,141,158,.12)!important;
+}
+#adminSidebar .admin-sidebar-footer-copy{
+  display:block!important;
+  min-width:0!important;
+  line-height:1.15!important;
+}
+#adminSidebar .admin-sidebar-footer-copy small,
+#adminSidebar .admin-sidebar-footer-copy strong{
+  display:block!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#adminSidebar .admin-sidebar-footer-copy small{
+  margin-bottom:3px!important;
+  color:#8190a0!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  letter-spacing:.09em!important;
+}
+#adminSidebar .admin-sidebar-footer-copy strong{
+  color:#17324d!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+@media (min-width:801px){
+  .admin-workspace{grid-template-columns:250px minmax(0,1fr)!important}
+  #adminSidebar.admin-tabs-shell{
+    position:fixed!important;
+    top:12px!important;
+    left:max(24px,calc((100vw - 1560px) / 2 + 24px))!important;
+    width:250px!important;
+    height:calc(100vh - 24px)!important;
+    height:calc(100dvh - 24px)!important;
+    max-height:calc(100dvh - 24px)!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    z-index:35!important;
+  }
+  .admin-workspace>.admin-content{grid-column:2!important;min-width:0!important}
+}
+@media (max-width:800px){
+  body>#adminSidebar .admin-tabs{
+    display:flex!important;
+    flex-direction:column!important;
+    height:100%!important;
+    min-height:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  body>#adminSidebar .admin-sidebar-brand{
+    min-height:calc(67px + env(safe-area-inset-top))!important;
+    padding:calc(17px + env(safe-area-inset-top)) 70px 14px 18px!important;
+  }
+  body>#adminSidebar .admin-sidebar-scroll-region{
+    flex:1 1 0!important;
+    height:0!important;
+    min-height:0!important;
+    padding:7px 12px 13px!important;
+    overflow-y:scroll!important;
+    scrollbar-width:none!important;
+  }
+  body>#adminSidebar .admin-sidebar-scroll-region::-webkit-scrollbar{
+    display:none!important;
+    width:0!important;
+    height:0!important;
+  }
+  body>#adminSidebar .admin-sidebar-footer{
+    min-height:calc(57px + env(safe-area-inset-bottom))!important;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom))!important;
+    border-radius:0!important;
+  }
+}
+</style>
+
+<script id="wooten-admin-sidebar-fixed-sections-ver355-script">
+(function(){
+function initAdminSidebarFixedSections(){
+  var sidebar=document.getElementById('adminSidebar');
+  var nav=sidebar&&sidebar.querySelector('.admin-sidebar-scroll-region');
+  var footer=document.getElementById('adminSidebarFooter');
+  var footerName=document.getElementById('adminSidebarSignedIn');
+  var accessMeta=document.getElementById('adminAccessMeta');
+  if(!sidebar||!nav)return;
+
+  function desktop(){return window.matchMedia('(min-width:801px)').matches;}
+  function clearScrollbar(){nav.classList.remove('admin-scrollbar-hot');}
+  function revealScrollbar(event){
+    if(!desktop()){clearScrollbar();return;}
+    var rect=nav.getBoundingClientRect();
+    var overEdge=event.clientX>=rect.right-14&&event.clientX<=rect.right;
+    nav.classList.toggle('admin-scrollbar-hot',overEdge);
+  }
+  nav.addEventListener('pointermove',revealScrollbar,{passive:true});
+  nav.addEventListener('pointerleave',clearScrollbar,{passive:true});
+
+  sidebar.addEventListener('wheel',function(event){
+    if(!desktop()||event.ctrlKey)return;
+    var max=Math.max(0,nav.scrollHeight-nav.clientHeight);
+    if(max<=0)return;
+    var delta=event.deltaY;
+    if(event.deltaMode===1)delta*=18;
+    else if(event.deltaMode===2)delta*=nav.clientHeight;
+    if(!delta)return;
+    var before=nav.scrollTop;
+    var next=Math.max(0,Math.min(max,before+delta));
+    if(next===before)return;
+    nav.scrollTop=next;
+    event.preventDefault();
+    event.stopPropagation();
+  },{passive:false,capture:true});
+
+  function syncFooter(){
+    if(!footer||!footerName)return;
+    var meta=String(accessMeta&&accessMeta.textContent||'').trim();
+    var match=meta.match(/^Signed in as\s+(.+)$/i);
+    var user=window.wootenAdminUser;
+    var name=match&&match[1]?match[1]:user&&(user.display_name||user.username)?String(user.display_name||user.username):'Not signed in';
+    footerName.textContent=name;
+    footer.classList.toggle('is-locked',!match&&!user);
+  }
+  syncFooter();
+  if(accessMeta)new MutationObserver(syncFooter).observe(accessMeta,{childList:true,characterData:true,subtree:true});
+  window.addEventListener('resize',function(){if(!desktop())clearScrollbar();},{passive:true});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAdminSidebarFixedSections,{once:true});
+else initAdminSidebarFixedSections();
+})();
+</script>
 <style id="wooten-credit-collections-mobile-layout-ver353">
 /* Keep the phone worklist in normal document flow and organize each account as a compact card. */
 @media(max-width:760px){
@@ -4934,6 +5169,7 @@ textarea[data-request-response]{
     <button class="admin-drawer-close" id="adminDrawerClose" type="button" aria-label="Close administration menu" hidden>&times;</button>
     <nav class="admin-tabs" role="tablist" aria-label="Wooten Oil admin pages">
       <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">WO</span> WOOTEN OIL</div>
+      <div class="admin-sidebar-scroll-region" tabindex="0" aria-label="Administration menu choices">
       <div class="admin-nav-group">Overview</div>
       <button class="admin-tab" id="admin-tab-btn-dashboard" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-dashboard" data-admin-tab="dashboard" data-admin-label="Overview"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>Dashboard</button>
       <div class="admin-nav-group">Customers</div>
@@ -4953,6 +5189,11 @@ textarea[data-request-response]{
       <button class="admin-tab" id="admin-tab-btn-requests" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-requests" data-admin-tab="requests" data-admin-label="Customer Requests"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M17 13l2 2-2 2"/></svg></span>Customer Requests</button>
       <div class="admin-nav-group" data-owner-nav>Administration</div>
       <button class="admin-tab" id="admin-tab-btn-users" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-users" data-admin-tab="users" data-admin-label="Admin Users"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2.2 0 4.1.9 5.4 2.4M18 13l1 2 2 .4-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2-.4z"/></svg></span>Admin Users</button>
+      </div>
+      <footer class="admin-sidebar-footer" id="adminSidebarFooter">
+        <span class="admin-sidebar-footer-status" aria-hidden="true"></span>
+        <span class="admin-sidebar-footer-copy"><small>SIGNED IN AS</small><strong id="adminSidebarSignedIn">Not signed in</strong></span>
+      </footer>
     </nav>
   </div>
 
@@ -15847,5 +16088,57 @@ table tbody tr.db-skeleton-row:focus-within>td,
 table tbody tr.admin-audit-skeleton:hover>td,
 table tbody tr.admin-audit-skeleton:focus-within>td{
   background:#fff!important;
+}
+</style>
+<style id="wooten-admin-sidebar-fixed-sections-ver355-final">
+/* Final cascade guard: later Ver354 compatibility rules must not reclaim the middle scroller. */
+#adminSidebar .admin-tabs{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:100%!important;
+  padding:0!important;
+  overflow:hidden!important;
+}
+#adminSidebar .admin-sidebar-brand,
+#adminSidebar .admin-sidebar-footer{flex:0 0 auto!important}
+#adminSidebar .admin-sidebar-scroll-region{
+  flex:1 1 0!important;
+  width:100%!important;
+  height:0!important;
+  min-height:0!important;
+  overflow-x:hidden!important;
+  overflow-y:scroll!important;
+}
+@media(min-width:801px){
+  #adminSidebar.admin-tabs-shell{
+    position:fixed!important;
+    top:12px!important;
+    left:max(24px,calc((100vw - 1560px) / 2 + 24px))!important;
+    width:250px!important;
+    height:calc(100dvh - 24px)!important;
+    max-height:calc(100dvh - 24px)!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  #adminSidebar .admin-tabs{overflow:hidden!important}
+}
+@media(max-width:800px){
+  body>#adminSidebar .admin-tabs{
+    display:flex!important;
+    flex-direction:column!important;
+    height:100%!important;
+    min-height:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  body>#adminSidebar .admin-sidebar-scroll-region{
+    flex:1 1 0!important;
+    height:0!important;
+    min-height:0!important;
+    overflow-y:scroll!important;
+  }
 }
 </style>
