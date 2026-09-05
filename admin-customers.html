@@ -7032,7 +7032,7 @@ function renderMas90RemoteRequest(remote,importData){
       const failureControl=(kind,count)=>count>0
         ?`<button type="button" class="has-failures" data-mas90-failure-kind="${kind}" aria-label="Open ${count.toLocaleString()} failed ${kind} records">${count.toLocaleString()} failed</button>`
         :`<span>${count.toLocaleString()} failed</span>`;
-      summary.innerHTML=`<div><strong>Customers</strong><span>${customerSuccess.toLocaleString()} successful</span>${failureControl('customers',customerFailure)}</div><div><strong>Payments</strong><span>${paymentSuccess.toLocaleString()} successful</span><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div>`;
+      summary.innerHTML=`<div><strong>Customers imported</strong><span>${customerSuccess.toLocaleString()} successful</span></div><div><strong>Customer failures</strong>${failureControl('customers',customerFailure)}</div><div><strong>Payment records</strong><span>${paymentSuccess.toLocaleString()} processed</span></div><div><strong>Payment result</strong><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div>`;
     }else summary.textContent="";
   }
   const showProgress=["queued","claimed","running","cancel_requested"].includes(status);
@@ -13133,6 +13133,65 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 .mas90-request-confirm{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:13px;border:1px solid #dce5ed;border-radius:11px;background:#f7fafc;color:#31485d;font-size:13px;line-height:1.45;cursor:pointer}.mas90-request-confirm input{flex:0 0 auto;width:19px;height:19px;margin:1px 0 0;accent-color:#c8282f}.mas90-request-message{display:none;margin-top:14px;padding:10px 12px;border-radius:9px;font-size:13px;line-height:1.4}.mas90-request-message.show{display:block}.mas90-request-message.bad{background:#fff0f0;color:#9a242a}.mas90-request-message.ok{background:#edf8f2;color:#246b47}
 .mas90-request-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.mas90-request-actions button{min-width:145px}.mas90-request-modal-open{overflow:hidden!important}
 @media(max-width:720px){.mas90-remote-request{grid-template-columns:auto minmax(0,1fr);align-items:start;padding:15px}.mas90-remote-request-summary{grid-template-columns:1fr}.mas90-remote-request-actions{grid-column:1/-1;width:100%;min-width:0}.mas90-remote-request-actions button{width:100%;min-width:0;max-width:100%;min-height:46px;white-space:normal}.mas90-request-modal{padding:10px}.mas90-request-dialog{border-radius:15px}.mas90-request-head{padding:17px 16px 14px}.mas90-request-body{padding:17px 16px}.mas90-request-actions{padding:0 16px 17px;display:grid;grid-template-columns:1fr}.mas90-request-actions button{width:100%;min-width:0}.mas90-request-actions .primary{order:-1}}
+</style>
+
+<style id="wooten-mas90-desktop-organization-style-ver328">
+@media(min-width:1100px){
+  #admin-tab-customers .mas90-remote-request{
+    grid-template-columns:52px minmax(0,1fr) 238px;
+    grid-template-rows:auto auto auto auto auto;
+    align-items:start;
+    column-gap:16px;
+    row-gap:0;
+    padding:20px;
+  }
+  #admin-tab-customers .mas90-remote-request-icon{grid-column:1;grid-row:1/4;margin-top:1px}
+  #admin-tab-customers .mas90-remote-request-copy{display:contents}
+  #admin-tab-customers .mas90-remote-request-kicker{grid-column:2;grid-row:1}
+  #admin-tab-customers .mas90-remote-request h3{grid-column:2;grid-row:2}
+  #admin-tab-customers .mas90-remote-request p{grid-column:2;grid-row:3;max-width:820px}
+  #admin-tab-customers .mas90-remote-request-status{
+    grid-column:1/-1;
+    grid-row:4;
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px solid #e6c36b;
+  }
+  #admin-tab-customers .mas90-remote-request[data-status="completed"] .mas90-remote-request-status{border-top-color:#b9dcc8}
+  #admin-tab-customers .mas90-remote-request[data-status="failed"] .mas90-remote-request-status,
+  #admin-tab-customers .mas90-remote-request[data-status="cancelled"] .mas90-remote-request-status{border-top-color:#e4b2b4}
+  #admin-tab-customers .mas90-remote-request-progress{grid-column:1/-1;grid-row:5;margin-top:12px}
+  #admin-tab-customers .mas90-remote-request-actions{
+    grid-column:3;
+    grid-row:1/4;
+    align-self:center;
+    width:238px;
+    min-width:238px;
+  }
+  #admin-tab-customers .mas90-remote-request-actions button{width:238px;min-width:238px;max-width:238px}
+  #admin-tab-customers .mas90-remote-request-summary{grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+  #admin-tab-customers .mas90-remote-request-summary>div{align-content:flex-start}
+  #admin-tab-customers .mas90-live-sync,
+  #admin-tab-database .mas90-live-sync{
+    display:grid;
+    grid-template-columns:38px minmax(0,1fr) 238px;
+    align-items:center;
+  }
+  #admin-tab-customers .mas90-live-sync-action,
+  #admin-tab-database .mas90-live-sync-action{
+    width:238px;
+    min-width:238px;
+    max-width:238px;
+    min-height:44px;
+    box-sizing:border-box;
+  }
+}
+@media(min-width:721px) and (max-width:1099px){
+  #admin-tab-customers .mas90-remote-request-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #admin-tab-customers .mas90-remote-request-actions,
+  #admin-tab-customers .mas90-live-sync-action,
+  #admin-tab-database .mas90-live-sync-action{width:210px;min-width:210px;max-width:210px}
+}
 </style>
 
 <div class="mas90-request-modal" id="mas90RequestModal" hidden aria-hidden="true">
