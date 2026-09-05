@@ -3205,7 +3205,33 @@ html.customer-portal-open #customer-login.portal-overlay{
 }
 </style>
 
-<style id="wooten-customer-navy-whisper-hover-ver340">
+<style id="wooten-customer-navy-whisper-hover-ver341">
+/* Keep menu geometry fixed; only the fill changes on mouse hover. */
+body.customer-signed-in #mobile-menu.mobile-menu-panel :is(a,button):not(.mobile-menu-close),
+body.customer-signed-in #accountSwitcher :is(.account-switcher-button,.account-switcher-option),
+body.customer-signed-in #headerNotificationList .header-notification-item,
+body.customer-signed-in #dashboardNotificationList .notification-item{
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+body.customer-signed-in #mobile-menu.mobile-menu-panel :is(a,button):not(.mobile-menu-close):hover,
+body.customer-signed-in #accountSwitcher :is(.account-switcher-button,.account-switcher-option):hover,
+body.customer-signed-in #headerNotificationList .header-notification-item:hover,
+body.customer-signed-in #dashboardNotificationList .notification-item:hover{
+  background:#f4f8fb!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+body.customer-signed-in #mobile-menu.mobile-menu-panel :is(a,button):not(.mobile-menu-close):focus:not(:focus-visible),
+body.customer-signed-in #accountSwitcher :is(.account-switcher-button,.account-switcher-option):focus:not(:focus-visible),
+body.customer-signed-in #headerNotificationList .header-notification-item:focus:not(:focus-visible),
+body.customer-signed-in #dashboardNotificationList .notification-item:focus:not(:focus-visible){outline:none!important}
+body.customer-signed-in #mobile-menu.mobile-menu-panel :is(a,button):not(.mobile-menu-close):focus-visible,
+body.customer-signed-in #accountSwitcher :is(.account-switcher-button,.account-switcher-option):focus-visible,
+body.customer-signed-in #headerNotificationList .header-notification-item:focus-visible,
+body.customer-signed-in #dashboardNotificationList .notification-item:focus-visible{
+  outline:2px solid #294f73!important;outline-offset:-3px!important;
+}
 /* Style 4 — Navy Whisper for signed-in customer records and custom menus. */
 body.customer-signed-in #customer-login table tbody tr:not(.db-skeleton-row),
 body.customer-signed-in .customer-document-row,

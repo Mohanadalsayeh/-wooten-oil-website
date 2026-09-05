@@ -15485,7 +15485,32 @@ html,body{
 })();
 </script>
 
-<style id="wooten-navy-whisper-hover-ver340">
+<style id="wooten-navy-whisper-hover-ver341">
+/* Flat menu interaction: never draw a mouse-hover border or shadow. */
+body #collectionsActionMenu button,
+body #adminNotificationMenu .admin-bell-item,
+body #adminNotificationMenu .admin-bell-count,
+body .collections-action-trigger{
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+body #collectionsActionMenu button:hover,
+body #adminNotificationMenu .admin-bell-item:hover,
+body #adminNotificationMenu .admin-bell-count:hover,
+body .collections-action-trigger:hover{
+  background:#f4f8fb!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+body #collectionsActionMenu button:focus:not(:focus-visible),
+body #adminNotificationMenu .admin-bell-item:focus:not(:focus-visible),
+body #adminNotificationMenu .admin-bell-count:focus:not(:focus-visible),
+body .collections-action-trigger:focus:not(:focus-visible){outline:none!important}
+body #collectionsActionMenu button:focus-visible,
+body #adminNotificationMenu .admin-bell-item:focus-visible,
+body #adminNotificationMenu .admin-bell-count:focus-visible{
+  outline:2px solid #294f73!important;outline-offset:-3px!important;
+}
 /* Style 4 — Navy Whisper: one quiet hover language for portal data tables. */
 table tbody tr:not(.db-skeleton-row):not(.admin-audit-skeleton){
   transition:background-color .14s ease;
