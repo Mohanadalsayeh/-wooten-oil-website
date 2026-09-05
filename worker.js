@@ -1239,6 +1239,633 @@ async function ensureMas90SyncRequestSchema(env){
 }
 __name(ensureMas90SyncRequestSchema,"ensureMas90SyncRequestSchema");
 
+let mas90HealthSchemaReady=false;
+async function ensureMas90TableColumns(env,table,definitions){
+  if(!/^[a-z0-9_]+$/i.test(table))throw new Error("Invalid MAS 90 health table name.");
+  const info=(await env.DB.prepare(`PRAGMA table_info(${table})`).all())?.results||[];
+  const existing=new Set(info.map(row=>String(row.name||"").toLowerCase()));
+  for(const [name,definition] of Object.entries(definitions)){
+    if(existing.has(name.toLowerCase()))continue;
+    if(!/^[a-z0-9_]+$/i.test(name))throw new Error("Invalid MAS 90 health column name.");
+    try{
+      await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+    }catch(error){
+      const refreshed=(await env.DB.prepare(`PRAGMA table_info(${table})`).all())?.results||[];
+      if(refreshed.some(row=>String(row.name||"").toLowerCase()===name.toLowerCase()))continue;
+      throw error;
+    }
+  }
+}
+__name(ensureMas90TableColumns,"ensureMas90TableColumns");
+
+async function ensureMas90HealthSchema(env){
+  if(!env?.DB)throw new Error("Customer database is not configured.");
+  if(mas90HealthSchemaReady)return;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS mas90_agent_health (
+      id INTEGER PRIMARY KEY CHECK (id=1),
+      agent_name TEXT NOT NULL DEFAULT '',
+      agent_version TEXT NOT NULL DEFAULT '',
+      listener_state TEXT NOT NULL DEFAULT 'unknown',
+      status_message TEXT NOT NULL DEFAULT '',
+      first_seen_at TEXT,
+      last_seen_at TEXT,
+      schedule_local_time TEXT NOT NULL DEFAULT '21:00',
+      schedule_timezone TEXT NOT NULL DEFAULT 'America/Chicago',
+      task_name TEXT NOT NULL DEFAULT '',
+      task_enabled TEXT NOT NULL DEFAULT 'unknown',
+      task_state TEXT NOT NULL DEFAULT 'unknown',
+      task_next_run TEXT,
+      task_last_run TEXT,
+      task_last_result TEXT NOT NULL DEFAULT '',
+      poll_seconds INTEGER NOT NULL DEFAULT 15,
+      max_retries INTEGER NOT NULL DEFAULT 6,
+      customer_batch_size INTEGER NOT NULL DEFAULT 400,
+      payment_batch_size INTEGER NOT NULL DEFAULT 200,
+      payment_window_days INTEGER NOT NULL DEFAULT 30,
+      odbc_status TEXT NOT NULL DEFAULT 'unknown',
+      payment_checkpoint TEXT NOT NULL DEFAULT '',
+      health_reporting_enabled INTEGER NOT NULL DEFAULT 0,
+      active_run_id TEXT NOT NULL DEFAULT '',
+      active_run_type TEXT NOT NULL DEFAULT '',
+      active_run_status TEXT NOT NULL DEFAULT '',
+      last_error TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await ensureMas90TableColumns(env,"mas90_agent_health",{
+    id:"INTEGER",agent_name:"TEXT NOT NULL DEFAULT ''",agent_version:"TEXT NOT NULL DEFAULT ''",listener_state:"TEXT NOT NULL DEFAULT 'unknown'",status_message:"TEXT NOT NULL DEFAULT ''",first_seen_at:"TEXT",last_seen_at:"TEXT",
+    schedule_local_time:"TEXT NOT NULL DEFAULT '21:00'",schedule_timezone:"TEXT NOT NULL DEFAULT 'America/Chicago'",task_name:"TEXT NOT NULL DEFAULT ''",task_enabled:"TEXT NOT NULL DEFAULT 'unknown'",task_state:"TEXT NOT NULL DEFAULT 'unknown'",
+    task_next_run:"TEXT",task_last_run:"TEXT",task_last_result:"TEXT NOT NULL DEFAULT ''",poll_seconds:"INTEGER NOT NULL DEFAULT 15",max_retries:"INTEGER NOT NULL DEFAULT 6",customer_batch_size:"INTEGER NOT NULL DEFAULT 400",
+    payment_batch_size:"INTEGER NOT NULL DEFAULT 200",payment_window_days:"INTEGER NOT NULL DEFAULT 30",odbc_status:"TEXT NOT NULL DEFAULT 'unknown'",payment_checkpoint:"TEXT NOT NULL DEFAULT ''",health_reporting_enabled:"INTEGER NOT NULL DEFAULT 0",
+    active_run_id:"TEXT NOT NULL DEFAULT ''",active_run_type:"TEXT NOT NULL DEFAULT ''",active_run_status:"TEXT NOT NULL DEFAULT ''",last_error:"TEXT NOT NULL DEFAULT ''",updated_at:"TEXT"
+  });
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mas90_agent_health_singleton ON mas90_agent_health(id)`).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS mas90_automation_runs (
+      run_id TEXT PRIMARY KEY,
+      run_type TEXT NOT NULL DEFAULT 'scheduled',
+      request_id TEXT NOT NULL DEFAULT '',
+      agent_name TEXT NOT NULL DEFAULT '',
+      agent_version TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'queued',
+      stage TEXT NOT NULL DEFAULT '',
+      progress_percent INTEGER NOT NULL DEFAULT 0,
+      status_message TEXT NOT NULL DEFAULT '',
+      scheduled_for TEXT,
+      scheduled_date TEXT NOT NULL DEFAULT '',
+      retry_attempt INTEGER NOT NULL DEFAULT 1,
+      customers_success_count INTEGER NOT NULL DEFAULT 0,
+      customers_failure_count INTEGER NOT NULL DEFAULT 0,
+      payments_success_count INTEGER NOT NULL DEFAULT 0,
+      payments_failure_count INTEGER NOT NULL DEFAULT 0,
+      payments_inserted_count INTEGER NOT NULL DEFAULT 0,
+      payments_duplicate_count INTEGER NOT NULL DEFAULT 0,
+      started_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await ensureMas90TableColumns(env,"mas90_automation_runs",{
+    run_id:"TEXT",run_type:"TEXT NOT NULL DEFAULT 'scheduled'",request_id:"TEXT NOT NULL DEFAULT ''",agent_name:"TEXT NOT NULL DEFAULT ''",agent_version:"TEXT NOT NULL DEFAULT ''",status:"TEXT NOT NULL DEFAULT 'queued'",stage:"TEXT NOT NULL DEFAULT ''",
+    progress_percent:"INTEGER NOT NULL DEFAULT 0",status_message:"TEXT NOT NULL DEFAULT ''",scheduled_for:"TEXT",scheduled_date:"TEXT NOT NULL DEFAULT ''",retry_attempt:"INTEGER NOT NULL DEFAULT 1",
+    customers_success_count:"INTEGER NOT NULL DEFAULT 0",customers_failure_count:"INTEGER NOT NULL DEFAULT 0",payments_success_count:"INTEGER NOT NULL DEFAULT 0",payments_failure_count:"INTEGER NOT NULL DEFAULT 0",
+    payments_inserted_count:"INTEGER NOT NULL DEFAULT 0",payments_duplicate_count:"INTEGER NOT NULL DEFAULT 0",started_at:"TEXT",updated_at:"TEXT",completed_at:"TEXT",created_at:"TEXT"
+  });
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mas90_automation_runs_id ON mas90_automation_runs(run_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_automation_runs_updated ON mas90_automation_runs(updated_at DESC)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_automation_runs_type_date ON mas90_automation_runs(run_type,scheduled_date,status)`).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS mas90_health_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_key TEXT NOT NULL UNIQUE,
+      alert_type TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'warning',
+      run_id TEXT NOT NULL DEFAULT '',
+      message TEXT NOT NULL DEFAULT '',
+      email_to TEXT NOT NULL DEFAULT '',
+      email_status TEXT NOT NULL DEFAULT 'pending',
+      email_error TEXT NOT NULL DEFAULT '',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      last_attempt_at TEXT,
+      sent_at TEXT,
+      resolved_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await ensureMas90TableColumns(env,"mas90_health_alerts",{
+    id:"INTEGER",alert_key:"TEXT",alert_type:"TEXT NOT NULL DEFAULT ''",severity:"TEXT NOT NULL DEFAULT 'warning'",run_id:"TEXT NOT NULL DEFAULT ''",message:"TEXT NOT NULL DEFAULT ''",email_to:"TEXT NOT NULL DEFAULT ''",
+    email_status:"TEXT NOT NULL DEFAULT 'pending'",email_error:"TEXT NOT NULL DEFAULT ''",attempt_count:"INTEGER NOT NULL DEFAULT 0",last_attempt_at:"TEXT",sent_at:"TEXT",resolved_at:"TEXT",created_at:"TEXT",updated_at:"TEXT"
+  });
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mas90_health_alerts_key ON mas90_health_alerts(alert_key)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_mas90_health_alerts_created ON mas90_health_alerts(created_at DESC,id DESC)`).run();
+  await env.DB.prepare(`INSERT OR IGNORE INTO mas90_agent_health(id,updated_at) VALUES (1,CURRENT_TIMESTAMP)`).run();
+  mas90HealthSchemaReady=true;
+}
+__name(ensureMas90HealthSchema,"ensureMas90HealthSchema");
+
+function mas90CompactText(value,maximum=500){
+  return String(value??"").trim().replace(/\s+/g," ").slice(0,maximum);
+}
+__name(mas90CompactText,"mas90CompactText");
+
+function mas90OptionalHeader(request,names){
+  for(const name of names){
+    const value=request?.headers?.get(name);
+    if(value!==null&&String(value).trim()!=="")return String(value).trim();
+  }
+  return null;
+}
+__name(mas90OptionalHeader,"mas90OptionalHeader");
+
+function mas90PositiveIntegerOrNull(value,maximum=10000000){
+  if(value===null||value===undefined||String(value).trim()==="")return null;
+  const number=Math.round(Number(value));
+  return Number.isFinite(number)&&number>=0?Math.min(number,maximum):null;
+}
+__name(mas90PositiveIntegerOrNull,"mas90PositiveIntegerOrNull");
+
+function mas90NormalizeScheduleTime(value,fallback="21:00"){
+  const raw=String(value||"").trim();
+  let match=raw.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if(match)return String(Number(match[1])).padStart(2,"0")+":"+match[2];
+  match=raw.match(/^(\d{1,2}):([0-5]\d)\s*([ap])\.?m\.?$/i);
+  if(match){
+    let hour=Number(match[1]);
+    if(hour>=1&&hour<=12){
+      if(match[3].toLowerCase()==="p"&&hour!==12)hour+=12;
+      if(match[3].toLowerCase()==="a"&&hour===12)hour=0;
+      return String(hour).padStart(2,"0")+":"+match[2];
+    }
+  }
+  return fallback;
+}
+__name(mas90NormalizeScheduleTime,"mas90NormalizeScheduleTime");
+
+function mas90NormalizeTimeZone(value){
+  const candidate=mas90CompactText(value,80)||"America/Chicago";
+  try{new Intl.DateTimeFormat("en-US",{timeZone:candidate}).format(new Date());return candidate;}
+  catch{return "America/Chicago";}
+}
+__name(mas90NormalizeTimeZone,"mas90NormalizeTimeZone");
+
+function mas90Timestamp(value){
+  if(!value)return 0;
+  let raw=String(value).trim();
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw))raw=raw.replace(" ","T")+"Z";
+  const parsed=Date.parse(raw);
+  return Number.isFinite(parsed)?parsed:0;
+}
+__name(mas90Timestamp,"mas90Timestamp");
+
+function mas90TimeZoneParts(date,timeZone="America/Chicago"){
+  const values={};
+  for(const part of new Intl.DateTimeFormat("en-US",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date)){
+    if(part.type!=="literal")values[part.type]=Number(part.value);
+  }
+  return values;
+}
+__name(mas90TimeZoneParts,"mas90TimeZoneParts");
+
+function mas90LocalDateKey(date=new Date(),timeZone="America/Chicago"){
+  const value=mas90TimeZoneParts(date,timeZone);
+  return `${String(value.year).padStart(4,"0")}-${String(value.month).padStart(2,"0")}-${String(value.day).padStart(2,"0")}`;
+}
+__name(mas90LocalDateKey,"mas90LocalDateKey");
+
+function mas90ShiftDateKey(dateKey,days){
+  const match=String(dateKey||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!match)return "";
+  const shifted=new Date(Date.UTC(Number(match[1]),Number(match[2])-1,Number(match[3])+Number(days||0)));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth()+1).padStart(2,"0")}-${String(shifted.getUTCDate()).padStart(2,"0")}`;
+}
+__name(mas90ShiftDateKey,"mas90ShiftDateKey");
+
+function mas90LocalScheduleIso(dateKey,localTime,timeZone="America/Chicago"){
+  const dateMatch=String(dateKey||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch=mas90NormalizeScheduleTime(localTime).match(/^(\d{2}):(\d{2})$/);
+  if(!dateMatch||!timeMatch)return "";
+  const wallClock=Date.UTC(Number(dateMatch[1]),Number(dateMatch[2])-1,Number(dateMatch[3]),Number(timeMatch[1]),Number(timeMatch[2]),0);
+  let guess=wallClock-adminTimeZoneOffsetMs(new Date(wallClock),timeZone);
+  guess=wallClock-adminTimeZoneOffsetMs(new Date(guess),timeZone);
+  return new Date(guess).toISOString();
+}
+__name(mas90LocalScheduleIso,"mas90LocalScheduleIso");
+
+function mas90NextScheduleIso(localTime,timeZone="America/Chicago",now=new Date()){
+  const parts=mas90TimeZoneParts(now,timeZone);
+  const normalized=mas90NormalizeScheduleTime(localTime);
+  const [hour,minute]=normalized.split(":").map(Number);
+  const today=`${String(parts.year).padStart(4,"0")}-${String(parts.month).padStart(2,"0")}-${String(parts.day).padStart(2,"0")}`;
+  const currentMinutes=parts.hour*60+parts.minute;
+  if(currentMinutes<hour*60+minute)return mas90LocalScheduleIso(today,normalized,timeZone);
+  const tomorrow=new Date(Date.UTC(parts.year,parts.month-1,parts.day+1));
+  const tomorrowKey=`${tomorrow.getUTCFullYear()}-${String(tomorrow.getUTCMonth()+1).padStart(2,"0")}-${String(tomorrow.getUTCDate()).padStart(2,"0")}`;
+  return mas90LocalScheduleIso(tomorrowKey,normalized,timeZone);
+}
+__name(mas90NextScheduleIso,"mas90NextScheduleIso");
+
+function mas90ScheduleLabel(localTime){
+  const [hour,minute]=mas90NormalizeScheduleTime(localTime).split(":").map(Number);
+  const suffix=hour>=12?"PM":"AM";
+  const displayHour=hour%12||12;
+  return `Daily at ${displayHour}:${String(minute).padStart(2,"0")} ${suffix} Central`;
+}
+__name(mas90ScheduleLabel,"mas90ScheduleLabel");
+
+async function recordMas90AgentHeartbeat(env,request,body={}){
+  await ensureMas90HealthSchema(env);
+  const supplied=(...names)=>{
+    for(const name of names)if(body&&body[name]!==undefined&&body[name]!==null&&String(body[name]).trim()!=="")return body[name];
+    return null;
+  };
+  const header=(...names)=>mas90OptionalHeader(request,names);
+  const agentName=mas90CompactText(header("X-MAS90-Agent-Name")||supplied("agent_name")||"MAS 90 Office Computer",100);
+  const agentVersion=header("X-MAS90-Agent-Version")||supplied("agent_version");
+  const listenerState=header("X-MAS90-Listener-State","X-MAS90-Agent-State")||supplied("listener_state","agent_status");
+  const statusMessage=header("X-MAS90-Status-Message")||supplied("agent_message","status_message","message");
+  const scheduleTime=header("X-MAS90-Schedule-Time")||supplied("schedule_local_time","schedule_time");
+  const scheduleTimeZone=header("X-MAS90-Schedule-Timezone")||supplied("schedule_timezone");
+  const taskName=header("X-MAS90-Task-Name")||supplied("task_name");
+  const taskEnabled=header("X-MAS90-Task-Enabled")||supplied("task_enabled");
+  const taskState=header("X-MAS90-Task-State")||supplied("task_state");
+  const taskNextRun=header("X-MAS90-Task-Next-Run")||supplied("task_next_run");
+  const taskLastRun=header("X-MAS90-Task-Last-Run")||supplied("task_last_run");
+  const taskLastResult=header("X-MAS90-Task-Last-Result")||supplied("task_last_result");
+  const pollSeconds=mas90PositiveIntegerOrNull(header("X-MAS90-Poll-Seconds")??supplied("poll_seconds"),3600);
+  const maxRetries=mas90PositiveIntegerOrNull(header("X-MAS90-Max-Retries")??supplied("max_retries"),100);
+  const customerBatchSize=mas90PositiveIntegerOrNull(header("X-MAS90-Customer-Batch-Size")??supplied("customer_batch_size"),5000);
+  const paymentBatchSize=mas90PositiveIntegerOrNull(header("X-MAS90-Payment-Batch-Size")??supplied("payment_batch_size"),5000);
+  const paymentWindowDays=mas90PositiveIntegerOrNull(header("X-MAS90-Payment-Window-Days")??supplied("payment_window_days"),3650);
+  const odbcStatus=header("X-MAS90-ODBC-Status")||supplied("odbc_status");
+  const paymentCheckpoint=header("X-MAS90-Payment-Checkpoint")||supplied("payment_checkpoint");
+  const reporting=Boolean(agentVersion||scheduleTime||taskName||taskEnabled!==null||body?.run_id);
+  const cleanTaskEnabled=taskEnabled===null?null:(/^(1|true|yes|enabled)$/i.test(String(taskEnabled))?"1":/^(0|false|no|disabled)$/i.test(String(taskEnabled))?"0":"unknown");
+  const cleanTaskState=mas90CompactText(taskState,40).toLowerCase();
+  const cleanState=listenerState===null?"online":mas90CompactText(listenerState,30).toLowerCase();
+  await env.DB.prepare(`
+    INSERT INTO mas90_agent_health
+      (id,agent_name,agent_version,listener_state,status_message,first_seen_at,last_seen_at,schedule_local_time,schedule_timezone,
+       task_name,task_enabled,task_state,task_next_run,task_last_run,task_last_result,poll_seconds,max_retries,
+       customer_batch_size,payment_batch_size,payment_window_days,odbc_status,payment_checkpoint,health_reporting_enabled,updated_at)
+    VALUES (1,?,?,?,?,NULL,CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET
+      agent_name=excluded.agent_name,
+      agent_version=COALESCE(NULLIF(excluded.agent_version,''),mas90_agent_health.agent_version),
+      listener_state=excluded.listener_state,
+      status_message=COALESCE(NULLIF(excluded.status_message,''),mas90_agent_health.status_message),
+      first_seen_at=CASE WHEN excluded.health_reporting_enabled=1 THEN COALESCE(mas90_agent_health.first_seen_at,CURRENT_TIMESTAMP) ELSE mas90_agent_health.first_seen_at END,
+      last_seen_at=CURRENT_TIMESTAMP,
+      schedule_local_time=COALESCE(NULLIF(excluded.schedule_local_time,''),mas90_agent_health.schedule_local_time),
+      schedule_timezone=COALESCE(NULLIF(excluded.schedule_timezone,''),mas90_agent_health.schedule_timezone),
+      task_name=COALESCE(NULLIF(excluded.task_name,''),mas90_agent_health.task_name),
+      task_enabled=CASE WHEN ?=0 THEN mas90_agent_health.task_enabled ELSE excluded.task_enabled END,
+      task_state=COALESCE(NULLIF(excluded.task_state,''),mas90_agent_health.task_state),
+      task_next_run=CASE WHEN excluded.task_state IN ('missing','unavailable','disabled') OR (?=1 AND excluded.task_enabled IN ('0','unknown')) THEN NULL ELSE COALESCE(excluded.task_next_run,mas90_agent_health.task_next_run) END,
+      task_last_run=COALESCE(excluded.task_last_run,mas90_agent_health.task_last_run),
+      task_last_result=COALESCE(NULLIF(excluded.task_last_result,''),mas90_agent_health.task_last_result),
+      poll_seconds=CASE WHEN excluded.poll_seconds>0 THEN excluded.poll_seconds ELSE mas90_agent_health.poll_seconds END,
+      max_retries=CASE WHEN excluded.max_retries>0 THEN excluded.max_retries ELSE mas90_agent_health.max_retries END,
+      customer_batch_size=CASE WHEN excluded.customer_batch_size>0 THEN excluded.customer_batch_size ELSE mas90_agent_health.customer_batch_size END,
+      payment_batch_size=CASE WHEN excluded.payment_batch_size>0 THEN excluded.payment_batch_size ELSE mas90_agent_health.payment_batch_size END,
+      payment_window_days=CASE WHEN excluded.payment_window_days>0 THEN excluded.payment_window_days ELSE mas90_agent_health.payment_window_days END,
+      odbc_status=COALESCE(NULLIF(excluded.odbc_status,''),mas90_agent_health.odbc_status),
+      payment_checkpoint=COALESCE(NULLIF(excluded.payment_checkpoint,''),mas90_agent_health.payment_checkpoint),
+      health_reporting_enabled=CASE WHEN excluded.health_reporting_enabled=1 THEN 1 ELSE mas90_agent_health.health_reporting_enabled END,
+      updated_at=CURRENT_TIMESTAMP
+  `).bind(
+    agentName,mas90CompactText(agentVersion,30),cleanState,mas90CompactText(statusMessage,500),
+    scheduleTime===null?"":mas90NormalizeScheduleTime(scheduleTime),scheduleTimeZone===null?"":mas90NormalizeTimeZone(scheduleTimeZone),
+    mas90CompactText(taskName,150),cleanTaskEnabled||"unknown",cleanTaskState,
+    taskNextRun===null?null:mas90CompactText(taskNextRun,80),taskLastRun===null?null:mas90CompactText(taskLastRun,80),mas90CompactText(taskLastResult,250),
+    pollSeconds||0,maxRetries||0,customerBatchSize||0,paymentBatchSize||0,paymentWindowDays||0,
+    mas90CompactText(odbcStatus,40),mas90CompactText(paymentCheckpoint,40),reporting?1:0,
+    taskEnabled===null?0:1,taskEnabled===null?0:1
+  ).run();
+  return await env.DB.prepare(`SELECT * FROM mas90_agent_health WHERE id=1`).first();
+}
+__name(recordMas90AgentHeartbeat,"recordMas90AgentHeartbeat");
+
+function mas90HealthRunPublic(row){
+  if(!row)return null;
+  return {
+    run_id:String(row.run_id||""),run_type:String(row.run_type||"scheduled"),request_id:String(row.request_id||""),
+    agent_name:String(row.agent_name||""),agent_version:String(row.agent_version||""),status:String(row.status||""),
+    stage:String(row.stage||""),progress_percent:Math.max(0,Math.min(100,Number(row.progress_percent||0))),message:String(row.status_message||""),
+    scheduled_for:row.scheduled_for||"",scheduled_date:String(row.scheduled_date||""),date:String(row.scheduled_date||""),retry_attempt:Math.max(1,Number(row.retry_attempt||1)),
+    customers_success_count:Math.max(0,Number(row.customers_success_count||0)),customers_failure_count:Math.max(0,Number(row.customers_failure_count||0)),
+    payments_success_count:Math.max(0,Number(row.payments_success_count||0)),payments_failure_count:Math.max(0,Number(row.payments_failure_count||0)),
+    payments_inserted_count:Math.max(0,Number(row.payments_inserted_count||0)),payments_duplicate_count:Math.max(0,Number(row.payments_duplicate_count||0)),
+    started_at:row.started_at||"",updated_at:row.updated_at||"",completed_at:row.completed_at||""
+  };
+}
+__name(mas90HealthRunPublic,"mas90HealthRunPublic");
+
+async function mas90SendHealthAlert(env,{alertKey,alertType,severity="warning",runId="",message=""}){
+  await ensureMas90HealthSchema(env);
+  const key=mas90CompactText(alertKey,180);
+  if(!key)return {sent:false,deduped:true};
+  const alertMessage=mas90CompactText(message,1000)||"The MAS 90 automatic synchronization needs attention.";
+  const recipient=mas90CompactText(env.MAS90_ALERT_EMAIL,254);
+  const enabled=Boolean(recipient&&env.RESEND_API_KEY);
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO mas90_health_alerts
+      (alert_key,alert_type,severity,run_id,message,email_to,email_status,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+  `).bind(key,mas90CompactText(alertType,60),mas90CompactText(severity,20),mas90CompactText(runId,100),alertMessage,recipient,enabled?"pending":"disabled").run();
+  if(enabled){
+    await env.DB.prepare(`
+      UPDATE mas90_health_alerts
+      SET email_to=?,email_status=CASE WHEN email_status='disabled' AND sent_at IS NULL THEN 'pending' ELSE email_status END,
+          message=?,updated_at=CURRENT_TIMESTAMP
+      WHERE alert_key=? AND resolved_at IS NULL
+    `).bind(recipient,alertMessage,key).run();
+  }
+  const row=await env.DB.prepare(`SELECT * FROM mas90_health_alerts WHERE alert_key=?`).bind(key).first();
+  if(!row||row.sent_at||row.resolved_at)return {sent:Boolean(row?.sent_at),deduped:true};
+  if(!enabled)return {sent:false,deduped:true,configured:Boolean(recipient),enabled:false};
+  const claimed=await env.DB.prepare(`
+    UPDATE mas90_health_alerts
+    SET email_status='sending',attempt_count=attempt_count+1,last_attempt_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+    WHERE alert_key=? AND sent_at IS NULL
+      AND (last_attempt_at IS NULL OR datetime(last_attempt_at)<datetime('now','-15 minutes'))
+      AND email_status IN ('pending','failed','sending')
+  `).bind(key).run();
+  if(Number(claimed?.meta?.changes||0)!==1)return {sent:false,deduped:true};
+  const localTime=new Date().toLocaleString("en-US",{timeZone:"America/Chicago",dateStyle:"long",timeStyle:"short"});
+  const title=alertType==="missed_run"?"MAS 90 scheduled synchronization was missed":"MAS 90 synchronization failed";
+  const safeTitle=notificationEscapeHtml(title),safeMessage=notificationEscapeHtml(alertMessage),safeRun=notificationEscapeHtml(runId||"Not available"),safeWhen=notificationEscapeHtml(localTime);
+  const result=await accountApplicationSendEmail(env,{
+    from:String(env.MAS90_HEALTH_FROM_EMAIL||env.FUEL_FROM_EMAIL||"Wooten Oil Portal <support@wootenoil.com>").trim(),
+    to:recipient,
+    subject:`Wooten Oil Portal Alert — ${title}`,
+    html:`<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033;line-height:1.6"><h2>${safeTitle}</h2><p>${safeMessage}</p><table cellpadding="7" cellspacing="0" style="border-collapse:collapse"><tr><td><strong>Run ID</strong></td><td>${safeRun}</td></tr><tr><td><strong>Detected</strong></td><td>${safeWhen} Central</td></tr></table><p>Open the MAS 90 Automation Health Center in the Wooten Oil administration portal for current status.</p></div>`,
+    text:`${title}\n\n${alertMessage}\nRun ID: ${runId||"Not available"}\nDetected: ${localTime} Central\n\nOpen the MAS 90 Automation Health Center in the administration portal.`
+  });
+  if(result.sent){
+    await env.DB.prepare(`UPDATE mas90_health_alerts SET email_status='sent',email_error='',sent_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE alert_key=?`).bind(key).run();
+  }else{
+    await env.DB.prepare(`UPDATE mas90_health_alerts SET email_status='failed',email_error=?,updated_at=CURRENT_TIMESTAMP WHERE alert_key=?`).bind(mas90CompactText(result.error,500),key).run();
+  }
+  return {...result,deduped:false};
+}
+__name(mas90SendHealthAlert,"mas90SendHealthAlert");
+
+async function upsertMas90AutomationRun(env,data,{sendAlert=true}={}){
+  await ensureMas90HealthSchema(env);
+  const runId=mas90CompactText(data?.run_id,100);
+  if(!/^[A-Za-z0-9_-]{8,100}$/.test(runId))throw new Error("A valid MAS 90 run ID is required.");
+  const rawType=mas90CompactText(data?.run_type||data?.source,30).toLowerCase().replace(/[^a-z0-9_]/g,"_");
+  const runType=["scheduled","portal_request","manual"].includes(rawType)?rawType:"scheduled";
+  const rawStatus=mas90CompactText(data?.status,30).toLowerCase();
+  const status=["queued","claimed","starting","running","cancel_requested","completed","failed","cancelled","interrupted","missed"].includes(rawStatus)?rawStatus:"running";
+  const activeStatuses=["queued","claimed","starting","running","cancel_requested"];
+  const terminalStatuses=["completed","failed","cancelled","interrupted","missed"];
+  const incomingActive=activeStatuses.includes(status);
+  const incomingTerminal=terminalStatuses.includes(status);
+  const agent=await env.DB.prepare(`SELECT agent_name,agent_version,schedule_local_time,schedule_timezone FROM mas90_agent_health WHERE id=1`).first();
+  const timeZone=mas90NormalizeTimeZone(agent?.schedule_timezone||"America/Chicago");
+  const providedScheduledDate=mas90CompactText(data?.scheduled_date,10);
+  const insertScheduledDate=providedScheduledDate||(runType==="scheduled"?mas90LocalDateKey(new Date(),timeZone):"");
+  const scheduledFor=mas90CompactText(data?.scheduled_for,80)||(runType==="scheduled"?mas90LocalScheduleIso(insertScheduledDate,agent?.schedule_local_time||"21:00",timeZone):null);
+  const count=name=>mas90PositiveIntegerOrNull(data?.[name],100000000);
+  const countValues={
+    customers_success_count:count("customers_success_count"),customers_failure_count:count("customers_failure_count"),
+    payments_success_count:count("payments_success_count"),payments_failure_count:count("payments_failure_count"),
+    payments_inserted_count:count("payments_inserted_count"),payments_duplicate_count:count("payments_duplicate_count")
+  };
+  const existingRun=await env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE run_id=?`).bind(runId).first();
+  const existingStatus=String(existingRun?.status||"").toLowerCase();
+  const existingTerminal=terminalStatuses.includes(existingStatus);
+  const terminalRecovery=existingStatus==="interrupted"&&["completed","failed","cancelled"].includes(status);
+  const disallowedTerminalTransition=existingTerminal&&existingStatus!==status&&!terminalRecovery;
+  const activeRank={queued:0,claimed:1,starting:2,running:3,cancel_requested:4};
+  const regressiveActive=Boolean(existingRun)&&incomingActive&&activeStatuses.includes(existingStatus)&&activeRank[status]<activeRank[existingStatus];
+  const sameTerminal=existingTerminal&&existingStatus===status;
+  const mutableState=!disallowedTerminalTransition&&!regressiveActive&&!sameTerminal;
+  const effectiveStatus=mutableState?status:(existingStatus||status);
+  const effectiveActive=activeStatuses.includes(effectiveStatus);
+  const effectiveTerminal=terminalStatuses.includes(effectiveStatus);
+  const incomingStage=mas90CompactText(data?.stage,60);
+  const incomingMessage=mas90CompactText(data?.message||data?.status_message,500);
+  const incomingProgress=Math.max(0,Math.min(100,Math.round(Number(data?.progress_percent||0))||0));
+  const incomingRequestId=mas90CompactText(data?.request_id,100);
+  const incomingAgentName=mas90CompactText(data?.agent_name||agent?.agent_name,100);
+  const incomingAgentVersion=mas90CompactText(data?.agent_version||agent?.agent_version,30);
+  const suppliedRetry=data?.retry_attempt===undefined||data?.retry_attempt===null?null:Math.max(1,Math.round(Number(data.retry_attempt))||1);
+  const effective={
+    run_type:mutableState?runType:String(existingRun?.run_type||runType),
+    request_id:mutableState?(incomingRequestId||String(existingRun?.request_id||"")):String(existingRun?.request_id||incomingRequestId),
+    agent_name:mutableState?(incomingAgentName||String(existingRun?.agent_name||"")):String(existingRun?.agent_name||incomingAgentName),
+    agent_version:mutableState?(incomingAgentVersion||String(existingRun?.agent_version||"")):String(existingRun?.agent_version||incomingAgentVersion),
+    status:effectiveStatus,
+    stage:mutableState?(incomingStage||String(existingRun?.stage||"")):String(existingRun?.stage||""),
+    progress_percent:mutableState?Math.max(Number(existingRun?.progress_percent||0),incomingProgress):Number(existingRun?.progress_percent||0),
+    status_message:mutableState?(incomingMessage||String(existingRun?.status_message||"")):String(existingRun?.status_message||""),
+    scheduled_for:mutableState?(mas90CompactText(data?.scheduled_for,80)||(existingRun?.scheduled_for||scheduledFor)):existingRun?.scheduled_for||scheduledFor,
+    scheduled_date:mutableState?(providedScheduledDate||String(existingRun?.scheduled_date||insertScheduledDate)):String(existingRun?.scheduled_date||insertScheduledDate),
+    retry_attempt:mutableState?Math.max(1,Number(existingRun?.retry_attempt||1),suppliedRetry||1):Math.max(1,Number(existingRun?.retry_attempt||1))
+  };
+  const countMaterial=Boolean(existingRun)&&Object.entries(countValues).some(([name,value])=>value!==null&&value>Number(existingRun?.[name]||0));
+  const touchRun=mutableState||!existingRun||countMaterial;
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO mas90_automation_runs
+      (run_id,run_type,request_id,agent_name,agent_version,status,stage,progress_percent,status_message,scheduled_for,scheduled_date,retry_attempt,started_at,updated_at,completed_at,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP,CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP)
+  `).bind(
+    runId,effective.run_type,effective.request_id,effective.agent_name,effective.agent_version,effective.status,effective.stage,effective.progress_percent,effective.status_message,
+    effective.scheduled_for,effective.scheduled_date,effective.retry_attempt,["claimed","starting","running","cancel_requested"].includes(effective.status)?1:0,effectiveTerminal?1:0
+  ).run();
+  await env.DB.prepare(`
+    UPDATE mas90_automation_runs SET
+      run_type=?,request_id=?,agent_name=?,agent_version=?,status=?,stage=?,progress_percent=MAX(progress_percent,?),status_message=?,
+      scheduled_for=?,scheduled_date=?,retry_attempt=MAX(retry_attempt,?),
+      customers_success_count=MAX(customers_success_count,COALESCE(?,customers_success_count)),
+      customers_failure_count=MAX(customers_failure_count,COALESCE(?,customers_failure_count)),
+      payments_success_count=MAX(payments_success_count,COALESCE(?,payments_success_count)),
+      payments_failure_count=MAX(payments_failure_count,COALESCE(?,payments_failure_count)),
+      payments_inserted_count=MAX(payments_inserted_count,COALESCE(?,payments_inserted_count)),
+      payments_duplicate_count=MAX(payments_duplicate_count,COALESCE(?,payments_duplicate_count)),
+      started_at=CASE WHEN ?=1 THEN COALESCE(started_at,CURRENT_TIMESTAMP) ELSE started_at END,
+      updated_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE updated_at END,
+      completed_at=CASE WHEN ?=1 THEN CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE COALESCE(completed_at,CURRENT_TIMESTAMP) END ELSE completed_at END
+    WHERE run_id=?
+      AND (status NOT IN ('completed','failed','cancelled','interrupted','missed') OR status=? OR (status='interrupted' AND ? IN ('completed','failed','cancelled')))
+      AND (?=0 OR status IN ('completed','failed','cancelled','interrupted','missed') OR CASE status WHEN 'queued' THEN 0 WHEN 'claimed' THEN 1 WHEN 'starting' THEN 2 WHEN 'running' THEN 3 WHEN 'cancel_requested' THEN 4 ELSE 0 END<=?)
+  `).bind(
+    effective.run_type,effective.request_id,effective.agent_name,effective.agent_version,effective.status,effective.stage,effective.progress_percent,effective.status_message,
+    effective.scheduled_for,effective.scheduled_date,effective.retry_attempt,
+    countValues.customers_success_count,countValues.customers_failure_count,countValues.payments_success_count,countValues.payments_failure_count,countValues.payments_inserted_count,countValues.payments_duplicate_count,
+    ["claimed","starting","running","cancel_requested"].includes(effective.status)?1:0,touchRun?1:0,effectiveTerminal?1:0,terminalRecovery?1:0,runId,status,status,incomingActive?1:0,activeRank[status]??0
+  ).run();
+  const saved=await env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE run_id=?`).bind(runId).first();
+  const savedStatus=String(saved?.status||"").toLowerCase();
+  const savedActive=["queued","claimed","starting","running","cancel_requested"].includes(savedStatus);
+  const savedTerminal=["completed","failed","cancelled","interrupted","missed"].includes(savedStatus);
+  if(savedActive){
+    await env.DB.prepare(`UPDATE mas90_agent_health SET active_run_id=?,active_run_type=?,active_run_status=?,listener_state='busy',last_error='',updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(runId,String(saved?.run_type||runType),savedStatus).run();
+  }else if(savedTerminal){
+    await env.DB.prepare(`UPDATE mas90_agent_health SET active_run_id=CASE WHEN active_run_id=? THEN '' ELSE active_run_id END,active_run_type=CASE WHEN active_run_id=? THEN '' ELSE active_run_type END,active_run_status=CASE WHEN active_run_id=? THEN '' ELSE active_run_status END,listener_state=CASE WHEN active_run_id='' OR active_run_id=? THEN 'online' ELSE listener_state END,last_error=CASE WHEN ? IN ('failed','interrupted','missed') THEN ? WHEN ?='completed' THEN '' ELSE last_error END,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(runId,runId,runId,runId,savedStatus,String(saved?.status_message||""),savedStatus).run();
+  }
+  if(savedStatus==="completed"){
+    await env.DB.prepare(`UPDATE mas90_health_alerts SET resolved_at=COALESCE(resolved_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE resolved_at IS NULL AND alert_type IN ('run_failed','missed_run') AND datetime(created_at)<=datetime(COALESCE(?,CURRENT_TIMESTAMP))`).bind(saved?.completed_at||saved?.updated_at||null).run();
+  }else if(sendAlert&&["failed","interrupted"].includes(savedStatus)){
+    await mas90SendHealthAlert(env,{alertKey:`run_failed:${runId}`,alertType:"run_failed",severity:"error",runId,message:String(saved?.status_message||"")||`The ${runType.replace(/_/g," ")} MAS 90 synchronization failed.`});
+  }else if(sendAlert&&savedStatus==="missed"){
+    await mas90SendHealthAlert(env,{alertKey:`missed:${runId}`,alertType:"missed_run",severity:"error",runId,message:String(saved?.status_message||"")||"The scheduled MAS 90 synchronization did not start within its expected window."});
+  }
+  return saved;
+}
+__name(upsertMas90AutomationRun,"upsertMas90AutomationRun");
+
+async function mirrorMas90PortalRun(env,row,{sendAlert=true}={}){
+  const requestId=mas90CompactText(row?.request_id,100);
+  if(!requestId)return null;
+  return await upsertMas90AutomationRun(env,{
+    run_id:requestId,run_type:"portal_request",request_id:requestId,agent_name:row?.agent_name,status:row?.status||"queued",stage:row?.stage,
+    progress_percent:row?.progress_percent,message:row?.status_message,customers_success_count:row?.customers_success_count,
+    customers_failure_count:row?.customers_failure_count,payments_success_count:row?.payments_success_count,payments_failure_count:row?.payments_failure_count,
+    payments_inserted_count:row?.payments_inserted_count,payments_duplicate_count:row?.payments_duplicate_count
+  },{sendAlert});
+}
+__name(mirrorMas90PortalRun,"mirrorMas90PortalRun");
+
+async function cleanupMas90HealthHistory(env){
+  await ensureMas90HealthSchema(env);
+  await ensureMas90SyncRequestSchema(env);
+  await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE datetime(created_at)<datetime('now','-90 days')`).run();
+  await env.DB.prepare(`DELETE FROM mas90_health_alerts WHERE datetime(created_at)<datetime('now','-365 days')`).run();
+  await env.DB.prepare(`DELETE FROM mas90_automation_runs WHERE datetime(created_at)<datetime('now','-365 days')`).run();
+}
+__name(cleanupMas90HealthHistory,"cleanupMas90HealthHistory");
+
+async function checkMas90AutomationHealth(env,{sendAlerts=true}={}){
+  if(!env?.DB)return;
+  await ensureMas90HealthSchema(env);
+  await cleanupMas90HealthHistory(env);
+  const stale=(await env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status IN ('claimed','starting','running','cancel_requested') AND datetime(updated_at)<datetime('now','-35 minutes')`).all())?.results||[];
+  for(const run of stale){
+    await upsertMas90AutomationRun(env,{...run,status:"interrupted",stage:"connection",progress_percent:run.progress_percent,message:"The MAS 90 computer stopped reporting progress before this synchronization finished."},{sendAlert:sendAlerts});
+  }
+  const health=await env.DB.prepare(`SELECT * FROM mas90_agent_health WHERE id=1`).first();
+  if(Number(health?.health_reporting_enabled||0)!==1)return;
+  const timeZone=mas90NormalizeTimeZone(health.schedule_timezone||"America/Chicago");
+  const localTime=mas90NormalizeScheduleTime(health.schedule_local_time||"21:00");
+  if(sendAlerts){
+    const unresolvedRuns=(await env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status IN ('failed','interrupted','missed') AND datetime(updated_at)>=datetime('now','-7 days') ORDER BY datetime(updated_at) DESC LIMIT 50`).all())?.results||[];
+    for(const run of unresolvedRuns){
+      if(String(run.status)==="missed"){
+        await mas90SendHealthAlert(env,{alertKey:`missed:${String(run.run_id||"")}`,alertType:"missed_run",severity:"error",runId:String(run.run_id||""),message:String(run.status_message||"")||"The scheduled MAS 90 synchronization did not start within its expected window."});
+      }else{
+        await mas90SendHealthAlert(env,{alertKey:`run_failed:${String(run.run_id||"")}`,alertType:"run_failed",severity:"error",runId:String(run.run_id||""),message:String(run.status_message||"")||"The MAS 90 synchronization failed."});
+      }
+    }
+    const retryAlerts=(await env.DB.prepare(`SELECT alert_key,alert_type,severity,run_id,message FROM mas90_health_alerts WHERE resolved_at IS NULL AND sent_at IS NULL AND email_status IN ('pending','failed','sending','disabled') ORDER BY datetime(created_at) DESC LIMIT 50`).all())?.results||[];
+    for(const alert of retryAlerts){
+      await mas90SendHealthAlert(env,{alertKey:alert.alert_key,alertType:alert.alert_type,severity:alert.severity,runId:alert.run_id,message:alert.message});
+    }
+  }
+  const now=new Date();
+  const graceMinutes=120;
+  const todayKey=mas90LocalDateKey(now,timeZone);
+  const todayScheduledFor=mas90LocalScheduleIso(todayKey,localTime,timeZone);
+  const dateKey=Date.now()>=mas90Timestamp(todayScheduledFor)+graceMinutes*60000?todayKey:mas90ShiftDateKey(todayKey,-1);
+  const scheduledFor=mas90LocalScheduleIso(dateKey,localTime,timeZone);
+  const scheduledAt=mas90Timestamp(scheduledFor);
+  const firstSeenAt=mas90Timestamp(health.first_seen_at);
+  if(!scheduledAt||Date.now()<scheduledAt+graceMinutes*60000||!firstSeenAt||firstSeenAt>scheduledAt)return;
+  const existing=await env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE run_type='scheduled' AND scheduled_date=? ORDER BY datetime(created_at) DESC LIMIT 1`).bind(dateKey).first();
+  if(existing)return;
+  const runId=`missed-${dateKey.replace(/-/g,"")}-${localTime.replace(":","")}`;
+  await upsertMas90AutomationRun(env,{run_id:runId,run_type:"scheduled",status:"missed",stage:"not_started",progress_percent:0,scheduled_date:dateKey,scheduled_for:scheduledFor,schedule_local_time:localTime,message:`The daily ${mas90ScheduleLabel(localTime).replace("Daily at ","")} MAS 90 synchronization did not start within ${graceMinutes} minutes.`},{sendAlert:sendAlerts});
+}
+__name(checkMas90AutomationHealth,"checkMas90AutomationHealth");
+
+async function mas90AgentHealthStatusPost({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  if(!await mas90AgentAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    const body=await request.json().catch(()=>({}));
+    const runId=mas90CompactText(body?.run_id,100);
+    if(!runId)return notificationJson({success:false,error:"Run ID is required."},400);
+    if(!/^[A-Za-z0-9_-]{8,100}$/.test(runId))return notificationJson({success:false,error:"Run ID is invalid."},400);
+    const source=mas90CompactText(body?.source||body?.run_type,30).toLowerCase();
+    if(!["scheduled","portal_request","manual"].includes(source))return notificationJson({success:false,error:"Run source is invalid."},400);
+    const status=mas90CompactText(body?.status,30).toLowerCase();
+    if(!["queued","claimed","starting","running","cancel_requested","completed","failed","cancelled","interrupted"].includes(status))return notificationJson({success:false,error:"Run status is invalid."},400);
+    const health=await recordMas90AgentHeartbeat(env,request,{...body,agent_status:["completed","failed","cancelled","interrupted"].includes(status)?"online":"busy"});
+    const saved=await upsertMas90AutomationRun(env,{...body,run_id:runId,run_type:source,agent_name:health?.agent_name,agent_version:health?.agent_version,status});
+    await cleanupMas90HealthHistory(env);
+    return notificationJson({success:true,run:mas90HealthRunPublic(saved)});
+  }catch(error){
+    console.error("mas90AgentHealthStatusPost failed",error);
+    return notificationJson({success:false,error:"The MAS 90 automation health status could not be saved."},500);
+  }
+}
+__name(mas90AgentHealthStatusPost,"mas90AgentHealthStatusPost");
+
+async function adminMas90HealthGet({request,env}){
+  if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
+  try{
+    await Promise.all([ensureMas90HealthSchema(env),ensureMas90SyncRequestSchema(env),ensureAdminImportMetadataSchema(env),ensureAdminImportControlSchema(env)]);
+    const [health,importsResult,control,remoteSync,recentRunsResult,currentRun,latestRun,lastSuccessfulRun,alertsResult,alertCount]=await Promise.all([
+      env.DB.prepare(`SELECT * FROM mas90_agent_health WHERE id=1`).first(),
+      env.DB.prepare(`SELECT * FROM admin_import_metadata WHERE import_type IN ('customers','payments')`).all(),
+      env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first(),
+      mas90SyncStatusRow(env),
+      env.DB.prepare(`SELECT * FROM mas90_automation_runs ORDER BY datetime(updated_at) DESC LIMIT 10`).all(),
+      env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status IN ('queued','claimed','starting','running','cancel_requested') ORDER BY datetime(updated_at) DESC LIMIT 1`).first(),
+      env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status IN ('completed','failed','cancelled','interrupted','missed') ORDER BY datetime(COALESCE(completed_at,updated_at)) DESC LIMIT 1`).first(),
+      env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status='completed' ORDER BY datetime(completed_at) DESC LIMIT 1`).first(),
+      env.DB.prepare(`SELECT id,alert_type,severity,run_id,message,email_status,email_error,created_at,sent_at,resolved_at FROM mas90_health_alerts ORDER BY datetime(created_at) DESC,id DESC LIMIT 20`).all(),
+      env.DB.prepare(`SELECT COUNT(*) AS total FROM mas90_health_alerts WHERE resolved_at IS NULL`).first()
+    ]);
+    const imports={customers:null,payments:null};
+    for(const row of importsResult?.results||[]){
+      imports[row.import_type]={at:row.last_import_at||"",record_count:Number(row.last_record_count||0),by:row.last_import_by||"",mode:row.last_import_mode||"manual",status:row.last_import_status||"completed",batch_number:Number(row.last_import_batch_number||1),batch_count:Number(row.last_import_batch_count||1),run_id:row.last_import_run_id||""};
+    }
+    const pollSeconds=Math.max(5,Number(health?.poll_seconds||15));
+    const secondsSinceSeen=health?.last_seen_at?Math.max(0,Math.round((Date.now()-mas90Timestamp(health.last_seen_at))/1000)):null;
+    const connectivityStatus=secondsSinceSeen===null||secondsSinceSeen>600?"offline":secondsSinceSeen>90?"delayed":"online";
+    const online=connectivityStatus==="online";
+    const taskEnabled=String(health?.task_enabled||"unknown");
+    const scheduleTime=mas90NormalizeScheduleTime(health?.schedule_local_time||"21:00");
+    const timeZone=mas90NormalizeTimeZone(health?.schedule_timezone||"America/Chicago");
+    const reportedNext=mas90Timestamp(health?.task_next_run)?new Date(mas90Timestamp(health.task_next_run)).toISOString():"";
+    const lastSuccessAt=lastSuccessfulRun?.completed_at||"";
+    const ageMinutes=lastSuccessAt?Math.max(0,Math.round((Date.now()-mas90Timestamp(lastSuccessAt))/60000)):null;
+    const freshnessStatus=ageMinutes===null?"unknown":ageMinutes<=26*60?"fresh":ageMinutes<=32*60?"due":"stale";
+    let overall="healthy";
+    if(currentRun)overall="running";
+    else if(["failed","interrupted","missed"].includes(String(latestRun?.status||"").toLowerCase()))overall="failed";
+    else if(Number(health?.health_reporting_enabled||0)!==1)overall="not_configured";
+    else if(connectivityStatus==="offline"||taskEnabled==="0"||["disabled","missing","unavailable"].includes(String(health?.task_state||"").toLowerCase()))overall="offline";
+    else if(connectivityStatus==="delayed"||freshnessStatus!=="fresh")overall="warning";
+    return notificationJson({
+      success:true,overall_status:overall,server_time:new Date().toISOString(),timezone:"America/Chicago",
+      office_computer:{
+        online,status:online?(currentRun?"busy":mas90CompactText(health?.listener_state,30)||"online"):connectivityStatus,listener_state:String(health?.listener_state||"unknown"),agent_name:String(health?.agent_name||""),agent_version:String(health?.agent_version||""),
+        last_seen_at:health?.last_seen_at||"",seconds_since_seen:secondsSinceSeen,message:String(health?.status_message||""),odbc_status:String(health?.odbc_status||"unknown"),payment_checkpoint:String(health?.payment_checkpoint||""),health_reporting_enabled:Number(health?.health_reporting_enabled||0)===1,
+        task_name:String(health?.task_name||""),task_enabled:taskEnabled,task_state:String(health?.task_state||"unknown"),task_next_run:health?.task_next_run||"",task_last_run:health?.task_last_run||"",task_last_result:String(health?.task_last_result||""),
+        poll_seconds:pollSeconds,max_retries:Number(health?.max_retries||6),customer_batch_size:Number(health?.customer_batch_size||400),payment_batch_size:Number(health?.payment_batch_size||200),payment_window_days:Number(health?.payment_window_days||30),last_error:String(health?.last_error||"")
+      },
+      schedule:{enabled:taskEnabled==="1"?true:taskEnabled==="0"?false:null,local_time:scheduleTime,timezone:timeZone,label:mas90ScheduleLabel(scheduleTime),next_run_at:reportedNext||mas90NextScheduleIso(scheduleTime,timeZone),grace_minutes:120},
+      current_run:mas90HealthRunPublic(currentRun),latest_run:mas90HealthRunPublic(latestRun),last_successful_run:mas90HealthRunPublic(lastSuccessfulRun),recent_runs:(recentRunsResult?.results||[]).map(mas90HealthRunPublic),
+      latest_imports:imports,
+      active_import:{run_id:String(control?.active_run_id||""),status:String(control?.status||"idle"),import_type:String(control?.active_import_type||""),cancel_requested:Number(control?.cancel_requested||0)===1,updated_at:control?.updated_at||"",completed_at:control?.completed_at||""},
+      remote_sync_request:mas90SyncPublicStatus(remoteSync),
+      data_freshness:{last_success_at:lastSuccessAt,age_minutes:ageMinutes,status:freshnessStatus},
+      alerts:{configured:Boolean(mas90CompactText(env.MAS90_ALERT_EMAIL,254)),enabled:Boolean(mas90CompactText(env.MAS90_ALERT_EMAIL,254)&&env.RESEND_API_KEY),unresolved_count:Math.max(0,Number(alertCount?.total||0)),recent:alertsResult?.results||[]}
+    });
+  }catch(error){
+    console.error("adminMas90HealthGet failed",error);
+    return notificationJson({success:false,error:"The MAS 90 Automation Health Center could not be loaded."},500);
+  }
+}
+__name(adminMas90HealthGet,"adminMas90HealthGet");
+
 function mas90SyncPublicStatus(row){
   return {
     request_id:String(row?.request_id||""),
@@ -1271,15 +1898,18 @@ async function mas90SyncStatusRow(env){
   let updatedRaw=String(row?.updated_at||"").trim();
   if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updatedRaw))updatedRaw=updatedRaw.replace(" ","T")+"Z";
   const updatedAt=Date.parse(updatedRaw);
-  if(["claimed","running"].includes(status)&&Number.isFinite(updatedAt)&&Date.now()-updatedAt>30*60*1000){
+  if(["claimed","running","cancel_requested"].includes(status)&&Number.isFinite(updatedAt)&&Date.now()-updatedAt>30*60*1000){
     await env.DB.prepare(`
       UPDATE mas90_sync_control
       SET status='failed',stage='connection',progress_percent=0,
-          status_message='The MAS 90 computer stopped responding before the request finished.',
+          status_message=CASE WHEN status='cancel_requested'
+            THEN 'The MAS 90 computer did not confirm cancellation before the connection timed out.'
+            ELSE 'The MAS 90 computer stopped responding before the request finished.' END,
           updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP
-      WHERE id=1 AND request_id=? AND status IN ('claimed','running')
+      WHERE id=1 AND request_id=? AND status IN ('claimed','running','cancel_requested')
     `).bind(String(row.request_id||"")).run();
     row=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
+    await mirrorMas90PortalRun(env,row);
   }
   return row;
 }
@@ -1333,9 +1963,11 @@ async function adminMas90SyncRequestPost({request,env}){
       const current=await mas90SyncStatusRow(env);
       return notificationJson({success:false,error:"A MAS 90 retrieval request is already pending or running.",remote_sync_request:mas90SyncPublicStatus(current)},409);
     }
-    await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE request_id<>?`).bind(requestId).run();
+    await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE datetime(created_at)<datetime('now','-90 days')`).run();
     await adminAudit(env,request,"mas90_sync_requested","database",requestId,"Current customer and payment data requested from the MAS 90 office computer");
-    return notificationJson({success:true,message:"The retrieval request is queued for the MAS 90 computer.",remote_sync_request:mas90SyncPublicStatus(await mas90SyncStatusRow(env))});
+    const current=await mas90SyncStatusRow(env);
+    await mirrorMas90PortalRun(env,current,{sendAlert:false});
+    return notificationJson({success:true,message:"The retrieval request is queued for the MAS 90 computer.",remote_sync_request:mas90SyncPublicStatus(current)});
   }catch(error){
     console.error("adminMas90SyncRequestPost failed",error);
     return notificationJson({success:false,error:"The MAS 90 retrieval request could not be queued."},500);
@@ -1352,6 +1984,7 @@ async function adminMas90SyncCancelPost({request,env}){
     if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
     await ensureMas90SyncRequestSchema(env);
     const before=await mas90SyncStatusRow(env);
+    await mirrorMas90PortalRun(env,before,{sendAlert:false});
     if(String(before?.request_id||"")!==requestId){
       return notificationJson({success:false,error:"This retrieval request is no longer current.",remote_sync_request:mas90SyncPublicStatus(before)},409);
     }
@@ -1388,6 +2021,7 @@ async function adminMas90SyncCancelPost({request,env}){
     }
     const status=String(current?.status||"").toLowerCase();
     const immediate=status==="cancelled";
+    await mirrorMas90PortalRun(env,current,{sendAlert:false});
     await adminAudit(
       env,
       request,
@@ -1427,10 +2061,12 @@ async function mas90AgentNextGet({request,env}){
   if(!await mas90AgentAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   try{
     await ensureMas90SyncRequestSchema(env);
+    await recordMas90AgentHeartbeat(env,request);
     const agentName=mas90AgentName(request);
     await env.DB.prepare(`UPDATE mas90_sync_control SET agent_name=?,agent_last_seen_at=CURRENT_TIMESTAMP WHERE id=1`).bind(agentName).run();
     const row=await mas90SyncStatusRow(env);
     const status=String(row?.status||"idle").toLowerCase();
+    if(["queued","claimed","running","cancel_requested"].includes(status))await mirrorMas90PortalRun(env,row,{sendAlert:false});
     if(status==="queued")return notificationJson({success:true,action:"run",request:mas90SyncPublicStatus(row)});
     if(status==="cancel_requested")return notificationJson({success:true,action:"cancel",request:mas90SyncPublicStatus(row)});
     return notificationJson({success:true,action:"none",request:mas90SyncPublicStatus(row)});
@@ -1449,6 +2085,7 @@ async function mas90AgentClaimPost({request,env}){
     const requestId=String(body.request_id||"").trim();
     if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
     await ensureMas90SyncRequestSchema(env);
+    await recordMas90AgentHeartbeat(env,request,{agent_status:"busy"});
     const agentName=mas90AgentName(request);
     const claimed=await env.DB.prepare(`
       UPDATE mas90_sync_control
@@ -1458,6 +2095,7 @@ async function mas90AgentClaimPost({request,env}){
       WHERE id=1 AND request_id=? AND status='queued'
     `).bind(agentName,requestId).run();
     const row=await mas90SyncStatusRow(env);
+    if(String(row?.request_id||"")===requestId)await mirrorMas90PortalRun(env,row,{sendAlert:false});
     const rowStatus=String(row?.status||"").toLowerCase();
     if(String(row?.request_id||"")===requestId&&["cancel_requested","cancelled"].includes(rowStatus)){
       return notificationJson({success:false,cancel_requested:true,error:"This request was canceled.",request:mas90SyncPublicStatus(row)},409);
@@ -1487,6 +2125,7 @@ async function mas90AgentStatusPost({request,env}){
     if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
     if(!["running","completed","failed","cancelled"].includes(status))return notificationJson({success:false,error:"Invalid request status."},400);
     await ensureMas90SyncRequestSchema(env);
+    await recordMas90AgentHeartbeat(env,request,{agent_status:["completed","failed","cancelled"].includes(status)?"online":"busy",message:body?.message});
     const current=await env.DB.prepare(`SELECT * FROM mas90_sync_control WHERE id=1`).first();
     if(String(current?.request_id||"")!==requestId)return notificationJson({success:false,error:"This request is no longer current."},409);
     if(String(current?.status||"").toLowerCase()==="cancel_requested"&&["running","completed"].includes(status))return notificationJson({success:false,cancel_requested:true,error:"Cancellation was requested.",request:mas90SyncPublicStatus(current)},409);
@@ -1522,6 +2161,7 @@ async function mas90AgentStatusPost({request,env}){
       WHERE id=1 AND request_id=? AND status IN (${placeholders})
     `).bind(status,agentName,stage,progress,message,hasSummary?1:0,customersSuccess,customersFailure,paymentsSuccess,paymentsFailure,paymentsInserted,paymentsDuplicates,terminal?1:0,requestId,...allowedCurrentStatuses).run();
     const row=await mas90SyncStatusRow(env);
+    if(String(row?.request_id||"")===requestId)await mirrorMas90PortalRun(env,row);
     if(Number(saved?.meta?.changes||0)!==1){
       const currentStatus=String(row?.status||"").toLowerCase();
       if(currentStatus===status&&terminal)return notificationJson({success:true,cancel_requested:false,request:mas90SyncPublicStatus(row)});
@@ -1550,11 +2190,20 @@ async function mas90AgentFailuresPost({request,env}){
     const batchNumber=Math.max(1,Math.round(Number(body.batch_number||1))||1);
     const failures=Array.isArray(body.failures)?body.failures:[];
     if(!requestId)return notificationJson({success:false,error:"Request ID is required."},400);
+    if(!/^[A-Za-z0-9_-]{8,100}$/.test(requestId))return notificationJson({success:false,error:"Request ID is invalid."},400);
     if(!["customers","payments"].includes(recordType))return notificationJson({success:false,error:"Invalid failure record type."},400);
     if(!failures.length||failures.length>200)return notificationJson({success:false,error:"Each failure-detail batch must contain between 1 and 200 records."},400);
-    await ensureMas90SyncRequestSchema(env);
+    await Promise.all([ensureMas90SyncRequestSchema(env),ensureMas90HealthSchema(env)]);
+    await recordMas90AgentHeartbeat(env,request,{agent_status:"busy"});
     const current=await env.DB.prepare(`SELECT request_id,status FROM mas90_sync_control WHERE id=1`).first();
-    if(String(current?.request_id||"")!==requestId||!["claimed","running"].includes(String(current?.status||"").toLowerCase())){
+    const portalRequestAllowed=String(current?.request_id||"")===requestId&&["claimed","running","cancel_requested"].includes(String(current?.status||"").toLowerCase());
+    const scheduledRun=portalRequestAllowed?null:await env.DB.prepare(`
+      SELECT run_id,status FROM mas90_automation_runs
+      WHERE run_id=? AND run_type='scheduled' AND status IN ('queued','claimed','starting','running','cancel_requested')
+        AND datetime(updated_at)>=datetime('now','-2 days')
+      LIMIT 1
+    `).bind(requestId).first();
+    if(!portalRequestAllowed&&!scheduledRun){
       return notificationJson({success:false,error:"This retrieval request is no longer active."},409);
     }
     if(batchNumber===1)await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE request_id=? AND record_type=?`).bind(requestId,recordType).run();
@@ -1577,6 +2226,7 @@ async function mas90AgentFailuresPost({request,env}){
       clean(item?.reason,500)||"The source record did not pass validation."
     ));
     await env.DB.batch(rows);
+    await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE datetime(created_at)<datetime('now','-90 days')`).run();
     return notificationJson({success:true,saved:rows.length,batch_number:batchNumber});
   }catch(error){
     console.error("mas90AgentFailuresPost failed",error);
@@ -1589,6 +2239,7 @@ async function adminMas90SyncFailuresGet({request,env}){
   if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
   try{
     await ensureMas90SyncRequestSchema(env);
+    await env.DB.prepare(`DELETE FROM mas90_sync_failures WHERE datetime(created_at)<datetime('now','-90 days')`).run();
     const url=new URL(request.url);
     const requestId=String(url.searchParams.get("request_id")||"").trim();
     const recordType=String(url.searchParams.get("record_type")||"").trim().toLowerCase();
@@ -9407,6 +10058,7 @@ function adminGeneralAuditDescriptor(request){
   if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
   if(method==="POST"&&path==="/api/admin/mas90-sync-request")return null;
   if(method==="POST"&&path==="/api/admin/mas90-sync-cancel")return null;
+  if(method==="GET"&&path==="/api/admin/mas90-health")return null;
   if(method==="GET"&&path==="/api/admin/import-status")return null;
   if(path==="/api/admin/customer-activity"&&url.searchParams.get("account_number"))return null;
   const account=url.searchParams.get("account_number")||url.searchParams.get("account")||"";
@@ -9449,7 +10101,7 @@ function adminGeneralAuditDescriptor(request){
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/users"))return "manage_users";
-  if(path.includes("mas90-sync"))return "database";
+  if(path.includes("mas90-sync")||path.includes("mas90-health"))return "database";
   if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
   if(path.startsWith("/api/admin/account-applications")||path.startsWith("/api/admin/request-center"))return "applications";
   if(path.includes("activation")||path.includes("password-reset-code"))return "activation";
@@ -9936,6 +10588,10 @@ var worker_default = {
       if(request.method==="POST")return mas90AgentFailuresPost({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname==="/api/mas90-agent/health/status"){
+      if(request.method==="POST")return mas90AgentHealthStatusPost({request,env});
+      return methodNotAllowed();
+    }
     if(url.pathname==="/api/customer/profile-change-requests"){
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
@@ -10100,6 +10756,10 @@ var worker_default = {
     }
     if (url.pathname === "/api/admin/mas90-sync-failures") {
       if (request.method === "GET") return adminMas90SyncFailuresGet({request,env});
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/mas90-health") {
+      if (request.method === "GET") return adminMas90HealthGet({request,env});
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/gmail-inbox") {
@@ -10458,6 +11118,7 @@ return env.ASSETS.fetch(request);
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
     ctx.waitUntil(processDueStatementSchedules(env));
+    ctx.waitUntil(checkMas90AutomationHealth(env));
   }
 
 };

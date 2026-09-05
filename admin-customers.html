@@ -4808,6 +4808,7 @@ textarea[data-request-response]{
       <button class="admin-tab" id="admin-tab-btn-dashboard" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-dashboard" data-admin-tab="dashboard" data-admin-label="Overview"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>Dashboard</button>
       <div class="admin-nav-group">Customers</div>
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-tab="customers" data-admin-label="Customer Database"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></span>Database</button>
+      <button class="admin-tab" id="admin-tab-btn-automation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-automation" data-admin-tab="automation" data-admin-label="MAS 90 Health"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/><circle cx="12" cy="12" r="9"/></svg></span>MAS 90 Health</button>
       <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity" data-admin-label="Customer Activity"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Customer Activity</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation" data-admin-label="Account Activation"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2 0 3.7.7 5 2M19 14v7M15.5 17.5h7"/></svg></span>Account Activation</button>
       <div class="admin-nav-group">Documents</div>
@@ -4832,12 +4833,92 @@ textarea[data-request-response]{
     <div class="admin-dashboard-grid">
       <section class="admin-dashboard-welcome"><div><h2>Wooten Oil Administration</h2><p>Choose a section to manage customer accounts and portal operations.</p></div><div class="admin-dashboard-date" id="adminDashboardDate"></div></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">C</div><h3>Customer Center</h3><p>Import customer data, review live accounts, and open a complete customer activity record.</p><button class="admin-dashboard-link" type="button" data-admin-open="customers">Open customer database →</button></section>
+      <section class="admin-dashboard-card" id="mas90HealthDashboardCard"><div class="admin-dashboard-card-icon">90</div><h3>MAS 90 Automation Health</h3><p>Monitor the office computer, nightly 9:00 PM synchronization, data freshness, and import results.</p><span class="mas90-health-dashboard-state" id="mas90HealthDashboardState">Open Health Center for current status</span><button class="admin-dashboard-link" type="button" data-admin-open="automation">Open Health Center →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">D</div><h3>Documents</h3><p>Manage statements and invoices, send documents, and monitor scheduled statement runs.</p><button class="admin-dashboard-link" type="button" data-admin-open="documents">Open documents →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">A</div><h3>Applications</h3><p>Review new customer applications and record the decision under the signed-in administrator.</p><button class="admin-dashboard-link" type="button" data-admin-open="applications">Review applications →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">N</div><h3>Notifications</h3><p>Create portal notifications and manage how customers receive important information.</p><button class="admin-dashboard-link" type="button" data-admin-open="notifications">Open notifications →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">H</div><h3>Communication History</h3><p>Review statements, invoices, email, SMS, portal notifications, and customer messages.</p><button class="admin-dashboard-link" type="button" data-admin-open="communication">View communication history →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">S</div><h3>Communication Settings</h3><p>Check Twilio SMS connectivity and Gmail synchronization settings.</p><button class="admin-dashboard-link" type="button" data-admin-open="settings">Open settings →</button></section>
     </div>
+  </div>
+
+  <div class="card admin-tab-panel mas90-health-panel" id="admin-tab-automation" role="tabpanel" aria-labelledby="admin-tab-btn-automation" data-admin-panel="automation">
+    <div class="mas90-health-heading">
+      <div>
+        <div class="admin-page-label">Automation Monitor</div>
+        <h2>MAS 90 Automation Health Center</h2>
+        <p>Monitor the office computer, the nightly 9:00 PM Central Time synchronization, and the latest customer and payment results.</p>
+      </div>
+      <div class="mas90-health-toolbar" aria-label="MAS 90 health actions">
+        <button class="secondary" id="mas90HealthRefresh" type="button">Refresh</button>
+        <button class="primary" id="mas90HealthRequestSync" type="button" data-mas90-request-trigger>Request MAS 90 Sync</button>
+        <button class="secondary" id="mas90HealthDownload" type="button" disabled>Download Diagnostics</button>
+      </div>
+    </div>
+
+    <div class="mas90-health-message" id="mas90HealthMessage" role="status" aria-live="polite" hidden></div>
+
+    <div class="mas90-health-overview" aria-live="polite">
+      <article class="mas90-health-overview-card" id="mas90HealthOfficeCard" data-tone="unknown">
+        <div class="mas90-health-card-label"><span class="mas90-health-dot" aria-hidden="true"></span>Office Computer</div>
+        <strong id="mas90HealthOfficeValue">Checking status…</strong>
+        <span id="mas90HealthOfficeDetail">Waiting for the first health report.</span>
+      </article>
+      <article class="mas90-health-overview-card" id="mas90HealthScheduleCard" data-tone="unknown">
+        <div class="mas90-health-card-label"><span class="mas90-health-dot" aria-hidden="true"></span>Nightly Schedule</div>
+        <strong id="mas90HealthScheduleValue">Daily at 9:00 PM</strong>
+        <span id="mas90HealthScheduleDetail">Central Time</span>
+      </article>
+      <article class="mas90-health-overview-card" id="mas90HealthFreshnessCard" data-tone="unknown">
+        <div class="mas90-health-card-label"><span class="mas90-health-dot" aria-hidden="true"></span>Data Freshness</div>
+        <strong id="mas90HealthFreshnessValue">Checking data…</strong>
+        <span id="mas90HealthFreshnessDetail">No completed run loaded yet.</span>
+      </article>
+    </div>
+
+    <section class="mas90-health-section mas90-health-current" id="mas90HealthCurrentSection" hidden>
+      <div class="mas90-health-section-head">
+        <div><span class="mas90-health-eyebrow">Current Activity</span><h3 id="mas90HealthCurrentTitle">MAS 90 synchronization in progress</h3></div>
+        <span class="mas90-health-status-chip" id="mas90HealthCurrentStatus">Running</span>
+      </div>
+      <p id="mas90HealthCurrentDetail">Waiting for an update from the office computer.</p>
+      <div class="mas90-health-progress" id="mas90HealthCurrentProgress" role="progressbar" aria-label="Current MAS 90 synchronization progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="mas90HealthCurrentProgressBar"></span></div>
+      <div class="mas90-health-run-meta" id="mas90HealthCurrentMeta"></div>
+      <div class="mas90-health-results" id="mas90HealthCurrentCounts"></div>
+    </section>
+
+    <section class="mas90-health-section" id="mas90HealthLatestSection">
+      <div class="mas90-health-section-head">
+        <div><span class="mas90-health-eyebrow">Latest Run</span><h3>Latest MAS 90 Results</h3></div>
+        <span class="mas90-health-status-chip is-neutral" id="mas90HealthLatestStatus">Not loaded</span>
+      </div>
+      <p class="mas90-health-empty" id="mas90HealthLatestEmpty">No MAS 90 automation run has been reported yet.</p>
+      <div id="mas90HealthLatestContent" hidden>
+        <p id="mas90HealthLatestDetail"></p>
+        <div class="mas90-health-results" id="mas90HealthLatestCounts"></div>
+      </div>
+    </section>
+
+    <section class="mas90-health-section">
+      <div class="mas90-health-section-head"><div><span class="mas90-health-eyebrow">Run History</span><h3>Recent 10 Runs</h3></div></div>
+      <div class="mas90-health-run-list" id="mas90HealthRecentRuns"><div class="mas90-health-empty">No run history is available.</div></div>
+    </section>
+
+    <details class="mas90-health-diagnostics" id="mas90HealthDiagnostics">
+      <summary>Technical Diagnostics</summary>
+      <p>Connection and scheduling information reported by the office computer. Portal keys and passwords are never displayed.</p>
+      <dl class="mas90-health-diagnostic-grid">
+        <div><dt>Agent</dt><dd id="mas90HealthDiagAgent">—</dd></div>
+        <div><dt>Agent Version</dt><dd id="mas90HealthDiagVersion">—</dd></div>
+        <div><dt>Listener</dt><dd id="mas90HealthDiagListener">—</dd></div>
+        <div><dt>Last Heartbeat</dt><dd id="mas90HealthDiagHeartbeat">—</dd></div>
+        <div><dt>Scheduled Task</dt><dd id="mas90HealthDiagTask">—</dd></div>
+        <div><dt>Next Scheduled Run</dt><dd id="mas90HealthDiagNextRun">—</dd></div>
+        <div><dt>MAS 90 / ODBC</dt><dd id="mas90HealthDiagOdbc">—</dd></div>
+        <div><dt>Payment Checkpoint</dt><dd id="mas90HealthDiagCheckpoint">—</dd></div>
+        <div class="mas90-health-diagnostic-wide"><dt>Latest Message</dt><dd id="mas90HealthDiagMessage">—</dd></div>
+      </dl>
+    </details>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-customers" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="customers">
@@ -4873,7 +4954,7 @@ textarea[data-request-response]{
           <div class="mas90-remote-request-progress" id="mas90RemoteRequestProgress" hidden role="progressbar" aria-label="Remote MAS 90 retrieval progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="mas90RemoteRequestProgressBar"></span></div>
         </div>
         <div class="mas90-remote-request-actions">
-          <button class="primary mas90-remote-request-button" id="mas90RemoteRequestButton" type="button">Request MAS 90 Sync</button>
+          <button class="primary mas90-remote-request-button" id="mas90RemoteRequestButton" type="button" data-mas90-request-trigger>Request MAS 90 Sync</button>
           <button class="mas90-remote-cancel-button" id="mas90RemoteCancelButton" data-mas90-remote-cancel type="button" hidden>Cancel Retrieval</button>
         </div>
       </section>
@@ -4897,7 +4978,7 @@ textarea[data-request-response]{
     </div>
     <label class="customer-import-phone-option" for="customerAutoFixAreaCode">
       <input id="customerAutoFixAreaCode" type="checkbox" checked>
-      <span>Fix Area Code Automatically<small>When ON, imported 7-digit phone numbers receive the Default U.S. Area Code saved under Twilio settings before being stored. When OFF, the MDB phone is stored as imported without adding an area code. This saved setting applies to manual imports, the 8:00 PM schedule, and portal-requested MAS 90 syncs.</small></span>
+      <span>Fix Area Code Automatically<small>When ON, imported 7-digit phone numbers receive the Default U.S. Area Code saved under Twilio settings before being stored. When OFF, the MDB phone is stored as imported without adding an area code. This saved setting applies to manual imports, the 9:00 PM schedule, and portal-requested MAS 90 syncs.</small></span>
     </label>
 
     <div class="preview-progress" id="customerPreviewProgress" hidden>
@@ -6154,6 +6235,211 @@ try{
   console.error("MDB reader failed to load",error);
   window.wootenMdbReaderError=error;
 }
+</script>
+
+<style id="wooten-mas90-automation-health-style-ver327">
+.mas90-health-panel{min-width:0}
+.mas90-health-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px}
+.mas90-health-heading h2{margin:3px 0 7px;color:var(--navy);font-size:25px}
+.mas90-health-heading p{max-width:760px;margin:0;color:#66798d;line-height:1.55}
+.mas90-health-toolbar{display:flex;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end;gap:9px}
+.mas90-health-toolbar button{min-height:44px;min-width:132px;margin:0}
+.mas90-health-dashboard-state{display:block;margin:-7px 0 13px;color:#66798a;font-size:12px;font-weight:800}
+.mas90-health-dashboard-state[data-tone="good"]{color:#167048}.mas90-health-dashboard-state[data-tone="warn"]{color:#946007}.mas90-health-dashboard-state[data-tone="bad"]{color:#a22930}
+.mas90-health-message{margin:0 0 16px;padding:11px 13px;border:1px solid #d7e2eb;border-radius:10px;background:#f5f8fb;color:#385067;font-size:13px;line-height:1.45}
+.mas90-health-message[data-tone="warn"]{border-color:#ead293;background:#fff9e9;color:#77540b}.mas90-health-message[data-tone="bad"]{border-color:#e5b6b8;background:#fff3f3;color:#94272d}.mas90-health-message[data-tone="good"]{border-color:#bcdcc9;background:#f0faf4;color:#216b47}
+.mas90-health-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:16px}
+.mas90-health-overview-card{min-width:0;padding:17px;border:1px solid #d9e3eb;border-radius:14px;background:#f8fafc;box-shadow:0 5px 16px rgba(18,45,70,.035)}
+.mas90-health-card-label{display:flex;align-items:center;gap:8px;color:#687b8e;font-size:11px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.mas90-health-dot{width:10px;height:10px;border-radius:50%;background:#9aa8b5;box-shadow:0 0 0 4px rgba(154,168,181,.13)}
+.mas90-health-overview-card>strong{display:block;margin-top:13px;color:#17324d;font-size:20px;overflow-wrap:anywhere}
+.mas90-health-overview-card>span:last-child{display:block;margin-top:5px;color:#6a7c8f;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.mas90-health-overview-card[data-tone="good"]{border-color:#badcc8;background:#f3fbf6}.mas90-health-overview-card[data-tone="good"] .mas90-health-dot{background:#24925d;box-shadow:0 0 0 4px rgba(36,146,93,.13)}
+.mas90-health-overview-card[data-tone="warn"]{border-color:#e8cf8c;background:#fff9e9}.mas90-health-overview-card[data-tone="warn"] .mas90-health-dot{background:#d79b13;box-shadow:0 0 0 4px rgba(215,155,19,.14)}
+.mas90-health-overview-card[data-tone="bad"]{border-color:#e3b2b5;background:#fff4f4}.mas90-health-overview-card[data-tone="bad"] .mas90-health-dot{background:#c43b42;box-shadow:0 0 0 4px rgba(196,59,66,.13)}
+.mas90-health-section{margin-top:16px;padding:18px;border:1px solid #d9e3eb;border-radius:14px;background:#fff}
+.mas90-health-section[hidden]{display:none!important}.mas90-health-current{border-color:#e5c46e;background:#fffaf0}
+.mas90-health-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.mas90-health-section-head h3{margin:3px 0 0;color:#17324d;font-size:19px}.mas90-health-section>p{margin:10px 0 0;color:#66798d;line-height:1.5}
+.mas90-health-eyebrow{display:block;color:#718498;font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.mas90-health-status-chip{display:inline-flex;align-items:center;justify-content:center;min-height:27px;padding:4px 9px;border-radius:999px;background:#e8f5ed;color:#216b47;font-size:11px;font-weight:900;white-space:nowrap}
+.mas90-health-status-chip.is-running,.mas90-health-status-chip.is-warning{background:#fff0c9;color:#815905}.mas90-health-status-chip.is-failed,.mas90-health-status-chip.is-offline,.mas90-health-status-chip.is-cancelled{background:#fde6e7;color:#a12b31}.mas90-health-status-chip.is-neutral{background:#eaf0f5;color:#5b6f82}
+.mas90-health-progress{height:8px;margin-top:14px;overflow:hidden;border-radius:999px;background:#e4e9e5}.mas90-health-progress span{display:block;width:0;height:100%;border-radius:inherit;background:#d99a13;transition:width .25s ease}
+.mas90-health-run-meta{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:11px;color:#66798d;font-size:12px}.mas90-health-run-meta span{overflow-wrap:anywhere}
+.mas90-health-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}
+.mas90-health-result-card{display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:7px;padding:12px;border:1px solid #dbe5ec;border-radius:11px;background:#f8fafc}.mas90-health-result-card>strong{flex:1 0 100%;color:#17324d;font-size:14px}
+.mas90-health-result-chip{display:inline-flex;min-height:26px;align-items:center;padding:4px 8px;border:0;border-radius:999px;background:#e6f4ec;color:#226a48;font:inherit;font-size:11px;font-weight:850;line-height:1.2}
+button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-decoration:underline;text-underline-offset:2px;cursor:pointer}button.mas90-health-result-chip.is-failed:hover,button.mas90-health-result-chip.is-failed:focus{background:#f8cfd1;color:#861e24}button.mas90-health-result-chip.is-failed:focus-visible{outline:3px solid rgba(161,43,49,.2);outline-offset:2px}
+.mas90-health-empty{padding:17px;border:1px dashed #cedae3;border-radius:10px;background:#f8fafc;color:#718396!important;text-align:center}
+.mas90-health-run-list{display:grid;gap:9px;margin-top:13px}
+.mas90-health-run-row{display:grid;grid-template-columns:minmax(155px,1.35fr) minmax(120px,.8fr) minmax(210px,1.6fr);gap:12px;align-items:center;padding:12px 13px;border:1px solid #dce5ec;border-radius:11px;background:#f9fbfc}
+.mas90-health-run-main strong,.mas90-health-run-main span{display:block}.mas90-health-run-main strong{color:#17324d;font-size:13px}.mas90-health-run-main span{margin-top:3px;color:#718396;font-size:11px;line-height:1.35}
+.mas90-health-run-counts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}.mas90-health-run-counts .mas90-health-result-chip{font-size:10px}
+.mas90-health-diagnostics{margin-top:16px;border:1px solid #d9e3eb;border-radius:14px;background:#f8fafc;overflow:hidden}.mas90-health-diagnostics summary{padding:15px 18px;color:#17324d;font-weight:900;cursor:pointer}.mas90-health-diagnostics[open] summary{border-bottom:1px solid #dfe7ed;background:#f2f6f9}.mas90-health-diagnostics>p{margin:16px 18px 0;color:#687b8e;font-size:12px;line-height:1.5}
+.mas90-health-diagnostic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 18px 18px}.mas90-health-diagnostic-grid>div{min-width:0;padding:11px;border:1px solid #dce5ec;border-radius:10px;background:#fff}.mas90-health-diagnostic-grid dt{color:#718396;font-size:10px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}.mas90-health-diagnostic-grid dd{margin:5px 0 0;color:#243d54;font-size:12px;font-weight:750;line-height:1.4;overflow-wrap:anywhere}.mas90-health-diagnostic-grid .mas90-health-diagnostic-wide{grid-column:1/-1}
+@media(max-width:950px){.mas90-health-heading{display:block}.mas90-health-toolbar{justify-content:flex-start;margin-top:16px}.mas90-health-overview{grid-template-columns:1fr}.mas90-health-run-row{grid-template-columns:minmax(150px,1.3fr) auto}.mas90-health-run-counts{grid-column:1/-1;justify-content:flex-start}}
+@media(max-width:620px){.mas90-health-heading h2{font-size:22px}.mas90-health-toolbar{display:grid;grid-template-columns:1fr}.mas90-health-toolbar button{width:100%;min-width:0}.mas90-health-results,.mas90-health-diagnostic-grid{grid-template-columns:1fr}.mas90-health-diagnostic-grid .mas90-health-diagnostic-wide{grid-column:auto}.mas90-health-section{padding:15px}.mas90-health-section-head{align-items:flex-start}.mas90-health-run-row{grid-template-columns:1fr}.mas90-health-run-row>.mas90-health-status-chip{justify-self:start}.mas90-health-run-counts{grid-column:auto}.mas90-health-overview-card>strong{font-size:18px}}
+</style>
+
+<script id="wooten-mas90-automation-health-script-ver327">
+(function(){
+  const panel=document.getElementById('admin-tab-automation');
+  if(!panel)return;
+  const get=id=>document.getElementById(id);
+  const activeStatuses=new Set(['queued','claimed','starting','running','exporting','validating','uploading','importing','finalizing','verifying','cancel_requested','in_progress']);
+  const terminalGood=new Set(['completed','success','successful']);
+  const terminalBad=new Set(['failed','error','cancelled','canceled','interrupted','missed']);
+  let healthData=null;
+  let loading=false;
+  let pollTimer=0;
+
+  function number(value){const result=Number(value);return Number.isFinite(result)&&result>0?Math.floor(result):0;}
+  function parseDate(value){
+    const source=String(value||'').trim();
+    if(!source)return null;
+    const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(source)&&!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(source)?source.replace(' ','T')+'Z':source;
+    const date=new Date(normalized);
+    return Number.isNaN(date.getTime())?null:date;
+  }
+  function formatCentral(value,includeSeconds){
+    const date=parseDate(value);if(!date)return 'Not reported';
+    return new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',second:includeSeconds?'2-digit':undefined,timeZoneName:'short'}).format(date);
+  }
+  function formatAgo(value){
+    const date=parseDate(value);if(!date)return 'Never reported';
+    const seconds=Math.max(0,Math.round((Date.now()-date.getTime())/1000));
+    if(seconds<60)return seconds+' second'+(seconds===1?'':'s')+' ago';
+    const minutes=Math.round(seconds/60);if(minutes<60)return minutes+' minute'+(minutes===1?'':'s')+' ago';
+    const hours=Math.round(minutes/60);if(hours<48)return hours+' hour'+(hours===1?'':'s')+' ago';
+    const days=Math.round(hours/24);return days+' day'+(days===1?'':'s')+' ago';
+  }
+  function formatDuration(run){
+    const start=parseDate(run?.started_at||run?.created_at),end=parseDate(run?.completed_at||run?.updated_at);
+    if(!start||!end||end<start)return '';
+    const seconds=Math.round((end-start)/1000);if(seconds<60)return seconds+' sec';
+    const minutes=Math.floor(seconds/60),remaining=seconds%60;return minutes+' min'+(remaining?' '+remaining+' sec':'');
+  }
+  function words(value,fallback){const text=String(value||'').trim();return text?text.replace(/[_-]+/g,' ').replace(/\b\w/g,char=>char.toUpperCase()):(fallback||'Not reported');}
+  function sourceLabel(run){const source=String(run?.run_type||run?.source||'').toLowerCase();if(source==='scheduled'||source==='automatic')return 'Nightly scheduled sync';if(source==='portal_request'||source==='requested'||source==='remote')return 'Portal-requested sync';return words(source,'MAS 90 sync');}
+  function statusTone(value){const status=String(value||'').toLowerCase();if(terminalGood.has(status)||status==='healthy'||status==='fresh'||status==='online'||status==='enabled')return 'good';if(terminalBad.has(status)||status==='offline'||status==='stale')return 'bad';if(activeStatuses.has(status)||status==='warning'||status==='due'||status==='delayed')return 'warn';return 'unknown';}
+  function setText(id,value){const node=get(id);if(node)node.textContent=String(value??'—');}
+  function setCard(cardId,tone,valueId,value,detailId,detail){const card=get(cardId);if(card)card.dataset.tone=tone||'unknown';setText(valueId,value);setText(detailId,detail);}
+  function setChip(node,status,label){if(!node)return;const tone=statusTone(status);node.className='mas90-health-status-chip '+(tone==='warn'?'is-warning':tone==='bad'?'is-'+(String(status||'').toLowerCase()==='offline'?'offline':'failed'):tone==='unknown'?'is-neutral':'');node.textContent=label||words(status,'Unknown');}
+  function showMessage(text,tone){const node=get('mas90HealthMessage');if(!node)return;node.hidden=!text;node.textContent=text||'';node.dataset.tone=tone||'unknown';}
+  function appendChip(parent,label,tone,recordType,runId){
+    const clickable=tone==='failed'&&recordType&&runId;
+    const node=document.createElement(clickable?'button':'span');
+    if(clickable){node.type='button';node.dataset.mas90FailureKind=recordType;node.dataset.mas90RequestId=String(runId);node.setAttribute('aria-label','Open '+label+' '+recordType+' records');}
+    node.className='mas90-health-result-chip'+(tone==='failed'?' is-failed':'');node.textContent=label;parent.appendChild(node);
+  }
+  function appendResultCard(parent,label,run,runId){
+    const customers=label==='Customers',success=number(run?.[customers?'customers_success_count':'payments_success_count']),failed=number(run?.[customers?'customers_failure_count':'payments_failure_count']);
+    const card=document.createElement('div');card.className='mas90-health-result-card';const title=document.createElement('strong');title.textContent=label;card.appendChild(title);
+    appendChip(card,success.toLocaleString()+' successful','good');
+    if(!customers){appendChip(card,number(run?.payments_inserted_count).toLocaleString()+' new','good');appendChip(card,number(run?.payments_duplicate_count).toLocaleString()+' already saved','good');}
+    appendChip(card,failed.toLocaleString()+' failed',failed?'failed':'good',customers?'customers':'payments',runId);parent.appendChild(card);
+  }
+  function renderOffice(data){
+    const office=data?.office_computer||{};
+    if(office.health_reporting_enabled===false){setCard('mas90HealthOfficeCard','warn','mas90HealthOfficeValue','Health reporting not installed','mas90HealthOfficeDetail','Existing synchronization can continue; update the office agent to enable live monitoring.');return;}
+    const officeStatus=String(office.status||'').toLowerCase(),online=office.online===true||officeStatus==='online',delayed=officeStatus==='delayed';
+    const hasReport=Boolean(office.last_seen_at||office.health_reporting_enabled||office.agent_name||office.agent_version);
+    const tone=!hasReport?'unknown':online?'good':delayed?'warn':'bad';
+    const value=!hasReport?'Not configured':online?'Online':delayed?'Delayed':'Offline';
+    const detail=office.last_seen_at?'Last contact '+formatAgo(office.last_seen_at):(office.message||'Waiting for the office agent heartbeat.');
+    setCard('mas90HealthOfficeCard',tone,'mas90HealthOfficeValue',value,'mas90HealthOfficeDetail',detail);
+  }
+  function displayScheduleTime(value){
+    const match=String(value||'21:00').match(/^(\d{1,2}):(\d{2})/);if(!match)return '9:00 PM';
+    const hour=Number(match[1]),minute=match[2],suffix=hour>=12?'PM':'AM',display=hour%12||12;return display+':'+minute+' '+suffix;
+  }
+  function renderSchedule(data){
+    const schedule=data?.schedule||{},office=data?.office_computer||{},taskState=String(office.task_enabled??'').toLowerCase(),reportingUnknown=office.health_reporting_enabled===false||String(data?.overall_status||'').toLowerCase()==='not_configured'||taskState==='unknown',reported=!reportingUnknown&&schedule.enabled!==null&&schedule.enabled!==undefined;
+    const enabled=reported?schedule.enabled!==false:true,tone=reported?(enabled?'good':'bad'):'unknown';
+    const value=reported?(enabled?'Enabled':'Disabled'):'Expected nightly run';
+    const time=displayScheduleTime(schedule.local_time);
+    const detail=enabled?(schedule.next_run_at?(reported?'Next run ':'Expected next run ')+formatCentral(schedule.next_run_at):'Daily at '+time+' Central Time'):'The Windows scheduled task is not enabled.';
+    setCard('mas90HealthScheduleCard',tone,'mas90HealthScheduleValue',value+' • '+time,'mas90HealthScheduleDetail',detail);
+  }
+  function renderFreshness(data){
+    const freshness=data?.data_freshness||{},status=String(freshness.status||'unknown').toLowerCase(),tone=statusTone(status),labels={fresh:'Current',due:'Due for nightly sync',stale:'Data is stale',unknown:'Unknown'};
+    const last=freshness.last_success_at||data?.last_successful_run?.completed_at;
+    const detail=last?'Last successful automation '+formatCentral(last)+' ('+formatAgo(last)+')':'No successful automated synchronization has been reported.';
+    setCard('mas90HealthFreshnessCard',tone,'mas90HealthFreshnessValue',labels[status]||words(status,'Unknown'),'mas90HealthFreshnessDetail',detail);
+  }
+  function runIsActive(run){return !!run&&activeStatuses.has(String(run.status||'').toLowerCase());}
+  function renderCurrent(data){
+    const section=get('mas90HealthCurrentSection'),run=data?.current_run,currentCounts=get('mas90HealthCurrentCounts');
+    if(!section)return;
+    if(!runIsActive(run)){section.hidden=true;if(currentCounts)currentCounts.replaceChildren();return;}
+    section.hidden=false;const status=String(run.status||'running').toLowerCase(),progress=Math.max(0,Math.min(100,Number(run.progress_percent)||0));
+    setText('mas90HealthCurrentTitle',sourceLabel(run));setChip(get('mas90HealthCurrentStatus'),status,words(status,'Running'));setText('mas90HealthCurrentDetail',run.message||('Current stage: '+words(run.stage,'Working')));
+    const bar=get('mas90HealthCurrentProgressBar'),track=get('mas90HealthCurrentProgress');if(bar)bar.style.width=progress+'%';if(track)track.setAttribute('aria-valuenow',String(progress));
+    const meta=get('mas90HealthCurrentMeta');if(meta){meta.replaceChildren();[['Stage',words(run.stage,'Working')],['Started',run.started_at?formatCentral(run.started_at):'Not reported'],['Agent',run.agent_name||data?.office_computer?.agent_name||'Office computer']].forEach(item=>{const span=document.createElement('span');span.textContent=item[0]+': '+item[1];meta.appendChild(span);});}
+    if(currentCounts){currentCounts.replaceChildren();const runId=String(run.run_id||run.request_id||'').trim();appendResultCard(currentCounts,'Customers',run,runId);appendResultCard(currentCounts,'Payments',run,runId);}
+  }
+  function renderLatest(data){
+    const run=data?.latest_run||data?.last_successful_run||null,empty=get('mas90HealthLatestEmpty'),content=get('mas90HealthLatestContent'),chip=get('mas90HealthLatestStatus'),counts=get('mas90HealthLatestCounts');
+    if(!run){if(empty)empty.hidden=false;if(content)content.hidden=true;setChip(chip,'unknown','Not reported');if(counts)counts.replaceChildren();return;}
+    if(empty)empty.hidden=true;if(content)content.hidden=false;const status=String(run.status||'unknown').toLowerCase();setChip(chip,status,words(status,'Unknown'));
+    const when=run.completed_at||run.updated_at||run.started_at,parts=[sourceLabel(run),when?formatCentral(when):'',formatDuration(run)].filter(Boolean);setText('mas90HealthLatestDetail',(run.message?run.message+' • ':'')+parts.join(' • '));
+    if(counts){counts.replaceChildren();const runId=String(run.run_id||run.request_id||'').trim();appendResultCard(counts,'Customers',run,runId);appendResultCard(counts,'Payments',run,runId);}
+  }
+  function compactCounts(run,runId){
+    const box=document.createElement('div');box.className='mas90-health-run-counts';
+    const customerFailure=number(run?.customers_failure_count),paymentFailure=number(run?.payments_failure_count);
+    appendChip(box,number(run?.customers_success_count).toLocaleString()+' customers','good');appendChip(box,customerFailure.toLocaleString()+' failed',customerFailure?'failed':'good','customers',runId);
+    appendChip(box,number(run?.payments_inserted_count).toLocaleString()+' new payments','good');appendChip(box,paymentFailure.toLocaleString()+' failed',paymentFailure?'failed':'good','payments',runId);return box;
+  }
+  function renderRecent(data){
+    const list=get('mas90HealthRecentRuns');if(!list)return;const runs=(Array.isArray(data?.recent_runs)?data.recent_runs:[]).slice(0,10);list.replaceChildren();
+    if(!runs.length){const empty=document.createElement('div');empty.className='mas90-health-empty';empty.textContent='No run history is available.';list.appendChild(empty);return;}
+    runs.forEach(run=>{const row=document.createElement('article');row.className='mas90-health-run-row';const main=document.createElement('div');main.className='mas90-health-run-main';const title=document.createElement('strong'),meta=document.createElement('span');title.textContent=sourceLabel(run);const when=run.completed_at||run.updated_at||run.started_at;meta.textContent=[when?formatCentral(when):'Time not reported',formatDuration(run)].filter(Boolean).join(' • ');main.append(title,meta);const chip=document.createElement('span');setChip(chip,run.status,words(run.status,'Unknown'));const runId=String(run.run_id||run.request_id||'').trim();row.append(main,chip,compactCounts(run,runId));list.appendChild(row);});
+  }
+  function renderDiagnostics(data){
+    const office=data?.office_computer||{},schedule=data?.schedule||{},latest=data?.latest_run||{};
+    const taskDetails=[schedule.enabled===true?'Enabled':schedule.enabled===false?'Disabled':'Not reported',schedule.label||office.task_name||'',schedule.last_result||office.task_last_result||office.task_state||''].filter(Boolean).join(' • ');
+    setText('mas90HealthDiagAgent',office.agent_name||latest.agent_name||'Not reported');setText('mas90HealthDiagVersion',office.agent_version||latest.agent_version||'Not reported');setText('mas90HealthDiagListener',words(office.listener_state||office.status,'Not reported'));setText('mas90HealthDiagHeartbeat',office.last_seen_at?formatCentral(office.last_seen_at,true)+' • '+formatAgo(office.last_seen_at):'Never reported');setText('mas90HealthDiagTask',taskDetails);setText('mas90HealthDiagNextRun',schedule.next_run_at?formatCentral(schedule.next_run_at):'Expected daily at 9:00 PM Central Time');setText('mas90HealthDiagOdbc',words(office.odbc_status,'Not reported'));setText('mas90HealthDiagCheckpoint',office.payment_checkpoint||'Not reported');setText('mas90HealthDiagMessage',office.message||latest.message||'No diagnostic message reported.');
+  }
+  function renderAlerts(data){
+    const alerts=data?.alerts||{},count=number(alerts.unresolved_count),recent=Array.isArray(alerts.recent)?alerts.recent:[];
+    if(count){const first=recent.find(alert=>!alert?.resolved_at)||recent[0];showMessage(count.toLocaleString()+' unresolved automation alert'+(count===1?'':'s')+(first?.message?': '+String(first.message):'.'),first?.severity==='critical'||first?.severity==='error'?'bad':'warn');}
+    else showMessage('','');
+  }
+  function render(data){
+    healthData=data||{};renderOffice(healthData);renderSchedule(healthData);renderFreshness(healthData);renderCurrent(healthData);renderLatest(healthData);renderRecent(healthData);renderDiagnostics(healthData);renderAlerts(healthData);
+    const busy=runIsActive(healthData.current_run)||activeStatuses.has(String(healthData.remote_sync_request?.status||'').toLowerCase())||String(healthData.active_import?.status||'').toLowerCase()==='in_progress';const request=get('mas90HealthRequestSync');if(request){request.disabled=busy;request.textContent=busy?'Sync in Progress':'Request MAS 90 Sync';}
+    const download=get('mas90HealthDownload');if(download)download.disabled=false;
+    const overall=String(healthData.overall_status||'unknown').toLowerCase(),dashboard=get('mas90HealthDashboardState');if(dashboard){const label={healthy:'Online • Data current',running:'Synchronization in progress',warning:'Attention needed',offline:'Office computer offline',failed:'Latest synchronization failed',not_configured:'Health reporting not installed'}[overall]||'Health status available';dashboard.textContent=label;dashboard.dataset.tone=statusTone(overall);}
+  }
+  function setLoading(value,manual){const button=get('mas90HealthRefresh');if(!button)return;button.disabled=value;if(manual||value)button.textContent=value?'Refreshing…':'Refresh';}
+  async function load(options){
+    if(loading)return;const manual=Boolean(options?.manual),adminKey=get('adminKey')?.value.trim()||'';
+    if(!adminKey){showMessage('Your admin session has expired. Sign in again to load MAS 90 health information.','bad');return;}
+    loading=true;setLoading(true,manual);
+    try{
+      const response=await fetch('/api/admin/mas90-health',{headers:{'X-Admin-Key':adminKey,'Accept':'application/json'},cache:'no-store'}),data=await response.json().catch(()=>({}));
+      if(!response.ok||data.success===false){const fallback=response.status===404?'The MAS 90 Health Center service is not installed on the portal yet.':'MAS 90 health information could not be loaded.';throw new Error(data.error||fallback);}
+      render(data);
+    }catch(error){showMessage(error.message||'MAS 90 health information could not be loaded.','bad');}
+    finally{loading=false;setLoading(false,manual);}
+  }
+  function scrub(value,depth){
+    if(depth>8)return '[omitted]';if(Array.isArray(value))return value.slice(0,100).map(item=>scrub(item,depth+1));if(value&&typeof value==='object'){const clean={};Object.keys(value).forEach(name=>{clean[name]=/(?:password|secret|token|authorization|admin.?key)/i.test(name)?'[redacted]':scrub(value[name],depth+1);});return clean;}return value;
+  }
+  function downloadDiagnostics(){
+    if(!healthData)return;const payload={generated_at:new Date().toISOString(),display_timezone:'America/Chicago',health:scrub(healthData,0)},blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a'),date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());link.href=url;link.download='MAS90-Automation-Diagnostics-'+date+'.json';link.style.display='none';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }
+  function isVisible(){return document.visibilityState!=='hidden'&&!panel.hidden&&panel.classList.contains('is-active');}
+  function syncPolling(){
+    if(pollTimer){clearInterval(pollTimer);pollTimer=0;}
+    if(!isVisible())return;
+    load({force:true});pollTimer=window.setInterval(()=>{if(isVisible())load();else syncPolling();},15000);
+  }
+  get('mas90HealthRefresh')?.addEventListener('click',()=>load({manual:true,force:true}));get('mas90HealthDownload')?.addEventListener('click',downloadDiagnostics);
+  new MutationObserver(syncPolling).observe(panel,{attributes:true,attributeFilter:['class','hidden']});document.addEventListener('visibilitychange',syncPolling);get('admin-tab-btn-automation')?.addEventListener('click',()=>requestAnimationFrame(syncPolling));
+  window.loadMas90AutomationHealth=load;syncPolling();
+})();
 </script>
 
 <style id="wooten-statement-form-organization-ver312">
@@ -11158,7 +11444,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function applyPermissions(user){
     currentUser=user||null;window.wootenAdminUser=currentUser;
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',activity:'customer_activity',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
+    const mapping={customers:'database',automation:'database',activity:'customer_activity',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
     let firstVisible=null;
     document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
@@ -12266,7 +12552,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function applyPermissions(user){
     currentUser=user||null;window.wootenAdminUser=currentUser;
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',activity:'customer_activity',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',activation:'activation'};
+    const mapping={customers:'database',automation:'database',activity:'customer_activity',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',activation:'activation'};
     let firstVisible=null;
     document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
@@ -12871,19 +13157,20 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-mas90-remote-request-ver299">
 (function(){
-  const trigger=document.getElementById('mas90RemoteRequestButton');
+  const triggers=Array.from(document.querySelectorAll('[data-mas90-request-trigger]'));
   const modal=document.getElementById('mas90RequestModal');
   const form=document.getElementById('mas90RequestForm');
   const password=document.getElementById('mas90MasterPassword');
   const confirmed=document.getElementById('mas90RequestConfirmed');
   const message=document.getElementById('mas90RequestMessage');
   const submit=document.getElementById('mas90RequestSubmit');
-  if(!trigger||!modal||!form||!password||!confirmed||!message||!submit)return;
+  if(!triggers.length||!modal||!form||!password||!confirmed||!message||!submit)return;
   let pending=false;
+  let returnFocus=triggers[0];
   function showMessage(text,good){message.textContent=text||'';message.className='mas90-request-message'+(text?' show '+(good?'ok':'bad'):'');}
-  function open(){if(trigger.disabled)return;form.reset();showMessage('');modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.classList.add('mas90-request-modal-open');setTimeout(()=>password.focus(),40);}
-  function close(){if(pending)return;modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.classList.remove('mas90-request-modal-open');password.value='';confirmed.checked=false;showMessage('');trigger.focus({preventScroll:true});}
-  trigger.addEventListener('click',open);
+  function open(event){const trigger=event?.currentTarget||triggers[0];if(trigger.disabled)return;returnFocus=trigger;form.reset();showMessage('');modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.classList.add('mas90-request-modal-open');setTimeout(()=>password.focus(),40);}
+  function close(){if(pending)return;modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.classList.remove('mas90-request-modal-open');password.value='';confirmed.checked=false;showMessage('');returnFocus?.focus({preventScroll:true});}
+  triggers.forEach(trigger=>trigger.addEventListener('click',open));
   modal.querySelectorAll('[data-mas90-request-close]').forEach(item=>item.addEventListener('click',close));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.hidden)close();});
   form.addEventListener('submit',async event=>{
@@ -12902,6 +13189,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       if(typeof renderMas90RemoteRequest==='function')renderMas90RemoteRequest(data.remote_sync_request||null,null);
       modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.classList.remove('mas90-request-modal-open');confirmed.checked=false;
       if(typeof loadImportLastUpdates==='function')await loadImportLastUpdates();
+      if(document.getElementById('admin-tab-automation')?.classList.contains('is-active')&&typeof window.loadMas90AutomationHealth==='function')await window.loadMas90AutomationHealth({force:true});
     }catch(error){password.value='';showMessage(error.message||'The MAS 90 retrieval request could not be queued.');password.focus();}
     finally{pending=false;submit.disabled=false;submit.textContent='Confirm Request';}
   });
@@ -12992,7 +13280,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   async function open(trigger){
     const recordType=String(trigger.dataset.mas90FailureKind||'').toLowerCase();
     const panel=document.getElementById('mas90RemoteRequestPanel');
-    const requestId=String(panel?.dataset.requestId||'').trim();
+    const requestId=String(trigger.dataset.mas90RequestId||trigger.dataset.mas90RunId||panel?.dataset.requestId||'').trim();
     if(!requestId||!['customers','payments'].includes(recordType))return;
     lastTrigger=trigger;
     loading=true;
