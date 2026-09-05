@@ -429,6 +429,26 @@
   }
 
 </style>
+<style id="wooten-collections-table-toolbar-ver357">
+#admin-tab-collections .collections-table-actions{
+  display:flex!important;
+  justify-content:flex-end!important;
+  align-items:center!important;
+  gap:10px!important;
+  width:100%!important;
+  margin:0 0 12px!important;
+}
+@media(max-width:760px){
+  #admin-tab-collections .collections-table-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #admin-tab-collections .collections-table-actions button{
+    width:100%!important;
+    min-width:0!important;
+  }
+}
+</style>
 <style id="wooten-admin-sidebar-fixed-sections-ver355">
 /* Ver355 — fixed sidebar header/footer with one independently scrolling menu region. */
 #adminSidebar .admin-tabs{
@@ -6450,7 +6470,6 @@ textarea[data-request-response]{
   <div class="card admin-tab-panel collections-panel" id="admin-tab-collections" role="tabpanel" aria-labelledby="admin-tab-btn-collections" data-admin-panel="collections">
     <div class="collections-heading">
       <div><div class="admin-page-label">Accounts Receivable</div><h2>Credit &amp; Collections Center</h2><p>Prioritize past-due accounts, review recent payments, and record collection follow-ups. Balances and aging are read-only from MAS 90.</p></div>
-      <div class="collections-heading-actions"><button class="secondary" id="collectionsExportPdf" type="button">Export PDF</button><button class="primary" id="collectionsRefresh" type="button">Refresh</button></div>
     </div>
     <style>
       .collections-summary>div{position:relative}
@@ -6483,6 +6502,7 @@ textarea[data-request-response]{
       <button class="primary" id="collectionsApply" type="button">Apply Filters</button>
     </div>
     <div id="collectionsStatus" class="status"></div>
+    <div class="collections-heading-actions collections-table-actions" aria-label="Collection worklist actions"><button class="secondary" id="collectionsExportPdf" type="button">Export PDF</button><button class="primary" id="collectionsRefresh" type="button">Refresh</button></div>
     <div class="tablewrap collections-table-wrap"><table id="collectionsTable" data-pdf-table-name="Credit and Collections Worklist" data-auto-pdf="false"><thead><tr><th>Customer</th><th>Balance / Aging</th><th>Credit</th><th>Recent Payment</th><th>Collection Plan</th><th>Actions</th></tr></thead><tbody id="collectionsBody"></tbody></table></div>
     <div class="db-pagination" id="collectionsPagination" hidden><button class="secondary" id="collectionsPrev" type="button">Previous 20</button><div class="db-page-info" id="collectionsPageInfo">Page 1 of 1</div><button class="secondary" id="collectionsNext" type="button">Next 20</button></div>
   </div>
@@ -7100,7 +7120,7 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
 }
 #documentSectionSendStatements #statementBatchStatus{
   margin-top:8px!important;
-  margin-bottom:0!important;
+  margin-bottom:12px!important;
 }
 
 @media(min-width:701px) and (max-width:1300px){
