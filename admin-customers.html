@@ -6654,42 +6654,6 @@ textarea[data-request-response]{
       <p><strong>Cloudflare D1 Time Travel</strong> remains the fastest way to restore the live database to an earlier point. The downloadable backup is an additional emergency copy containing portal database tables and records.</p>
       <p>Uploaded statements, invoices, application documents, and notification attachments remain in their existing private file storage and are not duplicated inside the database backup.</p>
     </section>
-    <div class="portal-backup-help-backdrop" id="portalBackupHelpBackdrop" hidden aria-hidden="true">
-      <section class="portal-backup-help-dialog" role="dialog" aria-modal="true" aria-labelledby="portalBackupHelpTitle" aria-describedby="portalBackupHelpIntro">
-        <button class="portal-backup-help-close" id="portalBackupHelpClose" type="button" aria-label="Close backup information">&times;</button>
-        <div class="admin-page-label">Backup Contents</div>
-        <h2 id="portalBackupHelpTitle">What does this backup include?</h2>
-        <p id="portalBackupHelpIntro">This creates a downloadable JSON copy of the live Cloudflare D1 database used by the customer portal and admin pages.</p>
-        <div class="portal-backup-help-grid">
-          <section class="included">
-            <h3>Included</h3>
-            <ul>
-              <li>Customers, balances, aging, credit information, and payment history</li>
-              <li>Portal accounts, activation information, and customer preferences</li>
-              <li>Statement cycles A and B, Exceptional Customers, schedules, runs, and delivery results</li>
-              <li>Notifications, communication history, fuel requests, and profile-change requests</li>
-              <li>Account applications, reviews, admin users, permissions, and activity history</li>
-              <li>MAS 90 import settings, progress, history, and failure records</li>
-              <li>Credit and Collections data, Twilio settings, and portal configuration records</li>
-              <li>Database table structures and all stored rows in those portal tables</li>
-            </ul>
-          </section>
-          <section class="excluded">
-            <h3>Not included</h3>
-            <ul>
-              <li>Temporary customer or admin login sessions</li>
-              <li>Temporary password-reset and SMS verification codes</li>
-              <li>Cloudflare and SQLite protected internal tables</li>
-              <li>The original MAS 90 MDB files</li>
-              <li>Portal HTML, JavaScript, Worker code, or GitHub files</li>
-              <li>PDFs, invoices, application attachments, and images stored separately in private file storage</li>
-            </ul>
-          </section>
-        </div>
-        <p class="portal-backup-help-note"><strong>Important:</strong> Database records that point to privately stored documents are included, but the document files themselves remain in their existing storage.</p>
-        <div class="portal-backup-help-footer"><button class="primary" id="portalBackupHelpDone" type="button">Done</button></div>
-      </section>
-    </div>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -16307,8 +16271,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 .portal-backup-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}
 .portal-backup-actions button{min-height:44px}
 .portal-backup-create-group{display:flex;align-items:center;gap:8px}
-.portal-backup-help-button{width:38px!important;min-width:38px!important;height:38px!important;min-height:38px!important;padding:0!important;border:1px solid #9aabb9!important;border-radius:50%!important;background:#fff!important;color:#17324d!important;font-size:18px!important;font-weight:900!important;line-height:1!important;box-shadow:none!important}
-.portal-backup-help-button:hover,.portal-backup-help-button:focus-visible{border-color:#17324d!important;background:#eaf1f6!important;color:#17324d!important;transform:none!important}
+.portal-backup-help-button{width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;align-self:center;padding:0!important;border:1px solid #9aabb9!important;border-radius:50%!important;background:#fff!important;color:#17324d!important;font-size:17px!important;font-weight:900!important;line-height:1!important;box-shadow:none!important}
+.portal-backup-help-button:hover,.portal-backup-help-button:focus-visible{border-color:#617b91!important;background:#eaf1f6!important;color:#17324d!important;transform:none!important}
 .portal-backup-help-button:focus-visible{outline:3px solid rgba(31,78,121,.18)!important;outline-offset:2px!important}
 .portal-backup-panel #portalBackupProgress{margin:0 0 14px}
 .portal-backup-panel #portalBackupProgress .preview-progress-track>span{width:38%;animation:portalBackupProgressSlide 1.2s ease-in-out infinite}
@@ -16323,34 +16287,12 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 .portal-recovery-guide{margin-top:22px;padding:18px 20px;border:1px solid #cfe0ec;border-radius:14px;background:#f3f8fc}
 .portal-recovery-guide h3{margin:0 0 8px;color:#173a61}
 .portal-recovery-guide p{margin:7px 0;color:#587086;line-height:1.55}
-.portal-backup-help-backdrop{position:fixed;inset:0;z-index:10080;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(12,35,57,.42)}
-.portal-backup-help-backdrop[hidden]{display:none!important}
-.portal-backup-help-dialog{position:relative;width:min(880px,96vw);max-height:min(88dvh,820px);overflow:auto;padding:26px;border:1px solid #d3dee7;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(12,35,57,.24)}
-.portal-backup-help-dialog>h2{margin:4px 52px 8px 0;color:#0b2947;font-size:25px}
-.portal-backup-help-dialog>p{margin:0 46px 18px 0;color:#61758a;line-height:1.55}
-.portal-backup-help-close{position:absolute;top:16px;right:16px;width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;border:1px solid #cbd7e0!important;border-radius:50%!important;background:#fff!important;color:#50677c!important;font-size:28px!important;font-weight:500!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-shadow:none!important}
-.portal-backup-help-close:hover,.portal-backup-help-close:focus-visible{border-color:#17324d!important;background:#eef3f7!important;color:#17324d!important;transform:none!important}
-.portal-backup-help-close:focus-visible{outline:3px solid rgba(47,125,215,.22)!important;outline-offset:2px!important}
-.portal-backup-help-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.portal-backup-help-grid>section{padding:17px 18px;border:1px solid #dae4ec;border-radius:14px;background:#f8fafc}
-.portal-backup-help-grid>section.included{border-color:#cce5d6;background:#f2faf5}
-.portal-backup-help-grid>section.excluded{border-color:#ead9d9;background:#fff8f8}
-.portal-backup-help-grid h3{margin:0 0 10px;color:#17324d;font-size:17px}
-.portal-backup-help-grid ul{margin:0;padding-left:20px;color:#526a7e}
-.portal-backup-help-grid li{margin:0 0 8px;line-height:1.45}
-.portal-backup-help-grid li:last-child{margin-bottom:0}
-.portal-backup-help-note{margin:14px 0 0!important;padding:12px 14px;border:1px solid #d7e3ec;border-radius:11px;background:#f4f8fb;color:#455f75!important}
-.portal-backup-help-footer{display:flex;justify-content:flex-end;margin-top:16px}
-.portal-backup-help-footer button{min-width:110px}
 @media(max-width:800px){
   .portal-backup-summary{grid-template-columns:1fr}
   .portal-backup-actions{display:grid;grid-template-columns:1fr}
   .portal-backup-actions>button{width:100%!important}
-  .portal-backup-create-group{display:grid;grid-template-columns:minmax(0,1fr) 42px}
+  .portal-backup-create-group{display:grid;grid-template-columns:minmax(0,1fr) 36px}
   .portal-backup-create-group #portalBackupCreate{width:100%!important}
-  .portal-backup-help-grid{grid-template-columns:1fr}
-  .portal-backup-help-dialog{padding:22px 17px}
-  .portal-backup-help-dialog>h2{font-size:22px}
   .portal-backup-table-wrap{border:0;overflow:visible}
   .portal-backup-table-wrap table,.portal-backup-table-wrap thead,.portal-backup-table-wrap tbody,.portal-backup-table-wrap tr,.portal-backup-table-wrap td{display:block;width:100%;min-width:0}
   .portal-backup-table-wrap thead{display:none}
@@ -16379,9 +16321,6 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   const next=document.getElementById('portalBackupNext');
   const pageInfo=document.getElementById('portalBackupPageInfo');
   const helpBtn=document.getElementById('portalBackupHelp');
-  const helpBackdrop=document.getElementById('portalBackupHelpBackdrop');
-  const helpClose=document.getElementById('portalBackupHelpClose');
-  const helpDone=document.getElementById('portalBackupHelpDone');
   if(!tab||!panel||!rowsEl)return;
   const PAGE_SIZE=20;
   let backups=[],page=1,loaded=false,busy=false;
@@ -16391,8 +16330,6 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function formatDate(value){const date=new Date(value);return Number.isNaN(date.getTime())?String(value||'—'):date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
   function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
   function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
-  function openHelp(){if(!helpBackdrop)return;helpBackdrop.hidden=false;helpBackdrop.setAttribute('aria-hidden','false');requestAnimationFrame(()=>helpClose?.focus());}
-  function closeHelp(){if(!helpBackdrop)return;helpBackdrop.hidden=true;helpBackdrop.setAttribute('aria-hidden','true');helpBtn?.focus({preventScroll:true});}
   function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
   async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}if(!response.ok||data.success===false){let detail=data.error||'';if(!detail&&raw&&!/^\s*</.test(raw))detail=raw.slice(0,240);if(!detail&&response.status>=500)detail='Cloudflare stopped the backup before it completed. Deploy the latest worker.js and try again.';throw new Error(detail||'The database backup request failed.');}return data;}
   function render(){
@@ -16417,8 +16354,82 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',load);latestBtn.addEventListener('click',()=>download(backups[0]));
   rowsEl.addEventListener('click',event=>{const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
   prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
-  helpBtn?.addEventListener('click',openHelp);helpClose?.addEventListener('click',closeHelp);helpDone?.addEventListener('click',closeHelp);
-  helpBackdrop?.addEventListener('click',event=>{if(event.target===helpBackdrop)closeHelp();});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&helpBackdrop&&!helpBackdrop.hidden)closeHelp();});
+  helpBtn?.addEventListener('click',()=>window.alert([
+    'Portal Database Backup:',
+    '',
+    'Included:',
+    '• Customers, balances, aging, credit information, and payment history.',
+    '• Portal accounts, activation information, and customer preferences.',
+    '• Statement Cycles A and B, Exceptional Customers, schedules, runs, and delivery results.',
+    '• Notifications, communication history, fuel requests, and profile-change requests.',
+    '• Account applications, reviews, admin users, permissions, and activity history.',
+    '• MAS 90 import settings, progress, history, and failure records.',
+    '• Credit and Collections data, Twilio settings, portal configuration, table structures, and stored rows.',
+    '',
+    'Not included:',
+    '• Temporary login sessions, password-reset codes, or SMS verification codes.',
+    '• Cloudflare and SQLite protected internal tables.',
+    '• Original MAS 90 MDB files.',
+    '• Portal HTML, JavaScript, Worker code, or GitHub files.',
+    '• PDFs, invoices, application attachments, and images stored separately in private file storage.',
+    '',
+    'Document reference records are included, but the document files remain in private file storage.'
+  ].join('\n')));
 })();
 </script>
+<style id="wooten-table-action-alignment-ver369">
+/* Keep table-related Export PDF and Refresh controls consistently aligned. */
+.table-pdf-export-toolbar,
+#admin-tab-collections .collections-table-actions,
+#documentSectionExceptionalCustomers .exceptional-list-actions,
+#documentSectionStatementScheduling .schedule-report-actions,
+.admin-audit-table-toolbar{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+  width:100%!important;
+  margin-top:0!important;
+  margin-bottom:12px!important;
+}
+.admin-audit-table-toolbar .table-pdf-export-toolbar{
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-height:0!important;
+  margin:0!important;
+}
+.table-pdf-export-toolbar .table-pdf-export-button,
+.admin-audit-table-toolbar .table-pdf-export-button{
+  width:auto!important;
+  min-width:0!important;
+}
+#admin-tab-backup .portal-backup-actions,
+.db-actions,
+.live-payment-actions,
+#documentSectionCustomerDocuments>.actions,
+#documentSectionSendStatements .statement-send-actions,
+.mas90-health-toolbar{
+  justify-content:flex-end!important;
+}
+#refreshInboxBtn{margin-left:auto!important}
+@media(max-width:800px){
+  .table-pdf-export-toolbar,
+  #admin-tab-collections .collections-table-actions,
+  #documentSectionExceptionalCustomers .exceptional-list-actions,
+  #documentSectionStatementScheduling .schedule-report-actions,
+  .admin-audit-table-toolbar{
+    display:flex!important;
+    justify-content:flex-end!important;
+  }
+  .table-pdf-export-toolbar .table-pdf-export-button,
+  #admin-tab-collections .collections-table-actions button,
+  #documentSectionExceptionalCustomers .exceptional-list-actions button,
+  #documentSectionStatementScheduling .schedule-report-actions button,
+  .admin-audit-table-toolbar>button,
+  .admin-audit-table-toolbar .table-pdf-export-button{
+    flex:0 1 auto!important;
+    width:auto!important;
+  }
+}
+</style>

@@ -3409,3 +3409,47 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 })();
 </script>
 </html>
+<style id="wooten-customer-table-action-alignment-ver369">
+/* Use the same right alignment and spacing for customer-side table refresh controls. */
+#customerDocuments .customer-documents-head,
+#customerPaymentHistory .payment-history-head,
+#customerFuelHistory .fuel-history-head{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+  width:100%!important;
+  margin-bottom:12px!important;
+}
+#customerDocuments .customer-documents-head>div,
+#customerPaymentHistory .payment-history-head>div,
+#customerFuelHistory .fuel-history-head>div{
+  flex:1 1 auto!important;
+  min-width:0!important;
+}
+#customerDocuments .customer-documents-refresh,
+#customerPaymentHistory .payment-history-refresh,
+#customerFuelHistory .fuel-history-refresh{
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  margin:0 0 0 auto!important;
+  align-self:flex-start!important;
+}
+@media(max-width:700px){
+  #customerDocuments .customer-documents-head,
+  #customerPaymentHistory .payment-history-head,
+  #customerFuelHistory .fuel-history-head{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    align-items:start!important;
+  }
+  #customerDocuments .customer-documents-refresh,
+  #customerPaymentHistory .payment-history-refresh,
+  #customerFuelHistory .fuel-history-refresh{
+    grid-column:2!important;
+    justify-self:end!important;
+    width:auto!important;
+  }
+}
+</style>
