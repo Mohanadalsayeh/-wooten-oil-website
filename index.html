@@ -3474,3 +3474,22 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 #paymentHistoryRefresh:disabled,
 #fuelHistoryRefresh:disabled{opacity:.55!important}
 </style>
+<style id="wooten-payment-history-refresh-all-states-ver376">
+/* Keep Payment History Refresh green in every interactive/loading state. */
+#paymentHistoryRefresh,
+#paymentHistoryRefresh:hover,
+#paymentHistoryRefresh:focus,
+#paymentHistoryRefresh:focus-visible,
+#paymentHistoryRefresh:active,
+#paymentHistoryRefresh:disabled,
+#paymentHistoryRefresh[disabled],
+#paymentHistoryRefresh.is-loading,
+#paymentHistoryRefresh.loading{
+  background:#28a36a!important;
+  border-color:#28a36a!important;
+  color:#fff!important;
+  opacity:1!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+</style>
