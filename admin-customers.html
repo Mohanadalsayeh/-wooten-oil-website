@@ -16379,6 +16379,12 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
   function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
   function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;if(automaticToggle)automaticToggle.disabled=value;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
+  function renderSkeleton(){
+    const table=rowsEl.closest('table');if(table){table.dataset.pdfEmpty='true';table.setAttribute('aria-busy','true');}
+    const cells=[['Date','date'],['Type','type'],['Created By','admin'],['Tables','number'],['Rows','number'],['File Size','size'],['Action','action']];
+    rowsEl.innerHTML=Array.from({length:3},()=>'<tr class="portal-backup-skeleton-row" aria-hidden="true">'+cells.map(cell=>'<td data-label="'+cell[0]+'"><span class="portal-backup-skeleton-line '+cell[1]+'"></span></td>').join('')+'</tr>').join('');
+    pagination.hidden=true;
+  }
   function closeAuthorization(password=null){if(authorizationModal){authorizationModal.hidden=true;authorizationModal.setAttribute('aria-hidden','true');}document.body.classList.remove('mas90-request-modal-open');if(authorizationPassword)authorizationPassword.value='';if(authorizationMessage){authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';}const resolve=authorizationResolve;authorizationResolve=null;if(resolve)resolve(password);authorizationReturnFocus?.focus?.({preventScroll:true});authorizationReturnFocus=null;}
   function authorize(action,item=null){
     const creating=action==='create',restoring=action==='restore',scheduling=action==='schedule';
@@ -16400,13 +16406,13 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}if(!response.ok||data.success===false){let detail=data.error||'';if(!detail&&raw&&!/^\s*</.test(raw))detail=raw.slice(0,240);if(!detail&&response.status>=500)detail='Cloudflare stopped the backup before it completed. Deploy the latest worker.js and try again.';throw new Error(detail||'The database backup request failed.');}return data;}
   function render(){
     const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backups.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
-    const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty=shown.length?'false':'true';
+    const table=rowsEl.closest('table');if(table){table.dataset.pdfEmpty=shown.length?'false':'true';table.setAttribute('aria-busy','false');}
     rowsEl.innerHTML=shown.length?shown.map(item=>'<tr><td data-label="Date">'+esc(formatDate(item.created_at))+'</td><td data-label="Type">'+esc(item.source==='automatic'?'Automatic':'Manual')+'</td><td data-label="Created By">'+esc(item.created_by||'Wooten Oil Admin')+'</td><td data-label="Tables">'+Number(item.table_count||0).toLocaleString()+'</td><td data-label="Rows">'+Number(item.total_rows||0).toLocaleString()+'</td><td data-label="File Size">'+esc(formatBytes(item.stored_bytes))+'</td><td data-label="Action"><div class="portal-backup-row-actions"><button class="secondary portal-backup-download" type="button" data-backup-key="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Download</button><button class="portal-backup-restore" type="button" data-backup-restore="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Restore</button></div></td></tr>').join(''):'<tr><td colspan="7" class="portal-backup-empty">No portal database backups are available yet.</td></tr>';
     pagination.hidden=backups.length<=PAGE_SIZE;prev.disabled=page<=1;next.disabled=page>=pages;pageInfo.textContent='Page '+page+' of '+pages+' • '+backups.length+' backup'+(backups.length===1?'':'s');latestBtn.disabled=busy||!backups.length;
   }
   async function load(){
-    if(busy)return;setBusy(true,'Loading portal database backup history…');message('');
-    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];automaticEnabled=data.automatic?.enabled!==false;if(automaticToggle)automaticToggle.checked=automaticEnabled;if(automaticMeta)automaticMeta.textContent=automaticEnabled?'Enabled • America/Chicago • 30 automatic backups':'Disabled • scheduled backups will be skipped';storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){backups=[];if(automaticToggle)automaticToggle.checked=automaticEnabled;const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty='true';rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
+    if(busy)return;setBusy(true,'Loading portal database backup history…');message('');renderSkeleton();
+    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];automaticEnabled=data.automatic?.enabled!==false;if(automaticToggle)automaticToggle.checked=automaticEnabled;if(automaticMeta)automaticMeta.textContent=automaticEnabled?'Enabled • America/Chicago • 30 automatic backups':'Disabled • scheduled backups will be skipped';storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){backups=[];if(automaticToggle)automaticToggle.checked=automaticEnabled;const table=rowsEl.closest('table');if(table){table.dataset.pdfEmpty='true';table.setAttribute('aria-busy','false');}rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
   }
   async function updateAutomaticSchedule(enabled){
     if(busy||!automaticToggle)return;automaticToggle.checked=automaticEnabled;const mainAdminPassword=await authorize('schedule',{enabled});if(!mainAdminPassword)return;setBusy(true,enabled?'Enabling automatic portal database backups…':'Disabling automatic portal database backups…');message('Authorizing the automatic backup schedule change…',true);
@@ -16637,4 +16643,20 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     margin-top:22px!important;
   }
 }
+</style>
+<style id="wooten-backup-table-skeleton-ver384">
+.portal-backup-skeleton-row{pointer-events:none}
+.portal-backup-skeleton-row td{background:#fff!important}
+.portal-backup-skeleton-line{display:block;height:13px;max-width:100%;border-radius:7px;background:linear-gradient(90deg,#e8eef3 25%,#f7fafc 45%,#e8eef3 65%);background-size:220% 100%;animation:portalBackupSkeletonShimmer 1.2s ease-in-out infinite}
+.portal-backup-skeleton-line.date{width:132px}.portal-backup-skeleton-line.type{width:64px}.portal-backup-skeleton-line.admin{width:112px}.portal-backup-skeleton-line.number{width:52px}.portal-backup-skeleton-line.size{width:70px}.portal-backup-skeleton-line.action{width:205px;height:38px;margin-left:auto;border-radius:10px}
+.portal-backup-skeleton-row:nth-child(2) .portal-backup-skeleton-line{animation-delay:.1s}
+.portal-backup-skeleton-row:nth-child(3) .portal-backup-skeleton-line{animation-delay:.2s}
+@keyframes portalBackupSkeletonShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media(max-width:800px){
+  .portal-backup-skeleton-row td::before{opacity:.72}
+  .portal-backup-skeleton-line{width:68%!important}
+  .portal-backup-skeleton-line.date,.portal-backup-skeleton-line.admin{width:78%!important}
+  .portal-backup-skeleton-line.action{width:100%!important;height:44px;margin:0}
+}
+@media(prefers-reduced-motion:reduce){.portal-backup-skeleton-line{animation:none;background:#e8eef3}}
 </style>
