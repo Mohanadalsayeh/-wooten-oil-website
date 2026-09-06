@@ -16301,7 +16301,10 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 .portal-backup-table-wrap th,.portal-backup-table-wrap td{vertical-align:middle}
 .portal-backup-table-wrap td:last-child{text-align:right}
 .portal-backup-empty{padding:30px!important;text-align:center!important;color:#728296}
+.portal-backup-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .portal-backup-download{min-width:108px!important}
+.portal-backup-restore{min-width:92px!important;background:#d52529!important;border-color:#d52529!important;color:#fff!important}
+.portal-backup-restore:hover,.portal-backup-restore:focus-visible,.portal-backup-restore:active{background:#b91f23!important;border-color:#b91f23!important;color:#fff!important}
 .portal-backup-pagination{margin-top:12px}
 .portal-recovery-guide{margin-top:22px;padding:18px 20px;border:1px solid #cfe0ec;border-radius:14px;background:#f3f8fc}
 .portal-recovery-guide h3{margin:0 0 8px;color:#173a61}
@@ -16319,7 +16322,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   .portal-backup-table-wrap td{padding:11px 13px;border-bottom:1px solid #e5ebf0;text-align:left!important}
   .portal-backup-table-wrap td:last-child{border-bottom:0}
   .portal-backup-table-wrap td::before{content:attr(data-label);display:block;margin-bottom:4px;color:#728296;font-size:10px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
-  .portal-backup-download{width:100%!important}
+  .portal-backup-row-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .portal-backup-download,.portal-backup-restore{width:100%!important;min-width:0!important}
 }
 </style>
 <script id="wooten-portal-backup-recovery-ver360-script">
@@ -16359,14 +16363,15 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
   function closeAuthorization(password=null){if(authorizationModal){authorizationModal.hidden=true;authorizationModal.setAttribute('aria-hidden','true');}document.body.classList.remove('mas90-request-modal-open');if(authorizationPassword)authorizationPassword.value='';if(authorizationMessage){authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';}const resolve=authorizationResolve;authorizationResolve=null;if(resolve)resolve(password);authorizationReturnFocus?.focus?.({preventScroll:true});authorizationReturnFocus=null;}
   function authorize(action,item=null){
-    const creating=action==='create';
+    const creating=action==='create',restoring=action==='restore';
     const filename=String(item?.filename||'the latest portal database backup');
-    const confirmed=window.confirm(creating?'Create a new complete portal database backup now?':'Download '+filename+'?\n\nThis file contains private portal database information.');
+    const confirmation=creating?'Create a new complete portal database backup now?':restoring?'Restore the live portal database from '+filename+'?\n\nThis will replace current portal database records with the selected backup. A new safety backup of the current database will be created first.':'Download '+filename+'?\n\nThis file contains private portal database information.';
+    const confirmed=window.confirm(confirmation);
     if(!confirmed)return Promise.resolve(null);
     if(!authorizationModal||!authorizationForm||!authorizationPassword)return Promise.resolve(null);
     authorizationReturnFocus=document.activeElement;
-    authorizationTitle.textContent=creating?'Authorize Backup Creation':'Authorize Backup Download';
-    authorizationDescription.textContent=creating?'Enter the Main Admin password to create and store a new portal database backup.':'Enter the Main Admin password to download this private portal database backup.';
+    authorizationTitle.textContent=creating?'Authorize Backup Creation':restoring?'Authorize Database Restore':'Authorize Backup Download';
+    authorizationDescription.textContent=creating?'Enter the Main Admin password to create and store a new portal database backup.':restoring?'Enter the Main Admin password to replace live portal data with the selected backup.':'Enter the Main Admin password to download this private portal database backup.';
     authorizationPassword.value='';
     authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';
     authorizationModal.hidden=false;authorizationModal.setAttribute('aria-hidden','false');document.body.classList.add('mas90-request-modal-open');
@@ -16377,7 +16382,7 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function render(){
     const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backups.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
     const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty=shown.length?'false':'true';
-    rowsEl.innerHTML=shown.length?shown.map(item=>'<tr><td data-label="Date">'+esc(formatDate(item.created_at))+'</td><td data-label="Type">'+esc(item.source==='automatic'?'Automatic':'Manual')+'</td><td data-label="Created By">'+esc(item.created_by||'Wooten Oil Admin')+'</td><td data-label="Tables">'+Number(item.table_count||0).toLocaleString()+'</td><td data-label="Rows">'+Number(item.total_rows||0).toLocaleString()+'</td><td data-label="File Size">'+esc(formatBytes(item.stored_bytes))+'</td><td data-label="Action"><button class="secondary portal-backup-download" type="button" data-backup-key="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Download</button></td></tr>').join(''):'<tr><td colspan="7" class="portal-backup-empty">No portal database backups are available yet.</td></tr>';
+    rowsEl.innerHTML=shown.length?shown.map(item=>'<tr><td data-label="Date">'+esc(formatDate(item.created_at))+'</td><td data-label="Type">'+esc(item.source==='automatic'?'Automatic':'Manual')+'</td><td data-label="Created By">'+esc(item.created_by||'Wooten Oil Admin')+'</td><td data-label="Tables">'+Number(item.table_count||0).toLocaleString()+'</td><td data-label="Rows">'+Number(item.total_rows||0).toLocaleString()+'</td><td data-label="File Size">'+esc(formatBytes(item.stored_bytes))+'</td><td data-label="Action"><div class="portal-backup-row-actions"><button class="secondary portal-backup-download" type="button" data-backup-key="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Download</button><button class="portal-backup-restore" type="button" data-backup-restore="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Restore</button></div></td></tr>').join(''):'<tr><td colspan="7" class="portal-backup-empty">No portal database backups are available yet.</td></tr>';
     pagination.hidden=backups.length<=PAGE_SIZE;prev.disabled=page<=1;next.disabled=page>=pages;pageInfo.textContent='Page '+page+' of '+pages+' • '+backups.length+' backup'+(backups.length===1?'':'s');latestBtn.disabled=busy||!backups.length;
   }
   async function load(){
@@ -16392,12 +16397,16 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     if(!item||busy)return;const mainAdminPassword=await authorize('download',item);if(!mainAdminPassword)return;setBusy(true,'Preparing secure backup download…');message('Preparing '+(item.filename||'database backup')+'…',true);
     try{const response=await api('/api/admin/database-backups?download=1&key='+encodeURIComponent(item.key),{download:true,headers:{'X-Main-Admin-Password':mainAdminPassword,'X-Backup-Confirmed':'1'}});if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'The database backup could not be downloaded.');}const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=item.filename||'Wooten-Oil-Portal-Database-Backup.json.gz';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);message('Database backup download started.',true);}catch(error){message(error.message||'The database backup could not be downloaded.',false);}finally{setBusy(false);}
   }
+  async function restore(item){
+    if(!item||busy)return;const mainAdminPassword=await authorize('restore',item);if(!mainAdminPassword)return;setBusy(true,'Creating a safety backup, then restoring the selected portal database…');message('Do not close this page. The current database is being protected before restoration begins.',true);
+    try{const data=await api('/api/admin/database-backups/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,key:item.key,main_admin_password:mainAdminPassword})});message(data.message||'Portal database restored successfully.',true);window.alert((data.message||'Portal database restored successfully.')+'\n\nA safety backup of the database that existed immediately before this restore was also created. The admin page will now reload.');window.location.reload();}catch(error){message(error.message||'The selected portal database could not be restored.',false);setBusy(false);}
+  }
   authorizationForm?.addEventListener('submit',event=>{event.preventDefault();const password=authorizationPassword.value;if(!password){authorizationMessage.textContent='Enter the Main Admin password.';authorizationMessage.className='mas90-request-message show bad';authorizationPassword.focus();return;}closeAuthorization(password);});
   authorizationModal?.querySelectorAll('[data-backup-authorization-close]').forEach(item=>item.addEventListener('click',()=>closeAuthorization(null)));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&authorizationModal&&!authorizationModal.hidden)closeAuthorization(null);});
   tab.addEventListener('click',()=>{if(!loaded)setTimeout(load,0);});
   createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',load);latestBtn.addEventListener('click',()=>download(backups[0]));
-  rowsEl.addEventListener('click',event=>{const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
+  rowsEl.addEventListener('click',event=>{const restoreButton=event.target.closest('[data-backup-restore]');if(restoreButton){restore({key:restoreButton.dataset.backupRestore,filename:restoreButton.dataset.backupFilename});return;}const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
   prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
   helpBtn?.addEventListener('click',()=>window.alert([
     'Portal Database Backup:',
@@ -16418,7 +16427,12 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     '• Portal HTML, JavaScript, Worker code, or GitHub files.',
     '• PDFs, invoices, application attachments, and images stored separately in private file storage.',
     '',
-    'Document reference records are included, but the document files remain in private file storage.'
+    'Document reference records are included, but the document files remain in private file storage.',
+    '',
+    'Restore:',
+    '• Choose Restore beside the exact backup date you want.',
+    '• The portal creates a new safety backup of the current database before replacing any live records.',
+    '• Confirmation and the Main Admin password are required.'
   ].join('\n')));
 })();
 </script>
