@@ -10756,6 +10756,17 @@ const PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES=new Set([
   "portal_database_backups",
   "portal_database_restore_lock"
 ]);
+async function ensurePortalDatabaseBackupSettings(env){
+  if(!env?.DB)return;
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS portal_database_backup_settings (id INTEGER PRIMARY KEY CHECK(id=1),automatic_enabled INTEGER NOT NULL DEFAULT 1,updated_by TEXT,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await env.DB.prepare(`INSERT OR IGNORE INTO portal_database_backup_settings(id,automatic_enabled,updated_by) VALUES (1,1,'System Default')`).run();
+}
+async function portalDatabaseAutomaticBackupEnabled(env){
+  if(!env?.DB)return false;
+  await ensurePortalDatabaseBackupSettings(env);
+  const row=await env.DB.prepare(`SELECT automatic_enabled FROM portal_database_backup_settings WHERE id=1`).first();
+  return Number(row?.automatic_enabled)!==0;
+}
 function portalBackupSafeName(value){return String(value||"").replace(/[^A-Za-z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)||"backup";}
 function portalBackupSqlName(value){return `"${String(value||"").replace(/"/g,'""')}"`;}
 function portalBackupCentralStamp(date=new Date()){
@@ -11052,6 +11063,23 @@ async function adminPortalDatabaseBackupRestore({request,env}){
   }catch(error){console.error("adminPortalDatabaseBackupRestore failed",error);await adminAudit(env,request,"database_restore_failed","database_backup","",String(error?.message||error));return notificationJson({success:false,error:String(error?.message||"The portal database restore failed.")},500);}
   finally{if(locked)await portalBackupReleaseRestoreLock(env);}
 }
+async function adminPortalDatabaseBackupSchedule({request,env}){
+  if(request.method!=="POST")return methodNotAllowed();
+  const actor=adminRequestActor(request,env);
+  try{
+    const body=await request.json().catch(()=>({}));
+    if(body.confirmed!==true||typeof body.enabled!=="boolean")return notificationJson({success:false,error:"Confirm whether automatic portal database backups should be enabled or disabled."},400);
+    if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){
+      await adminAudit(env,request,"database_backup_schedule_denied","database_backup","",`Incorrect Main Admin password • requested ${body.enabled?"enabled":"disabled"}`);
+      return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);
+    }
+    if(!env?.DB)return notificationJson({success:false,error:"Portal database is not configured."},503);
+    await ensurePortalDatabaseBackupSettings(env);
+    await env.DB.prepare(`UPDATE portal_database_backup_settings SET automatic_enabled=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(body.enabled?1:0,actor.name).run();
+    await adminAudit(env,request,body.enabled?"database_backup_schedule_enabled":"database_backup_schedule_disabled","database_backup","",`${actor.name} ${body.enabled?"enabled":"disabled"} daily automatic backups`);
+    return notificationJson({success:true,automatic:{enabled:body.enabled,local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},message:`Automatic portal database backups ${body.enabled?"enabled":"disabled"}.`});
+  }catch(error){console.error("adminPortalDatabaseBackupSchedule failed",error);return notificationJson({success:false,error:String(error?.message||"The automatic backup setting could not be changed.")},500);}
+}
 async function adminPortalDatabaseBackups({request,env}){
   try{
     const actor=adminRequestActor(request,env);
@@ -11073,9 +11101,10 @@ async function adminPortalDatabaseBackups({request,env}){
         await adminAudit(env,request,"database_backup_downloaded","database_backup",key,filename);
         return new Response(object.body,{headers});
       }
-      if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:true,configured:false,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},backups:[]});
+      const automaticEnabled=await portalDatabaseAutomaticBackupEnabled(env);
+      if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:true,configured:false,automatic:{enabled:automaticEnabled,local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},backups:[]});
       const backups=(await portalBackupListObjects(env,100)).map(portalBackupObjectSummary);
-      return notificationJson({success:true,configured:true,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},last_backup:backups[0]||null,backups:backups.slice(0,50)});
+      return notificationJson({success:true,configured:true,automatic:{enabled:automaticEnabled,local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},last_backup:backups[0]||null,backups:backups.slice(0,50)});
     }
     if(request.method==="POST"){
       const body=await request.json().catch(()=>({}));
@@ -11097,6 +11126,7 @@ async function ensureDailyPortalDatabaseBackup(env){
     if(!env?.DB||!env?.NOTIFICATION_ATTACHMENTS)return;
     const stamp=portalBackupCentralStamp();
     if(stamp.hour!==2)return;
+    if(!await portalDatabaseAutomaticBackupEnabled(env))return;
     const existing=await env.NOTIFICATION_ATTACHMENTS.list({prefix:`${PORTAL_DATABASE_BACKUP_PREFIX}automatic/${stamp.date}/`,limit:1});
     if((existing?.objects||[]).length)return;
     await portalBackupCreate(env,{source:"automatic",actor:"Automatic Daily Backup"});
@@ -11155,6 +11185,9 @@ var worker_default = {
     }
     if(url.pathname==="/api/admin/database-backups/restore"){
       return adminPortalDatabaseBackupRestore({request,env});
+    }
+    if(url.pathname==="/api/admin/database-backups/schedule"){
+      return adminPortalDatabaseBackupSchedule({request,env});
     }
     if(url.pathname==="/api/admin/database-backups"){
       if(request.method==="GET"||request.method==="POST")return adminPortalDatabaseBackups({request,env});

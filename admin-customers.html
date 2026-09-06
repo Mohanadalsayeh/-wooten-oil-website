@@ -6630,7 +6630,14 @@ textarea[data-request-response]{
     <div class="portal-backup-summary">
       <section><span>Backup Storage</span><strong id="portalBackupStorage">Checking…</strong><small>Private Cloudflare object storage</small></section>
       <section><span>Latest Backup</span><strong id="portalBackupLatest">Not checked</strong><small id="portalBackupLatestMeta">Refresh to load backup history</small></section>
-      <section><span>Automatic Schedule</span><strong>Daily at 2:00 AM</strong><small>America/Chicago • 30 automatic backups</small></section>
+      <section class="portal-backup-automatic-card">
+        <label class="portal-backup-automatic-toggle" for="portalBackupAutomaticEnabled">
+          <input id="portalBackupAutomaticEnabled" type="checkbox" checked>
+          <span>Automatic Schedule</span>
+        </label>
+        <strong>Daily at 2:00 AM</strong>
+        <small id="portalBackupAutomaticMeta">Checking schedule status…</small>
+      </section>
     </div>
     <div class="portal-backup-actions">
       <div class="portal-backup-create-group">
@@ -16287,6 +16294,11 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 .portal-backup-summary span{margin-bottom:8px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
 .portal-backup-summary strong{display:block;color:#102d49;font-size:18px;line-height:1.25;overflow-wrap:anywhere}
 .portal-backup-summary small{margin-top:6px;font-size:12px;line-height:1.4}
+.portal-backup-summary .portal-backup-automatic-card{position:relative}
+.portal-backup-automatic-toggle{display:flex!important;align-items:center;gap:8px;margin:0 0 8px;color:#6c7d90;cursor:pointer;user-select:none}
+.portal-backup-automatic-toggle input{width:17px;height:17px;margin:0;accent-color:#1f9d68;cursor:pointer;flex:0 0 auto}
+.portal-backup-automatic-toggle span{display:inline!important;margin:0!important;color:inherit!important}
+.portal-backup-automatic-toggle input:disabled{cursor:wait;opacity:.65}
 .portal-backup-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}
 .portal-backup-actions button{min-height:44px}
 .portal-backup-create-group{display:flex;align-items:center;gap:8px}
@@ -16341,6 +16353,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   const storageEl=document.getElementById('portalBackupStorage');
   const latestEl=document.getElementById('portalBackupLatest');
   const latestMeta=document.getElementById('portalBackupLatestMeta');
+  const automaticToggle=document.getElementById('portalBackupAutomaticEnabled');
+  const automaticMeta=document.getElementById('portalBackupAutomaticMeta');
   const statusEl=document.getElementById('portalBackupStatus');
   const progress=document.getElementById('portalBackupProgress');
   const pagination=document.getElementById('portalBackupPagination');
@@ -16356,7 +16370,7 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   const authorizationMessage=document.getElementById('portalBackupAuthorizationMessage');
   if(!tab||!panel||!rowsEl)return;
   const PAGE_SIZE=20;
-  let backups=[],page=1,loaded=false,busy=false;
+  let backups=[],page=1,loaded=false,busy=false,automaticEnabled=true;
   let authorizationResolve=null,authorizationReturnFocus=null;
 
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -16364,18 +16378,19 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function formatDate(value){const date=new Date(value);return Number.isNaN(date.getTime())?String(value||'—'):date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
   function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
   function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
-  function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
+  function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;if(automaticToggle)automaticToggle.disabled=value;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
   function closeAuthorization(password=null){if(authorizationModal){authorizationModal.hidden=true;authorizationModal.setAttribute('aria-hidden','true');}document.body.classList.remove('mas90-request-modal-open');if(authorizationPassword)authorizationPassword.value='';if(authorizationMessage){authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';}const resolve=authorizationResolve;authorizationResolve=null;if(resolve)resolve(password);authorizationReturnFocus?.focus?.({preventScroll:true});authorizationReturnFocus=null;}
   function authorize(action,item=null){
-    const creating=action==='create',restoring=action==='restore';
+    const creating=action==='create',restoring=action==='restore',scheduling=action==='schedule';
+    const enabling=item?.enabled===true;
     const filename=String(item?.filename||'the latest portal database backup');
-    const confirmation=creating?'Create a new complete portal database backup now?':restoring?'Restore the live portal database from '+filename+'?\n\nThis will replace current portal database records with the selected backup. A new safety backup of the current database will be created first.':'Download '+filename+'?\n\nThis file contains private portal database information.';
+    const confirmation=creating?'Create a new complete portal database backup now?':restoring?'Restore the live portal database from '+filename+'?\n\nThis will replace current portal database records with the selected backup. A new safety backup of the current database will be created first.':scheduling?(enabling?'Enable automatic portal database backups every day at 2:00 AM Central?':'Disable automatic portal database backups?\n\nScheduled backups will not run while this option is unchecked.'):'Download '+filename+'?\n\nThis file contains private portal database information.';
     const confirmed=window.confirm(confirmation);
     if(!confirmed)return Promise.resolve(null);
     if(!authorizationModal||!authorizationForm||!authorizationPassword)return Promise.resolve(null);
     authorizationReturnFocus=document.activeElement;
-    authorizationTitle.textContent=creating?'Authorize Backup Creation':restoring?'Authorize Database Restore':'Authorize Backup Download';
-    authorizationDescription.textContent=creating?'Enter the Main Admin password to create and store a new portal database backup.':restoring?'Enter the Main Admin password to replace live portal data with the selected backup.':'Enter the Main Admin password to download this private portal database backup.';
+    authorizationTitle.textContent=creating?'Authorize Backup Creation':restoring?'Authorize Database Restore':scheduling?'Authorize Automatic Backup Change':'Authorize Backup Download';
+    authorizationDescription.textContent=creating?'Enter the Main Admin password to create and store a new portal database backup.':restoring?'Enter the Main Admin password to replace live portal data with the selected backup.':scheduling?'Enter the Main Admin password to '+(enabling?'enable':'disable')+' scheduled portal database backups.':'Enter the Main Admin password to download this private portal database backup.';
     authorizationPassword.value='';
     authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';
     authorizationModal.hidden=false;authorizationModal.setAttribute('aria-hidden','false');document.body.classList.add('mas90-request-modal-open');
@@ -16391,7 +16406,11 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   }
   async function load(){
     if(busy)return;setBusy(true,'Loading portal database backup history…');message('');
-    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){backups=[];const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty='true';rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
+    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];automaticEnabled=data.automatic?.enabled!==false;if(automaticToggle)automaticToggle.checked=automaticEnabled;if(automaticMeta)automaticMeta.textContent=automaticEnabled?'Enabled • America/Chicago • 30 automatic backups':'Disabled • scheduled backups will be skipped';storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){backups=[];if(automaticToggle)automaticToggle.checked=automaticEnabled;const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty='true';rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
+  }
+  async function updateAutomaticSchedule(enabled){
+    if(busy||!automaticToggle)return;automaticToggle.checked=automaticEnabled;const mainAdminPassword=await authorize('schedule',{enabled});if(!mainAdminPassword)return;setBusy(true,enabled?'Enabling automatic portal database backups…':'Disabling automatic portal database backups…');message('Authorizing the automatic backup schedule change…',true);
+    try{const data=await api('/api/admin/database-backups/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,enabled,main_admin_password:mainAdminPassword})});automaticEnabled=data.automatic?.enabled===true;automaticToggle.checked=automaticEnabled;if(automaticMeta)automaticMeta.textContent=automaticEnabled?'Enabled • America/Chicago • 30 automatic backups':'Disabled • scheduled backups will be skipped';message(data.message||('Automatic portal database backups '+(automaticEnabled?'enabled.':'disabled.')),true);}catch(error){automaticToggle.checked=automaticEnabled;message(error.message||'The automatic backup setting could not be changed.',false);}finally{setBusy(false);}
   }
   async function create(){
     if(busy)return;const mainAdminPassword=await authorize('create');if(!mainAdminPassword)return;setBusy(true,'Creating and securely storing portal database backup…');message('Creating a complete portal database backup. This can take a moment.',true);
@@ -16410,6 +16429,7 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&authorizationModal&&!authorizationModal.hidden)closeAuthorization(null);});
   tab.addEventListener('click',()=>{if(!loaded)setTimeout(load,0);});
   createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',load);latestBtn.addEventListener('click',()=>download(backups[0]));
+  automaticToggle?.addEventListener('change',()=>updateAutomaticSchedule(automaticToggle.checked));
   rowsEl.addEventListener('click',event=>{const restoreButton=event.target.closest('[data-backup-restore]');if(restoreButton){restore({key:restoreButton.dataset.backupRestore,filename:restoreButton.dataset.backupFilename});return;}const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
   prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
   helpBtn?.addEventListener('click',()=>window.alert([
@@ -16436,7 +16456,12 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     'Restore:',
     '• Choose Restore beside the exact backup date you want.',
     '• The portal creates a new safety backup of the current database before replacing any live records.',
-    '• Confirmation and the Main Admin password are required.'
+    '• Confirmation and the Main Admin password are required.',
+    '',
+    'Automatic Schedule:',
+    '• The daily 2:00 AM Central backup runs only while the Automatic Schedule checkbox is checked.',
+    '• Enabling or disabling the schedule requires confirmation and the Main Admin password.',
+    '• Manual backup creation remains available when the automatic schedule is disabled.'
   ].join('\n')));
 })();
 </script>
