@@ -3302,6 +3302,81 @@ body.customer-signed-in #customer-login table tbody tr.db-skeleton-row:focus-wit
 }
 </style>
 
+<style id="wooten-customer-table-actions-valid-placement-ver377">
+/* Keep customer table actions aligned and ensure refresh colors apply reliably. */
+#customerDocuments .customer-documents-head,
+#customerPaymentHistory .payment-history-head,
+#customerFuelHistory .fuel-history-head{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+  width:100%!important;
+  margin-bottom:12px!important;
+}
+#customerDocuments .customer-documents-head>div,
+#customerPaymentHistory .payment-history-head>div,
+#customerFuelHistory .fuel-history-head>div{
+  flex:1 1 auto!important;
+  min-width:0!important;
+}
+#customerDocuments .customer-documents-refresh,
+#customerPaymentHistory .payment-history-refresh,
+#customerFuelHistory .fuel-history-refresh{
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  margin:0 0 0 auto!important;
+  align-self:flex-start!important;
+}
+#customerDocumentsRefresh,
+#fuelHistoryRefresh{
+  background:#28a36a!important;
+  border-color:#28a36a!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+#customerDocumentsRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#fuelHistoryRefresh:not(:disabled):is(:hover,:focus-visible,:active){
+  background:#218758!important;
+  border-color:#218758!important;
+  color:#fff!important;
+}
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh:hover,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh:focus,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh:focus-visible,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh:active,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh:disabled,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh[disabled],
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh.is-loading,
+body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-history-refresh.loading{
+  background:#28a36a!important;
+  border-color:#28a36a!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  opacity:1!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+@media(max-width:700px){
+  #customerDocuments .customer-documents-head,
+  #customerPaymentHistory .payment-history-head,
+  #customerFuelHistory .fuel-history-head{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    align-items:start!important;
+  }
+  #customerDocuments .customer-documents-refresh,
+  #customerPaymentHistory .payment-history-refresh,
+  #customerFuelHistory .fuel-history-refresh{
+    grid-column:2!important;
+    justify-self:end!important;
+    width:auto!important;
+  }
+}
+</style>
+
 </body>
 <style id="wooten-customer-close-and-login-hover-ver347">
 /* Close controls must override ordinary navigation-item hover fills. */
@@ -3409,87 +3484,3 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 })();
 </script>
 </html>
-<style id="wooten-customer-table-action-alignment-ver369">
-/* Use the same right alignment and spacing for customer-side table refresh controls. */
-#customerDocuments .customer-documents-head,
-#customerPaymentHistory .payment-history-head,
-#customerFuelHistory .fuel-history-head{
-  display:flex!important;
-  align-items:flex-start!important;
-  justify-content:flex-end!important;
-  gap:10px!important;
-  width:100%!important;
-  margin-bottom:12px!important;
-}
-#customerDocuments .customer-documents-head>div,
-#customerPaymentHistory .payment-history-head>div,
-#customerFuelHistory .fuel-history-head>div{
-  flex:1 1 auto!important;
-  min-width:0!important;
-}
-#customerDocuments .customer-documents-refresh,
-#customerPaymentHistory .payment-history-refresh,
-#customerFuelHistory .fuel-history-refresh{
-  flex:0 0 auto!important;
-  width:auto!important;
-  min-width:0!important;
-  margin:0 0 0 auto!important;
-  align-self:flex-start!important;
-}
-@media(max-width:700px){
-  #customerDocuments .customer-documents-head,
-  #customerPaymentHistory .payment-history-head,
-  #customerFuelHistory .fuel-history-head{
-    display:grid!important;
-    grid-template-columns:minmax(0,1fr) auto!important;
-    align-items:start!important;
-  }
-  #customerDocuments .customer-documents-refresh,
-  #customerPaymentHistory .payment-history-refresh,
-  #customerFuelHistory .fuel-history-refresh{
-    grid-column:2!important;
-    justify-self:end!important;
-    width:auto!important;
-  }
-}
-</style>
-<style id="wooten-customer-table-refresh-green-ver370">
-/* Customer-side table refresh controls use the shared green action color. */
-#customerDocumentsRefresh,
-#paymentHistoryRefresh,
-#fuelHistoryRefresh{
-  background:#28a36a!important;
-  border-color:#28a36a!important;
-  color:#fff!important;
-  box-shadow:none!important;
-}
-#customerDocumentsRefresh:not(:disabled):is(:hover,:focus-visible,:active),
-#paymentHistoryRefresh:not(:disabled):is(:hover,:focus-visible,:active),
-#fuelHistoryRefresh:not(:disabled):is(:hover,:focus-visible,:active){
-  background:#218758!important;
-  border-color:#218758!important;
-  color:#fff!important;
-}
-#customerDocumentsRefresh:disabled,
-#paymentHistoryRefresh:disabled,
-#fuelHistoryRefresh:disabled{opacity:.55!important}
-</style>
-<style id="wooten-payment-history-refresh-all-states-ver376">
-/* Keep Payment History Refresh green in every interactive/loading state. */
-#paymentHistoryRefresh,
-#paymentHistoryRefresh:hover,
-#paymentHistoryRefresh:focus,
-#paymentHistoryRefresh:focus-visible,
-#paymentHistoryRefresh:active,
-#paymentHistoryRefresh:disabled,
-#paymentHistoryRefresh[disabled],
-#paymentHistoryRefresh.is-loading,
-#paymentHistoryRefresh.loading{
-  background:#28a36a!important;
-  border-color:#28a36a!important;
-  color:#fff!important;
-  opacity:1!important;
-  box-shadow:none!important;
-  transform:none!important;
-}
-</style>
