@@ -6643,7 +6643,7 @@ textarea[data-request-response]{
     </div>
     <div id="portalBackupStatus" class="status" aria-live="polite"></div>
     <div class="portal-backup-table-wrap tablewrap">
-      <table data-pdf-table-name="Portal Database Backups"><thead><tr><th>Date</th><th>Type</th><th>Created By</th><th>Tables</th><th>Rows</th><th>File Size</th><th>Action</th></tr></thead><tbody id="portalBackupRows"><tr><td colspan="7" class="portal-backup-empty">Open this page to load backup history.</td></tr></tbody></table>
+      <table data-pdf-table-name="Portal Database Backups" data-pdf-empty="true" data-pdf-keep-visible="true"><thead><tr><th>Date</th><th>Type</th><th>Created By</th><th>Tables</th><th>Rows</th><th>File Size</th><th>Action</th></tr></thead><tbody id="portalBackupRows"><tr><td colspan="7" class="portal-backup-empty">Open this page to load backup history.</td></tr></tbody></table>
     </div>
     <div class="db-pagination portal-backup-pagination" id="portalBackupPagination" hidden><button class="secondary" id="portalBackupPrev" type="button">Previous 20</button><div class="db-page-info" id="portalBackupPageInfo">Page 1 of 1</div><button class="secondary" id="portalBackupNext" type="button">Next 20</button></div>
     <section class="portal-recovery-guide">
@@ -15916,8 +15916,13 @@ html,body{
     const toolbar=container._wootenPdfToolbar;
     if(!toolbar)return;
     const table=container.querySelector('table');
-    const unavailable=!table||container.hidden||container.style.display==='none'||!tableHasRows(table);
-    if(toolbar.hidden!==unavailable)toolbar.hidden=unavailable;
+    const unavailable=!table||container.hidden||container.style.display==='none';
+    const empty=!table||!tableHasRows(table);
+    const keepVisible=table?.dataset?.pdfKeepVisible==='true';
+    const shouldHide=unavailable||(!keepVisible&&empty);
+    if(toolbar.hidden!==shouldHide)toolbar.hidden=shouldHide;
+    const button=toolbar.querySelector('button');
+    if(button&&keepVisible)button.disabled=empty||button.dataset.exporting==='true';
   }
 
   function attachTable(table){
@@ -15936,13 +15941,14 @@ html,body{
       const current=container.querySelector('table');
       if(!current)return;
       const label=button.querySelector('span');
+      button.dataset.exporting='true';
       button.disabled=true;
       function progress(done,total,stage){
         const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;
         if(label)label.textContent=stage+(percent?' '+percent+'%':'…');
       }
       try{await exportTablePdf(current,progress);}catch(error){window.alert(error.message||'The table could not be exported.');}
-      finally{button.disabled=false;if(label)label.textContent='Export PDF';}
+      finally{delete button.dataset.exporting;if(label)label.textContent='Export PDF';syncToolbar(container);}
     });
     toolbar.appendChild(button);
     const inlineHost=tableName(table)==='Recent Admin Activity'
@@ -16315,15 +16321,16 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
   function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
   function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
-  async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'The database backup request failed.');return data;}
+  async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}if(!response.ok||data.success===false){let detail=data.error||'';if(!detail&&raw&&!/^\s*</.test(raw))detail=raw.slice(0,240);if(!detail&&response.status>=500)detail='Cloudflare stopped the backup before it completed. Deploy the latest worker.js and try again.';throw new Error(detail||'The database backup request failed.');}return data;}
   function render(){
     const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backups.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+    const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty=shown.length?'false':'true';
     rowsEl.innerHTML=shown.length?shown.map(item=>'<tr><td data-label="Date">'+esc(formatDate(item.created_at))+'</td><td data-label="Type">'+esc(item.source==='automatic'?'Automatic':'Manual')+'</td><td data-label="Created By">'+esc(item.created_by||'Wooten Oil Admin')+'</td><td data-label="Tables">'+Number(item.table_count||0).toLocaleString()+'</td><td data-label="Rows">'+Number(item.total_rows||0).toLocaleString()+'</td><td data-label="File Size">'+esc(formatBytes(item.stored_bytes))+'</td><td data-label="Action"><button class="secondary portal-backup-download" type="button" data-backup-key="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Download</button></td></tr>').join(''):'<tr><td colspan="7" class="portal-backup-empty">No portal database backups are available yet.</td></tr>';
     pagination.hidden=backups.length<=PAGE_SIZE;prev.disabled=page<=1;next.disabled=page>=pages;pageInfo.textContent='Page '+page+' of '+pages+' • '+backups.length+' backup'+(backups.length===1?'':'s');latestBtn.disabled=busy||!backups.length;
   }
   async function load(){
     if(busy)return;setBusy(true,'Loading portal database backup history…');message('');
-    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
+    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){backups=[];const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty='true';rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
   }
   async function create(){
     if(busy)return;setBusy(true,'Creating and securely storing portal database backup…');message('Creating a complete portal database backup. This can take a moment.',true);

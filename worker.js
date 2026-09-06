@@ -10793,23 +10793,84 @@ async function portalBackupGzip(bytes){
   const stream=new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
   return {bytes:await new Response(stream).arrayBuffer(),encoding:"gzip",extension:"json.gz"};
 }
+async function portalBackupBuildPlan(env){
+  if(!env?.DB)throw new Error("Portal database is not configured.");
+  const tableResult=await env.DB.prepare(`SELECT name,sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND substr(name,1,4)!='_cf_' ORDER BY name COLLATE NOCASE`).all();
+  const tables=[];
+  let totalRows=0;
+  for(const table of tableResult?.results||[]){
+    const name=String(table.name||"");
+    if(!name||name.startsWith("_cf_")||name.startsWith("sqlite_")||PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES.has(name))continue;
+    const countResult=await env.DB.prepare(`SELECT COUNT(*) AS total FROM ${portalBackupSqlName(name)}`).first();
+    const rowCount=Math.max(0,Number(countResult?.total||0));
+    tables.push({name,schema:String(table.sql||""),row_count:rowCount});
+    totalRows+=rowCount;
+  }
+  return {tables,totalRows};
+}
+async function portalBackupStreamToR2(env,key,metadata,plan){
+  if(typeof env?.NOTIFICATION_ATTACHMENTS?.createMultipartUpload!=="function")throw new Error("Backup storage does not support streamed database backups.");
+  const upload=await env.NOTIFICATION_ATTACHMENTS.createMultipartUpload(key,{httpMetadata:{contentType:"application/json",contentDisposition:`attachment; filename="${metadata.filename}"`},customMetadata:{backup_id:metadata.backup_id,source:metadata.source,created_by:String(metadata.created_by||"Wooten Oil Admin").slice(0,100),created_at:metadata.created_at,table_count:String(plan.tables.length),total_rows:String(plan.totalRows),encoding:"identity",filename:metadata.filename}});
+  const encoder=new TextEncoder();
+  const minimumPartBytes=5*1024*1024;
+  const buffers=[];
+  const uploadedParts=[];
+  let bufferedBytes=0,totalBytes=0,partNumber=1;
+  async function flush(force=false){
+    if(!bufferedBytes||(!force&&bufferedBytes<minimumPartBytes))return;
+    const merged=new Uint8Array(bufferedBytes);
+    let offset=0;
+    for(const buffer of buffers){merged.set(buffer,offset);offset+=buffer.byteLength;}
+    buffers.length=0;bufferedBytes=0;
+    uploadedParts.push(await upload.uploadPart(partNumber++,merged));
+  }
+  async function write(value){
+    const bytes=encoder.encode(String(value||""));
+    if(!bytes.byteLength)return;
+    buffers.push(bytes);bufferedBytes+=bytes.byteLength;totalBytes+=bytes.byteLength;
+    if(bufferedBytes>=minimumPartBytes)await flush(false);
+  }
+  try{
+    const header={format:"wooten-oil-portal-d1-backup",format_version:2,created_at:metadata.created_at,timezone:"America/Chicago",backup_id:metadata.backup_id,source:metadata.source,created_by:metadata.created_by,excluded_ephemeral_tables:[...PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES],excluded_internal_table_prefixes:["_cf_","sqlite_"],table_count:plan.tables.length,total_rows:plan.totalRows};
+    await write(JSON.stringify(header).slice(0,-1)+',"tables":[');
+    for(let tableIndex=0;tableIndex<plan.tables.length;tableIndex++){
+      const table=plan.tables[tableIndex];
+      if(tableIndex)await write(',');
+      await write(JSON.stringify({name:table.name,schema:table.schema,row_count:table.row_count}).slice(0,-1)+',"rows":[');
+      let wroteRow=false;
+      const pageSize=250;
+      for(let offset=0;offset<table.row_count;offset+=pageSize){
+        const page=await env.DB.prepare(`SELECT * FROM ${portalBackupSqlName(table.name)} LIMIT ? OFFSET ?`).bind(pageSize,offset).all();
+        const batch=page?.results||[];
+        if(batch.length){await write((wroteRow?',':'')+batch.map(row=>JSON.stringify(row)).join(','));wroteRow=true;}
+        if(batch.length<pageSize)break;
+      }
+      await write(']}');
+    }
+    await write(']}');
+    await flush(true);
+    if(!uploadedParts.length)throw new Error("The database backup produced an empty file.");
+    await upload.complete(uploadedParts);
+    return {stored_bytes:totalBytes,uncompressed_bytes:totalBytes,encoding:"identity",sha256:""};
+  }catch(error){
+    try{await upload.abort();}catch{}
+    throw error;
+  }
+}
 async function portalBackupCreate(env,{source="manual",actor="Wooten Oil Admin"}={}){
   if(!env?.NOTIFICATION_ATTACHMENTS)throw new Error("Backup storage is not configured. Add the NOTIFICATION_ATTACHMENTS R2 binding.");
   const automatic=source==="automatic";
   const stamp=portalBackupCentralStamp();
   const id=crypto.randomUUID();
-  const data=await portalBackupCollectDatabase(env);
-  data.backup_id=id;data.source=automatic?"automatic":"manual";data.created_by=String(actor||"Wooten Oil Admin");
-  const rawBytes=new TextEncoder().encode(JSON.stringify(data));
-  if(rawBytes.byteLength>80*1024*1024)throw new Error("The database backup is larger than the safe 80 MB export limit.");
-  const digest=await crypto.subtle.digest("SHA-256",rawBytes);
-  const checksum=[...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,"0")).join("");
-  const packed=await portalBackupGzip(rawBytes);
+  const createdAt=new Date().toISOString();
+  const sourceName=automatic?"automatic":"manual";
+  const createdBy=String(actor||"Wooten Oil Admin");
+  const plan=await portalBackupBuildPlan(env);
   const folder=automatic?`automatic/${stamp.date}`:`manual/${stamp.date}`;
-  const filename=`Wooten-Oil-Portal-Database-${stamp.date}-${stamp.time}-${portalBackupSafeName(source)}.${packed.extension}`;
+  const filename=`Wooten-Oil-Portal-Database-${stamp.date}-${stamp.time}-${portalBackupSafeName(source)}.json`;
   const key=`${PORTAL_DATABASE_BACKUP_PREFIX}${folder}/${filename}`;
-  await env.NOTIFICATION_ATTACHMENTS.put(key,packed.bytes,{httpMetadata:{contentType:packed.encoding==="gzip"?"application/gzip":"application/json",contentDisposition:`attachment; filename="${filename}"`},customMetadata:{backup_id:id,source:automatic?"automatic":"manual",created_by:String(actor||"Wooten Oil Admin").slice(0,100),created_at:data.created_at,table_count:String(data.table_count),total_rows:String(data.total_rows),uncompressed_bytes:String(rawBytes.byteLength),sha256:checksum,encoding:packed.encoding,filename}});
-  return {key,filename,backup_id:id,source:automatic?"automatic":"manual",created_by:data.created_by,created_at:data.created_at,table_count:data.table_count,total_rows:data.total_rows,uncompressed_bytes:rawBytes.byteLength,stored_bytes:packed.bytes.byteLength,sha256:checksum,encoding:packed.encoding};
+  const stored=await portalBackupStreamToR2(env,key,{filename,backup_id:id,source:sourceName,created_by:createdBy,created_at:createdAt},plan);
+  return {key,filename,backup_id:id,source:sourceName,created_by:createdBy,created_at:createdAt,table_count:plan.tables.length,total_rows:plan.totalRows,...stored};
 }
 async function portalBackupCleanupAutomatic(env){
   const objects=(await portalBackupListObjects(env,1000)).filter(item=>String(item.key||"").startsWith(`${PORTAL_DATABASE_BACKUP_PREFIX}automatic/`));
