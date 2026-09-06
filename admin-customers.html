@@ -5237,9 +5237,9 @@ textarea[data-request-response]{
       <div class="admin-nav-group">Applications</div>
       <button class="admin-tab" id="admin-tab-btn-applications" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-applications" data-admin-tab="applications" data-admin-label="Account Applications"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 5h6M9 3h6v4H9zM7 5H5v17h14V5h-2M8 12h8M8 16h6"/></svg></span>Account Applications</button>
       <button class="admin-tab" id="admin-tab-btn-requests" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-requests" data-admin-tab="requests" data-admin-label="Customer Requests"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M17 13l2 2-2 2"/></svg></span>Customer Requests</button>
-      <div class="admin-nav-group" data-owner-nav>Administration</div>
+      <div class="admin-nav-group">Administration</div>
       <button class="admin-tab" id="admin-tab-btn-users" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-users" data-admin-tab="users" data-admin-label="Admin Users"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2.2 0 4.1.9 5.4 2.4M18 13l1 2 2 .4-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2-.4z"/></svg></span>Admin Users</button>
-      <button class="admin-tab" id="admin-tab-btn-backup" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-backup" data-admin-tab="backup" data-admin-label="Backup &amp; Recovery" data-owner-nav><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3 1.2 0 2.3-.1 3.3-.3M18 14v7M15 18l3 3 3-3"/></svg></span>Backup &amp; Recovery</button>
+      <button class="admin-tab" id="admin-tab-btn-backup" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-backup" data-admin-tab="backup" data-admin-label="Backup &amp; Recovery"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3 1.2 0 2.3-.1 3.3-.3M18 14v7M15 18l3 3 3-3"/></svg></span>Backup &amp; Recovery</button>
       </div>
       <footer class="admin-sidebar-footer" id="adminSidebarFooter">
         <span class="admin-sidebar-footer-status" aria-hidden="true"></span>
@@ -6623,7 +6623,7 @@ textarea[data-request-response]{
 </div></div></section>
   </div>
 
-  <div class="card admin-tab-panel portal-backup-panel" id="admin-tab-backup" role="tabpanel" aria-labelledby="admin-tab-btn-backup" data-admin-panel="backup" data-owner-nav>
+  <div class="card admin-tab-panel portal-backup-panel" id="admin-tab-backup" role="tabpanel" aria-labelledby="admin-tab-btn-backup" data-admin-panel="backup">
     <div class="admin-page-label">Data Protection</div>
     <h2>Backup &amp; Recovery Center</h2>
     <p>Create and download private backups of the Wooten Oil portal database. Automatic backups run daily at 2:00 AM Central and the latest 30 automatic backups are retained.</p>
@@ -6654,6 +6654,25 @@ textarea[data-request-response]{
       <p><strong>Cloudflare D1 Time Travel</strong> remains the fastest way to restore the live database to an earlier point. The downloadable backup is an additional emergency copy containing portal database tables and records.</p>
       <p>Uploaded statements, invoices, application documents, and notification attachments remain in their existing private file storage and are not duplicated inside the database backup.</p>
     </section>
+  </div>
+
+  <div class="mas90-request-modal" id="portalBackupAuthorizationModal" hidden aria-hidden="true">
+    <div class="mas90-request-modal-backdrop" data-backup-authorization-close></div>
+    <form class="mas90-request-dialog" id="portalBackupAuthorizationForm" role="dialog" aria-modal="true" aria-labelledby="portalBackupAuthorizationTitle" autocomplete="off">
+      <header class="mas90-request-head">
+        <div><h3 id="portalBackupAuthorizationTitle">Main Admin Authorization</h3><p id="portalBackupAuthorizationDescription">Enter the Main Admin password to continue.</p></div>
+        <button class="mas90-request-close" type="button" data-backup-authorization-close aria-label="Close">&times;</button>
+      </header>
+      <div class="mas90-request-body">
+        <div class="mas90-request-field">
+          <label for="portalBackupMainAdminPassword">Main Admin Password</label>
+          <input id="portalBackupMainAdminPassword" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Enter the Main Admin password">
+          <small class="mas90-request-hint">An individual admin user password cannot authorize this action.</small>
+        </div>
+        <div class="mas90-request-message" id="portalBackupAuthorizationMessage" aria-live="polite"></div>
+      </div>
+      <div class="mas90-request-actions"><button class="secondary" type="button" data-backup-authorization-close>Cancel</button><button class="primary" id="portalBackupAuthorizationSubmit" type="submit">Authorize</button></div>
+    </form>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -12085,7 +12104,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
     const mapping={customers:'database',automation:'database',activity:'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
     let firstVisible=null;
-    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
+    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||section==='backup'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
     document.querySelectorAll('[data-admin-open]').forEach(button=>{const section=button.dataset.adminOpen;button.closest('.admin-dashboard-card').hidden=!(user&&(user.owner||permissions.has(mapping[section])));});
     const ownerOnlyControls=document.querySelectorAll('#admin-tab-users input,#admin-tab-users button:not(#adminAuditRefresh)');
@@ -13229,7 +13248,7 @@ let pagingRequests=false;
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
     const mapping={customers:'database',automation:'database',activity:'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
     let firstVisible=null;
-    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
+    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||section==='backup'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
     document.querySelectorAll('[data-admin-open]').forEach(button=>{const section=button.dataset.adminOpen;button.closest('.admin-dashboard-card').hidden=!(user&&(user.owner||permissions.has(mapping[section])));});
     const ownerOnlyControls=document.querySelectorAll('#admin-tab-users input,#admin-tab-users button:not(#adminAuditRefresh)');
@@ -16321,9 +16340,16 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   const next=document.getElementById('portalBackupNext');
   const pageInfo=document.getElementById('portalBackupPageInfo');
   const helpBtn=document.getElementById('portalBackupHelp');
+  const authorizationModal=document.getElementById('portalBackupAuthorizationModal');
+  const authorizationForm=document.getElementById('portalBackupAuthorizationForm');
+  const authorizationTitle=document.getElementById('portalBackupAuthorizationTitle');
+  const authorizationDescription=document.getElementById('portalBackupAuthorizationDescription');
+  const authorizationPassword=document.getElementById('portalBackupMainAdminPassword');
+  const authorizationMessage=document.getElementById('portalBackupAuthorizationMessage');
   if(!tab||!panel||!rowsEl)return;
   const PAGE_SIZE=20;
   let backups=[],page=1,loaded=false,busy=false;
+  let authorizationResolve=null,authorizationReturnFocus=null;
 
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   function key(){return String(document.getElementById('adminKey')?.value||'').trim();}
@@ -16331,6 +16357,22 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
   function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
   function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
+  function closeAuthorization(password=null){if(authorizationModal){authorizationModal.hidden=true;authorizationModal.setAttribute('aria-hidden','true');}document.body.classList.remove('mas90-request-modal-open');if(authorizationPassword)authorizationPassword.value='';if(authorizationMessage){authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';}const resolve=authorizationResolve;authorizationResolve=null;if(resolve)resolve(password);authorizationReturnFocus?.focus?.({preventScroll:true});authorizationReturnFocus=null;}
+  function authorize(action,item=null){
+    const creating=action==='create';
+    const filename=String(item?.filename||'the latest portal database backup');
+    const confirmed=window.confirm(creating?'Create a new complete portal database backup now?':'Download '+filename+'?\n\nThis file contains private portal database information.');
+    if(!confirmed)return Promise.resolve(null);
+    if(!authorizationModal||!authorizationForm||!authorizationPassword)return Promise.resolve(null);
+    authorizationReturnFocus=document.activeElement;
+    authorizationTitle.textContent=creating?'Authorize Backup Creation':'Authorize Backup Download';
+    authorizationDescription.textContent=creating?'Enter the Main Admin password to create and store a new portal database backup.':'Enter the Main Admin password to download this private portal database backup.';
+    authorizationPassword.value='';
+    authorizationMessage.textContent='';authorizationMessage.className='mas90-request-message';
+    authorizationModal.hidden=false;authorizationModal.setAttribute('aria-hidden','false');document.body.classList.add('mas90-request-modal-open');
+    setTimeout(()=>authorizationPassword.focus(),40);
+    return new Promise(resolve=>{authorizationResolve=resolve;});
+  }
   async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}if(!response.ok||data.success===false){let detail=data.error||'';if(!detail&&raw&&!/^\s*</.test(raw))detail=raw.slice(0,240);if(!detail&&response.status>=500)detail='Cloudflare stopped the backup before it completed. Deploy the latest worker.js and try again.';throw new Error(detail||'The database backup request failed.');}return data;}
   function render(){
     const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backups.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
@@ -16343,13 +16385,16 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){backups=[];const table=rowsEl.closest('table');if(table)table.dataset.pdfEmpty='true';rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
   }
   async function create(){
-    if(busy)return;setBusy(true,'Creating and securely storing portal database backup…');message('Creating a complete portal database backup. This can take a moment.',true);
-    try{const data=await api('/api/admin/database-backups',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});message(data.message||'Portal database backup created successfully.',true);page=1;setBusy(false);await load();}catch(error){message(error.message||'Portal database backup could not be created.',false);setBusy(false);}
+    if(busy)return;const mainAdminPassword=await authorize('create');if(!mainAdminPassword)return;setBusy(true,'Creating and securely storing portal database backup…');message('Creating a complete portal database backup. This can take a moment.',true);
+    try{const data=await api('/api/admin/database-backups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,main_admin_password:mainAdminPassword})});message(data.message||'Portal database backup created successfully.',true);page=1;setBusy(false);await load();}catch(error){message(error.message||'Portal database backup could not be created.',false);setBusy(false);}
   }
   async function download(item){
-    if(!item||busy)return;setBusy(true,'Preparing secure backup download…');message('Preparing '+(item.filename||'database backup')+'…',true);
-    try{const response=await api('/api/admin/database-backups?download=1&key='+encodeURIComponent(item.key),{download:true});if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'The database backup could not be downloaded.');}const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=item.filename||'Wooten-Oil-Portal-Database-Backup.json.gz';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);message('Database backup download started.',true);}catch(error){message(error.message||'The database backup could not be downloaded.',false);}finally{setBusy(false);}
+    if(!item||busy)return;const mainAdminPassword=await authorize('download',item);if(!mainAdminPassword)return;setBusy(true,'Preparing secure backup download…');message('Preparing '+(item.filename||'database backup')+'…',true);
+    try{const response=await api('/api/admin/database-backups?download=1&key='+encodeURIComponent(item.key),{download:true,headers:{'X-Main-Admin-Password':mainAdminPassword,'X-Backup-Confirmed':'1'}});if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'The database backup could not be downloaded.');}const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=item.filename||'Wooten-Oil-Portal-Database-Backup.json.gz';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);message('Database backup download started.',true);}catch(error){message(error.message||'The database backup could not be downloaded.',false);}finally{setBusy(false);}
   }
+  authorizationForm?.addEventListener('submit',event=>{event.preventDefault();const password=authorizationPassword.value;if(!password){authorizationMessage.textContent='Enter the Main Admin password.';authorizationMessage.className='mas90-request-message show bad';authorizationPassword.focus();return;}closeAuthorization(password);});
+  authorizationModal?.querySelectorAll('[data-backup-authorization-close]').forEach(item=>item.addEventListener('click',()=>closeAuthorization(null)));
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&authorizationModal&&!authorizationModal.hidden)closeAuthorization(null);});
   tab.addEventListener('click',()=>{if(!loaded)setTimeout(load,0);});
   createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',load);latestBtn.addEventListener('click',()=>download(backups[0]));
   rowsEl.addEventListener('click',event=>{const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});

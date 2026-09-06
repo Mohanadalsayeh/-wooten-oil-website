@@ -10325,7 +10325,7 @@ async function adminAuthorizeRequest(request,env,path){
   if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
   const session=await adminSessionFromCredential(env,credential);if(!session)return {response:notificationJson({success:false,error:"Your admin session is invalid or expired."},401)};
   if(path.startsWith("/api/admin/users"))return {response:notificationJson({success:false,error:"Only the Wooten Oil Admin can manage administrator users."},403)};
-  if(!path.startsWith("/api/admin/audit")){const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};}
+  if(!path.startsWith("/api/admin/audit")&&path!=="/api/admin/database-backups"){const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};}
   const headers=new Headers(request.headers);headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY||""));headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");return {request:new Request(request,{headers}),actor:{id:session.user_id,name:session.display_name,owner:false,permissions:session.permissions}};
 }
 async function adminAuthLogin({request,env}){
@@ -10892,23 +10892,36 @@ function portalBackupObjectSummary(object){
 async function adminPortalDatabaseBackups({request,env}){
   try{
     const actor=adminRequestActor(request,env);
-    if(!actor.owner)return notificationJson({success:false,error:"Only the Main Admin can create or download portal database backups."},403);
-    if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:true,configured:false,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},backups:[]});
     if(request.method==="GET"){
       const url=new URL(request.url);
       if(url.searchParams.get("download")==="1"){
+        if(request.headers.get("X-Backup-Confirmed")!=="1")return notificationJson({success:false,error:"Confirm that you want to download this portal database backup."},400);
+        if(!await mas90MasterPasswordMatches(request.headers.get("X-Main-Admin-Password"),env)){
+          await adminAudit(env,request,"database_backup_download_denied","database_backup","","Incorrect Main Admin password");
+          return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);
+        }
+        if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Backup storage is not configured."},503);
         const key=String(url.searchParams.get("key")||"");
         if(!key.startsWith(PORTAL_DATABASE_BACKUP_PREFIX))return notificationJson({success:false,error:"Choose a valid portal database backup."},400);
         const object=await env.NOTIFICATION_ATTACHMENTS.get(key);
         if(!object)return notificationJson({success:false,error:"That database backup is no longer available."},404);
         const filename=String(object.customMetadata?.filename||key.split("/").pop()||"Wooten-Oil-Portal-Database-Backup.json.gz").replace(/["\r\n]/g,"");
         const headers=new Headers();object.writeHttpMetadata(headers);headers.set("Content-Disposition",`attachment; filename="${filename}"`);headers.set("Cache-Control","no-store");headers.set("X-Content-Type-Options","nosniff");
+        await adminAudit(env,request,"database_backup_downloaded","database_backup",key,filename);
         return new Response(object.body,{headers});
       }
+      if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:true,configured:false,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},backups:[]});
       const backups=(await portalBackupListObjects(env,100)).map(portalBackupObjectSummary);
       return notificationJson({success:true,configured:true,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},last_backup:backups[0]||null,backups:backups.slice(0,50)});
     }
     if(request.method==="POST"){
+      const body=await request.json().catch(()=>({}));
+      if(body.confirmed!==true)return notificationJson({success:false,error:"Confirm that you want to create a portal database backup."},400);
+      if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){
+        await adminAudit(env,request,"database_backup_create_denied","database_backup","","Incorrect Main Admin password");
+        return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);
+      }
+      if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Backup storage is not configured."},503);
       const result=await portalBackupCreate(env,{source:"manual",actor:actor.name});
       await adminAudit(env,request,"database_backup_created","database_backup",result.backup_id,`${result.filename} • ${result.total_rows} rows`);
       return notificationJson({success:true,backup:result,message:"Portal database backup created successfully."});
