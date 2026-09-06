@@ -10816,13 +10816,20 @@ async function portalBackupStreamToR2(env,key,metadata,plan){
   const buffers=[];
   const uploadedParts=[];
   let bufferedBytes=0,totalBytes=0,partNumber=1;
-  async function flush(force=false){
-    if(!bufferedBytes||(!force&&bufferedBytes<minimumPartBytes))return;
+  async function uploadBufferedPart(length){
     const merged=new Uint8Array(bufferedBytes);
     let offset=0;
     for(const buffer of buffers){merged.set(buffer,offset);offset+=buffer.byteLength;}
-    buffers.length=0;bufferedBytes=0;
-    uploadedParts.push(await upload.uploadPart(partNumber++,merged));
+    const part=merged.slice(0,length);
+    const remainder=merged.slice(length);
+    buffers.length=0;
+    if(remainder.byteLength)buffers.push(remainder);
+    bufferedBytes=remainder.byteLength;
+    uploadedParts.push(await upload.uploadPart(partNumber++,part));
+  }
+  async function flush(force=false){
+    while(bufferedBytes>=minimumPartBytes)await uploadBufferedPart(minimumPartBytes);
+    if(force&&bufferedBytes)await uploadBufferedPart(bufferedBytes);
   }
   async function write(value){
     const bytes=encoder.encode(String(value||""));
