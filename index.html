@@ -3453,3 +3453,24 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   }
 }
 </style>
+<style id="wooten-customer-table-refresh-green-ver370">
+/* Customer-side table refresh controls use the shared green action color. */
+#customerDocumentsRefresh,
+#paymentHistoryRefresh,
+#fuelHistoryRefresh{
+  background:#28a36a!important;
+  border-color:#28a36a!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+#customerDocumentsRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#paymentHistoryRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#fuelHistoryRefresh:not(:disabled):is(:hover,:focus-visible,:active){
+  background:#218758!important;
+  border-color:#218758!important;
+  color:#fff!important;
+}
+#customerDocumentsRefresh:disabled,
+#paymentHistoryRefresh:disabled,
+#fuelHistoryRefresh:disabled{opacity:.55!important}
+</style>

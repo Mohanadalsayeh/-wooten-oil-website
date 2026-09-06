@@ -6536,7 +6536,7 @@ textarea[data-request-response]{
       <button class="primary" id="collectionsApply" type="button">Apply Filters</button>
     </div>
     <div id="collectionsStatus" class="status"></div>
-    <div class="collections-heading-actions collections-table-actions" aria-label="Collection worklist actions"><button class="secondary" id="collectionsExportPdf" type="button">Export PDF</button><button class="primary" id="collectionsRefresh" type="button">Refresh</button></div>
+    <div class="collections-heading-actions collections-table-actions" aria-label="Collection worklist actions"><button class="secondary table-pdf-export-button" id="collectionsExportPdf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button><button class="primary" id="collectionsRefresh" type="button">Refresh</button></div>
     <div class="tablewrap collections-table-wrap"><table id="collectionsTable" data-pdf-table-name="Credit and Collections Worklist" data-auto-pdf="false"><thead><tr><th>Customer</th><th>Balance / Aging</th><th>Credit</th><th>Recent Payment</th><th>Collection Plan</th><th>Actions</th></tr></thead><tbody id="collectionsBody"></tbody></table></div>
     <div class="db-pagination" id="collectionsPagination" hidden><button class="secondary" id="collectionsPrev" type="button">Previous 20</button><div class="db-page-info" id="collectionsPageInfo">Page 1 of 1</div><button class="secondary" id="collectionsNext" type="button">Next 20</button></div>
   </div>
@@ -6819,7 +6819,7 @@ try{
   document.addEventListener('click',event=>{if(!actionMenu?.hidden&&!actionMenu.contains(event.target)&&!event.target.closest('[data-collection-menu]'))closeActionMenu();});
   window.addEventListener('resize',()=>closeActionMenu());window.addEventListener('scroll',()=>closeActionMenu(),true);
   get('collectionsApply').addEventListener('click',()=>load(true));get('collectionsRefresh').addEventListener('click',()=>load(false));get('collectionsSearch').addEventListener('keydown',event=>{if(event.key==='Enter')load(true);});get('collectionsPrev').addEventListener('click',()=>{if(page>1){page--;load(false);}});get('collectionsNext').addEventListener('click',()=>{if(page<pages){page++;load(false);}});get('collectionsModalClose').addEventListener('click',closeModal);get('collectionsModalCancel').addEventListener('click',closeModal);get('collectionsModalSave').addEventListener('click',save);modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(actionMenu&&!actionMenu.hidden){closeActionMenu(true);return;}if(!modal.hidden)closeModal();});
-  get('collectionsExportPdf').addEventListener('click',async()=>{if(!rows.length){message('Load at least one collection account before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',false);return;}const button=get('collectionsExportPdf');button.disabled=true;button.textContent='Preparing PDF…';try{await window.WootenAdminTablePdf.exportData('Credit and Collections Worklist',['Customer #','Customer','Total Balance','Past Due','60+','90+','Credit Limit','Credit Hold','Last Payment','Collection Status','Follow-up'],rows.map(row=>[row.account_number,row.account_name,money(row.total_balance),money(row.past_due),money(row.older_60),money(row.older_90),Number(row.credit_limit||0)>0?money(row.credit_limit):'Not set',hold(row)?'Yes':'No',row.last_payment_date?money(row.last_payment_amount)+' on '+date(row.last_payment_date):'None found',label(row.collection_status),date(row.follow_up_date)]));}catch(error){message(error.message||'The collections worklist could not be exported.',false);}finally{button.disabled=false;button.textContent='Export PDF';}});
+  get('collectionsExportPdf').addEventListener('click',async()=>{if(!rows.length){message('Load at least one collection account before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',false);return;}const button=get('collectionsExportPdf'),buttonLabel=button.querySelector('span');button.disabled=true;if(buttonLabel)buttonLabel.textContent='Preparing PDF…';try{await window.WootenAdminTablePdf.exportData('Credit and Collections Worklist',['Customer #','Customer','Total Balance','Past Due','60+','90+','Credit Limit','Credit Hold','Last Payment','Collection Status','Follow-up'],rows.map(row=>[row.account_number,row.account_name,money(row.total_balance),money(row.past_due),money(row.older_60),money(row.older_90),Number(row.credit_limit||0)>0?money(row.credit_limit):'Not set',hold(row)?'Yes':'No',row.last_payment_date?money(row.last_payment_amount)+' on '+date(row.last_payment_date):'None found',label(row.collection_status),date(row.follow_up_date)]));}catch(error){message(error.message||'The collections worklist could not be exported.',false);}finally{button.disabled=false;if(buttonLabel)buttonLabel.textContent='Export PDF';}});
   document.getElementById('admin-tab-btn-collections')?.addEventListener('click',()=>{if(!loaded)load(true);});document.querySelectorAll('[data-admin-open="collections"]').forEach(button=>button.addEventListener('click',()=>{if(!loaded)load(true);}));
   window.loadWootenCollections=load;
 })();
@@ -16432,4 +16432,58 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     width:auto!important;
   }
 }
+</style>
+<style id="wooten-table-action-buttons-ver370">
+/* Match the Live Customer Database PDF control and use one green table refresh style. */
+#admin-tab-collections #collectionsExportPdf{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  min-height:42px!important;
+  padding:9px 14px!important;
+  font-size:13px!important;
+  font-weight:400!important;
+  line-height:1!important;
+}
+#collectionsStatus.show + .collections-table-actions{margin-top:12px!important}
+#collectionsRefresh,
+#exceptionalRefresh,
+#scheduleRefresh,
+#adminAuditRefresh,
+#portalBackupRefresh,
+#dbRefreshBtn,
+#livePaymentRefreshBtn,
+#refreshInboxBtn,
+#twilioRefreshLookupResults,
+#mas90HealthRefresh{
+  background:#28a36a!important;
+  border-color:#28a36a!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+#collectionsRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#exceptionalRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#scheduleRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#adminAuditRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#portalBackupRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#dbRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
+#livePaymentRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
+#refreshInboxBtn:not(:disabled):is(:hover,:focus-visible,:active),
+#twilioRefreshLookupResults:not(:disabled):is(:hover,:focus-visible,:active),
+#mas90HealthRefresh:not(:disabled):is(:hover,:focus-visible,:active){
+  background:#218758!important;
+  border-color:#218758!important;
+  color:#fff!important;
+}
+#collectionsRefresh:disabled,
+#exceptionalRefresh:disabled,
+#scheduleRefresh:disabled,
+#adminAuditRefresh:disabled,
+#portalBackupRefresh:disabled,
+#dbRefreshBtn:disabled,
+#livePaymentRefreshBtn:disabled,
+#refreshInboxBtn:disabled,
+#twilioRefreshLookupResults:disabled,
+#mas90HealthRefresh:disabled{opacity:.55!important}
 </style>
