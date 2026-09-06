@@ -10769,12 +10769,12 @@ async function portalBackupListObjects(env,limit=50){
 }
 async function portalBackupCollectDatabase(env){
   if(!env?.DB)throw new Error("Portal database is not configured.");
-  const tableResult=await env.DB.prepare(`SELECT name,sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name COLLATE NOCASE`).all();
+  const tableResult=await env.DB.prepare(`SELECT name,sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND substr(name,1,4)!='_cf_' ORDER BY name COLLATE NOCASE`).all();
   const tables=[];
   let totalRows=0;
   for(const table of tableResult?.results||[]){
     const name=String(table.name||"");
-    if(!name||PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES.has(name))continue;
+    if(!name||name.startsWith("_cf_")||name.startsWith("sqlite_")||PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES.has(name))continue;
     const rows=[];
     const pageSize=5000;
     for(let offset=0;offset<1000000;offset+=pageSize){
@@ -10786,7 +10786,7 @@ async function portalBackupCollectDatabase(env){
     totalRows+=rows.length;
     tables.push({name,schema:String(table.sql||""),row_count:rows.length,rows});
   }
-  return {format:"wooten-oil-portal-d1-backup",format_version:1,created_at:new Date().toISOString(),timezone:"America/Chicago",excluded_ephemeral_tables:[...PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES],table_count:tables.length,total_rows:totalRows,tables};
+  return {format:"wooten-oil-portal-d1-backup",format_version:1,created_at:new Date().toISOString(),timezone:"America/Chicago",excluded_ephemeral_tables:[...PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES],excluded_internal_table_prefixes:["_cf_","sqlite_"],table_count:tables.length,total_rows:totalRows,tables};
 }
 async function portalBackupGzip(bytes){
   if(typeof CompressionStream!=="function")return {bytes,encoding:"identity",extension:"json"};
