@@ -3366,4 +3366,46 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   transform:none!important;
 }
 </style>
+<script id="wooten-customer-portal-open-at-top-ver359">
+(function(){
+  var portal=document.getElementById('customer-login');
+  var accountCard=document.getElementById('portalAccountCard');
+  if(!portal)return;
+
+  function isOpen(){
+    return window.location.hash==='#customer-login'&&!portal.classList.contains('portal-force-closed');
+  }
+  function resetToTop(){
+    if(!isOpen())return;
+    portal.scrollTop=0;
+    if(accountCard)accountCard.scrollTop=0;
+    window.scrollTo({top:0,left:0,behavior:'auto'});
+  }
+  function queueReset(){
+    resetToTop();
+    requestAnimationFrame(function(){
+      resetToTop();
+      requestAnimationFrame(resetToTop);
+    });
+    window.setTimeout(resetToTop,80);
+  }
+
+  document.addEventListener('click',function(event){
+    if(event.target.closest('a[href="#customer-login"],button[data-open-customer-login]'))queueReset();
+    if(event.target.closest('#accountSwitcherList [data-account-number]'))queueReset();
+  },true);
+  window.addEventListener('hashchange',queueReset);
+  window.addEventListener('pageshow',queueReset);
+  document.addEventListener('DOMContentLoaded',queueReset,{once:true});
+
+  var signedIn=document.body.classList.contains('customer-signed-in')||document.body.classList.contains('portal-authenticated');
+  new MutationObserver(function(){
+    var next=document.body.classList.contains('customer-signed-in')||document.body.classList.contains('portal-authenticated');
+    if(next&&!signedIn)queueReset();
+    signedIn=next;
+  }).observe(document.body,{attributes:true,attributeFilter:['class']});
+
+  queueReset();
+})();
+</script>
 </html>

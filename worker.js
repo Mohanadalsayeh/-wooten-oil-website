@@ -10746,6 +10746,120 @@ async function adminNotificationBellGet({request,env}){
 }
 __name(adminNotificationBellGet,'adminNotificationBellGet');
 
+const PORTAL_DATABASE_BACKUP_PREFIX="portal-database-backups/";
+const PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION=30;
+const PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES=new Set([
+  "admin_sessions",
+  "customer_sessions",
+  "shared_email_password_reset_tokens",
+  "twilio_sms_verification",
+  "portal_database_backups"
+]);
+function portalBackupSafeName(value){return String(value||"").replace(/[^A-Za-z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)||"backup";}
+function portalBackupSqlName(value){return `"${String(value||"").replace(/"/g,'""')}"`;}
+function portalBackupCentralStamp(date=new Date()){
+  const parts={};
+  for(const part of new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date))if(part.type!=="literal")parts[part.type]=part.value;
+  return {date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}-${parts.minute}-${parts.second}`,hour:Number(parts.hour||0)};
+}
+async function portalBackupListObjects(env,limit=50){
+  if(!env?.NOTIFICATION_ATTACHMENTS)return [];
+  const listed=await env.NOTIFICATION_ATTACHMENTS.list({prefix:PORTAL_DATABASE_BACKUP_PREFIX,limit:Math.max(1,Math.min(1000,Number(limit)||50)),include:["customMetadata"]});
+  return (listed?.objects||[]).slice().sort((a,b)=>new Date(b.uploaded||0)-new Date(a.uploaded||0));
+}
+async function portalBackupCollectDatabase(env){
+  if(!env?.DB)throw new Error("Portal database is not configured.");
+  const tableResult=await env.DB.prepare(`SELECT name,sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name COLLATE NOCASE`).all();
+  const tables=[];
+  let totalRows=0;
+  for(const table of tableResult?.results||[]){
+    const name=String(table.name||"");
+    if(!name||PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES.has(name))continue;
+    const rows=[];
+    const pageSize=5000;
+    for(let offset=0;offset<1000000;offset+=pageSize){
+      const page=await env.DB.prepare(`SELECT * FROM ${portalBackupSqlName(name)} LIMIT ? OFFSET ?`).bind(pageSize,offset).all();
+      const batch=page?.results||[];
+      rows.push(...batch);
+      if(batch.length<pageSize)break;
+    }
+    totalRows+=rows.length;
+    tables.push({name,schema:String(table.sql||""),row_count:rows.length,rows});
+  }
+  return {format:"wooten-oil-portal-d1-backup",format_version:1,created_at:new Date().toISOString(),timezone:"America/Chicago",excluded_ephemeral_tables:[...PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES],table_count:tables.length,total_rows:totalRows,tables};
+}
+async function portalBackupGzip(bytes){
+  if(typeof CompressionStream!=="function")return {bytes,encoding:"identity",extension:"json"};
+  const stream=new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+  return {bytes:await new Response(stream).arrayBuffer(),encoding:"gzip",extension:"json.gz"};
+}
+async function portalBackupCreate(env,{source="manual",actor="Wooten Oil Admin"}={}){
+  if(!env?.NOTIFICATION_ATTACHMENTS)throw new Error("Backup storage is not configured. Add the NOTIFICATION_ATTACHMENTS R2 binding.");
+  const automatic=source==="automatic";
+  const stamp=portalBackupCentralStamp();
+  const id=crypto.randomUUID();
+  const data=await portalBackupCollectDatabase(env);
+  data.backup_id=id;data.source=automatic?"automatic":"manual";data.created_by=String(actor||"Wooten Oil Admin");
+  const rawBytes=new TextEncoder().encode(JSON.stringify(data));
+  if(rawBytes.byteLength>80*1024*1024)throw new Error("The database backup is larger than the safe 80 MB export limit.");
+  const digest=await crypto.subtle.digest("SHA-256",rawBytes);
+  const checksum=[...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,"0")).join("");
+  const packed=await portalBackupGzip(rawBytes);
+  const folder=automatic?`automatic/${stamp.date}`:`manual/${stamp.date}`;
+  const filename=`Wooten-Oil-Portal-Database-${stamp.date}-${stamp.time}-${portalBackupSafeName(source)}.${packed.extension}`;
+  const key=`${PORTAL_DATABASE_BACKUP_PREFIX}${folder}/${filename}`;
+  await env.NOTIFICATION_ATTACHMENTS.put(key,packed.bytes,{httpMetadata:{contentType:packed.encoding==="gzip"?"application/gzip":"application/json",contentDisposition:`attachment; filename="${filename}"`},customMetadata:{backup_id:id,source:automatic?"automatic":"manual",created_by:String(actor||"Wooten Oil Admin").slice(0,100),created_at:data.created_at,table_count:String(data.table_count),total_rows:String(data.total_rows),uncompressed_bytes:String(rawBytes.byteLength),sha256:checksum,encoding:packed.encoding,filename}});
+  return {key,filename,backup_id:id,source:automatic?"automatic":"manual",created_by:data.created_by,created_at:data.created_at,table_count:data.table_count,total_rows:data.total_rows,uncompressed_bytes:rawBytes.byteLength,stored_bytes:packed.bytes.byteLength,sha256:checksum,encoding:packed.encoding};
+}
+async function portalBackupCleanupAutomatic(env){
+  const objects=(await portalBackupListObjects(env,1000)).filter(item=>String(item.key||"").startsWith(`${PORTAL_DATABASE_BACKUP_PREFIX}automatic/`));
+  const obsolete=objects.slice(PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION).map(item=>item.key);
+  if(obsolete.length)await env.NOTIFICATION_ATTACHMENTS.delete(obsolete);
+  return obsolete.length;
+}
+function portalBackupObjectSummary(object){
+  const meta=object?.customMetadata||{};
+  return {key:String(object?.key||""),filename:String(meta.filename||String(object?.key||"").split("/").pop()||"portal-database-backup.json.gz"),source:String(meta.source||(String(object?.key||"").includes("/automatic/")?"automatic":"manual")),created_by:String(meta.created_by||"Wooten Oil Admin"),created_at:String(meta.created_at||object?.uploaded||""),table_count:Number(meta.table_count||0),total_rows:Number(meta.total_rows||0),uncompressed_bytes:Number(meta.uncompressed_bytes||0),stored_bytes:Number(object?.size||0),sha256:String(meta.sha256||"")};
+}
+async function adminPortalDatabaseBackups({request,env}){
+  try{
+    const actor=adminRequestActor(request,env);
+    if(!actor.owner)return notificationJson({success:false,error:"Only the Main Admin can create or download portal database backups."},403);
+    if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:true,configured:false,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},backups:[]});
+    if(request.method==="GET"){
+      const url=new URL(request.url);
+      if(url.searchParams.get("download")==="1"){
+        const key=String(url.searchParams.get("key")||"");
+        if(!key.startsWith(PORTAL_DATABASE_BACKUP_PREFIX))return notificationJson({success:false,error:"Choose a valid portal database backup."},400);
+        const object=await env.NOTIFICATION_ATTACHMENTS.get(key);
+        if(!object)return notificationJson({success:false,error:"That database backup is no longer available."},404);
+        const filename=String(object.customMetadata?.filename||key.split("/").pop()||"Wooten-Oil-Portal-Database-Backup.json.gz").replace(/["\r\n]/g,"");
+        const headers=new Headers();object.writeHttpMetadata(headers);headers.set("Content-Disposition",`attachment; filename="${filename}"`);headers.set("Cache-Control","no-store");headers.set("X-Content-Type-Options","nosniff");
+        return new Response(object.body,{headers});
+      }
+      const backups=(await portalBackupListObjects(env,100)).map(portalBackupObjectSummary);
+      return notificationJson({success:true,configured:true,automatic:{local_time:"2:00 AM",timezone:"America/Chicago",retention:PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION},last_backup:backups[0]||null,backups:backups.slice(0,50)});
+    }
+    if(request.method==="POST"){
+      const result=await portalBackupCreate(env,{source:"manual",actor:actor.name});
+      await adminAudit(env,request,"database_backup_created","database_backup",result.backup_id,`${result.filename} • ${result.total_rows} rows`);
+      return notificationJson({success:true,backup:result,message:"Portal database backup created successfully."});
+    }
+    return methodNotAllowed();
+  }catch(error){console.error("adminPortalDatabaseBackups failed",error);return notificationJson({success:false,error:String(error?.message||"Portal database backup failed.")},500);}
+}
+async function ensureDailyPortalDatabaseBackup(env){
+  try{
+    if(!env?.DB||!env?.NOTIFICATION_ATTACHMENTS)return;
+    const stamp=portalBackupCentralStamp();
+    if(stamp.hour!==2)return;
+    const existing=await env.NOTIFICATION_ATTACHMENTS.list({prefix:`${PORTAL_DATABASE_BACKUP_PREFIX}automatic/${stamp.date}/`,limit:1});
+    if((existing?.objects||[]).length)return;
+    await portalBackupCreate(env,{source:"automatic",actor:"Automatic Daily Backup"});
+    await portalBackupCleanupAutomatic(env);
+  }catch(error){console.error("Automatic portal database backup failed",error);}
+}
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -10793,6 +10907,10 @@ var worker_default = {
     }
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});
+      return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/database-backups"){
+      if(request.method==="GET"||request.method==="POST")return adminPortalDatabaseBackups({request,env});
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/audit"){
@@ -11315,6 +11433,7 @@ return env.ASSETS.fetch(request);
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
     ctx.waitUntil(processDueStatementSchedules(env));
     ctx.waitUntil(checkMas90AutomationHealth(env));
+    ctx.waitUntil(ensureDailyPortalDatabaseBackup(env));
   }
 
 };

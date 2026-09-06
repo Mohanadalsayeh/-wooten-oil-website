@@ -5209,6 +5209,7 @@ textarea[data-request-response]{
       <button class="admin-tab" id="admin-tab-btn-requests" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-requests" data-admin-tab="requests" data-admin-label="Customer Requests"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M17 13l2 2-2 2"/></svg></span>Customer Requests</button>
       <div class="admin-nav-group" data-owner-nav>Administration</div>
       <button class="admin-tab" id="admin-tab-btn-users" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-users" data-admin-tab="users" data-admin-label="Admin Users"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2.2 0 4.1.9 5.4 2.4M18 13l1 2 2 .4-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2-.4z"/></svg></span>Admin Users</button>
+      <button class="admin-tab" id="admin-tab-btn-backup" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-backup" data-admin-tab="backup" data-admin-label="Backup &amp; Recovery" data-owner-nav><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3 1.2 0 2.3-.1 3.3-.3M18 14v7M15 18l3 3 3-3"/></svg></span>Backup &amp; Recovery</button>
       </div>
       <footer class="admin-sidebar-footer" id="adminSidebarFooter">
         <span class="admin-sidebar-footer-status" aria-hidden="true"></span>
@@ -6587,6 +6588,36 @@ textarea[data-request-response]{
     <button type="button" class="admin-page-btn" id="adminActivityNext">Next</button>
   </div>
 </div></div></section>
+  </div>
+
+  <div class="card admin-tab-panel portal-backup-panel" id="admin-tab-backup" role="tabpanel" aria-labelledby="admin-tab-btn-backup" data-admin-panel="backup" data-owner-nav>
+    <div class="admin-page-label">Data Protection</div>
+    <h2>Backup &amp; Recovery Center</h2>
+    <p>Create and download private backups of the Wooten Oil portal database. Automatic backups run daily at 2:00 AM Central and the latest 30 automatic backups are retained.</p>
+    <div class="portal-backup-summary">
+      <section><span>Backup Storage</span><strong id="portalBackupStorage">Checking…</strong><small>Private Cloudflare object storage</small></section>
+      <section><span>Latest Backup</span><strong id="portalBackupLatest">Not checked</strong><small id="portalBackupLatestMeta">Refresh to load backup history</small></section>
+      <section><span>Automatic Schedule</span><strong>Daily at 2:00 AM</strong><small>America/Chicago • 30 automatic backups</small></section>
+    </div>
+    <div class="portal-backup-actions">
+      <button class="primary" id="portalBackupCreate" type="button">Create Backup Now</button>
+      <button class="secondary" id="portalBackupDownloadLatest" type="button" disabled>Download Latest Backup</button>
+      <button class="secondary" id="portalBackupRefresh" type="button">Refresh Backup History</button>
+    </div>
+    <div class="preview-progress" id="portalBackupProgress" hidden>
+      <div class="preview-progress-head"><strong id="portalBackupProgressLabel">Creating portal database backup…</strong><span>Please keep this page open</span></div>
+      <div class="preview-progress-track" role="progressbar" aria-label="Portal database backup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35"><span></span></div>
+    </div>
+    <div id="portalBackupStatus" class="status" aria-live="polite"></div>
+    <div class="portal-backup-table-wrap tablewrap">
+      <table data-pdf-table-name="Portal Database Backups"><thead><tr><th>Date</th><th>Type</th><th>Created By</th><th>Tables</th><th>Rows</th><th>File Size</th><th>Action</th></tr></thead><tbody id="portalBackupRows"><tr><td colspan="7" class="portal-backup-empty">Open this page to load backup history.</td></tr></tbody></table>
+    </div>
+    <div class="db-pagination portal-backup-pagination" id="portalBackupPagination" hidden><button class="secondary" id="portalBackupPrev" type="button">Previous 20</button><div class="db-page-info" id="portalBackupPageInfo">Page 1 of 1</div><button class="secondary" id="portalBackupNext" type="button">Next 20</button></div>
+    <section class="portal-recovery-guide">
+      <h3>Recovery protection</h3>
+      <p><strong>Cloudflare D1 Time Travel</strong> remains the fastest way to restore the live database to an earlier point. The downloadable backup is an additional emergency copy containing portal database tables and records.</p>
+      <p>Uploaded statements, invoices, application documents, and notification attachments remain in their existing private file storage and are not duplicated inside the database backup.</p>
+    </section>
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-activation" role="tabpanel" aria-labelledby="admin-tab-btn-activation" data-admin-panel="activation">
@@ -16186,3 +16217,92 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   }
 }
 </style>
+<style id="wooten-portal-backup-recovery-ver360">
+.portal-backup-panel>h2{margin:0 0 8px;color:#0b2947}
+.portal-backup-panel>p{margin:0 0 22px;max-width:900px;color:#65758b;line-height:1.55}
+.portal-backup-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 20px}
+.portal-backup-summary section{padding:17px 18px;border:1px solid #d8e2ea;border-radius:14px;background:#f8fafc;min-width:0}
+.portal-backup-summary span,.portal-backup-summary small{display:block;color:#6c7d90}
+.portal-backup-summary span{margin-bottom:8px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.portal-backup-summary strong{display:block;color:#102d49;font-size:18px;line-height:1.25;overflow-wrap:anywhere}
+.portal-backup-summary small{margin-top:6px;font-size:12px;line-height:1.4}
+.portal-backup-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}
+.portal-backup-actions button{min-height:44px}
+.portal-backup-panel #portalBackupProgress{margin:0 0 14px}
+.portal-backup-panel #portalBackupProgress .preview-progress-track>span{width:38%;animation:portalBackupProgressSlide 1.2s ease-in-out infinite}
+@keyframes portalBackupProgressSlide{0%{transform:translateX(-115%)}50%{transform:translateX(85%)}100%{transform:translateX(265%)}}
+.portal-backup-table-wrap{margin-top:14px;border:1px solid #d8e2ea;border-radius:14px;overflow:auto}
+.portal-backup-table-wrap table{min-width:880px}
+.portal-backup-table-wrap th,.portal-backup-table-wrap td{vertical-align:middle}
+.portal-backup-table-wrap td:last-child{text-align:right}
+.portal-backup-empty{padding:30px!important;text-align:center!important;color:#728296}
+.portal-backup-download{min-width:108px!important}
+.portal-backup-pagination{margin-top:12px}
+.portal-recovery-guide{margin-top:22px;padding:18px 20px;border:1px solid #cfe0ec;border-radius:14px;background:#f3f8fc}
+.portal-recovery-guide h3{margin:0 0 8px;color:#173a61}
+.portal-recovery-guide p{margin:7px 0;color:#587086;line-height:1.55}
+@media(max-width:800px){
+  .portal-backup-summary{grid-template-columns:1fr}
+  .portal-backup-actions{display:grid;grid-template-columns:1fr}
+  .portal-backup-actions button{width:100%!important}
+  .portal-backup-table-wrap{border:0;overflow:visible}
+  .portal-backup-table-wrap table,.portal-backup-table-wrap thead,.portal-backup-table-wrap tbody,.portal-backup-table-wrap tr,.portal-backup-table-wrap td{display:block;width:100%;min-width:0}
+  .portal-backup-table-wrap thead{display:none}
+  .portal-backup-table-wrap tr{margin-bottom:12px;border:1px solid #d8e2ea;border-radius:13px;background:#fff;overflow:hidden}
+  .portal-backup-table-wrap td{padding:11px 13px;border-bottom:1px solid #e5ebf0;text-align:left!important}
+  .portal-backup-table-wrap td:last-child{border-bottom:0}
+  .portal-backup-table-wrap td::before{content:attr(data-label);display:block;margin-bottom:4px;color:#728296;font-size:10px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+  .portal-backup-download{width:100%!important}
+}
+</style>
+<script id="wooten-portal-backup-recovery-ver360-script">
+(function(){
+  const tab=document.getElementById('admin-tab-btn-backup');
+  const panel=document.getElementById('admin-tab-backup');
+  const rowsEl=document.getElementById('portalBackupRows');
+  const createBtn=document.getElementById('portalBackupCreate');
+  const latestBtn=document.getElementById('portalBackupDownloadLatest');
+  const refreshBtn=document.getElementById('portalBackupRefresh');
+  const storageEl=document.getElementById('portalBackupStorage');
+  const latestEl=document.getElementById('portalBackupLatest');
+  const latestMeta=document.getElementById('portalBackupLatestMeta');
+  const statusEl=document.getElementById('portalBackupStatus');
+  const progress=document.getElementById('portalBackupProgress');
+  const pagination=document.getElementById('portalBackupPagination');
+  const prev=document.getElementById('portalBackupPrev');
+  const next=document.getElementById('portalBackupNext');
+  const pageInfo=document.getElementById('portalBackupPageInfo');
+  if(!tab||!panel||!rowsEl)return;
+  const PAGE_SIZE=20;
+  let backups=[],page=1,loaded=false,busy=false;
+
+  const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  function key(){return String(document.getElementById('adminKey')?.value||'').trim();}
+  function formatDate(value){const date=new Date(value);return Number.isNaN(date.getTime())?String(value||'—'):date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
+  function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
+  function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
+  function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}
+  async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'The database backup request failed.');return data;}
+  function render(){
+    const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backups.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+    rowsEl.innerHTML=shown.length?shown.map(item=>'<tr><td data-label="Date">'+esc(formatDate(item.created_at))+'</td><td data-label="Type">'+esc(item.source==='automatic'?'Automatic':'Manual')+'</td><td data-label="Created By">'+esc(item.created_by||'Wooten Oil Admin')+'</td><td data-label="Tables">'+Number(item.table_count||0).toLocaleString()+'</td><td data-label="Rows">'+Number(item.total_rows||0).toLocaleString()+'</td><td data-label="File Size">'+esc(formatBytes(item.stored_bytes))+'</td><td data-label="Action"><button class="secondary portal-backup-download" type="button" data-backup-key="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Download</button></td></tr>').join(''):'<tr><td colspan="7" class="portal-backup-empty">No portal database backups are available yet.</td></tr>';
+    pagination.hidden=backups.length<=PAGE_SIZE;prev.disabled=page<=1;next.disabled=page>=pages;pageInfo.textContent='Page '+page+' of '+pages+' • '+backups.length+' backup'+(backups.length===1?'':'s');latestBtn.disabled=busy||!backups.length;
+  }
+  async function load(){
+    if(busy)return;setBusy(true,'Loading portal database backup history…');message('');
+    try{const data=await api('/api/admin/database-backups');backups=Array.isArray(data.backups)?data.backups:[];storageEl.textContent=data.configured?'Connected':'Not configured';storageEl.style.color=data.configured?'#137246':'#a52b2b';if(backups.length){latestEl.textContent=formatDate(backups[0].created_at);latestMeta.textContent=(backups[0].source==='automatic'?'Automatic':'Manual')+' • '+Number(backups[0].total_rows||0).toLocaleString()+' rows • '+formatBytes(backups[0].stored_bytes);}else{latestEl.textContent='No backup yet';latestMeta.textContent=data.configured?'Create the first backup now':'Backup storage must be configured';}render();loaded=true;message(backups.length?backups.length+' portal database backup(s) available.':'No portal database backups are available yet.',true);}catch(error){rowsEl.innerHTML='<tr><td colspan="7" class="portal-backup-empty">'+esc(error.message||'Backup history could not be loaded.')+'</td></tr>';message(error.message||'Backup history could not be loaded.',false);}finally{setBusy(false);}
+  }
+  async function create(){
+    if(busy)return;setBusy(true,'Creating and securely storing portal database backup…');message('Creating a complete portal database backup. This can take a moment.',true);
+    try{const data=await api('/api/admin/database-backups',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});message(data.message||'Portal database backup created successfully.',true);page=1;setBusy(false);await load();}catch(error){message(error.message||'Portal database backup could not be created.',false);setBusy(false);}
+  }
+  async function download(item){
+    if(!item||busy)return;setBusy(true,'Preparing secure backup download…');message('Preparing '+(item.filename||'database backup')+'…',true);
+    try{const response=await api('/api/admin/database-backups?download=1&key='+encodeURIComponent(item.key),{download:true});if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'The database backup could not be downloaded.');}const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=item.filename||'Wooten-Oil-Portal-Database-Backup.json.gz';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);message('Database backup download started.',true);}catch(error){message(error.message||'The database backup could not be downloaded.',false);}finally{setBusy(false);}
+  }
+  tab.addEventListener('click',()=>{if(!loaded)setTimeout(load,0);});
+  createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',load);latestBtn.addEventListener('click',()=>download(backups[0]));
+  rowsEl.addEventListener('click',event=>{const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
+  prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
+})();
+</script>
