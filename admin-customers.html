@@ -16596,3 +16596,45 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   margin-bottom:20px!important;
 }
 </style>
+<style id="wooten-backup-mobile-flow-ver383">
+/* Keep backup cards in normal document flow before pagination and recovery information. */
+#admin-tab-backup .portal-backup-pagination[hidden]{display:none!important}
+@media(max-width:800px){
+  #admin-tab-backup .portal-backup-table-wrap{
+    display:block!important;
+    width:100%!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+  #admin-tab-backup .portal-backup-table-wrap table,
+  #admin-tab-backup .portal-backup-table-wrap tbody{
+    position:static!important;
+    float:none!important;
+    width:100%!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+  #admin-tab-backup .portal-backup-table-wrap tr{
+    position:relative!important;
+    float:none!important;
+    height:auto!important;
+    max-height:none!important;
+  }
+  #admin-tab-backup .portal-backup-table-wrap td{
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  #admin-tab-backup .portal-backup-pagination{
+    position:static!important;
+    clear:both!important;
+    margin:14px 0 0!important;
+  }
+  #admin-tab-backup .portal-recovery-guide{
+    position:relative!important;
+    clear:both!important;
+    margin-top:22px!important;
+  }
+}
+</style>
