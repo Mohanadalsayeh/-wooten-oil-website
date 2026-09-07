@@ -6411,9 +6411,9 @@ textarea[data-request-response]{
       </div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
-        <button class="secondary" id="statementCustomerPrev" type="button">Previous 20</button>
+        <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
         <div class="db-page-info" id="statementCustomerPageInfo">Page 1 of 1</div>
-        <button class="secondary" id="statementCustomerNext" type="button">Next 20</button>
+        <button class="secondary" id="statementCustomerNext" type="button" disabled>Next 20</button>
       </div>
 
       <section class="statement-send-report" id="statementSendReport" hidden aria-live="polite"></section>
@@ -10860,8 +10860,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const start=filtered.length?((customerPage-1)*customerPageSize)+1:0;
     const end=Math.min(customerPage*customerPageSize,filtered.length);
     if(customerPagination)customerPagination.hidden=filtered.length<=customerPageSize;
-    if(customerPrev)customerPrev.disabled=customerPage<=1;
-    if(customerNext)customerNext.disabled=customerPage>=pages;
+    const empty=filtered.length===0;
+    if(customerPrev)customerPrev.disabled=empty||customerPage<=1;
+    if(customerNext)customerNext.disabled=empty||customerPage>=pages;
     if(customerPageInfo)customerPageInfo.textContent='Showing '+start+'–'+end+' of '+filtered.length+' • Page '+customerPage+' of '+pages;
   }
   function updateCount(){
@@ -12828,8 +12829,9 @@ let pagingRequests=false;
     const start=filtered.length?((customerPage-1)*customerPageSize)+1:0;
     const end=Math.min(customerPage*customerPageSize,filtered.length);
     if(customerPagination)customerPagination.hidden=filtered.length<=customerPageSize;
-    if(customerPrev)customerPrev.disabled=customerPage<=1;
-    if(customerNext)customerNext.disabled=customerPage>=pages;
+    const empty=filtered.length===0;
+    if(customerPrev)customerPrev.disabled=empty||customerPage<=1;
+    if(customerNext)customerNext.disabled=empty||customerPage>=pages;
     if(customerPageInfo)customerPageInfo.textContent='Showing '+start+'–'+end+' of '+filtered.length+' • Page '+customerPage+' of '+pages;
   }
   function updateCount(){
@@ -14584,8 +14586,8 @@ let pagingRequests=false;
   }
 
   .admin-content{
-    width:calc(100vw - 24px) !important;
-    max-width:calc(100vw - 24px) !important;
+    width:100% !important;
+    max-width:100% !important;
   }
 
   #admin-tab-documents{
