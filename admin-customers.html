@@ -5169,6 +5169,38 @@ textarea[data-request-response]{
   }
 }
 </style>
+<style id="wooten-notification-and-actions-ver398">
+@layer wootenActionSizing {
+  #adminNotificationMenu .admin-bell-load-more {
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    gap:7px!important;flex:0 0 34px!important;box-sizing:border-box!important;
+    width:100%!important;min-width:0!important;height:34px!important;min-height:34px!important;
+    margin:0!important;padding:0 12px!important;border:0!important;
+    border-top:1px solid #dce5ed!important;border-bottom:1px solid #dce5ed!important;
+    border-radius:0!important;background:#f1f6fa!important;color:#183650!important;
+    font-size:13px!important;font-weight:500!important;line-height:1.2!important;
+    box-shadow:none!important;cursor:pointer!important;
+  }
+  #adminNotificationMenu .admin-bell-load-more::after {
+    content:'';width:5px;height:5px;border-right:1px solid currentColor;
+    border-bottom:1px solid currentColor;transform:translateY(-2px) rotate(45deg);
+  }
+  #adminNotificationMenu .admin-bell-load-more:hover {background:#e7eff5!important;}
+  #adminNotificationMenu .admin-bell-load-more:focus-visible {
+    outline:2px solid #294f73!important;outline-offset:-3px!important;
+  }
+  #adminNotificationMenu .admin-bell-load-more:disabled {cursor:wait!important;opacity:.65!important;}
+  #adminNotificationMenu .admin-bell-load-more[hidden] {display:none!important;}
+  #adminNotificationMenu .admin-bell-load-more:not([hidden]) + .admin-bell-footer {border-top:0!important;}
+  body .collections-action-trigger,
+  body .collections-action-trigger:hover,
+  body .collections-action-trigger:focus,
+  body .collections-action-trigger:active,
+  body .collections-action-trigger[aria-expanded="true"] {
+    background:transparent!important;border:1px solid #f3f0eb!important;box-shadow:none!important;
+  }
+}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
