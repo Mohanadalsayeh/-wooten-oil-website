@@ -5127,6 +5127,53 @@ async function ensureAdminCommunicationLogTable(env){
 }
 __name(ensureAdminCommunicationLogTable,"ensureAdminCommunicationLogTable");
 
+// Ver391: reuse saved dry-test results; never create delivery attempts or PDFs here.
+async function backfillStatementTestCommunicationLog(env){
+  const table=await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='statement_schedule_runs'`).first();
+  if(!table)return;
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO admin_communication_log
+      (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,error_text,created_at)
+    SELECT
+      printf('%07d',CAST(t.account AS INTEGER)), 'test',
+      'Cycle ' || t.statement_cycle || ' statement test',
+      'TEST — Not sent. Run #' || t.run_id || '. ' ||
+        CASE WHEN t.succeeded=1 THEN 'PDF generated and validated.' ELSE 'Statement validation failed.' END ||
+        CASE WHEN COALESCE(t.filename,'')<>'' THEN ' File: ' || t.filename || '.' ELSE '' END ||
+        ' No email, SMS, or portal notification was sent. Time shown is the test run start time.',
+      'statement_test_run:' || t.run_id, CAST(t.account AS INTEGER), 0, 0, 0,
+      CASE WHEN t.succeeded=1 THEN '' ELSE COALESCE(t.error,'Statement could not be validated.') END,
+      t.started_at
+    FROM (
+      SELECT r.id AS run_id,r.statement_cycle,r.started_at,
+        trim(CAST(json_extract(j.value,'$.account_number') AS TEXT)) AS account,
+        json_extract(j.value,'$.success') AS succeeded,
+        json_extract(j.value,'$.filename') AS filename,
+        json_extract(j.value,'$.error') AS error
+      FROM statement_schedule_runs r,
+        json_each(CASE WHEN json_valid(r.detail_json) THEN r.detail_json ELSE '[]' END) j
+      WHERE substr(r.run_type,1,5)='test_' AND substr(r.run_key,1,9)<>'testsend:'
+        AND j.type='object'
+    ) t
+    WHERE length(t.account) BETWEEN 1 AND 7 AND t.account NOT GLOB '*[^0-9]*'
+  `).run();
+}
+__name(backfillStatementTestCommunicationLog,"backfillStatementTestCommunicationLog");
+
+// Date-only filters mean whole Central calendar days, including 23/25-hour DST days.
+function communicationLogDateBoundary(value,nextDay=false){
+  if(!value)return '';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const date=new Date(value+'T00:00:00Z');
+  if(Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==value)return null;
+  if(nextDay)date.setUTCDate(date.getUTCDate()+1);
+  const wallClock=date.getTime();
+  let utc=wallClock-adminTimeZoneOffsetMs(new Date(wallClock),'America/Chicago');
+  utc=wallClock-adminTimeZoneOffsetMs(new Date(utc),'America/Chicago');
+  return new Date(utc).toISOString();
+}
+__name(communicationLogDateBoundary,"communicationLogDateBoundary");
+
 async function backfillAdminCommunicationLog(env){
   await ensureCustomerNotificationsTable(env);
   await ensureCustomerDocumentsTable(env);
@@ -5158,6 +5205,7 @@ async function backfillAdminCommunicationLog(env){
       WHERE n.action_type='customer_documents' AND n.action_id=d.id
     )
   `).run();
+  await backfillStatementTestCommunicationLog(env);
 }
 __name(backfillAdminCommunicationLog,"backfillAdminCommunicationLog");
 
@@ -5173,15 +5221,20 @@ async function adminCommunicationLogGet({request,env}){
     const account=normalizeNotificationAccount(url.searchParams.get("account_number")||"");
     const from=String(url.searchParams.get("from")||"").trim();
     const to=String(url.searchParams.get("to")||"").trim();
+    const fromUtc=communicationLogDateBoundary(from);
+    const toUtc=communicationLogDateBoundary(to,true);
+    if(fromUtc===null||toUtc===null||(from&&to&&from>to)){
+      return notificationJson({success:false,error:"Choose a valid date range. Dates are in Central Time."},400);
+    }
     const type=String(url.searchParams.get("type")||"all").trim().toLowerCase();
     const q=String(url.searchParams.get("q")||"").trim().toLowerCase();
     const page=Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get("page")||"1",10)||1));
     const pageSize=20;
     const clauses=[];
     const binds=[];
-    if(from){clauses.push("date(l.created_at)>=date(?)");binds.push(from);}
-    if(to){clauses.push("date(l.created_at)<=date(?)");binds.push(to);}
-    if(["notification","statement","invoice"].includes(type)){clauses.push("l.event_type=?");binds.push(type);}
+    if(fromUtc){clauses.push("datetime(l.created_at)>=datetime(?)");binds.push(fromUtc);}
+    if(toUtc){clauses.push("datetime(l.created_at)<datetime(?)");binds.push(toUtc);}
+    if(["notification","statement","invoice","test"].includes(type)){clauses.push("l.event_type=?");binds.push(type);}
     if(account){clauses.push("l.account_number=?");binds.push(account);}
     if(q){clauses.push("(lower(l.account_number) LIKE ? OR lower(COALESCE(c.account_name,'')) LIKE ?)");binds.push(`%${q}%`,`%${q}%`);}
     const where=clauses.length?`WHERE ${clauses.join(" AND ")}`:"";
@@ -5235,6 +5288,7 @@ async function adminCommunicationLogGet({request,env}){
         SUM(CASE WHEN l.event_type='notification' THEN 1 ELSE 0 END) AS notification_count,
         SUM(CASE WHEN l.event_type='statement' THEN 1 ELSE 0 END) AS statement_count,
         SUM(CASE WHEN l.event_type='invoice' THEN 1 ELSE 0 END) AS invoice_count,
+        SUM(CASE WHEN l.event_type='test' THEN 1 ELSE 0 END) AS test_count,
         MAX(l.created_at) AS last_sent_at
       FROM admin_communication_log l
       LEFT JOIN customers c ON c.account_number=l.account_number

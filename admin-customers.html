@@ -3009,6 +3009,7 @@ input[type="file"]:focus-visible{
 .communication-log-entries{display:grid;gap:10px;margin-top:12px}
 .communication-entry{border:1px solid #d8e1ea;border-left:5px solid #173650;border-radius:12px;background:#fff;padding:14px}
 .communication-entry.statement{border-left-color:#246b9e}.communication-entry.invoice{border-left-color:#8b5b23}.communication-entry.notification{border-left-color:#c7313c}
+.communication-entry.test{border-left-color:#8063b1}.communication-channel.test{background:#f0eafb;color:#60428f}
 .communication-entry-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.communication-entry-head strong{color:#102b48}.communication-entry-time{font-size:12px;color:#718193;white-space:nowrap}
 .communication-entry p{margin:8px 0;color:#556779;white-space:pre-wrap}
 .communication-channels{display:flex;flex-wrap:wrap;gap:7px}.communication-channel{border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;background:#edf2f7;color:#536475}.communication-channel.sent{background:#ddf4e8;color:#17633f}.communication-channel.failed{background:#fde8e8;color:#9b3030}
@@ -6507,13 +6508,13 @@ textarea[data-request-response]{
         <div>
           <div class="admin-page-label">Communication History</div>
           <h3>Statements, Invoices &amp; Notifications Log</h3>
-          <p>Review every recorded send. Select a customer to see repeated notifications, statements, and invoices within the selected period.</p>
+          <p>Review recorded sends and dry tests. Tests are labeled “TEST — Not sent.” Dates and times are shown in Central Time.</p>
         </div>
       </div>
       <div class="communication-log-filters">
-        <div><label for="communicationLogFrom">From</label><input id="communicationLogFrom" type="date"></div>
-        <div><label for="communicationLogTo">To</label><input id="communicationLogTo" type="date"></div>
-        <div><label for="communicationLogType">Type</label><select id="communicationLogType"><option value="all">All activity</option><option value="notification">Notifications</option><option value="statement">Statements</option><option value="invoice">Invoices</option></select></div>
+        <div><label for="communicationLogFrom">From (Central)</label><input id="communicationLogFrom" type="date"></div>
+        <div><label for="communicationLogTo">To (Central)</label><input id="communicationLogTo" type="date"></div>
+        <div><label for="communicationLogType">Type</label><select id="communicationLogType"><option value="all">All activity</option><option value="notification">Notifications</option><option value="statement">Statements</option><option value="invoice">Invoices</option><option value="test">Tests — Not sent</option></select></div>
         <div><label for="communicationLogSearch">Find Customer</label><input id="communicationLogSearch" type="search" placeholder="Customer # or name…"></div>
       </div>
       <div class="actions communication-log-actions">
@@ -10469,6 +10470,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
     return (n/(1024*1024)).toFixed(1)+' MB';
   }
+  function formatDocumentAdded(v){
+    if(!v)return 'Time unavailable';
+    const raw=String(v).trim();
+    // A document's date-only value has no creation time; do not invent midnight.
+    if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return formatDate(raw)+' (time unavailable)';
+    const timestamp=raw.replace(' ','T');
+    const parsed=new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(timestamp)?timestamp:timestamp+'Z');
+    if(Number.isNaN(parsed.getTime()))return 'Time unavailable';
+    return parsed.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  }
   function renderDocumentPage(){
     list.innerHTML='';
     const total=currentDocuments.length;
@@ -10488,14 +10499,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         const main=document.createElement('div'); main.className='doc-admin-main';
         const strong=document.createElement('strong'); strong.textContent=d.title||d.filename||'Document';
         const small=document.createElement('small');
-        small.appendChild(document.createTextNode(formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '));
+        small.appendChild(document.createTextNode('Document date: '+formatDate(d.document_date||d.created_at)+' • '+formatSize(d.size_bytes)+' • '));
         const filenameLink=document.createElement('button');
         filenameLink.type='button';
         filenameLink.className='communication-pdf-link';
         filenameLink.textContent=d.filename||'PDF';
         filenameLink.addEventListener('click',function(){openAdminDocument(d.id);});
         small.appendChild(filenameLink);
-        main.append(strong,small);
+        const added=document.createElement('small');
+        added.textContent='Added: '+formatDocumentAdded(d.created_at);
+        main.append(strong,small,added);
         const actions=document.createElement('div');
         actions.className='doc-admin-actions';
         const id=document.createElement('small');
@@ -10534,13 +10547,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     try{
       await window.WootenAdminTablePdf.exportData(
         pdfTitle,
-        ['Customer #','Customer Name','Document Type','Title / Invoice Number','Document Date','PDF File','Size','Document #'],
+        ['Customer #','Customer Name','Document Type','Title / Invoice Number','Document Date','Added (Central)','PDF File','Size','Document #'],
         currentDocuments.map(documentRow=>[
           customerNumber,
           customerName,
           String(documentRow.document_type||'Document').replace(/^./,character=>character.toUpperCase()),
           documentRow.title||documentRow.filename||'Document',
           formatDate(documentRow.document_date||documentRow.created_at),
+          formatDocumentAdded(documentRow.created_at),
           documentRow.filename||'PDF',
           formatSize(documentRow.size_bytes),
           documentRow.id
@@ -11563,7 +11577,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!accounts.length){setStatus('Select at least one customer in Preview '+(type==='weekly'?'B':'A')+' Customers first. Test and Run never process unselected customers.',false);return;}
     const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':type==='midmonth'?'legacy mid-month':'A monthly-cycle';
     const prompt=isTest
-      ?'TEST RUN: Generate and validate '+label+' statements for the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nNo SMS, email, portal delivery, saved document, or Communication History entry will be created.'
+      ?'TEST RUN: Generate and validate '+label+' statements for the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nNo SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'
       :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
     showStatementProcessingOverlay(
@@ -11639,7 +11653,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const breakdown=[];
     if(selections.monthly.length)breakdown.push('Cycle A: '+selections.monthly.length.toLocaleString()+' selected');
     if(selections.weekly.length)breakdown.push('Cycle B: '+selections.weekly.length.toLocaleString()+' selected');
-    if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will be tested. No SMS, email, portal delivery, saved document, or Communication History entry will be created.'))return;
+    if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will be tested. No SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'))return;
     showStatementProcessingOverlay(
       'Testing selected statements…',
       'Please keep this page open while '+totalSelected.toLocaleString()+' selected customer statement'+(totalSelected===1?' is':'s are')+' processed across all selected cycles. This may take a few minutes to complete.'
@@ -11760,16 +11774,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   get('scheduleTestMonthly').addEventListener('click',()=>runNow('monthly',true));
   get('scheduleTestAll').addEventListener('click',testAllCycles);
   get('scheduleTestHelp').addEventListener('click',()=>window.alert([
-    'Test Send:',
+    'Statement Dry Test:',
     '',
     '• First open Preview A or Preview B and select the customer(s) you want.',
     '• Test A and Test B process selected customers only.',
     '• Test All Cycles combines only the selected customers from Cycle A and Cycle B; it never expands to the full cycles.',
-    '• Test uses the same eligibility rules and saved delivery options as a real run.',
-    '• Portal, Email, and SMS are sent only when those delivery options are enabled and selected for that customer.',
-    '• Statement PDFs are stored in the selected customer accounts.',
-    '• Communication History is updated because this is a real delivery.',
-    '• The report is clearly labeled TEST RUN.',
+    '• Test uses the same eligibility rules and statement calculations as a real run.',
+    '• PDFs are generated and validated, but no email, SMS, or portal notification is sent.',
+    '• Dry tests do not add documents to customer accounts.',
+    '• Results appear in Communication History as TEST — Not sent. Select Tests — Not sent in the Type filter to see only tests.',
+    '• The Statement Run Report is also saved and clearly labeled TEST RUN.',
     '• Unselected customers are never processed by Test A, Test B, Test All Cycles, Run A, or Run B.'
   ].join('\n')));
   get('scheduleRunWeekly').addEventListener('click',()=>runNow('weekly'));
@@ -11965,15 +11979,19 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   let totalCustomers=0;
   const openNodes=new Map();
 
-  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dateValue(d){
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d).reduce((out,part)=>{out[part.type]=part.value;return out;},{});
+    return parts.year+'-'+parts.month+'-'+parts.day;
+  }
   const now=new Date();
   const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
   if(!to.value)to.value=dateValue(now);
   if(!from.value)from.value=dateValue(earlier);
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
   function formatDate(v){
-    const d=new Date(String(v||'').replace(' ','T')+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    const raw=String(v||'').trim().replace(' ','T');
+    const d=new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)?raw:raw+'Z');
+    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'});
   }
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function params(account,page){
@@ -12003,6 +12021,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(!rows.length)return '<div class="communication-log-empty">No activity was found for this customer in the selected period.</div>';
     return rows.map(r=>{
       const error=String(r.error_text||'');
+      if(r.event_type==='test'){
+        return '<article class="communication-entry test">'+
+          '<div class="communication-entry-head"><strong>'+esc(r.title||'Statement test')+'</strong><span class="communication-entry-time" title="Test run started (Central)">'+esc(formatDate(r.created_at))+'</span></div>'+
+          '<p>'+esc(r.detail||'Statement dry test. Nothing was sent.')+'</p>'+
+          '<div class="communication-channels"><span class="communication-channel test">TEST — Not sent</span></div>'+
+          (error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
+      }
       const emailAttempted=!!r.email_sent||/email/i.test(error);
       const smsAttempted=!!r.sms_sent||/sms|phone|twilio/i.test(error);
       const smsStatus=String(r.sms_status||((r.sms_sent&&r.sms_sid)?'pending':'')).toLowerCase();
@@ -12049,11 +12074,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         '<button class="communication-customer-row" type="button" data-tree-customer="'+esc(account)+'" aria-expanded="'+(open?'true':'false')+'" data-name="'+esc(r.account_name||'Customer')+'">'+
           '<span class="communication-tree-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></span>'+
           '<span class="communication-customer-name"><strong>'+esc(r.account_name||'Customer')+'</strong><small>Customer # '+esc(account)+'</small></span>'+
-          '<span class="communication-count"><strong>'+Number(r.total_count||0)+'</strong><small>Total</small></span>'+
+          '<span class="communication-count"><strong>'+Number(r.total_count||0)+'</strong><small>Total</small>'+(Number(r.test_count||0)?'<small>'+Number(r.test_count)+' test(s)</small>':'')+'</span>'+
           '<span class="communication-count"><strong>'+Number(r.notification_count||0)+'</strong><small>Notices</small></span>'+
           '<span class="communication-count"><strong>'+Number(r.statement_count||0)+'</strong><small>Statements</small></span>'+
           '<span class="communication-count"><strong>'+Number(r.invoice_count||0)+'</strong><small>Invoices</small></span>'+
-          '<span class="communication-last">Last sent<br><strong>'+esc(formatDate(r.last_sent_at))+'</strong></span>'+
+          '<span class="communication-last">Last activity<br><strong>'+esc(formatDate(r.last_sent_at))+'</strong></span>'+
         '</button>'+
         '<div class="communication-tree-children" '+(open?'':'hidden')+'>'+ (open?childHtml(account,state):'') +'</div>'+
       '</div>';
