@@ -10457,6 +10457,8 @@ async function ensureAccountApplicationsTable(env){
       state TEXT NOT NULL,
       zip_code TEXT NOT NULL,
       preferred_contact TEXT NOT NULL DEFAULT 'phone',
+      fleet_card_count INTEGER NOT NULL DEFAULT 0,
+      fleet_card_reasons TEXT,
       applicant_notes TEXT,
       tax_document_key TEXT,
       tax_document_name TEXT,
@@ -10488,7 +10490,7 @@ async function ensureAccountApplicationsTable(env){
   if(!columns.has("reviewed_by"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_by TEXT`).run();
   if(!columns.has("reviewed_at"))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN reviewed_at TEXT`).run();
   await env.DB.prepare(`UPDATE account_applications SET reviewed_by='Wooten Oil Admin' WHERE reviewed_by='Wooten Oil Owner'`).run();
-  const additions=[["sms_confirmation_consent","INTEGER NOT NULL DEFAULT 0"],["support_email_sent","INTEGER NOT NULL DEFAULT 0"],["support_email_id","TEXT"],["applicant_email_sent","INTEGER NOT NULL DEFAULT 0"],["applicant_email_id","TEXT"],["confirmation_sms_sent","INTEGER NOT NULL DEFAULT 0"],["confirmation_sms_sid","TEXT"],["notification_error","TEXT"],["notification_sent_at","TEXT"]];
+  const additions=[["fleet_card_count","INTEGER NOT NULL DEFAULT 0"],["fleet_card_reasons","TEXT"],["sms_confirmation_consent","INTEGER NOT NULL DEFAULT 0"],["support_email_sent","INTEGER NOT NULL DEFAULT 0"],["support_email_id","TEXT"],["applicant_email_sent","INTEGER NOT NULL DEFAULT 0"],["applicant_email_id","TEXT"],["confirmation_sms_sent","INTEGER NOT NULL DEFAULT 0"],["confirmation_sms_sid","TEXT"],["notification_error","TEXT"],["notification_sent_at","TEXT"]];
   for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE account_applications ADD COLUMN ${name} ${definition}`).run();
 }
 __name(ensureAccountApplicationsTable,"ensureAccountApplicationsTable");
@@ -10529,10 +10531,11 @@ async function accountApplicationSendEmail(env,{to,subject,html,text,from}){
 }
 async function accountApplicationSendNotifications({request,env,applicationNumber,type,data}){
   const applicantName=data.full_name;const accountName=type==="business"?data.business_name:applicantName;const submitted=new Date().toLocaleString("en-US",{timeZone:"America/Chicago",dateStyle:"long",timeStyle:"short"});
+  const fleetCardsText=data.fleet_card_count?data.fleet_card_reasons.map((reason,index)=>`${index+1}. ${reason}`).join(" | "):"None requested";
   const applicationsFrom=String(env.APPLICATIONS_FROM_EMAIL||"Wooten Oil Applications <applications@wootenoil.com>").trim();
-  const internalHtml=`<h2>New Wooten Oil Account Application</h2><p>A new ${notificationEscapeHtml(type)} account application was submitted.</p><table cellpadding="7" cellspacing="0" style="border-collapse:collapse"><tr><td><strong>Application</strong></td><td>${notificationEscapeHtml(applicationNumber)}</td></tr><tr><td><strong>Applicant</strong></td><td>${notificationEscapeHtml(applicantName)}</td></tr><tr><td><strong>Account name</strong></td><td>${notificationEscapeHtml(accountName)}</td></tr><tr><td><strong>Email</strong></td><td>${notificationEscapeHtml(data.email)}</td></tr><tr><td><strong>Phone</strong></td><td>${notificationEscapeHtml(data.phone)}</td></tr><tr><td><strong>Submitted</strong></td><td>${notificationEscapeHtml(submitted)} Central</td></tr></table><p>Review the application and its private documents in Customer Administration → Account Applications.</p><p><strong>Security:</strong> Identity and Tax ID documents are not attached to this email.</p>`;
+  const internalHtml=`<h2>New Wooten Oil Account Application</h2><p>A new ${notificationEscapeHtml(type)} account application was submitted.</p><table cellpadding="7" cellspacing="0" style="border-collapse:collapse"><tr><td><strong>Application</strong></td><td>${notificationEscapeHtml(applicationNumber)}</td></tr><tr><td><strong>Applicant</strong></td><td>${notificationEscapeHtml(applicantName)}</td></tr><tr><td><strong>Account name</strong></td><td>${notificationEscapeHtml(accountName)}</td></tr><tr><td><strong>Email</strong></td><td>${notificationEscapeHtml(data.email)}</td></tr><tr><td><strong>Phone</strong></td><td>${notificationEscapeHtml(data.phone)}</td></tr><tr><td><strong>Fleet cards</strong></td><td>${notificationEscapeHtml(String(data.fleet_card_count))}</td></tr><tr><td><strong>Card use / reason</strong></td><td>${notificationEscapeHtml(fleetCardsText)}</td></tr><tr><td><strong>Submitted</strong></td><td>${notificationEscapeHtml(submitted)} Central</td></tr></table><p>Review the application and its private documents in Customer Administration → Account Applications.</p><p><strong>Security:</strong> Identity and Tax ID documents are not attached to this email.</p>`;
   const applicantHtml=`<h2>We received your Wooten Oil account application</h2><p>Hello ${notificationEscapeHtml(applicantName)},</p><p>Your application <strong>${notificationEscapeHtml(applicationNumber)}</strong> has been received. Our team will review it and contact you if additional information is needed.</p><p>Please keep your application number for your records.</p><p>Wooten Oil Co. Inc.<br>support@wootenoil.com</p>`;
-  const internalText=`New Wooten Oil ${type} account application\nApplication: ${applicationNumber}\nApplicant: ${applicantName}\nAccount name: ${accountName}\nEmail: ${data.email}\nPhone: ${data.phone}\nSubmitted: ${submitted} Central\n\nReview it in Customer Administration > Account Applications. Sensitive documents are not attached.`;
+  const internalText=`New Wooten Oil ${type} account application\nApplication: ${applicationNumber}\nApplicant: ${applicantName}\nAccount name: ${accountName}\nEmail: ${data.email}\nPhone: ${data.phone}\nFleet cards: ${data.fleet_card_count}\nCard use / reason: ${fleetCardsText}\nSubmitted: ${submitted} Central\n\nReview it in Customer Administration > Account Applications. Sensitive documents are not attached.`;
   const applicantText=`Hello ${applicantName},\n\nWe received your Wooten Oil account application ${applicationNumber}. Our team will review it and contact you if additional information is needed. Please keep this number for your records.\n\nWooten Oil Co. Inc.\nsupport@wootenoil.com`;
   const smsBody=`Wooten Oil: We received your account application ${applicationNumber}. Our team will review it and contact you. Reply STOP to opt out.`;
   const supportPromise=accountApplicationSendEmail(env,{from:applicationsFrom,to:"support@wootenoil.com",subject:`New Wooten Oil Account Application — ${applicationNumber}`,html:internalHtml,text:internalText});
@@ -10550,6 +10553,10 @@ async function accountApplicationPost({request,env}){
     if(accountApplicationText(form.get("website"),100)) return notificationJson({success:true,application_number:"RECEIVED"});
     const type=accountApplicationText(form.get("application_type"),20).toLowerCase();
     if(!["business","personal"].includes(type)) return notificationJson({success:false,error:"Choose Business or Personal account."},400);
+    const fleetCardCount=Number(form.get("fleet_card_count"));
+    const fleetCardReasons=form.getAll("fleet_card_reason").map(value=>accountApplicationText(value,160));
+    if(!Number.isInteger(fleetCardCount)||fleetCardCount<0||fleetCardCount>20) return notificationJson({success:false,error:"Choose a fleet card quantity from 0 through 20."},400);
+    if(fleetCardReasons.length!==fleetCardCount||fleetCardReasons.some(reason=>!reason)) return notificationJson({success:false,error:"Enter the intended use for every requested fleet card."},400);
     const data={
       business_name:accountApplicationText(form.get("business_name"),120),dba_name:accountApplicationText(form.get("dba_name"),120),
       tax_id_last4:accountApplicationText(form.get("tax_id_last4"),4).replace(/\D/g,""),years_in_business:Number(form.get("years_in_business")||0),
@@ -10557,7 +10564,7 @@ async function accountApplicationPost({request,env}){
       email:accountApplicationText(form.get("email"),160).toLowerCase(),phone:accountApplicationText(form.get("phone"),30),
       address_1:accountApplicationText(form.get("address_1"),160),city:accountApplicationText(form.get("city"),80),
       state:accountApplicationText(form.get("state"),2).toUpperCase(),zip_code:accountApplicationText(form.get("zip_code"),10),
-      preferred_contact:accountApplicationText(form.get("preferred_contact"),10)==="email"?"email":"phone",notes:accountApplicationText(form.get("notes"),1500)
+      preferred_contact:accountApplicationText(form.get("preferred_contact"),10)==="email"?"email":"phone",fleet_card_count:fleetCardCount,fleet_card_reasons:fleetCardReasons,notes:accountApplicationText(form.get("notes"),1500)
     };
     if(!data.full_name||!data.email||!data.phone||!data.address_1||!data.city||!data.state||!data.zip_code) return notificationJson({success:false,error:"Complete all required contact and address fields."},400);
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) return notificationJson({success:false,error:"Enter a valid email address."},400);
@@ -10577,9 +10584,9 @@ async function accountApplicationPost({request,env}){
     const ipHash=await accountApplicationIpHash(request);
     await env.DB.prepare(`
       INSERT INTO account_applications
-      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,sms_confirmation_consent,submitted_ip_hash)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,1,ipHash).run();
+      (application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,fleet_card_count,fleet_card_reasons,applicant_notes,tax_document_key,tax_document_name,tax_document_type,identity_document_key,identity_document_name,identity_document_type,sms_confirmation_consent,submitted_ip_hash)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(applicationNumber,type,type==="business"?data.business_name:null,type==="business"?data.dba_name:null,type==="business"?data.tax_id_last4:null,Number.isFinite(data.years_in_business)?Math.max(0,Math.round(data.years_in_business)):0,data.full_name,type==="business"?data.job_title:null,data.email,data.phone,data.address_1,data.city,data.state,data.zip_code,data.preferred_contact,data.fleet_card_count,JSON.stringify(data.fleet_card_reasons),data.notes,taxKey||null,taxInfo?.name||null,taxInfo?.type||null,identityKey,identityInfo.name,identityInfo.type,1,ipHash).run();
     const delivery=await accountApplicationSendNotifications({request,env,applicationNumber,type,data});
     const errors=[!delivery.support.sent?`Support email: ${delivery.support.error}`:"",!delivery.applicant.sent?`Applicant email: ${delivery.applicant.error}`:"",!delivery.sms.sent?`Confirmation SMS: ${delivery.sms.error}`:""].filter(Boolean).join(" | ").slice(0,2000);
     await env.DB.prepare(`UPDATE account_applications SET support_email_sent=?,support_email_id=?,applicant_email_sent=?,applicant_email_id=?,confirmation_sms_sent=?,confirmation_sms_sid=?,notification_error=?,notification_sent_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE application_number=?`).bind(delivery.support.sent?1:0,delivery.support.id||null,delivery.applicant.sent?1:0,delivery.applicant.id||null,delivery.sms.sent?1:0,delivery.sms.sid||null,errors||null,applicationNumber).run();
@@ -10605,7 +10612,7 @@ async function adminAccountApplicationsGet({request,env}){
     if(["business","personal"].includes(type)){clauses.push("application_type=?");values.push(type);}
     const where=clauses.join(" AND ");
     const totalRow=await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE ${where}`).bind(...values).first();
-    const rows=await env.DB.prepare(`SELECT id,application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,applicant_notes,status,admin_notes,reviewed_by,reviewed_at,sms_confirmation_consent,support_email_sent,applicant_email_sent,confirmation_sms_sent,notification_error,notification_sent_at,created_at,updated_at,CASE WHEN tax_document_key IS NOT NULL THEN 1 ELSE 0 END AS has_tax_document,1 AS has_identity_document,tax_document_name,identity_document_name FROM account_applications WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...values,perPage,offset).all();
+    const rows=await env.DB.prepare(`SELECT id,application_number,application_type,business_name,dba_name,tax_id_last4,years_in_business,full_name,job_title,email,phone,address_1,city,state,zip_code,preferred_contact,fleet_card_count,fleet_card_reasons,applicant_notes,status,admin_notes,reviewed_by,reviewed_at,sms_confirmation_consent,support_email_sent,applicant_email_sent,confirmation_sms_sent,notification_error,notification_sent_at,created_at,updated_at,CASE WHEN tax_document_key IS NOT NULL THEN 1 ELSE 0 END AS has_tax_document,1 AS has_identity_document,tax_document_name,identity_document_name FROM account_applications WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...values,perPage,offset).all();
     const total=Number(totalRow?.total||0);return notificationJson({success:true,applications:rows?.results||[],page,per_page:perPage,total,total_pages:Math.max(1,Math.ceil(total/perPage))});
   }catch(error){console.error("adminAccountApplicationsGet failed",error);return notificationJson({success:false,error:"Account applications could not be loaded."},500);}
 }

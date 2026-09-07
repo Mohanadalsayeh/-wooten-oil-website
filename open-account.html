@@ -69,6 +69,12 @@
     .type-option strong{display:block;color:var(--navy)}
     .type-option span{display:block;color:var(--muted);font-size:.8rem;font-weight:500}
     .business-only[hidden]{display:none!important}
+    .fleet-card-intro{margin:-5px 0 17px;color:var(--muted);font-size:.88rem}
+    .fleet-card-reasons{display:grid;gap:13px;margin-top:18px}
+    .fleet-card-reasons[hidden]{display:none!important}
+    .fleet-card-reason{padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+    .fleet-card-reason label{color:var(--navy)}
+    .fleet-card-reason input{background:#fff}
     .consents{display:grid;gap:13px}
     .check-row{display:grid;grid-template-columns:20px 1fr;gap:11px;align-items:start;margin:0;padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--soft);font-weight:600;cursor:pointer}
     .check-row input{width:18px;min-height:auto;height:18px;margin:3px 0 0;accent-color:var(--red)}
@@ -176,6 +182,15 @@
         </fieldset>
 
         <fieldset>
+          <legend>Fleet cards</legend>
+          <p class="fleet-card-intro">Tell us how many fleet cards you need and the intended use for each card.</p>
+          <div class="grid">
+            <div class="field"><label for="fleetCardCount">How many fleet cards do you need? <span class="required">*</span></label><input id="fleetCardCount" name="fleet_card_count" type="number" min="0" max="20" step="1" inputmode="numeric" value="0" required><small class="hint">Enter 0 if you do not need fleet cards. Maximum 20 cards per application.</small></div>
+          </div>
+          <div class="fleet-card-reasons" id="fleetCardReasons" aria-live="polite" hidden></div>
+        </fieldset>
+
+        <fieldset>
           <legend>Required documents</legend>
           <div class="grid">
             <div class="field"><label for="identityDocument">Government-issued photo ID <span class="required">*</span></label><input id="identityDocument" name="identity_document" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required><small class="hint">PDF, JPG, or PNG · maximum 10 MB</small></div>
@@ -226,6 +241,8 @@
     const taxLast4=document.getElementById("taxLast4");
     const taxDocument=document.getElementById("taxDocument");
     const identityDocument=document.getElementById("identityDocument");
+    const fleetCardCount=document.getElementById("fleetCardCount");
+    const fleetCardReasons=document.getElementById("fleetCardReasons");
     const state=document.getElementById("state");
     const notes=document.getElementById("notes");
     const notesCount=document.getElementById("notesCount");
@@ -251,6 +268,34 @@
       taxLast4.required=business;
       taxDocument.required=business;
       if(!business){businessName.setCustomValidity("");taxLast4.setCustomValidity("");taxDocument.setCustomValidity("");}
+    }
+
+    function renderFleetCardReasons(){
+      const previous=Array.from(fleetCardReasons.querySelectorAll('input[name="fleet_card_reason"]')).map(input=>input.value);
+      const parsed=Number(fleetCardCount.value);
+      const count=Number.isFinite(parsed)?Math.max(0,Math.min(20,Math.trunc(parsed))):0;
+      fleetCardCount.value=String(count);
+      fleetCardReasons.replaceChildren();
+      fleetCardReasons.hidden=count===0;
+      for(let index=0;index<count;index+=1){
+        const row=document.createElement("div");
+        row.className="fleet-card-reason";
+        const label=document.createElement("label");
+        const input=document.createElement("input");
+        const hint=document.createElement("small");
+        input.id=`fleetCardReason${index+1}`;
+        input.name="fleet_card_reason";
+        input.maxLength=160;
+        input.required=true;
+        input.value=previous[index]||"";
+        input.placeholder="Example: Truck 12, John Smith, or farm diesel purchases";
+        label.htmlFor=input.id;
+        label.innerHTML=`Fleet card ${index+1} — intended use <span class="required">*</span>`;
+        hint.className="hint";
+        hint.textContent="Identify the driver, vehicle, department, or purchasing purpose for this card.";
+        row.append(label,input,hint);
+        fleetCardReasons.append(row);
+      }
     }
 
     function fileExtension(name){return String(name||"").split(".").pop().toLowerCase();}
@@ -291,6 +336,8 @@
       if(event.target.name==="application_type")updateAccountType();
       if(event.target===identityDocument||event.target===taxDocument)event.target.setCustomValidity("");
     });
+    fleetCardCount.addEventListener("input",renderFleetCardReasons);
+    fleetCardCount.addEventListener("change",renderFleetCardReasons);
     taxLast4.addEventListener("input",()=>{taxLast4.value=taxLast4.value.replace(/\D/g,"").slice(0,4);});
     state.addEventListener("input",()=>{state.value=state.value.replace(/[^a-z]/gi,"").slice(0,2).toUpperCase();});
     notes.addEventListener("input",()=>{notesCount.textContent=String(notes.value.length);});
@@ -329,6 +376,7 @@
         form.reset();
         notesCount.textContent="0";
         updateAccountType();
+        renderFleetCardReasons();
       }catch(error){
         setStatus(friendlyError(error),"error");
       }finally{
@@ -343,6 +391,7 @@
       if(!form.hidden){submitting=false;submitButton.disabled=false;submitButton.textContent="Submit application";}
     });
     updateAccountType();
+    renderFleetCardReasons();
   })();
   </script>
 </body>
