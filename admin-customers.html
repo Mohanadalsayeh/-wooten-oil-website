@@ -429,6 +429,53 @@
   }
 
 </style>
+<style id="wooten-admin-refresh-processing-icon-ver388">
+.wooten-refresh-enhanced{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important}
+.wooten-refresh-spin-icon{width:18px!important;height:18px!important;flex:0 0 18px!important;display:block!important;transform-box:fill-box;transform-origin:center}
+.wooten-refresh-processing .wooten-refresh-spin-icon{animation:wootenRefreshProcessingSpin .72s linear infinite!important}
+@keyframes wootenRefreshProcessingSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+<script id="wooten-admin-refresh-processing-icon-ver388-script">
+(()=>{
+  const ids=['collectionsRefresh','exceptionalRefresh','scheduleRefresh','adminAuditRefresh','portalBackupRefresh','dbRefreshBtn','livePaymentRefreshBtn','refreshInboxBtn','twilioRefreshLookupResults','mas90HealthRefresh'];
+  const ns='http://www.w3.org/2000/svg';
+  function ensureIcon(button){
+    let icon=button.querySelector('.wooten-refresh-spin-icon');
+    if(icon)return icon;
+    icon=button.querySelector('.schedule-refresh-icon,.admin-bell-refresh-icon');
+    if(icon){icon.classList.add('wooten-refresh-spin-icon');return icon;}
+    icon=document.createElementNS(ns,'svg');
+    icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');icon.classList.add('wooten-refresh-spin-icon');
+    const first=document.createElementNS(ns,'path');first.setAttribute('d','M20 11a8 8 0 0 0-14.9-4L3 11');first.setAttribute('fill','none');first.setAttribute('stroke','currentColor');first.setAttribute('stroke-width','2');first.setAttribute('stroke-linecap','round');first.setAttribute('stroke-linejoin','round');
+    const second=document.createElementNS(ns,'path');second.setAttribute('d','M3 4v7h7');second.setAttribute('fill','none');second.setAttribute('stroke','currentColor');second.setAttribute('stroke-width','2');second.setAttribute('stroke-linecap','round');second.setAttribute('stroke-linejoin','round');
+    const third=document.createElementNS(ns,'path');third.setAttribute('d','M4 13a8 8 0 0 0 14.9 4L21 13');third.setAttribute('fill','none');third.setAttribute('stroke','currentColor');third.setAttribute('stroke-width','2');third.setAttribute('stroke-linecap','round');third.setAttribute('stroke-linejoin','round');
+    const fourth=document.createElementNS(ns,'path');fourth.setAttribute('d','M21 20v-7h-7');fourth.setAttribute('fill','none');fourth.setAttribute('stroke','currentColor');fourth.setAttribute('stroke-width','2');fourth.setAttribute('stroke-linecap','round');fourth.setAttribute('stroke-linejoin','round');
+    icon.append(first,second,third,fourth);button.prepend(icon);return icon;
+  }
+  function stop(button,observer,fallback,quiet){
+    clearTimeout(fallback);clearTimeout(quiet.value);observer.disconnect();button.classList.remove('wooten-refresh-processing');button.removeAttribute('aria-busy');ensureIcon(button);
+  }
+  function begin(button){
+    if(button.classList.contains('wooten-refresh-processing'))return;
+    ensureIcon(button);button.classList.add('wooten-refresh-processing');button.setAttribute('aria-busy','true');
+    const started=Date.now(),quiet={value:0};let sawDisabled=false;
+    const scope=button.closest('section,[role="dialog"],.admin-tab-panel,.tab-panel')||button.parentElement||document.body;
+    const observer=new MutationObserver(records=>{
+      ensureIcon(button);
+      if(button.disabled)sawDisabled=true;
+      if(sawDisabled&&!button.disabled&&Date.now()-started>300){stop(button,observer,fallback,quiet);return;}
+      if(records.some(record=>record.target!==button&&!button.contains(record.target))){
+        clearTimeout(quiet.value);quiet.value=setTimeout(()=>{if(!button.disabled&&!button.classList.contains('is-refreshing')&&!button.classList.contains('is-loading')&&!button.classList.contains('loading'))stop(button,observer,fallback,quiet);},520);
+      }
+    });
+    observer.observe(scope,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','hidden','class','aria-busy']});
+    const fallback=setTimeout(()=>stop(button,observer,fallback,quiet),45000);
+    if(button.disabled)sawDisabled=true;
+  }
+  function init(){ids.forEach(id=>{const button=document.getElementById(id);if(!button)return;button.classList.add('wooten-refresh-enhanced');ensureIcon(button);button.addEventListener('click',()=>begin(button));});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 <style id="wooten-collections-table-toolbar-ver357">
 #admin-tab-collections .collections-table-actions{
   display:flex!important;
@@ -16676,4 +16723,23 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   .portal-backup-skeleton-line.action{width:100%!important;height:44px;margin:0}
 }
 @media(prefers-reduced-motion:reduce){.portal-backup-skeleton-line{animation:none;background:#e8eef3}}
+</style>
+<style id="wooten-statement-report-mobile-stacked-actions-ver387">
+/* Stack the Statement Run Report actions evenly on phones. */
+@media(max-width:800px){
+  #documentSectionStatementScheduling .schedule-report-actions{
+    flex-direction:column!important;
+    flex-wrap:nowrap!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:10px!important;
+  }
+  #documentSectionStatementScheduling .schedule-report-actions button{
+    flex:0 0 auto!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+  }
+}
 </style>

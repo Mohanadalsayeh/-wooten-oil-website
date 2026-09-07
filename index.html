@@ -261,6 +261,40 @@
 .dashboard-profile-change .payment-continue{width:auto}
 @media(max-width:700px){.dashboard-profile-change .payment-continue{width:100%}}
 </style>
+<style id="wooten-customer-refresh-processing-icon-ver388">
+.wooten-refresh-enhanced{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important}
+.wooten-refresh-spin-icon{width:18px!important;height:18px!important;flex:0 0 18px!important;display:block!important;transform-box:fill-box;transform-origin:center}
+.wooten-refresh-processing .wooten-refresh-spin-icon{animation:wootenRefreshProcessingSpin .72s linear infinite!important}
+@keyframes wootenRefreshProcessingSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+<script id="wooten-customer-refresh-processing-icon-ver388-script">
+(()=>{
+  const ids=['customerDocumentsRefresh','paymentHistoryRefresh','fuelHistoryRefresh'];
+  const ns='http://www.w3.org/2000/svg';
+  function ensureIcon(button){
+    let icon=button.querySelector('.wooten-refresh-spin-icon');if(icon)return icon;
+    icon=document.createElementNS(ns,'svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');icon.classList.add('wooten-refresh-spin-icon');
+    [['M20 11a8 8 0 0 0-14.9-4L3 11'],['M3 4v7h7'],['M4 13a8 8 0 0 0 14.9 4L21 13'],['M21 20v-7h-7']].forEach(item=>{const path=document.createElementNS(ns,'path');path.setAttribute('d',item[0]);path.setAttribute('fill','none');path.setAttribute('stroke','currentColor');path.setAttribute('stroke-width','2');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');icon.append(path);});
+    button.prepend(icon);return icon;
+  }
+  function stop(button,observer,fallback,quiet){clearTimeout(fallback);clearTimeout(quiet.value);observer.disconnect();button.classList.remove('wooten-refresh-processing');button.removeAttribute('aria-busy');ensureIcon(button);}
+  function begin(button){
+    if(button.classList.contains('wooten-refresh-processing'))return;
+    ensureIcon(button);button.classList.add('wooten-refresh-processing');button.setAttribute('aria-busy','true');
+    const started=Date.now(),quiet={value:0};let sawDisabled=false;
+    const scope=button.closest('section,[role="dialog"],.customer-account-details')||button.parentElement||document.body;
+    const observer=new MutationObserver(records=>{
+      ensureIcon(button);if(button.disabled)sawDisabled=true;
+      if(sawDisabled&&!button.disabled&&Date.now()-started>300){stop(button,observer,fallback,quiet);return;}
+      if(records.some(record=>record.target!==button&&!button.contains(record.target))){clearTimeout(quiet.value);quiet.value=setTimeout(()=>{if(!button.disabled&&!button.classList.contains('is-refreshing')&&!button.classList.contains('is-loading')&&!button.classList.contains('loading'))stop(button,observer,fallback,quiet);},520);}
+    });
+    observer.observe(scope,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','hidden','class','aria-busy']});
+    const fallback=setTimeout(()=>stop(button,observer,fallback,quiet),45000);if(button.disabled)sawDisabled=true;
+  }
+  function init(){ids.forEach(id=>{const button=document.getElementById(id);if(!button)return;button.classList.add('wooten-refresh-enhanced');ensureIcon(button);button.addEventListener('click',()=>begin(button));});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 <link rel="stylesheet" href="assets/css/wooten-signed-in-person-icon.css">
 
 
