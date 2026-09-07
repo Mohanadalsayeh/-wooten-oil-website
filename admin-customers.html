@@ -5128,6 +5128,47 @@ textarea[data-request-response]{
 }
 </style>
 
+<style id="wooten-standard-button-height-ver395">
+/* One action-button height for admin/customer desktop and mobile.
+   An important layer overrides older page-specific sizing, not their colors. */
+@layer wootenActionSizing {
+  :root { --wooten-action-button-height:44px; }
+  button:not(:where(
+    [class*="close" i],[id*="close" i],[aria-label*="close" i],
+    [class*="help" i],[id*="help" i],[aria-label*="help" i],
+    [class*="back-top"],[class*="back-to-top"],[aria-label*="back to top" i],
+    .collections-action-trigger,.admin-activity-search-clear,
+    .admin-bell-btn,.admin-bell-count,.admin-bell-item,#adminNotificationRefresh,
+    .dashboard-notification-button,.mobile-customer-notifications,
+    #mobileHeaderNotifications,#dashboardNotifications,#headerNotificationsRefresh,
+    .header-notification-item,.notification-item,.customer-notification-open,
+    .admin-mobile-menu-btn,.mobile-menu-toggle,[aria-label*="toggle menu" i],
+    .admin-tab,.admin-subtab,.admin-page-btn,[role="tab"],
+    .application-summary,.communication-customer-row,.activity-search-result,
+    .db-customer-link,.communication-pdf-link,.activity-link,
+    .profile-change-remove,[role="switch"],[role="checkbox"]
+  )),
+  input:is([type="submit"],[type="button"],[type="reset"]),
+  a:is(.btn,.portal-primary-btn,.portal-secondary-btn,[role="button"]) {
+    box-sizing:border-box!important;
+    height:var(--wooten-action-button-height)!important;
+    min-height:var(--wooten-action-button-height)!important;
+    max-height:none!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    line-height:1.2!important;
+    align-content:center!important;
+  }
+  input[type="file"]::file-selector-button {
+    box-sizing:border-box!important;
+    height:var(--wooten-action-button-height)!important;
+    min-height:var(--wooten-action-button-height)!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    line-height:1.2!important;
+  }
+}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6813,6 +6854,25 @@ try{
 @media(max-width:760px){.collections-heading{display:block}.collections-heading-actions{margin-top:16px}.collections-heading-actions button{flex:1}.collections-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.collections-summary>div{padding:13px}.collections-summary strong{font-size:18px}.collections-filters{grid-template-columns:1fr}.collections-table-wrap{border:0;overflow:visible}.collections-table-wrap table,.collections-table-wrap thead,.collections-table-wrap tbody,.collections-table-wrap tr,.collections-table-wrap td{display:block;width:100%;min-width:0}.collections-table-wrap thead{display:none}.collections-table-wrap tr{margin-bottom:14px;border:1px solid #d6e1e9;border-radius:14px;background:#fff;overflow:hidden}.collections-table-wrap td{padding:12px 14px;border-bottom:1px solid #e3eaf0}.collections-table-wrap td:last-child{border-bottom:0}.collections-table-wrap td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#6b7c90;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.collections-row-actions .collections-action-trigger{flex:0 0 44px!important}.collections-modal{padding:10px;align-items:end}.collections-modal-card{max-height:92vh;border-radius:20px 20px 0 0;padding:24px 18px}.collections-modal-fields{grid-template-columns:1fr}.collections-notes-field{grid-column:auto}.collections-modal-actions{display:grid;grid-template-columns:1fr}.collections-modal-actions button{min-width:0;width:100%}}
 </style>
 
+<style id="wooten-collections-fit-skeleton-ver394">
+/* Keep all six columns inside the available desktop width. */
+@media(min-width:761px){
+  #admin-tab-collections #collectionsTable{width:100%;min-width:0;table-layout:fixed}
+  #collectionsTable th,#collectionsTable td{box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;min-width:0}
+  #collectionsTable th:nth-child(1){width:calc((100% - 72px)*.27)}
+  #collectionsTable th:nth-child(2){width:calc((100% - 72px)*.20)}
+  #collectionsTable th:nth-child(3){width:calc((100% - 72px)*.17)}
+  #collectionsTable th:nth-child(4){width:calc((100% - 72px)*.18)}
+  #collectionsTable th:nth-child(5){width:calc((100% - 72px)*.18)}
+  #collectionsTable th:last-child,#collectionsTable td:last-child:not([colspan]){width:72px;padding-left:8px;padding-right:8px;text-align:center}
+  #collectionsTable .collections-row-actions{justify-content:center}
+}
+#collectionsBody .collections-skeleton-line{display:block;height:12px;width:76%;max-width:100%;margin:7px 0;border-radius:5px;background:linear-gradient(90deg,#e7edf3 25%,#f6f9fc 50%,#e7edf3 75%);background-size:200% 100%;animation:collectionsSkeleton394 1.3s ease-in-out infinite}
+#collectionsBody .collections-skeleton-line.short{width:48%;height:10px}
+#collectionsBody .collections-skeleton-line.action{width:44px;height:44px;margin:0 auto;border-radius:10px}
+@keyframes collectionsSkeleton394{from{background-position:200% 0}to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){#collectionsBody .collections-skeleton-line{animation:none}}
+</style>
 <script id="wooten-credit-collections-ver338-script">
 (function(){
   const get=id=>document.getElementById(id),panel=get('admin-tab-collections');if(!panel)return;
@@ -6829,6 +6889,14 @@ try{
   function hold(row){return ['Y','YES','TRUE','1','HOLD','ON'].includes(String(row.credit_hold||'').trim().toUpperCase());}
   function closeActionMenu(returnFocus=false){if(!actionMenu)return;if(activeActionTrigger){activeActionTrigger.setAttribute('aria-expanded','false');if(returnFocus&&document.body.contains(activeActionTrigger))activeActionTrigger.focus();}actionMenu.hidden=true;actionMenu.style.visibility='';activeActionTrigger=null;}
   function openActionMenu(trigger,index){if(!actionMenu)return;if(activeActionTrigger===trigger&&!actionMenu.hidden){closeActionMenu(true);return;}closeActionMenu();activeActionTrigger=trigger;trigger.setAttribute('aria-expanded','true');actionMenu.dataset.rowIndex=String(index);actionMenu.hidden=false;actionMenu.style.visibility='hidden';const rect=trigger.getBoundingClientRect(),width=actionMenu.offsetWidth,height=actionMenu.offsetHeight,margin=8;let left=Math.max(margin,Math.min(window.innerWidth-width-margin,rect.right-width)),top=rect.bottom+6;if(top+height>window.innerHeight-margin)top=Math.max(margin,rect.top-height-6);actionMenu.style.left=Math.round(left)+'px';actionMenu.style.top=Math.round(top)+'px';actionMenu.style.visibility='visible';}
+  function renderSkeleton(){
+    closeActionMenu();
+    get('collectionsTable').setAttribute('aria-busy','true');
+    const labels=['Customer','Balance / Aging','Credit','Recent Payment','Collection Plan','Actions'];
+    body.innerHTML=Array.from({length:6},()=>'<tr class="collections-skeleton-row" aria-hidden="true">'+labels.map((name,index)=>'<td data-label="'+name+'">'+(index===5?'<span class="collections-skeleton-line action"></span>':'<span class="collections-skeleton-line"></span><span class="collections-skeleton-line short"></span><span class="collections-skeleton-line short"></span>')+'</td>').join('')+'</tr>').join('');
+    body.parentElement.parentElement.scrollTop=0;
+    get('collectionsPrev').disabled=true;get('collectionsNext').disabled=true;get('collectionsExportPdf').disabled=true;
+  }
   function render(){
     closeActionMenu();
     if(!rows.length){body.innerHTML='<tr><td class="collections-empty" colspan="6">No accounts match these filters.</td></tr>';get('collectionsPagination').hidden=true;return;}
@@ -6840,7 +6908,7 @@ try{
     }).join('');
     get('collectionsPagination').hidden=pages<=1;get('collectionsPageInfo').textContent='Page '+page.toLocaleString()+' of '+pages.toLocaleString();get('collectionsPrev').disabled=page<=1;get('collectionsNext').disabled=page>=pages;
   }
-  async function load(reset=false){if(loading)return;if(reset)page=1;loading=true;get('collectionsRefresh').disabled=true;get('collectionsApply').disabled=true;message('Loading collection accounts…',true);try{const response=await fetch('/api/admin/credit-collections?'+params(),{headers:{'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Credit and Collections information could not be loaded.');rows=Array.isArray(data.accounts)?data.accounts:[];page=Number(data.page||1);pages=Math.max(1,Number(data.pages||1));setSummary(data.summary);render();loaded=true;message(rows.length?Number(data.total||0).toLocaleString()+' account(s) match the worklist.':'No accounts match these filters.',true);}catch(error){message(error.message||'Credit and Collections information could not be loaded.',false);}finally{loading=false;get('collectionsRefresh').disabled=false;get('collectionsApply').disabled=false;}}
+  async function load(reset=false){if(loading)return;if(reset)page=1;loading=true;get('collectionsRefresh').disabled=true;get('collectionsApply').disabled=true;message('Loading collection accounts…',true);renderSkeleton();try{const response=await fetch('/api/admin/credit-collections?'+params(),{headers:{'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Credit and Collections information could not be loaded.');rows=Array.isArray(data.accounts)?data.accounts:[];page=Number(data.page||1);pages=Math.max(1,Number(data.pages||1));setSummary(data.summary);render();loaded=true;message(rows.length?Number(data.total||0).toLocaleString()+' account(s) match the worklist.':'No accounts match these filters.',true);}catch(error){render();message(error.message||'Credit and Collections information could not be loaded.',false);}finally{get('collectionsTable').removeAttribute('aria-busy');get('collectionsExportPdf').disabled=!rows.length;loading=false;get('collectionsRefresh').disabled=false;get('collectionsApply').disabled=false;}}
   function openModal(row){get('collectionsModalAccount').value=row.account_number||'';get('collectionsModalTitle').textContent='Manage Collection Plan';get('collectionsModalCustomer').textContent=(row.account_name||'Customer')+' • #'+(row.account_number||'');get('collectionsModalStatus').value=row.collection_status||'unassigned';get('collectionsModalFollowUp').value=row.follow_up_date||'';get('collectionsModalPromiseAmount').value=Number(row.promised_amount||0)>0?Number(row.promised_amount).toFixed(2):'';get('collectionsModalPromiseDate').value=row.promised_date||'';get('collectionsModalNotes').value=row.private_notes||'';get('collectionsModalStatusMessage').className='status';get('collectionsModalStatusMessage').textContent='';modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>get('collectionsModalStatus').focus(),0);}
   function closeModal(){modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.style.overflow='';}
   async function save(){const button=get('collectionsModalSave'),messageBox=get('collectionsModalStatusMessage');button.disabled=true;button.textContent='Saving…';try{const payload={account_number:get('collectionsModalAccount').value,collection_status:get('collectionsModalStatus').value,follow_up_date:get('collectionsModalFollowUp').value,promised_amount:Number(get('collectionsModalPromiseAmount').value||0),promised_date:get('collectionsModalPromiseDate').value,private_notes:get('collectionsModalNotes').value};const response=await fetch('/api/admin/credit-collections',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(payload)}),data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Collection plan could not be saved.');messageBox.className='status show ok';messageBox.textContent='Collection plan saved.';await load(false);setTimeout(closeModal,450);}catch(error){messageBox.className='status show bad';messageBox.textContent=error.message||'Collection plan could not be saved.';}finally{button.disabled=false;button.textContent='Save Collection Plan';}}

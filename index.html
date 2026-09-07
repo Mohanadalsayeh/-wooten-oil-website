@@ -308,6 +308,47 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   @media (prefers-reduced-motion:reduce){.wooten-mobile-back-top{transition:none;}}
 </style>
 
+<style id="wooten-standard-button-height-ver395">
+/* One action-button height for admin/customer desktop and mobile.
+   An important layer overrides older page-specific sizing, not their colors. */
+@layer wootenActionSizing {
+  :root { --wooten-action-button-height:44px; }
+  button:not(:where(
+    [class*="close" i],[id*="close" i],[aria-label*="close" i],
+    [class*="help" i],[id*="help" i],[aria-label*="help" i],
+    [class*="back-top"],[class*="back-to-top"],[aria-label*="back to top" i],
+    .collections-action-trigger,.admin-activity-search-clear,
+    .admin-bell-btn,.admin-bell-count,.admin-bell-item,#adminNotificationRefresh,
+    .dashboard-notification-button,.mobile-customer-notifications,
+    #mobileHeaderNotifications,#dashboardNotifications,#headerNotificationsRefresh,
+    .header-notification-item,.notification-item,.customer-notification-open,
+    .admin-mobile-menu-btn,.mobile-menu-toggle,[aria-label*="toggle menu" i],
+    .admin-tab,.admin-subtab,.admin-page-btn,[role="tab"],
+    .application-summary,.communication-customer-row,.activity-search-result,
+    .db-customer-link,.communication-pdf-link,.activity-link,
+    .profile-change-remove,[role="switch"],[role="checkbox"]
+  )),
+  input:is([type="submit"],[type="button"],[type="reset"]),
+  a:is(.btn,.portal-primary-btn,.portal-secondary-btn,[role="button"]) {
+    box-sizing:border-box!important;
+    height:var(--wooten-action-button-height)!important;
+    min-height:var(--wooten-action-button-height)!important;
+    max-height:none!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    line-height:1.2!important;
+    align-content:center!important;
+  }
+  input[type="file"]::file-selector-button {
+    box-sizing:border-box!important;
+    height:var(--wooten-action-button-height)!important;
+    min-height:var(--wooten-action-button-height)!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    line-height:1.2!important;
+  }
+}
+</style>
 </head>
 <body>
 
