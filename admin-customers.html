@@ -429,57 +429,14 @@
   }
 
 </style>
-<style id="wooten-admin-refresh-processing-icon-ver389">
-.wooten-refresh-enhanced{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important}
-.wooten-refresh-spin-icon{width:18px!important;height:18px!important;flex:0 0 18px!important;display:block!important;transform-box:view-box;transform-origin:12px 12px;will-change:transform}
-.wooten-refresh-processing .wooten-refresh-spin-icon{animation:wootenRefreshProcessingSpin .72s linear infinite!important}
-@keyframes wootenRefreshProcessingSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-</style>
-<script id="wooten-admin-refresh-processing-icon-ver389-script">
-(()=>{
-  const ids=['collectionsRefresh','exceptionalRefresh','scheduleRefresh','adminAuditRefresh','portalBackupRefresh','dbRefreshBtn','livePaymentRefreshBtn','refreshInboxBtn','twilioRefreshLookupResults','mas90HealthRefresh'];
-  const ns='http://www.w3.org/2000/svg';
-  function ensureIcon(button){
-    let icon=button.querySelector('[data-wooten-refresh-icon="3b"]');
-    if(icon)return icon;
-    button.querySelectorAll('.wooten-refresh-spin-icon,.schedule-refresh-icon').forEach(old=>old.remove());
-    icon=document.createElementNS(ns,'svg');
-    icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');icon.setAttribute('data-wooten-refresh-icon','3b');icon.classList.add('wooten-refresh-spin-icon');
-    ['M21 12a9 9 0 0 0-15-6.7L3 8','M3 3v5h5','M3 12a9 9 0 0 0 15 6.7L21 16','M21 21v-5h-5'].forEach(data=>{const path=document.createElementNS(ns,'path');path.setAttribute('d',data);path.setAttribute('fill','none');path.setAttribute('stroke','currentColor');path.setAttribute('stroke-width','2');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');icon.append(path);});
-    button.prepend(icon);return icon;
-  }
-  function rotate(button,icon=ensureIcon(button)){
-    if(button.__wootenRefreshAnimation)button.__wootenRefreshAnimation.cancel();
-    if(typeof icon.animate==='function')button.__wootenRefreshAnimation=icon.animate([{transform:'rotate(0deg)'},{transform:'rotate(360deg)'}],{duration:720,iterations:Infinity,easing:'linear'});
-    else icon.style.animation='wootenRefreshProcessingSpin .72s linear infinite';
-    button.__wootenRefreshIconNode=icon;
-  }
-  function stopRotation(button){
-    if(button.__wootenRefreshAnimation){button.__wootenRefreshAnimation.cancel();button.__wootenRefreshAnimation=null;}
-    const icon=button.querySelector('[data-wooten-refresh-icon="3b"]');if(icon){icon.style.animation='';icon.style.transform='';}
-  }
-  function stop(button,observer,fallback,quiet){
-    clearTimeout(fallback);clearTimeout(quiet.value);observer.disconnect();stopRotation(button);button.classList.remove('wooten-refresh-processing');button.removeAttribute('aria-busy');ensureIcon(button);
-  }
-  function begin(button){
-    if(button.classList.contains('wooten-refresh-processing'))return;
-    button.classList.add('wooten-refresh-processing');button.setAttribute('aria-busy','true');rotate(button);
-    const started=Date.now(),quiet={value:0};let sawDisabled=false;
-    const scope=button.closest('section,[role="dialog"],.admin-tab-panel,.tab-panel')||button.parentElement||document.body;
-    const observer=new MutationObserver(records=>{
-      const icon=ensureIcon(button);if(icon!==button.__wootenRefreshIconNode)rotate(button,icon);
-      if(button.disabled)sawDisabled=true;
-      if(sawDisabled&&!button.disabled&&Date.now()-started>300){stop(button,observer,fallback,quiet);return;}
-      if(records.some(record=>record.target!==button&&!button.contains(record.target))){
-        clearTimeout(quiet.value);quiet.value=setTimeout(()=>{if(!button.disabled&&!button.classList.contains('is-refreshing')&&!button.classList.contains('is-loading')&&!button.classList.contains('loading'))stop(button,observer,fallback,quiet);},520);
-      }
-    });
-    observer.observe(scope,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','hidden','class','aria-busy']});
-    const fallback=setTimeout(()=>stop(button,observer,fallback,quiet),45000);
-    if(button.disabled)sawDisabled=true;
-  }
-  function init(){ids.forEach(id=>{const button=document.getElementById(id);if(!button)return;button.classList.add('wooten-refresh-enhanced');ensureIcon(button);button.addEventListener('click',()=>begin(button));});}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+<script id="wooten-admin-text-refresh-ver392">
+(function(){
+const ids=['collectionsRefresh','exceptionalRefresh','scheduleRefresh','adminAuditRefresh','portalBackupRefresh','dbRefreshBtn','livePaymentRefreshBtn','refreshInboxBtn','twilioRefreshLookupResults','mas90HealthRefresh'];
+const pending=new WeakSet();
+function render(b){const label=pending.has(b)?'Refreshing...':'Refresh';if(b.textContent!==label||b.children.length)b.textContent=label;}
+window.WootenRefreshUI={async run(b,task){if(!b||pending.has(b))return;pending.add(b);b.disabled=true;b.setAttribute('aria-busy','true');render(b);try{return await task();}finally{pending.delete(b);b.disabled=false;b.removeAttribute('aria-busy');render(b);}}};
+function init(){ids.forEach(id=>{const b=document.getElementById(id);if(!b)return;if(!b.hasAttribute('aria-label'))b.setAttribute('aria-label',b.textContent.trim());render(b);new MutationObserver(()=>render(b)).observe(b,{childList:true,subtree:true,characterData:true});});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
 <style id="wooten-collections-table-toolbar-ver357">
@@ -5984,7 +5941,7 @@ textarea[data-request-response]{
         <p>Check customer phone numbers with Twilio basic Lookup to validate the number. This check does not request paid Line Type Intelligence.</p>
         <div class="twilio-tool-actions">
           <button class="secondary" id="twilioLookupCustomers" type="button">Check Customer Phone Numbers</button>
-          <button class="secondary" id="twilioRefreshLookupResults" type="button">Refresh Results</button>
+          <button class="secondary" id="twilioRefreshLookupResults" type="button">Refresh</button>
         </div>
         <div class="twilio-tool-note">Basic Twilio Lookup is used for phone validation. Paid Line Type Intelligence is disabled.</div>
         <div class="twilio-fax-note">Fax note: Twilio does not provide fax as a reliable separate line type. Fax numbers may appear as landline or unknown and should be manually verified.</div>
@@ -6439,7 +6396,7 @@ textarea[data-request-response]{
         </section>
       </div>
 
-      <div class="statement-batch-head schedule-report-heading" style="margin-top:22px"><div><h3>Statement Run Report</h3><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs. Open a run to see per-customer delivery results and failure reasons.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button"><svg class="schedule-action-icon schedule-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9M4 11h6M4 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 12a7 7 0 0 1-7 7h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 16l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Refresh Report</span></button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
+      <div class="statement-batch-head schedule-report-heading" style="margin-top:22px"><div><h3>Statement Run Report</h3><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs. Open a run to see per-customer delivery results and failure reasons.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
       <div class="schedule-report-search" id="scheduleReportSearchBar">
         <label for="scheduleReportSearch">Search Statement Run Report</label>
         <div class="schedule-report-search-row">
@@ -6472,7 +6429,7 @@ textarea[data-request-response]{
         <div id="exceptionalStatus" class="status"></div>
         <div class="exceptional-list-actions" aria-label="Exceptional customer list actions">
           <button class="secondary table-pdf-export-button" id="exceptionalExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
-          <button class="secondary" id="exceptionalRefresh" type="button">Refresh List</button>
+          <button class="secondary" id="exceptionalRefresh" type="button">Refresh</button>
         </div>
         <input class="schedule-preview-search" id="exceptionalSearch" type="search" placeholder="Search customer #, name, or email…" aria-label="Search exceptional customers by customer number, name, or email">
         <div class="schedule-bulk-toolbar">
@@ -6699,7 +6656,7 @@ textarea[data-request-response]{
         <button class="portal-backup-help-button" id="portalBackupHelp" type="button" aria-label="What data is included in the backup?" title="What data is included in the backup?">?</button>
       </div>
       <button class="secondary" id="portalBackupDownloadLatest" type="button" disabled>Download Latest Backup</button>
-      <button class="secondary" id="portalBackupRefresh" type="button">Refresh Backup History</button>
+      <button class="secondary" id="portalBackupRefresh" type="button">Refresh</button>
     </div>
     <div class="preview-progress" id="portalBackupProgress" hidden>
       <div class="preview-progress-head"><strong id="portalBackupProgressLabel">Creating portal database backup…</strong><span>Please keep this page open</span></div>
@@ -6898,7 +6855,7 @@ try{
   actionMenu?.addEventListener('click',event=>{const item=event.target.closest('[data-collection-menu-action]');if(!item)return;const row=rows[Number(actionMenu.dataset.rowIndex)];const action=item.dataset.collectionMenuAction;closeActionMenu();if(!row)return;if(action==='manage'){openModal(row);return;}if(action==='activity'){window.showWootenAdminPage?.('activity');const search=get('activityCustomerSearch');if(search){search.value=row.account_number||'';get('activityCustomerSearchBtn')?.click();}}});
   document.addEventListener('click',event=>{if(!actionMenu?.hidden&&!actionMenu.contains(event.target)&&!event.target.closest('[data-collection-menu]'))closeActionMenu();});
   window.addEventListener('resize',()=>closeActionMenu());window.addEventListener('scroll',()=>closeActionMenu(),true);
-  get('collectionsApply').addEventListener('click',()=>load(true));get('collectionsRefresh').addEventListener('click',()=>load(false));get('collectionsSearch').addEventListener('keydown',event=>{if(event.key==='Enter')load(true);});get('collectionsPrev').addEventListener('click',()=>{if(page>1){page--;load(false);}});get('collectionsNext').addEventListener('click',()=>{if(page<pages){page++;load(false);}});get('collectionsModalClose').addEventListener('click',closeModal);get('collectionsModalCancel').addEventListener('click',closeModal);get('collectionsModalSave').addEventListener('click',save);modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(actionMenu&&!actionMenu.hidden){closeActionMenu(true);return;}if(!modal.hidden)closeModal();});
+  get('collectionsApply').addEventListener('click',()=>load(true));get('collectionsRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('collectionsRefresh'),()=>load(false)));get('collectionsSearch').addEventListener('keydown',event=>{if(event.key==='Enter')load(true);});get('collectionsPrev').addEventListener('click',()=>{if(page>1){page--;load(false);}});get('collectionsNext').addEventListener('click',()=>{if(page<pages){page++;load(false);}});get('collectionsModalClose').addEventListener('click',closeModal);get('collectionsModalCancel').addEventListener('click',closeModal);get('collectionsModalSave').addEventListener('click',save);modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(actionMenu&&!actionMenu.hidden){closeActionMenu(true);return;}if(!modal.hidden)closeModal();});
   get('collectionsExportPdf').addEventListener('click',async()=>{if(!rows.length){message('Load at least one collection account before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',false);return;}const button=get('collectionsExportPdf'),buttonLabel=button.querySelector('span');button.disabled=true;if(buttonLabel)buttonLabel.textContent='Preparing PDF…';try{await window.WootenAdminTablePdf.exportData('Credit and Collections Worklist',['Customer #','Customer','Total Balance','Past Due','60+','90+','Credit Limit','Credit Hold','Last Payment','Collection Status','Follow-up'],rows.map(row=>[row.account_number,row.account_name,money(row.total_balance),money(row.past_due),money(row.older_60),money(row.older_90),Number(row.credit_limit||0)>0?money(row.credit_limit):'Not set',hold(row)?'Yes':'No',row.last_payment_date?money(row.last_payment_amount)+' on '+date(row.last_payment_date):'None found',label(row.collection_status),date(row.follow_up_date)]));}catch(error){message(error.message||'The collections worklist could not be exported.',false);}finally{button.disabled=false;if(buttonLabel)buttonLabel.textContent='Export PDF';}});
   document.getElementById('admin-tab-btn-collections')?.addEventListener('click',()=>{if(!loaded)load(true);});document.querySelectorAll('[data-admin-open="collections"]').forEach(button=>button.addEventListener('click',()=>{if(!loaded)load(true);}));
   window.loadWootenCollections=load;
@@ -7122,7 +7079,7 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
     if(!isVisible())return;
     load({force:true});pollTimer=window.setInterval(()=>{if(isVisible())load();else syncPolling();},15000);
   }
-  get('mas90HealthRefresh')?.addEventListener('click',()=>load({manual:true,force:true}));get('mas90HealthDownload')?.addEventListener('click',downloadDiagnostics);
+  get('mas90HealthRefresh')?.addEventListener('click',()=>window.WootenRefreshUI.run(get('mas90HealthRefresh'),()=>load({manual:true,force:true})));get('mas90HealthDownload')?.addEventListener('click',downloadDiagnostics);
   new MutationObserver(syncPolling).observe(panel,{attributes:true,attributeFilter:['class','hidden']});document.addEventListener('visibilitychange',syncPolling);get('admin-tab-btn-automation')?.addEventListener('click',()=>requestAnimationFrame(syncPolling));
   window.loadMas90AutomationHealth=load;syncPolling();
 })();
@@ -8753,7 +8710,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
   }
 
   loadBtn.addEventListener("click",()=>{page=1;loadPayments();});
-  refreshBtn.addEventListener("click",()=>loadPayments());
+  refreshBtn.addEventListener("click",()=>window.WootenRefreshUI.run(refreshBtn,()=>loadPayments()));
   search.addEventListener("input",debounceLoad);
   [depositType,fromDate,toDate,amountFilter,sort].forEach(el=>el.addEventListener("change",resetAndLoad));
 
@@ -9168,7 +9125,7 @@ async function loadGmailInbox(){
 }
 
 document.getElementById("loadInboxBtn").addEventListener("click",loadGmailInbox);
-document.getElementById("refreshInboxBtn").addEventListener("click",loadGmailInbox);
+document.getElementById("refreshInboxBtn").addEventListener("click",()=>window.WootenRefreshUI.run(document.getElementById("refreshInboxBtn"),()=>loadGmailInbox()));
 document.getElementById("inboxSearch").addEventListener("input",()=>{inboxPage=1;renderInboxMessages();});
 document.getElementById("inboxTypeFilter").addEventListener("change",()=>{inboxPage=1;renderInboxMessages();});
 document.getElementById("inboxSort").addEventListener("change",()=>{inboxPage=1;renderInboxMessages();});
@@ -9559,7 +9516,7 @@ async function verifyTwilioVoipSms(account,button){
 twilioPhoneTools.save?.addEventListener('click',saveTwilioAreaCode);
 twilioPhoneTools.apply?.addEventListener('click',applyTwilioAreaCode);
 twilioPhoneTools.lookup?.addEventListener('click',runTwilioCustomerLookup);
-twilioPhoneTools.refresh?.addEventListener('click',async()=>{if(!twilioLookupRunning)resetTwilioLookupProgress();await loadTwilioPhoneTools();});
+twilioPhoneTools.refresh?.addEventListener('click',()=>window.WootenRefreshUI.run(twilioPhoneTools.refresh,async()=>{if(!twilioLookupRunning)resetTwilioLookupProgress();await loadTwilioPhoneTools();}));
 twilioPhoneTools.area?.addEventListener('input',()=>{twilioPhoneTools.area.value=twilioPhoneTools.area.value.replace(/\D/g,'').slice(0,3);});
 twilioPhoneTools.summary?.addEventListener('click',event=>{const btn=event.target.closest('[data-twilio-group]');if(btn)selectTwilioResultsGroup(btn.dataset.twilioGroup);});
 twilioPhoneTools.results?.addEventListener('click',event=>{const btn=event.target.closest('[data-twilio-verify-sms]');if(btn)verifyTwilioVoipSms(btn.dataset.twilioVerifySms,btn);});
@@ -10278,7 +10235,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   loadBtn.addEventListener("click",()=>{page=1;loadDatabase();});
-  refreshBtn.addEventListener("click",()=>loadDatabase());
+  refreshBtn.addEventListener("click",()=>window.WootenRefreshUI.run(refreshBtn,()=>loadDatabase()));
   emailFilter.addEventListener("change",filtersChanged);
   phoneFilter.addEventListener("change",filtersChanged);
   onlineFilter.addEventListener("change",filtersChanged);
@@ -11008,7 +10965,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function setProgress(processed,total,moved,failed,label){const percent=total?Math.min(100,Math.round(processed/total*100)):100;progress.hidden=false;progressLabel.textContent=label||'Moving customers…';progressCount.textContent=processed.toLocaleString()+' / '+total.toLocaleString()+' • '+moved.toLocaleString()+' moved'+(failed?' • '+failed.toLocaleString()+' failed':'');progressBar.style.width=percent+'%';progressTrack.setAttribute('aria-valuenow',String(percent));}
   async function load(force=false){if(loading||(!force&&loaded))return;loading=true;refresh.disabled=true;syncControls();list.innerHTML='<div class="admin-inline-skeleton">'+Array.from({length:6},(_,index)=>'<div class="admin-inline-skeleton-row preview"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(index%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div>';try{const capability=await request('/api/admin/statement-scheduling?compact=1');if(capability?.capabilities?.exceptional_statement_customers_v1!==true)throw new Error('Deploy the included worker.js before using Exceptional Customers.');const data=await request('/api/admin/statement-scheduling/preview?type=exceptional');customers=Array.isArray(data.customers)?data.customers:[];const accounts=new Set(customers.map(row=>String(row.account_number||'')));for(const account of [...selected])if(!accounts.has(account))selected.delete(account);loaded=true;render();setStatus(customers.length.toLocaleString()+' exceptional customer'+(customers.length===1?'':'s')+' loaded.',true);}catch(error){customers=[];filtered=[];list.innerHTML='<div class="schedule-empty">'+esc(error.message||'Exceptional Customers could not be loaded.')+'</div>';setStatus(error.message||'Exceptional Customers could not be loaded.',false);}finally{loading=false;refresh.disabled=false;syncControls();}}
   async function moveAccounts(accounts,target){const normalized=[...new Set(accounts)].filter(Boolean);if(!normalized.length||!['A','B'].includes(target))return;if(!window.confirm('Move '+normalized.length.toLocaleString()+' selected customer'+(normalized.length===1?'':'s')+' from Exceptional Customers to Cycle '+target+'?'))return;section.querySelectorAll('button,input,select').forEach(control=>control.disabled=true);let processed=0,moved=0,failed=0;const errors=[];setProgress(0,normalized.length,0,0,'Preparing customer batches…');try{for(let start=0;start<normalized.length;start+=50){const batch=normalized.slice(start,start+50);try{const data=await request('/api/admin/customer-statement-cycle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_numbers:batch,statement_cycle:target})});moved+=Number(data.updated||0);}catch(error){failed+=batch.length;errors.push(error.message||'A customer batch failed.');}processed+=batch.length;setProgress(processed,normalized.length,moved,failed,processed>=normalized.length?'Move complete':'Moving customer batches…');}selected.clear();await new Promise(resolve=>window.setTimeout(resolve,350));await load(true);if(typeof window.refreshStatementCyclePreviews==='function')await window.refreshStatementCyclePreviews();setStatus(moved.toLocaleString()+' customer'+(moved===1?'':'s')+' moved to Cycle '+target+(failed?' • '+failed.toLocaleString()+' failed. '+errors[0]:'.'),failed===0);}finally{section.querySelectorAll('button,input,select').forEach(control=>control.disabled=false);syncControls();prev.disabled=page<=1;next.disabled=page>=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));}}
-  search.addEventListener('input',()=>{page=1;render();});refresh.addEventListener('click',()=>load(true));exportPdf.addEventListener('click',async()=>{if(!filtered.length){setStatus('Load Exceptional Customers before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}const label=exportPdf.querySelector('span');exportPdf.dataset.exporting='true';syncControls();try{await window.WootenAdminTablePdf.exportData('Exceptional Customers — Statement Scheduling Exclusions',['Customer #','Customer Name','Total Balance','Scheduling Assignment'],filtered.map(row=>[row.account_number,row.account_name||'Customer',money(row.total_balance),'Exceptional — No scheduled statements']),(done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');});setStatus(filtered.length.toLocaleString()+' exceptional customer'+(filtered.length===1?'':'s')+' exported to PDF.',true);}catch(error){setStatus(error.message||'The Exceptional Customers table could not be exported.',false);}finally{delete exportPdf.dataset.exporting;if(label)label.textContent='Export PDF';syncControls();}});prev.addEventListener('click',()=>{page--;render();});next.addEventListener('click',()=>{page++;render();});selectMatching.addEventListener('click',()=>{filtered.forEach(row=>selected.add(String(row.account_number||'')));render();});clear.addEventListener('click',()=>{selected.clear();render();});moveButtons.forEach(button=>button.addEventListener('click',()=>moveAccounts([...selected],button.dataset.exceptionalBulkMove)));
+  search.addEventListener('input',()=>{page=1;render();});refresh.addEventListener('click',()=>window.WootenRefreshUI.run(refresh,()=>load(true)));exportPdf.addEventListener('click',async()=>{if(!filtered.length){setStatus('Load Exceptional Customers before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}const label=exportPdf.querySelector('span');exportPdf.dataset.exporting='true';syncControls();try{await window.WootenAdminTablePdf.exportData('Exceptional Customers — Statement Scheduling Exclusions',['Customer #','Customer Name','Total Balance','Scheduling Assignment'],filtered.map(row=>[row.account_number,row.account_name||'Customer',money(row.total_balance),'Exceptional — No scheduled statements']),(done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');});setStatus(filtered.length.toLocaleString()+' exceptional customer'+(filtered.length===1?'':'s')+' exported to PDF.',true);}catch(error){setStatus(error.message||'The Exceptional Customers table could not be exported.',false);}finally{delete exportPdf.dataset.exporting;if(label)label.textContent='Export PDF';syncControls();}});prev.addEventListener('click',()=>{page--;render();});next.addEventListener('click',()=>{page++;render();});selectMatching.addEventListener('click',()=>{filtered.forEach(row=>selected.add(String(row.account_number||'')));render();});clear.addEventListener('click',()=>{selected.clear();render();});moveButtons.forEach(button=>button.addEventListener('click',()=>moveAccounts([...selected],button.dataset.exceptionalBulkMove)));
   list.addEventListener('change',event=>{const checkbox=event.target.closest('[data-exceptional-customer-check]');if(!checkbox)return;if(checkbox.checked)selected.add(checkbox.value);else selected.delete(checkbox.value);syncControls();});
   list.addEventListener('click',async event=>{const button=event.target.closest('[data-save-exceptional-assignment]');if(!button)return;const row=button.closest('[data-exceptional-customer]'),account=row?.dataset.exceptionalCustomer||'',target=row?.querySelector('select')?.value||'';if(!account||target==='E')return;await moveAccounts([account],target).catch(error=>setStatus(error.message||'Customer assignment could not be saved.',false));});
   window.loadExceptionalCustomers=load;
@@ -11759,13 +11716,9 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   });
   weeklyFrequency.addEventListener('change',syncWeeklyFrequency);
   weeklyAnchor.addEventListener('change',syncWeeklyFrequency);
-  refreshBtn.addEventListener('click',async()=>{
-    refreshBtn.disabled=true;
-    refreshBtn.classList.add('is-refreshing');
-    refreshBtn.setAttribute('aria-busy','true');
-    try{await load();await new Promise(resolve=>window.requestAnimationFrame(resolve));(report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});}
-    finally{refreshBtn.disabled=false;refreshBtn.classList.remove('is-refreshing');refreshBtn.removeAttribute('aria-busy');}
-  });
+  refreshBtn.addEventListener('click',()=>window.WootenRefreshUI.run(refreshBtn,async()=>{
+    await load();await new Promise(resolve=>window.requestAnimationFrame(resolve));(report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
+  }));
   get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
   get('schedulePreviewMidmonth').addEventListener('click',()=>showPreview('midmonth'));
   get('schedulePreviewMonthly').addEventListener('click',()=>showPreview('monthly'));
@@ -12570,7 +12523,7 @@ let pagingRequests=false;
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
   list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
-  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
+  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('adminAuditRefresh'),()=>load()));get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
   if(window.wootenAdminUser?.owner)setTimeout(load,0);
 })();
 </script>
@@ -16529,7 +16482,7 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   authorizationModal?.querySelectorAll('[data-backup-authorization-close]').forEach(item=>item.addEventListener('click',()=>closeAuthorization(null)));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&authorizationModal&&!authorizationModal.hidden)closeAuthorization(null);});
   tab.addEventListener('click',()=>{if(!loaded)setTimeout(load,0);});
-  createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',load);latestBtn.addEventListener('click',()=>download(backups[0]));
+  createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',()=>window.WootenRefreshUI.run(refreshBtn,()=>load()));latestBtn.addEventListener('click',()=>download(backups[0]));
   automaticToggle?.addEventListener('change',()=>updateAutomaticSchedule(automaticToggle.checked));
   rowsEl.addEventListener('click',event=>{const restoreButton=event.target.closest('[data-backup-restore]');if(restoreButton){restore({key:restoreButton.dataset.backupRestore,filename:restoreButton.dataset.backupFilename});return;}const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
   prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
