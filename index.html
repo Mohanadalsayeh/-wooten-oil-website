@@ -388,7 +388,12 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <div class="header-notification-menu" id="headerNotificationMenu" aria-label="Customer notifications">
       <div class="header-notification-menu-head">
         <div><strong>Notifications</strong><small>Recent customer portal activity</small></div>
-        <button type="button" id="headerNotificationsClose" aria-label="Close notifications">&times;</button>
+        <div class="header-notification-menu-actions">
+          <button type="button" id="headerNotificationsRefresh" aria-label="Refresh notifications">
+            <svg class="header-notification-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg>
+          </button>
+          <button type="button" id="headerNotificationsClose" aria-label="Close notifications">&times;</button>
+        </div>
       </div>
       <div class="header-notification-list" id="headerNotificationList">
         <div class="notification-empty">No notifications yet.</div>
@@ -3664,6 +3669,110 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   }).observe(list,{childList:true});
 
   apply();
+})();
+</script>
+<style id="wooten-customer-notification-header-actions-ver410">
+/* Match the customer notification header controls to Admin Notifications. */
+#headerNotificationMenu .header-notification-menu-actions{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex:0 0 auto!important;
+}
+#headerNotificationMenu #headerNotificationsRefresh,
+#headerNotificationMenu #headerNotificationsClose{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 36px!important;
+  box-sizing:border-box!important;
+  width:36px!important;
+  height:36px!important;
+  min-width:36px!important;
+  min-height:36px!important;
+  max-width:36px!important;
+  max-height:36px!important;
+  margin:0!important;
+  padding:0!important;
+  border-radius:9px!important;
+  box-shadow:none!important;
+  transform:none!important;
+  cursor:pointer!important;
+}
+#headerNotificationMenu #headerNotificationsRefresh{
+  border:1px solid #cbd8e3!important;
+  background:#f8fbfd!important;
+  color:#2f6f9f!important;
+}
+#headerNotificationMenu #headerNotificationsRefresh:not(:disabled):is(:hover,:active){
+  border-color:#163b5d!important;
+  background:#163b5d!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+}
+#headerNotificationMenu #headerNotificationsClose{
+  border:0!important;
+  background:#f4f6f8!important;
+  color:#334155!important;
+  font-size:24px!important;
+  line-height:1!important;
+}
+#headerNotificationMenu #headerNotificationsClose:is(:hover,:active){
+  border-color:#b73333!important;
+  background:#b73333!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+}
+#headerNotificationMenu :is(#headerNotificationsRefresh,#headerNotificationsClose):focus-visible{
+  outline:2px solid #294f73!important;
+  outline-offset:2px!important;
+}
+#headerNotificationMenu #headerNotificationsRefresh:disabled{
+  cursor:wait!important;
+  opacity:.72!important;
+}
+#headerNotificationMenu .header-notification-refresh-icon{
+  display:block!important;
+  width:20px!important;
+  height:20px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  transform-origin:center!important;
+}
+#headerNotificationMenu #headerNotificationsRefresh.is-loading .header-notification-refresh-icon{
+  animation:customerNotificationRefreshSpin .75s linear infinite!important;
+}
+@keyframes customerNotificationRefreshSpin{
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
+}
+@media(prefers-reduced-motion:reduce){
+  #headerNotificationMenu #headerNotificationsRefresh.is-loading .header-notification-refresh-icon{animation:none!important}
+}
+</style>
+<script id="wooten-customer-notification-refresh-ver410-script">
+(function(){
+  var button=document.getElementById('headerNotificationsRefresh');
+  if(!button)return;
+
+  button.addEventListener('click',async function(event){
+    event.preventDefault();
+    event.stopPropagation();
+    if(button.disabled||typeof window.wootenRenderCustomerNotifications!=='function')return;
+    button.disabled=true;
+    button.classList.add('is-loading');
+    button.setAttribute('aria-busy','true');
+    try{
+      await window.wootenRenderCustomerNotifications();
+    }finally{
+      button.disabled=false;
+      button.classList.remove('is-loading');
+      button.removeAttribute('aria-busy');
+    }
+  });
 })();
 </script>
 </html>
