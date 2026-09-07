@@ -10785,14 +10785,27 @@ __name(adminRequestCenterDecision,'adminRequestCenterDecision');
 async function adminNotificationBellGet({request,env}){
   try{
     await ensureRequestCenterSchema(env);
-    const profileCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM profile_change_requests WHERE COALESCE(status,'pending')='pending'`).first())?.total||0);
-    const fuelCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending'`).first())?.total||0);
-    const applicationCount=Number((await env.DB.prepare(`SELECT COUNT(*) AS total FROM account_applications WHERE COALESCE(status,'pending')='pending'`).first())?.total||0);
-    const profileRows=(await env.DB.prepare(`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' ORDER BY datetime(created_at) DESC,id DESC LIMIT 8`).all())?.results||[];
-    const fuelRows=(await env.DB.prepare(`SELECT 'fuel' AS item_type,rowid AS id,request_number,customer_name AS name,customer_account_number AS account,received_at AS created_at FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' ORDER BY datetime(received_at) DESC,rowid DESC LIMIT 8`).all())?.results||[];
-    const appRows=(await env.DB.prepare(`SELECT 'application' AS item_type,id,application_number AS request_number,COALESCE(NULLIF(business_name,''),full_name) AS name,'' AS account,created_at FROM account_applications WHERE COALESCE(status,'pending')='pending' ORDER BY datetime(created_at) DESC,id DESC LIMIT 8`).all())?.results||[];
-    const items=[...profileRows,...fuelRows,...appRows].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,10);
-    return notificationJson({success:true,total:profileCount+fuelCount+applicationCount,counts:{profile:profileCount,fuel:fuelCount,applications:applicationCount},items});
+    const params=new URL(request.url).searchParams;
+    let cursor=null;
+    if(params.get('cursor')){
+      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['profile','fuel','application'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
+      catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
+    }
+    const counts=await env.DB.prepare(`SELECT
+      (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending') AS profile,
+      (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending') AS fuel,
+      (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending') AS applications`).first();
+    const query=`SELECT * FROM (
+      SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending'
+      UNION ALL
+      SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending'
+      UNION ALL
+      SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending'
+    ) ${cursor?'WHERE (sort_time,item_type,id) < (?,?,?)':''} ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21`;
+    const statement=env.DB.prepare(query);
+    const rows=((await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all())?.results)||[];
+    const items=rows.slice(0,20),last=items[items.length-1],hasMore=rows.length>20;
+    return notificationJson({success:true,total:Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
   }catch(error){
     console.error('adminNotificationBellGet',error);
     return notificationJson({success:false,error:'Admin notifications could not be loaded.'},500);

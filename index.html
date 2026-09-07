@@ -1324,6 +1324,33 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 
 <script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=291"></script>
+<script id="wooten-notification-login-refresh-ver393">
+(function(){
+  // Use the existing renderer: do not open menus or mark anything as read.
+  let pending=false,queued=false,lastAttempt=0,timer=0;
+  const signedIn=()=>document.body.classList.contains('customer-signed-in');
+  async function refresh(force=false){
+    if(!signedIn()||document.hidden||typeof window.wootenRenderCustomerNotifications!=='function')return;
+    if(pending){if(force)queued=true;return;}
+    if(!force&&Date.now()-lastAttempt<1500)return;
+    pending=true;lastAttempt=Date.now();
+    try{await window.wootenRenderCustomerNotifications();}
+    catch(error){console.warn('Notification refresh could not finish.');}
+    finally{pending=false;if(queued){queued=false;refresh(true);}}
+  }
+  function schedule(force){clearTimeout(timer);timer=setTimeout(()=>refresh(force),0);}
+  function init(){
+    let previous=signedIn();
+    new MutationObserver(()=>{const current=signedIn();if(current!==previous){previous=current;if(current)schedule(true);}}).observe(document.body,{attributes:true,attributeFilter:['class']});
+    const account=document.getElementById('acctNumber');
+    if(account){let previousAccount=account.textContent;new MutationObserver(()=>{if(account.textContent!==previousAccount){previousAccount=account.textContent;schedule(true);}}).observe(account,{childList:true,characterData:true,subtree:true});}
+    for(const event of ['focus','pageshow','online'])window.addEventListener(event,()=>schedule(false));
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedule(false);});
+    schedule(true);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 <script id="wooten-mobile-menu-outside-close" src="assets/js/wooten-mobile-menu-outside-close.js"></script>
 
 
