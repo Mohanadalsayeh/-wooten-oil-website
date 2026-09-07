@@ -10608,6 +10608,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const customerPageInfo=document.getElementById('statementCustomerPageInfo');
 
   if(!loadBtn||!sendBtn||!list) return;
+  if(window.__wootenAdminBatchStatementsInitialized) return;
+  window.__wootenAdminBatchStatementsInitialized=true;
 
   let customers=[];
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
@@ -10832,6 +10834,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   sendBtn.addEventListener('click',async function(){
+    if(sendBtn.dataset.requestPending==='true') return;
     const key=document.getElementById('adminKey').value.trim();
     const accounts=Array.from(selected);
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
@@ -10849,6 +10852,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     );
     if(!confirmed) return;
 
+    sendBtn.dataset.requestPending='true';
     sendBtn.disabled=true;loadBtn.disabled=true;
     sendBtn.textContent='Generating Statements…';
     progress.innerHTML='';
@@ -10912,6 +10916,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       showSendReport({selectedTotal:accounts.length,processed:completed,succeeded,failed,portalSent,emailSent,smsSent,batches:batchesProcessed,complete:false,error:e.message||'Statement generation stopped because of an error.'});
     }finally{
       hideAdminActionProgress('statementSend');
+      delete sendBtn.dataset.requestPending;
       sendBtn.disabled=false;loadBtn.disabled=false;
       sendBtn.textContent='Generate & Send Statements';
     }
@@ -11749,6 +11754,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const entriesNext=document.getElementById('communicationLogEntriesNext');
   const entriesPageInfo=document.getElementById('communicationLogEntriesPageInfo');
   if(!loadBtn||!customersEl||!detailEl) return;
+  if(window.__wootenAdminCommunicationLogInitialized) return;
+  window.__wootenAdminCommunicationLogInitialized=true;
 
   let customerPage=1;
   let detailPage=1;
@@ -11897,6 +11904,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const next=document.getElementById('communicationLogCustomersNext');
   const pageInfo=document.getElementById('communicationLogCustomersPageInfo');
   if(!loadBtn||!customersEl||customersEl.dataset.treeMode!=='true')return;
+  if(window.__wootenAdminCommunicationTreeInitialized)return;
+  window.__wootenAdminCommunicationTreeInitialized=true;
 
   let customerPage=1;
   let customers=[];
@@ -12055,17 +12064,19 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const resend=e.target.closest('[data-sms-resend]');
     if(resend){
       e.preventDefault();e.stopPropagation();
+      if(resend.dataset.requestPending==='true')return;
       const id=Number(resend.getAttribute('data-sms-resend')||0);
       const node=resend.closest('[data-tree-node]');
       const account=node?node.getAttribute('data-tree-node'):'';
       const state=openNodes.get(account);
       const key=document.getElementById('adminKey').value.trim();
       if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to resend this SMS.');return;}
-      resend.disabled=true;resend.textContent='Resending…';
+      resend.dataset.requestPending='true';resend.disabled=true;resend.textContent='Resending…';
       fetch('/api/admin/communication-log/resend',{method:'POST',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({id:id})})
         .then(async response=>{const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'SMS could not be resent.');return data;})
         .then(async()=>{setStatus('SMS resend was accepted by Twilio and is pending delivery.',true);await refreshTwilioBalance();return loadNode(account,state&&state.page||1);})
-        .catch(error=>{setStatus(error.message||'SMS could not be resent.',false);resend.disabled=false;resend.textContent='Resend SMS';});
+        .catch(error=>{setStatus(error.message||'SMS could not be resent.',false);})
+        .finally(()=>{delete resend.dataset.requestPending;if(resend.isConnected){resend.disabled=false;resend.textContent='Resend SMS';}});
       return;
     }
     const pager=e.target.closest('[data-tree-action]');
@@ -12093,6 +12104,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
 <script id="wooten-admin-login-popup-script">
 (function(){
+  if(window.__wootenAdminLoginPopupInitialized)return;
+  window.__wootenAdminLoginPopupInitialized=true;
   const body=document.body;
   const keyField=document.getElementById('adminKey');
   const overlay=document.getElementById('adminLoginOverlay');
@@ -12458,6 +12471,8 @@ let pagingRequests=false;
 
 <script id="wooten-admin-users-script">
 (()=>{
+  if(window.__wootenAdminUsersInitialized)return;
+  window.__wootenAdminUsersInitialized=true;
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus'),auditPager=get('adminActivityPagination'),auditPagerSummary=get('adminActivityPaginationSummary'),auditPageIndicator=get('adminActivityPageIndicator'),auditPrev=get('adminActivityPrev'),auditNext=get('adminActivityNext'),auditSearch=get('adminActivitySearch'),auditSearchClear=get('adminActivitySearchClear'),auditFilter=get('adminActivityFilter');let loaded=false,loading=false,auditPage=1,auditEntries=[];const auditPageSize=20;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const labels={database:'Database & Imports',customer_activity:'Customer Activity',collections:'Credit & Collections',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
@@ -12529,7 +12544,7 @@ let pagingRequests=false;
 </script>
 
 
-<script id="wooten-admin-batch-statements-script">
+<script id="wooten-admin-batch-statements-script-disabled-duplicate" type="application/json">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
   const sendBtn=document.getElementById('statementGenerateSend');
@@ -12869,7 +12884,7 @@ let pagingRequests=false;
 
 
 
-<script id="wooten-admin-communication-log-script">
+<script id="wooten-admin-communication-log-script-disabled-duplicate" type="application/json">
 (function(){
   const treeModeHost=document.getElementById('communicationLogCustomers');
   if(treeModeHost&&treeModeHost.dataset.treeMode==='true')return;
@@ -13028,7 +13043,7 @@ let pagingRequests=false;
 })();
 </script>
 
-<script id="wooten-admin-communication-tree-script">
+<script id="wooten-admin-communication-tree-script-disabled-duplicate" type="application/json">
 (function(){
   const loadBtn=document.getElementById('communicationLogLoad');
   const from=document.getElementById('communicationLogFrom');
@@ -13235,7 +13250,7 @@ let pagingRequests=false;
 </script>
 
 
-<script id="wooten-admin-login-popup-script">
+<script id="wooten-admin-login-popup-script-disabled-duplicate" type="application/json">
 (function(){
   const body=document.body;
   const keyField=document.getElementById('adminKey');
@@ -13485,6 +13500,7 @@ let pagingRequests=false;
 </script>
 
 
+<template id="wooten-disabled-duplicate-database-clear-modal">
 <div class="database-clear-modal" id="databaseClearModal" aria-hidden="true">
   <div class="database-clear-backdrop" data-clear-close></div>
   <div class="database-clear-card" role="dialog" aria-modal="true" aria-labelledby="databaseClearTitle">
@@ -13527,8 +13543,9 @@ let pagingRequests=false;
     </div>
   </div>
 </div>
+</template>
 
-<script id="wooten-admin-users-script">
+<script id="wooten-admin-users-script-disabled-duplicate" type="application/json">
 (()=>{
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus');let loaded=false,loading=false;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
@@ -16527,8 +16544,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   }
 }
 </style>
-<style id="wooten-table-action-buttons-ver370">
-/* Match the Live Customer Database PDF control and use one green table refresh style. */
+<style id="wooten-table-action-buttons-ver386">
+/* Match the Live Customer Database PDF control and use the selected 3B green refresh style. */
 #admin-tab-collections #collectionsExportPdf{
   display:inline-flex!important;
   align-items:center!important;
@@ -16551,8 +16568,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 #refreshInboxBtn,
 #twilioRefreshLookupResults,
 #mas90HealthRefresh{
-  background:#28a36a!important;
-  border-color:#28a36a!important;
+  background:#35a96f!important;
+  border-color:#35a96f!important;
   color:#fff!important;
   box-shadow:none!important;
 }
@@ -16566,8 +16583,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 #refreshInboxBtn:not(:disabled):is(:hover,:focus-visible,:active),
 #twilioRefreshLookupResults:not(:disabled):is(:hover,:focus-visible,:active),
 #mas90HealthRefresh:not(:disabled):is(:hover,:focus-visible,:active){
-  background:#218758!important;
-  border-color:#218758!important;
+  background:#289960!important;
+  border-color:#289960!important;
   color:#fff!important;
 }
 #collectionsRefresh:disabled,
