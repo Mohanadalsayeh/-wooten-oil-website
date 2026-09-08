@@ -4870,7 +4870,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   function openDocumentHistory(documentId,documentName){
     var history=document.getElementById('customerDocumentsList');
     var search=document.getElementById('customerDocumentsSearch');
-    if(search&&documentName)search.value=documentName;
+    if(search)search.value='';
     var observer=null;
     var fallbackTimer=0;
     var revealStarted=false;
@@ -4990,6 +4990,29 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   [title,date,message,list].forEach(function(node){new MutationObserver(schedule).observe(node,{childList:true,subtree:true,characterData:true});});
   new MutationObserver(function(){if(popup.classList.contains('show'))schedule();}).observe(popup,{attributes:true,attributeFilter:['class']});
   enhance();
+})();
+</script>
+<script id="wooten-document-search-reset-ver437">
+(function(){
+  var panel=document.getElementById('customerDocuments');
+  var search=document.getElementById('customerDocumentsSearch');
+  var opener=document.getElementById('dashboardDocuments');
+  if(!panel||!search)return;
+  function clearSearch(){
+    if(!search.value)return;
+    search.value='';
+    search.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+  if(opener)opener.addEventListener('click',clearSearch,true);
+  var wasOpen=panel.classList.contains('show');
+  new MutationObserver(function(records){
+    var isOpen=panel.classList.contains('show');
+    var reopened=records.some(function(record){
+      return !/(^|\s)show(\s|$)/.test(record.oldValue||'');
+    });
+    if(isOpen&&(!wasOpen||reopened))clearSearch();
+    wasOpen=isOpen;
+  }).observe(panel,{attributes:true,attributeFilter:['class'],attributeOldValue:true});
 })();
 </script>
 <style id="wooten-hero-oil-card-button-hover-match-ver427">
