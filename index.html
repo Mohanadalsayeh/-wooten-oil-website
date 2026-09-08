@@ -4595,7 +4595,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   stroke-linejoin:round;
 }
 .fuel-history-card.notification-request-target,
-.profile-change-row.notification-request-target{
+.profile-change-row.notification-request-target,
+.customer-document-row.notification-request-target{
   border-color:#4f82b2!important;
   background:#f2f7fb!important;
   box-shadow:0 0 0 3px rgba(47,114,214,.18)!important;
@@ -4731,32 +4732,51 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   }
   function openFuelRequest(number){
     closePopup();
+    var history=document.getElementById('fuelHistoryList');
     var search=document.getElementById('fuelHistorySearch');
-    if(search){
-      search.value=number;
-      search.dispatchEvent(new Event('input',{bubbles:true}));
-    }
+    if(search)search.value=number;
     var fuel=document.getElementById('dashboardFuelHistory');
-    if(fuel)fuel.click();
+    var observer=null;
+    var fallbackTimer=0;
+    var revealStarted=false;
 
-    var attempts=0;
-    function reveal(){
-      attempts++;
-      var cards=document.querySelectorAll('#fuelHistoryList .fuel-history-card');
+    function reveal(attempt){
+      var cards=history?history.querySelectorAll('.fuel-history-card'):[];
       var target=null;
       for(var i=0;i<cards.length;i++){
         var label=cards[i].querySelector('.fuel-history-number');
         if(label&&label.textContent.trim().toUpperCase()===number){target=cards[i];break;}
       }
-      if(!target&&attempts<100){setTimeout(reveal,100);return;}
+      if(!target&&attempt<80){setTimeout(function(){reveal(attempt+1);},100);return;}
       if(!target)return;
       target.classList.add('notification-request-target');
       target.setAttribute('tabindex','-1');
-      target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
-      target.focus({preventScroll:true});
-      setTimeout(function(){target.classList.remove('notification-request-target');},2600);
+      var portal=document.getElementById('customer-login');
+      var behavior=window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+      requestAnimationFrame(function(){requestAnimationFrame(function(){
+        if(portal){
+          var portalRect=portal.getBoundingClientRect();
+          var targetRect=target.getBoundingClientRect();
+          var destination=portal.scrollTop+(targetRect.top-portalRect.top)-Math.max(18,(portal.clientHeight-targetRect.height)/2);
+          portal.scrollTo({top:Math.max(0,destination),behavior:behavior});
+        }else target.scrollIntoView({behavior:behavior,block:'center'});
+        target.focus({preventScroll:true});
+      });});
+      setTimeout(function(){target.classList.remove('notification-request-target');},3200);
     }
-    setTimeout(reveal,80);
+    function beginReveal(){
+      if(revealStarted)return;
+      revealStarted=true;
+      if(observer)observer.disconnect();
+      if(fallbackTimer)clearTimeout(fallbackTimer);
+      setTimeout(function(){reveal(0);},40);
+    }
+    if(history){
+      observer=new MutationObserver(beginReveal);
+      observer.observe(history,{childList:true,subtree:true});
+    }
+    if(fuel)fuel.click();
+    fallbackTimer=setTimeout(beginReveal,3000);
   }
   function openProfileRequest(number){
     closePopup();
@@ -4807,6 +4827,56 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     if(profile)profile.click();
     fallbackTimer=setTimeout(beginReveal,3000);
   }
+  function openDocumentHistory(documentId,documentName){
+    var history=document.getElementById('customerDocumentsList');
+    var search=document.getElementById('customerDocumentsSearch');
+    if(search&&documentName)search.value=documentName;
+    var observer=null;
+    var fallbackTimer=0;
+    var revealStarted=false;
+
+    function reveal(attempt){
+      var rows=history?history.querySelectorAll('.customer-document-row'):[];
+      var target=null;
+      for(var i=0;i<rows.length;i++){
+        if(Number(rows[i].getAttribute('data-document-id')||0)===Number(documentId)){target=rows[i];break;}
+      }
+      if(!target&&attempt<80){setTimeout(function(){reveal(attempt+1);},100);return;}
+      if(!target)return;
+      target.classList.add('notification-request-target');
+      target.setAttribute('tabindex','-1');
+      var portal=document.getElementById('customer-login');
+      var behavior=window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+      requestAnimationFrame(function(){requestAnimationFrame(function(){
+        if(portal){
+          var portalRect=portal.getBoundingClientRect();
+          var targetRect=target.getBoundingClientRect();
+          var destination=portal.scrollTop+(targetRect.top-portalRect.top)-Math.max(18,(portal.clientHeight-targetRect.height)/2);
+          portal.scrollTo({top:Math.max(0,destination),behavior:behavior});
+        }else target.scrollIntoView({behavior:behavior,block:'center'});
+        target.focus({preventScroll:true});
+      });});
+      setTimeout(function(){target.classList.remove('notification-request-target');},3200);
+    }
+    function beginReveal(){
+      if(revealStarted)return;
+      revealStarted=true;
+      if(observer)observer.disconnect();
+      if(fallbackTimer)clearTimeout(fallbackTimer);
+      setTimeout(function(){reveal(0);},40);
+    }
+    if(history){
+      observer=new MutationObserver(beginReveal);
+      observer.observe(history,{childList:true,subtree:true});
+    }
+    closePopup();
+    if(window.wootenOpenCustomerDocuments)window.wootenOpenCustomerDocuments(documentId);
+    else{
+      var documents=document.getElementById('dashboardDocuments');
+      if(documents)documents.click();
+    }
+    fallbackTimer=setTimeout(beginReveal,3000);
+  }
   async function openPdfInNewWindow(documentLink){
     var preview=null;
     try{
@@ -4819,6 +4889,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     if(!preview){window.alert('Please allow pop-ups for wootenoil.com to open the PDF in a new window.');return;}
 
     var documentId=Number(documentLink&&documentLink.getAttribute('data-document-id')||0);
+    var documentName=String(documentLink&&documentLink.textContent||'').trim();
     try{
       if(!documentId){
         var notificationId=popup.getAttribute('data-active-notification-id')||'';
@@ -4831,6 +4902,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
         }
       }
       if(!documentId)throw new Error('The statement or invoice file could not be located.');
+      openDocumentHistory(documentId,documentName);
       preview.location.replace('/api/customer/documents/'+encodeURIComponent(documentId)+'/file');
     }catch(error){
       try{preview.close();}catch(_closeError){}
