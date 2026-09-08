@@ -4745,6 +4745,19 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   }
   function openFuelRequest(number){
     closePopup();
+    var portal=document.getElementById('customer-login');
+    var accountCard=document.getElementById('portalAccountCard');
+    if(!portal||!accountCard){
+      window.alert('Fuel Request History is unavailable. Please reload the page and try again.');
+      return;
+    }
+    portal.classList.remove('portal-force-closed');
+    portal.removeAttribute('aria-hidden');
+    accountCard.classList.add('show');
+    document.documentElement.classList.add('customer-portal-open');
+    document.body.classList.add('customer-portal-open');
+    // Open the actual portal as well as its nested history panel.
+    window.location.hash='customer-login';
     var history=document.getElementById('fuelHistoryList');
     var search=document.getElementById('fuelHistorySearch');
     if(search)search.value=number;
@@ -4760,19 +4773,21 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
         var label=cards[i].querySelector('.fuel-history-number');
         if(label&&label.textContent.trim().toUpperCase()===number){target=cards[i];break;}
       }
-      if(!target&&attempt<80){setTimeout(function(){reveal(attempt+1);},100);return;}
-      if(!target)return;
+      if(!target&&attempt<200){setTimeout(function(){reveal(attempt+1);},100);return;}
+      if(!target){
+        var status=document.getElementById('fuelHistoryStatus');
+        if(status&&!status.classList.contains('error')){
+          status.className='fuel-history-status show info';
+          status.textContent='Request '+number+' was not found in the loaded history. Try Refresh or check the selected account.';
+        }
+        return;
+      }
       target.classList.add('notification-request-target');
       target.setAttribute('tabindex','-1');
       var portal=document.getElementById('customer-login');
       var behavior=window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
       requestAnimationFrame(function(){requestAnimationFrame(function(){
-        if(portal){
-          var portalRect=portal.getBoundingClientRect();
-          var targetRect=target.getBoundingClientRect();
-          var destination=portal.scrollTop+(targetRect.top-portalRect.top)-Math.max(18,(portal.clientHeight-targetRect.height)/2);
-          portal.scrollTo({top:Math.max(0,destination),behavior:behavior});
-        }else target.scrollIntoView({behavior:behavior,block:'center'});
+        target.scrollIntoView({behavior:behavior,block:'center'});
         target.focus({preventScroll:true});
       });});
       setTimeout(function(){target.classList.remove('notification-request-target');},3200);
@@ -4782,7 +4797,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       revealStarted=true;
       if(observer)observer.disconnect();
       if(fallbackTimer)clearTimeout(fallbackTimer);
-      setTimeout(function(){reveal(0);},40);
+      // Let the portal's open-at-top handlers settle before the selected-row jump.
+      setTimeout(function(){reveal(0);},200);
     }
     if(history){
       observer=new MutationObserver(beginReveal);
