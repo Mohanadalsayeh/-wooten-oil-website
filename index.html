@@ -4732,6 +4732,18 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     document.body.style.overflow='';
   }
   function forceFuelHistoryVisible(){
+    // Notifications can be opened from the homepage while the portal is closed.
+    // Showing a child panel alone does not make the :target portal visible.
+    var portal=document.getElementById('customer-login');
+    if(portal){
+      portal.classList.remove('portal-force-closed');
+      portal.removeAttribute('aria-hidden');
+      if(window.location.hash!=='#customer-login'){
+        window.history.replaceState(null,'',window.location.pathname+window.location.search+'#customer-login');
+      }
+      document.documentElement.classList.add('customer-portal-open');
+      document.body.classList.add('customer-portal-open');
+    }
     var dashboard=document.getElementById('customerDashboard');
     var account=document.getElementById('customerAccountDetails');
     var documents=document.getElementById('customerDocuments');
@@ -4932,8 +4944,13 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       window.alert(error&&error.message?error.message:'The PDF could not be opened.');
     }
   }
-  primary.addEventListener('click',function(){
-    if(currentKind==='document'){
+  popup.addEventListener('click',function(event){
+    var action=event.target.closest('.customer-notification-compact-primary');
+    if(!action||!popup.contains(action))return;
+    event.preventDefault();
+    event.stopPropagation();
+    var kind=classify();
+    if(kind==='document'){
       var documentLink=list.querySelector('.customer-notification-document-link');
       var attachment=list.querySelector('.customer-notification-attachment');
       if(documentLink){openPdfInNewWindow(documentLink);return;}
@@ -4943,7 +4960,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       if(documents)documents.click();
       return;
     }
-    if(currentKind==='profile'){
+    if(kind==='profile'){
       var profileNumber=requestNumber(title.textContent+' '+message.textContent,'profile');
       if(profileNumber){openProfileRequest(profileNumber);return;}
       closePopup();
@@ -4951,18 +4968,19 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       if(profile)profile.click();
       return;
     }
-    if(currentKind==='fuel'){
+    if(kind==='fuel'){
       var fuelNumber=requestNumber(title.textContent+' '+message.textContent,'fuel');
       if(fuelNumber){openFuelRequest(fuelNumber);return;}
       closePopup();
       var fuel=document.getElementById('dashboardFuelHistory');
       if(fuel)fuel.click();
+      forceFuelHistoryVisible();
       return;
     }
     var firstAttachment=list.querySelector('.customer-notification-attachment');
     if(firstAttachment){firstAttachment.click();return;}
     closePopup();
-  });
+  },true);
 
   var queued=false;
   function schedule(){
