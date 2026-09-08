@@ -4594,7 +4594,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   stroke-linecap:round;
   stroke-linejoin:round;
 }
-.fuel-history-card.notification-request-target{
+.fuel-history-card.notification-request-target,
+.profile-change-row.notification-request-target{
   border-color:#4f82b2!important;
   background:#f2f7fb!important;
   box-shadow:0 0 0 3px rgba(47,114,214,.18)!important;
@@ -4757,6 +4758,31 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     }
     setTimeout(reveal,80);
   }
+  function openProfileRequest(number){
+    closePopup();
+    var profile=document.getElementById('dashboardProfileChange');
+    if(profile)profile.click();
+
+    var attempts=0;
+    function reveal(){
+      attempts++;
+      var rows=document.querySelectorAll('#profileChangeHistory .profile-change-row');
+      var target=null;
+      for(var i=0;i<rows.length;i++){
+        var label=rows[i].querySelector('.profile-change-row-head strong');
+        var rowNumber=label&&String(label.textContent||'').match(/\bPCR-[A-Z0-9-]+\b/i);
+        if(rowNumber&&rowNumber[0].toUpperCase()===number){target=rows[i];break;}
+      }
+      if(!target&&attempts<100){setTimeout(reveal,100);return;}
+      if(!target)return;
+      target.classList.add('notification-request-target');
+      target.setAttribute('tabindex','-1');
+      target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
+      target.focus({preventScroll:true});
+      setTimeout(function(){target.classList.remove('notification-request-target');},2600);
+    }
+    setTimeout(reveal,80);
+  }
   async function openPdfInNewWindow(documentLink){
     var preview=null;
     try{
@@ -4799,6 +4825,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       return;
     }
     if(currentKind==='profile'){
+      var profileNumber=requestNumber(title.textContent+' '+message.textContent,'profile');
+      if(profileNumber){openProfileRequest(profileNumber);return;}
       closePopup();
       var profile=document.getElementById('dashboardProfileChange');
       if(profile)profile.click();
