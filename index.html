@@ -4594,6 +4594,11 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   stroke-linecap:round;
   stroke-linejoin:round;
 }
+.fuel-history-card.notification-request-target{
+  border-color:#4f82b2!important;
+  background:#f2f7fb!important;
+  box-shadow:0 0 0 3px rgba(47,114,214,.18)!important;
+}
 @media(max-width:600px){
   #customerNotificationPopupCard .customer-notification-popup-head{padding:15px 17px!important}
   #customerNotificationPopupCard .customer-notification-popup-body{padding:16px!important}
@@ -4723,11 +4728,70 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     if(closeButton)closeButton.click();
     else{popup.classList.remove('show');document.body.style.overflow='';}
   }
+  function openFuelRequest(number){
+    closePopup();
+    var search=document.getElementById('fuelHistorySearch');
+    if(search){
+      search.value=number;
+      search.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    var fuel=document.getElementById('dashboardFuelHistory');
+    if(fuel)fuel.click();
+
+    var attempts=0;
+    function reveal(){
+      attempts++;
+      var cards=document.querySelectorAll('#fuelHistoryList .fuel-history-card');
+      var target=null;
+      for(var i=0;i<cards.length;i++){
+        var label=cards[i].querySelector('.fuel-history-number');
+        if(label&&label.textContent.trim().toUpperCase()===number){target=cards[i];break;}
+      }
+      if(!target&&attempts<100){setTimeout(reveal,100);return;}
+      if(!target)return;
+      target.classList.add('notification-request-target');
+      target.setAttribute('tabindex','-1');
+      target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
+      target.focus({preventScroll:true});
+      setTimeout(function(){target.classList.remove('notification-request-target');},2600);
+    }
+    setTimeout(reveal,80);
+  }
+  async function openPdfInNewWindow(documentLink){
+    var preview=null;
+    try{
+      preview=window.open('about:blank','_blank');
+      if(preview){
+        preview.document.title='Opening Wooten Oil PDF';
+        preview.document.body.innerHTML='<div style="font-family:Arial,sans-serif;padding:24px;color:#17314b">Opening PDF…</div>';
+      }
+    }catch(_error){preview=null;}
+    if(!preview){window.alert('Please allow pop-ups for wootenoil.com to open the PDF in a new window.');return;}
+
+    var documentId=Number(documentLink&&documentLink.getAttribute('data-document-id')||0);
+    try{
+      if(!documentId){
+        var notificationId=popup.getAttribute('data-active-notification-id')||'';
+        if(notificationId){
+          var response=await fetch('/api/customer/notifications/document-resolve?notification_id='+encodeURIComponent(notificationId),{
+            method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}
+          });
+          var data=await response.json().catch(function(){return {};});
+          if(response.ok&&data.success!==false)documentId=Number(data.document_id||0);
+        }
+      }
+      if(!documentId)throw new Error('The statement or invoice file could not be located.');
+      preview.location.replace('/api/customer/documents/'+encodeURIComponent(documentId)+'/file');
+    }catch(error){
+      try{preview.close();}catch(_closeError){}
+      window.alert(error&&error.message?error.message:'The PDF could not be opened.');
+    }
+  }
   primary.addEventListener('click',function(){
     if(currentKind==='document'){
       var documentLink=list.querySelector('.customer-notification-document-link');
       var attachment=list.querySelector('.customer-notification-attachment');
-      if(documentLink){documentLink.click();return;}
+      if(documentLink){openPdfInNewWindow(documentLink);return;}
       if(attachment){attachment.click();return;}
       closePopup();
       var documents=document.getElementById('dashboardDocuments');
@@ -4741,6 +4805,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       return;
     }
     if(currentKind==='fuel'){
+      var fuelNumber=requestNumber(title.textContent+' '+message.textContent,'fuel');
+      if(fuelNumber){openFuelRequest(fuelNumber);return;}
       closePopup();
       var fuel=document.getElementById('dashboardFuelHistory');
       if(fuel)fuel.click();
