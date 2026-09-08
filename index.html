@@ -4351,4 +4351,395 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   addPrintButtons();
 })();
 </script>
+<style id="wooten-customer-notification-compact-style-ver422">
+/* Style 1: compact, action-focused customer notification details. */
+#customerNotificationPopupCard{
+  width:min(620px,100%)!important;
+  border-radius:20px!important;
+}
+#customerNotificationPopupCard .customer-notification-popup-head{
+  padding:18px 22px!important;
+}
+#customerNotificationPopupCard .customer-notification-popup-body{
+  padding:22px!important;
+}
+#customerNotificationPopupCard .customer-notification-email-meta,
+#customerNotificationPopupCard .customer-notification-message-label{
+  display:none!important;
+}
+.customer-notification-compact-hero{
+  --notification-accent:#26844d;
+  --notification-icon-bg:#eaf7ef;
+  --notification-icon-color:#168348;
+  position:relative;
+  display:grid;
+  grid-template-columns:62px minmax(0,1fr);
+  gap:16px;
+  align-items:start;
+  padding:18px 18px 18px 22px;
+  border:1px solid #dce6ed;
+  border-radius:14px;
+  background:#fff;
+  overflow:hidden;
+  box-sizing:border-box;
+}
+.customer-notification-compact-hero::before{
+  content:"";
+  position:absolute;
+  inset:0 auto 0 0;
+  width:5px;
+  background:var(--notification-accent);
+}
+#customerNotificationPopupCard.notification-kind-profile .customer-notification-compact-hero{
+  --notification-accent:#2f72d6;
+  --notification-icon-bg:#edf5ff;
+  --notification-icon-color:#216ac6;
+}
+#customerNotificationPopupCard.notification-kind-fuel .customer-notification-compact-hero{
+  --notification-accent:#20a462;
+  --notification-icon-bg:#eaf8f0;
+  --notification-icon-color:#16884e;
+}
+#customerNotificationPopupCard.notification-kind-document .customer-notification-compact-hero{
+  --notification-accent:#d32f35;
+  --notification-icon-bg:#fff0f1;
+  --notification-icon-color:#c9252d;
+}
+.customer-notification-compact-icon{
+  display:grid;
+  place-items:center;
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  background:var(--notification-icon-bg);
+  color:var(--notification-icon-color);
+}
+.customer-notification-compact-icon svg{
+  width:31px;
+  height:31px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.customer-notification-compact-copy{min-width:0}
+#customerNotificationPopupCard .customer-notification-popup-title{
+  margin:1px 0 5px!important;
+  color:#102a44!important;
+  font-size:1.32rem!important;
+  font-weight:800!important;
+  line-height:1.25!important;
+}
+#customerNotificationPopupCard .customer-notification-popup-date{
+  margin:0!important;
+  color:#6d7f91!important;
+  font-size:.79rem!important;
+  font-weight:700!important;
+}
+#customerNotificationPopupCard .customer-notification-popup-message{
+  display:block!important;
+  min-height:0!important;
+  margin:12px 0 0!important;
+  padding:0!important;
+  color:#3d5268!important;
+  font-size:.94rem!important;
+  line-height:1.55!important;
+  white-space:pre-wrap!important;
+  overflow-wrap:anywhere!important;
+}
+#customerNotificationPopupCard .customer-notification-popup-message:empty::before{
+  content:"Notification details are available below.";
+}
+#customerNotificationPopupAttachments.customer-notification-popup-footer.customer-notification-compact-footer{
+  display:block!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0 22px 22px!important;
+  border:0!important;
+  background:#fff!important;
+}
+#customerNotificationPopupAttachments.customer-notification-compact-footer .customer-notification-attachments-title{
+  display:none!important;
+}
+.customer-notification-compact-detail{
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr);
+  gap:12px;
+  align-items:center;
+  margin-top:14px;
+  padding:12px 14px;
+  border:1px solid #dce6ed;
+  border-radius:12px;
+  background:#f6f9fb;
+  box-sizing:border-box;
+}
+.customer-notification-compact-detail-icon{
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  border-radius:9px;
+  background:#fff;
+  color:#60768b;
+  border:1px solid #dce6ed;
+}
+.customer-notification-compact-detail-icon svg{
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.customer-notification-compact-detail-copy{min-width:0}
+.customer-notification-compact-detail-copy strong,
+.customer-notification-compact-detail-copy small{
+  display:block;
+  overflow-wrap:anywhere;
+}
+.customer-notification-compact-detail-copy strong{
+  color:#173650;
+  font-size:.88rem;
+  font-weight:800;
+  line-height:1.35;
+}
+.customer-notification-compact-detail-copy small{
+  margin-top:2px;
+  color:#718396;
+  font-size:.76rem;
+  line-height:1.35;
+}
+#customerNotificationPopupAttachments.customer-notification-compact-footer .customer-notification-document-link-label,
+#customerNotificationPopupAttachments.customer-notification-compact-footer .customer-notification-document-link{
+  display:none!important;
+}
+#customerNotificationPopupAttachments.customer-notification-compact-footer .customer-notification-attachment-list{
+  max-height:120px!important;
+  margin-top:8px;
+}
+#customerNotificationPopupAttachments.customer-notification-compact-footer .customer-notification-attachment-list:empty{
+  display:none!important;
+}
+#customerNotificationPopupAttachments.customer-notification-compact-footer .customer-notification-attachment{
+  min-height:42px;
+  padding:9px 11px;
+  border-color:#dce6ed;
+  background:#f8fafc;
+}
+.customer-notification-compact-primary{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:9px!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:48px!important;
+  margin:12px 0 0!important;
+  padding:10px 18px!important;
+  border:1px solid #173650!important;
+  border-radius:10px!important;
+  background:#173650!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  font:inherit!important;
+  font-size:.96rem!important;
+  font-weight:800!important;
+  line-height:1.2!important;
+  cursor:pointer!important;
+  box-shadow:none!important;
+  transform:none!important;
+  box-sizing:border-box!important;
+}
+.customer-notification-compact-primary:is(:hover,:focus,:focus-visible,:active){
+  border-color:#173650!important;
+  background:#173650!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.customer-notification-compact-primary:focus-visible{
+  outline:3px solid rgba(47,114,214,.24)!important;
+  outline-offset:2px!important;
+}
+.customer-notification-compact-primary svg{
+  width:18px;
+  height:18px;
+  flex:0 0 18px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+@media(max-width:600px){
+  #customerNotificationPopupCard .customer-notification-popup-head{padding:15px 17px!important}
+  #customerNotificationPopupCard .customer-notification-popup-body{padding:16px!important}
+  .customer-notification-compact-hero{grid-template-columns:48px minmax(0,1fr);gap:12px;padding:15px 14px 15px 18px}
+  .customer-notification-compact-icon{width:46px;height:46px}
+  .customer-notification-compact-icon svg{width:26px;height:26px}
+  #customerNotificationPopupCard .customer-notification-popup-title{font-size:1.12rem!important}
+  #customerNotificationPopupCard .customer-notification-popup-message{font-size:.88rem!important;line-height:1.5!important}
+  #customerNotificationPopupAttachments.customer-notification-popup-footer.customer-notification-compact-footer{padding:0 16px 16px!important}
+  .customer-notification-compact-detail{margin-top:12px;padding:10px 11px}
+  .customer-notification-compact-primary{min-height:46px!important;margin-top:10px!important}
+}
+</style>
+<script id="wooten-customer-notification-compact-style-ver422-script">
+(function(){
+  'use strict';
+  var popup=document.getElementById('customerNotificationPopup');
+  var card=document.getElementById('customerNotificationPopupCard');
+  var body=card&&card.querySelector('.customer-notification-popup-body');
+  var title=document.getElementById('customerNotificationPopupTitle');
+  var date=document.getElementById('customerNotificationPopupDate');
+  var message=document.getElementById('customerNotificationPopupMessage');
+  var footer=document.getElementById('customerNotificationPopupAttachments');
+  var list=document.getElementById('customerNotificationPopupAttachmentList');
+  var closeButton=document.getElementById('customerNotificationPopupClose');
+  if(!popup||!card||!body||!title||!date||!message||!footer||!list)return;
+
+  var hero=document.createElement('div');
+  hero.className='customer-notification-compact-hero';
+  var icon=document.createElement('span');
+  icon.className='customer-notification-compact-icon';
+  icon.setAttribute('aria-hidden','true');
+  var copy=document.createElement('div');
+  copy.className='customer-notification-compact-copy';
+  copy.appendChild(title);
+  copy.appendChild(date);
+  copy.appendChild(message);
+  hero.appendChild(icon);
+  hero.appendChild(copy);
+  body.insertBefore(hero,body.firstChild);
+
+  var detail=document.createElement('div');
+  detail.className='customer-notification-compact-detail';
+  detail.innerHTML='<span class="customer-notification-compact-detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"></path><path d="M15 3v4h4M9 11h6M9 15h6"></path></svg></span><span class="customer-notification-compact-detail-copy"><strong></strong><small></small></span>';
+  footer.insertBefore(detail,list);
+
+  var primary=document.createElement('button');
+  primary.type='button';
+  primary.className='customer-notification-compact-primary';
+  primary.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5"></path><path d="m19 5-8 8"></path><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"></path></svg><span>View Notification</span>';
+  footer.appendChild(primary);
+  footer.classList.add('customer-notification-compact-footer');
+
+  var currentKind='';
+  var iconByKind={
+    profile:'<svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"></circle><path d="M3.5 20a6.5 6.5 0 0 1 10.8-4.9"></path><path d="m15 18 4.5-4.5 2 2L17 20h-2z"></path></svg>',
+    fuel:'<svg viewBox="0 0 24 24"><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17"></path><path d="M4 21h12M8 7h4v4H8zM15 8h2l2 2v5"></path><path d="m17 18 2 2 4-5"></path></svg>',
+    document:'<svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"></path><path d="M15 3v4h4"></path><path d="m9 15 2 2 4-5"></path></svg>',
+    general:'<svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"></path><path d="M15 3v4h4M9 11h6M9 15h6"></path></svg>'
+  };
+
+  function classify(){
+    var text=(title.textContent+' '+message.textContent).toLowerCase();
+    if(/profile change|profile update|account update/.test(text))return 'profile';
+    if(/fuel request|fuel delivery/.test(text))return 'fuel';
+    if(/statement|invoice|document|\.pdf\b/.test(text)||list.querySelector('.customer-notification-document-link'))return 'document';
+    return 'general';
+  }
+  function requestNumber(text,kind){
+    var pattern=kind==='profile'?/\bPCR-[A-Z0-9-]+\b/i:/\bWO-[A-Z0-9-]+\b/i;
+    var match=String(text||'').match(pattern);
+    return match?match[0].toUpperCase():'';
+  }
+  function statusText(text){
+    var match=String(text||'').match(/(?:status\s*:\s*|—\s*)(accepted|approved|denied|pending|submitted|received|completed|failed)/i);
+    if(!match)return '';
+    var value=match[1].toLowerCase();
+    if(value==='accepted')value='approved';
+    return value.charAt(0).toUpperCase()+value.slice(1);
+  }
+  function documentName(){
+    var link=list.querySelector('.customer-notification-document-link');
+    if(link&&link.textContent.trim())return link.textContent.trim();
+    var attachment=list.querySelector('.customer-notification-attachment');
+    if(attachment){
+      return attachment.getAttribute('data-attachment-name')||attachment.textContent.trim();
+    }
+    var match=(message.textContent||'').match(/[^\s]+\.pdf\b/i);
+    return match?match[0]:'';
+  }
+  function setKind(kind){
+    card.classList.remove('notification-kind-profile','notification-kind-fuel','notification-kind-document','notification-kind-general');
+    card.classList.add('notification-kind-'+kind);
+    if(currentKind!==kind){icon.innerHTML=iconByKind[kind]||iconByKind.general;currentKind=kind;}
+  }
+  function enhance(){
+    var kind=classify();
+    setKind(kind);
+    var allText=title.textContent+' '+message.textContent;
+    var main='Notification details';
+    var secondary='Wooten Oil customer portal';
+    var action='Close';
+    if(kind==='profile'){
+      main=requestNumber(allText,kind)||'Profile change request';
+      secondary=statusText(allText)||'Request status update';
+      action='View Request';
+    }else if(kind==='fuel'){
+      main=requestNumber(allText,kind)||'Fuel delivery request';
+      secondary=statusText(allText)||'Request status update';
+      action='View Fuel Request';
+    }else if(kind==='document'){
+      main=documentName()||'Customer document';
+      secondary=/invoice/i.test(allText)?'PDF invoice':(/statement/i.test(allText)?'PDF statement':'PDF document');
+      action='Open PDF';
+    }else{
+      main=title.textContent.trim()||'Customer notification';
+      secondary='Wooten Oil customer portal';
+      action=list.querySelector('.customer-notification-attachment')?'Open Attachment':'Close';
+    }
+    detail.querySelector('strong').textContent=main;
+    detail.querySelector('small').textContent=secondary;
+    primary.querySelector('span').textContent=action;
+    footer.classList.add('show','customer-notification-compact-footer');
+    primary.setAttribute('aria-label',action);
+  }
+  function closePopup(){
+    if(closeButton)closeButton.click();
+    else{popup.classList.remove('show');document.body.style.overflow='';}
+  }
+  primary.addEventListener('click',function(){
+    if(currentKind==='document'){
+      var documentLink=list.querySelector('.customer-notification-document-link');
+      var attachment=list.querySelector('.customer-notification-attachment');
+      if(documentLink){documentLink.click();return;}
+      if(attachment){attachment.click();return;}
+      closePopup();
+      var documents=document.getElementById('dashboardDocuments');
+      if(documents)documents.click();
+      return;
+    }
+    if(currentKind==='profile'){
+      closePopup();
+      var profile=document.getElementById('dashboardProfileChange');
+      if(profile)profile.click();
+      return;
+    }
+    if(currentKind==='fuel'){
+      closePopup();
+      var fuel=document.getElementById('dashboardFuelHistory');
+      if(fuel)fuel.click();
+      return;
+    }
+    var firstAttachment=list.querySelector('.customer-notification-attachment');
+    if(firstAttachment){firstAttachment.click();return;}
+    closePopup();
+  });
+
+  var queued=false;
+  function schedule(){
+    if(queued)return;
+    queued=true;
+    Promise.resolve().then(function(){queued=false;enhance();});
+  }
+  [title,date,message,list].forEach(function(node){new MutationObserver(schedule).observe(node,{childList:true,subtree:true,characterData:true});});
+  new MutationObserver(function(){if(popup.classList.contains('show'))schedule();}).observe(popup,{attributes:true,attributeFilter:['class']});
+  enhance();
+})();
+</script>
 </html>
