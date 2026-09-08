@@ -4762,18 +4762,21 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   enhance();
 })();
 </script>
-<style id="wooten-hero-oil-card-button-hover-match-ver425">
-/* Match the two hero actions to the Call About an Oil Card interaction. */
-.hero-buttons > a.btn:is(:hover,:focus-visible){
-  transform:translateY(-2px)!important;
+<style id="wooten-hero-oil-card-button-hover-match-ver427">
+/* Use the exact Call About an Oil Card interaction on both hero actions. */
+.hero-buttons > a.btn:is(:hover,:focus,:focus-visible){
+  font-weight:400!important;
+  font-style:normal!important;
+  transform:none!important;
+  filter:none!important;
+  text-shadow:none!important;
+  outline:none!important;
+  box-shadow:0 0 0 2px rgba(31,78,121,.18),0 4px 12px rgba(15,39,66,.10)!important;
 }
 .hero-buttons > a.btn:active{
-  transform:translateY(0)!important;
-}
-@media(prefers-reduced-motion:reduce){
-  .hero-buttons > a.btn:is(:hover,:focus-visible,:active){
-    transform:none!important;
-  }
+  font-weight:400!important;
+  transform:none!important;
+  filter:none!important;
 }
 </style>
 <style id="wooten-customer-notification-button-consistency-ver426">
@@ -4782,20 +4785,31 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 #customerNotificationPopup .customer-notification-attachment,
 #customerNotificationPopup .customer-notification-document-link{
   font-weight:400!important;
+  transform:none!important;
   transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease!important;
+}
+#customerNotificationPopup .customer-notification-popup-close,
+#customerNotificationPopup .customer-notification-popup-close:is(:hover,:focus,:focus-visible,:active),
+#customerNotificationPopup button:not(.customer-notification-popup-close):is(:hover,:focus-visible),
+#customerNotificationPopup .customer-notification-attachment:is(:hover,:focus-visible),
+#customerNotificationPopup .customer-notification-document-link:is(:hover,:focus-visible){
+  transform:none!important;
+  filter:none!important;
+  text-shadow:none!important;
 }
 #customerNotificationPopup button:not(.customer-notification-popup-close):is(:hover,:focus-visible),
 #customerNotificationPopup .customer-notification-attachment:is(:hover,:focus-visible),
 #customerNotificationPopup .customer-notification-document-link:is(:hover,:focus-visible){
   font-weight:400!important;
-  transform:translateY(-2px)!important;
+  box-shadow:0 0 0 2px rgba(31,78,121,.18),0 4px 12px rgba(15,39,66,.10)!important;
 }
 #customerNotificationPopup button:not(.customer-notification-popup-close):active,
 #customerNotificationPopup .customer-notification-attachment:active,
 #customerNotificationPopup .customer-notification-document-link:active,
 #customerNotificationPopup button:not(.customer-notification-popup-close):disabled{
   font-weight:400!important;
-  transform:translateY(0)!important;
+  transform:none!important;
+  box-shadow:none!important;
 }
 @media(prefers-reduced-motion:reduce){
   #customerNotificationPopup button:not(.customer-notification-popup-close):is(:hover,:focus-visible,:active),
