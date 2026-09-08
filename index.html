@@ -4992,6 +4992,27 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   enhance();
 })();
 </script>
+<script id="wooten-document-new-window-ver438">
+(function(){
+  var list=document.getElementById('customerDocumentsList');
+  if(!list)return;
+  // Capture clicks before the original button's same-page navigation handler.
+  // Delegation also covers rows recreated after search, refresh, or pagination.
+  list.addEventListener('click',function(event){
+    var button=event.target.closest('.customer-document-open');
+    if(!button||!list.contains(button))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    var row=button.closest('[data-document-id]');
+    var id=Number(row&&row.getAttribute('data-document-id'));
+    if(!Number.isSafeInteger(id)||id<=0){
+      window.alert('Document could not be opened. Please refresh the documents and try again.');
+      return;
+    }
+    window.open('/api/customer/documents/'+encodeURIComponent(id)+'/file','_blank','noopener');
+  },true);
+})();
+</script>
 <script id="wooten-document-search-reset-ver437">
 (function(){
   var panel=document.getElementById('customerDocuments');
