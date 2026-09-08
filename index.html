@@ -3775,4 +3775,300 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   });
 })();
 </script>
+<style id="wooten-payment-receipts-ver413">
+.payment-history-card-actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid #e1e8ee;
+}
+.payment-history-print-receipt{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:126px;
+  border:1px solid #cbd8e3;
+  border-radius:10px;
+  background:#eef3f7;
+  color:#17314b;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+.payment-history-print-receipt:is(:hover,:focus-visible,:active){
+  border-color:#173650;
+  background:#173650;
+  color:#fff;
+}
+.payment-receipt-modal[hidden]{display:none!important}
+.payment-receipt-modal{
+  position:fixed;
+  inset:0;
+  z-index:2147483500;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  overflow:auto;
+  padding:22px;
+  background:rgba(9,28,45,.72);
+}
+.payment-receipt-dialog{
+  width:min(720px,100%);
+  margin:auto;
+  border-radius:18px;
+  background:#fff;
+  color:#172d44;
+  box-shadow:0 24px 70px rgba(4,19,31,.28);
+}
+.payment-receipt-content{padding:30px}
+.payment-receipt-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:22px;
+  padding-bottom:22px;
+  border-bottom:2px solid #d3262e;
+}
+.payment-receipt-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.payment-receipt-brand-mark{
+  display:grid;
+  place-items:center;
+  flex:0 0 44px;
+  width:44px;
+  height:44px;
+  border-radius:11px;
+  background:#d3262e;
+  color:#fff;
+  font-weight:800;
+}
+.payment-receipt-brand-name{font-weight:800;letter-spacing:.08em}
+.payment-receipt-brand-place{margin-top:3px;color:#718196;font-size:13px}
+.payment-receipt-heading{text-align:right}
+.payment-receipt-heading h3{margin:0;color:#172d44;font-size:25px}
+.payment-receipt-posted{display:inline-block;margin-top:7px;color:#117443;font-size:13px;font-weight:700}
+.payment-receipt-meta{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:18px;
+  padding:22px 0;
+}
+.payment-receipt-label{
+  display:block;
+  margin-bottom:5px;
+  color:#718196;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.payment-receipt-value{color:#172d44;font-weight:700;overflow-wrap:anywhere}
+.payment-receipt-amount{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px;
+  border-radius:14px;
+  background:#eef8f2;
+}
+.payment-receipt-amount span{color:#496479}
+.payment-receipt-amount strong{color:#117443;font-size:27px}
+.payment-receipt-detail-title{margin:24px 0 8px;color:#172d44;font-weight:800}
+.payment-receipt-table{width:100%;border-collapse:collapse}
+.payment-receipt-table th,.payment-receipt-table td{
+  padding:12px 4px;
+  border-bottom:1px solid #e3eaf0;
+  text-align:left;
+}
+.payment-receipt-table th{
+  color:#718196;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.payment-receipt-table td{color:#172d44;font-weight:700}
+.payment-receipt-note{margin:20px 0 0;color:#617489;font-size:14px;line-height:1.55}
+.payment-receipt-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding:18px 30px;
+  border-top:1px solid #e1e8ee;
+  background:#f7f9fb;
+  border-radius:0 0 18px 18px;
+}
+.payment-receipt-actions button{
+  min-width:104px;
+  border:1px solid #cbd8e3;
+  border-radius:10px;
+  background:#eef3f7;
+  color:#17314b;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+.payment-receipt-actions .payment-receipt-print{
+  border-color:#173650;
+  background:#173650;
+  color:#fff;
+}
+.payment-receipt-actions button:is(:hover,:focus-visible,:active){
+  border-color:#294f73;
+  background:#294f73;
+  color:#fff;
+}
+@media(max-width:620px){
+  .payment-history-print-receipt{width:100%}
+  .payment-receipt-modal{padding:10px}
+  .payment-receipt-content{padding:20px}
+  .payment-receipt-header{display:grid}
+  .payment-receipt-heading{text-align:left}
+  .payment-receipt-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .payment-receipt-amount{align-items:flex-start;flex-direction:column}
+  .payment-receipt-table thead{display:none}
+  .payment-receipt-table tr{display:grid;padding:10px 0;border-bottom:1px solid #e3eaf0}
+  .payment-receipt-table td{border:0;padding:3px 0}
+  .payment-receipt-table td::before{content:attr(data-label) ": ";color:#718196;font-weight:700}
+  .payment-receipt-actions{display:grid;grid-template-columns:1fr 1fr;padding:16px 20px}
+  .payment-receipt-actions button{width:100%;min-width:0}
+}
+@media print{
+  @page{margin:.5in}
+  body.payment-receipt-printing>*:not(#paymentReceiptModal){display:none!important}
+  body.payment-receipt-printing #paymentReceiptModal{
+    position:static!important;
+    display:block!important;
+    overflow:visible!important;
+    padding:0!important;
+    background:#fff!important;
+  }
+  body.payment-receipt-printing .payment-receipt-dialog{
+    width:100%!important;
+    margin:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+  body.payment-receipt-printing .payment-receipt-content{padding:0!important}
+  body.payment-receipt-printing .payment-receipt-actions{display:none!important}
+}
+</style>
+
+<div class="payment-receipt-modal" id="paymentReceiptModal" role="dialog" aria-modal="true" aria-labelledby="paymentReceiptTitle" hidden>
+  <div class="payment-receipt-dialog" role="document">
+    <div class="payment-receipt-content">
+      <div class="payment-receipt-header">
+        <div class="payment-receipt-brand">
+          <div class="payment-receipt-brand-mark" aria-hidden="true">WO</div>
+          <div><div class="payment-receipt-brand-name">WOOTEN OIL CO., INC.</div><div class="payment-receipt-brand-place">Covington, Tennessee</div></div>
+        </div>
+        <div class="payment-receipt-heading"><h3 id="paymentReceiptTitle">Payment Receipt</h3><span class="payment-receipt-posted">Payment posted</span></div>
+      </div>
+      <div class="payment-receipt-meta">
+        <div><span class="payment-receipt-label">Customer</span><div class="payment-receipt-value" id="paymentReceiptCustomer">—</div></div>
+        <div><span class="payment-receipt-label">Customer number</span><div class="payment-receipt-value" id="paymentReceiptCustomerNumber">—</div></div>
+        <div><span class="payment-receipt-label">Payment date</span><div class="payment-receipt-value" id="paymentReceiptDate">—</div></div>
+      </div>
+      <div class="payment-receipt-amount"><span>Amount received</span><strong id="paymentReceiptAmount">$0.00</strong></div>
+      <div class="payment-receipt-detail-title">Payment details</div>
+      <table class="payment-receipt-table">
+        <thead><tr><th>Applied invoice</th><th>Check no.</th><th>Deposit no.</th><th>Deposit date</th><th>Posting date</th></tr></thead>
+        <tbody><tr>
+          <td id="paymentReceiptInvoice" data-label="Applied invoice">—</td>
+          <td id="paymentReceiptCheck" data-label="Check no.">—</td>
+          <td id="paymentReceiptDeposit" data-label="Deposit no.">—</td>
+          <td id="paymentReceiptDepositDate" data-label="Deposit date">—</td>
+          <td id="paymentReceiptPostingDate" data-label="Posting date">—</td>
+        </tr></tbody>
+      </table>
+      <p class="payment-receipt-note">This receipt confirms the payment record imported from your Wooten Oil account history. It does not show invoice line-item details.</p>
+    </div>
+    <div class="payment-receipt-actions">
+      <button type="button" id="paymentReceiptClose">Close</button>
+      <button type="button" class="payment-receipt-print" id="paymentReceiptPrint">Print</button>
+    </div>
+  </div>
+</div>
+
+<script id="wooten-payment-receipts-ver413-script">
+(function(){
+  'use strict';
+  var list=document.getElementById('paymentHistoryList');
+  var modal=document.getElementById('paymentReceiptModal');
+  var closeButton=document.getElementById('paymentReceiptClose');
+  var printButton=document.getElementById('paymentReceiptPrint');
+  if(!list||!modal||!closeButton||!printButton)return;
+
+  function clean(value){
+    value=String(value==null?'':value).trim();
+    return value&&value!=='—'?value:'—';
+  }
+  function set(id,value){var element=document.getElementById(id);if(element)element.textContent=clean(value);}
+  function cardField(card,label){
+    var wanted=String(label).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var items=card.querySelectorAll('.payment-history-item');
+    for(var i=0;i<items.length;i++){
+      var name=items[i].querySelector('small');
+      if(!name)continue;
+      var normalized=String(name.textContent||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      if(normalized===wanted){var value=items[i].querySelector('strong');return value?value.textContent:'—';}
+    }
+    return '—';
+  }
+  function addReceiptButtons(){
+    list.querySelectorAll('.payment-history-card').forEach(function(card){
+      if(card.querySelector('.payment-history-print-receipt'))return;
+      var actions=document.createElement('div');
+      actions.className='payment-history-card-actions';
+      var button=document.createElement('button');
+      button.type='button';
+      button.className='payment-history-print-receipt';
+      button.textContent='Print Receipt';
+      button.setAttribute('aria-label','Open printable receipt for this payment');
+      actions.appendChild(button);
+      card.appendChild(actions);
+    });
+  }
+  function openReceipt(card){
+    var amount=card.querySelector('.payment-history-card-top strong');
+    var date=card.querySelector('.payment-history-card-top time');
+    var customerName=document.getElementById('acctName');
+    var customerNumber=document.getElementById('acctNumber');
+    set('paymentReceiptCustomer',customerName&&customerName.textContent);
+    set('paymentReceiptCustomerNumber',customerNumber&&customerNumber.textContent);
+    set('paymentReceiptDate',date&&date.textContent);
+    set('paymentReceiptAmount',amount&&amount.textContent);
+    set('paymentReceiptInvoice',cardField(card,'Invoice No'));
+    set('paymentReceiptCheck',cardField(card,'Check No'));
+    set('paymentReceiptDeposit',cardField(card,'Deposit No'));
+    set('paymentReceiptDepositDate',cardField(card,'Deposit Date'));
+    set('paymentReceiptPostingDate',cardField(card,'Posting Date'));
+    modal.hidden=false;
+    document.body.style.overflow='hidden';
+    closeButton.focus();
+  }
+  function closeReceipt(){
+    modal.hidden=true;
+    document.body.style.overflow='';
+    document.body.classList.remove('payment-receipt-printing');
+  }
+  list.addEventListener('click',function(event){
+    var button=event.target.closest('.payment-history-print-receipt');
+    if(!button)return;
+    var card=button.closest('.payment-history-card');
+    if(card)openReceipt(card);
+  });
+  closeButton.addEventListener('click',closeReceipt);
+  modal.addEventListener('click',function(event){if(event.target===modal)closeReceipt();});
+  document.addEventListener('keydown',function(event){if(event.key==='Escape'&&!modal.hidden)closeReceipt();});
+  printButton.addEventListener('click',function(){
+    document.body.classList.add('payment-receipt-printing');
+    window.print();
+  });
+  window.addEventListener('afterprint',function(){document.body.classList.remove('payment-receipt-printing');});
+  new MutationObserver(addReceiptButtons).observe(list,{childList:true,subtree:true});
+  addReceiptButtons();
+})();
+</script>
 </html>
