@@ -82,10 +82,10 @@ textarea{min-height:116px;padding:13px 14px;resize:vertical}
     .check-row small{display:block;margin-top:4px;color:var(--muted);font-weight:500}
     .honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
     .submit-area{display:flex;align-items:center;gap:17px;flex-wrap:wrap;padding-top:4px}
-    .submit-button{min-width:230px;min-height:56px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:900;box-shadow:0 10px 24px rgba(199,55,50,.22);cursor:pointer;transition:background .15s,transform .15s,box-shadow .15s}
-    .submit-button:hover{background:var(--red-dark);transform:translateY(-1px);box-shadow:0 13px 27px rgba(199,55,50,.27)}
-    .submit-button:focus-visible{outline:3px solid rgba(213,157,35,.55);outline-offset:3px}
-    .submit-button:disabled{cursor:wait;opacity:.68;transform:none;box-shadow:none}
+    .submit-button{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:50px;padding:0 22px;border:0;border-radius:11px;background:var(--red);color:#fff;font-family:inherit;font-size:1rem;font-weight:400;line-height:1.2;box-shadow:none;cursor:pointer;transition:none}
+    .submit-button:is(:hover,:focus,:focus-visible,:active){background:var(--red);color:#fff;transform:none;box-shadow:none}
+    .submit-button:focus-visible{outline:3px solid rgba(199,55,50,.24);outline-offset:3px}
+    .submit-button:disabled{background:var(--red);color:#fff;cursor:wait;opacity:.68;transform:none;box-shadow:none}
     .submit-help{color:var(--muted);font-size:.85rem}
     .status{display:none;margin-top:19px;padding:15px 17px;border-radius:12px;font-weight:700;white-space:pre-line}
     .status.show{display:block}
