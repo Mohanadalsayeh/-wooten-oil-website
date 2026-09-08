@@ -730,7 +730,10 @@
       row.reference,
       row.invoice_no,
       row.deposit_no,
-      row.description
+      row.description,
+      row.status,
+      row.card_brand,
+      row.card_last4
     ].map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ');
   }
 
@@ -777,6 +780,14 @@
       add('Deposit No',r.deposit_no||'—');
       add('Deposit Date',paymentHistoryDate(r.deposit_date));
       add('Posting Date',paymentHistoryDate(r.posting_date||r.payment_date));
+      if(r.source==='portal'){
+        var cardLabel=[r.card_brand,String(r.card_last4||'').trim()?'•••• '+String(r.card_last4).trim():''].filter(Boolean).join(' ');
+        add('Card',cardLabel||'Secure card payment');
+        var statusItem=document.createElement('div');statusItem.className='payment-history-item';
+        var statusLabel=document.createElement('small');statusLabel.textContent='Status';
+        var statusBadge=document.createElement('span');statusBadge.className='payment-history-status-badge '+String(r.status||'processing').toLowerCase();statusBadge.textContent=String(r.status||'processing');
+        statusItem.appendChild(statusLabel);statusItem.appendChild(statusBadge);grid.appendChild(statusItem);
+      }
       if(String(r.description||'').trim()) add('Description / Memo',r.description,true);
       card.appendChild(grid);fragment.appendChild(card);
     });
@@ -836,6 +847,14 @@
       }
     }
   }
+
+  window.addEventListener('wooten:payment-completed',function(){
+    paymentHistoryRows=[];
+    paymentHistoryPage=0;
+    paymentHistoryFilteredTotal=0;
+    paymentHistoryHasMore=false;
+    loadPaymentHistory();
+  });
 
   function showPaymentHistory(){
     if(dashboard) dashboard.classList.add('dashboard-hidden');

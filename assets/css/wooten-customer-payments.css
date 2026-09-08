@@ -31,6 +31,120 @@
   margin-bottom:0 !important;
 }
 
+/* Embedded Global Payments checkout */
+#portalPaymentPanel .payment-continue:disabled{
+  cursor:wait;
+  opacity:.72;
+}
+
+#portalPaymentPanel .payment-coming-soon.error,
+#portalPaymentPanel .portal-payment-result.error{
+  color:#9f1d20;
+  background:#fff0f0;
+  border-color:#efb7b8;
+}
+
+#portalPaymentPanel .payment-coming-soon.success,
+#portalPaymentPanel .portal-payment-result.success{
+  color:#17643a;
+  background:#effaf3;
+  border-color:#abd6bb;
+}
+
+#portalPaymentPanel .payment-coming-soon.processing,
+#portalPaymentPanel .portal-payment-result.processing{
+  color:#244f79;
+  background:#eef6ff;
+  border-color:#b7d2eb;
+}
+
+.portal-secure-payment{
+  margin-top:18px;
+  padding:20px;
+  border:1px solid #cbd7e3;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 12px 28px rgba(15,39,66,.1);
+}
+
+.portal-secure-payment[hidden]{display:none!important}
+
+.portal-secure-payment-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+  color:#0f2742;
+  font-size:1rem;
+}
+
+.portal-secure-payment-head span{font-weight:800}
+.portal-secure-payment-head strong{font-size:1.25rem;color:#17643a}
+
+#globalPaymentsCardForm{
+  min-height:260px;
+  width:100%;
+}
+
+.portal-secure-payment-note{
+  margin:10px 0 0;
+  color:#5d6875;
+  font-size:.9rem;
+  line-height:1.5;
+}
+
+.portal-payment-result{
+  display:none;
+  margin-top:12px;
+  padding:12px 14px;
+  border:1px solid transparent;
+  border-radius:10px;
+  font-size:.95rem;
+  font-weight:650;
+  line-height:1.5;
+}
+
+.portal-payment-result.show{display:block}
+
+.portal-payment-cancel{
+  margin-top:14px;
+  padding:10px 14px;
+  border:1px solid #aeb9c5;
+  border-radius:9px;
+  background:#fff;
+  color:#344353;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.portal-payment-cancel:hover{background:#f4f7fa}
+.portal-payment-cancel:disabled{cursor:wait;opacity:.6}
+
+.payment-history-status-badge{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#eef3f8;
+  color:#41556a;
+  font-size:.75rem;
+  font-weight:800;
+  text-transform:capitalize;
+}
+
+.payment-history-status-badge.captured{background:#e5f6eb;color:#17643a}
+.payment-history-status-badge.declined{background:#fde9e9;color:#9f1d20}
+.payment-history-status-badge.processing{background:#e8f1fb;color:#244f79}
+
+@media(max-width:620px){
+  .portal-secure-payment{padding:14px;margin-left:-4px;margin-right:-4px}
+  .portal-secure-payment-head{align-items:flex-start;flex-direction:column;gap:2px}
+  #globalPaymentsCardForm{min-height:285px}
+}
+
 #paymentHistoryPanel .portal-panel-head,
 #paymentHistoryPanel .account-panel-head,
 #paymentHistoryPanel .payment-history-head{
