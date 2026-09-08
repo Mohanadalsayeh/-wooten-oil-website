@@ -79,3 +79,37 @@ ON customers(phone);
 
 CREATE INDEX IF NOT EXISTS idx_customers_email
 ON customers(email);
+
+
+-- =========================================================
+-- EMBEDDED GLOBAL PAYMENTS TRANSACTIONS
+-- Card numbers and payment tokens are never stored here.
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS online_payment_transactions (
+  id TEXT PRIMARY KEY,
+  customer_id INTEGER,
+  account_number TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  payment_type TEXT NOT NULL DEFAULT 'partial',
+  status TEXT NOT NULL DEFAULT 'initiated',
+  provider_transaction_id TEXT NOT NULL DEFAULT '',
+  provider_reference TEXT NOT NULL DEFAULT '',
+  provider_status TEXT NOT NULL DEFAULT '',
+  card_brand TEXT NOT NULL DEFAULT '',
+  card_last4 TEXT NOT NULL DEFAULT '',
+  result_code TEXT NOT NULL DEFAULT '',
+  result_message TEXT NOT NULL DEFAULT '',
+  idempotency_key TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_online_payments_account_created
+ON online_payment_transactions(account_number, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_online_payments_status_created
+ON online_payment_transactions(status, created_at DESC);

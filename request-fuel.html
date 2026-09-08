@@ -6,6 +6,7 @@
   <title>Request Fuel Delivery | Wooten Oil Co Inc.</title>
   <meta name="description" content="Wooten Oil provides dependable gasoline, on-road diesel, farm diesel, and bulk fuel delivery for farmers, businesses, and gas stations." />
   <link rel="preload" as="image" href="assets/img/wooten-hero-background.webp" type="image/webp" fetchpriority="high">
+  <link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=payment-sandbox-1">
   <style>
     :root{
       --navy:#0f2742;
@@ -2694,7 +2695,14 @@ body.request-fuel-page .fuel-field{
         </div>
         <div class="payment-notice"><strong>Payment Notice:</strong> Payments submitted through the Wooten Oil Customer Portal will be reflected on your account within 24 business hours.</div>
         <button type="button" class="payment-continue" id="portalPaymentContinue">Continue to Secure Payment</button>
-        <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite">Secure online payment processing is being connected. No payment has been submitted or charged.</div>
+        <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite"></div>
+        <div class="portal-secure-payment" id="portalSecurePayment" hidden>
+          <div class="portal-secure-payment-head"><span>Secure Card Payment</span><strong id="portalSecurePaymentAmount">$0.00</strong></div>
+          <div id="globalPaymentsCardForm" aria-label="Secure card payment form"></div>
+          <p class="portal-secure-payment-note">Your card details are encrypted and sent directly to Global Payments. Wooten Oil does not receive or store your card number.</p>
+          <div class="portal-payment-result" id="portalPaymentResult" role="status" aria-live="polite"></div>
+          <button type="button" class="portal-payment-cancel" id="portalPaymentCancel">Cancel Payment</button>
+        </div>
       </div>
 
       <div class="account-actions"><button type="button" class="account-logout" id="portalLogout">Sign Out</button></div>
@@ -3623,51 +3631,7 @@ body.request-fuel-page .fuel-field{
 </script>
 
 
-<script>
-/* Customer Portal Payment Options - UI only until secure payment processor is connected */
-(function(){
-  var full=document.getElementById('payFullBalance');
-  var partial=document.getElementById('payPartialBalance');
-  var row=document.getElementById('partialPaymentRow');
-  var amount=document.getElementById('partialPaymentAmount');
-  var button=document.getElementById('portalPaymentContinue');
-  var message=document.getElementById('portalPaymentMessage');
-
-  if(!full || !partial || !row || !button) return;
-
-  function updatePaymentChoice(){
-    if(partial.checked){
-      row.classList.add('show');
-      setTimeout(function(){ if(amount) amount.focus(); },50);
-    }else{
-      row.classList.remove('show');
-      if(amount) amount.value='';
-    }
-    if(message) message.classList.remove('show');
-  }
-
-  full.addEventListener('change',updatePaymentChoice);
-  partial.addEventListener('change',updatePaymentChoice);
-
-  button.addEventListener('click',function(){
-    if(partial.checked){
-      var value=Number(amount && amount.value);
-      if(!value || value<=0){
-        if(message){
-          message.textContent='Please enter a valid partial payment amount.';
-          message.classList.add('show');
-        }
-        if(amount) amount.focus();
-        return;
-      }
-    }
-    if(message){
-      message.textContent='Secure online payment processing is being connected. No payment has been submitted or charged.';
-      message.classList.add('show');
-    }
-  });
-})();
-</script>
+<script src="assets/js/script-06.js?v=payment-sandbox-1"></script>
 
 
 

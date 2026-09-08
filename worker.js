@@ -2525,26 +2525,244 @@ if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImport
 }
 __name(adminCustomerPaymentsImport, "adminCustomerPaymentsImport");
 
+async function ensureOnlinePaymentTransactionsSchema(env){
+  if(!env?.DB) throw new Error("Customer database is not configured.");
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS online_payment_transactions (
+      id TEXT PRIMARY KEY,
+      customer_id INTEGER,
+      account_number TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      payment_type TEXT NOT NULL DEFAULT 'partial',
+      status TEXT NOT NULL DEFAULT 'initiated',
+      provider_transaction_id TEXT NOT NULL DEFAULT '',
+      provider_reference TEXT NOT NULL DEFAULT '',
+      provider_status TEXT NOT NULL DEFAULT '',
+      card_brand TEXT NOT NULL DEFAULT '',
+      card_last4 TEXT NOT NULL DEFAULT '',
+      result_code TEXT NOT NULL DEFAULT '',
+      result_message TEXT NOT NULL DEFAULT '',
+      idempotency_key TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_account_created ON online_payment_transactions(account_number,created_at DESC)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_status_created ON online_payment_transactions(status,created_at DESC)`).run();
+}
+__name(ensureOnlinePaymentTransactionsSchema,"ensureOnlinePaymentTransactionsSchema");
+
+function onlinePaymentTotalCents(customer){
+  const total=[customer?.current_balance,customer?.aging_category_1,customer?.aging_category_2,customer?.aging_category_3,customer?.aging_category_4]
+    .reduce((sum,value)=>sum+(Number(value)||0),0);
+  return Math.max(0,Math.round((total+Number.EPSILON)*100));
+}
+function onlinePaymentCents(value){
+  const text=String(value??"").trim();
+  if(!/^\d+(?:\.\d{1,2})?$/.test(text)) return 0;
+  const amount=Number(text);
+  return Number.isFinite(amount)?Math.round((amount+Number.EPSILON)*100):0;
+}
+function onlinePaymentEnvironment(env){
+  return String(env.GP_ENVIRONMENT||"sandbox").trim().toLowerCase()==="production"?"production":"sandbox";
+}
+function onlinePaymentBaseUrl(env){
+  const configured=String(env.GP_API_BASE_URL||"").trim();
+  if(configured) return configured.replace(/\/+$/,"");
+  return onlinePaymentEnvironment(env)==="production"?"https://apis.globalpay.com/ucp":"https://apis.sandbox.globalpay.com/ucp";
+}
+function onlinePaymentConfigured(env){
+  return Boolean(String(env.GP_APP_ID||"").trim()&&String(env.GP_APP_KEY||"").trim());
+}
+async function onlinePaymentSha512(value){
+  const bytes=await crypto.subtle.digest("SHA-512",new TextEncoder().encode(String(value)));
+  return [...new Uint8Array(bytes)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+async function globalPaymentsAccessToken(env,permissions){
+  if(!onlinePaymentConfigured(env)) throw new Error("Global Payments credentials are not configured.");
+  const nonce=new Date().toISOString()+"-"+crypto.randomUUID();
+  const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
+  const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Accept":"application/json","X-GP-Version":"2021-03-22"},
+    body:JSON.stringify({
+      app_id:String(env.GP_APP_ID),nonce,secret,grant_type:"client_credentials",seconds_to_expire:600,
+      permissions:Array.isArray(permissions)?permissions:undefined
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data?.token){
+    const detail=String(data?.error_description||data?.detailed_error_description||data?.error_code||`HTTP ${response.status}`).slice(0,300);
+    throw new Error(`Global Payments authentication failed: ${detail}`);
+  }
+  return data;
+}
+function onlinePaymentSameOrigin(request){
+  const origin=String(request.headers.get("Origin")||"").trim();
+  if(!origin) return true;
+  try{return new URL(origin).origin===new URL(request.url).origin;}catch{return false;}
+}
+function onlinePaymentReference(account){
+  return `WO-${String(account||"").replace(/\D/g,"").slice(-7)}-${Date.now().toString(36).toUpperCase()}`.slice(0,50);
+}
+function onlinePaymentCardLast4(data){
+  const card=data?.payment_method?.card||{};
+  const values=[card.number_last4,card.last4,card.masked_number,card.number];
+  for(const value of values){const digits=String(value||"").replace(/\D/g,"");if(digits.length>=4)return digits.slice(-4);}
+  return "";
+}
+
+async function customerPaymentSessionPost({request,env}){
+  const customer=await getCustomerFromSession(request,env);
+  if(!customer) return notificationJson({success:false,error:"Your customer session has expired. Please sign in again."},401);
+  if(!onlinePaymentSameOrigin(request)) return notificationJson({success:false,error:"Invalid payment request."},403);
+  if(!env?.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
+  if(!onlinePaymentConfigured(env)) return notificationJson({success:false,error:"Secure online payments are not configured yet."},503);
+  if(onlinePaymentEnvironment(env)==="production"&&String(env.GP_PRODUCTION_ENABLED||"").toLowerCase()!=="true"){
+    return notificationJson({success:false,error:"Live online payments have not been enabled yet."},503);
+  }
+  let body;
+  try{body=await request.json();}catch{return notificationJson({success:false,error:"Invalid payment request."},400);}
+  const paymentType=String(body?.payment_type||"").toLowerCase()==="full"?"full":"partial";
+  const balanceCents=onlinePaymentTotalCents(customer);
+  if(balanceCents<=0) return notificationJson({success:false,error:"This account does not currently have a balance available to pay."},400);
+  const amountCents=paymentType==="full"?balanceCents:onlinePaymentCents(body?.amount);
+  const maximumCents=Math.max(100,Number.parseInt(env.GP_MAX_PAYMENT_CENTS||"50000000",10)||50000000);
+  if(amountCents<100) return notificationJson({success:false,error:"The minimum online payment is $1.00."},400);
+  if(amountCents>balanceCents) return notificationJson({success:false,error:"The payment cannot be greater than the current account balance."},400);
+  if(amountCents>maximumCents) return notificationJson({success:false,error:"This payment is above the online payment limit. Please contact Wooten Oil."},400);
+  try{
+    await ensureOnlinePaymentTransactionsSchema(env);
+    const recent=await env.DB.prepare(`SELECT COUNT(*) AS count FROM online_payment_transactions WHERE account_number=? AND created_at>datetime('now','-10 minutes')`).bind(paymentAccount(customer.account_number)).first();
+    if(Number(recent?.count||0)>=6) return notificationJson({success:false,error:"Too many payment attempts were started. Please wait a few minutes and try again."},429);
+    const id=crypto.randomUUID();
+    const expiresAt=new Date(Date.now()+15*60*1000).toISOString();
+    const reference=onlinePaymentReference(customer.account_number);
+    await env.DB.prepare(`INSERT INTO online_payment_transactions(id,customer_id,account_number,amount_cents,currency,payment_type,status,provider_reference,idempotency_key,expires_at) VALUES (?,?,?,?,? ,?,'initiated',?,?,?)`)
+      .bind(id,Number(customer.id)||null,paymentAccount(customer.account_number),amountCents,"USD",paymentType,reference,crypto.randomUUID(),expiresAt).run();
+    const tokenData=await globalPaymentsAccessToken(env,["PMT_POST_Create_Single"]);
+    return notificationJson({
+      success:true,payment_intent_id:id,amount:(amountCents/100).toFixed(2),currency:"USD",
+      access_token:tokenData.token,expires_in:Number(tokenData.seconds_to_expire||600),environment:onlinePaymentEnvironment(env)
+    });
+  }catch(error){
+    console.error("customerPaymentSessionPost failed",error);
+    return notificationJson({success:false,error:"The secure payment form could not be started. Please try again or contact Wooten Oil."},502);
+  }
+}
+__name(customerPaymentSessionPost,"customerPaymentSessionPost");
+
+async function customerPaymentChargePost({request,env}){
+  const customer=await getCustomerFromSession(request,env);
+  if(!customer) return notificationJson({success:false,error:"Your customer session has expired. Please sign in again."},401);
+  if(!onlinePaymentSameOrigin(request)) return notificationJson({success:false,error:"Invalid payment request."},403);
+  if(!env?.DB||!onlinePaymentConfigured(env)) return notificationJson({success:false,error:"Secure online payments are not configured yet."},503);
+  if(onlinePaymentEnvironment(env)==="production"&&String(env.GP_PRODUCTION_ENABLED||"").toLowerCase()!=="true"){
+    return notificationJson({success:false,error:"Live online payments have not been enabled yet."},503);
+  }
+  let body;
+  try{body=await request.json();}catch{return notificationJson({success:false,error:"Invalid payment request."},400);}
+  const intentId=String(body?.payment_intent_id||"").trim();
+  const paymentReference=String(body?.payment_reference||"").trim();
+  if(!/^[0-9a-f-]{36}$/i.test(intentId)||!paymentReference||paymentReference.length>300) return notificationJson({success:false,error:"The secure payment information is incomplete. Please restart the payment."},400);
+  try{
+    await ensureOnlinePaymentTransactionsSchema(env);
+    const account=paymentAccount(customer.account_number);
+    const intent=await env.DB.prepare(`SELECT * FROM online_payment_transactions WHERE id=? AND customer_id=? AND account_number=? LIMIT 1`).bind(intentId,Number(customer.id),account).first();
+    if(!intent) return notificationJson({success:false,error:"This payment session was not found. Please restart the payment."},404);
+    if(String(intent.status)==="captured") return notificationJson({success:true,already_processed:true,transaction_id:intent.provider_transaction_id,reference:intent.provider_reference,amount:(Number(intent.amount_cents)/100).toFixed(2),status:"captured"});
+    if(!["initiated","processing"].includes(String(intent.status))) return notificationJson({success:false,error:"This payment attempt is closed. Please restart the payment."},409);
+    if(Date.parse(intent.expires_at)<Date.now()){
+      await env.DB.prepare(`UPDATE online_payment_transactions SET status='expired',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'captured'`).bind(intentId).run();
+      return notificationJson({success:false,error:"The secure payment session expired. Please restart the payment."},410);
+    }
+    const lock=await env.DB.prepare(`UPDATE online_payment_transactions SET status='processing',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='initiated'`).bind(intentId).run();
+    if(!Number(lock?.meta?.changes||0)&&String(intent.status)==="processing") return notificationJson({success:false,error:"This payment is already processing. Please wait before trying again."},409);
+    const tokenData=await globalPaymentsAccessToken(env,["TRN_POST_Authorize"]);
+    const accounts=Array.isArray(tokenData?.scope?.accounts)?tokenData.scope.accounts:[];
+    const processingAccount=accounts.find(item=>String(item?.id||"").startsWith("TRA_"));
+    if(!processingAccount) throw new Error("No transaction-processing account was returned for this application.");
+    const amountCents=Number(intent.amount_cents);
+    const transactionBody={
+      account_id:processingAccount.id,account_name:processingAccount.name||undefined,
+      channel:"CNP",country:"US",type:"SALE",capture_mode:"AUTO",amount:String(amountCents),currency:"USD",
+      reference:String(intent.provider_reference),description:`Wooten Oil customer ${account}`.slice(0,100),
+      payment_method:{id:paymentReference,entry_mode:"ECOM"}
+    };
+    const providerResponse=await fetch(onlinePaymentBaseUrl(env)+"/transactions",{
+      method:"POST",
+      headers:{"Authorization":`Bearer ${tokenData.token}`,"Content-Type":"application/json","Accept":"application/json","X-GP-Version":"2021-03-22","x-gp-idempotency":String(intent.idempotency_key)},
+      body:JSON.stringify(transactionBody)
+    });
+    const data=await providerResponse.json().catch(()=>({}));
+    const resultCode=String(data?.action?.result_code||data?.payment_method?.result||data?.error_code||"");
+    const resultMessage=String(data?.action?.result_message||data?.payment_method?.message||data?.detailed_error_description||data?.status||"").slice(0,300);
+    const providerStatus=String(data?.status||"").toUpperCase();
+    const approved=providerResponse.ok&&(resultCode==="SUCCESS"||resultCode==="00"||["CAPTURED","PREAUTHORIZED"].includes(providerStatus));
+    const finalStatus=approved?"captured":"declined";
+    const card=data?.payment_method?.card||{};
+    await env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=?,provider_status=?,card_brand=?,card_last4=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .bind(finalStatus,String(data?.id||"").slice(0,100),providerStatus,String(card.brand||card.brand_reference||"").slice(0,40),onlinePaymentCardLast4(data),resultCode.slice(0,80),resultMessage,intentId).run();
+    if(!approved){
+      console.warn("Global Payments declined portal payment",{intentId,resultCode,providerStatus});
+      return notificationJson({success:false,declined:true,error:"The payment was not approved. Please check the card information or contact your card issuer.",result_code:resultCode||undefined},402);
+    }
+    return notificationJson({success:true,transaction_id:String(data?.id||""),reference:String(intent.provider_reference),amount:(amountCents/100).toFixed(2),status:"captured",card_brand:String(card.brand||""),card_last4:onlinePaymentCardLast4(data)});
+  }catch(error){
+    console.error("customerPaymentChargePost failed",error);
+    await env.DB.prepare(`UPDATE online_payment_transactions SET status='initiated',result_message=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='processing'`).bind(String(error?.message||error).slice(0,300),intentId).run().catch(()=>{});
+    return notificationJson({success:false,error:"The payment result could not be confirmed. Do not submit another payment yet; please try this payment again or contact Wooten Oil."},502);
+  }
+}
+__name(customerPaymentChargePost,"customerPaymentChargePost");
+
 async function customerPaymentsGet({request,env}){
   const customer=await getCustomerFromSession(request,env);
   if(!customer) return notificationJson({success:false,error:"Unauthorized."},401);
   if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
 
   try{
-    await ensureCustomerPaymentsSchema(env);
+    await Promise.all([ensureCustomerPaymentsSchema(env),ensureOnlinePaymentTransactionsSchema(env)]);
     const account=paymentAccount(customer.account_number);
-    const result=await env.DB.prepare(`
+    const importedResult=await env.DB.prepare(`
       SELECT
         id,account_number,payment_date,posting_date,deposit_date,deposit_no,
-        source_invoice_no AS invoice_no,amount,reference,description,imported_at
+        source_invoice_no AS invoice_no,amount,reference,description,imported_at,
+        'mas90' AS source,'posted' AS status,'' AS card_brand,'' AS card_last4
       FROM customer_payments
       WHERE account_number=?
       ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
       LIMIT 5000
     `).bind(account).all();
-    const rows=result?.results||[];
-    const totalPaid=rows.reduce((sum,r)=>sum+paymentAmount(r.amount),0);
-    return notificationJson({success:true,count:rows.length,total_paid:totalPaid,payments:rows});
+    const onlineResult=await env.DB.prepare(`
+      SELECT id,account_number,substr(created_at,1,10) AS payment_date,
+        CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,
+        '' AS deposit_date,'' AS deposit_no,'' AS invoice_no,amount_cents/100.0 AS amount,
+        COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,
+        CASE status WHEN 'captured' THEN 'Portal card payment — submitted; awaiting MAS 90 posting' WHEN 'declined' THEN 'Portal card payment — declined' ELSE 'Portal card payment — pending' END AS description,
+        created_at AS imported_at,'portal' AS source,status,card_brand,card_last4
+      FROM online_payment_transactions
+      WHERE account_number=? AND status IN ('captured','declined','processing')
+      ORDER BY created_at DESC LIMIT 5000
+    `).bind(account).all();
+    const imported=importedResult?.results||[];
+    const online=onlineResult?.results||[];
+    const url=new URL(request.url);const query=String(url.searchParams.get("q")||"").trim().toLowerCase().slice(0,120);
+    const sort=String(url.searchParams.get("sort")||"newest");
+    const page=Math.max(1,Number.parseInt(url.searchParams.get("page")||"1",10)||1);
+    const pageSize=Math.max(1,Math.min(100,Number.parseInt(url.searchParams.get("page_size")||"20",10)||20));
+    let rows=imported.concat(online);
+    if(query) rows=rows.filter(row=>[row.payment_date,row.posting_date,row.deposit_date,row.amount,row.reference,row.invoice_no,row.deposit_no,row.description,row.status,row.card_brand,row.card_last4].some(value=>String(value??"").toLowerCase().includes(query)));
+    const dateValue=row=>Date.parse(row.posting_date||row.payment_date||row.imported_at||0)||0;
+    rows.sort((a,b)=>sort==="oldest"?dateValue(a)-dateValue(b):sort==="amount_desc"?Number(b.amount)-Number(a.amount):sort==="amount_asc"?Number(a.amount)-Number(b.amount):sort==="reference_asc"?String(a.reference||"").localeCompare(String(b.reference||"")):dateValue(b)-dateValue(a));
+    const total=rows.length,offset=(page-1)*pageSize,pagedRows=rows.slice(offset,offset+pageSize);
+    // The imported ledger remains the source of truth for lifetime totals. Portal
+    // transactions are shown immediately, but are not added again after MAS 90 imports them.
+    const totalPaid=imported.reduce((sum,r)=>sum+paymentAmount(r.amount),0);
+    return notificationJson({success:true,count:pagedRows.length,total,total_paid:totalPaid,page,page_size:pageSize,has_more:offset+pagedRows.length<total,payments:pagedRows});
   }catch(error){
     console.error('customerPaymentsGet failed',error);
     return notificationJson({success:false,error:"Payment history could not be loaded."},500);
@@ -10410,7 +10628,7 @@ async function adminCustomerActivityGet({request,env}){
       const q=`%${search}%`;const rows=await env.DB.prepare(`SELECT account_number,account_name,email,phone,current_balance,account_status,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number LIKE ? OR account_name LIKE ? OR email LIKE ? OR phone LIKE ? ORDER BY CASE WHEN account_number=? THEN 0 ELSE 1 END,account_name COLLATE NOCASE LIMIT 20`).bind(q,q,q,q,normalizeNotificationAccount(search)).all();
       return notificationJson({success:true,matches:rows?.results||[]});
     }
-    await Promise.all([ensureCustomerPaymentsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
+    await Promise.all([ensureCustomerPaymentsSchema(env),ensureOnlinePaymentTransactionsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
     const customer=await env.DB.prepare(`SELECT id,account_number,account_name,email,phone,address1,address2,address3,city,state,zip_code,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,credit_hold,credit_limit,terms_description,salesperson_name,statement_cycle,account_status,updated_at,CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated,COALESCE((SELECT email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS email_enabled,COALESCE((SELECT sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS sms_enabled,COALESCE((SELECT portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS portal_enabled FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
     if(!customer)return notificationJson({success:false,error:"Customer was not found."},404);
     const pageSize=20;const pageFor=name=>Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get(`${name}_page`)||"1",10)||1));
@@ -10419,7 +10637,20 @@ async function adminCustomerActivityGet({request,env}){
     const offset=name=>(pages[name]-1)*pageSize;
     const safeRows=async(promise,label)=>{try{return (await promise)?.results||[];}catch(error){console.error(`Customer activity ${label} query failed`,error);return [];}};
     const [payments,documents,communications,fuelRequests,applications,logins,paymentChart,fuelChartSummary,lastChartPayment,paymentChartEntries]=await Promise.all([
-      safeRows(env.DB.prepare(`SELECT id,payment_date,posting_date,deposit_date,reference,source_invoice_no AS invoice_no,amount,description,COUNT(*) OVER() AS total_count FROM customer_payments WHERE account_number=? ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset("payments")).all(),"payments"),
+      safeRows(env.DB.prepare(`WITH combined AS (
+        SELECT 'mas90-'||id AS id,payment_date,posting_date,deposit_date,reference,source_invoice_no AS invoice_no,amount,description,
+          'mas90' AS source,'posted' AS status,'' AS card_brand,'' AS card_last4
+        FROM customer_payments WHERE account_number=?
+        UNION ALL
+        SELECT 'portal-'||id AS id,substr(created_at,1,10) AS payment_date,
+          CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,'' AS deposit_date,
+          COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,'' AS invoice_no,amount_cents/100.0 AS amount,
+          CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' ELSE 'Customer portal card payment pending' END AS description,
+          'portal' AS source,status,card_brand,card_last4
+        FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing')
+      ) SELECT *,COUNT(*) OVER() AS total_count FROM combined
+        ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`)
+        .bind(account,account,pageSize,offset("payments")).all(),"payments"),
       safeRows(env.DB.prepare(`SELECT id,document_type,title,document_date,filename,size_bytes,created_at,COUNT(*) OVER() AS total_count FROM portal_customer_documents WHERE account_number=? ORDER BY COALESCE(document_date,created_at) DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset("documents")).all(),"documents"),
       safeRows(env.DB.prepare(`SELECT id,event_type,title,detail,portal_sent,email_sent,sms_sent,sms_status,sms_error_code,error_text,created_at,COUNT(*) OVER() AS total_count FROM admin_communication_log WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset("communications")).all(),"communications"),
       safeRows(env.DB.prepare(`SELECT request_number,fuel_type,gallons,delivery_date,delivery_address,email_status,received_at,COUNT(*) OVER() AS total_count FROM fuel_requests WHERE customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)) ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(account,String(customer.email||""),String(customer.phone||""),pageSize,offset("fuel")).all(),"fuel requests"),
@@ -11583,6 +11814,16 @@ var worker_default = {
 
     if (url.pathname === "/api/customer/payments") {
       if (request.method === "GET") return customerPaymentsGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/session") {
+      if (request.method === "POST") return customerPaymentSessionPost({request,env});
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/charge") {
+      if (request.method === "POST") return customerPaymentChargePost({request,env});
       return methodNotAllowed();
     }
 

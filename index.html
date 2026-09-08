@@ -167,7 +167,7 @@
 
 <link rel="stylesheet" href="assets/css/wooten-notification-pdf-bottom-breathing-room.css">
 
-<link rel="stylesheet" href="assets/css/wooten-customer-payments.css">
+<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=payment-sandbox-1">
 
 <link rel="stylesheet" href="assets/css/wooten-farm-tractor-visual.css">
 
@@ -735,7 +735,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         </div>
         <div class="payment-notice"><strong>Payment Notice:</strong> Payments submitted through the Wooten Oil Customer Portal will be reflected on your account within 24 business hours.</div>
         <button type="button" class="payment-continue" id="portalPaymentContinue">Continue to Secure Payment</button>
-        <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite">Secure online payment processing is being connected. No payment has been submitted or charged.</div>
+        <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite"></div>
+        <div class="portal-secure-payment" id="portalSecurePayment" hidden>
+          <div class="portal-secure-payment-head"><span>Secure Card Payment</span><strong id="portalSecurePaymentAmount">$0.00</strong></div>
+          <div id="globalPaymentsCardForm" aria-label="Secure card payment form"></div>
+          <p class="portal-secure-payment-note">Your card details are encrypted and sent directly to Global Payments. Wooten Oil does not receive or store your card number.</p>
+          <div class="portal-payment-result" id="portalPaymentResult" role="status" aria-live="polite"></div>
+          <button type="button" class="portal-payment-cancel" id="portalPaymentCancel">Cancel Payment</button>
+        </div>
       </div>
 
       <div class="statement-footer">Wooten Oil Co Inc. • Customer Portal</div>
@@ -1325,7 +1332,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-05.js"></script>
 
 
-<script src="assets/js/script-06.js"></script>
+<script src="assets/js/script-06.js?v=payment-sandbox-1"></script>
 
 
 
