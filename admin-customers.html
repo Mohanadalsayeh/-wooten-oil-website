@@ -5469,6 +5469,18 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
   font-style:normal!important;
 }
 </style>
+<style id="wooten-collections-soft-semantic-ver440">
+#admin-tab-collections .collections-summary>div[aria-describedby]{background:var(--metric-bg)!important;border-color:var(--metric-border)!important}
+.collections-summary>[aria-describedby="collectionsHintAr"]{--metric-bg:#edf5ff;--metric-border:#c8dfff;--metric-icon:#2875be}
+.collections-summary>[aria-describedby="collectionsHintPastDue"]{--metric-bg:#fff7e2;--metric-border:#f4dfaa;--metric-icon:#b97a08}
+.collections-summary>[aria-describedby="collectionsHint90"],
+.collections-summary>[aria-describedby="collectionsHintHolds"]{--metric-bg:#fdeef1;--metric-border:#f5ccd5;--metric-icon:#c43955}
+.collections-summary>[aria-describedby="collectionsHintLimit"]{--metric-bg:#fff0e6;--metric-border:#f6d5be;--metric-icon:#c56a24}
+.collections-summary>[aria-describedby="collectionsHintFollowUp"]{--metric-bg:#f3edff;--metric-border:#ddd0f8;--metric-icon:#8050bd}
+#admin-tab-collections .collections-summary>div>span:first-child{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#17324d!important}
+#admin-tab-collections .collections-summary>div>strong{color:#17324d!important}
+.collections-summary .collections-metric-icon{width:20px;height:20px;flex:0 0 20px;fill:none;stroke:var(--metric-icon);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6866,6 +6878,16 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
     </div>
     <script>
       document.querySelectorAll('.collections-summary>[aria-describedby]').forEach(function(card){
+        var icons={
+          collectionsHintAr:'<path d="M4 20V12h3v8zM10 20V4h3v16zM16 20V8h3v12z"/>',
+          collectionsHintPastDue:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+          collectionsHint90:'<path d="M10.3 4.5 2.7 18a1.5 1.5 0 0 0 1.3 2h16a1.5 1.5 0 0 0 1.3-2L13.7 4.5a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 16h.01"/>',
+          collectionsHintHolds:'<circle cx="9" cy="7" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2H3M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 4v2"/>',
+          collectionsHintLimit:'<path d="M5 19a9 9 0 1 1 14 0M12 12l4-5"/><circle cx="12" cy="12" r="1"/>',
+          collectionsHintFollowUp:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M7 14h3M14 14h3M7 17h3"/>'
+        };
+        var label=card.querySelector('span');
+        if(label)label.insertAdjacentHTML('beforeend','<svg class="collections-metric-icon" viewBox="0 0 24 24" aria-hidden="true">'+icons[card.getAttribute('aria-describedby')]+'</svg>');
         ['mouseenter','focusin'].forEach(function(event){card.addEventListener(event,function(){card.classList.remove('hint-dismissed');});});
       });
       document.addEventListener('keydown',function(event){
