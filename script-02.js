@@ -9,6 +9,32 @@
 
   const ENDPOINT='/api/contact-message';
 
+  function sendContactRequest(payload){
+    const options={
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify(payload)
+    };
+    if(typeof window.wootenCustomerFetch==='function'){
+      return window.wootenCustomerFetch(ENDPOINT,options,{
+        timeoutMs:20000,
+        timeoutMessage:'Sending the message took too long. Check your connection and try again.'
+      });
+    }
+
+    /* Defensive fallback if the shared portal request helper did not load. */
+    if(typeof AbortController!=='function') return fetch(ENDPOINT,options);
+    const controller=new AbortController();
+    let timedOut=false;
+    const timer=setTimeout(function(){timedOut=true;controller.abort();},20000);
+    return fetch(ENDPOINT,Object.assign({},options,{signal:controller.signal}))
+      .catch(function(error){
+        if(timedOut) throw new Error('Sending the message took too long. Check your connection and try again.');
+        throw error;
+      })
+      .finally(function(){clearTimeout(timer);});
+  }
+
   function newReference(){
     const now=new Date();
     const date=String(now.getFullYear()).slice(-2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
@@ -66,11 +92,7 @@
     status.textContent='Sending your message to Wooten Oil…';
 
     try{
-      const response=await fetch(ENDPOINT,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body:JSON.stringify(payload)
-      });
+      const response=await sendContactRequest(payload);
       let data={};
       try{data=await response.json();}catch(err){}
       if(!response.ok || data.success===false){throw new Error(data.error || 'The message could not be sent.');}
