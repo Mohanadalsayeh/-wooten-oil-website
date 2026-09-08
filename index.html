@@ -4760,7 +4760,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     window.location.hash='customer-login';
     var history=document.getElementById('fuelHistoryList');
     var search=document.getElementById('fuelHistorySearch');
-    if(search)search.value=number;
+    // Keep the full customer history visible; number is only a scroll target.
+    if(search)search.value='';
     var fuel=document.getElementById('dashboardFuelHistory');
     var observer=null;
     var fallbackTimer=0;
