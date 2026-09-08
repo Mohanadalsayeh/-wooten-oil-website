@@ -4728,7 +4728,20 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   }
   function closePopup(){
     if(closeButton)closeButton.click();
-    else{popup.classList.remove('show');document.body.style.overflow='';}
+    popup.classList.remove('show');
+    document.body.style.overflow='';
+  }
+  function forceFuelHistoryVisible(){
+    var dashboard=document.getElementById('customerDashboard');
+    var account=document.getElementById('customerAccountDetails');
+    var documents=document.getElementById('customerDocuments');
+    var payments=document.getElementById('customerPaymentHistory');
+    var fuelPanel=document.getElementById('customerFuelHistory');
+    if(dashboard)dashboard.classList.add('dashboard-hidden');
+    if(account)account.classList.remove('show');
+    if(documents)documents.classList.remove('show');
+    if(payments)payments.classList.remove('show');
+    if(fuelPanel)fuelPanel.classList.add('show');
   }
   function openFuelRequest(number){
     closePopup();
@@ -4776,6 +4789,16 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       observer.observe(history,{childList:true,subtree:true});
     }
     if(fuel)fuel.click();
+    forceFuelHistoryVisible();
+    setTimeout(function(){
+      forceFuelHistoryVisible();
+      var status=document.getElementById('fuelHistoryStatus');
+      var isLoading=status&&/^Loading\b/i.test(String(status.textContent||'').trim());
+      if(!isLoading&&history&&!history.querySelector('.fuel-history-card')){
+        var refresh=document.getElementById('fuelHistoryRefresh');
+        if(refresh&&!refresh.disabled)refresh.click();
+      }
+    },180);
     fallbackTimer=setTimeout(beginReveal,3000);
   }
   function openProfileRequest(number){
