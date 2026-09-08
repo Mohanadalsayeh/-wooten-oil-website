@@ -7304,6 +7304,23 @@ try{
     get('collectionsPagination').hidden=pages<=1;get('collectionsPageInfo').textContent='Page '+page.toLocaleString()+' of '+pages.toLocaleString();get('collectionsPrev').disabled=page<=1;get('collectionsNext').disabled=page>=pages;
   }
   async function load(reset=false){if(loading)return;if(reset)page=1;loading=true;get('collectionsRefresh').disabled=true;get('collectionsApply').disabled=true;message('Loading collection accounts…',true);renderSkeleton();try{const response=await fetch('/api/admin/credit-collections?'+params(),{headers:{'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'}),data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Credit and Collections information could not be loaded.');rows=Array.isArray(data.accounts)?data.accounts:[];page=Number(data.page||1);pages=Math.max(1,Number(data.pages||1));setSummary(data.summary);render();loaded=true;message(rows.length?Number(data.total||0).toLocaleString()+' account(s) match the worklist.':'No accounts match these filters.',true);}catch(error){render();message(error.message||'Credit and Collections information could not be loaded.',false);}finally{get('collectionsTable').removeAttribute('aria-busy');get('collectionsExportPdf').disabled=!rows.length;loading=false;get('collectionsRefresh').disabled=false;get('collectionsApply').disabled=false;}}
+  async function loadAllRowsForExport(onProgress){
+    const query=new URLSearchParams(params()),all=[],seen=new Set();
+    let exportPage=1,totalPages=1,total=0;
+    do{
+      query.set('page',String(exportPage));
+      const response=await fetch('/api/admin/credit-collections?'+query.toString(),{headers:{'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.success===false)throw new Error(data.error||'All collection accounts could not be loaded for the PDF.');
+      const batch=Array.isArray(data.accounts)?data.accounts:[];
+      batch.forEach(row=>{const account=String(row.account_number||'');if(!seen.has(account)){seen.add(account);all.push(row);}});
+      totalPages=Math.max(1,Number(data.pages||1));
+      total=Math.max(Number(data.total||0),all.length);
+      if(onProgress)onProgress({page:exportPage,pages:totalPages,loaded:all.length,total});
+      exportPage++;
+    }while(exportPage<=totalPages);
+    return all;
+  }
   function openModal(row){get('collectionsModalAccount').value=row.account_number||'';get('collectionsModalTitle').textContent='Manage Collection Plan';get('collectionsModalCustomer').textContent=(row.account_name||'Customer')+' • #'+(row.account_number||'');get('collectionsModalStatus').value=row.collection_status||'unassigned';get('collectionsModalFollowUp').value=row.follow_up_date||'';get('collectionsModalPromiseAmount').value=Number(row.promised_amount||0)>0?Number(row.promised_amount).toFixed(2):'';get('collectionsModalPromiseDate').value=row.promised_date||'';get('collectionsModalNotes').value=row.private_notes||'';get('collectionsModalStatusMessage').className='status';get('collectionsModalStatusMessage').textContent='';modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>get('collectionsModalStatus').focus(),0);}
   function closeModal(){modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.style.overflow='';}
   async function save(){const button=get('collectionsModalSave'),messageBox=get('collectionsModalStatusMessage');button.disabled=true;button.textContent='Saving…';try{const payload={account_number:get('collectionsModalAccount').value,collection_status:get('collectionsModalStatus').value,follow_up_date:get('collectionsModalFollowUp').value,promised_amount:Number(get('collectionsModalPromiseAmount').value||0),promised_date:get('collectionsModalPromiseDate').value,private_notes:get('collectionsModalNotes').value};const response=await fetch('/api/admin/credit-collections',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(payload)}),data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Collection plan could not be saved.');messageBox.className='status show ok';messageBox.textContent='Collection plan saved.';await load(false);setTimeout(closeModal,450);}catch(error){messageBox.className='status show bad';messageBox.textContent=error.message||'Collection plan could not be saved.';}finally{button.disabled=false;button.textContent='Save Collection Plan';}}
@@ -7312,7 +7329,7 @@ try{
   document.addEventListener('click',event=>{if(!actionMenu?.hidden&&!actionMenu.contains(event.target)&&!event.target.closest('[data-collection-menu]'))closeActionMenu();});
   window.addEventListener('resize',()=>closeActionMenu());window.addEventListener('scroll',()=>closeActionMenu(),true);
   get('collectionsApply').addEventListener('click',()=>load(true));get('collectionsRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('collectionsRefresh'),()=>load(false)));get('collectionsSearch').addEventListener('keydown',event=>{if(event.key==='Enter')load(true);});get('collectionsPrev').addEventListener('click',()=>{if(page>1){page--;load(false);}});get('collectionsNext').addEventListener('click',()=>{if(page<pages){page++;load(false);}});get('collectionsModalClose').addEventListener('click',closeModal);get('collectionsModalCancel').addEventListener('click',closeModal);get('collectionsModalSave').addEventListener('click',save);modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(actionMenu&&!actionMenu.hidden){closeActionMenu(true);return;}if(!modal.hidden)closeModal();});
-  get('collectionsExportPdf').addEventListener('click',async()=>{if(!rows.length){message('Load at least one collection account before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',false);return;}const button=get('collectionsExportPdf'),buttonLabel=button.querySelector('span');button.disabled=true;if(buttonLabel)buttonLabel.textContent='Preparing PDF…';try{await window.WootenAdminTablePdf.exportData('Credit and Collections Worklist',['Customer #','Customer','Total Balance','Past Due','60+','90+','Credit Limit','Credit Hold','Last Payment','Collection Status','Follow-up'],rows.map(row=>[row.account_number,row.account_name,money(row.total_balance),money(row.past_due),money(row.older_60),money(row.older_90),Number(row.credit_limit||0)>0?money(row.credit_limit):'Not set',hold(row)?'Yes':'No',row.last_payment_date?money(row.last_payment_amount)+' on '+date(row.last_payment_date):'None found',label(row.collection_status),date(row.follow_up_date)]));}catch(error){message(error.message||'The collections worklist could not be exported.',false);}finally{button.disabled=false;if(buttonLabel)buttonLabel.textContent='Export PDF';}});
+  get('collectionsExportPdf').addEventListener('click',async()=>{if(!rows.length){message('Load at least one collection account before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',false);return;}const button=get('collectionsExportPdf'),buttonLabel=button.querySelector('span');button.disabled=true;if(buttonLabel)buttonLabel.textContent='Loading all records…';try{const exportRows=await loadAllRowsForExport(progress=>{if(buttonLabel)buttonLabel.textContent=progress.pages>1?'Loading '+progress.page+' of '+progress.pages+'…':'Preparing PDF…';});if(!exportRows.length)throw new Error('No collection accounts match the selected filters.');if(buttonLabel)buttonLabel.textContent='Preparing PDF…';await window.WootenAdminTablePdf.exportData('Credit and Collections Worklist',['Customer #','Customer','Total Balance','Past Due','60+','90+','Credit Limit','Credit Hold','Last Payment','Collection Status','Follow-up'],exportRows.map(row=>[row.account_number,row.account_name,money(row.total_balance),money(row.past_due),money(row.older_60),money(row.older_90),Number(row.credit_limit||0)>0?money(row.credit_limit):'Not set',hold(row)?'Yes':'No',row.last_payment_date?money(row.last_payment_amount)+' on '+date(row.last_payment_date):'None found',label(row.collection_status),date(row.follow_up_date)]));message('Exported '+exportRows.length.toLocaleString()+' collection account(s) to PDF.',true);}catch(error){message(error.message||'The collections worklist could not be exported.',false);}finally{button.disabled=false;if(buttonLabel)buttonLabel.textContent='Export PDF';}});
   document.getElementById('admin-tab-btn-collections')?.addEventListener('click',()=>{if(!loaded)load(true);});document.querySelectorAll('[data-admin-open="collections"]').forEach(button=>button.addEventListener('click',()=>{if(!loaded)load(true);}));
   window.loadWootenCollections=load;
 })();
@@ -11444,10 +11461,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const reportSearch=get('scheduleReportSearch'),reportSearchCount=get('scheduleReportSearchCount'),reportSearchEmpty=get('scheduleReportSearchEmpty');
   const previewTargets={monthly:get('schedulePreviewMonthlyResults'),midmonth:get('schedulePreviewMidmonthResults'),weekly:get('schedulePreviewWeeklyResults')};
   const previewCustomerData={monthly:[],midmonth:[],weekly:[]};
+  const previewPages={monthly:1,midmonth:1,weekly:1};
   const bulkSelections={monthly:new Set(),weekly:new Set()};
   const openPreviewTypes=new Set();
   let loaded=false,loading=false,reportRuns=[];
-  const scheduleResultPageSize=20;
+  const scheduleResultPageSize=20,previewPageSize=20;
 
   document.querySelectorAll('[data-hour-select]').forEach(select=>{
     if(select.options.length)return;
@@ -11815,13 +11833,25 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const normalized=String(query||'').trim().toLowerCase();
     const all=previewCustomerData[type]||[];
     const matches=normalized?all.filter(row=>(String(row.account_name||'')+' '+String(row.account_number||'')+' '+String(row.email||'')).toLowerCase().includes(normalized)):all;
-    const shown=matches.slice(0,100);
+    const pages=Math.max(1,Math.ceil(matches.length/previewPageSize));
+    const page=Math.min(Math.max(1,Number(previewPages[type])||1),pages);
+    previewPages[type]=page;
+    const start=(page-1)*previewPageSize,finish=Math.min(start+previewPageSize,matches.length);
+    const shown=matches.slice(start,finish);
     const count=summary.querySelector('[data-schedule-preview-count]');
     if(count)count.innerHTML=normalized
-      ?'<strong class="schedule-preview-count-number">'+matches.length.toLocaleString()+'</strong> customer(s) match this search'+(matches.length>100?' • showing first 100':'')+'.'
-      :'<strong class="schedule-preview-count-number">'+all.length.toLocaleString()+'</strong> customer(s) match the saved schedule'+(all.length>100?' • showing first 100':'')+'. Select the customer(s) you want Test / Run to process. The same selection can also be used for a bulk cycle move.';
+      ?'<strong class="schedule-preview-count-number">'+matches.length.toLocaleString()+'</strong> customer(s) match this search'+(matches.length?' • showing '+(start+1).toLocaleString()+'–'+finish.toLocaleString():'')+'.'
+      :'<strong class="schedule-preview-count-number">'+all.length.toLocaleString()+'</strong> customer(s) match the saved schedule'+(all.length?' • showing '+(start+1).toLocaleString()+'–'+finish.toLocaleString():'')+'. Select the customer(s) you want Test / Run to process. The same selection can also be used for a bulk cycle move.';
     const list=summary.querySelector('.schedule-preview-list');
     if(list)list.innerHTML=shown.length?shown.map(row=>previewCustomerRow(row,type)).join(''):'<div class="schedule-empty">'+(normalized?'No customers match this search.':'No customers match this schedule.')+'</div>';
+    const pagination=summary.querySelector('[data-schedule-preview-pagination]');
+    if(pagination){
+      pagination.hidden=matches.length<=previewPageSize;
+      const pageInfo=pagination.querySelector('[data-schedule-preview-page-info]'),prev=pagination.querySelector('[data-schedule-preview-prev]'),next=pagination.querySelector('[data-schedule-preview-next]');
+      if(pageInfo)pageInfo.textContent='Page '+page+' of '+pages;
+      if(prev)prev.disabled=page<=1;
+      if(next)next.disabled=page>=pages;
+    }
     updateBulkControls(type);
   }
   async function showPreview(type,saveFirst=true){
@@ -11840,7 +11870,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       if(selection)for(const account of [...selection])if(!eligibleAccounts.has(String(account)))selection.delete(account);
       const total=previewCustomerData[type].length;
       const destination=type==='weekly'?'A':'B';
-      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer #, name, or email…" aria-label="Search '+title+' by customer number, name, or email"><div class="schedule-bulk-toolbar"><button type="button" data-bulk-select-matching data-preview-type="'+type+'">Select All Matching</button><button type="button" data-bulk-clear data-preview-type="'+type+'" disabled>Clear Selection</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="'+destination+'" disabled>Move Selected to Cycle '+destination+'</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="E" disabled>Move Selected to Exceptional</button><span class="schedule-bulk-count" data-bulk-selected-count>0 selected</span></div><div class="preview-progress schedule-bulk-progress" data-bulk-progress hidden><div class="preview-progress-head"><strong data-bulk-progress-label>Moving customers…</strong><span data-bulk-progress-count>Preparing</span></div><div class="preview-progress-track" data-bulk-progress-track role="progressbar" aria-label="Bulk customer assignment progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-bulk-progress-bar></span></div></div><div class="schedule-preview-list"></div></div>';
+      preview.innerHTML='<div class="schedule-preview-summary"><strong>'+title+'</strong><p data-schedule-preview-count></p><input class="schedule-preview-search" type="search" data-schedule-preview-search data-preview-type="'+type+'" placeholder="Search customer #, name, or email…" aria-label="Search '+title+' by customer number, name, or email"><div class="schedule-bulk-toolbar"><button type="button" data-bulk-select-matching data-preview-type="'+type+'">Select All Matching</button><button type="button" data-bulk-clear data-preview-type="'+type+'" disabled>Clear Selection</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="'+destination+'" disabled>Move Selected to Cycle '+destination+'</button><button type="button" data-bulk-move data-preview-type="'+type+'" data-target-cycle="E" disabled>Move Selected to Exceptional</button><span class="schedule-bulk-count" data-bulk-selected-count>0 selected</span></div><div class="preview-progress schedule-bulk-progress" data-bulk-progress hidden><div class="preview-progress-head"><strong data-bulk-progress-label>Moving customers…</strong><span data-bulk-progress-count>Preparing</span></div><div class="preview-progress-track" data-bulk-progress-track role="progressbar" aria-label="Bulk customer assignment progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-bulk-progress-bar></span></div></div><div class="schedule-preview-list"></div><div class="db-pagination schedule-preview-pagination" data-schedule-preview-pagination data-preview-type="'+type+'" hidden><button class="secondary" type="button" data-schedule-preview-prev>Previous 20</button><div class="db-page-info" data-schedule-preview-page-info>Page 1 of 1</div><button class="secondary" type="button" data-schedule-preview-next>Next 20</button></div></div>';
       const searchInput=preview.querySelector('[data-schedule-preview-search]');
       if(searchInput)searchInput.value=previousSearch;
       renderPreviewMatches(type,previousSearch);
@@ -11850,6 +11880,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   panel.addEventListener('input',event=>{
     const input=event.target.closest('[data-schedule-preview-search]');
     if(!input)return;
+    previewPages[input.dataset.previewType]=1;
     renderPreviewMatches(input.dataset.previewType,input.value);
     input.focus();
   });
@@ -11859,6 +11890,16 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(checkbox.checked)selection.add(checkbox.value);else selection.delete(checkbox.value);updateBulkControls(type);
   });
   panel.addEventListener('click',async event=>{
+    const previewPageButton=event.target.closest('[data-schedule-preview-prev],[data-schedule-preview-next]');
+    if(previewPageButton){
+      const pagination=previewPageButton.closest('[data-schedule-preview-pagination]'),type=pagination?.dataset.previewType;
+      if(!type)return;
+      previewPages[type]=(Number(previewPages[type])||1)+(previewPageButton.hasAttribute('data-schedule-preview-next')?1:-1);
+      const query=String(previewTargets[type]?.querySelector('[data-schedule-preview-search]')?.value||'');
+      renderPreviewMatches(type,query);
+      previewTargets[type]?.querySelector('.schedule-preview-list')?.scrollTo({top:0,behavior:'smooth'});
+      return;
+    }
     const bulkButton=event.target.closest('[data-bulk-select-matching],[data-bulk-clear],[data-bulk-move]');
     if(bulkButton){
       const type=bulkButton.dataset.previewType,selection=bulkSelections[type],preview=previewTargets[type];if(!selection||!preview)return;
