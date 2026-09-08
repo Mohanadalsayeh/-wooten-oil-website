@@ -3794,19 +3794,34 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   display:inline-flex;
   align-items:center;
   justify-content:center;
+  gap:9px;
   min-width:126px;
-  border:1px solid #cbd8e3;
+  border:1px solid #173650;
   border-radius:10px;
-  background:#eef3f7;
-  color:#17314b;
+  background:#173650;
+  color:#fff;
   font:inherit;
   font-weight:700;
   cursor:pointer;
 }
-.payment-history-print-receipt:is(:hover,:focus-visible,:active){
+.payment-history-print-receipt svg{
+  width:18px;
+  height:18px;
+  flex:0 0 18px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.payment-history-print-receipt:is(:hover,:focus,:focus-visible,:active,:disabled){
   border-color:#173650;
   background:#173650;
   color:#fff;
+  -webkit-text-fill-color:#fff;
+  box-shadow:none;
+  transform:none;
+  opacity:1;
 }
 .payment-receipt-modal[hidden]{display:none!important}
 .payment-receipt-modal{
@@ -4017,7 +4032,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       var button=document.createElement('button');
       button.type='button';
       button.className='payment-history-print-receipt';
-      button.textContent='Print Receipt';
+      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"></path></svg><span>Print Receipt</span>';
       button.setAttribute('aria-label','Open printable receipt for this payment');
       actions.appendChild(button);
       card.appendChild(actions);
@@ -4134,10 +4149,14 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   stroke-linecap:round;
   stroke-linejoin:round;
 }
-.account-summary-print-button:is(:hover,:focus-visible,:active){
-  border-color:#294f73;
-  background:#294f73;
+.account-summary-print-button:is(:hover,:focus,:focus-visible,:active,:disabled){
+  border-color:#173650;
+  background:#173650;
   color:#fff;
+  -webkit-text-fill-color:#fff;
+  box-shadow:none;
+  transform:none;
+  opacity:1;
 }
 @media(max-width:620px){
   .account-summary-print-actions{display:block}
@@ -4207,6 +4226,129 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     }
   }
   printButton.addEventListener('click',printAccountSummary);
+})();
+</script>
+<style id="wooten-fuel-history-print-ver419">
+.fuel-history-print-actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid #e1e8ee;
+}
+@media(max-width:620px){
+  .fuel-history-print-actions .payment-history-print-receipt{width:100%}
+}
+</style>
+<script id="wooten-fuel-history-print-ver419-script">
+(function(){
+  'use strict';
+  var list=document.getElementById('fuelHistoryList');
+  if(!list)return;
+
+  function clean(value){
+    value=String(value==null?'':value).trim();
+    return value&&value!=='—'?value:'—';
+  }
+  function escapeHtml(value){
+    return clean(value).replace(/[&<>"']/g,function(character){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character];
+    });
+  }
+  function cardField(card,label){
+    var wanted=String(label).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var items=card.querySelectorAll('.fuel-history-item');
+    for(var i=0;i<items.length;i++){
+      var name=items[i].querySelector('small');
+      if(!name)continue;
+      var normalized=String(name.textContent||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      if(normalized===wanted){var detail=items[i].querySelector('strong,span');return detail?detail.textContent:'—';}
+    }
+    return '—';
+  }
+  function requestData(card){
+    var customerName=document.getElementById('acctName');
+    var customerNumber=document.getElementById('acctNumber');
+    var number=card.querySelector('.fuel-history-number');
+    var submitted=card.querySelector('.fuel-history-date');
+    var status=card.querySelector('.fuel-history-badge');
+    return {
+      customer:clean(customerName&&customerName.textContent),
+      customerNumber:clean(customerNumber&&customerNumber.textContent),
+      number:clean(number&&number.textContent),
+      submitted:clean(submitted&&submitted.textContent),
+      status:clean(status&&status.textContent),
+      fuelType:clean(cardField(card,'Fuel Type')),
+      gallons:clean(cardField(card,'Estimated Gallons')),
+      deliveryDate:clean(cardField(card,'Preferred Delivery Date')),
+      address:clean(cardField(card,'Delivery Address')),
+      notes:clean(cardField(card,'Notes'))
+    };
+  }
+  function safe(data,key){return escapeHtml(data[key]);}
+  function buildFuelRequest(data){
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8">'+
+      '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+      '<title>Wooten Oil Fuel Request</title><style>'+
+      '@page{size:letter portrait;margin:0}*{box-sizing:border-box}html,body{width:100%;min-height:11in;margin:0;background:#fff;color:#172d44;font-family:Arial,Helvetica,sans-serif;font-size:12px}body{padding:.5in}'+
+      '.request{width:100%;max-width:7.5in;min-height:10in;margin:0 auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid #d3262e}'+
+      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}'+
+      '.title{text-align:right}.title h1{margin:0;font-size:23px}.status{display:block;margin-top:6px;color:#117443;font-weight:700}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0}'+
+      '.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}.section-title{margin:14px 0 8px;font-size:13px;font-weight:700}'+
+      '.details{display:grid;grid-template-columns:repeat(2,1fr);gap:0 24px;border-top:1px solid #dfe7ed}.detail{padding:13px 4px;border-bottom:1px solid #dfe7ed}.wide{grid-column:1/-1}.notes{min-height:64px}'+
+      '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:30px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
+      '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}.screen-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}'+
+      '@media print{.screen-actions{display:none!important}}'+
+      '</style></head><body><main class="request">'+
+      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Fuel Request</h1><span class="status">'+safe(data,'status')+'</span></div></header>'+
+      '<section class="meta"><div><span class="label">Customer</span><div class="value">'+safe(data,'customer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safe(data,'customerNumber')+'</div></div><div><span class="label">Request number</span><div class="value">'+safe(data,'number')+'</div></div><div><span class="label">Submitted</span><div class="value">'+safe(data,'submitted')+'</div></div></section>'+
+      '<div class="section-title">Request details</div><section class="details"><div class="detail"><span class="label">Fuel type</span><div class="value">'+safe(data,'fuelType')+'</div></div><div class="detail"><span class="label">Estimated gallons</span><div class="value">'+safe(data,'gallons')+'</div></div><div class="detail"><span class="label">Preferred delivery date</span><div class="value">'+safe(data,'deliveryDate')+'</div></div><div class="detail wide"><span class="label">Delivery address</span><div class="value">'+safe(data,'address')+'</div></div><div class="detail wide notes"><span class="label">Notes</span><div class="value">'+safe(data,'notes')+'</div></div></section>'+
+      '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
+      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg><span>Print Request</span></button></div>'+
+      '</main></body></html>';
+  }
+  function printFuelRequest(card){
+    var requestWindow=window.open('','_blank');
+    if(!requestWindow){
+      window.alert('Please allow pop-ups for wootenoil.com so the fuel request can open for printing.');
+      return;
+    }
+    try{
+      requestWindow.document.open();
+      requestWindow.document.write(buildFuelRequest(requestData(card)));
+      requestWindow.document.close();
+      requestWindow.focus();
+      window.setTimeout(function(){
+        try{if(!requestWindow.closed){requestWindow.focus();requestWindow.print();}}
+        catch(error){/* The request page keeps its visible Print Request button as a fallback. */}
+      },500);
+    }catch(error){
+      try{requestWindow.close();}catch(ignore){}
+      window.alert('The fuel request could not be opened for printing. Please try again.');
+    }
+  }
+  function addPrintButtons(){
+    list.querySelectorAll('.fuel-history-card').forEach(function(card){
+      if(card.querySelector('.fuel-history-print-button'))return;
+      var actions=document.createElement('div');
+      actions.className='fuel-history-print-actions';
+      var button=document.createElement('button');
+      button.type='button';
+      button.className='payment-history-print-receipt fuel-history-print-button';
+      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"></path></svg><span>Print Request</span>';
+      button.setAttribute('aria-label','Open printable copy of this fuel request');
+      actions.appendChild(button);
+      card.appendChild(actions);
+    });
+  }
+  list.addEventListener('click',function(event){
+    var button=event.target.closest('.fuel-history-print-button');
+    if(!button)return;
+    var card=button.closest('.fuel-history-card');
+    if(card)printFuelRequest(card);
+  });
+  new MutationObserver(addPrintButtons).observe(list,{childList:true,subtree:true});
+  addPrintButtons();
 })();
 </script>
 </html>
