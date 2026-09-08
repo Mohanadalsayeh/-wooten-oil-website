@@ -717,7 +717,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
       <div class="account-summary-print-actions">
         <button type="button" class="account-summary-print-button" id="accountSummaryPrint">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg>
           <span>Print Account Summary</span>
         </button>
       </div>
@@ -4032,7 +4032,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       var button=document.createElement('button');
       button.type='button';
       button.className='payment-history-print-receipt';
-      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"></path></svg><span>Print Receipt</span>';
+      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Receipt</span>';
       button.setAttribute('aria-label','Open printable receipt for this payment');
       actions.appendChild(button);
       card.appendChild(actions);
@@ -4202,7 +4202,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<tr><td>Current</td><td>0–30 days</td><td>'+safeValue('statementAgingCurrent')+'</td></tr><tr><td>31–60 days</td><td>Past due</td><td>'+safeValue('statementAging1')+'</td></tr><tr><td>61–90 days</td><td>Past due</td><td>'+safeValue('statementAging2')+'</td></tr><tr><td>91–120 days</td><td>Past due</td><td>'+safeValue('statementAging3')+'</td></tr><tr><td>120+ days</td><td>Past due</td><td>'+safeValue('statementAging4')+'</td></tr><tr><td><strong>Total balance</strong></td><td>All periods</td><td><strong>'+safeValue('statementAgingTotal')+'</strong></td></tr></tbody></table>'+
       '<div class="section-title">Account information</div><section class="account"><div><span class="label">Terms</span><div class="value">'+safeValue('acctTerms')+'</div></div><div><span class="label">Credit hold</span><div class="value">'+safeValue('acctCreditHold')+'</div></div><div><span class="label">Credit limit</span><div class="value">'+safeValue('acctCreditLimit')+'</div></div><div><span class="label">Phone</span><div class="value">'+safeValue('acctPhone')+'</div></div><div><span class="label">Email</span><div class="value">'+safeValue('acctEmail')+'</div></div><div class="address"><span class="label">Billing address</span><div class="value">'+safeValue('acctAddress')+'</div></div></section>'+
       '<p class="note">Balances reflect the latest information available in the Wooten Oil customer portal. Payments may take up to 24 business hours to appear.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Account Summary</div>'+
-      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg><span>Print Account Summary</span></button></div>'+
+      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Account Summary</span></button></div>'+
       '</main></body></html>';
   }
   function printAccountSummary(){
@@ -4304,7 +4304,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+safe(data,'customer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safe(data,'customerNumber')+'</div></div><div><span class="label">Request number</span><div class="value">'+safe(data,'number')+'</div></div><div><span class="label">Submitted</span><div class="value">'+safe(data,'submitted')+'</div></div></section>'+
       '<div class="section-title">Request details</div><section class="details"><div class="detail"><span class="label">Fuel type</span><div class="value">'+safe(data,'fuelType')+'</div></div><div class="detail"><span class="label">Estimated gallons</span><div class="value">'+safe(data,'gallons')+'</div></div><div class="detail"><span class="label">Preferred delivery date</span><div class="value">'+safe(data,'deliveryDate')+'</div></div><div class="detail wide"><span class="label">Delivery address</span><div class="value">'+safe(data,'address')+'</div></div><div class="detail wide notes"><span class="label">Notes</span><div class="value">'+safe(data,'notes')+'</div></div></section>'+
       '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
-      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg><span>Print Request</span></button></div>'+
+      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Request</span></button></div>'+
       '</main></body></html>';
   }
   function printFuelRequest(card){
@@ -4335,7 +4335,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       var button=document.createElement('button');
       button.type='button';
       button.className='payment-history-print-receipt fuel-history-print-button';
-      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 14h10v7H7z"></path></svg><span>Print Request</span>';
+      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Request</span>';
       button.setAttribute('aria-label','Open printable copy of this fuel request');
       actions.appendChild(button);
       card.appendChild(actions);
