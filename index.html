@@ -4762,4 +4762,47 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   enhance();
 })();
 </script>
+<style id="wooten-hero-oil-card-button-hover-match-ver425">
+/* Match the two hero actions to the Call About an Oil Card interaction. */
+.hero-buttons > a.btn:is(:hover,:focus-visible){
+  transform:translateY(-2px)!important;
+}
+.hero-buttons > a.btn:active{
+  transform:translateY(0)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-buttons > a.btn:is(:hover,:focus-visible,:active){
+    transform:none!important;
+  }
+}
+</style>
+<style id="wooten-customer-notification-button-consistency-ver426">
+/* Keep every customer-notification action consistent with portal buttons. */
+#customerNotificationPopup button:not(.customer-notification-popup-close),
+#customerNotificationPopup .customer-notification-attachment,
+#customerNotificationPopup .customer-notification-document-link{
+  font-weight:400!important;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease!important;
+}
+#customerNotificationPopup button:not(.customer-notification-popup-close):is(:hover,:focus-visible),
+#customerNotificationPopup .customer-notification-attachment:is(:hover,:focus-visible),
+#customerNotificationPopup .customer-notification-document-link:is(:hover,:focus-visible){
+  font-weight:400!important;
+  transform:translateY(-2px)!important;
+}
+#customerNotificationPopup button:not(.customer-notification-popup-close):active,
+#customerNotificationPopup .customer-notification-attachment:active,
+#customerNotificationPopup .customer-notification-document-link:active,
+#customerNotificationPopup button:not(.customer-notification-popup-close):disabled{
+  font-weight:400!important;
+  transform:translateY(0)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  #customerNotificationPopup button:not(.customer-notification-popup-close):is(:hover,:focus-visible,:active),
+  #customerNotificationPopup .customer-notification-attachment:is(:hover,:focus-visible,:active),
+  #customerNotificationPopup .customer-notification-document-link:is(:hover,:focus-visible,:active){
+    transform:none!important;
+  }
+}
+</style>
 </html>
