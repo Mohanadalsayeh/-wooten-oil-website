@@ -3934,16 +3934,6 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   .payment-receipt-actions{display:grid;grid-template-columns:1fr 1fr;padding:16px 20px}
   .payment-receipt-actions button{width:100%;min-width:0}
 }
-.payment-receipt-print-frame{
-  position:fixed!important;
-  right:100%!important;
-  bottom:100%!important;
-  width:8.5in!important;
-  height:11in!important;
-  border:0!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
 </style>
 
 <div class="payment-receipt-modal" id="paymentReceiptModal" role="dialog" aria-modal="true" aria-labelledby="paymentReceiptTitle" hidden>
@@ -4061,31 +4051,36 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '.amount{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-radius:12px;background:#eef8f2}.amount span{color:#496479}.amount strong{color:#117443;font-size:25px}'+
       '.details{margin:23px 0 8px;font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse}th,td{padding:11px 4px;border-bottom:1px solid #dfe7ed;text-align:left}th{color:#718196;font-size:9px;letter-spacing:.05em;text-transform:uppercase}td{font-weight:700}'+
       '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:34px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
+      '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}'+
+      '@media print{.screen-actions{display:none!important}}'+
       '</style></head><body><main class="receipt">'+
       '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Payment Receipt</h1><span class="posted">Payment posted</span></div></header>'+
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+printValue('paymentReceiptCustomer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+printValue('paymentReceiptCustomerNumber')+'</div></div><div><span class="label">Payment date</span><div class="value">'+printValue('paymentReceiptDate')+'</div></div></section>'+
       '<section class="amount"><span>Amount received</span><strong>'+printValue('paymentReceiptAmount')+'</strong></section>'+
       '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>Check no.</th><th>Deposit no.</th><th>Deposit date</th><th>Posting date</th></tr></thead><tbody><tr><td>'+printValue('paymentReceiptInvoice')+'</td><td>'+printValue('paymentReceiptCheck')+'</td><td>'+printValue('paymentReceiptDeposit')+'</td><td>'+printValue('paymentReceiptDepositDate')+'</td><td>'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
       '<p class="note">This receipt confirms the payment record imported from your Wooten Oil account history. It does not show invoice line-item details.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment Receipt</div>'+
+      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print Receipt</button></div>'+
       '</main></body></html>';
   }
   function printReceipt(){
-    var previous=document.getElementById('paymentReceiptPrintFrame');
-    if(previous)previous.remove();
-    var frame=document.createElement('iframe');
-    frame.id='paymentReceiptPrintFrame';
-    frame.className='payment-receipt-print-frame';
-    frame.title='Printable payment receipt';
-    frame.setAttribute('aria-hidden','true');
-    frame.onload=function(){
+    var receiptWindow=window.open('','_blank');
+    if(!receiptWindow){
+      window.alert('Please allow pop-ups for wootenoil.com so the receipt can open for printing.');
+      return;
+    }
+    try{
+      receiptWindow.document.open();
+      receiptWindow.document.write(buildPrintableReceipt());
+      receiptWindow.document.close();
+      receiptWindow.focus();
       window.setTimeout(function(){
-        try{frame.contentWindow.focus();frame.contentWindow.print();}
-        catch(error){window.alert('The receipt could not be opened for printing. Please try again.');}
-      },120);
-    };
-    frame.srcdoc=buildPrintableReceipt();
-    document.body.appendChild(frame);
-    window.setTimeout(function(){if(frame.isConnected)frame.remove();},60000);
+        try{if(!receiptWindow.closed){receiptWindow.focus();receiptWindow.print();}}
+        catch(error){/* The receipt page keeps its visible Print Receipt button as a fallback. */}
+      },500);
+    }catch(error){
+      try{receiptWindow.close();}catch(ignore){}
+      window.alert('The receipt could not be opened for printing. Please try again.');
+    }
   }
   list.addEventListener('click',function(event){
     var button=event.target.closest('.payment-history-print-receipt');
