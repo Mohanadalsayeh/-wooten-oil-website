@@ -2694,15 +2694,34 @@ async function customerPaymentChargePost({request,env}){
     if(!Number(lock?.meta?.changes||0)&&String(intent.status)==="processing") return notificationJson({success:false,error:"This payment is already processing. Please wait before trying again."},409);
     const tokenData=await globalPaymentsAccessToken(env,["TRN_POST_Authorize"]);
     const accounts=Array.isArray(tokenData?.scope?.accounts)?tokenData.scope.accounts:[];
-    const processingAccount=accounts.find(item=>String(item?.id||"").startsWith("TRA_"));
+    if(onlinePaymentEnvironment(env)!=="production"){
+      console.log("Global Payments token scope",JSON.stringify({
+        intentId,
+        merchant_id:tokenData?.scope?.merchant_id||null,
+        merchant_name:tokenData?.scope?.merchant_name||null,
+        accounts
+      }));
+    }
+    const permitsTransactions=item=>Array.isArray(item?.permissions)&&item.permissions.some(p=>String(p).startsWith("TRN_"));
+    const configuredName=String(env.GP_ACCOUNT_NAME||"").trim();
+    const processingAccount=
+      (configuredName&&accounts.find(item=>String(item?.name||"")===configuredName))||
+      accounts.find(item=>String(item?.id||"").startsWith("TRA_")&&permitsTransactions(item))||
+      accounts.find(permitsTransactions)||
+      accounts.find(item=>String(item?.id||"").startsWith("TRA_"));
     if(!processingAccount) throw new Error("No transaction-processing account was returned for this application.");
     const amountCents=Number(intent.amount_cents);
     const transactionBody={
-      account_id:processingAccount.id,account_name:processingAccount.name||undefined,
       channel:"CNP",country:"US",type:"SALE",capture_mode:"AUTO",amount:String(amountCents),currency:"USD",
       reference:String(intent.provider_reference),description:`Wooten Oil customer ${account}`.slice(0,100),
       payment_method:{id:paymentReference,entry_mode:"ECOM"}
     };
+    // Global Payments expects account_id OR account_name, not both. Sending both
+    // can produce CONFIGURATION_DOES_NOT_EXIST when they disagree.
+    if(String(env.GP_OMIT_ACCOUNT||"").toLowerCase()!=="true"){
+      if(processingAccount.id) transactionBody.account_id=processingAccount.id;
+      else if(processingAccount.name) transactionBody.account_name=processingAccount.name;
+    }
     const providerResponse=await fetch(onlinePaymentBaseUrl(env)+"/transactions",{
       method:"POST",
       headers:{"Authorization":`Bearer ${tokenData.token}`,"Content-Type":"application/json","Accept":"application/json","X-GP-Version":"2021-03-22","x-gp-idempotency":String(intent.idempotency_key)},
@@ -2733,7 +2752,7 @@ async function customerPaymentChargePost({request,env}){
         success:false,declined:true,
         error:"The payment was not approved. Please check the card information or contact your card issuer.",
         result_code:resultCode||undefined,
-        diagnostic:sandbox?`HTTP ${providerResponse.status} · ${resultCode||"no result_code"} · ${resultMessage||"no message"}`:undefined
+        diagnostic:sandbox?`HTTP ${providerResponse.status} · ${resultCode||"no result_code"} · ${resultMessage||"no message"} · used ${transactionBody.account_id||transactionBody.account_name||"default account"} · available ${accounts.map(a=>`${a?.name||"?"}(${a?.id||"?"})`).join(", ")||"none"}`:undefined
       },402);
     }
     return notificationJson({success:true,transaction_id:String(data?.id||""),reference:String(intent.provider_reference),amount:(amountCents/100).toFixed(2),status:"captured",card_brand:String(card.brand||""),card_last4:onlinePaymentCardLast4(data)});
