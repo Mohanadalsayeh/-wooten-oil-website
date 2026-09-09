@@ -2583,9 +2583,7 @@ async function onlinePaymentSha512(value){
 }
 async function globalPaymentsAccessToken(env,permissions){
   if(!onlinePaymentConfigured(env)) throw new Error("Global Payments credentials are not configured.");
-  // Global Payments enforces a short nonce field. A hyphen-free UUID keeps
-  // 128 bits of randomness while remaining within the provider's limit.
-  const nonce=crypto.randomUUID().replace(/-/g,"");
+  const nonce=new Date().toISOString()+"-"+crypto.randomUUID();
   const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
   const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
     method:"POST",
@@ -2652,13 +2650,7 @@ async function customerPaymentSessionPost({request,env}){
     });
   }catch(error){
     console.error("customerPaymentSessionPost failed",error);
-    const sandboxDetail=onlinePaymentEnvironment(env)==="sandbox"
-      ?String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,300)
-      :"";
-    return notificationJson({
-      success:false,
-      error:"The secure payment form could not be started."+(sandboxDetail?` Sandbox detail: ${sandboxDetail}`:" Please try again or contact Wooten Oil.")
-    },502);
+    return notificationJson({success:false,error:"The secure payment form could not be started. Please try again or contact Wooten Oil."},502);
   }
 }
 __name(customerPaymentSessionPost,"customerPaymentSessionPost");
@@ -2706,6 +2698,15 @@ async function customerPaymentChargePost({request,env}){
       body:JSON.stringify(transactionBody)
     });
     const data=await providerResponse.json().catch(()=>({}));
+    if(!providerResponse.ok||onlinePaymentEnvironment(env)!=="production"){
+      console.log("Global Payments /transactions response",JSON.stringify({
+        intentId,
+        http_status:providerResponse.status,
+        account_id:processingAccount.id,
+        request:{...transactionBody,payment_method:{...transactionBody.payment_method,id:"[redacted]"}},
+        response:data
+      }));
+    }
     const resultCode=String(data?.action?.result_code||data?.payment_method?.result||data?.error_code||"");
     const resultMessage=String(data?.action?.result_message||data?.payment_method?.message||data?.detailed_error_description||data?.status||"").slice(0,300);
     const providerStatus=String(data?.status||"").toUpperCase();
@@ -2715,14 +2716,24 @@ async function customerPaymentChargePost({request,env}){
     await env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=?,provider_status=?,card_brand=?,card_last4=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=?`)
       .bind(finalStatus,String(data?.id||"").slice(0,100),providerStatus,String(card.brand||card.brand_reference||"").slice(0,40),onlinePaymentCardLast4(data),resultCode.slice(0,80),resultMessage,intentId).run();
     if(!approved){
-      console.warn("Global Payments declined portal payment",{intentId,resultCode,providerStatus});
-      return notificationJson({success:false,declined:true,error:"The payment was not approved. Please check the card information or contact your card issuer.",result_code:resultCode||undefined},402);
+      console.warn("Global Payments declined portal payment",{intentId,resultCode,providerStatus,resultMessage,http_status:providerResponse.status});
+      const sandbox=onlinePaymentEnvironment(env)!=="production";
+      return notificationJson({
+        success:false,declined:true,
+        error:"The payment was not approved. Please check the card information or contact your card issuer.",
+        result_code:resultCode||undefined,
+        diagnostic:sandbox?`HTTP ${providerResponse.status} · ${resultCode||"no result_code"} · ${resultMessage||"no message"}`:undefined
+      },402);
     }
     return notificationJson({success:true,transaction_id:String(data?.id||""),reference:String(intent.provider_reference),amount:(amountCents/100).toFixed(2),status:"captured",card_brand:String(card.brand||""),card_last4:onlinePaymentCardLast4(data)});
   }catch(error){
     console.error("customerPaymentChargePost failed",error);
     await env.DB.prepare(`UPDATE online_payment_transactions SET status='initiated',result_message=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='processing'`).bind(String(error?.message||error).slice(0,300),intentId).run().catch(()=>{});
-    return notificationJson({success:false,error:"The payment result could not be confirmed. Do not submit another payment yet; please try this payment again or contact Wooten Oil."},502);
+    return notificationJson({
+      success:false,
+      error:"The payment result could not be confirmed. Do not submit another payment yet; please try this payment again or contact Wooten Oil.",
+      diagnostic:onlinePaymentEnvironment(env)!=="production"?String(error?.message||error).slice(0,300):undefined
+    },502);
   }
 }
 __name(customerPaymentChargePost,"customerPaymentChargePost");
