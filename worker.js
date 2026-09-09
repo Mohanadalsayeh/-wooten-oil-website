@@ -2744,7 +2744,10 @@ async function customerPaymentChargePost({request,env}){
     const lock=await env.DB.prepare(`UPDATE online_payment_transactions SET status='processing',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='initiated'`).bind(intentId).run();
     if(!Number(lock?.meta?.changes||0)) return notificationJson({success:false,pending:true,error:"This payment is already processing. Do not submit another payment."},409);
     acquiredLock=true;
-    const tokenData=await globalPaymentsAccessToken(env,["TRN_POST_Authorize"]);
+    // Follow GP's limited server-token example so the scope can contain both
+    // transaction_processing and tokenization for a tokenized card payment.
+    // This token stays on the Worker; the browser still gets Create_Single only.
+    const tokenData=await globalPaymentsAccessToken(env,["PMT_POST_Create","TRN_POST_Authorize"]);
     processingAccount=onlinePaymentProcessingAccount(env,tokenData);
     const amountCents=Number(intent.amount_cents);
     const transactionBody={
@@ -2769,7 +2772,7 @@ async function customerPaymentChargePost({request,env}){
     await env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=?,provider_status=?,card_brand=?,card_last4=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=?`)
       .bind(finalStatus,String(data?.id||"").slice(0,100),providerStatus,String(card.brand||card.brand_reference||"").slice(0,40),onlinePaymentCardLast4(data),resultCode.slice(0,80),resultMessage,intentId).run();
     if(!approved){
-      const diagnostic={intentId,environment:onlinePaymentEnvironment(env),account_name:String(processingAccount.name||""),account_id:String(processingAccount.id),provider_http_status:providerResponse.status,result_code:resultCode.slice(0,80),detailed_error_code:String(data?.detailed_error_code||"").slice(0,40),provider_status:providerStatus,detail:resultMessage};
+      const diagnostic={intentId,environment:onlinePaymentEnvironment(env),account_name:String(processingAccount.name||""),account_id:String(processingAccount.id),provider_http_status:providerResponse.status,result_code:resultCode.slice(0,80),detailed_error_code:String(data?.detailed_error_code||"").slice(0,40),provider_status:providerStatus,detail:resultMessage,tokenization_in_scope:(Array.isArray(tokenData?.scope?.accounts)?tokenData.scope.accounts:[]).some(item=>/^TKA_[A-Za-z0-9]+$/.test(String(item?.id||"")))};
       console.warn("Global Payments payment outcome "+JSON.stringify(diagnostic));
       const sandbox=onlinePaymentEnvironment(env)==="sandbox";
       const error=pending
@@ -2778,7 +2781,10 @@ async function customerPaymentChargePost({request,env}){
           ?(sandbox?"The sandbox test transaction was declined. Use the documented sandbox test card, not a real card.":"The payment was declined. Please check your card information or contact your card issuer.")
           :"The payment processor rejected the request because of a setup or request error. This is not a confirmed card decline.";
       const sandboxDetail=sandbox?` Sandbox: ${resultCode||"HTTP "+providerResponse.status}. ${resultMessage} Account: ${processingAccount.name||processingAccount.id}.`:"";
-      return notificationJson({success:false,declined,pending,error:error+sandboxDetail,result_code:resultCode||undefined,...(sandbox?{diagnostic}:{}),payment_integration_version:"account-selection-2"},declined?402:502);
+      // The deployed portal appends diagnostic as text. Keep that field a
+      // string, and provide structured metadata separately for troubleshooting.
+      const diagnosticText=`HTTP ${providerResponse.status}; code ${diagnostic.detailed_error_code||resultCode||"unavailable"}; account ${processingAccount.name||processingAccount.id}; tokenization scope ${diagnostic.tokenization_in_scope?"present":"missing"}`;
+      return notificationJson({success:false,declined,pending,error:error+sandboxDetail,result_code:resultCode||undefined,...(sandbox?{diagnostic:diagnosticText,diagnostic_details:diagnostic}:{}),payment_integration_version:"token-scope-3"},declined?402:502);
     }
     return notificationJson({success:true,transaction_id:String(data?.id||""),reference:String(intent.provider_reference),amount:(amountCents/100).toFixed(2),status:"captured",card_brand:String(card.brand||""),card_last4:onlinePaymentCardLast4(data)});
   }catch(error){
@@ -2790,7 +2796,7 @@ async function customerPaymentChargePost({request,env}){
     const message=providerRequestStarted
       ?"The payment result could not be confirmed. Do not submit another payment; contact Wooten Oil."
       :"The payment could not be started. No transaction request was sent to the processor.";
-    return notificationJson({success:false,declined:false,pending:providerRequestStarted,error:message+(onlinePaymentEnvironment(env)==="sandbox"?" Sandbox detail: "+detail:""),payment_integration_version:"account-selection-2"},502);
+    return notificationJson({success:false,declined:false,pending:providerRequestStarted,error:message+(onlinePaymentEnvironment(env)==="sandbox"?" Sandbox detail: "+detail:""),payment_integration_version:"token-scope-3"},502);
   }
 }
 __name(customerPaymentChargePost,"customerPaymentChargePost");
