@@ -2583,7 +2583,7 @@ async function onlinePaymentSha512(value){
 }
 async function globalPaymentsAccessToken(env,permissions){
   if(!onlinePaymentConfigured(env)) throw new Error("Global Payments credentials are not configured.");
-  const nonce=new Date().toISOString()+"-"+crypto.randomUUID();
+  const nonce=crypto.randomUUID().replace(/-/g,"");
   const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
   const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
     method:"POST",
