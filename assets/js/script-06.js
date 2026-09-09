@@ -121,6 +121,7 @@
       sheet.id='wooten-secure-card-theme';
       sheet.textContent=[
         '#globalPaymentsCardForm{font-family:inherit;gap:0;}',
+        '#globalPaymentsCardForm .sandbox-warning{background:#fff8e7!important;border:1px solid #ecd99d;border-radius:12px;padding:13px 14px!important;color:#6b5318!important;font-family:inherit!important;font-size:.84rem!important;font-weight:400!important;line-height:1.5;text-align:left!important;margin-bottom:5px!important;}',
         '#globalPaymentsCardForm label{font-family:inherit;font-size:15px;font-weight:700;color:#4e5c6d;margin:16px 0 8px;}',
         '#globalPaymentsCardForm iframe{min-height:54px!important;height:54px!important;display:block;border:0;}',
         '#globalPaymentsCardForm .credit-card-submit{margin:20px 0 16px;}',
