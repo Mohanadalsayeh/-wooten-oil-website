@@ -2777,8 +2777,12 @@ async function customerPaymentAccountsGet({request,env}){
   // Sandbox-only diagnostic: asks Global Payments what this app's accounts
   // support, so currency/country/capability mismatches are visible directly.
   if(onlinePaymentEnvironment(env)==="production") return notificationJson({success:false,error:"Not available."},404);
-  const customer=await getCustomerFromSession(request,env);
-  if(!customer) return notificationJson({success:false,error:"Please sign in first."},401);
+  const diagnosticKey=String(env.GP_DIAGNOSTIC_KEY||"").trim();
+  const suppliedKey=String(new URL(request.url).searchParams.get("key")||"").trim();
+  if(!diagnosticKey||suppliedKey!==diagnosticKey){
+    const customer=await getCustomerFromSession(request,env);
+    if(!customer) return notificationJson({success:false,error:"Please sign in first, or add ?key= with the configured diagnostic key."},401);
+  }
   if(!onlinePaymentConfigured(env)) return notificationJson({success:false,error:"Global Payments credentials are not configured."},503);
   try{
     const tokenData=await globalPaymentsAccessToken(env);
