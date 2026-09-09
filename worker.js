@@ -2716,10 +2716,13 @@ async function customerPaymentChargePost({request,env}){
       reference:String(intent.provider_reference),description:`Wooten Oil customer ${account}`.slice(0,100),
       payment_method:{id:paymentReference,entry_mode:"ECOM"}
     };
-    // Global Payments expects account_id OR account_name, not both. Sending both
-    // can produce CONFIGURATION_DOES_NOT_EXIST when they disagree.
+    // Global Payments expects account_id OR account_name, not both. Which one it
+    // accepts depends on how the app is provisioned, so GP_ACCOUNT_FIELD lets us
+    // switch without a code change: "id" (default) or "name".
     if(String(env.GP_OMIT_ACCOUNT||"").toLowerCase()!=="true"){
-      if(processingAccount.id) transactionBody.account_id=processingAccount.id;
+      const field=String(env.GP_ACCOUNT_FIELD||"id").trim().toLowerCase();
+      if(field==="name"&&processingAccount.name) transactionBody.account_name=processingAccount.name;
+      else if(processingAccount.id) transactionBody.account_id=processingAccount.id;
       else if(processingAccount.name) transactionBody.account_name=processingAccount.name;
     }
     const providerResponse=await fetch(onlinePaymentBaseUrl(env)+"/transactions",{
