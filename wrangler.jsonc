@@ -16,8 +16,8 @@
     "FUEL_FROM_EMAIL": "fuel@wootenoil.com",
     "GP_ENVIRONMENT": "sandbox",
     "GP_MAX_PAYMENT_CENTS": "50000000",
-    "GP_CURRENCY": "EUR",
-    "GP_COUNTRY": "IE",
+    "GP_CURRENCY": "USD",
+    "GP_COUNTRY": "US",
     "GP_TRANSACTION_TYPE": "SALE",
     "GP_CAPTURE_MODE": "AUTO",
     "GP_DIAGNOSTIC_KEY": "wooten-gp-check-2026"
