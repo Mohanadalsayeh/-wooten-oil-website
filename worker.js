@@ -2571,8 +2571,15 @@ function onlinePaymentEnvironment(env){
 }
 function onlinePaymentBaseUrl(env){
   const configured=String(env.GP_API_BASE_URL||"").trim();
-  if(configured) return configured.replace(/\/+$/,"");
-  return onlinePaymentEnvironment(env)==="production"?"https://apis.globalpay.com/ucp":"https://apis.sandbox.globalpay.com/ucp";
+  const expectedOrigin=onlinePaymentEnvironment(env)==="production"?"https://apis.globalpay.com":"https://apis.sandbox.globalpay.com";
+  if(configured){
+    const url=new URL(configured);
+    if(url.origin!==expectedOrigin||url.username||url.password||url.search||url.hash){
+      throw new Error("The Global Payments API address does not match the selected payment environment.");
+    }
+    return configured.replace(/\/+$/,"");
+  }
+  return expectedOrigin+"/ucp";
 }
 function onlinePaymentConfigured(env){
   return Boolean(String(env.GP_APP_ID||"").trim()&&String(env.GP_APP_KEY||"").trim());
@@ -2583,6 +2590,8 @@ async function onlinePaymentSha512(value){
 }
 async function globalPaymentsAccessToken(env,permissions){
   if(!onlinePaymentConfigured(env)) throw new Error("Global Payments credentials are not configured.");
+  // Global Payments enforces a short nonce field. A hyphen-free UUID keeps
+  // 128 bits of randomness while remaining within the provider's limit.
   const nonce=crypto.randomUUID().replace(/-/g,"");
   const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
   const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
@@ -2595,13 +2604,6 @@ async function globalPaymentsAccessToken(env,permissions){
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data?.token){
-    console.error("Global Payments /accesstoken failed",JSON.stringify({
-      http_status:response.status,
-      base_url:onlinePaymentBaseUrl(env),
-      environment:onlinePaymentEnvironment(env),
-      permissions_requested:permissions||null,
-      response:data
-    }));
     const detail=String(data?.error_description||data?.detailed_error_description||data?.error_code||`HTTP ${response.status}`).slice(0,300);
     throw new Error(`Global Payments authentication failed: ${detail}`);
   }
@@ -2620,6 +2622,47 @@ function onlinePaymentCardLast4(data){
   const values=[card.number_last4,card.last4,card.masked_number,card.number];
   for(const value of values){const digits=String(value||"").replace(/\D/g,"");if(digits.length>=4)return digits.slice(-4);}
   return "";
+}
+
+function onlinePaymentProcessingAccount(env,tokenData){
+  const accounts=(Array.isArray(tokenData?.scope?.accounts)?tokenData.scope.accounts:[])
+    .filter(item=>/^TRA_[A-Za-z0-9]+$/.test(String(item?.id||"")));
+  const configuredId=String(env.GP_TRANSACTION_ACCOUNT_ID||"").trim();
+  // Never silently fall back when an explicit account cannot be used.
+  if(configuredId){
+    const selected=accounts.find(item=>String(item.id)===configuredId);
+    if(!selected) throw new Error("GP_TRANSACTION_ACCOUNT_ID is not an authorized transaction account for this app.");
+    return selected;
+  }
+  const standard=accounts.filter(item=>String(item?.name||"").trim().toLowerCase()==="transaction_processing");
+  if(standard.length===1) return standard[0];
+  // Hosted Fields uses the transaction API; an HPP account must not be selected
+  // merely because it happens to be the first TRA account in the token scope.
+  const candidates=accounts.filter(item=>!/hpp/i.test(String(item?.name||"")));
+  if(standard.length===0&&candidates.length===1) return candidates[0];
+  throw new Error(candidates.length>1
+    ?"More than one transaction account is available. Set GP_TRANSACTION_ACCOUNT_ID to the intended processing account."
+    :"No standard transaction_processing account is available for this app.");
+}
+
+function onlinePaymentSafeDetail(value,env,extraSecrets=[]){
+  let detail=String(value||"");
+  for(const secret of [env.GP_APP_KEY,env.GP_APP_ID,...extraSecrets]){
+    if(secret) detail=detail.split(String(secret)).join("[redacted]");
+  }
+  return detail.replace(/\b(?:Bearer\s+)?(?:PMT|TOK)_[A-Za-z0-9_-]+\b/gi,"[redacted]")
+    .replace(/\b\d(?:[ -]?\d){11,18}\b/g,"[redacted]")
+    .replace(/\s+/g," ").trim().slice(0,300);
+}
+
+function onlinePaymentOutcome(response,data){
+  const providerStatus=String(data?.status||"").toUpperCase();
+  const resultCode=String(data?.error_code||data?.action?.result_code||data?.payment_method?.result||"");
+  // A successful API action is NOT necessarily a captured payment.
+  const approved=response.ok&&providerStatus==="CAPTURED"&&Boolean(data?.id)&&!data?.error_code;
+  const declined=!approved&&(providerStatus==="DECLINED"||resultCode.toUpperCase()==="DECLINED");
+  const pending=!approved&&!declined&&(response.ok||response.status>=500||response.status===408||response.status===409);
+  return {providerStatus,resultCode,approved,declined,pending,status:approved?"captured":declined?"declined":pending?"pending":"failed"};
 }
 
 async function customerPaymentSessionPost({request,env}){
@@ -2643,6 +2686,8 @@ async function customerPaymentSessionPost({request,env}){
   if(amountCents>maximumCents) return notificationJson({success:false,error:"This payment is above the online payment limit. Please contact Wooten Oil."},400);
   try{
     await ensureOnlinePaymentTransactionsSchema(env);
+    const unresolved=await env.DB.prepare(`SELECT id FROM online_payment_transactions WHERE account_number=? AND status IN ('processing','pending') LIMIT 1`).bind(paymentAccount(customer.account_number)).first();
+    if(unresolved) return notificationJson({success:false,pending:true,error:"An earlier payment is processing or awaiting confirmation. Do not start another payment; contact Wooten Oil."},409);
     const recent=await env.DB.prepare(`SELECT COUNT(*) AS count FROM online_payment_transactions WHERE account_number=? AND created_at>datetime('now','-10 minutes')`).bind(paymentAccount(customer.account_number)).first();
     if(Number(recent?.count||0)>=6) return notificationJson({success:false,error:"Too many payment attempts were started. Please wait a few minutes and try again."},429);
     const id=crypto.randomUUID();
@@ -2656,11 +2701,13 @@ async function customerPaymentSessionPost({request,env}){
       access_token:tokenData.token,expires_in:Number(tokenData.seconds_to_expire||600),environment:onlinePaymentEnvironment(env)
     });
   }catch(error){
-    console.error("customerPaymentSessionPost failed",String(error?.stack||error?.message||error));
+    console.error("customerPaymentSessionPost failed",error);
+    const sandboxDetail=onlinePaymentEnvironment(env)==="sandbox"
+      ?String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,300)
+      :"";
     return notificationJson({
       success:false,
-      error:"The secure payment form could not be started. Please try again or contact Wooten Oil.",
-      diagnostic:onlinePaymentEnvironment(env)!=="production"?String(error?.message||error).slice(0,300):undefined
+      error:"The secure payment form could not be started."+(sandboxDetail?` Sandbox detail: ${sandboxDetail}`:" Please try again or contact Wooten Oil.")
     },502);
   }
 }
@@ -2679,132 +2726,74 @@ async function customerPaymentChargePost({request,env}){
   const intentId=String(body?.payment_intent_id||"").trim();
   const paymentReference=String(body?.payment_reference||"").trim();
   if(!/^[0-9a-f-]{36}$/i.test(intentId)||!paymentReference||paymentReference.length>300) return notificationJson({success:false,error:"The secure payment information is incomplete. Please restart the payment."},400);
+  let providerRequestStarted=false;
+  let acquiredLock=false;
+  let processingAccount=null;
   try{
     await ensureOnlinePaymentTransactionsSchema(env);
     const account=paymentAccount(customer.account_number);
     const intent=await env.DB.prepare(`SELECT * FROM online_payment_transactions WHERE id=? AND customer_id=? AND account_number=? LIMIT 1`).bind(intentId,Number(customer.id),account).first();
     if(!intent) return notificationJson({success:false,error:"This payment session was not found. Please restart the payment."},404);
     if(String(intent.status)==="captured") return notificationJson({success:true,already_processed:true,transaction_id:intent.provider_transaction_id,reference:intent.provider_reference,amount:(Number(intent.amount_cents)/100).toFixed(2),status:"captured"});
-    if(!["initiated","processing"].includes(String(intent.status))) return notificationJson({success:false,error:"This payment attempt is closed. Please restart the payment."},409);
+    if(["processing","pending"].includes(String(intent.status))) return notificationJson({success:false,pending:true,error:"This payment is processing or awaiting confirmation. Do not submit another payment; contact Wooten Oil."},409);
+    if(String(intent.status)!=="initiated") return notificationJson({success:false,error:"This payment attempt is closed. Please restart the payment."},409);
     if(Date.parse(intent.expires_at)<Date.now()){
-      await env.DB.prepare(`UPDATE online_payment_transactions SET status='expired',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'captured'`).bind(intentId).run();
+      await env.DB.prepare(`UPDATE online_payment_transactions SET status='expired',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='initiated'`).bind(intentId).run();
       return notificationJson({success:false,error:"The secure payment session expired. Please restart the payment."},410);
     }
     const lock=await env.DB.prepare(`UPDATE online_payment_transactions SET status='processing',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='initiated'`).bind(intentId).run();
-    if(!Number(lock?.meta?.changes||0)&&String(intent.status)==="processing") return notificationJson({success:false,error:"This payment is already processing. Please wait before trying again."},409);
+    if(!Number(lock?.meta?.changes||0)) return notificationJson({success:false,pending:true,error:"This payment is already processing. Do not submit another payment."},409);
+    acquiredLock=true;
     const tokenData=await globalPaymentsAccessToken(env,["TRN_POST_Authorize"]);
-    const accounts=Array.isArray(tokenData?.scope?.accounts)?tokenData.scope.accounts:[];
-    if(onlinePaymentEnvironment(env)!=="production"){
-      console.log("Global Payments token scope",JSON.stringify({
-        intentId,
-        merchant_id:tokenData?.scope?.merchant_id||null,
-        merchant_name:tokenData?.scope?.merchant_name||null,
-        accounts
-      }));
-    }
-    const permitsTransactions=item=>Array.isArray(item?.permissions)&&item.permissions.some(p=>String(p).startsWith("TRN_"));
-    const configuredName=String(env.GP_ACCOUNT_NAME||"").trim();
-    const processingAccount=
-      (configuredName&&accounts.find(item=>String(item?.name||"")===configuredName))||
-      accounts.find(item=>String(item?.id||"").startsWith("TRA_")&&permitsTransactions(item))||
-      accounts.find(permitsTransactions)||
-      accounts.find(item=>String(item?.id||"").startsWith("TRA_"));
-    if(!processingAccount) throw new Error("No transaction-processing account was returned for this application.");
+    processingAccount=onlinePaymentProcessingAccount(env,tokenData);
     const amountCents=Number(intent.amount_cents);
-    const gpCurrency=String(env.GP_CURRENCY||"USD").trim().toUpperCase();
-    const gpCountry=String(env.GP_COUNTRY||"US").trim().toUpperCase();
-    const gpType=String(env.GP_TRANSACTION_TYPE||"SALE").trim().toUpperCase();
-    const gpCaptureMode=String(env.GP_CAPTURE_MODE||"AUTO").trim().toUpperCase();
     const transactionBody={
-      channel:"CNP",country:gpCountry,type:gpType,capture_mode:gpCaptureMode,amount:String(amountCents),currency:gpCurrency,
+      account_id:processingAccount.id,
+      channel:"CNP",country:"US",type:"SALE",capture_mode:"AUTO",amount:String(amountCents),currency:"USD",
       reference:String(intent.provider_reference),description:`Wooten Oil customer ${account}`.slice(0,100),
       payment_method:{id:paymentReference,entry_mode:"ECOM"}
     };
-    // Global Payments expects account_id OR account_name, not both. Which one it
-    // accepts depends on how the app is provisioned, so GP_ACCOUNT_FIELD lets us
-    // switch without a code change: "id" (default) or "name".
-    if(String(env.GP_OMIT_ACCOUNT||"").toLowerCase()!=="true"){
-      const field=String(env.GP_ACCOUNT_FIELD||"id").trim().toLowerCase();
-      if(field==="name"&&processingAccount.name) transactionBody.account_name=processingAccount.name;
-      else if(processingAccount.id) transactionBody.account_id=processingAccount.id;
-      else if(processingAccount.name) transactionBody.account_name=processingAccount.name;
-    }
-    const providerResponse=await fetch(onlinePaymentBaseUrl(env)+"/transactions",{
+    const transactionUrl=onlinePaymentBaseUrl(env)+"/transactions";
+    providerRequestStarted=true;
+    const providerResponse=await fetch(transactionUrl,{
       method:"POST",
       headers:{"Authorization":`Bearer ${tokenData.token}`,"Content-Type":"application/json","Accept":"application/json","X-GP-Version":"2021-03-22","x-gp-idempotency":String(intent.idempotency_key)},
       body:JSON.stringify(transactionBody)
     });
     const data=await providerResponse.json().catch(()=>({}));
-    if(!providerResponse.ok||onlinePaymentEnvironment(env)!=="production"){
-      console.log("Global Payments /transactions response",JSON.stringify({
-        intentId,
-        http_status:providerResponse.status,
-        account_id:processingAccount.id,
-        request:{...transactionBody,payment_method:{...transactionBody.payment_method,id:"[redacted]"}},
-        response:data
-      }));
-    }
-    const resultCode=String(data?.action?.result_code||data?.payment_method?.result||data?.error_code||"");
-    const resultMessage=String(data?.action?.result_message||data?.payment_method?.message||data?.detailed_error_description||data?.status||"").slice(0,300);
-    const providerStatus=String(data?.status||"").toUpperCase();
-    const approved=providerResponse.ok&&(resultCode==="SUCCESS"||resultCode==="00"||["CAPTURED","PREAUTHORIZED"].includes(providerStatus));
-    const finalStatus=approved?"captured":"declined";
+    const outcome=onlinePaymentOutcome(providerResponse,data);
+    const {resultCode,providerStatus,approved,declined,pending}=outcome;
+    const resultMessage=onlinePaymentSafeDetail(data?.detailed_error_description||data?.error_description||data?.action?.result_message||data?.payment_method?.message||data?.status,env,[tokenData.token,paymentReference]);
+    const finalStatus=outcome.status;
     const card=data?.payment_method?.card||{};
     await env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=?,provider_status=?,card_brand=?,card_last4=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=?`)
       .bind(finalStatus,String(data?.id||"").slice(0,100),providerStatus,String(card.brand||card.brand_reference||"").slice(0,40),onlinePaymentCardLast4(data),resultCode.slice(0,80),resultMessage,intentId).run();
     if(!approved){
-      console.warn("Global Payments declined portal payment",{intentId,resultCode,providerStatus,resultMessage,http_status:providerResponse.status});
-      const sandbox=onlinePaymentEnvironment(env)!=="production";
-      return notificationJson({
-        success:false,declined:true,
-        error:"The payment was not approved. Please check the card information or contact your card issuer.",
-        result_code:resultCode||undefined,
-        diagnostic:sandbox?`HTTP ${providerResponse.status} · ${resultCode||"no result_code"} · ${resultMessage||"no message"} · used ${transactionBody.account_id||transactionBody.account_name||"default account"} · available ${accounts.map(a=>`${a?.name||"?"}(${a?.id||"?"})`).join(", ")||"none"}`:undefined
-      },402);
+      const diagnostic={intentId,environment:onlinePaymentEnvironment(env),account_name:String(processingAccount.name||""),account_id:String(processingAccount.id),provider_http_status:providerResponse.status,result_code:resultCode.slice(0,80),detailed_error_code:String(data?.detailed_error_code||"").slice(0,40),provider_status:providerStatus,detail:resultMessage};
+      console.warn("Global Payments payment outcome "+JSON.stringify(diagnostic));
+      const sandbox=onlinePaymentEnvironment(env)==="sandbox";
+      const error=pending
+        ?"The payment result is awaiting confirmation. Do not submit another payment; contact Wooten Oil."
+        :declined
+          ?(sandbox?"The sandbox test transaction was declined. Use the documented sandbox test card, not a real card.":"The payment was declined. Please check your card information or contact your card issuer.")
+          :"The payment processor rejected the request because of a setup or request error. This is not a confirmed card decline.";
+      const sandboxDetail=sandbox?` Sandbox: ${resultCode||"HTTP "+providerResponse.status}. ${resultMessage} Account: ${processingAccount.name||processingAccount.id}.`:"";
+      return notificationJson({success:false,declined,pending,error:error+sandboxDetail,result_code:resultCode||undefined,...(sandbox?{diagnostic}:{}),payment_integration_version:"account-selection-2"},declined?402:502);
     }
     return notificationJson({success:true,transaction_id:String(data?.id||""),reference:String(intent.provider_reference),amount:(amountCents/100).toFixed(2),status:"captured",card_brand:String(card.brand||""),card_last4:onlinePaymentCardLast4(data)});
   }catch(error){
-    console.error("customerPaymentChargePost failed",error);
-    await env.DB.prepare(`UPDATE online_payment_transactions SET status='initiated',result_message=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='processing'`).bind(String(error?.message||error).slice(0,300),intentId).run().catch(()=>{});
-    return notificationJson({
-      success:false,
-      error:"The payment result could not be confirmed. Do not submit another payment yet; please try this payment again or contact Wooten Oil.",
-      diagnostic:onlinePaymentEnvironment(env)!=="production"?String(error?.message||error).slice(0,300):undefined
-    },502);
+    const detail=onlinePaymentSafeDetail(error?.message||error,env);
+    console.error("customerPaymentChargePost failed "+JSON.stringify({intentId,provider_request_started:providerRequestStarted,detail}));
+    // Once a request may have reached the processor, never automatically reopen
+    // the intent: a network/DB failure does not prove the card was not charged.
+    if(acquiredLock) await env.DB.prepare(`UPDATE online_payment_transactions SET status=?,result_message=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='processing'`).bind(providerRequestStarted?"pending":"failed",detail,intentId).run().catch(()=>{});
+    const message=providerRequestStarted
+      ?"The payment result could not be confirmed. Do not submit another payment; contact Wooten Oil."
+      :"The payment could not be started. No transaction request was sent to the processor.";
+    return notificationJson({success:false,declined:false,pending:providerRequestStarted,error:message+(onlinePaymentEnvironment(env)==="sandbox"?" Sandbox detail: "+detail:""),payment_integration_version:"account-selection-2"},502);
   }
 }
 __name(customerPaymentChargePost,"customerPaymentChargePost");
-
-async function customerPaymentAccountsGet({request,env}){
-  // Sandbox-only diagnostic: asks Global Payments what this app's accounts
-  // support, so currency/country/capability mismatches are visible directly.
-  if(onlinePaymentEnvironment(env)==="production") return notificationJson({success:false,error:"Not available."},404);
-  const diagnosticKey=String(env.GP_DIAGNOSTIC_KEY||"").trim();
-  const suppliedKey=String(new URL(request.url).searchParams.get("key")||"").trim();
-  if(!diagnosticKey||suppliedKey!==diagnosticKey){
-    const customer=await getCustomerFromSession(request,env);
-    if(!customer) return notificationJson({success:false,error:"Please sign in first, or add ?key= with the configured diagnostic key."},401);
-  }
-  if(!onlinePaymentConfigured(env)) return notificationJson({success:false,error:"Global Payments credentials are not configured."},503);
-  try{
-    const tokenData=await globalPaymentsAccessToken(env);
-    const response=await fetch(onlinePaymentBaseUrl(env)+"/accounts",{
-      method:"GET",
-      headers:{"Authorization":`Bearer ${tokenData.token}`,"Accept":"application/json","X-GP-Version":"2021-03-22"}
-    });
-    const data=await response.json().catch(()=>({}));
-    console.log("Global Payments /accounts",JSON.stringify(data));
-    return notificationJson({
-      success:true,
-      http_status:response.status,
-      token_scope:tokenData?.scope||null,
-      accounts:data
-    });
-  }catch(error){
-    return notificationJson({success:false,error:String(error?.message||error).slice(0,300)},502);
-  }
-}
-__name(customerPaymentAccountsGet,"customerPaymentAccountsGet");
 
 async function customerPaymentsGet({request,env}){
   const customer=await getCustomerFromSession(request,env);
@@ -2829,10 +2818,10 @@ async function customerPaymentsGet({request,env}){
         CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,
         '' AS deposit_date,'' AS deposit_no,'' AS invoice_no,amount_cents/100.0 AS amount,
         COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,
-        CASE status WHEN 'captured' THEN 'Portal card payment — submitted; awaiting MAS 90 posting' WHEN 'declined' THEN 'Portal card payment — declined' ELSE 'Portal card payment — pending' END AS description,
+        CASE status WHEN 'captured' THEN 'Portal card payment — submitted; awaiting MAS 90 posting' WHEN 'declined' THEN 'Portal card payment — declined' WHEN 'failed' THEN 'Portal card payment — setup or request error' ELSE 'Portal card payment — awaiting confirmation' END AS description,
         created_at AS imported_at,'portal' AS source,status,card_brand,card_last4
       FROM online_payment_transactions
-      WHERE account_number=? AND status IN ('captured','declined','processing')
+      WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed')
       ORDER BY created_at DESC LIMIT 5000
     `).bind(account).all();
     const imported=importedResult?.results||[];
@@ -10732,9 +10721,9 @@ async function adminCustomerActivityGet({request,env}){
         SELECT 'portal-'||id AS id,substr(created_at,1,10) AS payment_date,
           CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,'' AS deposit_date,
           COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,'' AS invoice_no,amount_cents/100.0 AS amount,
-          CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' ELSE 'Customer portal card payment pending' END AS description,
+          CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
           'portal' AS source,status,card_brand,card_last4
-        FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing')
+        FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed')
       ) SELECT *,COUNT(*) OVER() AS total_count FROM combined
         ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`)
         .bind(account,account,pageSize,offset("payments")).all(),"payments"),
@@ -11906,11 +11895,6 @@ var worker_default = {
 
     if (url.pathname === "/api/customer/payment/session") {
       if (request.method === "POST") return customerPaymentSessionPost({request,env});
-      return methodNotAllowed();
-    }
-
-    if (url.pathname === "/api/customer/payment/accounts") {
-      if (request.method === "GET") return customerPaymentAccountsGet({request,env});
       return methodNotAllowed();
     }
 
