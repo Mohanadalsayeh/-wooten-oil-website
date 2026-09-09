@@ -2595,6 +2595,13 @@ async function globalPaymentsAccessToken(env,permissions){
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data?.token){
+    console.error("Global Payments /accesstoken failed",JSON.stringify({
+      http_status:response.status,
+      base_url:onlinePaymentBaseUrl(env),
+      environment:onlinePaymentEnvironment(env),
+      permissions_requested:permissions||null,
+      response:data
+    }));
     const detail=String(data?.error_description||data?.detailed_error_description||data?.error_code||`HTTP ${response.status}`).slice(0,300);
     throw new Error(`Global Payments authentication failed: ${detail}`);
   }
@@ -2649,8 +2656,12 @@ async function customerPaymentSessionPost({request,env}){
       access_token:tokenData.token,expires_in:Number(tokenData.seconds_to_expire||600),environment:onlinePaymentEnvironment(env)
     });
   }catch(error){
-    console.error("customerPaymentSessionPost failed",error);
-    return notificationJson({success:false,error:"The secure payment form could not be started. Please try again or contact Wooten Oil."},502);
+    console.error("customerPaymentSessionPost failed",String(error?.stack||error?.message||error));
+    return notificationJson({
+      success:false,
+      error:"The secure payment form could not be started. Please try again or contact Wooten Oil.",
+      diagnostic:onlinePaymentEnvironment(env)!=="production"?String(error?.message||error).slice(0,300):undefined
+    },502);
   }
 }
 __name(customerPaymentSessionPost,"customerPaymentSessionPost");
