@@ -2711,8 +2711,10 @@ async function customerPaymentChargePost({request,env}){
       accounts.find(item=>String(item?.id||"").startsWith("TRA_"));
     if(!processingAccount) throw new Error("No transaction-processing account was returned for this application.");
     const amountCents=Number(intent.amount_cents);
+    const gpCurrency=String(env.GP_CURRENCY||"USD").trim().toUpperCase();
+    const gpCountry=String(env.GP_COUNTRY||"US").trim().toUpperCase();
     const transactionBody={
-      channel:"CNP",country:"US",type:"SALE",capture_mode:"AUTO",amount:String(amountCents),currency:"USD",
+      channel:"CNP",country:gpCountry,type:"SALE",capture_mode:"AUTO",amount:String(amountCents),currency:gpCurrency,
       reference:String(intent.provider_reference),description:`Wooten Oil customer ${account}`.slice(0,100),
       payment_method:{id:paymentReference,entry_mode:"ECOM"}
     };
@@ -2770,6 +2772,33 @@ async function customerPaymentChargePost({request,env}){
   }
 }
 __name(customerPaymentChargePost,"customerPaymentChargePost");
+
+async function customerPaymentAccountsGet({request,env}){
+  // Sandbox-only diagnostic: asks Global Payments what this app's accounts
+  // support, so currency/country/capability mismatches are visible directly.
+  if(onlinePaymentEnvironment(env)==="production") return notificationJson({success:false,error:"Not available."},404);
+  const customer=await getCustomerFromSession(request,env);
+  if(!customer) return notificationJson({success:false,error:"Please sign in first."},401);
+  if(!onlinePaymentConfigured(env)) return notificationJson({success:false,error:"Global Payments credentials are not configured."},503);
+  try{
+    const tokenData=await globalPaymentsAccessToken(env);
+    const response=await fetch(onlinePaymentBaseUrl(env)+"/accounts",{
+      method:"GET",
+      headers:{"Authorization":`Bearer ${tokenData.token}`,"Accept":"application/json","X-GP-Version":"2021-03-22"}
+    });
+    const data=await response.json().catch(()=>({}));
+    console.log("Global Payments /accounts",JSON.stringify(data));
+    return notificationJson({
+      success:true,
+      http_status:response.status,
+      token_scope:tokenData?.scope||null,
+      accounts:data
+    });
+  }catch(error){
+    return notificationJson({success:false,error:String(error?.message||error).slice(0,300)},502);
+  }
+}
+__name(customerPaymentAccountsGet,"customerPaymentAccountsGet");
 
 async function customerPaymentsGet({request,env}){
   const customer=await getCustomerFromSession(request,env);
@@ -11871,6 +11900,11 @@ var worker_default = {
 
     if (url.pathname === "/api/customer/payment/session") {
       if (request.method === "POST") return customerPaymentSessionPost({request,env});
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/accounts") {
+      if (request.method === "GET") return customerPaymentAccountsGet({request,env});
       return methodNotAllowed();
     }
 

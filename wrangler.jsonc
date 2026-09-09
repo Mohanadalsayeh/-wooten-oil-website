@@ -16,7 +16,8 @@
     "FUEL_FROM_EMAIL": "fuel@wootenoil.com",
     "GP_ENVIRONMENT": "sandbox",
     "GP_MAX_PAYMENT_CENTS": "50000000",
-    "GP_ACCOUNT_FIELD": "name"
+    "GP_CURRENCY": "EUR",
+    "GP_COUNTRY": "IE"
   },
 
   "d1_databases": [
