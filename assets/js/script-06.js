@@ -113,10 +113,45 @@
       setBusy(false);
     }
   }
+  function stylePortalCardForm(form){
+    // Parent rules style labels/layout. The SDK sends field rules into its
+    // hosted iframes; no card data or iframe document is accessed here.
+    if(!document.getElementById('wooten-secure-card-theme')){
+      var sheet=document.createElement('style');
+      sheet.id='wooten-secure-card-theme';
+      sheet.textContent=[
+        '#globalPaymentsCardForm{font-family:inherit;gap:0;}',
+        '#globalPaymentsCardForm label{font-family:inherit;font-size:15px;font-weight:700;color:#4e5c6d;margin:16px 0 8px;}',
+        '#globalPaymentsCardForm iframe{min-height:54px!important;height:54px!important;display:block;border:0;}',
+        '#globalPaymentsCardForm .credit-card-submit{margin:20px 0 16px;}',
+        '#globalPaymentsCardForm .credit-card-card-cvv iframe{width:calc(100% - 40px);}',
+        '#globalPaymentsCardForm .tooltip{width:32px;height:48px;border:1px solid #d6dde5;border-radius:11px;margin:2px 0 0 6px;color:#53606d;box-sizing:border-box;}',
+        '@media(min-width:800px){#globalPaymentsCardForm .credit-card-card-expiration,#globalPaymentsCardForm .credit-card-card-cvv{flex:1 1 0;min-width:0;}#globalPaymentsCardForm .credit-card-card-expiration{margin-right:10px;}#globalPaymentsCardForm .credit-card-card-cvv{margin-left:10px;}}',
+        '@media(max-width:799px){#globalPaymentsCardForm .credit-card-card-expiration,#globalPaymentsCardForm .credit-card-card-cvv{flex:1 1 100%;margin-left:0;margin-right:0;}}'
+      ].join('\n');
+      document.head.appendChild(sheet);
+    }
+    var font=window.getComputedStyle(amount||button).fontFamily;
+    form.ready(function(){
+      if(form!==gpForm)return;
+      form.addStylesheet({
+        '#secure-payment-field':{'box-sizing':'border-box','width':'calc(100% - 4px)','height':'48px','margin':'2px','padding':'0 13px','border':'1px solid #d6dde5','border-radius':'11px','background-color':'#ffffff','font-family':font,'font-size':'16px','font-weight':'500','color':'#182331','transition':'border-color .15s ease, box-shadow .15s ease'},
+        '#secure-payment-field:hover':{'border-color':'#a7b6c7'},
+        '#secure-payment-field:focus':{'border-color':'#294866','box-shadow':'0 0 0 2px rgba(41,72,102,.14)','outline':'none'},
+        '#secure-payment-field::placeholder':{'color':'#7a8694','opacity':'1'},
+        '#secure-payment-field.card-number, #secure-payment-field.card-cvv':{'padding-right':'42px'},
+        '#secure-payment-field[type=button]':{'height':'48px','width':'calc(100% - 4px)','margin':'2px','border':'1px solid #bd1e2d','border-radius':'11px','background-color':'#bd1e2d','color':'#ffffff','font-family':font,'font-size':'16px','font-weight':'600','text-transform':'none','padding':'10px 14px','cursor':'pointer'},
+        '#secure-payment-field[type=button]:hover':{'background-color':'#a91926','border-color':'#a91926'},
+        '#secure-payment-field[type=button]:focus':{'border-color':'#294866','box-shadow':'0 0 0 2px rgba(41,72,102,.2)','outline':'none'},
+        '#secure-payment-field[type=button]:disabled':{'opacity':'.6','cursor':'not-allowed'}
+      });
+    });
+  }
   function mountCardForm(session){
     disposeForm();
     window.GlobalPayments.configure({accessToken:session.access_token,apiVersion:'2021-03-22',env:session.environment==='production'?'production':'sandbox'});
     gpForm=window.GlobalPayments.creditCard.form('#globalPaymentsCardForm',{style:'gp-default',amount:session.amount,enableSavedPaymentMethods:false});
+    stylePortalCardForm(gpForm);
     gpForm.on('token-success',function(response){
       var reference=response&&response.paymentReference;
       if(!reference){setResult('The card could not be secured. Please try again.','error');return;}
