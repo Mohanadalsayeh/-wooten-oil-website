@@ -2583,7 +2583,9 @@ async function onlinePaymentSha512(value){
 }
 async function globalPaymentsAccessToken(env,permissions){
   if(!onlinePaymentConfigured(env)) throw new Error("Global Payments credentials are not configured.");
-  const nonce=new Date().toISOString()+"-"+crypto.randomUUID();
+  // Global Payments enforces a short nonce field. A hyphen-free UUID keeps
+  // 128 bits of randomness while remaining within the provider's limit.
+  const nonce=crypto.randomUUID().replace(/-/g,"");
   const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
   const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
     method:"POST",
