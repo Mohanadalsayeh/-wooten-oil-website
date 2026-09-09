@@ -2713,8 +2713,10 @@ async function customerPaymentChargePost({request,env}){
     const amountCents=Number(intent.amount_cents);
     const gpCurrency=String(env.GP_CURRENCY||"USD").trim().toUpperCase();
     const gpCountry=String(env.GP_COUNTRY||"US").trim().toUpperCase();
+    const gpType=String(env.GP_TRANSACTION_TYPE||"SALE").trim().toUpperCase();
+    const gpCaptureMode=String(env.GP_CAPTURE_MODE||"AUTO").trim().toUpperCase();
     const transactionBody={
-      channel:"CNP",country:gpCountry,type:"SALE",capture_mode:"AUTO",amount:String(amountCents),currency:gpCurrency,
+      channel:"CNP",country:gpCountry,type:gpType,capture_mode:gpCaptureMode,amount:String(amountCents),currency:gpCurrency,
       reference:String(intent.provider_reference),description:`Wooten Oil customer ${account}`.slice(0,100),
       payment_method:{id:paymentReference,entry_mode:"ECOM"}
     };
