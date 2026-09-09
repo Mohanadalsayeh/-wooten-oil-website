@@ -79,6 +79,8 @@
     if(!response.ok||data.success===false){
       var error=new Error(data.error||'The payment request could not be completed.');
       error.status=response.status;
+      error.diagnostic=data.diagnostic||'';
+      if(error.diagnostic)console.error('Wooten payment diagnostic:',error.diagnostic);
       throw error;
     }
     return data;
@@ -102,8 +104,9 @@
     }catch(error){
       disposeForm();
       activeIntent='';
-      setResult(error.message||'The payment could not be completed.','error');
-      setMessage(error.message||'The payment could not be completed.','error');
+      var text=error.message||'The payment could not be completed.';
+      setResult(error.diagnostic?text+' ['+error.diagnostic+']':text,'error');
+      setMessage(text,'error');
     }finally{
       processing=false;
       if(cancel)cancel.disabled=false;
@@ -148,7 +151,8 @@
       secure.scrollIntoView({behavior:'smooth',block:'nearest'});
     }catch(error){
       closeSecurePayment();
-      setMessage(error.message||'The secure payment form could not be started.','error');
+      var text=error.message||'The secure payment form could not be started.';
+      setMessage(error.diagnostic?text+' ['+error.diagnostic+']':text,'error');
     }finally{setBusy(false);}
   }
 
