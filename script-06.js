@@ -151,7 +151,8 @@
       secure.scrollIntoView({behavior:'smooth',block:'nearest'});
     }catch(error){
       closeSecurePayment();
-      setMessage(error.message||'The secure payment form could not be started.','error');
+      var text=error.message||'The secure payment form could not be started.';
+      setMessage(error.diagnostic?text+' ['+error.diagnostic+']':text,'error');
     }finally{setBusy(false);}
   }
 
