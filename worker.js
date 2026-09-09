@@ -2650,7 +2650,13 @@ async function customerPaymentSessionPost({request,env}){
     });
   }catch(error){
     console.error("customerPaymentSessionPost failed",error);
-    return notificationJson({success:false,error:"The secure payment form could not be started. Please try again or contact Wooten Oil."},502);
+    const sandboxDetail=onlinePaymentEnvironment(env)==="sandbox"
+      ?String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,300)
+      :"";
+    return notificationJson({
+      success:false,
+      error:"The secure payment form could not be started."+(sandboxDetail?` Sandbox detail: ${sandboxDetail}`:" Please try again or contact Wooten Oil.")
+    },502);
   }
 }
 __name(customerPaymentSessionPost,"customerPaymentSessionPost");
