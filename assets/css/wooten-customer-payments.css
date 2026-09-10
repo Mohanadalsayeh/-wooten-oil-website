@@ -108,6 +108,9 @@
 .portal-payment-result.show{display:block}
 
 .portal-payment-cancel{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   margin-top:14px;
   padding:10px 14px;
   border:1px solid #aeb9c5;
@@ -121,6 +124,11 @@
 
 .portal-payment-cancel:hover{background:#f4f7fa}
 .portal-payment-cancel:disabled{cursor:wait;opacity:.6}
+.portal-payment-cancel[hidden]{display:none!important}
+#portalPaymentResume{background:#bd1e2d;border-color:#bd1e2d;color:#fff;margin-right:8px;text-decoration:none}
+#portalPaymentResume:hover{background:#a91926}
+#portalPaymentCheck:focus-visible,#portalPaymentResume:focus-visible{outline:3px solid #7eaee7;outline-offset:2px}
+@media(max-width:600px){#portalPaymentResume,#portalPaymentCheck{width:100%;margin-right:0}}
 
 .payment-history-status-badge{
   display:inline-flex;

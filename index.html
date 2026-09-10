@@ -167,7 +167,7 @@
 
 <link rel="stylesheet" href="assets/css/wooten-notification-pdf-bottom-breathing-room.css">
 
-<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=payment-sandbox-1">
+<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=hosted-payment-1">
 
 <link rel="stylesheet" href="assets/css/wooten-farm-tractor-visual.css">
 
@@ -737,11 +737,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         <button type="button" class="payment-continue" id="portalPaymentContinue">Continue to Secure Payment</button>
         <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite"></div>
         <div class="portal-secure-payment" id="portalSecurePayment" hidden>
-          <div class="portal-secure-payment-head"><span>Secure Card Payment</span><strong id="portalSecurePaymentAmount">$0.00</strong></div>
-          <div id="globalPaymentsCardForm" aria-label="Secure card payment form"></div>
-          <p class="portal-secure-payment-note">Your card details are encrypted and sent directly to Global Payments. Wooten Oil does not receive or store your card number.</p>
+          <div class="portal-secure-payment-head"><span>Payment Status</span><strong id="portalSecurePaymentAmount">$0.00</strong></div>
+          <p class="portal-secure-payment-note">Global Payments processes your payment on its secure page. Your payment status is saved to your account even if you close the portal.</p>
           <div class="portal-payment-result" id="portalPaymentResult" role="status" aria-live="polite"></div>
-          <button type="button" class="portal-payment-cancel" id="portalPaymentCancel">Cancel Payment</button>
+          <a class="portal-payment-cancel" id="portalPaymentResume" rel="noreferrer" hidden>Resume Secure Payment</a>
+          <button type="button" class="portal-payment-cancel" id="portalPaymentCheck">Check Payment Status</button>
         </div>
       </div>
 
@@ -1332,7 +1332,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-05.js"></script>
 
 
-<script src="assets/js/script-06.js?v=payment-sandbox-3"></script>
+<script src="assets/js/script-06.js?v=hosted-payment-1"></script>
 
 
 
@@ -1368,7 +1368,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=291"></script>
+<script src="assets/js/script-07.js?v=hosted-payment-1"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">

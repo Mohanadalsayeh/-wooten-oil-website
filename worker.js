@@ -2596,6 +2596,7 @@ async function globalPaymentsAccessToken(env,permissions){
   const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
   const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
     method:"POST",
+    redirect:"error",signal:AbortSignal.timeout(12000),
     headers:{"Content-Type":"application/json","Accept":"application/json","X-GP-Version":"2021-03-22"},
     body:JSON.stringify({
       app_id:String(env.GP_APP_ID),nonce,secret,grant_type:"client_credentials",seconds_to_expire:600,
@@ -2665,6 +2666,208 @@ function onlinePaymentOutcome(response,data){
   return {providerStatus,resultCode,approved,declined,pending,status:approved?"captured":declined?"declined":pending?"pending":"failed"};
 }
 
+// HPP link records are separate from the existing payment ledger. The ledger
+// remains the source for payment history; callbacks never add a second payment.
+async function ensureHostedPaymentsSchema(env){
+  await ensureOnlinePaymentTransactionsSchema(env);
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_links (
+    intent_id TEXT PRIMARY KEY, account_number TEXT NOT NULL, environment TEXT NOT NULL,
+    link_id TEXT NOT NULL DEFAULT '', link_url TEXT NOT NULL DEFAULT '', account_id TEXT NOT NULL DEFAULT '',
+    callback_key TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1,
+    link_status TEXT NOT NULL DEFAULT 'CREATING', verified INTEGER NOT NULL DEFAULT 0,
+    created_ms INTEGER NOT NULL, next_check_ms INTEGER NOT NULL, last_check_ms INTEGER NOT NULL DEFAULT 0,
+    lease_until_ms INTEGER NOT NULL DEFAULT 0, terminal_since_ms INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT NOT NULL DEFAULT ''
+  )`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_hosted_payment_active_account ON hosted_payment_links(account_number) WHERE active=1`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_hosted_payment_due ON hosted_payment_links(environment,next_check_ms)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_health (environment TEXT PRIMARY KEY, heartbeat_ms INTEGER NOT NULL)`).run();
+}
+function hostedPaymentUrl(value,environment){
+  const url=new URL(String(value));
+  const origin=environment==='production'?'https://apis.globalpay.com':'https://apis.sandbox.globalpay.com';
+  if(url.origin!==origin||url.username||url.password||!url.pathname.startsWith('/ucp/')) throw new Error('Invalid hosted payment address.');
+  return url.href;
+}
+function hostedPaymentAccount(env,token){
+  const accounts=(Array.isArray(token?.scope?.accounts)?token.scope.accounts:[]).filter(a=>/^TRA_[A-Za-z0-9]+$/.test(String(a.id||'')));
+  const id=String(env.GP_HPP_ACCOUNT_ID||'').trim();
+  const name=String(env.GP_HPP_ACCOUNT_NAME||'transaction_processing').trim();
+  const selected=accounts.filter(a=>id?a.id===id:a.name===name);
+  if(selected.length!==1) throw new Error('The configured hosted payment account is not uniquely available to this app. Confirm GP_HPP_ACCOUNT_ID or GP_HPP_ACCOUNT_NAME with Global Payments.');
+  return selected[0];
+}
+async function hostedPaymentApi(env,token,path,body){
+  const response=await fetch(onlinePaymentBaseUrl(env)+path,{
+    method:body?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(12000),
+    headers:{Authorization:`Bearer ${token.token}`,'Content-Type':'application/json',Accept:'application/json','X-GP-Version':'2021-03-22'},
+    ...(body?{body:JSON.stringify(body)}:{})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||data.error_code) throw new Error('Global Payments '+response.status+': '+onlinePaymentSafeDetail(data.error_code||'Unable to verify the payment',env,[token.token]));
+  return data;
+}
+async function hostedPaymentRecord(env,id){
+  return env.DB.prepare(`SELECT p.*,h.link_id,h.link_url,h.account_id,h.environment,h.active,h.verified,h.callback_key,
+    h.link_status,h.created_ms,h.last_check_ms,h.lease_until_ms,h.terminal_since_ms,h.last_error
+    FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.id=?`).bind(id).first();
+}
+async function hostedPaymentSchedulerReady(env){
+  const health=await env.DB.prepare(`SELECT heartbeat_ms FROM hosted_payment_health WHERE environment=?`).bind(onlinePaymentEnvironment(env)).first();
+  return Boolean(health&&Date.now()-Number(health.heartbeat_ms)<=5*60000);
+}
+// Both transaction shapes appear in GP's published Links API: direct entries
+// and transaction groups containing transaction_list. An unrecognized response
+// stays unresolved instead of being interpreted as an unpaid link.
+function hostedPaymentOutcome(intent,data,now=Date.now()){
+  if(data.id!==intent.link_id||data.reference!==intent.provider_reference||
+    (data.account_id&&data.account_id!==intent.account_id)||
+    (data.usage_mode&&data.usage_mode!=='SINGLE')||!Array.isArray(data.transactions)){
+    throw new Error('Hosted payment verification did not match the saved link.');
+  }
+  const transactions=[];
+  for(const group of data.transactions){
+    if(Array.isArray(group.transaction_list)) transactions.push(...group.transaction_list);
+    else if(group.id) transactions.push(group);
+    else if(group.transaction_list===null&&Number(group.amount)===Number(intent.amount_cents)&&group.currency===intent.currency) continue;
+    else throw new Error('Hosted payment transaction details are not available yet.');
+  }
+  const sales=transactions.filter(t=>t.type==='SALE');
+  if(sales.length!==transactions.length) throw new Error('Hosted payment contains a transaction that requires review.');
+  for(const t of sales){
+    if(!/^TRN_[A-Za-z0-9_-]+$/.test(String(t.id||''))||!/^\d+$/.test(String(t.amount))||
+      Number(t.amount)!==Number(intent.amount_cents)||t.currency!==intent.currency||t.reference!==intent.provider_reference){
+      throw new Error('Hosted payment amount, currency or reference did not match the saved payment.');
+    }
+  }
+  const paid=sales.filter(t=>['CAPTURED','FUNDED'].includes(t.status));
+  if(new Set(paid.map(t=>t.id)).size>1) throw new Error('More than one successful transaction needs review.');
+  if(paid.length) return {status:'captured',active:0,transaction:paid[0],code:'SUCCESS',terminalSince:0};
+  // A stale result must never erase a previously confirmed capture.
+  if(intent.status==='captured') return {status:'captured',active:0,code:'SUCCESS',terminalSince:0};
+  const uncertain=sales.some(t=>!['DECLINED'].includes(t.status));
+  const lastDecline=sales.filter(t=>t.status==='DECLINED').sort((a,b)=>String(b.time_created||'').localeCompare(String(a.time_created||'')))[0];
+  if(uncertain||['PAID','CLOSED'].includes(data.status)||Number(data.usage_count||data.paid_count||0)>0){
+    return {status:'pending',active:1,code:'AWAITING_CONFIRMATION',terminalSince:0};
+  }
+  // Closing a browser is not cancellation. Only a processor-confirmed closed
+  // unpaid link can be released, after two checks and a finality grace period.
+  const ended=['EXPIRED','INACTIVE'].includes(data.status);
+  const expirySafe=data.status!=='EXPIRED'||now>Date.parse(intent.expires_at)+600000;
+  const terminalSince=ended&&expirySafe?(Number(intent.terminal_since_ms)||now):0;
+  if(terminalSince&&now-terminalSince>=600000){
+    return {status:lastDecline?'declined':data.status==='INACTIVE'?'canceled':'expired',active:0,
+      transaction:lastDecline,code:lastDecline?'DECLINED':'UNPAID',terminalSince};
+  }
+  if(!['ACTIVE','EXPIRED','INACTIVE'].includes(data.status)) throw new Error('Hosted payment link status is not recognized.');
+  return {status:'pending',active:1,transaction:lastDecline,code:lastDecline?'DECLINED':data.status==='ACTIVE'?'AWAITING_PAYMENT':'AWAITING_CONFIRMATION',terminalSince};
+}
+async function reconcileHostedPayment(env,id,sharedToken){
+  let intent=await hostedPaymentRecord(env,id);
+  if(!intent||intent.environment!==onlinePaymentEnvironment(env)) return intent;
+  const now=Date.now();
+  const lease=now+60000;
+  const locked=await env.DB.prepare(`UPDATE hosted_payment_links SET lease_until_ms=? WHERE intent_id=? AND lease_until_ms<? AND last_check_ms<?`)
+    .bind(lease,id,now,now-15000).run();
+  if(!Number(locked?.meta?.changes)) return intent;
+  try{
+    if(!intent.link_id){
+      if(now-intent.created_ms<120000) return intent;
+      // No URL was handed to a customer: an interrupted link creation is safe
+      // to close locally. Do not attempt to create or charge again from cron.
+      await env.DB.batch([
+        env.DB.prepare(`UPDATE online_payment_transactions SET status='failed',result_code='LINK_NOT_DELIVERED',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status!='captured'`).bind(id),
+        env.DB.prepare(`UPDATE hosted_payment_links SET active=0,last_check_ms=?,next_check_ms=?,last_error='Link creation interrupted before redirect' WHERE intent_id=?`).bind(now,now+86400000,id)
+      ]);
+      return await hostedPaymentRecord(env,id);
+    }
+    const token=sharedToken||await globalPaymentsAccessToken(env);
+    const data=await hostedPaymentApi(env,token,'/links/'+encodeURIComponent(intent.link_id));
+    const outcome=hostedPaymentOutcome(intent,data,now);
+    const tx=outcome.transaction;
+    const next=now+(outcome.active?(now-intent.created_ms>86400000?3600000:120000):1200000);
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=CASE WHEN ?!='' THEN ? ELSE provider_transaction_id END,
+        provider_status=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,
+        completed_at=CASE WHEN ?=0 THEN COALESCE(completed_at,CURRENT_TIMESTAMP) ELSE completed_at END
+        WHERE id=? AND (status!='captured' OR ?='captured')`)
+        .bind(outcome.status,tx?.id||'',tx?.id||'',tx?.status||data.status,outcome.code,
+          outcome.code==='SUCCESS'?'Payment confirmed by Global Payments':outcome.code==='DECLINED'?'Latest card attempt declined':'Payment awaiting confirmation',
+          outcome.active,id,outcome.status),
+      env.DB.prepare(`UPDATE hosted_payment_links SET active=?,verified=1,link_status=?,last_error='',last_check_ms=?,next_check_ms=?,terminal_since_ms=? WHERE intent_id=?`)
+        .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id)
+    ]);
+  }catch(error){
+    // Store a short operational error only; never store or log the callback
+    // body, access token, payment URL or payment-card details.
+    const detail=onlinePaymentSafeDetail(error?.message||error,env,[intent.callback_key,sharedToken?.token,intent.link_url]);
+    await env.DB.prepare(`UPDATE hosted_payment_links SET last_error=?,last_check_ms=?,next_check_ms=? WHERE intent_id=?`).bind(detail,now,now+120000,id).run();
+    console.warn('Hosted payment requires verification '+JSON.stringify({intent_id:id,detail}));
+  }finally{
+    await env.DB.prepare(`UPDATE hosted_payment_links SET lease_until_ms=0 WHERE intent_id=? AND lease_until_ms=?`).bind(id,lease).run();
+  }
+  return await hostedPaymentRecord(env,id);
+}
+async function reconcileHostedPayments(env){
+  if(!env?.DB||!onlinePaymentConfigured(env)) return;
+  await ensureHostedPaymentsSchema(env);
+  const now=Date.now(),environment=onlinePaymentEnvironment(env);
+  const due=await env.DB.prepare(`SELECT intent_id FROM hosted_payment_links WHERE environment=? AND next_check_ms<=?
+    AND (active=1 OR created_ms>?) ORDER BY next_check_ms LIMIT 5`).bind(environment,now,now-3*86400000).all();
+  let token;
+  if(due.results?.length) token=await globalPaymentsAccessToken(env);
+  for(const row of due.results||[]) await reconcileHostedPayment(env,row.intent_id,token);
+  await env.DB.prepare(`INSERT INTO hosted_payment_health(environment,heartbeat_ms) VALUES(?,?) ON CONFLICT(environment) DO UPDATE SET heartbeat_ms=excluded.heartbeat_ms`).bind(environment,Date.now()).run();
+}
+function hostedPaymentPublic(intent){
+  if(!intent) return null;
+  const canResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&
+    intent.result_code==='AWAITING_PAYMENT'&&Date.parse(intent.expires_at)>Date.now());
+  // A declined attempt may be retried on its existing SINGLE-use link. A
+  // processing/preauthorized or unknown transaction must not be retried.
+  const declinedResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&intent.result_code==='DECLINED'&&Date.parse(intent.expires_at)>Date.now());
+  return {payment_intent_id:intent.id,status:intent.status,active:!!intent.active,amount:(Number(intent.amount_cents)/100).toFixed(2),
+    currency:intent.currency,reference:intent.provider_reference,environment:intent.environment,
+    last_attempt_declined:intent.result_code==='DECLINED',verification_pending:!!intent.last_error,
+    redirect_url:canResume||declinedResume?hostedPaymentUrl(intent.link_url,intent.environment):null};
+}
+async function customerHostedPaymentGet({request,env}){
+  const customer=await getCustomerFromSession(request,env);
+  if(!customer) return notificationJson({success:false,error:'Please sign in to check your payment.'},401);
+  try{
+    await ensureHostedPaymentsSchema(env);
+    const id=new URL(request.url).searchParams.get('id');
+    const account=paymentAccount(customer.account_number);
+    const row=id
+      ?await env.DB.prepare(`SELECT p.id FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.id=? AND p.customer_id=? AND p.account_number=?`).bind(id,Number(customer.id),account).first()
+      :await env.DB.prepare(`SELECT p.id FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.customer_id=? AND p.account_number=? ORDER BY h.active DESC,h.created_ms DESC LIMIT 1`).bind(Number(customer.id),account).first();
+    if(!row) return notificationJson({success:true,payment:null});
+    const intent=await reconcileHostedPayment(env,row.id);
+    const payment=hostedPaymentPublic(intent);
+    if(payment.active&&(!await hostedPaymentSchedulerReady(env)||intent.environment!==onlinePaymentEnvironment(env))){
+      payment.redirect_url=null;payment.verification_pending=true;
+    }
+    return notificationJson({success:true,payment});
+  }catch(error){return notificationJson({success:false,error:'The payment status is temporarily unavailable. Please check again before starting another payment.'},503);}
+}
+async function hostedPaymentReturn({request,env}){
+  const url=new URL(request.url);
+  const id=url.searchParams.get('id')||'',key=url.searchParams.get('key')||'';
+  if(!/^[0-9a-f-]{36}$/i.test(id)||!/^[0-9a-f]{64}$/i.test(key)) return new Response('Invalid payment return',{status:400});
+  await ensureHostedPaymentsSchema(env);
+  const intent=await hostedPaymentRecord(env,id);
+  if(!intent||intent.callback_key!==key) return new Response('Invalid payment return',{status:403});
+  // The untrusted notification/return payload is intentionally not parsed.
+  await reconcileHostedPayment(env,id);
+  if(url.searchParams.get('notification')==='1') return new Response(null,{status:204});
+  const destination='/?payment_return='+encodeURIComponent(id)+'#customer-login';
+  const nonce=crypto.randomUUID().replace(/-/g,'');
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Return to Wooten Oil</title><body><p>Returning to your Wooten Oil payment status…</p><a target="_top" href="${destination}">Return to your portal</a><script nonce="${nonce}">try{window.top.location.replace(${JSON.stringify(url.origin+destination)})}catch(e){window.location.replace(${JSON.stringify(url.origin+destination)})}</script></body></html>`,{
+    headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer',
+      'Content-Security-Policy':`default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'`}
+  });
+}
+
 async function customerPaymentSessionPost({request,env}){
   const customer=await getCustomerFromSession(request,env);
   if(!customer) return notificationJson({success:false,error:"Your customer session has expired. Please sign in again."},401);
@@ -2684,30 +2887,74 @@ async function customerPaymentSessionPost({request,env}){
   if(amountCents<100) return notificationJson({success:false,error:"The minimum online payment is $1.00."},400);
   if(amountCents>balanceCents) return notificationJson({success:false,error:"The payment cannot be greater than the current account balance."},400);
   if(amountCents>maximumCents) return notificationJson({success:false,error:"This payment is above the online payment limit. Please contact Wooten Oil."},400);
+  let createdId='',linkSaved=false;
   try{
-    await ensureOnlinePaymentTransactionsSchema(env);
+    await ensureHostedPaymentsSchema(env);
+    if(!await hostedPaymentSchedulerReady(env)) return notificationJson({success:false,error:'Secure payments are temporarily unavailable because background confirmation is not running. Please contact Wooten Oil.'},503);
+    const active=await env.DB.prepare(`SELECT intent_id FROM hosted_payment_links WHERE account_number=? AND active=1`).bind(paymentAccount(customer.account_number)).first();
+    if(active){
+      const intent=await reconcileHostedPayment(env,active.intent_id);
+      if(intent.customer_id!==Number(customer.id)) return notificationJson({success:false,error:'An unfinished payment exists for this account. Contact Wooten Oil.'},409);
+      if(intent.environment!==onlinePaymentEnvironment(env)) return notificationJson({success:false,error:'An earlier payment requires review before changing payment environments.'},409);
+      const payment=hostedPaymentPublic(intent);
+      if(intent.active){
+        if(payment.redirect_url&&Number(intent.amount_cents)===amountCents) return notificationJson({success:true,...payment,resumed:true});
+        return notificationJson({success:false,error:'An earlier payment for $'+payment.amount+' is unfinished. Check its status or resume that payment before starting another.',payment},409);
+      }
+      // A capture discovered just now must be shown before any new payment.
+      if(intent.status==='captured') return notificationJson({success:false,error:'Your earlier payment was received. Please review Payment History before paying again.',payment},409);
+    }
     const unresolved=await env.DB.prepare(`SELECT id FROM online_payment_transactions WHERE account_number=? AND status IN ('processing','pending') LIMIT 1`).bind(paymentAccount(customer.account_number)).first();
     if(unresolved) return notificationJson({success:false,pending:true,error:"An earlier payment is processing or awaiting confirmation. Do not start another payment; contact Wooten Oil."},409);
     const recent=await env.DB.prepare(`SELECT COUNT(*) AS count FROM online_payment_transactions WHERE account_number=? AND created_at>datetime('now','-10 minutes')`).bind(paymentAccount(customer.account_number)).first();
     if(Number(recent?.count||0)>=6) return notificationJson({success:false,error:"Too many payment attempts were started. Please wait a few minutes and try again."},429);
-    const id=crypto.randomUUID();
-    const expiresAt=new Date(Date.now()+15*60*1000).toISOString();
-    const reference=onlinePaymentReference(customer.account_number);
-    await env.DB.prepare(`INSERT INTO online_payment_transactions(id,customer_id,account_number,amount_cents,currency,payment_type,status,provider_reference,idempotency_key,expires_at) VALUES (?,?,?,?,? ,?,'initiated',?,?,?)`)
-      .bind(id,Number(customer.id)||null,paymentAccount(customer.account_number),amountCents,"USD",paymentType,reference,crypto.randomUUID(),expiresAt).run();
-    const tokenData=await globalPaymentsAccessToken(env,["PMT_POST_Create_Single"]);
-    return notificationJson({
-      success:true,payment_intent_id:id,amount:(amountCents/100).toFixed(2),currency:"USD",
-      access_token:tokenData.token,expires_in:Number(tokenData.seconds_to_expire||600),environment:onlinePaymentEnvironment(env)
+    const environment=onlinePaymentEnvironment(env);
+    const id=crypto.randomUUID(),now=Date.now();
+    const key=crypto.randomUUID().replace(/-/g,'')+crypto.randomUUID().replace(/-/g,'');
+    const expiresAt=new Date(now+24*60*60*1000).toISOString();
+    const reference='WO-'+id;
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO online_payment_transactions(id,customer_id,account_number,amount_cents,currency,payment_type,status,provider_reference,idempotency_key,expires_at) VALUES (?,?,?,?,?,?,'initiated',?,?,?)`)
+        .bind(id,Number(customer.id),paymentAccount(customer.account_number),amountCents,'USD',paymentType,reference,crypto.randomUUID(),expiresAt),
+      env.DB.prepare(`INSERT INTO hosted_payment_links(intent_id,account_number,environment,callback_key,created_ms,next_check_ms,lease_until_ms) VALUES(?,?,?,?,?,?,?)`)
+        .bind(id,paymentAccount(customer.account_number),environment,key,now,now+120000,now+60000)
+    ]);
+    createdId=id;
+    const tokenData=await globalPaymentsAccessToken(env);
+    const account=hostedPaymentAccount(env,tokenData);
+    const returnUrl=new URL('/api/customer/payment/return',request.url);
+    returnUrl.searchParams.set('id',id);returnUrl.searchParams.set('key',key);
+    const link=await hostedPaymentApi(env,tokenData,'/links',{
+      account_name:account.name,type:'HOSTED_PAYMENT_PAGE',usage_mode:'SINGLE',name:'Wooten Oil Payment',
+      description:'Wooten Oil account payment',reference,
+      order:{amount:String(amountCents),currency:'USD',reference,
+        transaction_configuration:{channel:'CNP',country:'US',capture_mode:'AUTO',allowed_payment_methods:['CARD']}},
+      notifications:{return_url:returnUrl.href,status_url:returnUrl.href+'&notification=1',cancel_url:returnUrl.href}
     });
+    if(!/^LNK_[A-Za-z0-9_-]+$/.test(String(link.id||''))) throw new Error('No hosted payment link ID was returned.');
+    const redirectUrl=hostedPaymentUrl(link.url,environment);
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE hosted_payment_links SET link_id=?,link_url=?,account_id=?,link_status='ACTIVE',lease_until_ms=0 WHERE intent_id=?`).bind(link.id,redirectUrl,account.id,id),
+      env.DB.prepare(`UPDATE online_payment_transactions SET status='pending',updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(id)
+    ]);
+    linkSaved=true;
+    const verified=await reconcileHostedPayment(env,id,tokenData);
+    const payment=hostedPaymentPublic(verified);
+    if(!payment.redirect_url) throw new Error('The hosted link was created, but its status could not be independently verified. Global Payments must enable link retrieval for this app.');
+    return notificationJson({success:true,...payment});
   }catch(error){
-    console.error("customerPaymentSessionPost failed",error);
-    const sandboxDetail=onlinePaymentEnvironment(env)==="sandbox"
-      ?String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,300)
-      :"";
+    if(createdId&&!linkSaved){
+      await env.DB.batch([
+        env.DB.prepare(`UPDATE online_payment_transactions SET status='failed',result_code='LINK_NOT_DELIVERED',updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(createdId),
+        env.DB.prepare(`UPDATE hosted_payment_links SET active=0,lease_until_ms=0 WHERE intent_id=?`).bind(createdId)
+      ]).catch(()=>{});
+    }
+    const detail=onlinePaymentSafeDetail(error?.message||error,env);
+    console.warn('Hosted payment session failed '+JSON.stringify({intent_id:createdId,detail}));
+    const sandboxDetail=onlinePaymentEnvironment(env)==='sandbox'?detail:'';
     return notificationJson({
       success:false,
-      error:"The secure payment form could not be started."+(sandboxDetail?` Sandbox detail: ${sandboxDetail}`:" Please try again or contact Wooten Oil.")
+      error:'The secure payment page could not be opened.'+(sandboxDetail?` Sandbox detail: ${sandboxDetail}`:' Please check your payment status or contact Wooten Oil.')
     },502);
   }
 }
@@ -2807,7 +3054,7 @@ async function customerPaymentsGet({request,env}){
   if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
 
   try{
-    await Promise.all([ensureCustomerPaymentsSchema(env),ensureOnlinePaymentTransactionsSchema(env)]);
+    await Promise.all([ensureCustomerPaymentsSchema(env),ensureHostedPaymentsSchema(env)]);
     const account=paymentAccount(customer.account_number);
     const importedResult=await env.DB.prepare(`
       SELECT
@@ -2824,10 +3071,11 @@ async function customerPaymentsGet({request,env}){
         CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,
         '' AS deposit_date,'' AS deposit_no,'' AS invoice_no,amount_cents/100.0 AS amount,
         COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,
-        CASE status WHEN 'captured' THEN 'Portal card payment — submitted; awaiting MAS 90 posting' WHEN 'declined' THEN 'Portal card payment — declined' WHEN 'failed' THEN 'Portal card payment — setup or request error' ELSE 'Portal card payment — awaiting confirmation' END AS description,
+        CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
+        CASE status WHEN 'captured' THEN 'Portal card payment — captured' WHEN 'declined' THEN 'Portal card payment — declined' WHEN 'failed' THEN 'Portal card payment — setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Portal card payment — awaiting confirmation' END AS description,
         created_at AS imported_at,'portal' AS source,status,card_brand,card_last4
       FROM online_payment_transactions
-      WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed')
+      WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
       ORDER BY created_at DESC LIMIT 5000
     `).bind(account).all();
     const imported=importedResult?.results||[];
@@ -10710,7 +10958,7 @@ async function adminCustomerActivityGet({request,env}){
       const q=`%${search}%`;const rows=await env.DB.prepare(`SELECT account_number,account_name,email,phone,current_balance,account_status,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number LIKE ? OR account_name LIKE ? OR email LIKE ? OR phone LIKE ? ORDER BY CASE WHEN account_number=? THEN 0 ELSE 1 END,account_name COLLATE NOCASE LIMIT 20`).bind(q,q,q,q,normalizeNotificationAccount(search)).all();
       return notificationJson({success:true,matches:rows?.results||[]});
     }
-    await Promise.all([ensureCustomerPaymentsSchema(env),ensureOnlinePaymentTransactionsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
+    await Promise.all([ensureCustomerPaymentsSchema(env),ensureHostedPaymentsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
     const customer=await env.DB.prepare(`SELECT id,account_number,account_name,email,phone,address1,address2,address3,city,state,zip_code,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,credit_hold,credit_limit,terms_description,salesperson_name,statement_cycle,account_status,updated_at,CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated,COALESCE((SELECT email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS email_enabled,COALESCE((SELECT sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS sms_enabled,COALESCE((SELECT portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS portal_enabled FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
     if(!customer)return notificationJson({success:false,error:"Customer was not found."},404);
     const pageSize=20;const pageFor=name=>Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get(`${name}_page`)||"1",10)||1));
@@ -10727,9 +10975,10 @@ async function adminCustomerActivityGet({request,env}){
         SELECT 'portal-'||id AS id,substr(created_at,1,10) AS payment_date,
           CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,'' AS deposit_date,
           COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,'' AS invoice_no,amount_cents/100.0 AS amount,
-          CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
+          CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
+          CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
           'portal' AS source,status,card_brand,card_last4
-        FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed')
+        FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
       ) SELECT *,COUNT(*) OVER() AS total_count FROM combined
         ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`)
         .bind(account,account,pageSize,offset("payments")).all(),"payments"),
@@ -11905,7 +12154,17 @@ var worker_default = {
     }
 
     if (url.pathname === "/api/customer/payment/charge") {
-      if (request.method === "POST") return customerPaymentChargePost({request,env});
+      if (request.method === "POST") return notificationJson({success:false,error:"Payments now use the external secure payment page. Refresh the portal to continue."},410);
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/status") {
+      if (request.method === "GET") return customerHostedPaymentGet({request,env});
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/return") {
+      if (["GET","POST"].includes(request.method)) return hostedPaymentReturn({request,env});
       return methodNotAllowed();
     }
 
@@ -12107,6 +12366,9 @@ return env.ASSETS.fetch(request);
   },
 
   async scheduled(controller, env, ctx) {
+    ctx.waitUntil(reconcileHostedPayments(env));
+    // Add this dedicated trigger without removing existing scheduled jobs.
+    if(controller.cron==='*/2 * * * *') return;
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
     ctx.waitUntil(processDueStatementSchedules(env));
     ctx.waitUntil(checkMas90AutomationHealth(env));

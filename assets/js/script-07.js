@@ -317,6 +317,7 @@
     if(customerDocuments) customerDocuments.classList.remove('show');
     if(paymentHistory) paymentHistory.classList.remove('show');
   }
+  window.addEventListener('wooten:payment-show',function(){showAccountDetails(true);});
   function showAccountDetails(focusPayment){
     if(dashboard) dashboard.classList.add('dashboard-hidden');
     if(fuelHistory) fuelHistory.classList.remove('show');
@@ -900,6 +901,7 @@
   }
   function updateCustomerMenu(c){
     var account=clean(c && c.account_number);
+    window.dispatchEvent(new CustomEvent('wooten:payment-account',{detail:{account_number:account}}));
     if(account){
       document.body.classList.add('customer-signed-in');
       if(desktopCustomerAccount) desktopCustomerAccount.textContent='Customer # '+account;
