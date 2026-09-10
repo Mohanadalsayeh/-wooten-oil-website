@@ -1,0 +1,52 @@
+/* Wooten Oil hosted payment template. Preserve GP form behavior and trust marks. */
+html{min-height:100%;background:#0c2236;}
+body{margin:0;background:linear-gradient(135deg,#0c2236,#1d2c37);color:#182331;font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.6;min-height:100vh;}
+.wooten-shell,.wooten-shell *{box-sizing:border-box;}
+.wooten-shell{width:calc(100% - 40px);max-width:850px;margin:36px auto;padding:30px 36px 24px;background:#fff;border:1px solid #d4dee8;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.2);}
+.wooten-header{padding:0 0 22px;border-bottom:1px solid #e3eaf1;margin-bottom:24px;}
+.wooten-logo{display:block;width:190px;max-width:70%;height:auto;margin:0 0 15px;}
+.wooten-header h1{margin:0 0 6px;color:#0f2742;font-size:26px;font-weight:800;line-height:1.25;letter-spacing:-.02em;}
+.wooten-header p{margin:0;color:#68717d;font-size:16px;line-height:1.5;}
+.wooten-notice{padding:13px 15px;margin:0 0 18px;background:#fff8e7;color:#6b5318;border:1px solid #ecd99d;border-radius:12px;font-size:13.5px;font-weight:400;line-height:1.5;}
+.wooten-notice strong{font-weight:700;}
+.wooten-payment{border:1px solid #cbd7e3;border-radius:16px;padding:22px;background:#fff;}
+.wooten-foot{padding-top:20px;margin-top:24px;border-top:1px solid #e3eaf1;color:#8995a2;text-align:center;font-size:13px;}
+.wooten-shell .portfolio-realex{width:100%;max-width:none;margin:0;background:#fff;font-family:inherit;color:#182331;}
+.wooten-shell #rxp-header{background:#fff;color:#0f2742;padding:0 0 16px;border:0;}
+.wooten-shell #rxp-header h1,.wooten-shell #rxp-header h2,.wooten-shell #rxp-header h3{color:#0f2742;font-family:inherit;font-size:20px;font-weight:800;line-height:1.35;}
+.wooten-shell .panel,.wooten-shell #another-card-section,.wooten-shell #rpx-another-card{background:#fff;border-color:transparent;box-shadow:none;}
+.wooten-shell .panel-body{padding:8px 0;}
+.wooten-shell #hpp-accordion .panel-heading{background:#f5f8fb;color:#17324d;border-radius:11px;border:1px solid #d6dde5;font-family:inherit;}
+.wooten-shell #panelPayWithSavedCard{width:100%;margin-left:0;}
+.wooten-shell label,.wooten-shell .control-label{display:block;margin-bottom:8px;font-family:inherit;font-size:15px;font-weight:700;color:#4e5c6d;line-height:1.45;}
+.wooten-shell .form-group{margin-bottom:20px;}
+.wooten-shell input[type=text],.wooten-shell input[type=tel],.wooten-shell input[type=number],
+.wooten-shell input[type=email],.wooten-shell input[type=password],.wooten-shell select,
+.wooten-shell textarea,.wooten-shell .form-control{box-sizing:border-box;width:100%;min-height:52px;height:auto;padding:12px 14px;border:1px solid #d6dde5;border-radius:11px;background:#fff;color:#182331;font-family:inherit;font-size:16px;font-weight:500;line-height:1.5;box-shadow:none;transition:border-color .15s,box-shadow .15s;}
+.wooten-shell input:hover,.wooten-shell select:hover,.wooten-shell textarea:hover{border-color:#a7b6c7;}
+.wooten-shell input:focus,.wooten-shell select:focus,.wooten-shell textarea:focus{outline:none;border-color:#294866;box-shadow:0 0 0 3px rgba(41,72,102,.14);}
+.wooten-shell input::placeholder,.wooten-shell textarea::placeholder{color:#7a8694;opacity:1;font-weight:400;}
+.wooten-shell input[type=checkbox],.wooten-shell input[type=radio]{width:auto;min-height:0;accent-color:#bd1e2d;}
+.wooten-shell .input-group-addon{border:1px solid #d6dde5;border-radius:11px;background:#f5f8fb;color:#4e5c6d;}
+.wooten-shell #main-btn-box{width:100%;margin:24px 0 16px;}
+.wooten-shell #main-btn-box .btn-hpp-a,.wooten-shell input[type=submit],.wooten-shell button[type=submit]{display:block;width:100%;min-height:50px;padding:12px 16px;border:1px solid #bd1e2d;border-radius:11px;background:#bd1e2d;background-image:none;color:#fff;font-family:inherit;font-size:16px;font-weight:600;line-height:1.4;text-transform:none;box-shadow:none;cursor:pointer;}
+.wooten-shell #main-btn-box .btn-hpp-a:hover,.wooten-shell input[type=submit]:hover,.wooten-shell button[type=submit]:hover{background:#a91926;border-color:#a91926;}
+.wooten-shell button:focus-visible,.wooten-shell a:focus-visible{outline:3px solid #7eaee7;outline-offset:3px;}
+.wooten-shell button:disabled,.wooten-shell input:disabled{cursor:not-allowed;opacity:.65;}
+.wooten-shell .alert-warning,.wooten-shell .sandbox-warning{background:#fff8e7!important;border:1px solid #ecd99d!important;border-radius:12px!important;padding:13px 15px!important;color:#6b5318!important;font-family:inherit!important;font-size:13.5px!important;font-weight:400!important;text-align:left!important;line-height:1.5!important;}
+.wooten-shell .alert-danger,.wooten-shell .has-error .help-block{color:#9f1d20;background:#fff0f0;border:1px solid #efb7b8;border-radius:11px;padding:12px 14px;font-size:14px;}
+.wooten-shell .has-error .form-control{border-color:#c62828;}
+.wooten-shell #rxp-footer{background:#fff;color:#68717d;margin:18px 0 0;padding:12px 0 0;border-top:1px solid #e3eaf1;font-family:inherit;font-size:12px;}
+.wooten-shell #rxp-footer a{color:#294866;}
+/* Keep security logos, card-brand icons, validation and 3DS content visible. */
+@media(max-width:600px){
+ .wooten-shell{width:calc(100% - 24px);margin:12px auto;padding:22px 18px 20px;border-radius:18px;}
+ .wooten-logo{width:166px;}
+ .wooten-header{padding-bottom:18px;margin-bottom:20px;}
+ .wooten-header h1{font-size:24px;}
+ .wooten-header p{font-size:15px;}
+ .wooten-payment{padding:18px 14px;border-radius:14px;}
+ .wooten-shell label{font-size:14px;}
+ .wooten-shell #main-btn-box{margin-top:20px;}
+ .wooten-foot{font-size:12px;}
+}
