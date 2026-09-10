@@ -106,6 +106,13 @@
 }
 
 .portal-payment-result.show{display:block}
+#portalPaymentPanel .portal-payment-result.review{
+  background:#fff8e7;
+  border-color:#f3d278;
+  color:#73521b;
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+}
 
 .portal-payment-cancel{
   display:inline-flex;

@@ -2689,6 +2689,11 @@ async function ensureHostedPaymentsSchema(env){
     intent_id TEXT NOT NULL, transaction_id TEXT NOT NULL DEFAULT '', received_ms INTEGER NOT NULL,
     PRIMARY KEY(intent_id,transaction_id)
   )`).run();
+  // Verified multiple-success evidence survives reloads and incomplete later
+  // reports. It requires review; never clear it merely because a row vanished.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_reviews (
+    intent_id TEXT PRIMARY KEY, evidence_json TEXT NOT NULL, verified_ms INTEGER NOT NULL
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_health (environment TEXT PRIMARY KEY, heartbeat_ms INTEGER NOT NULL)`).run();
 }
 function hostedPaymentUrl(value,environment){
@@ -2737,7 +2742,9 @@ async function hostedPaymentRecord(env,id){
   return env.DB.prepare(`SELECT p.*,h.link_id,h.link_url,h.account_id,h.environment,h.active,h.verified,h.callback_key,
     h.link_status,h.created_ms,h.last_check_ms,h.lease_until_ms,h.terminal_since_ms,h.last_error,
     COALESCE((SELECT MAX(r.received_ms) FROM hosted_payment_returns r WHERE r.intent_id=p.id),0) AS return_received_ms,
-    (SELECT r.transaction_id FROM hosted_payment_returns r WHERE r.intent_id=p.id ORDER BY r.received_ms DESC,r.transaction_id DESC LIMIT 1) AS return_transaction_id
+    (SELECT r.transaction_id FROM hosted_payment_returns r WHERE r.intent_id=p.id ORDER BY r.received_ms DESC,r.transaction_id DESC LIMIT 1) AS return_transaction_id,
+    (SELECT v.evidence_json FROM hosted_payment_reviews v WHERE v.intent_id=p.id) AS review_json,
+    COALESCE((SELECT v.verified_ms FROM hosted_payment_reviews v WHERE v.intent_id=p.id),0) AS review_verified_ms
     FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.id=?`).bind(id).first();
 }
 async function hostedPaymentSchedulerReady(env){
@@ -2812,7 +2819,22 @@ async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAcco
   const verified={...detail,reference:intent.provider_reference};
   validateHostedPaymentReportedTransaction(intent,verified,accountIds,merchantId);
   return {id:verified.id,type:verified.type,status:verified.status,amount:verified.amount,currency:verified.currency,
-    reference:intent.provider_reference,time_created:verified.time_created};
+    reference:intent.provider_reference,time_created:verified.time_created,account_id:verified.account_id,
+    parent_resource_id:hostedPaymentTransactionIdValid(verified.parent_resource_id)?verified.parent_resource_id:null};
+}
+function hostedPaymentReviewRecords(intent,records){
+  if(records===undefined){
+    try{records=JSON.parse(intent.review_json||'[]');}catch{return [];}
+  }
+  if(!Array.isArray(records))return [];
+  return records.slice(0,10).filter(tx=>tx&&hostedPaymentTransactionIdValid(tx.id)&&tx.type==='SALE'&&
+    ['CAPTURED','FUNDED'].includes(tx.status)&&/^\d+$/.test(String(tx.amount))&&Number(tx.amount)===Number(intent.amount_cents)&&
+    tx.currency===intent.currency&&tx.reference===intent.provider_reference).map(tx=>({
+      id:tx.id,type:'SALE',status:tx.status,amount:String(intent.amount_cents),currency:intent.currency,reference:intent.provider_reference,
+      time_created:typeof tx.time_created==='string'&&Number.isFinite(Date.parse(tx.time_created))?new Date(tx.time_created).toISOString():null,
+      account_id:/^TRA_[A-Za-z0-9]+$/.test(String(tx.account_id||''))?tx.account_id:null,
+      parent_resource_id:hostedPaymentTransactionIdValid(tx.parent_resource_id)?tx.parent_resource_id:null
+    }));
 }
 // Describe only schema shape, never values or arbitrary provider field names.
 // This diagnostic is generated for sandbox failures only and cannot approve a
@@ -2954,7 +2976,8 @@ function hostedPaymentOutcome(intent,data,now=Date.now(),completeReport=false){
     }
   }
   const paid=sales.filter(t=>['CAPTURED','FUNDED'].includes(t.status));
-  if(new Set(paid.map(t=>t.id)).size>1) throw new Error('More than one successful transaction needs review.');
+  if(new Set(paid.map(t=>t.id)).size>1)return {status:'pending',active:1,code:'MULTIPLE_SUCCESS_REVIEW',terminalSince:0,
+    reviewTransactions:paid,message:'Multiple successful transaction records require independent review.'};
   if(paid.length) return {status:'captured',active:0,transaction:paid[0],code:'SUCCESS',terminalSince:0};
   // A stale result must never erase a previously confirmed capture.
   if(intent.status==='captured') return {status:'captured',active:0,code:'SUCCESS',terminalSince:0};
@@ -3028,6 +3051,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
     }
     verificationStep='Access token';
     const token=sharedToken||await globalPaymentsAccessToken(env);
+    const detailBudget={remaining:10};
     verificationStep='Link lookup';
     let data=await hostedPaymentApi(env,token,'/links/'+encodeURIComponent(intent.link_id));
     let completeReport=false;
@@ -3036,7 +3060,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
     if(!Array.isArray(data.transactions)){
       validateHostedPaymentPage(intent,data);
       verificationStep='Transaction reporting';
-      const transactions=await hostedPaymentReportedTransactions(env,token,intent);
+      const transactions=await hostedPaymentReportedTransactions(env,token,intent,'reference',detailBudget);
       data={...data,transactions};
       completeReport=true;
     }
@@ -3048,7 +3072,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
       verificationStep='Link response validation';
       validateHostedPaymentPage(intent,data);
       verificationStep='Transaction reporting';
-      const transactions=await hostedPaymentReportedTransactions(env,token,intent);
+      const transactions=await hostedPaymentReportedTransactions(env,token,intent,'reference',detailBudget);
       verificationStep='Payment outcome validation';
       data={...data,transactions};completeReport=true;
       outcome=hostedPaymentOutcome(intent,data,now,true);
@@ -3061,6 +3085,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
       for(const receipt of receipts.results){
         verificationStep='Returned transaction lookup';
         try{
+          if(detailBudget.remaining--<=0)throw new Error('Additional transaction details require review before this payment can be verified.');
           const tx=await hostedPaymentVerifiedTransaction(env,token,intent,receipt.transaction_id);
           if(!['CAPTURED','FUNDED'].includes(matched.get(tx.id)?.status)) matched.set(tx.id,tx);
         }catch(error){
@@ -3071,7 +3096,33 @@ async function reconcileHostedPayment(env,id,sharedToken){
       }
       if(returnLookupError&&intent.status!=='captured'&&![...matched.values()].some(tx=>['CAPTURED','FUNDED'].includes(tx.status))) throw returnLookupError;
       verificationStep='Payment outcome validation';
-      outcome=hostedPaymentOutcome(intent,{...data,transactions:[...matched.values()]},now,completeReport);
+      data={...data,transactions:[...matched.values()]};
+      outcome=hostedPaymentOutcome(intent,data,now,completeReport);
+    }
+    let reviewRecords;
+    if(outcome.reviewTransactions){
+      // List entries and return hints can be stale. Verify every apparent
+      // success by exact ID and HPP association before recording a review.
+      const refreshed=new Map(data.transactions.flatMap(group=>Array.isArray(group.transaction_list)?group.transaction_list:group.id?[group]:[]).map(tx=>[tx.id,tx]));
+      for(const transactionId of new Set(outcome.reviewTransactions.map(tx=>tx.id))){
+        verificationStep='Multiple transaction verification';
+        if(detailBudget.remaining--<=0)throw new Error('Additional transaction details require review before this payment can be verified.');
+        refreshed.set(transactionId,await hostedPaymentVerifiedTransaction(env,token,intent,transactionId));
+      }
+      data={...data,transactions:[...refreshed.values()]};
+      outcome=hostedPaymentOutcome(intent,data,now,completeReport);
+      if(outcome.reviewTransactions){
+        const records=new Map([...hostedPaymentReviewRecords(intent),...hostedPaymentReviewRecords(intent,outcome.reviewTransactions)].map(tx=>[tx.id,tx]));
+        if(records.size>10)throw new Error('Multiple successful transactions exceed the automatic review limit.');
+        reviewRecords=[...records.values()];
+      }
+    }
+    if(intent.review_verified_ms||reviewRecords){
+      // A later empty/partial list cannot erase previously verified successes.
+      // Retain the reservation and original ledger amount for manual review.
+      outcome={status:intent.status==='captured'?'captured':'pending',active:intent.active?1:0,
+        code:'MULTIPLE_SUCCESS_REVIEW',providerStatus:'REVIEW_REQUIRED',terminalSince:0,
+        message:'Multiple successful transaction records were independently verified. Review is required before another payment.'};
     }
     if(intent.return_received_ms&&outcome.active&&
       (['AWAITING_PAYMENT','REVIEW_EXISTING_CHECKOUT'].includes(outcome.code)||
@@ -3093,7 +3144,10 @@ async function reconcileHostedPayment(env,id,sharedToken){
           outcome.active,id,outcome.status,outcome.status,id,Number(intent.return_received_ms)||0),
       env.DB.prepare(`UPDATE hosted_payment_links SET active=?,verified=1,link_status=?,last_error='',last_check_ms=?,next_check_ms=?,terminal_since_ms=? WHERE intent_id=?
         AND (?='captured' OR COALESCE((SELECT MAX(received_ms) FROM hosted_payment_returns WHERE intent_id=?),0)<=?)`)
-        .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id,outcome.status,id,Number(intent.return_received_ms)||0)
+        .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id,outcome.status,id,Number(intent.return_received_ms)||0),
+      ...(reviewRecords?[env.DB.prepare(`INSERT INTO hosted_payment_reviews(intent_id,evidence_json,verified_ms) VALUES(?,?,?)
+        ON CONFLICT(intent_id) DO UPDATE SET evidence_json=excluded.evidence_json,verified_ms=excluded.verified_ms`)
+        .bind(id,JSON.stringify(reviewRecords),now)]:[])
     ]);
   }catch(error){
     // Store a short operational error only; never store or log the callback
@@ -3119,6 +3173,8 @@ async function reconcileHostedPayments(env){
 }
 function hostedPaymentPublic(intent,env){
   if(!intent) return null;
+  const reviewRequired=Boolean(intent.review_verified_ms);
+  const reviewRecords=reviewRequired?hostedPaymentReviewRecords(intent):[];
   const canReviewExisting=intent.result_code==='REVIEW_EXISTING_CHECKOUT'&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox';
   const canResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&!intent.return_received_ms&&intent.link_status==='ACTIVE'&&
     (intent.result_code==='AWAITING_PAYMENT'||canReviewExisting)&&Date.parse(intent.expires_at)>Date.now());
@@ -3131,11 +3187,14 @@ function hostedPaymentPublic(intent,env){
   const detail=intent.last_error||pendingDetail;
   return {payment_intent_id:intent.id,status:intent.status,active:!!intent.active,amount:(Number(intent.amount_cents)/100).toFixed(2),
     currency:intent.currency,reference:intent.provider_reference,environment:intent.environment,
-    pending_reason:intent.active&&!intent.last_error?pendingReason:null,
+    pending_reason:reviewRequired?'multiple_success_review':intent.active&&!intent.last_error?pendingReason:null,
+    review_required:reviewRequired,
+    ...(reviewRequired?{review_count:reviewRecords.length,review_recorded_at:new Date(Number(intent.review_verified_ms)).toISOString()}:{}),
+    ...(reviewRequired&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox'?{review_transactions:reviewRecords}:{}),
     last_attempt_declined:declinedResume||(!intent.active&&intent.result_code==='DECLINED'),verification_pending:!!(intent.active&&(!intent.verified||intent.last_error)),
     ...(intent.active&&detail&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox'
       ?{verification_detail:onlinePaymentSafeDetail(detail,env,[intent.callback_key,intent.link_url])}:{}),
-    redirect_url:canResume||declinedResume?hostedPaymentUrl(intent.link_url,intent.environment):null};
+    redirect_url:!reviewRequired&&(canResume||declinedResume)?hostedPaymentUrl(intent.link_url,intent.environment):null};
 }
 async function customerHostedPaymentGet({request,env}){
   const customer=await getCustomerFromSession(request,env);
@@ -3146,7 +3205,8 @@ async function customerHostedPaymentGet({request,env}){
     const account=paymentAccount(customer.account_number);
     const row=id
       ?await env.DB.prepare(`SELECT p.id FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.id=? AND p.customer_id=? AND p.account_number=?`).bind(id,Number(customer.id),account).first()
-      :await env.DB.prepare(`SELECT p.id FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.customer_id=? AND p.account_number=? ORDER BY h.active DESC,h.created_ms DESC LIMIT 1`).bind(Number(customer.id),account).first();
+      :await env.DB.prepare(`SELECT p.id FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.customer_id=? AND p.account_number=?
+        ORDER BY EXISTS(SELECT 1 FROM hosted_payment_reviews v WHERE v.intent_id=p.id) DESC,h.active DESC,h.created_ms DESC LIMIT 1`).bind(Number(customer.id),account).first();
     if(!row) return notificationJson({success:true,payment:null});
     const intent=await reconcileHostedPayment(env,row.id);
     const payment=hostedPaymentPublic(intent,env);
@@ -3246,12 +3306,20 @@ async function customerPaymentSessionPost({request,env}){
   try{
     await ensureHostedPaymentsSchema(env);
     if(!await hostedPaymentSchedulerReady(env)) return notificationJson({success:false,error:'Secure payments are temporarily unavailable because background confirmation is not running. Please contact Wooten Oil.'},503);
+    const review=await env.DB.prepare(`SELECT v.intent_id,p.customer_id FROM hosted_payment_reviews v
+      JOIN online_payment_transactions p ON p.id=v.intent_id WHERE p.account_number=? ORDER BY v.verified_ms DESC LIMIT 1`)
+      .bind(paymentAccount(customer.account_number)).first();
+    if(review){
+      const payment=Number(review.customer_id)===Number(customer.id)?hostedPaymentPublic(await hostedPaymentRecord(env,review.intent_id),env):undefined;
+      return notificationJson({success:false,error:'An earlier checkout has multiple successful transaction records. Contact Wooten Oil for review before paying again.',...(payment?{payment}:{})},409);
+    }
     const active=await env.DB.prepare(`SELECT intent_id FROM hosted_payment_links WHERE account_number=? AND active=1`).bind(paymentAccount(customer.account_number)).first();
     if(active){
       const intent=await reconcileHostedPayment(env,active.intent_id);
       if(intent.customer_id!==Number(customer.id)) return notificationJson({success:false,error:'An unfinished payment exists for this account. Contact Wooten Oil.'},409);
       if(intent.environment!==onlinePaymentEnvironment(env)) return notificationJson({success:false,error:'An earlier payment requires review before changing payment environments.'},409);
       const payment=hostedPaymentPublic(intent,env);
+      if(payment.review_required)return notificationJson({success:false,error:'This checkout has multiple successful transaction records and requires review before another payment.',payment},409);
       if(intent.active){
         if(payment.redirect_url&&Number(intent.amount_cents)===amountCents) return notificationJson({success:true,...payment,resumed:true});
         return notificationJson({success:false,error:'An earlier payment for $'+payment.amount+' is unfinished. Check its status or resume that payment before starting another.',payment},409);

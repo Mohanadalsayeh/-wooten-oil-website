@@ -20,13 +20,14 @@
     message.textContent=text||'';
     message.className='payment-coming-soon'+(text?' show':'')+(state?' '+state:'');
   }
+  function paymentBlocked(){return Boolean(payment&&(payment.active||payment.review_required));}
   function setBusy(value){
     busy=value;
-    button.disabled=value||checking||statusUnavailable||Boolean(payment&&payment.active);
+    button.disabled=value||checking||statusUnavailable||paymentBlocked();
     button.setAttribute('aria-busy',value?'true':'false');
     button.textContent=value?'Opening Secure Payment…':'Continue to Secure Payment';
-    full.disabled=partial.disabled=value||Boolean(payment&&payment.active);
-    if(amount)amount.disabled=value||Boolean(payment&&payment.active);
+    full.disabled=partial.disabled=value||paymentBlocked();
+    if(amount)amount.disabled=value||paymentBlocked();
   }
   function safeUrl(value,environment){
     var url=new URL(value);
@@ -49,7 +50,24 @@
     if(!payment)return;
     secureAmount.textContent='$'+payment.amount;
     var text='',state='processing',test=payment.environment==='sandbox';
-    if(payment.status==='captured'){
+    if(payment.review_required){
+      state='review';
+      var count=Number(payment.review_count);
+      text='Payment review needed. Global Payments has reported '+(Number.isInteger(count)&&count>1?count:'multiple')+
+        ' successful '+(test?'test ':'')+'transaction records for your earlier $'+payment.amount+
+        ' checkout. Wooten Oil needs to review these records before another payment. Opening this form does not start a new payment.';
+      if(test){
+        text+='\n\nSandbox only: no live funds were collected.';
+        if(payment.review_recorded_at)text+='\nReview recorded: '+payment.review_recorded_at;
+        if(Array.isArray(payment.review_transactions))payment.review_transactions.slice(0,10).forEach(function(tx,index){
+          text+='\n\nRecord '+(index+1)+': '+tx.id+'\nStatus: '+tx.status+' | Amount: '+tx.currency+' '+(Number(tx.amount)/100).toFixed(2)+
+            '\nCreated: '+(tx.time_created||'Not supplied');
+          if(tx.account_id)text+='\nProcessing account: '+tx.account_id;
+          if(tx.parent_resource_id)text+='\nParent reference: '+tx.parent_resource_id;
+        });
+      }
+      if(payment.verification_pending)text+='\n\nThe latest status check is incomplete. The earlier review records remain saved.';
+    }else if(payment.status==='captured'){
       text=(test?'Sandbox test payment approved. No live payment was collected. ':'Payment received. ')+
         'Confirmation '+payment.reference+' for $'+payment.amount+'.'+
         (test?'':' Your account balance may take up to 24 business hours to update.');
@@ -69,6 +87,8 @@
               :'You have an earlier saved checkout. Use Resume Secure Payment to continue it. No successful payment has been confirmed.'
             :payment.pending_reason==='transaction_unresolved'
               ?'An earlier checkout is awaiting a final transaction result from Global Payments. No successful payment has been confirmed.'
+              :payment.pending_reason==='return_unverified'
+                ?'You returned from secure checkout. We are verifying its payment result with Global Payments. No successful payment has been confirmed yet.'
               :payment.pending_reason==='transaction_record_missing'
                 ?'Global Payments reports prior use of an earlier payment link, but we have not confirmed a successful payment. We are checking its payment record.'
                 :payment.pending_reason==='link_closing'
@@ -119,7 +139,7 @@
     }
   }
   async function beginPayment(){
-    if(busy||checking||statusUnavailable||(payment&&payment.active))return;
+    if(busy||checking||statusUnavailable||paymentBlocked())return;
     var value=String(amount&&amount.value||'').trim(),paymentType=partial.checked?'partial':'full';
     if(paymentType==='partial'&&(!/^\d+(?:\.\d{1,2})?$/.test(value)||Number(value)<1)){
       setMessage('Please enter a partial payment amount of at least $1.00.','error');amount.focus();return;
@@ -162,5 +182,5 @@
   });
   window.addEventListener('pageshow',function(){setBusy(false);refreshStatus();});
   document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshStatus();});
-  window.setInterval(function(){if(!document.hidden&&(statusUnavailable||(payment&&payment.active)))refreshStatus();},30000);
+  window.setInterval(function(){if(!document.hidden&&(statusUnavailable||paymentBlocked()))refreshStatus();},30000);
 })();
