@@ -2596,13 +2596,15 @@ async function globalPaymentsAccessToken(env,permissions){
   const secret=await onlinePaymentSha512(nonce+String(env.GP_APP_KEY));
   const response=await fetch(onlinePaymentBaseUrl(env)+"/accesstoken",{
     method:"POST",
-    redirect:"error",signal:AbortSignal.timeout(12000),
+    // The deployed Workers runtime requires manual handling to reject redirects.
+    redirect:"manual",signal:AbortSignal.timeout(12000),
     headers:{"Content-Type":"application/json","Accept":"application/json","X-GP-Version":"2021-03-22"},
     body:JSON.stringify({
       app_id:String(env.GP_APP_ID),nonce,secret,grant_type:"client_credentials",seconds_to_expire:600,
       permissions:Array.isArray(permissions)?permissions:undefined
     })
   });
+  if(response.status>=300&&response.status<400) throw new Error(`Global Payments authentication returned an unexpected redirect (HTTP ${response.status}).`);
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data?.token){
     const detail=String(data?.error_description||data?.detailed_error_description||data?.error_code||`HTTP ${response.status}`).slice(0,300);
@@ -2699,10 +2701,12 @@ function hostedPaymentAccount(env,token){
 }
 async function hostedPaymentApi(env,token,path,body){
   const response=await fetch(onlinePaymentBaseUrl(env)+path,{
-    method:body?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(12000),
+    method:body?'POST':'GET',redirect:'manual',signal:AbortSignal.timeout(12000),
     headers:{Authorization:`Bearer ${token.token}`,'Content-Type':'application/json',Accept:'application/json','X-GP-Version':'2021-03-22'},
     ...(body?{body:JSON.stringify(body)}:{})
   });
+  // Do not forward the bearer token or payment request to a redirect destination.
+  if(response.status>=300&&response.status<400) throw new Error(`Global Payments returned an unexpected redirect (HTTP ${response.status}).`);
   const data=await response.json().catch(()=>({}));
   if(!response.ok||data.error_code) throw new Error('Global Payments '+response.status+': '+onlinePaymentSafeDetail(data.error_code||'Unable to verify the payment',env,[token.token]));
   return data;
