@@ -64,11 +64,20 @@
         :payment.last_attempt_declined
           ?'The last card attempt was declined. You can return to the same secure payment page to try again.'
           :payment.redirect_url
-            ?'This payment has not been confirmed. Use Resume Secure Payment to continue your existing payment.'
-            :'Your payment is awaiting confirmation. Please do not start another payment. We will keep checking even if you close this page.';
+            ?'You have an earlier saved checkout. Use Resume Secure Payment to continue it. No successful payment has been confirmed.'
+            :payment.pending_reason==='transaction_unresolved'
+              ?'An earlier checkout is awaiting a final transaction result from Global Payments. No successful payment has been confirmed.'
+              :payment.pending_reason==='transaction_record_missing'
+                ?'Global Payments reports prior use of an earlier payment link, but we have not confirmed a successful payment. We are checking its payment record.'
+                :payment.pending_reason==='link_closing'
+                  ?'An earlier payment link is closing or has expired. We are checking for a payment before allowing a new checkout.'
+                  :'An earlier saved checkout is still unresolved. No successful payment has been confirmed.';
+      if(!payment.redirect_url&&!payment.verification_pending&&!payment.last_attempt_declined){
+        text+=' Opening this form does not start a new payment. We will keep checking even if you close this page. Please do not start another payment.';
+      }
       if(payment.redirect_url){resume.href=safeUrl(payment.redirect_url,payment.environment);resume.hidden=false;}
       if(test)text+=' Sandbox: use a test card only.';
-      if(test&&payment.verification_pending&&payment.verification_detail)text+=' Verification detail: '+payment.verification_detail;
+      if(test&&!payment.redirect_url&&payment.verification_detail)text+=' Verification detail: '+payment.verification_detail;
     }else{
       state=payment.status==='declined'||payment.status==='failed'?'error':'processing';
       text=payment.status==='declined'?'This payment attempt was declined and the payment link is closed.':

@@ -2865,10 +2865,24 @@ function hostedPaymentOutcome(intent,data,now=Date.now()){
   if(paid.length) return {status:'captured',active:0,transaction:paid[0],code:'SUCCESS',terminalSince:0};
   // A stale result must never erase a previously confirmed capture.
   if(intent.status==='captured') return {status:'captured',active:0,code:'SUCCESS',terminalSince:0};
-  const uncertain=sales.some(t=>!['DECLINED'].includes(t.status));
+  const unresolved=sales.filter(t=>t.status!=='DECLINED').sort((a,b)=>String(b.time_created||'').localeCompare(String(a.time_created||'')));
   const lastDecline=sales.filter(t=>t.status==='DECLINED').sort((a,b)=>String(b.time_created||'').localeCompare(String(a.time_created||'')))[0];
-  if(uncertain||['PAID','CLOSED'].includes(data.status)||Number(data.usage_count||data.paid_count||0)>0){
-    return {status:'pending',active:1,code:'AWAITING_CONFIRMATION',terminalSince:0};
+  // Keep the evidence that blocks checkout. Previously this branch discarded
+  // the transaction and saved the link's ACTIVE status as provider_status.
+  // Only fixed status names and validated counters enter the diagnostic.
+  const knownStatuses=['FOR_REVIEW','INITIATED','PENDING','PREAUTHORIZED','CAPTURED','REVERSED','DECLINED','FUNDED','FAILED','REJECTED'];
+  const safeStatus=value=>knownStatuses.includes(value)?value:'UNKNOWN';
+  const countLabel=value=>value===undefined||value===null?'not supplied':/^\d+$/.test(String(value))&&Number.isSafeInteger(Number(value))?String(Number(value)):'invalid';
+  const linkStatus=['ACTIVE','EXPIRED','INACTIVE','PAID','CLOSED'].includes(data.status)?data.status:'UNKNOWN';
+  const evidence='Link '+linkStatus+'; matched transactions '+sales.length+
+    (sales.length?' ('+[...new Set(sales.map(t=>safeStatus(t.status)))].join(', ')+')':'')+
+    '; usage_count '+countLabel(data.usage_count)+'; paid_count '+countLabel(data.paid_count)+'.';
+  if(unresolved.length){
+    return {status:'pending',active:1,transaction:unresolved[0],code:'AWAITING_TRANSACTION',terminalSince:0,
+      providerStatus:safeStatus(unresolved[0].status),message:evidence};
+  }
+  if(['PAID','CLOSED'].includes(data.status)||Number(data.usage_count||0)>0||Number(data.paid_count||0)>0){
+    return {status:'pending',active:1,code:'AWAITING_TRANSACTION_RECORD',terminalSince:0,message:evidence};
   }
   // Closing a browser is not cancellation. Only a processor-confirmed closed
   // unpaid link can be released, after two checks and a finality grace period.
@@ -2880,7 +2894,7 @@ function hostedPaymentOutcome(intent,data,now=Date.now()){
       transaction:lastDecline,code:lastDecline?'DECLINED':'UNPAID',terminalSince};
   }
   if(!['ACTIVE','EXPIRED','INACTIVE'].includes(data.status)) throw new Error('Hosted payment link status is not recognized.');
-  return {status:'pending',active:1,transaction:lastDecline,code:lastDecline?'DECLINED':data.status==='ACTIVE'?'AWAITING_PAYMENT':'AWAITING_CONFIRMATION',terminalSince};
+  return {status:'pending',active:1,transaction:lastDecline,code:lastDecline?'DECLINED':data.status==='ACTIVE'?'AWAITING_PAYMENT':'AWAITING_LINK_CLOSURE',terminalSince,message:evidence};
 }
 async function reconcileHostedPayment(env,id,sharedToken){
   let intent=await hostedPaymentRecord(env,id);
@@ -2926,8 +2940,8 @@ async function reconcileHostedPayment(env,id,sharedToken){
         provider_status=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,
         completed_at=CASE WHEN ?=0 THEN COALESCE(completed_at,CURRENT_TIMESTAMP) ELSE completed_at END
         WHERE id=? AND (status!='captured' OR ?='captured')`)
-        .bind(outcome.status,tx?.id||'',tx?.id||'',tx?.status||data.status,outcome.code,
-          outcome.code==='SUCCESS'?'Payment confirmed by Global Payments':outcome.code==='DECLINED'?'Latest card attempt declined':'Payment awaiting confirmation',
+        .bind(outcome.status,tx?.id||'',tx?.id||'',outcome.providerStatus||tx?.status||data.status,outcome.code,
+          outcome.message||(outcome.code==='SUCCESS'?'Payment confirmed by Global Payments':outcome.code==='DECLINED'?'Latest card attempt declined':'Payment awaiting confirmation'),
           outcome.active,id,outcome.status),
       env.DB.prepare(`UPDATE hosted_payment_links SET active=?,verified=1,link_status=?,last_error='',last_check_ms=?,next_check_ms=?,terminal_since_ms=? WHERE intent_id=?`)
         .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id)
@@ -2961,11 +2975,15 @@ function hostedPaymentPublic(intent,env){
   // A declined attempt may be retried on its existing SINGLE-use link. A
   // processing/preauthorized or unknown transaction must not be retried.
   const declinedResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&intent.result_code==='DECLINED'&&Date.parse(intent.expires_at)>Date.now());
+  const pendingReason={AWAITING_TRANSACTION:'transaction_unresolved',AWAITING_TRANSACTION_RECORD:'transaction_record_missing',AWAITING_LINK_CLOSURE:'link_closing'}[intent.result_code]||null;
+  const pendingDetail=intent.active&&intent.verified&&!intent.last_error&&pendingReason?intent.result_message:'';
+  const detail=intent.last_error||pendingDetail;
   return {payment_intent_id:intent.id,status:intent.status,active:!!intent.active,amount:(Number(intent.amount_cents)/100).toFixed(2),
     currency:intent.currency,reference:intent.provider_reference,environment:intent.environment,
+    pending_reason:intent.active&&!intent.last_error?pendingReason:null,
     last_attempt_declined:intent.result_code==='DECLINED',verification_pending:!!(intent.active&&(!intent.verified||intent.last_error)),
-    ...(intent.active&&intent.last_error&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox'
-      ?{verification_detail:onlinePaymentSafeDetail(intent.last_error,env,[intent.callback_key,intent.link_url])}:{}),
+    ...(intent.active&&detail&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox'
+      ?{verification_detail:onlinePaymentSafeDetail(detail,env,[intent.callback_key,intent.link_url])}:{}),
     redirect_url:canResume||declinedResume?hostedPaymentUrl(intent.link_url,intent.environment):null};
 }
 async function customerHostedPaymentGet({request,env}){
