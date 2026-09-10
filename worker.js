@@ -2764,9 +2764,14 @@ function validateHostedPaymentPage(intent,data){
     throw new Error('Hosted page order amount, currency or reference is missing or does not match the saved payment.');
   }
 }
+function hostedPaymentTransactionIdValid(value){
+  // GP documents a string ID (1-50 characters); TRN_ is an example, not a
+  // required prefix. Preserve the exact opaque ID and bound lookup paths.
+  return typeof value==='string'&&/^[A-Za-z0-9_-]{1,50}$/.test(value);
+}
 function validateHostedPaymentReportedTransaction(intent,tx,accountIds,merchantId){
   const mismatch=field=>{throw new Error('A reported transaction does not match the saved payment: '+field+'.');};
-  if(!tx||!/^TRN_[A-Za-z0-9_-]+$/.test(String(tx.id||'')))mismatch('transaction ID is missing or invalid');
+  if(!tx||!hostedPaymentTransactionIdValid(tx.id))mismatch('transaction ID is missing or invalid');
   if(!accountIds.has(tx.account_id))mismatch('transaction account is missing or unauthorized');
   if(tx.reference!==intent.provider_reference)mismatch('payment reference');
   if(tx.type!=='SALE')mismatch('transaction type is not SALE');
@@ -2786,7 +2791,7 @@ function hostedPaymentTransactionIdentity(intent,tx){
   return 'unknown';
 }
 async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAccount,allowUnrelated=false){
-  if(!/^TRN_[A-Za-z0-9_-]{1,120}$/.test(String(id||''))) throw new Error('The returned transaction ID is not valid for lookup.');
+  if(!hostedPaymentTransactionIdValid(id)) throw new Error('The returned transaction ID is not valid for lookup.');
   const accounts=Array.isArray(token?.scope?.accounts)?token.scope.accounts:[];
   const accountIds=new Set(accounts.filter(a=>/^TRA_[A-Za-z0-9]+$/.test(String(a?.id||''))).map(a=>a.id));
   const merchantId=String(token?.scope?.merchant_id||'');
@@ -2886,7 +2891,7 @@ async function hostedPaymentReportedTransactions(env,token,intent,referenceField
     }
     rowsRead+=rows.length;
     for(const [rowIndex,row] of rows.entries()){
-      if(!row||typeof row!=='object'||Array.isArray(row)||!/^TRN_[A-Za-z0-9_-]{1,120}$/.test(String(row.id||''))){
+      if(!row||typeof row!=='object'||Array.isArray(row)||!hostedPaymentTransactionIdValid(row.id)){
         throw hostedPaymentReportIdError(env,intent,row,referenceField,page,rowIndex);
       }
       if(seen.has(row.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
@@ -2898,7 +2903,10 @@ async function hostedPaymentReportedTransactions(env,token,intent,referenceField
       if(identity==='matches')validateHostedPaymentReportedTransaction(intent,
         referenceField==='order.reference'||row.order?.reference===intent.provider_reference?{...row,reference:intent.provider_reference}:row,accountIds,merchantId);
       let tx=row;
-      if(identity==='unknown'||row.account_id!==intent.account_id||referenceField==='order.reference'||row.reference!==intent.provider_reference){
+      if(identity==='unknown'||row.account_id!==intent.account_id||referenceField==='order.reference'||row.reference!==intent.provider_reference||!row.id.startsWith('TRN_')){
+        // Alternate ID formats are looked up independently even when a list
+        // row already matches. Exact ID, merchant, account, link, reference,
+        // amount and currency must agree before its status can be used.
         // Bound network work to stay within the reconciliation lease. Unknown
         // or incomplete cross-account evidence leaves the payment reserved.
         if(detailBudget.remaining--<=0) throw new Error('Additional transaction details require review before this payment can be verified.');
@@ -2940,7 +2948,7 @@ function hostedPaymentOutcome(intent,data,now=Date.now(),completeReport=false){
   const sales=transactions.filter(t=>t&&t.type==='SALE');
   if(sales.length!==transactions.length) throw new Error('Hosted payment contains a transaction that requires review.');
   for(const t of sales){
-    if(!/^TRN_[A-Za-z0-9_-]+$/.test(String(t.id||''))||!/^\d+$/.test(String(t.amount))||
+    if(!hostedPaymentTransactionIdValid(t.id)||!/^\d+$/.test(String(t.amount))||
       Number(t.amount)!==Number(intent.amount_cents)||t.currency!==intent.currency||t.reference!==intent.provider_reference){
       throw new Error('Hosted payment amount, currency or reference did not match the saved payment.');
     }
@@ -3149,7 +3157,7 @@ async function customerHostedPaymentGet({request,env}){
   }catch(error){return notificationJson({success:false,error:'The payment status is temporarily unavailable. Please check again before starting another payment.'},503);}
 }
 async function hostedPaymentReturnTransactionId(request){
-  const valid=value=>typeof value==='string'&&/^TRN_[A-Za-z0-9_-]{1,120}$/.test(value)?value:'';
+  const valid=value=>hostedPaymentTransactionIdValid(value)?value:'';
   if(request.method!=='POST') return valid(new URL(request.url).searchParams.get('transaction_id'));
   const type=(request.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();
   if(!['application/json','application/x-www-form-urlencoded','text/plain',''].includes(type)||!request.body) return '';
