@@ -2765,15 +2765,27 @@ function validateHostedPaymentPage(intent,data){
   }
 }
 function validateHostedPaymentReportedTransaction(intent,tx,accountIds,merchantId){
-  if(!tx||!/^TRN_[A-Za-z0-9_-]+$/.test(String(tx.id||''))||!accountIds.has(tx.account_id)||
-    tx.reference!==intent.provider_reference||tx.type!=='SALE'||
-    !/^\d+$/.test(String(tx.amount))||Number(tx.amount)!==Number(intent.amount_cents)||tx.currency!==intent.currency||
-    (tx.merchant_id&&tx.merchant_id!==merchantId)||
-    (tx.link?.id&&tx.link.id!==intent.link_id)||(tx.link_data?.id&&tx.link_data.id!==intent.link_id)){
-    throw new Error('A reported transaction does not match the saved payment account, reference, amount, currency or link.');
-  }
+  const mismatch=field=>{throw new Error('A reported transaction does not match the saved payment: '+field+'.');};
+  if(!tx||!/^TRN_[A-Za-z0-9_-]+$/.test(String(tx.id||'')))mismatch('transaction ID is missing or invalid');
+  if(!accountIds.has(tx.account_id))mismatch('transaction account is missing or unauthorized');
+  if(tx.reference!==intent.provider_reference)mismatch('payment reference');
+  if(tx.type!=='SALE')mismatch('transaction type is not SALE');
+  if(!/^\d+$/.test(String(tx.amount))||Number(tx.amount)!==Number(intent.amount_cents))mismatch('payment amount');
+  if(tx.currency!==intent.currency)mismatch('payment currency');
+  if(tx.merchant_id&&tx.merchant_id!==merchantId)mismatch('merchant');
+  if((tx.link?.id&&tx.link.id!==intent.link_id)||(tx.link_data?.id&&tx.link_data.id!==intent.link_id))mismatch('hosted payment link');
 }
-async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAccount){
+function hostedPaymentTransactionIdentity(intent,tx){
+  if(!tx||typeof tx!=='object'||Array.isArray(tx))return 'unknown';
+  const refs=[tx.reference,tx.order?.reference];
+  const links=[tx.link?.id,tx.link_data?.id].filter(value=>typeof value==='string'&&value.length>0);
+  if(refs.includes(intent.provider_reference)||links.includes(intent.link_id))return 'matches';
+  // A different explicit order or link identifies another checkout. A plain
+  // transaction reference alone may be provider-generated, so inspect detail.
+  if(links.length||(typeof tx.order?.reference==='string'&&tx.order.reference.length>0))return 'different';
+  return 'unknown';
+}
+async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAccount,allowUnrelated=false){
   if(!/^TRN_[A-Za-z0-9_-]{1,120}$/.test(String(id||''))) throw new Error('The returned transaction ID is not valid for lookup.');
   const accounts=Array.isArray(token?.scope?.accounts)?token.scope.accounts:[];
   const accountIds=new Set(accounts.filter(a=>/^TRA_[A-Za-z0-9]+$/.test(String(a?.id||''))).map(a=>a.id));
@@ -2783,7 +2795,9 @@ async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAcco
   }
   const detail=await hostedPaymentApi(env,token,'/transactions/'+encodeURIComponent(id));
   if(detail.action?.result_code&&detail.action.result_code!=='SUCCESS') throw new Error('Transaction detail lookup has not completed successfully.');
-  if(detail.id!==id||detail.merchant_id!==merchantId||(expectedAccount&&detail.account_id!==expectedAccount)||
+  if(detail.id!==id||detail.merchant_id!==merchantId)throw new Error('The transaction detail ID or merchant does not match the authenticated lookup.');
+  if(allowUnrelated&&hostedPaymentTransactionIdentity(intent,detail)==='different')return null;
+  if((expectedAccount&&detail.account_id!==expectedAccount)||
     (detail.reference!==intent.provider_reference&&detail.order?.reference!==intent.provider_reference)||
     (detail.link?.id!==intent.link_id&&detail.link_data?.id!==intent.link_id)){
     throw new Error('The processing transaction could not be independently matched to this merchant and saved HPP link.');
@@ -2799,7 +2813,7 @@ async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAcco
 // merchant accounts for that unique reference: HPP can route the sale through
 // another processing account, and the report header is not a transaction's
 // account. A different account requires an independently retrieved link match.
-async function hostedPaymentReportedTransactions(env,token,intent,referenceField='reference'){
+async function hostedPaymentReportedTransactions(env,token,intent,referenceField='reference',detailBudget={remaining:10}){
   if(!/^TRA_[A-Za-z0-9]+$/.test(String(intent.account_id||''))||!/^WO-[0-9a-f-]{36}$/i.test(String(intent.provider_reference||''))){
     throw new Error('The saved payment account or reference cannot be used for transaction reporting.');
   }
@@ -2815,7 +2829,7 @@ async function hostedPaymentReportedTransactions(env,token,intent,referenceField
   const transactions=[];
   const seen=new Set();
   const requestedPageSize=100;
-  let total,detailRequests=0;
+  let total,rowsRead=0;
   for(let page=1;page<=2;page++){
     const query=new URLSearchParams({[referenceField]:intent.provider_reference,type:'SALE',
       page:String(page),page_size:String(requestedPageSize),order:'ASC',order_by:'TIME_CREATED',
@@ -2838,30 +2852,43 @@ async function hostedPaymentReportedTransactions(env,token,intent,referenceField
       if(!Number.isInteger(count)||count<0||(total!==undefined&&total!==count)) throw new Error('Transaction report count is inconsistent.');
       total=count;
     }
+    rowsRead+=rows.length;
     for(const row of rows){
-      // The alternate order-reference search always requires a direct detail
-      // lookup and exact link proof; its search filter alone proves nothing.
-      validateHostedPaymentReportedTransaction(intent,referenceField==='order.reference'?{...row,reference:intent.provider_reference}:row,accountIds,merchantId);
+      if(!row||typeof row!=='object'||Array.isArray(row)||!/^TRN_[A-Za-z0-9_-]{1,120}$/.test(String(row.id||''))){
+        throw new Error('Transaction report contains a record without a valid transaction ID.');
+      }
+      if(seen.has(row.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
+      seen.add(row.id);
+      const identity=hostedPaymentTransactionIdentity(intent,row);
+      if(identity==='different')continue;
+      // A broad/unsupported search filter may return unrelated rows. Identify
+      // their checkout first; never infer ownership from amount or query alone.
+      if(identity==='matches')validateHostedPaymentReportedTransaction(intent,
+        referenceField==='order.reference'||row.order?.reference===intent.provider_reference?{...row,reference:intent.provider_reference}:row,accountIds,merchantId);
       let tx=row;
-      if(seen.has(tx.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
-      seen.add(tx.id);
-      if(tx.account_id!==intent.account_id||referenceField==='order.reference'){
+      if(identity==='unknown'||row.account_id!==intent.account_id||referenceField==='order.reference'||row.reference!==intent.provider_reference){
         // Bound network work to stay within the reconciliation lease. Unknown
         // or incomplete cross-account evidence leaves the payment reserved.
-        if(++detailRequests>10) throw new Error('Additional transaction details require review before this payment can be verified.');
-        tx=await hostedPaymentVerifiedTransaction(env,token,intent,tx.id,tx.account_id);
+        if(detailBudget.remaining--<=0) throw new Error('Additional transaction details require review before this payment can be verified.');
+        tx=await hostedPaymentVerifiedTransaction(env,token,intent,row.id,row.account_id,identity==='unknown');
+        if(!tx)continue;
       }
       // Keep only status-verification fields; never pass card/payer details on.
       transactions.push({id:tx.id,type:tx.type,status:tx.status,amount:tx.amount,currency:tx.currency,
         reference:tx.reference,time_created:tx.time_created});
     }
-    if(total!==undefined&&transactions.length>total) throw new Error('Transaction report returned more records than its count.');
+    // Pagination counts all returned rows, including unrelated transactions.
+    // Only a complete scan can establish that no matching transaction exists.
+    if(total!==undefined&&rowsRead>total) throw new Error('Transaction report returned more records than its count.');
     if(rows.length<pageSize){
-      if(total!==undefined&&transactions.length!==total) throw new Error('Transaction report is incomplete.');
-      if(transactions.length===0&&referenceField==='reference') return hostedPaymentReportedTransactions(env,token,intent,'order.reference');
+      if(total!==undefined&&rowsRead!==total) throw new Error('Transaction report is incomplete.');
+      if(transactions.length===0&&referenceField==='reference') return hostedPaymentReportedTransactions(env,token,intent,'order.reference',detailBudget);
       return transactions;
     }
-    if(total!==undefined&&transactions.length===total) return transactions;
+    if(total!==undefined&&rowsRead===total){
+      if(transactions.length===0&&referenceField==='reference') return hostedPaymentReportedTransactions(env,token,intent,'order.reference',detailBudget);
+      return transactions;
+    }
   }
   throw new Error('Transaction report exceeds the automatic verification limit and requires review.');
 }
