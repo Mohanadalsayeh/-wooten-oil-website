@@ -2683,6 +2683,12 @@ async function ensureHostedPaymentsSchema(env){
   )`).run();
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_hosted_payment_active_account ON hosted_payment_links(account_number) WHERE active=1`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_hosted_payment_due ON hosted_payment_links(environment,next_check_ms)`).run();
+  // Store only a receipt time and an untrusted transaction ID lookup hint.
+  // Never persist the return body, payment method, card data, or claimed status.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_returns (
+    intent_id TEXT NOT NULL, transaction_id TEXT NOT NULL DEFAULT '', received_ms INTEGER NOT NULL,
+    PRIMARY KEY(intent_id,transaction_id)
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_health (environment TEXT PRIMARY KEY, heartbeat_ms INTEGER NOT NULL)`).run();
 }
 function hostedPaymentUrl(value,environment){
@@ -2729,7 +2735,9 @@ async function hostedPaymentApi(env,token,path,body){
 }
 async function hostedPaymentRecord(env,id){
   return env.DB.prepare(`SELECT p.*,h.link_id,h.link_url,h.account_id,h.environment,h.active,h.verified,h.callback_key,
-    h.link_status,h.created_ms,h.last_check_ms,h.lease_until_ms,h.terminal_since_ms,h.last_error
+    h.link_status,h.created_ms,h.last_check_ms,h.lease_until_ms,h.terminal_since_ms,h.last_error,
+    COALESCE((SELECT MAX(r.received_ms) FROM hosted_payment_returns r WHERE r.intent_id=p.id),0) AS return_received_ms,
+    (SELECT r.transaction_id FROM hosted_payment_returns r WHERE r.intent_id=p.id ORDER BY r.received_ms DESC,r.transaction_id DESC LIMIT 1) AS return_transaction_id
     FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.id=?`).bind(id).first();
 }
 async function hostedPaymentSchedulerReady(env){
@@ -2765,11 +2773,33 @@ function validateHostedPaymentReportedTransaction(intent,tx,accountIds,merchantI
     throw new Error('A reported transaction does not match the saved payment account, reference, amount, currency or link.');
   }
 }
+async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAccount){
+  if(!/^TRN_[A-Za-z0-9_-]{1,120}$/.test(String(id||''))) throw new Error('The returned transaction ID is not valid for lookup.');
+  const accounts=Array.isArray(token?.scope?.accounts)?token.scope.accounts:[];
+  const accountIds=new Set(accounts.filter(a=>/^TRA_[A-Za-z0-9]+$/.test(String(a?.id||''))).map(a=>a.id));
+  const merchantId=String(token?.scope?.merchant_id||'');
+  if(!/^MER_[A-Za-z0-9]+$/.test(merchantId)||accounts.filter(a=>a.id===intent.account_id).length!==1){
+    throw new Error('The saved payment merchant and account could not be authorized for transaction lookup.');
+  }
+  const detail=await hostedPaymentApi(env,token,'/transactions/'+encodeURIComponent(id));
+  if(detail.action?.result_code&&detail.action.result_code!=='SUCCESS') throw new Error('Transaction detail lookup has not completed successfully.');
+  if(detail.id!==id||detail.merchant_id!==merchantId||(expectedAccount&&detail.account_id!==expectedAccount)||
+    (detail.reference!==intent.provider_reference&&detail.order?.reference!==intent.provider_reference)||
+    (detail.link?.id!==intent.link_id&&detail.link_data?.id!==intent.link_id)){
+    throw new Error('The processing transaction could not be independently matched to this merchant and saved HPP link.');
+  }
+  // Either reference may carry the saved order UUID, but only an authenticated
+  // detail response with an exact HPP link match can establish that association.
+  const verified={...detail,reference:intent.provider_reference};
+  validateHostedPaymentReportedTransaction(intent,verified,accountIds,merchantId);
+  return {id:verified.id,type:verified.type,status:verified.status,amount:verified.amount,currency:verified.currency,
+    reference:intent.provider_reference,time_created:verified.time_created};
+}
 // HPP order.reference becomes transaction.reference. Search all authorized
 // merchant accounts for that unique reference: HPP can route the sale through
 // another processing account, and the report header is not a transaction's
 // account. A different account requires an independently retrieved link match.
-async function hostedPaymentReportedTransactions(env,token,intent){
+async function hostedPaymentReportedTransactions(env,token,intent,referenceField='reference'){
   if(!/^TRA_[A-Za-z0-9]+$/.test(String(intent.account_id||''))||!/^WO-[0-9a-f-]{36}$/i.test(String(intent.provider_reference||''))){
     throw new Error('The saved payment account or reference cannot be used for transaction reporting.');
   }
@@ -2787,7 +2817,7 @@ async function hostedPaymentReportedTransactions(env,token,intent){
   const requestedPageSize=100;
   let total,detailRequests=0;
   for(let page=1;page<=2;page++){
-    const query=new URLSearchParams({reference:intent.provider_reference,type:'SALE',
+    const query=new URLSearchParams({[referenceField]:intent.provider_reference,type:'SALE',
       page:String(page),page_size:String(requestedPageSize),order:'ASC',order_by:'TIME_CREATED',
       from_time_created:new Date(Number(intent.created_ms)-86400000).toISOString().slice(0,10),
       to_time_created:new Date(Date.now()+86400000).toISOString().slice(0,10)});
@@ -2809,22 +2839,17 @@ async function hostedPaymentReportedTransactions(env,token,intent){
       total=count;
     }
     for(const row of rows){
-      validateHostedPaymentReportedTransaction(intent,row,accountIds,merchantId);
+      // The alternate order-reference search always requires a direct detail
+      // lookup and exact link proof; its search filter alone proves nothing.
+      validateHostedPaymentReportedTransaction(intent,referenceField==='order.reference'?{...row,reference:intent.provider_reference}:row,accountIds,merchantId);
       let tx=row;
       if(seen.has(tx.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
       seen.add(tx.id);
-      if(tx.account_id!==intent.account_id){
+      if(tx.account_id!==intent.account_id||referenceField==='order.reference'){
         // Bound network work to stay within the reconciliation lease. Unknown
         // or incomplete cross-account evidence leaves the payment reserved.
         if(++detailRequests>10) throw new Error('Additional transaction details require review before this payment can be verified.');
-        const detail=await hostedPaymentApi(env,token,'/transactions/'+encodeURIComponent(tx.id));
-        if(detail.action?.result_code&&detail.action.result_code!=='SUCCESS') throw new Error('Transaction detail lookup has not completed successfully.');
-        validateHostedPaymentReportedTransaction(intent,detail,accountIds,merchantId);
-        if(detail.id!==tx.id||detail.account_id!==tx.account_id||detail.merchant_id!==merchantId||
-          (detail.link?.id!==intent.link_id&&detail.link_data?.id!==intent.link_id)){
-          throw new Error('The processing transaction could not be independently matched to this merchant and saved HPP link.');
-        }
-        tx=detail;
+        tx=await hostedPaymentVerifiedTransaction(env,token,intent,tx.id,tx.account_id);
       }
       // Keep only status-verification fields; never pass card/payer details on.
       transactions.push({id:tx.id,type:tx.type,status:tx.status,amount:tx.amount,currency:tx.currency,
@@ -2833,6 +2858,7 @@ async function hostedPaymentReportedTransactions(env,token,intent){
     if(total!==undefined&&transactions.length>total) throw new Error('Transaction report returned more records than its count.');
     if(rows.length<pageSize){
       if(total!==undefined&&transactions.length!==total) throw new Error('Transaction report is incomplete.');
+      if(transactions.length===0&&referenceField==='reference') return hostedPaymentReportedTransactions(env,token,intent,'order.reference');
       return transactions;
     }
     if(total!==undefined&&transactions.length===total) return transactions;
@@ -2888,8 +2914,11 @@ function hostedPaymentOutcome(intent,data,now=Date.now(),completeReport=false){
     // URL for the observed usage_count=1 response. Live payment counters remain
     // blocking until their meaning is confirmed. Never replace or infer paid.
     const reviewExisting=intent.environment==='sandbox'&&data.status==='ACTIVE'&&data.type==='HOSTED_PAYMENT_PAGE'&&
-      data.usage_mode==='SINGLE'&&(data.usage_limit==null||countLabel(data.usage_limit)==='1')&&sales.length===0&&
+      data.usage_mode==='SINGLE'&&(data.usage_limit==null||countLabel(data.usage_limit)==='1')&&
       countLabel(data.usage_count)==='1'&&(data.paid_count==null||countLabel(data.paid_count)==='0');
+    if(reviewExisting&&completeReport&&lastDecline){
+      return {status:'pending',active:1,transaction:lastDecline,code:'DECLINED',terminalSince:0,message:evidence};
+    }
     if(reviewExisting&&completeReport){
       return {status:'pending',active:1,code:'REVIEW_EXISTING_CHECKOUT',terminalSince:0,message:evidence};
     }
@@ -2912,9 +2941,9 @@ async function reconcileHostedPayment(env,id,sharedToken){
   let intent=await hostedPaymentRecord(env,id);
   if(!intent||intent.environment!==onlinePaymentEnvironment(env)) return intent;
   const now=Date.now();
-  // Two reporting pages and at most ten detail lookups, each with a 12s
-  // timeout, plus token/link requests stay within this three-minute lease.
-  const lease=now+180000;
+  // Bound reporting and return-ID lookups below; allow up to five minutes
+  // so another reconciler cannot overlap the authenticated verification.
+  const lease=now+300000;
   const locked=await env.DB.prepare(`UPDATE hosted_payment_links SET lease_until_ms=? WHERE intent_id=? AND lease_until_ms<? AND last_check_ms<?`)
     .bind(lease,id,now,now-15000).run();
   if(!Number(locked?.meta?.changes)) return intent;
@@ -2954,7 +2983,34 @@ async function reconcileHostedPayment(env,id,sharedToken){
       verificationStep='Transaction reporting';
       const transactions=await hostedPaymentReportedTransactions(env,token,intent);
       verificationStep='Payment outcome validation';
-      outcome=hostedPaymentOutcome(intent,{...data,transactions},now,true);
+      data={...data,transactions};completeReport=true;
+      outcome=hostedPaymentOutcome(intent,data,now,true);
+    }
+    const receipts=await env.DB.prepare(`SELECT transaction_id FROM hosted_payment_returns WHERE intent_id=? AND transaction_id!='' ORDER BY received_ms DESC LIMIT 5`).bind(id).all();
+    if(receipts.results?.length){
+      const transactions=data.transactions.flatMap(group=>Array.isArray(group.transaction_list)?group.transaction_list:group.id?[group]:[]);
+      const matched=new Map(transactions.map(tx=>[tx.id,tx]));
+      let returnLookupError;
+      for(const receipt of receipts.results){
+        verificationStep='Returned transaction lookup';
+        try{
+          const tx=await hostedPaymentVerifiedTransaction(env,token,intent,receipt.transaction_id);
+          if(!['CAPTURED','FUNDED'].includes(matched.get(tx.id)?.status)) matched.set(tx.id,tx);
+        }catch(error){
+          // An untrusted return hint cannot undo an independently proven
+          // capture. Without a capture, retain the reservation and retry later.
+          returnLookupError=returnLookupError||error;
+        }
+      }
+      if(returnLookupError&&intent.status!=='captured'&&![...matched.values()].some(tx=>['CAPTURED','FUNDED'].includes(tx.status))) throw returnLookupError;
+      verificationStep='Payment outcome validation';
+      outcome=hostedPaymentOutcome(intent,{...data,transactions:[...matched.values()]},now,completeReport);
+    }
+    if(intent.return_received_ms&&outcome.active&&
+      (['AWAITING_PAYMENT','REVIEW_EXISTING_CHECKOUT'].includes(outcome.code)||
+        (outcome.code==='DECLINED'&&outcome.transaction?.id!==intent.return_transaction_id))){
+      outcome={status:'pending',active:1,code:'AWAITING_RETURN_VERIFICATION',terminalSince:0,
+        message:(outcome.message||'')+' Checkout returned; no independently verified result for this return is available yet.'};
     }
     const tx=outcome.transaction;
     const next=now+(outcome.active?(now-intent.created_ms>86400000?3600000:120000):1200000);
@@ -2963,12 +3019,14 @@ async function reconcileHostedPayment(env,id,sharedToken){
       env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=CASE WHEN ?!='' THEN ? ELSE provider_transaction_id END,
         provider_status=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,
         completed_at=CASE WHEN ?=0 THEN COALESCE(completed_at,CURRENT_TIMESTAMP) ELSE completed_at END
-        WHERE id=? AND (status!='captured' OR ?='captured')`)
+        WHERE id=? AND (status!='captured' OR ?='captured')
+        AND (?='captured' OR COALESCE((SELECT MAX(received_ms) FROM hosted_payment_returns WHERE intent_id=?),0)<=?)`)
         .bind(outcome.status,tx?.id||'',tx?.id||'',outcome.providerStatus||tx?.status||data.status,outcome.code,
           outcome.message||(outcome.code==='SUCCESS'?'Payment confirmed by Global Payments':outcome.code==='DECLINED'?'Latest card attempt declined':'Payment awaiting confirmation'),
-          outcome.active,id,outcome.status),
-      env.DB.prepare(`UPDATE hosted_payment_links SET active=?,verified=1,link_status=?,last_error='',last_check_ms=?,next_check_ms=?,terminal_since_ms=? WHERE intent_id=?`)
-        .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id)
+          outcome.active,id,outcome.status,outcome.status,id,Number(intent.return_received_ms)||0),
+      env.DB.prepare(`UPDATE hosted_payment_links SET active=?,verified=1,link_status=?,last_error='',last_check_ms=?,next_check_ms=?,terminal_since_ms=? WHERE intent_id=?
+        AND (?='captured' OR COALESCE((SELECT MAX(received_ms) FROM hosted_payment_returns WHERE intent_id=?),0)<=?)`)
+        .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id,outcome.status,id,Number(intent.return_received_ms)||0)
     ]);
   }catch(error){
     // Store a short operational error only; never store or log the callback
@@ -2995,18 +3053,19 @@ async function reconcileHostedPayments(env){
 function hostedPaymentPublic(intent,env){
   if(!intent) return null;
   const canReviewExisting=intent.result_code==='REVIEW_EXISTING_CHECKOUT'&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox';
-  const canResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&
+  const canResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&!intent.return_received_ms&&intent.link_status==='ACTIVE'&&
     (intent.result_code==='AWAITING_PAYMENT'||canReviewExisting)&&Date.parse(intent.expires_at)>Date.now());
   // A declined attempt may be retried on its existing SINGLE-use link. A
   // processing/preauthorized or unknown transaction must not be retried.
-  const declinedResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&intent.result_code==='DECLINED'&&Date.parse(intent.expires_at)>Date.now());
-  const pendingReason={AWAITING_TRANSACTION:'transaction_unresolved',AWAITING_TRANSACTION_RECORD:'transaction_record_missing',AWAITING_LINK_CLOSURE:'link_closing',REVIEW_EXISTING_CHECKOUT:'review_existing_checkout'}[intent.result_code]||null;
+  const declinedResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&intent.result_code==='DECLINED'&&Date.parse(intent.expires_at)>Date.now()&&
+    (!intent.return_received_ms||(intent.return_transaction_id===intent.provider_transaction_id&&intent.last_check_ms>=intent.return_received_ms)));
+  const pendingReason={AWAITING_TRANSACTION:'transaction_unresolved',AWAITING_TRANSACTION_RECORD:'transaction_record_missing',AWAITING_LINK_CLOSURE:'link_closing',REVIEW_EXISTING_CHECKOUT:'review_existing_checkout',AWAITING_RETURN_VERIFICATION:'return_unverified'}[intent.result_code]||null;
   const pendingDetail=intent.active&&intent.verified&&!intent.last_error&&pendingReason?intent.result_message:'';
   const detail=intent.last_error||pendingDetail;
   return {payment_intent_id:intent.id,status:intent.status,active:!!intent.active,amount:(Number(intent.amount_cents)/100).toFixed(2),
     currency:intent.currency,reference:intent.provider_reference,environment:intent.environment,
     pending_reason:intent.active&&!intent.last_error?pendingReason:null,
-    last_attempt_declined:intent.result_code==='DECLINED',verification_pending:!!(intent.active&&(!intent.verified||intent.last_error)),
+    last_attempt_declined:declinedResume||(!intent.active&&intent.result_code==='DECLINED'),verification_pending:!!(intent.active&&(!intent.verified||intent.last_error)),
     ...(intent.active&&detail&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox'
       ?{verification_detail:onlinePaymentSafeDetail(detail,env,[intent.callback_key,intent.link_url])}:{}),
     redirect_url:canResume||declinedResume?hostedPaymentUrl(intent.link_url,intent.environment):null};
@@ -3030,6 +3089,39 @@ async function customerHostedPaymentGet({request,env}){
     return notificationJson({success:true,payment});
   }catch(error){return notificationJson({success:false,error:'The payment status is temporarily unavailable. Please check again before starting another payment.'},503);}
 }
+async function hostedPaymentReturnTransactionId(request){
+  const valid=value=>typeof value==='string'&&/^TRN_[A-Za-z0-9_-]{1,120}$/.test(value)?value:'';
+  if(request.method!=='POST') return valid(new URL(request.url).searchParams.get('transaction_id'));
+  const type=(request.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();
+  if(!['application/json','application/x-www-form-urlencoded','text/plain',''].includes(type)||!request.body) return '';
+  const reader=request.body.getReader();
+  try{
+    const chunks=[];let size=0;
+    while(true){
+      const {done,value}=await reader.read();if(done)break;
+      size+=value.byteLength;
+      if(size>32768){await reader.cancel();return '';}
+      chunks.push(value);
+    }
+    const bytes=new Uint8Array(size);let offset=0;
+    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+    const text=new TextDecoder().decode(bytes);
+    const extract=(value,depth=0)=>{
+      if(depth>3)return '';
+      if(typeof value==='string'){try{return extract(JSON.parse(value),depth+1);}catch{return '';}}
+      if(!value||typeof value!=='object'||Array.isArray(value))return '';
+      const id=valid(value.id)||valid(value.transaction_id);
+      if(id)return id;
+      for(const key of ['response','hppResponse','hpp_response']){const found=extract(value[key],depth+1);if(found)return found;}
+      return '';
+    };
+    if(type==='application/json'||text.trimStart().startsWith('{'))return extract(text);
+    const form=new URLSearchParams(text);
+    return valid(form.get('transaction_id'))||valid(form.get('id'))||
+      extract(form.get('response'))||extract(form.get('hppResponse'))||extract(form.get('hpp_response'));
+  }catch{return '';}
+  finally{reader.releaseLock();}
+}
 async function hostedPaymentReturn({request,env}){
   const url=new URL(request.url);
   const id=url.searchParams.get('id')||'',key=url.searchParams.get('key')||'';
@@ -3037,7 +3129,23 @@ async function hostedPaymentReturn({request,env}){
   await ensureHostedPaymentsSchema(env);
   const intent=await hostedPaymentRecord(env,id);
   if(!intent||intent.callback_key!==key) return new Response('Invalid payment return',{status:403});
-  // The untrusted notification/return payload is intentionally not parsed.
+  const transactionId=await hostedPaymentReturnTransactionId(request);
+  const received=Date.now();
+  const writes=[env.DB.prepare(`INSERT INTO hosted_payment_returns(intent_id,transaction_id,received_ms) VALUES(?,'',?)
+    ON CONFLICT(intent_id,transaction_id) DO UPDATE SET received_ms=excluded.received_ms`).bind(id,received)];
+  if(transactionId){
+    writes.push(env.DB.prepare(`INSERT INTO hosted_payment_returns(intent_id,transaction_id,received_ms)
+      SELECT ?,?,? WHERE (SELECT COUNT(*) FROM hosted_payment_returns WHERE intent_id=? AND transaction_id!='')<5
+      OR EXISTS(SELECT 1 FROM hosted_payment_returns WHERE intent_id=? AND transaction_id=?)
+      ON CONFLICT(intent_id,transaction_id) DO UPDATE SET received_ms=excluded.received_ms`)
+      .bind(id,transactionId,received,id,id,transactionId));
+  }
+  // Request an immediate check, while retaining any active reconciliation
+  // lease. A concurrent cron will still pick up the durable receipt afterward.
+  writes.push(env.DB.prepare(`UPDATE hosted_payment_links SET last_check_ms=0,next_check_ms=0 WHERE intent_id=? AND active=1`).bind(id));
+  await env.DB.batch(writes);
+  // The ID is only a lookup hint. Claimed return status/amount/card data never
+  // authorizes a payment or changes the ledger; authenticated API evidence does.
   await reconcileHostedPayment(env,id);
   if(url.searchParams.get('notification')==='1') return new Response(null,{status:204});
   const destination='/?payment_return='+encodeURIComponent(id)+'#customer-login';
