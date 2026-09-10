@@ -2736,16 +2736,84 @@ async function hostedPaymentSchedulerReady(env){
   const health=await env.DB.prepare(`SELECT heartbeat_ms FROM hosted_payment_health WHERE environment=?`).bind(onlinePaymentEnvironment(env)).first();
   return Boolean(health&&Date.now()-Number(health.heartbeat_ms)<=5*60000);
 }
-// Both transaction shapes appear in GP's published Links API: direct entries
-// and transaction groups containing transaction_list. An unrecognized response
-// stays unresolved instead of being interpreted as an unpaid link.
-function hostedPaymentOutcome(intent,data,now=Date.now()){
+function validateHostedPaymentLink(intent,data){
   // Identify the failed check without exposing a provider payload or customer data.
   if(!data||typeof data!=='object'||Array.isArray(data)) throw new Error('Link response was not a JSON object.');
   if(data.id!==intent.link_id) throw new Error('Link ID is missing or does not match the saved link.');
   if(data.reference!==intent.provider_reference) throw new Error('Link reference is missing or does not match the saved payment.');
   if(data.account_id&&data.account_id!==intent.account_id) throw new Error('Link account does not match the configured payment account.');
   if(data.usage_mode&&data.usage_mode!=='SINGLE') throw new Error('Link usage mode is not SINGLE.');
+}
+// HPP responses can contain an order instead of transaction groups; the Links
+// GET schema also permits metadata alone. Check order fields when supplied,
+// then require a separate complete transaction report in either case.
+function validateHostedPaymentPage(intent,data){
+  validateHostedPaymentLink(intent,data);
+  if(data.type!=='HOSTED_PAYMENT_PAGE'||data.usage_mode!=='SINGLE') throw new Error('Link response is not a single-use hosted payment page.');
+  const order=data.order;
+  if(order!==undefined&&(!order||!/^\d+$/.test(String(order.amount))||Number(order.amount)!==Number(intent.amount_cents)||
+    order.currency!==intent.currency||order.reference!==intent.provider_reference)){
+    throw new Error('Hosted page order amount, currency or reference is missing or does not match the saved payment.');
+  }
+}
+// The HPP guide maps order.reference to the resulting transaction.reference.
+// Query every status for that exact reference and TRA account, including before
+// redirect, so an unavailable reporting service never means an unpaid link.
+async function hostedPaymentReportedTransactions(env,token,intent){
+  if(!/^TRA_[A-Za-z0-9]+$/.test(String(intent.account_id||''))||!/^WO-[0-9a-f-]{36}$/i.test(String(intent.provider_reference||''))){
+    throw new Error('The saved payment account or reference cannot be used for transaction reporting.');
+  }
+  const transactions=[];
+  const seen=new Set();
+  const requestedPageSize=100;
+  let total;
+  for(let page=1;page<=2;page++){
+    const query=new URLSearchParams({account_id:intent.account_id,reference:intent.provider_reference,type:'SALE',
+      page:String(page),page_size:String(requestedPageSize),order:'ASC',order_by:'TIME_CREATED',
+      from_time_created:new Date(Number(intent.created_ms)-86400000).toISOString().slice(0,10),
+      to_time_created:new Date(Date.now()+86400000).toISOString().slice(0,10)});
+    const data=await hostedPaymentApi(env,token,'/transactions?'+query.toString());
+    if(!Array.isArray(data.transactions)) throw new Error('Transaction report is missing its transactions array.');
+    if(data.action?.result_code&&data.action.result_code!=='SUCCESS') throw new Error('Transaction reporting has not completed successfully.');
+    if(data.account_id&&data.account_id!==intent.account_id) throw new Error('Transaction report belongs to a different payment account.');
+    const rows=data.transactions;
+    const pageSize=data.paging?.page_size===undefined?requestedPageSize:Number(data.paging.page_size);
+    if(!Number.isInteger(pageSize)||pageSize<1||pageSize>requestedPageSize||rows.length>pageSize||
+      (data.paging?.page!==undefined&&Number(data.paging.page)!==page)||
+      (data.current_page_size!==undefined&&Number(data.current_page_size)!==rows.length)){
+      throw new Error('Transaction report pagination is inconsistent.');
+    }
+    if(data.total_record_count!==undefined){
+      const count=Number(data.total_record_count);
+      if(!Number.isInteger(count)||count<0||(total!==undefined&&total!==count)) throw new Error('Transaction report count is inconsistent.');
+      total=count;
+    }
+    for(const tx of rows){
+      if(!tx||!/^TRN_[A-Za-z0-9_-]+$/.test(String(tx.id||''))||tx.account_id!==intent.account_id||
+        tx.reference!==intent.provider_reference||tx.type!=='SALE'||
+        !/^\d+$/.test(String(tx.amount))||Number(tx.amount)!==Number(intent.amount_cents)||tx.currency!==intent.currency||
+        (tx.link_data?.id&&tx.link_data.id!==intent.link_id)){
+        throw new Error('A reported transaction does not match the saved payment account, reference, amount or currency.');
+      }
+      if(seen.has(tx.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
+      seen.add(tx.id);
+      // Keep only status-verification fields; never pass card/payer details on.
+      transactions.push({id:tx.id,type:tx.type,status:tx.status,amount:tx.amount,currency:tx.currency,
+        reference:tx.reference,time_created:tx.time_created});
+    }
+    if(total!==undefined&&transactions.length>total) throw new Error('Transaction report returned more records than its count.');
+    if(rows.length<pageSize){
+      if(total!==undefined&&transactions.length!==total) throw new Error('Transaction report is incomplete.');
+      return transactions;
+    }
+    if(total!==undefined&&transactions.length===total) return transactions;
+  }
+  throw new Error('Transaction report exceeds the automatic verification limit and requires review.');
+}
+// Payment links may include transactions directly or in transaction_list
+// groups. HPP orders are supplied with separately verified reporting results.
+function hostedPaymentOutcome(intent,data,now=Date.now()){
+  validateHostedPaymentLink(intent,data);
   if(!Array.isArray(data.transactions)) throw new Error('Link response is missing the transactions array required to verify payment status.');
   const transactions=[];
   for(const group of data.transactions){
@@ -2808,8 +2876,16 @@ async function reconcileHostedPayment(env,id,sharedToken){
     verificationStep='Access token';
     const token=sharedToken||await globalPaymentsAccessToken(env);
     verificationStep='Link lookup';
-    const data=await hostedPaymentApi(env,token,'/links/'+encodeURIComponent(intent.link_id));
+    let data=await hostedPaymentApi(env,token,'/links/'+encodeURIComponent(intent.link_id));
     verificationStep='Link response validation';
+    validateHostedPaymentLink(intent,data);
+    if(!Array.isArray(data.transactions)){
+      validateHostedPaymentPage(intent,data);
+      verificationStep='Transaction reporting';
+      const transactions=await hostedPaymentReportedTransactions(env,token,intent);
+      data={...data,transactions};
+    }
+    verificationStep='Payment outcome validation';
     const outcome=hostedPaymentOutcome(intent,data,now);
     const tx=outcome.transaction;
     const next=now+(outcome.active?(now-intent.created_ms>86400000?3600000:120000):1200000);
