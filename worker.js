@@ -2763,19 +2763,33 @@ async function hostedPaymentReportedTransactions(env,token,intent){
   if(!/^TRA_[A-Za-z0-9]+$/.test(String(intent.account_id||''))||!/^WO-[0-9a-f-]{36}$/i.test(String(intent.provider_reference||''))){
     throw new Error('The saved payment account or reference cannot be used for transaction reporting.');
   }
+  // Resolve the name for this saved link's account, rather than using today's
+  // default account. GP's reporting SDK sends account_name when selecting a
+  // transaction account; account_id alone can leave the default selected.
+  const accounts=(Array.isArray(token?.scope?.accounts)?token.scope.accounts:[])
+    .filter(account=>/^TRA_[A-Za-z0-9]+$/.test(String(account?.id||'')));
+  const matches=accounts.filter(account=>account.id===intent.account_id);
+  const accountName=matches.length===1&&typeof matches[0].name==='string'?matches[0].name:'';
+  if(!accountName.trim()||accountName.length>50||accounts.filter(account=>account.name===accountName).length!==1){
+    throw new Error('The saved HPP account is not uniquely available by name in the authorized transaction accounts.');
+  }
   const transactions=[];
   const seen=new Set();
   const requestedPageSize=100;
   let total;
   for(let page=1;page<=2;page++){
-    const query=new URLSearchParams({account_id:intent.account_id,reference:intent.provider_reference,type:'SALE',
+    const query=new URLSearchParams({account_name:accountName,account_id:intent.account_id,reference:intent.provider_reference,type:'SALE',
       page:String(page),page_size:String(requestedPageSize),order:'ASC',order_by:'TIME_CREATED',
       from_time_created:new Date(Number(intent.created_ms)-86400000).toISOString().slice(0,10),
       to_time_created:new Date(Date.now()+86400000).toISOString().slice(0,10)});
     const data=await hostedPaymentApi(env,token,'/transactions?'+query.toString());
     if(!Array.isArray(data.transactions)) throw new Error('Transaction report is missing its transactions array.');
     if(data.action?.result_code&&data.action.result_code!=='SUCCESS') throw new Error('Transaction reporting has not completed successfully.');
-    if(data.account_id&&data.account_id!==intent.account_id) throw new Error('Transaction report belongs to a different payment account.');
+    if(data.account_id&&data.account_id!==intent.account_id){
+      const returned=accounts.find(account=>account.id===data.account_id);
+      const returnedName=typeof returned?.name==='string'?returned.name.slice(0,50):'unrecognized account';
+      throw new Error('Transaction report account mismatch. Requested '+accountName+'; returned '+returnedName+'.');
+    }
     const rows=data.transactions;
     const pageSize=data.paging?.page_size===undefined?requestedPageSize:Number(data.paging.page_size);
     if(!Number.isInteger(pageSize)||pageSize<1||pageSize>requestedPageSize||rows.length>pageSize||
