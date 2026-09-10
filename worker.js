@@ -2809,6 +2809,38 @@ async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAcco
   return {id:verified.id,type:verified.type,status:verified.status,amount:verified.amount,currency:verified.currency,
     reference:intent.provider_reference,time_created:verified.time_created};
 }
+// Describe only schema shape, never values or arbitrary provider field names.
+// This diagnostic is generated for sandbox failures only and cannot approve a
+// transaction, supply an ID, or change whether an existing link is resumable.
+function hostedPaymentReportRecordShape(row){
+  const kind=value=>value===null?'null':Array.isArray(value)?'array':typeof value;
+  const idShape=value=>{
+    if(typeof value!=='string')return kind(value);
+    const prefix=['TRN_','ACT_','LNK_','TRA_','PMT_'].find(p=>value.startsWith(p))||'other';
+    return 'string(len='+value.length+',prefix='+prefix+',spaces='+(/\s/.test(value)?'yes':'no')+',tokenChars='+(/^[A-Za-z0-9_-]+$/.test(value)?'yes':'no')+')';
+  };
+  if(!row||typeof row!=='object'||Array.isArray(row))return 'record='+kind(row);
+  const own=key=>Object.prototype.hasOwnProperty.call(row,key);
+  const fields=['id','transaction_id','transactionId','transaction','transaction_list','transactions','reference','account_id',
+    'amount','currency','order','link','status','type','error_code'].filter(own);
+  const parts=['id='+idShape(row.id),'fields='+fields.join(',')];
+  for(const key of ['transaction_id','transactionId','transaction','transaction_list','transactions']){
+    if(!own(key))continue;
+    const value=row[key];
+    if(Array.isArray(value))parts.push(key+'=array('+value.length+'),first.id='+idShape(value[0]?.id));
+    else if(value&&typeof value==='object')parts.push(key+'=object,id='+idShape(value.id));
+    else parts.push(key+'='+idShape(value));
+  }
+  return parts.join('; ').slice(0,210);
+}
+function hostedPaymentReportIdError(env,intent,row,referenceField,page,rowIndex){
+  const message='Transaction report contains a record without a valid transaction ID.';
+  if(intent.environment!=='sandbox'||onlinePaymentEnvironment(env)!=='sandbox')return new Error(message);
+  const query=referenceField==='order.reference'?'order.reference':'reference';
+  // Leave room for the reconciliation phase within the 300-character cap.
+  const shape=(query+' p'+page+' row'+(rowIndex+1)+'; '+hostedPaymentReportRecordShape(row)).slice(0,200);
+  return new Error(message+' '+shape);
+}
 // HPP order.reference becomes transaction.reference. Search all authorized
 // merchant accounts for that unique reference: HPP can route the sale through
 // another processing account, and the report header is not a transaction's
@@ -2853,9 +2885,9 @@ async function hostedPaymentReportedTransactions(env,token,intent,referenceField
       total=count;
     }
     rowsRead+=rows.length;
-    for(const row of rows){
+    for(const [rowIndex,row] of rows.entries()){
       if(!row||typeof row!=='object'||Array.isArray(row)||!/^TRN_[A-Za-z0-9_-]{1,120}$/.test(String(row.id||''))){
-        throw new Error('Transaction report contains a record without a valid transaction ID.');
+        throw hostedPaymentReportIdError(env,intent,row,referenceField,page,rowIndex);
       }
       if(seen.has(row.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
       seen.add(row.id);
