@@ -2923,6 +2923,10 @@ async function customerPaymentSessionPost({request,env}){
     }
     const unresolved=await env.DB.prepare(`SELECT id FROM online_payment_transactions WHERE account_number=? AND status IN ('processing','pending') LIMIT 1`).bind(paymentAccount(customer.account_number)).first();
     if(unresolved) return notificationJson({success:false,pending:true,error:"An earlier payment is processing or awaiting confirmation. Do not start another payment; contact Wooten Oil."},409);
+    // The selected HPP account requires a customer email. Use this account's
+    // imported contact data; never substitute browser input or a merchant email.
+    const payerEmail=String(customer.email||'').trim();
+    if(!validEmail(payerEmail)) return notificationJson({success:false,error:'Secure payment requires a valid email address on your account. Please contact Wooten Oil to update it.'},422);
     const recent=await env.DB.prepare(`SELECT COUNT(*) AS count FROM online_payment_transactions WHERE account_number=? AND created_at>datetime('now','-10 minutes')`).bind(paymentAccount(customer.account_number)).first();
     if(Number(recent?.count||0)>=6) return notificationJson({success:false,error:"Too many payment attempts were started. Please wait a few minutes and try again."},429);
     const environment=onlinePaymentEnvironment(env);
@@ -2944,6 +2948,7 @@ async function customerPaymentSessionPost({request,env}){
     const link=await hostedPaymentApi(env,tokenData,'/links',{
       account_name:account.name,type:'HOSTED_PAYMENT_PAGE',usage_mode:'SINGLE',name:'Wooten Oil Payment',
       description:'Wooten Oil account payment',reference,
+      payer:{email:payerEmail},
       order:{amount:String(amountCents),currency:'USD',reference,
         transaction_configuration:{channel:'CNP',country:'US',capture_mode:'AUTO',allowed_payment_methods:['CARD']}},
       notifications:{return_url:returnUrl.href,status_url:returnUrl.href+'&notification=1',cancel_url:returnUrl.href}

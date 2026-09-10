@@ -2,6 +2,7 @@
   "name": "wooten-oil",
   "main": "worker.js",
   "compatibility_date": "2026-08-16",
+  "keep_vars": true,
 
   "assets": {
     "directory": ".",
@@ -15,12 +16,7 @@
     "FUEL_TO_EMAIL": "support@wootenoil.com",
     "FUEL_FROM_EMAIL": "fuel@wootenoil.com",
     "GP_ENVIRONMENT": "sandbox",
-    "GP_MAX_PAYMENT_CENTS": "50000000",
-    "GP_CURRENCY": "USD",
-    "GP_COUNTRY": "US",
-    "GP_TRANSACTION_TYPE": "SALE",
-    "GP_CAPTURE_MODE": "AUTO",
-    "GP_DIAGNOSTIC_KEY": "wooten-gp-check-2026"
+    "GP_MAX_PAYMENT_CENTS": "50000000"
   },
 
   "d1_databases": [
