@@ -22,7 +22,7 @@
   }
   function setBusy(value){
     busy=value;
-    button.disabled=value||statusUnavailable||Boolean(payment&&payment.active);
+    button.disabled=value||checking||statusUnavailable||Boolean(payment&&payment.active);
     button.setAttribute('aria-busy',value?'true':'false');
     button.textContent=value?'Opening Secure Payment…':'Continue to Secure Payment';
     full.disabled=partial.disabled=value||Boolean(payment&&payment.active);
@@ -37,9 +37,9 @@
   async function requestJson(url,options){
     var response=await fetch(url,Object.assign({credentials:'same-origin',cache:'no-store'},options||{}));
     var data=await response.json().catch(function(){return {};});
-    if(!response.ok||data.success===false){
-      var error=new Error(data.error||'Your payment status could not be checked.');
-      error.status=response.status;error.payment=data.payment;throw error;
+    if(!response.ok||!data||data.success!==true){
+      var error=new Error((data&&data.error)||'Your payment status could not be checked.');
+      error.status=response.status;error.payment=data&&data.payment;throw error;
     }
     return data;
   }
@@ -60,7 +60,7 @@
       }
     }else if(payment.active){
       text=payment.verification_pending
-        ?'The processor result is awaiting confirmation. Please do not start another payment. We will keep checking even if you close this page.'
+        ?'The saved payment link is awaiting verification. No successful payment has been confirmed. Please do not start another payment. We will keep checking even if you close this page.'
         :payment.last_attempt_declined
           ?'The last card attempt was declined. You can return to the same secure payment page to try again.'
           :payment.redirect_url
@@ -68,6 +68,7 @@
             :'Your payment is awaiting confirmation. Please do not start another payment. We will keep checking even if you close this page.';
       if(payment.redirect_url){resume.href=safeUrl(payment.redirect_url,payment.environment);resume.hidden=false;}
       if(test)text+=' Sandbox: use a test card only.';
+      if(test&&payment.verification_pending&&payment.verification_detail)text+=' Verification detail: '+payment.verification_detail;
     }else{
       state=payment.status==='declined'||payment.status==='failed'?'error':'processing';
       text=payment.status==='declined'?'This payment attempt was declined and the payment link is closed.':
@@ -78,8 +79,8 @@
     result.textContent=text;result.className='portal-payment-result show '+state;
   }
   async function refreshStatus(){
-    if(checking||!currentAccount)return;
-    checking=true;check.disabled=true;var ticket=generation;
+    if(busy||checking||!currentAccount)return;
+    checking=true;check.disabled=true;setBusy(false);var ticket=generation;
     try{
       var data=await requestJson('/api/customer/payment/status'+(returnId?'?id='+encodeURIComponent(returnId):''));
       if(ticket!==generation)return;
@@ -102,12 +103,12 @@
         result.textContent='Please check the payment status again before continuing.';
       }
     }finally{
-      checking=false;check.disabled=false;
+      checking=false;check.disabled=false;setBusy(busy);
       if(ticket!==generation&&currentAccount)refreshStatus();
     }
   }
   async function beginPayment(){
-    if(busy||(payment&&payment.active))return;
+    if(busy||checking||statusUnavailable||(payment&&payment.active))return;
     var value=String(amount&&amount.value||'').trim(),paymentType=partial.checked?'partial':'full';
     if(paymentType==='partial'&&(!/^\d+(?:\.\d{1,2})?$/.test(value)||Number(value)<1)){
       setMessage('Please enter a partial payment amount of at least $1.00.','error');amount.focus();return;
@@ -124,8 +125,14 @@
       window.location.assign(safeUrl(data.redirect_url,data.environment));
     }catch(error){
       if(ticket!==generation)return;
-      if(error.payment)renderPayment(error.payment);
-      setMessage(error.message,'error');setBusy(false);
+      setMessage(error.message,'error');
+      if(error.payment){statusUnavailable=false;renderPayment(error.payment);}
+      else{
+        // A lost response may still have created a link. Read the saved status
+        // before enabling another submission or showing an old failed attempt.
+        statusUnavailable=true;setBusy(false);
+        await refreshStatus();
+      }
     }
   }
   function choiceChanged(){
@@ -144,5 +151,5 @@
   });
   window.addEventListener('pageshow',function(){setBusy(false);refreshStatus();});
   document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshStatus();});
-  window.setInterval(function(){if(!document.hidden&&payment&&payment.active)refreshStatus();},30000);
+  window.setInterval(function(){if(!document.hidden&&(statusUnavailable||(payment&&payment.active)))refreshStatus();},30000);
 })();

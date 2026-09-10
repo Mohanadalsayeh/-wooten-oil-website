@@ -2707,7 +2707,10 @@ async function hostedPaymentApi(env,token,path,body){
   });
   // Do not forward the bearer token or payment request to a redirect destination.
   if(response.status>=300&&response.status<400) throw new Error(`Global Payments returned an unexpected redirect (HTTP ${response.status}).`);
-  const data=await response.json().catch(()=>({}));
+  let data;
+  try{data=await response.json();}
+  catch{throw new Error(`Global Payments ${response.status}: response was not valid JSON.`);}
+  if(!data||typeof data!=='object'||Array.isArray(data)) throw new Error(`Global Payments ${response.status}: response was not a JSON object.`);
   if(!response.ok||data.error_code){
     // GP's UNKNOWN_RESPONSE is generic; its detailed fields contain the cause.
     // Read only diagnostic strings, never serialize the request or response.
@@ -2737,19 +2740,22 @@ async function hostedPaymentSchedulerReady(env){
 // and transaction groups containing transaction_list. An unrecognized response
 // stays unresolved instead of being interpreted as an unpaid link.
 function hostedPaymentOutcome(intent,data,now=Date.now()){
-  if(data.id!==intent.link_id||data.reference!==intent.provider_reference||
-    (data.account_id&&data.account_id!==intent.account_id)||
-    (data.usage_mode&&data.usage_mode!=='SINGLE')||!Array.isArray(data.transactions)){
-    throw new Error('Hosted payment verification did not match the saved link.');
-  }
+  // Identify the failed check without exposing a provider payload or customer data.
+  if(!data||typeof data!=='object'||Array.isArray(data)) throw new Error('Link response was not a JSON object.');
+  if(data.id!==intent.link_id) throw new Error('Link ID is missing or does not match the saved link.');
+  if(data.reference!==intent.provider_reference) throw new Error('Link reference is missing or does not match the saved payment.');
+  if(data.account_id&&data.account_id!==intent.account_id) throw new Error('Link account does not match the configured payment account.');
+  if(data.usage_mode&&data.usage_mode!=='SINGLE') throw new Error('Link usage mode is not SINGLE.');
+  if(!Array.isArray(data.transactions)) throw new Error('Link response is missing the transactions array required to verify payment status.');
   const transactions=[];
   for(const group of data.transactions){
+    if(!group||typeof group!=='object'||Array.isArray(group)) throw new Error('Link response contains an invalid transaction group.');
     if(Array.isArray(group.transaction_list)) transactions.push(...group.transaction_list);
     else if(group.id) transactions.push(group);
     else if(group.transaction_list===null&&Number(group.amount)===Number(intent.amount_cents)&&group.currency===intent.currency) continue;
     else throw new Error('Hosted payment transaction details are not available yet.');
   }
-  const sales=transactions.filter(t=>t.type==='SALE');
+  const sales=transactions.filter(t=>t&&t.type==='SALE');
   if(sales.length!==transactions.length) throw new Error('Hosted payment contains a transaction that requires review.');
   for(const t of sales){
     if(!/^TRN_[A-Za-z0-9_-]+$/.test(String(t.id||''))||!/^\d+$/.test(String(t.amount))||
@@ -2787,6 +2793,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
   const locked=await env.DB.prepare(`UPDATE hosted_payment_links SET lease_until_ms=? WHERE intent_id=? AND lease_until_ms<? AND last_check_ms<?`)
     .bind(lease,id,now,now-15000).run();
   if(!Number(locked?.meta?.changes)) return intent;
+  let verificationStep='Reconciliation';
   try{
     if(!intent.link_id){
       if(now-intent.created_ms<120000) return intent;
@@ -2798,11 +2805,15 @@ async function reconcileHostedPayment(env,id,sharedToken){
       ]);
       return await hostedPaymentRecord(env,id);
     }
+    verificationStep='Access token';
     const token=sharedToken||await globalPaymentsAccessToken(env);
+    verificationStep='Link lookup';
     const data=await hostedPaymentApi(env,token,'/links/'+encodeURIComponent(intent.link_id));
+    verificationStep='Link response validation';
     const outcome=hostedPaymentOutcome(intent,data,now);
     const tx=outcome.transaction;
     const next=now+(outcome.active?(now-intent.created_ms>86400000?3600000:120000):1200000);
+    verificationStep='Saving verified status';
     await env.DB.batch([
       env.DB.prepare(`UPDATE online_payment_transactions SET status=?,provider_transaction_id=CASE WHEN ?!='' THEN ? ELSE provider_transaction_id END,
         provider_status=?,result_code=?,result_message=?,updated_at=CURRENT_TIMESTAMP,
@@ -2817,7 +2828,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
   }catch(error){
     // Store a short operational error only; never store or log the callback
     // body, access token, payment URL or payment-card details.
-    const detail=onlinePaymentSafeDetail(error?.message||error,env,[intent.callback_key,sharedToken?.token,intent.link_url]);
+    const detail=onlinePaymentSafeDetail(verificationStep+': '+String(error?.message||error),env,[intent.callback_key,sharedToken?.token,intent.link_url]);
     await env.DB.prepare(`UPDATE hosted_payment_links SET last_error=?,last_check_ms=?,next_check_ms=? WHERE intent_id=?`).bind(detail,now,now+120000,id).run();
     console.warn('Hosted payment requires verification '+JSON.stringify({intent_id:id,detail}));
   }finally{
@@ -2836,7 +2847,7 @@ async function reconcileHostedPayments(env){
   for(const row of due.results||[]) await reconcileHostedPayment(env,row.intent_id,token);
   await env.DB.prepare(`INSERT INTO hosted_payment_health(environment,heartbeat_ms) VALUES(?,?) ON CONFLICT(environment) DO UPDATE SET heartbeat_ms=excluded.heartbeat_ms`).bind(environment,Date.now()).run();
 }
-function hostedPaymentPublic(intent){
+function hostedPaymentPublic(intent,env){
   if(!intent) return null;
   const canResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&
     intent.result_code==='AWAITING_PAYMENT'&&Date.parse(intent.expires_at)>Date.now());
@@ -2845,7 +2856,9 @@ function hostedPaymentPublic(intent){
   const declinedResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&intent.result_code==='DECLINED'&&Date.parse(intent.expires_at)>Date.now());
   return {payment_intent_id:intent.id,status:intent.status,active:!!intent.active,amount:(Number(intent.amount_cents)/100).toFixed(2),
     currency:intent.currency,reference:intent.provider_reference,environment:intent.environment,
-    last_attempt_declined:intent.result_code==='DECLINED',verification_pending:!!intent.last_error,
+    last_attempt_declined:intent.result_code==='DECLINED',verification_pending:!!(intent.active&&(!intent.verified||intent.last_error)),
+    ...(intent.active&&intent.last_error&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox'
+      ?{verification_detail:onlinePaymentSafeDetail(intent.last_error,env,[intent.callback_key,intent.link_url])}:{}),
     redirect_url:canResume||declinedResume?hostedPaymentUrl(intent.link_url,intent.environment):null};
 }
 async function customerHostedPaymentGet({request,env}){
@@ -2860,7 +2873,7 @@ async function customerHostedPaymentGet({request,env}){
       :await env.DB.prepare(`SELECT p.id FROM online_payment_transactions p JOIN hosted_payment_links h ON h.intent_id=p.id WHERE p.customer_id=? AND p.account_number=? ORDER BY h.active DESC,h.created_ms DESC LIMIT 1`).bind(Number(customer.id),account).first();
     if(!row) return notificationJson({success:true,payment:null});
     const intent=await reconcileHostedPayment(env,row.id);
-    const payment=hostedPaymentPublic(intent);
+    const payment=hostedPaymentPublic(intent,env);
     if(payment.active&&(!await hostedPaymentSchedulerReady(env)||intent.environment!==onlinePaymentEnvironment(env))){
       payment.redirect_url=null;payment.verification_pending=true;
     }
@@ -2913,7 +2926,7 @@ async function customerPaymentSessionPost({request,env}){
       const intent=await reconcileHostedPayment(env,active.intent_id);
       if(intent.customer_id!==Number(customer.id)) return notificationJson({success:false,error:'An unfinished payment exists for this account. Contact Wooten Oil.'},409);
       if(intent.environment!==onlinePaymentEnvironment(env)) return notificationJson({success:false,error:'An earlier payment requires review before changing payment environments.'},409);
-      const payment=hostedPaymentPublic(intent);
+      const payment=hostedPaymentPublic(intent,env);
       if(intent.active){
         if(payment.redirect_url&&Number(intent.amount_cents)===amountCents) return notificationJson({success:true,...payment,resumed:true});
         return notificationJson({success:false,error:'An earlier payment for $'+payment.amount+' is unfinished. Check its status or resume that payment before starting another.',payment},409);
@@ -2961,8 +2974,8 @@ async function customerPaymentSessionPost({request,env}){
     ]);
     linkSaved=true;
     const verified=await reconcileHostedPayment(env,id,tokenData);
-    const payment=hostedPaymentPublic(verified);
-    if(!payment.redirect_url) throw new Error('The hosted link was created, but its status could not be independently verified. Global Payments must enable link retrieval for this app.');
+    const payment=hostedPaymentPublic(verified,env);
+    if(!payment.redirect_url) throw new Error('The payment link was saved, but verification is incomplete. '+(verified.last_error||'No verified checkout address is available yet.'));
     return notificationJson({success:true,...payment});
   }catch(error){
     if(createdId&&!linkSaved){
@@ -2974,9 +2987,15 @@ async function customerPaymentSessionPost({request,env}){
     const detail=onlinePaymentSafeDetail(error?.message||error,env);
     console.warn('Hosted payment session failed '+JSON.stringify({intent_id:createdId,detail}));
     const sandboxDetail=onlinePaymentEnvironment(env)==='sandbox'?detail:'';
+    // Return the saved attempt even on failure so the browser cannot keep
+    // displaying an older, closed payment while this link remains reserved.
+    const savedIntent=createdId?await hostedPaymentRecord(env,createdId).catch(()=>null):null;
+    const payment=hostedPaymentPublic(savedIntent,env);
     return notificationJson({
       success:false,
-      error:'The secure payment page could not be opened.'+(sandboxDetail?` Sandbox detail: ${sandboxDetail}`:' Please check your payment status or contact Wooten Oil.')
+      error:(payment?.active?'Your payment link is saved and awaiting verification. Check Payment Status before continuing.':'The secure payment page could not be opened.')+
+        (sandboxDetail?` Sandbox detail: ${sandboxDetail}`:' Please check your payment status or contact Wooten Oil.'),
+      ...(payment?{payment}:{})
     },502);
   }
 }
