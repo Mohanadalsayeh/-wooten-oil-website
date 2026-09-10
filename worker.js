@@ -2694,6 +2694,11 @@ async function ensureHostedPaymentsSchema(env){
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_reviews (
     intent_id TEXT PRIMARY KEY, evidence_json TEXT NOT NULL, verified_ms INTEGER NOT NULL
   )`).run();
+  // Keep the evidence when a sandbox review is resolved by an independently
+  // verified payment-to-authentication relationship. No payment data is reset.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_review_resolutions (
+    intent_id TEXT PRIMARY KEY, evidence_json TEXT NOT NULL, resolved_ms INTEGER NOT NULL
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS hosted_payment_health (environment TEXT PRIMARY KEY, heartbeat_ms INTEGER NOT NULL)`).run();
 }
 function hostedPaymentUrl(value,environment){
@@ -2820,6 +2825,7 @@ async function hostedPaymentVerifiedTransaction(env,token,intent,id,expectedAcco
   validateHostedPaymentReportedTransaction(intent,verified,accountIds,merchantId);
   return {id:verified.id,type:verified.type,status:verified.status,amount:verified.amount,currency:verified.currency,
     reference:intent.provider_reference,time_created:verified.time_created,account_id:verified.account_id,
+    authentication_id:hostedPaymentTransactionIdValid(verified.payment_method?.authentication?.id)?verified.payment_method.authentication.id:null,
     parent_resource_id:hostedPaymentTransactionIdValid(verified.parent_resource_id)?verified.parent_resource_id:null};
 }
 function hostedPaymentReviewRecords(intent,records){
@@ -2833,8 +2839,32 @@ function hostedPaymentReviewRecords(intent,records){
       id:tx.id,type:'SALE',status:tx.status,amount:String(intent.amount_cents),currency:intent.currency,reference:intent.provider_reference,
       time_created:typeof tx.time_created==='string'&&Number.isFinite(Date.parse(tx.time_created))?new Date(tx.time_created).toISOString():null,
       account_id:/^TRA_[A-Za-z0-9]+$/.test(String(tx.account_id||''))?tx.account_id:null,
+      authentication_id:hostedPaymentTransactionIdValid(tx.authentication_id)?tx.authentication_id:null,
       parent_resource_id:hostedPaymentTransactionIdValid(tx.parent_resource_id)?tx.parent_resource_id:null
     }));
+}
+async function hostedPaymentAuthenticationRecords(env,token,intent,transactions,detailBudget){
+  const evidence=[];
+  // AUT_ alone is never enough to discard a reported success. The documented
+  // payment_method.authentication.id relationship must come from a fresh,
+  // independently matched transaction, then the authentication API must agree.
+  for(const candidate of transactions){
+    if(!candidate.id.startsWith('AUT_'))continue;
+    const payments=transactions.filter(tx=>!tx.id.startsWith('AUT_')&&tx.authentication_id===candidate.id);
+    if(!payments.length)continue;
+    if(detailBudget.remaining--<=0)throw new Error('Additional authentication details require review before this payment can be verified.');
+    const detail=await hostedPaymentApi(env,token,'/authentications/'+encodeURIComponent(candidate.id));
+    const statuses=['AVAILABLE','NOT_ENROLLED','CHALLENGE_REQUIRED','SUCCESS_AUTHENTICATED','SUCCESS_ATTEMPT_MADE',
+      'NOT_AUTHENTICATED','CHALLENGE_PREFERENCE_ACKNOWLEDGED_INFORMATIONAL_ONLY','FAILED','NOT_AVAILABLE'];
+    if(detail.id!==candidate.id||detail.merchant_id!==token.scope.merchant_id||detail.account_id!==candidate.account_id||
+      !/^\d+$/.test(String(detail.amount))||Number(detail.amount)!==Number(intent.amount_cents)||detail.currency!==intent.currency||
+      !statuses.includes(detail.status)||(detail.type!==undefined)||
+      (detail.action?.result_code&&detail.action.result_code!=='SUCCESS')){
+      throw new Error('The linked authentication record could not be independently verified.');
+    }
+    evidence.push({authentication_id:candidate.id,transaction_ids:payments.map(tx=>tx.id),status:detail.status});
+  }
+  return evidence;
 }
 // Describe only schema shape, never values or arbitrary provider field names.
 // This diagnostic is generated for sandbox failures only and cannot approve a
@@ -2978,6 +3008,12 @@ function hostedPaymentOutcome(intent,data,now=Date.now(),completeReport=false){
   const paid=sales.filter(t=>['CAPTURED','FUNDED'].includes(t.status));
   if(new Set(paid.map(t=>t.id)).size>1)return {status:'pending',active:1,code:'MULTIPLE_SUCCESS_REVIEW',terminalSince:0,
     reviewTransactions:paid,message:'Multiple successful transaction records require independent review.'};
+  if(paid.length&&paid.every(tx=>tx.id.startsWith('AUT_'))){
+    if(intent.status==='captured')return {status:'captured',active:0,code:'SUCCESS',terminalSince:0};
+    return {status:'pending',active:1,code:'AWAITING_TRANSACTION_RECORD',terminalSince:0,
+      authenticationTransactions:paid,needsReport:!completeReport,
+      message:'A security authentication identifier was returned. A separate payment transaction must be verified.'};
+  }
   if(paid.length) return {status:'captured',active:0,transaction:paid[0],code:'SUCCESS',terminalSince:0};
   // A stale result must never erase a previously confirmed capture.
   if(intent.status==='captured') return {status:'captured',active:0,code:'SUCCESS',terminalSince:0};
@@ -3099,27 +3135,64 @@ async function reconcileHostedPayment(env,id,sharedToken){
       data={...data,transactions:[...matched.values()]};
       outcome=hostedPaymentOutcome(intent,data,now,completeReport);
     }
-    let reviewRecords;
-    if(outcome.reviewTransactions){
-      // List entries and return hints can be stale. Verify every apparent
-      // success by exact ID and HPP association before recording a review.
-      const refreshed=new Map(data.transactions.flatMap(group=>Array.isArray(group.transaction_list)?group.transaction_list:group.id?[group]:[]).map(tx=>[tx.id,tx]));
-      for(const transactionId of new Set(outcome.reviewTransactions.map(tx=>tx.id))){
+    let reviewRecords,reviewResolution;
+    const sandbox=intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox';
+    const previousReview=hostedPaymentReviewRecords(intent);
+    const investigateSavedAuthentication=sandbox&&intent.review_verified_ms&&previousReview.some(tx=>tx.id.startsWith('AUT_'));
+    if(outcome.reviewTransactions||outcome.authenticationTransactions||investigateSavedAuthentication){
+      const flatten=groups=>groups.flatMap(group=>Array.isArray(group.transaction_list)?group.transaction_list:group.id?[group]:[]);
+      const investigateAuthentication=sandbox&&(investigateSavedAuthentication||outcome.reviewTransactions?.some(tx=>tx.id.startsWith('AUT_')));
+      // A resolution requires a complete fresh report as well as every saved
+      // success. An empty later report never erases the saved review evidence.
+      if(investigateAuthentication&&!completeReport){
+        verificationStep='Transaction reporting';
+        const reported=await hostedPaymentReportedTransactions(env,token,intent,'reference',detailBudget);
+        data={...data,transactions:[...new Map([...flatten(data.transactions),...reported].map(tx=>[tx.id,tx])).values()]};
+        completeReport=true;
+      }
+      const refreshed=new Map([...(investigateSavedAuthentication?previousReview:[]),...flatten(data.transactions)].map(tx=>[tx.id,tx]));
+      const ids=new Set([...refreshed.values()].filter(tx=>['CAPTURED','FUNDED'].includes(tx.status)).map(tx=>tx.id));
+      if(investigateSavedAuthentication)for(const tx of previousReview)ids.add(tx.id);
+      for(const transactionId of ids){
         verificationStep='Multiple transaction verification';
         if(detailBudget.remaining--<=0)throw new Error('Additional transaction details require review before this payment can be verified.');
         refreshed.set(transactionId,await hostedPaymentVerifiedTransaction(env,token,intent,transactionId));
       }
+      if(investigateAuthentication){
+        verificationStep='Authentication relationship verification';
+        const fresh=[...ids].map(id=>refreshed.get(id));
+        const authenticationEvidence=await hostedPaymentAuthenticationRecords(env,token,intent,fresh,detailBudget);
+        const excluded=new Set(authenticationEvidence.map(item=>item.authentication_id));
+        const retained=[...refreshed.values()].filter(tx=>!excluded.has(tx.id));
+        const candidate=hostedPaymentOutcome(intent,{...data,transactions:retained},now,completeReport);
+        const paidId=candidate.transaction?.id;
+        // Resolve only the precise misclassification: one confirmed payment
+        // plus explicitly linked authentication records, with no other unresolved
+        // transactions or historical successful payments being discarded.
+        if(excluded.size&&completeReport&&candidate.status==='captured'&&paidId&&!paidId.startsWith('AUT_')&&
+          retained.every(tx=>tx.id===paidId||tx.status==='DECLINED')&&
+          previousReview.every(tx=>tx.id===paidId||excluded.has(tx.id))&&
+          (intent.status!=='captured'||!intent.provider_transaction_id||intent.provider_transaction_id===paidId||excluded.has(intent.provider_transaction_id))){
+          if(intent.review_verified_ms){
+            let raw;try{raw=JSON.parse(intent.review_json);}catch{}
+            if(!Array.isArray(raw)||raw.length!==previousReview.length||new Set(previousReview.map(tx=>tx.id)).size!==raw.length){
+              throw new Error('The saved review evidence is incomplete and must be reviewed.');
+            }
+          }
+          reviewResolution={reason:'VERIFIED_PAYMENT_AUTHENTICATION_RELATIONSHIP',previous_review:previousReview,
+            records:hostedPaymentReviewRecords(intent,fresh),authentications:authenticationEvidence,transaction_id:paidId};
+          for(const id of excluded)refreshed.delete(id);
+        }
+      }
       data={...data,transactions:[...refreshed.values()]};
       outcome=hostedPaymentOutcome(intent,data,now,completeReport);
       if(outcome.reviewTransactions){
-        const records=new Map([...hostedPaymentReviewRecords(intent),...hostedPaymentReviewRecords(intent,outcome.reviewTransactions)].map(tx=>[tx.id,tx]));
+        const records=new Map([...previousReview,...hostedPaymentReviewRecords(intent,outcome.reviewTransactions)].map(tx=>[tx.id,tx]));
         if(records.size>10)throw new Error('Multiple successful transactions exceed the automatic review limit.');
         reviewRecords=[...records.values()];
       }
     }
-    if(intent.review_verified_ms||reviewRecords){
-      // A later empty/partial list cannot erase previously verified successes.
-      // Retain the reservation and original ledger amount for manual review.
+    if((intent.review_verified_ms||reviewRecords)&&!reviewResolution){
       outcome={status:intent.status==='captured'?'captured':'pending',active:intent.active?1:0,
         code:'MULTIPLE_SUCCESS_REVIEW',providerStatus:'REVIEW_REQUIRED',terminalSince:0,
         message:'Multiple successful transaction records were independently verified. Review is required before another payment.'};
@@ -3147,7 +3220,13 @@ async function reconcileHostedPayment(env,id,sharedToken){
         .bind(outcome.active,String(data.status),now,next,outcome.terminalSince,id,outcome.status,id,Number(intent.return_received_ms)||0),
       ...(reviewRecords?[env.DB.prepare(`INSERT INTO hosted_payment_reviews(intent_id,evidence_json,verified_ms) VALUES(?,?,?)
         ON CONFLICT(intent_id) DO UPDATE SET evidence_json=excluded.evidence_json,verified_ms=excluded.verified_ms`)
-        .bind(id,JSON.stringify(reviewRecords),now)]:[])
+        .bind(id,JSON.stringify(reviewRecords),now)]:[]),
+      ...(reviewResolution?[
+        env.DB.prepare(`INSERT INTO hosted_payment_review_resolutions(intent_id,evidence_json,resolved_ms) VALUES(?,?,?)
+          ON CONFLICT(intent_id) DO NOTHING`)
+          .bind(id,JSON.stringify(reviewResolution),now),
+        env.DB.prepare(`DELETE FROM hosted_payment_reviews WHERE intent_id=?`).bind(id)
+      ]:[])
     ]);
   }catch(error){
     // Store a short operational error only; never store or log the callback

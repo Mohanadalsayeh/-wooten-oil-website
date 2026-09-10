@@ -64,6 +64,7 @@
             '\nCreated: '+(tx.time_created||'Not supplied');
           if(tx.account_id)text+='\nProcessing account: '+tx.account_id;
           if(tx.parent_resource_id)text+='\nParent reference: '+tx.parent_resource_id;
+          text+='\nSecurity check reference: '+(tx.authentication_id||'Not returned by processor');
         });
       }
       if(payment.verification_pending)text+='\n\nThe latest status check is incomplete. The earlier review records remain saved.';
