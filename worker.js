@@ -2756,40 +2756,46 @@ function validateHostedPaymentPage(intent,data){
     throw new Error('Hosted page order amount, currency or reference is missing or does not match the saved payment.');
   }
 }
-// The HPP guide maps order.reference to the resulting transaction.reference.
-// Query every status for that exact reference and TRA account, including before
-// redirect, so an unavailable reporting service never means an unpaid link.
+function validateHostedPaymentReportedTransaction(intent,tx,accountIds,merchantId){
+  if(!tx||!/^TRN_[A-Za-z0-9_-]+$/.test(String(tx.id||''))||!accountIds.has(tx.account_id)||
+    tx.reference!==intent.provider_reference||tx.type!=='SALE'||
+    !/^\d+$/.test(String(tx.amount))||Number(tx.amount)!==Number(intent.amount_cents)||tx.currency!==intent.currency||
+    (tx.merchant_id&&tx.merchant_id!==merchantId)||
+    (tx.link?.id&&tx.link.id!==intent.link_id)||(tx.link_data?.id&&tx.link_data.id!==intent.link_id)){
+    throw new Error('A reported transaction does not match the saved payment account, reference, amount, currency or link.');
+  }
+}
+// HPP order.reference becomes transaction.reference. Search all authorized
+// merchant accounts for that unique reference: HPP can route the sale through
+// another processing account, and the report header is not a transaction's
+// account. A different account requires an independently retrieved link match.
 async function hostedPaymentReportedTransactions(env,token,intent){
   if(!/^TRA_[A-Za-z0-9]+$/.test(String(intent.account_id||''))||!/^WO-[0-9a-f-]{36}$/i.test(String(intent.provider_reference||''))){
     throw new Error('The saved payment account or reference cannot be used for transaction reporting.');
   }
-  // Resolve the name for this saved link's account, rather than using today's
-  // default account. GP's reporting SDK sends account_name when selecting a
-  // transaction account; account_id alone can leave the default selected.
   const accounts=(Array.isArray(token?.scope?.accounts)?token.scope.accounts:[])
     .filter(account=>/^TRA_[A-Za-z0-9]+$/.test(String(account?.id||'')));
   const matches=accounts.filter(account=>account.id===intent.account_id);
-  const accountName=matches.length===1&&typeof matches[0].name==='string'?matches[0].name:'';
-  if(!accountName.trim()||accountName.length>50||accounts.filter(account=>account.name===accountName).length!==1){
-    throw new Error('The saved HPP account is not uniquely available by name in the authorized transaction accounts.');
+  if(matches.length!==1){
+    throw new Error('The saved HPP account is not uniquely available in the authorized transaction accounts.');
   }
+  const merchantId=String(token?.scope?.merchant_id||'');
+  if(!/^MER_[A-Za-z0-9]+$/.test(merchantId)) throw new Error('The authorized merchant could not be identified for transaction reporting.');
+  const accountIds=new Set(accounts.map(account=>account.id));
   const transactions=[];
   const seen=new Set();
   const requestedPageSize=100;
-  let total;
+  let total,detailRequests=0;
   for(let page=1;page<=2;page++){
-    const query=new URLSearchParams({account_name:accountName,account_id:intent.account_id,reference:intent.provider_reference,type:'SALE',
+    const query=new URLSearchParams({reference:intent.provider_reference,type:'SALE',
       page:String(page),page_size:String(requestedPageSize),order:'ASC',order_by:'TIME_CREATED',
       from_time_created:new Date(Number(intent.created_ms)-86400000).toISOString().slice(0,10),
       to_time_created:new Date(Date.now()+86400000).toISOString().slice(0,10)});
     const data=await hostedPaymentApi(env,token,'/transactions?'+query.toString());
     if(!Array.isArray(data.transactions)) throw new Error('Transaction report is missing its transactions array.');
     if(data.action?.result_code&&data.action.result_code!=='SUCCESS') throw new Error('Transaction reporting has not completed successfully.');
-    if(data.account_id&&data.account_id!==intent.account_id){
-      const returned=accounts.find(account=>account.id===data.account_id);
-      const returnedName=typeof returned?.name==='string'?returned.name.slice(0,50):'unrecognized account';
-      throw new Error('Transaction report account mismatch. Requested '+accountName+'; returned '+returnedName+'.');
-    }
+    if(data.merchant_id!==merchantId) throw new Error('Transaction report merchant is missing or does not match the authorized merchant.');
+    if(data.account_id&&!accountIds.has(data.account_id)) throw new Error('Transaction report header identifies an unauthorized account.');
     const rows=data.transactions;
     const pageSize=data.paging?.page_size===undefined?requestedPageSize:Number(data.paging.page_size);
     if(!Number.isInteger(pageSize)||pageSize<1||pageSize>requestedPageSize||rows.length>pageSize||
@@ -2802,15 +2808,24 @@ async function hostedPaymentReportedTransactions(env,token,intent){
       if(!Number.isInteger(count)||count<0||(total!==undefined&&total!==count)) throw new Error('Transaction report count is inconsistent.');
       total=count;
     }
-    for(const tx of rows){
-      if(!tx||!/^TRN_[A-Za-z0-9_-]+$/.test(String(tx.id||''))||tx.account_id!==intent.account_id||
-        tx.reference!==intent.provider_reference||tx.type!=='SALE'||
-        !/^\d+$/.test(String(tx.amount))||Number(tx.amount)!==Number(intent.amount_cents)||tx.currency!==intent.currency||
-        (tx.link_data?.id&&tx.link_data.id!==intent.link_id)){
-        throw new Error('A reported transaction does not match the saved payment account, reference, amount or currency.');
-      }
+    for(const row of rows){
+      validateHostedPaymentReportedTransaction(intent,row,accountIds,merchantId);
+      let tx=row;
       if(seen.has(tx.id)) throw new Error('Transaction report repeated a record; a complete result could not be verified.');
       seen.add(tx.id);
+      if(tx.account_id!==intent.account_id){
+        // Bound network work to stay within the reconciliation lease. Unknown
+        // or incomplete cross-account evidence leaves the payment reserved.
+        if(++detailRequests>10) throw new Error('Additional transaction details require review before this payment can be verified.');
+        const detail=await hostedPaymentApi(env,token,'/transactions/'+encodeURIComponent(tx.id));
+        if(detail.action?.result_code&&detail.action.result_code!=='SUCCESS') throw new Error('Transaction detail lookup has not completed successfully.');
+        validateHostedPaymentReportedTransaction(intent,detail,accountIds,merchantId);
+        if(detail.id!==tx.id||detail.account_id!==tx.account_id||detail.merchant_id!==merchantId||
+          (detail.link?.id!==intent.link_id&&detail.link_data?.id!==intent.link_id)){
+          throw new Error('The processing transaction could not be independently matched to this merchant and saved HPP link.');
+        }
+        tx=detail;
+      }
       // Keep only status-verification fields; never pass card/payer details on.
       transactions.push({id:tx.id,type:tx.type,status:tx.status,amount:tx.amount,currency:tx.currency,
         reference:tx.reference,time_created:tx.time_created});
@@ -2871,7 +2886,9 @@ async function reconcileHostedPayment(env,id,sharedToken){
   let intent=await hostedPaymentRecord(env,id);
   if(!intent||intent.environment!==onlinePaymentEnvironment(env)) return intent;
   const now=Date.now();
-  const lease=now+60000;
+  // Two reporting pages and at most ten detail lookups, each with a 12s
+  // timeout, plus token/link requests stay within this three-minute lease.
+  const lease=now+180000;
   const locked=await env.DB.prepare(`UPDATE hosted_payment_links SET lease_until_ms=? WHERE intent_id=? AND lease_until_ms<? AND last_check_ms<?`)
     .bind(lease,id,now,now-15000).run();
   if(!Number(locked?.meta?.changes)) return intent;
