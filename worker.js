@@ -2708,7 +2708,20 @@ async function hostedPaymentApi(env,token,path,body){
   // Do not forward the bearer token or payment request to a redirect destination.
   if(response.status>=300&&response.status<400) throw new Error(`Global Payments returned an unexpected redirect (HTTP ${response.status}).`);
   const data=await response.json().catch(()=>({}));
-  if(!response.ok||data.error_code) throw new Error('Global Payments '+response.status+': '+onlinePaymentSafeDetail(data.error_code||'Unable to verify the payment',env,[token.token]));
+  if(!response.ok||data.error_code){
+    // GP's UNKNOWN_RESPONSE is generic; its detailed fields contain the cause.
+    // Read only diagnostic strings, never serialize the request or response.
+    const fields=[data.error_code,data.detailed_error_code,data.detailed_error_description,data.error_description]
+      .filter(value=>typeof value==='string'&&value.trim());
+    const secrets=[token.token];
+    for(const address of Object.values(body?.notifications||{})){
+      if(typeof address!=='string') continue;
+      secrets.push(address);
+      try{const key=new URL(address).searchParams.get('key');if(key) secrets.push(key);}catch{}
+    }
+    const detail=onlinePaymentSafeDetail(fields.join(' | ')||'No error details were returned',env,secrets);
+    throw new Error('Global Payments '+response.status+': '+detail);
+  }
   return data;
 }
 async function hostedPaymentRecord(env,id){
