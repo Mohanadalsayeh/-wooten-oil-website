@@ -64,7 +64,9 @@
         :payment.last_attempt_declined
           ?'The last card attempt was declined. You can return to the same secure payment page to try again.'
           :payment.redirect_url
-            ?'You have an earlier saved checkout. Use Resume Secure Payment to continue it. No successful payment has been confirmed.'
+            ?payment.pending_reason==='review_existing_checkout'
+              ?'Your earlier $'+payment.amount+' checkout is still saved. Use Resume Secure Payment to open that same secure page and review or complete it. No successful payment has been confirmed.'
+              :'You have an earlier saved checkout. Use Resume Secure Payment to continue it. No successful payment has been confirmed.'
             :payment.pending_reason==='transaction_unresolved'
               ?'An earlier checkout is awaiting a final transaction result from Global Payments. No successful payment has been confirmed.'
               :payment.pending_reason==='transaction_record_missing'

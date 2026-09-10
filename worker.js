@@ -2841,7 +2841,7 @@ async function hostedPaymentReportedTransactions(env,token,intent){
 }
 // Payment links may include transactions directly or in transaction_list
 // groups. HPP orders are supplied with separately verified reporting results.
-function hostedPaymentOutcome(intent,data,now=Date.now()){
+function hostedPaymentOutcome(intent,data,now=Date.now(),completeReport=false){
   validateHostedPaymentLink(intent,data);
   if(!Array.isArray(data.transactions)) throw new Error('Link response is missing the transactions array required to verify payment status.');
   const transactions=[];
@@ -2882,7 +2882,19 @@ function hostedPaymentOutcome(intent,data,now=Date.now()){
       providerStatus:safeStatus(unresolved[0].status),message:evidence};
   }
   if(['PAID','CLOSED'].includes(data.status)||Number(data.usage_count||0)>0||Number(data.paid_count||0)>0){
-    return {status:'pending',active:1,code:'AWAITING_TRANSACTION_RECORD',terminalSince:0,message:evidence};
+    // ACTIVE plus a positive usage count is conflicting evidence, not proof
+    // of an unpaid or captured payment. After a complete independent report
+    // finds no transactions, allow review of this SAME single-use sandbox HPP
+    // URL for the observed usage_count=1 response. Live payment counters remain
+    // blocking until their meaning is confirmed. Never replace or infer paid.
+    const reviewExisting=intent.environment==='sandbox'&&data.status==='ACTIVE'&&data.type==='HOSTED_PAYMENT_PAGE'&&
+      data.usage_mode==='SINGLE'&&(data.usage_limit==null||countLabel(data.usage_limit)==='1')&&sales.length===0&&
+      countLabel(data.usage_count)==='1'&&(data.paid_count==null||countLabel(data.paid_count)==='0');
+    if(reviewExisting&&completeReport){
+      return {status:'pending',active:1,code:'REVIEW_EXISTING_CHECKOUT',terminalSince:0,message:evidence};
+    }
+    return {status:'pending',active:1,code:'AWAITING_TRANSACTION_RECORD',terminalSince:0,message:evidence,
+      needsReport:reviewExisting&&!completeReport};
   }
   // Closing a browser is not cancellation. Only a processor-confirmed closed
   // unpaid link can be released, after two checks and a finality grace period.
@@ -2922,6 +2934,7 @@ async function reconcileHostedPayment(env,id,sharedToken){
     const token=sharedToken||await globalPaymentsAccessToken(env);
     verificationStep='Link lookup';
     let data=await hostedPaymentApi(env,token,'/links/'+encodeURIComponent(intent.link_id));
+    let completeReport=false;
     verificationStep='Link response validation';
     validateHostedPaymentLink(intent,data);
     if(!Array.isArray(data.transactions)){
@@ -2929,9 +2942,20 @@ async function reconcileHostedPayment(env,id,sharedToken){
       verificationStep='Transaction reporting';
       const transactions=await hostedPaymentReportedTransactions(env,token,intent);
       data={...data,transactions};
+      completeReport=true;
     }
     verificationStep='Payment outcome validation';
-    const outcome=hostedPaymentOutcome(intent,data,now);
+    let outcome=hostedPaymentOutcome(intent,data,now,completeReport);
+    if(outcome.needsReport){
+      // An empty embedded transaction list is not enough to reopen a link
+      // with a usage count. Independently check the merchant transaction list.
+      verificationStep='Link response validation';
+      validateHostedPaymentPage(intent,data);
+      verificationStep='Transaction reporting';
+      const transactions=await hostedPaymentReportedTransactions(env,token,intent);
+      verificationStep='Payment outcome validation';
+      outcome=hostedPaymentOutcome(intent,{...data,transactions},now,true);
+    }
     const tx=outcome.transaction;
     const next=now+(outcome.active?(now-intent.created_ms>86400000?3600000:120000):1200000);
     verificationStep='Saving verified status';
@@ -2970,12 +2994,13 @@ async function reconcileHostedPayments(env){
 }
 function hostedPaymentPublic(intent,env){
   if(!intent) return null;
+  const canReviewExisting=intent.result_code==='REVIEW_EXISTING_CHECKOUT'&&intent.environment==='sandbox'&&onlinePaymentEnvironment(env)==='sandbox';
   const canResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&
-    intent.result_code==='AWAITING_PAYMENT'&&Date.parse(intent.expires_at)>Date.now());
+    (intent.result_code==='AWAITING_PAYMENT'||canReviewExisting)&&Date.parse(intent.expires_at)>Date.now());
   // A declined attempt may be retried on its existing SINGLE-use link. A
   // processing/preauthorized or unknown transaction must not be retried.
   const declinedResume=Boolean(intent.active&&intent.verified&&!intent.last_error&&intent.link_status==='ACTIVE'&&intent.result_code==='DECLINED'&&Date.parse(intent.expires_at)>Date.now());
-  const pendingReason={AWAITING_TRANSACTION:'transaction_unresolved',AWAITING_TRANSACTION_RECORD:'transaction_record_missing',AWAITING_LINK_CLOSURE:'link_closing'}[intent.result_code]||null;
+  const pendingReason={AWAITING_TRANSACTION:'transaction_unresolved',AWAITING_TRANSACTION_RECORD:'transaction_record_missing',AWAITING_LINK_CLOSURE:'link_closing',REVIEW_EXISTING_CHECKOUT:'review_existing_checkout'}[intent.result_code]||null;
   const pendingDetail=intent.active&&intent.verified&&!intent.last_error&&pendingReason?intent.result_message:'';
   const detail=intent.last_error||pendingDetail;
   return {payment_intent_id:intent.id,status:intent.status,active:!!intent.active,amount:(Number(intent.amount_cents)/100).toFixed(2),
