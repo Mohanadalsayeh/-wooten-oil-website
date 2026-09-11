@@ -56,12 +56,19 @@
     finally{clearTimeout(timer);controllers.delete(controller);signal?.removeEventListener('abort',abort);}
   }
   function skeleton(){body.innerHTML=Array.from({length:6},()=>'<tr aria-hidden="true">'+Array.from({length:7},()=>'<td><span class="pt-skeleton"></span></td>').join('')+'</tr>').join('');body.setAttribute('aria-busy','true');}
+  function summaryAmounts(data,key){
+    const groups=data.summary_amounts?.[key];
+    if(!Array.isArray(groups))return '<small class="pt-metric-note">Amount unavailable</small>';
+    if(!groups.length)return '<div class="pt-metric-amount"><b>USD 0.00</b></div>';
+    return groups.slice().sort((a,b)=>String(a.environment).localeCompare(String(b.environment))||String(a.currency).localeCompare(String(b.currency))).map(group=>'<div class="pt-metric-amount"><b>'+escape(money({...group,currency:group.currency||'Unknown currency'}))+'</b><small>'+escape(environment(group))+'</small></div>').join('');
+  }
+  function tableDate(value){const text=date(value),split=text.indexOf(' ');return split<0?escape(text):escape(text.slice(0,split))+'<small>'+escape(text.slice(split+1))+'</small>';}
   function render(data){
     page=data.page;pages=data.pages;total=data.total;body.removeAttribute('aria-busy');
     get('ptCount').textContent=total.toLocaleString()+' matching transaction'+(total===1?'':'s');
     get('ptPage').textContent='Page '+page+' of '+pages;
-    get('ptSummary').innerHTML=[['total','All matches'],['approved','Approved'],['pending','Pending'],['declined','Declined'],['canceled','Cancel'],['review','Review needed']].map(([key,label])=>'<div><span>'+label+'</span><strong>'+Number(data.summary[key]||0).toLocaleString()+'</strong></div>').join('');
-    body.innerHTML=data.transactions.length?data.transactions.map(row=>'<tr data-transaction="'+escape(row.id)+'"><td>'+escape(date(row.created_at))+'</td><td><strong>'+escape(row.account_name||'Customer name unavailable')+'</strong><small>#'+escape(row.account_number)+'</small></td><td>'+escape(money(row))+'</td><td>'+badge(row)+'</td><td><span class="pt-badge '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(environment(row))+'</span></td><td>'+escape(provider(row))+'</td><td><button class="pt-open" type="button" aria-label="Open transaction '+escape(row.provider_reference||row.id)+'">'+escape(row.provider_reference||row.id)+'</button><small>'+escape(row.provider_transaction_id||'No processor transaction ID')+'</small></td></tr>').join(''):'<tr><td colspan="7" class="pt-empty">No transactions match these filters.</td></tr>';
+    get('ptSummary').innerHTML=[['total','All matches'],['approved','Approved'],['pending','Pending'],['declined','Declined'],['canceled','Canceled'],['review','Review needed']].map(([key,label])=>'<div class="pt-metric" data-metric="'+key+'"><span>'+label+'</span><strong>'+Number(data.summary[key]||0).toLocaleString()+'</strong><small class="pt-metric-note">transactions · total amount</small>'+summaryAmounts(data,key)+'</div>').join('');
+    body.innerHTML=data.transactions.length?data.transactions.map(row=>'<tr data-transaction="'+escape(row.id)+'"><td data-label="Created (UTC)">'+tableDate(row.created_at)+'</td><td data-label="Customer"><strong>'+escape(row.account_name||'Customer name unavailable')+'</strong><small>#'+escape(row.account_number)+'</small></td><td data-label="Amount">'+escape(money(row))+'</td><td data-label="Status">'+badge(row)+'</td><td data-label="Environment"><span class="pt-badge '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(environment(row))+'</span></td><td data-label="Processor">'+escape(provider(row))+'</td><td data-label="Reference"><button class="pt-open" type="button" aria-label="Open transaction '+escape(row.provider_reference||row.id)+'">'+escape(row.provider_reference||row.id)+'</button><small>'+escape(row.provider_transaction_id||'No processor transaction ID')+'</small></td></tr>').join(''):'<tr><td colspan="7" class="pt-empty">No transactions match these filters.</td></tr>';
   }
   async function load(nextPage=1,filters=applied){
     if(!permitted()||exporting)return;

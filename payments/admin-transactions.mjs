@@ -82,13 +82,25 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema}){
     if(snapshot===null)snapshot=String((await env.DB.prepare('SELECT COALESCE(MAX(rowid),0) AS id FROM online_payment_transactions').first()).id);
     predicates.push('ledger_row<=?');args.push(Number(snapshot));
     const where=' WHERE '+predicates.join(' AND ');
-    const summary=await env.DB.prepare(base+` SELECT COUNT(*) AS total,
-      COALESCE(SUM(status='approved'),0) AS approved,COALESCE(SUM(status='pending'),0) AS pending,
-      COALESCE(SUM(status='declined'),0) AS declined,COALESCE(SUM(status='canceled'),0) AS canceled,
-      COALESCE(SUM(status='review'),0) AS review FROM transactions`+where).bind(...args).first();
+    const groups=await env.DB.prepare(base+` SELECT status,currency,environment,COUNT(*) AS count,
+      SUM(amount_cents) AS amount_cents FROM transactions`+where+' GROUP BY status,currency,environment').bind(...args).all();
+    const summary={total:0,approved:0,pending:0,declined:0,canceled:0,review:0};
+    const amounts=Object.fromEntries(Object.keys(summary).map(key=>[key,new Map()]));
+    for(const group of groups.results||[]){
+      const count=Number(group.count),value=Number(group.amount_cents);
+      for(const key of ['total',group.status]){
+        if(!Object.hasOwn(summary,key))continue;
+        summary[key]+=count;
+        // Test and live values, and different currencies, are never combined.
+        const groupKey=JSON.stringify([group.environment,group.currency]);
+        const aggregate=amounts[key].get(groupKey)||{environment:group.environment,currency:group.currency,amount_cents:0};
+        aggregate.amount_cents+=value;amounts[key].set(groupKey,aggregate);
+      }
+    }
+    const summaryAmounts=Object.fromEntries(Object.entries(amounts).map(([key,values])=>[key,[...values.values()]]));
     const pages=Math.max(1,Math.ceil(Number(summary.total)/pageSize)),currentPage=Math.min(page,pages);
     const rows=await env.DB.prepare(base+` SELECT ${columns} FROM transactions`+where+' ORDER BY '+orders[sort]+' LIMIT ? OFFSET ?').bind(...args,pageSize,(currentPage-1)*pageSize).all();
-    return response({success:true,transactions:rows.results||[],summary,total:Number(summary.total),page:currentPage,page_size:pageSize,pages,has_more:currentPage<pages,snapshot});
+    return response({success:true,transactions:rows.results||[],summary,summary_amounts:summaryAmounts,total:Number(summary.total),page:currentPage,page_size:pageSize,pages,has_more:currentPage<pages,snapshot});
   }catch(error){
     if(error.status===400)return response({success:false,error:error.message},400);
     console.error('Admin payment transactions failed',error);

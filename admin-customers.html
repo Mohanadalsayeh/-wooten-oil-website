@@ -5554,7 +5554,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
   #admin-tab-collections .collections-summary>div[aria-describedby]:nth-child(n+3){border-top:1px solid #d7e1ea!important}
 }
 </style>
-<link rel="stylesheet" href="assets/css/admin-payment-transactions.css?v=20260911-4">
+<link rel="stylesheet" href="assets/css/admin-payment-transactions.css?v=20260911-5">
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6949,7 +6949,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
       <div><label for="ptSort">Sort by</label><select id="ptSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="amount_high">Highest amount</option><option value="amount_low">Lowest amount</option></select></div>
       <div class="pt-filter-actions"><button class="primary" id="ptApply" type="submit">Search / Apply</button><button class="secondary" id="ptReset" type="button">Clear filters</button></div>
     </form>
-    <div class="pt-summary" id="ptSummary" aria-label="Matching transaction counts"></div>
+    <div class="pt-summary" id="ptSummary" aria-label="Matching transaction counts and total amounts"></div>
     <div class="pt-toolbar"><div><strong id="ptCount">Open this page to load transactions.</strong><small>All dates and times are UTC. Sandbox records do not represent live funds.</small></div><div class="pt-actions"><button class="secondary" id="ptRefresh" type="button">Refresh</button><button class="secondary table-pdf-export-button" id="ptExport" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div>
     <div id="ptMessage" class="pt-message" role="status" aria-live="polite" hidden></div>
     <div class="pt-progress" id="ptExportProgress" hidden><label id="ptExportLabel" for="ptProgress">Preparing export…</label><progress id="ptProgress" max="100" value="0"></progress></div>
@@ -14752,7 +14752,7 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=20260911-3"></script>
+<script src="assets/js/admin-payment-transactions.js?v=20260911-5"></script>
 </body>
 </html>
 
