@@ -1,3 +1,5 @@
+import * as Heartland from './payments/heartland.mjs';
+function heartlandHelpers(){return {ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents};}
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -3567,7 +3569,7 @@ async function customerPaymentsGet({request,env}){
   if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
 
   try{
-    await Promise.all([ensureCustomerPaymentsSchema(env),ensureHostedPaymentsSchema(env)]);
+    await Promise.all([ensureCustomerPaymentsSchema(env),Heartland.ensureSchema(env,heartlandHelpers())]);
     const account=paymentAccount(customer.account_number);
     const importedResult=await env.DB.prepare(`
       SELECT
@@ -3584,7 +3586,7 @@ async function customerPaymentsGet({request,env}){
         CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,
         '' AS deposit_date,'' AS deposit_no,'' AS invoice_no,amount_cents/100.0 AS amount,
         COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,
-        CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
+        CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') OR EXISTS(SELECT 1 FROM heartland_payment_attempts a WHERE a.intent_id=online_payment_transactions.id AND a.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
         CASE status WHEN 'captured' THEN 'Portal card payment — captured' WHEN 'declined' THEN 'Portal card payment — declined' WHEN 'failed' THEN 'Portal card payment — setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Portal card payment — awaiting confirmation' END AS description,
         created_at AS imported_at,'portal' AS source,status,card_brand,card_last4
       FROM online_payment_transactions
@@ -11471,7 +11473,7 @@ async function adminCustomerActivityGet({request,env}){
       const q=`%${search}%`;const rows=await env.DB.prepare(`SELECT account_number,account_name,email,phone,current_balance,account_status,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number LIKE ? OR account_name LIKE ? OR email LIKE ? OR phone LIKE ? ORDER BY CASE WHEN account_number=? THEN 0 ELSE 1 END,account_name COLLATE NOCASE LIMIT 20`).bind(q,q,q,q,normalizeNotificationAccount(search)).all();
       return notificationJson({success:true,matches:rows?.results||[]});
     }
-    await Promise.all([ensureCustomerPaymentsSchema(env),ensureHostedPaymentsSchema(env),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
+    await Promise.all([ensureCustomerPaymentsSchema(env),Heartland.ensureSchema(env,heartlandHelpers()),ensureCustomerDocumentsTable(env),ensureAdminCommunicationLogTable(env),ensureCustomerLoginActivityTable(env),ensureAccountApplicationsTable(env),ensureAdminContactPreferencesTable(env),ensureFuelRequestHistorySchema(env).catch(()=>{})]);
     const customer=await env.DB.prepare(`SELECT id,account_number,account_name,email,phone,address1,address2,address3,city,state,zip_code,current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,credit_hold,credit_limit,terms_description,salesperson_name,statement_cycle,account_status,updated_at,CASE WHEN password_hash IS NOT NULL AND trim(password_hash)<>'' THEN 1 ELSE 0 END AS online_activated,COALESCE((SELECT email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS email_enabled,COALESCE((SELECT sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS sms_enabled,COALESCE((SELECT portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS portal_enabled FROM customers WHERE account_number=? LIMIT 1`).bind(account).first();
     if(!customer)return notificationJson({success:false,error:"Customer was not found."},404);
     const pageSize=20;const pageFor=name=>Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get(`${name}_page`)||"1",10)||1));
@@ -11488,7 +11490,7 @@ async function adminCustomerActivityGet({request,env}){
         SELECT 'portal-'||id AS id,substr(created_at,1,10) AS payment_date,
           CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,'' AS deposit_date,
           COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,'' AS invoice_no,amount_cents/100.0 AS amount,
-          CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
+          CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') OR EXISTS(SELECT 1 FROM heartland_payment_attempts a WHERE a.intent_id=online_payment_transactions.id AND a.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
           CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
           'portal' AS source,status,card_brand,card_last4
         FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
@@ -12662,17 +12664,22 @@ var worker_default = {
     }
 
     if (url.pathname === "/api/customer/payment/session") {
-      if (request.method === "POST") return customerPaymentSessionPost({request,env});
+      if (request.method === "POST") return Heartland.selected(env)?Heartland.session({request,env},heartlandHelpers()):customerPaymentSessionPost({request,env});
       return methodNotAllowed();
     }
 
     if (url.pathname === "/api/customer/payment/charge") {
-      if (request.method === "POST") return notificationJson({success:false,error:"Payments now use the external secure payment page. Refresh the portal to continue."},410);
+      if (request.method === "POST") return Heartland.selected(env)?Heartland.charge({request,env,ctx},heartlandHelpers()):notificationJson({success:false,error:"Payments now use the external secure payment page. Refresh the portal to continue."},410);
       return methodNotAllowed();
     }
 
     if (url.pathname === "/api/customer/payment/status") {
-      if (request.method === "GET") return customerHostedPaymentGet({request,env});
+      if (request.method === "GET") return Heartland.selected(env)?Heartland.status({request,env},heartlandHelpers()):customerHostedPaymentGet({request,env});
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/cancel") {
+      if (request.method === "POST" && Heartland.selected(env)) return Heartland.cancel({request,env},heartlandHelpers());
       return methodNotAllowed();
     }
 
@@ -12880,6 +12887,7 @@ return env.ASSETS.fetch(request);
 
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(reconcileHostedPayments(env));
+    ctx.waitUntil(Heartland.scheduled(env,heartlandHelpers()));
     // Add this dedicated trigger without removing existing scheduled jobs.
     if(controller.cron==='*/2 * * * *') return;
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));

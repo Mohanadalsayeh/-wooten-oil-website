@@ -1,4 +1,4 @@
-/* Global Payments external checkout. Card details stay on the hosted page. */
+/* Heartland hosted fields or Global Payments HPP, selected by server configuration. */
 (function(){
   'use strict';
   var full=document.getElementById('payFullBalance');
@@ -14,6 +14,8 @@
   var resume=document.getElementById('portalPaymentResume');
   if(!full||!partial||!row||!button||!message||!secure||!check||!resume)return;
   var busy=false,checking=false,statusUnavailable=false,currentAccount='',generation=0,payment=null,announced='';
+  var cardContainer=document.getElementById('heartlandCardForm'),cancelCard=document.getElementById('heartlandCancel'),note=document.getElementById('portalPaymentNote');
+  var provider='globalpayments',publicKey='',serverReady=false,cardForm=null,mountedIntent='',mountSerial=0,tokenSubmitted=false,sdkPromise=null;
   var returnId=new URL(window.location.href).searchParams.get('payment_return')||'';
   if(!/^[0-9a-f-]{36}$/i.test(returnId))returnId='';
   function setMessage(text,state){
@@ -23,9 +25,9 @@
   function paymentBlocked(){return Boolean(payment&&(payment.active||payment.review_required));}
   function setBusy(value){
     busy=value;
-    button.disabled=value||checking||statusUnavailable||paymentBlocked();
+    button.disabled=value||checking||statusUnavailable||paymentBlocked()||(provider==='heartland'&&!serverReady);
     button.setAttribute('aria-busy',value?'true':'false');
-    button.textContent=value?'Opening Secure Payment…':'Continue to Secure Payment';
+    button.textContent=provider==='heartland'?(value?'Please wait…':'Continue to Card Payment'):(value?'Opening Secure Payment…':'Continue to Secure Payment');
     full.disabled=partial.disabled=value||paymentBlocked();
     if(amount)amount.disabled=value||paymentBlocked();
   }
@@ -44,9 +46,107 @@
     }
     return data;
   }
+  function disposeHeartland(){
+    mountSerial++;mountedIntent='';
+    if(cardForm){try{cardForm.dispose();}catch(ignore){}cardForm=null;}
+    ['heartland-card-holder','heartland-card-number','heartland-card-expiration','heartland-card-cvv','heartland-card-submit'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='';});
+    if(cardContainer)cardContainer.hidden=true;
+    if(cancelCard)cancelCard.hidden=true;
+  }
+  function acceptProvider(data){
+    if(data.provider==='heartland'){
+      provider='heartland';publicKey=data.public_api_key||publicKey;
+      if(typeof data.ready==='boolean')serverReady=data.ready;
+      if(note)note.textContent='Heartland securely processes your card details. Your payment status is saved to your account even if you close the portal.';
+    }
+  }
+  function loadHeartland(){
+    if(window.GlobalPayments)return Promise.resolve();
+    if(sdkPromise)return sdkPromise;
+    sdkPromise=new Promise(function(resolve,reject){
+      var script=document.createElement('script');script.src='https://js.globalpay.com/5.1.1/globalpayments.js';script.async=true;
+      script.onload=function(){window.GlobalPayments?resolve():reject(new Error('Secure card fields could not be loaded.'));};
+      script.onerror=function(){script.remove();sdkPromise=null;reject(new Error('Secure card fields could not be loaded. Check your connection and try Check Payment Status.'));};
+      document.head.appendChild(script);
+    });return sdkPromise;
+  }
+  async function mountHeartland(p){
+    if(!cardContainer||mountedIntent===p.payment_intent_id)return;
+    disposeHeartland();mountedIntent=p.payment_intent_id;tokenSubmitted=false;
+    var serial=mountSerial,ticket=generation,id=p.payment_intent_id;
+    cardContainer.hidden=false;cancelCard.hidden=false;
+    try{
+      await loadHeartland();
+      if(serial!==mountSerial||ticket!==generation||!payment||payment.payment_intent_id!==id||!payment.can_pay)return;
+      window.GlobalPayments.configure({publicApiKey:publicKey});
+      cardForm=window.GlobalPayments.ui.form({fields:{
+        'card-holder-name':{target:'#heartland-card-holder',placeholder:'Name on card'},
+        'card-number':{target:'#heartland-card-number',placeholder:'Card number'},
+        'card-expiration':{target:'#heartland-card-expiration',placeholder:'MM / YYYY'},
+        'card-cvv':{target:'#heartland-card-cvv',placeholder:'Security code'},
+        submit:{target:'#heartland-card-submit',value:'Pay $'+p.amount+' — Sandbox'}
+      },styles:{
+        'html, body':{margin:'0',padding:'0',height:'100%',background:'#ffffff'},
+        'input':{width:'100%',height:'48px','box-sizing':'border-box',padding:'0 12px',border:'0',outline:'0',color:'#17314b','font-family':'Arial, sans-serif','font-size':'16px',background:'#ffffff'},
+        'button':{width:'100%',height:'48px',border:'0','border-radius':'8px',color:'#ffffff',background:'#bd182a','font-family':'Arial, sans-serif','font-size':'16px','font-weight':'700',cursor:'pointer'},
+        'button:focus':{outline:'2px solid #17314b','outline-offset':'-4px'},
+        '.error':{color:'#a91d29'}
+      }});
+      cardForm.on('token-success',async function(response){
+        if(serial!==mountSerial||ticket!==generation||tokenSubmitted||!payment||payment.payment_intent_id!==id||!payment.can_pay)return;
+        if(!response||typeof response.paymentReference!=='string'){setMessage('Heartland did not return a card token. Please check the card details.','error');return;}
+        tokenSubmitted=true;setBusy(true);cardContainer.hidden=true;cancelCard.hidden=true;
+        result.textContent='Submitting your sandbox payment. Please wait for its saved result.';
+        try{
+          var data=await requestJson('/api/customer/payment/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_intent_id:id,payment_reference:response.paymentReference})});
+          if(ticket!==generation)return;
+          setMessage('','');renderPayment(data.payment);
+        }catch(error){
+          if(ticket!==generation)return;
+          // The sale may have reached Heartland. Only read status after a lost response.
+          disposeHeartland();statusUnavailable=true;setBusy(false);setMessage('Checking the saved result of this payment…','processing');await refreshStatus();
+        }
+      });
+      cardForm.on('token-error',function(){if(serial===mountSerial&&ticket===generation&&!tokenSubmitted)setMessage('Check the card details and try the sandbox payment again.','error');});
+      if(cardForm.ready)cardForm.ready(function(){if(serial===mountSerial&&ticket===generation)setMessage('Sandbox checkout — use a test card only. No live funds will be collected.','processing');});
+    }catch(error){if(serial===mountSerial&&ticket===generation){disposeHeartland();setMessage(error.message,'error');if(cancelCard)cancelCard.hidden=false;}}
+  }
+  function renderHeartland(p){
+    if(!p){disposeHeartland();setMessage(serverReady?'Sandbox checkout — use a test card only.':'Sandbox checkout is waiting for its background confirmation service. Try Check Payment Status shortly.','processing');
+      if(!serverReady){secure.hidden=false;secureAmount.textContent='';result.textContent='No payment has been started.';result.className='portal-payment-result show processing';}return;}
+    secureAmount.textContent='$'+p.amount;
+    var text='',state='processing';
+    if(p.status==='initiated'){
+      text=p.can_pay?'Your $'+p.amount+' sandbox checkout is ready. Enter a test card below, then press Pay. Opening this form does not submit a payment.':'This unsubmitted checkout is not ready. Cancel it and start again.';
+      if(p.can_pay&&serverReady&&!statusUnavailable)mountHeartland(p);else{disposeHeartland();if(cancelCard)cancelCard.hidden=false;}
+    }else{
+      disposeHeartland();
+      if(p.status==='captured'){
+        text='Sandbox test payment approved for $'+p.amount+'. No live funds were collected. Confirmation: '+p.reference+'.';state='success';
+        if(announced!==p.payment_intent_id){announced=p.payment_intent_id;window.dispatchEvent(new CustomEvent('wooten:payment-completed',{detail:p}));}
+      }else if(p.active){
+        text=p.review_required?'Your earlier sandbox payment needs review because Heartland returned more than one successful sale. Please contact Wooten Oil with reference '+p.reference+'.':
+          'Your earlier $'+p.amount+' sandbox payment is awaiting confirmation. We will keep checking even if you close the portal. Opening this form does not start another payment.';
+        if(p.review_required)state='review';
+      }else if(p.status==='declined'){text='The sandbox card attempt was declined. You can start a new checkout to try another test card.';state='error';}
+      else if(p.status==='canceled'||p.status==='expired')text='The unsubmitted sandbox checkout was '+p.status+'. You can choose an amount and start again.';
+      else{text='The sandbox checkout could not be prepared. Check the Heartland setup before trying again.';state='error';}
+    }
+    result.textContent=text;result.className='portal-payment-result show '+state;
+  }
+  async function cancelHeartland(){
+    if(busy||checking||!payment||payment.status!=='initiated')return;
+    var ticket=generation,id=payment.payment_intent_id;disposeHeartland();setBusy(true);
+    try{
+      var data=await requestJson('/api/customer/payment/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_intent_id:id})});
+      if(ticket===generation){setMessage('','');renderPayment(data.payment);}
+    }catch(error){if(ticket===generation){statusUnavailable=true;setBusy(false);setMessage(error.message,'error');await refreshStatus();}}
+  }
+
   function renderPayment(data){
     payment=data||null;
     secure.hidden=!payment;resume.hidden=true;resume.removeAttribute('href');setBusy(false);
+    if(provider==='heartland'){renderHeartland(payment);return;}
     if(!payment)return;
     secureAmount.textContent='$'+payment.amount;
     var text='',state='processing',test=payment.environment==='sandbox';
@@ -118,7 +218,8 @@
       if(ticket!==generation)return;
       if(!data.payment&&returnId){returnId='';data=await requestJson('/api/customer/payment/status');}
       if(ticket!==generation)return;
-      statusUnavailable=false;
+      statusUnavailable=false;acceptProvider(data);
+      if(provider==='heartland')setMessage('','');
       renderPayment(data.payment);
       if(returnId&&data.payment){
         returnId='';
@@ -128,7 +229,7 @@
       }
     }catch(error){
       if(ticket===generation&&error.status!==401){
-        statusUnavailable=true;setBusy(false);setMessage(error.message,'error');
+        statusUnavailable=true;if(provider==='heartland')disposeHeartland();setBusy(false);setMessage(error.message,'error');
         secure.hidden=false;secureAmount.textContent=payment?'$'+payment.amount:'';
         resume.hidden=true;resume.removeAttribute('href');
         result.className='portal-payment-result show processing';
@@ -140,19 +241,21 @@
     }
   }
   async function beginPayment(){
-    if(busy||checking||statusUnavailable||paymentBlocked())return;
+    if(busy||checking||statusUnavailable||paymentBlocked()||(provider==='heartland'&&!serverReady))return;
     var value=String(amount&&amount.value||'').trim(),paymentType=partial.checked?'partial':'full';
     if(paymentType==='partial'&&(!/^\d+(?:\.\d{1,2})?$/.test(value)||Number(value)<1)){
       setMessage('Please enter a partial payment amount of at least $1.00.','error');amount.focus();return;
     }
     var ticket=generation;
-    setBusy(true);setMessage('Opening the Global Payments secure payment page…','processing');
+    setBusy(true);setMessage(provider==='heartland'?'Preparing your secure card fields…':'Opening the Global Payments secure payment page…','processing');
     try{
       var data=await requestJson('/api/customer/payment/session',{
         method:'POST',headers:{Accept:'application/json','Content-Type':'application/json'},
         body:JSON.stringify({payment_type:paymentType,amount:paymentType==='partial'?value:undefined})
       });
       if(ticket!==generation)return;
+      acceptProvider(data);
+      if(provider==='heartland'){setMessage('','');renderPayment(data.payment);return;}
       renderPayment(data);setBusy(true);
       window.location.assign(safeUrl(data.redirect_url,data.environment));
     }catch(error){
@@ -176,9 +279,10 @@
   partial.addEventListener('change',choiceChanged);
   button.addEventListener('click',beginPayment);
   check.addEventListener('click',refreshStatus);
+  if(cancelCard)cancelCard.addEventListener('click',cancelHeartland);
   window.addEventListener('wooten:payment-account',function(event){
     var account=String(event.detail&&event.detail.account_number||'');
-    if(account!==currentAccount){generation++;currentAccount=account;payment=null;announced='';statusUnavailable=false;secure.hidden=true;setMessage('','');setBusy(false);}
+    if(account!==currentAccount){generation++;disposeHeartland();provider='globalpayments';serverReady=false;publicKey='';currentAccount=account;payment=null;announced='';statusUnavailable=false;secure.hidden=true;setMessage('','');setBusy(false);}
     refreshStatus();
   });
   window.addEventListener('pageshow',function(){setBusy(false);refreshStatus();});

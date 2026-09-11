@@ -305,3 +305,16 @@
     padding-top:8px !important;
   }
 }
+
+/* Heartland hosted fields remain in processor-owned iframes. */
+.heartland-card-form{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0 12px}
+.heartland-card-form[hidden],#heartlandCancel[hidden]{display:none!important}
+.heartland-wide{grid-column:1/-1}.heartland-field{min-width:0}
+.heartland-field>span{display:block;margin-bottom:7px;color:#18344e;font-size:14px;font-weight:700}
+.heartland-field>div{height:48px;border:1px solid #cbd7e3;border-radius:8px;background:#fff;overflow:hidden}
+.heartland-field:focus-within{border-radius:8px;outline:2px solid #527ea8;outline-offset:2px}
+.heartland-card-form iframe{display:block;width:100%!important;border:0!important}
+.heartland-field iframe{height:48px!important}.heartland-pay,.heartland-pay iframe{height:48px!important}
+.heartland-security{margin:0;color:#617186;font-size:12px;line-height:1.6}
+#heartlandCancel{margin:8px 8px 0 0}
+@media(max-width:380px){.heartland-card-form{grid-template-columns:1fr}.heartland-wide{grid-column:auto}}

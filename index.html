@@ -167,7 +167,7 @@
 
 <link rel="stylesheet" href="assets/css/wooten-notification-pdf-bottom-breathing-room.css">
 
-<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=hosted-payment-review-1">
+<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=heartland-integrated-1">
 
 <link rel="stylesheet" href="assets/css/wooten-farm-tractor-visual.css">
 
@@ -738,8 +738,17 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite"></div>
         <div class="portal-secure-payment" id="portalSecurePayment" hidden>
           <div class="portal-secure-payment-head"><span>Payment Status</span><strong id="portalSecurePaymentAmount">$0.00</strong></div>
-          <p class="portal-secure-payment-note">Global Payments processes your payment on its secure page. Your payment status is saved to your account even if you close the portal.</p>
+          <p class="portal-secure-payment-note" id="portalPaymentNote">Global Payments processes your payment on its secure page. Your payment status is saved to your account even if you close the portal.</p>
           <div class="portal-payment-result" id="portalPaymentResult" role="status" aria-live="polite"></div>
+          <div id="heartlandCardForm" class="heartland-card-form" hidden>
+            <div class="heartland-field heartland-wide"><span>Cardholder name</span><div id="heartland-card-holder"></div></div>
+            <div class="heartland-field heartland-wide"><span>Card number</span><div id="heartland-card-number"></div></div>
+            <div class="heartland-field"><span>Expiration date</span><div id="heartland-card-expiration"></div></div>
+            <div class="heartland-field"><span>Security code</span><div id="heartland-card-cvv"></div></div>
+            <div class="heartland-wide heartland-pay" id="heartland-card-submit"></div>
+            <p class="heartland-wide heartland-security">Card details are securely handled by Heartland. Use sandbox test cards only.</p>
+          </div>
+          <button type="button" class="portal-payment-cancel" id="heartlandCancel" hidden>Cancel unsubmitted checkout</button>
           <a class="portal-payment-cancel" id="portalPaymentResume" rel="noreferrer" hidden>Resume Secure Payment</a>
           <button type="button" class="portal-payment-cancel" id="portalPaymentCheck">Check Payment Status</button>
         </div>
@@ -1332,7 +1341,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-05.js"></script>
 
 
-<script src="assets/js/script-06.js?v=hosted-payment-authentication-1"></script>
+<script src="assets/js/script-06.js?v=heartland-integrated-1"></script>
 
 
 
