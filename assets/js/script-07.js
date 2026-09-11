@@ -334,14 +334,7 @@
 
 
   function customerDocumentFormatDate(value){
-    if(!value) return 'Date not specified';
-    try{
-      var d=/^\d{4}-\d{2}-\d{2}$/.test(value)
-        ? new Date(value+'T12:00:00')
-        : new Date(value);
-      if(Number.isNaN(d.getTime())) return value;
-      return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    }catch(e){return value;}
+    return value?WootenTime.date(value):'Date not specified';
   }
 
   function customerDocumentSize(bytes){
@@ -473,26 +466,11 @@
   };
 
   function historyDate(value){
-    if(!value) return '—';
-    try{
-      var d=new Date(value);
-      if(Number.isNaN(d.getTime())) return value;
-      return d.toLocaleString('en-US',{
-        month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'
-      });
-    }catch(e){return value;}
+    return WootenTime.dateTime(value);
   }
 
   function historyDeliveryDate(value){
-    if(!value) return 'Flexible / Not specified';
-    try{
-      var parts=String(value).split('-');
-      if(parts.length===3){
-        return new Date(Number(parts[0]),Number(parts[1])-1,Number(parts[2]))
-          .toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-      }
-    }catch(e){}
-    return value;
+    return value?WootenTime.date(value):'Flexible / Not specified';
   }
 
   function historyText(value,fallback){
@@ -723,17 +701,7 @@
   }
 
   function paymentHistoryDateTime(value){
-    if(!value)return '—';
-    var text=String(value).trim();
-    if(!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(text))return paymentHistoryDate(text);
-    var normalized=text.replace(' ','T');
-    if(!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized))normalized+='Z';
-    var timestamp=new Date(normalized);
-    if(!Number.isFinite(timestamp.getTime()))return '—';
-    var pad=function(number){return String(number).padStart(2,'0');};
-    var hours=timestamp.getUTCHours();
-    return pad(timestamp.getUTCMonth()+1)+'-'+pad(timestamp.getUTCDate())+'-'+timestamp.getUTCFullYear()+' '+
-      pad(hours%12||12)+':'+pad(timestamp.getUTCMinutes())+':'+pad(timestamp.getUTCSeconds())+' '+(hours>=12?'PM':'AM')+' UTC';
+    return WootenTime.numericDateTime(value);
   }
 
   function paymentHistoryStatusDate(row){
@@ -1024,7 +992,7 @@
     });
     var statementUpdated=document.getElementById('statementUpdated');
     if(statementUpdated){
-      statementUpdated.textContent=(new Date()).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+      statementUpdated.textContent=WootenTime.dateTime(new Date());
     }
 
     var fullLabel=document.getElementById('payFullBalanceLabel');
@@ -1189,19 +1157,7 @@
   }
 
   function formatNotificationPopupDate(value){
-    try{
-      var d=new Date(value);
-      if(Number.isNaN(d.getTime())) return String(value||'');
-      return d.toLocaleString('en-US',{
-        month:'short',
-        day:'numeric',
-        year:'numeric',
-        hour:'numeric',
-        minute:'2-digit'
-      });
-    }catch(e){
-      return String(value||'');
-    }
+    return WootenTime.dateTime(value);
   }
 
   function renderCustomerNotificationPopup(notification){

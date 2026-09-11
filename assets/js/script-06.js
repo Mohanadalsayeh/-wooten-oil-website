@@ -158,10 +158,10 @@
         ' checkout. Wooten Oil needs to review these records before another payment. Opening this form does not start a new payment.';
       if(test){
         text+='\n\nSandbox only: no live funds were collected.';
-        if(payment.review_recorded_at)text+='\nReview recorded: '+payment.review_recorded_at;
+        if(payment.review_recorded_at)text+='\nReview recorded: '+WootenTime.dateTime(payment.review_recorded_at);
         if(Array.isArray(payment.review_transactions))payment.review_transactions.slice(0,10).forEach(function(tx,index){
           text+='\n\nRecord '+(index+1)+': '+tx.id+'\nStatus: '+tx.status+' | Amount: '+tx.currency+' '+(Number(tx.amount)/100).toFixed(2)+
-            '\nCreated: '+(tx.time_created||'Not supplied');
+            '\nCreated: '+(tx.time_created?WootenTime.dateTime(tx.time_created):'Not supplied');
           if(tx.account_id)text+='\nProcessing account: '+tx.account_id;
           if(tx.parent_resource_id)text+='\nParent reference: '+tx.parent_resource_id;
           text+='\nSecurity check reference: '+(tx.authentication_id||'Not returned by processor');

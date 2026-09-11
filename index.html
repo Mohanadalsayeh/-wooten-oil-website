@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
   <!-- Wooten Oil modular build: CSS/JS moved into /assets.
        Emergency rollback file: index-stage1-backup.html -->
   <meta charset="UTF-8" />
@@ -1331,9 +1332,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-01.js"></script>
 
 
-<script src="assets/js/script-02.js?v=291"></script>
+<script src="assets/js/script-02.js?v=20260911ct1"></script>
 
-<script src="assets/js/script-03.js?v=291"></script>
+<script src="assets/js/script-03.js?v=20260911ct1"></script>
 
 <script src="assets/js/script-04.js"></script>
 
@@ -1341,7 +1342,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-05.js"></script>
 
 
-<script src="assets/js/script-06.js?v=heartland-integrated-1"></script>
+<script src="assets/js/script-06.js?v=20260911ct1"></script>
 
 
 
@@ -1377,7 +1378,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=payment-record-times-20260911"></script>
+<script src="assets/js/script-07.js?v=20260911ct1"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -1393,7 +1394,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script id="wooten-cookie-consent-script" src="assets/js/wooten-cookie-consent-script.js"></script>
 
 
-<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=291"></script>
+<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=20260911ct1"></script>
 <script id="wooten-notification-login-refresh-ver393">
 (function(){
   // Use the existing renderer: do not open menus or mark anything as read.
@@ -1971,7 +1972,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       const d=await r.json().catch(()=>({}));
       if(!r.ok||!d.success){ historyBox.innerHTML='<div class="notification-empty">Sign in to view profile change requests.</div>'; return; }
       const rows=d.requests||[];
-      historyBox.innerHTML=rows.length?rows.map(x=>{const ct=String(x.change_type||'').replaceAll('_',' ');const requested=esc(x.requested_value||'').replace(/\n/g,'<br>');return '<div class="profile-change-row"><div class="profile-change-row-head"><strong>'+esc(x.request_number)+' — '+esc(ct)+'</strong><span class="profile-change-pill '+esc(x.status)+'">'+esc(x.status||'pending')+'</span></div><small>Requested: '+requested+' • '+esc(new Date(String(x.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</small>'+(x.admin_response?'<div class="profile-change-response"><strong>Wooten Oil response:</strong> '+esc(x.admin_response)+'</div>':'')+'</div>'}).join(''):'<div class="notification-empty">No profile change requests yet.</div>';
+      historyBox.innerHTML=rows.length?rows.map(x=>{const ct=String(x.change_type||'').replaceAll('_',' ');const requested=esc(x.requested_value||'').replace(/\n/g,'<br>');return '<div class="profile-change-row"><div class="profile-change-row-head"><strong>'+esc(x.request_number)+' — '+esc(ct)+'</strong><span class="profile-change-pill '+esc(x.status)+'">'+esc(x.status||'pending')+'</span></div><small>Requested: '+requested+' • '+esc(WootenTime.dateTime(x.created_at))+'</small>'+(x.admin_response?'<div class="profile-change-response"><strong>Wooten Oil response:</strong> '+esc(x.admin_response)+'</div>':'')+'</div>'}).join(''):'<div class="notification-empty">No profile change requests yet.</div>';
     }catch(_e){ historyBox.innerHTML='<div class="notification-empty">Requests could not be loaded right now.</div>'; }
   }
 

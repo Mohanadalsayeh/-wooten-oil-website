@@ -37,7 +37,7 @@
 
   function newReference(){
     const now=new Date();
-    const date=String(now.getFullYear()).slice(-2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+    const date=WootenTime.dateKey(now).replace(/-/g,'').slice(2);
     const random=Math.floor(1000+Math.random()*9000);
     return 'MSG-'+date+'-'+random;
   }

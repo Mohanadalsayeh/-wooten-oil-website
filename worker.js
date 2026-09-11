@@ -1,3 +1,5 @@
+import './assets/js/wooten-central-time.js';
+const portalTime=globalThis.WootenTime;
 import * as Heartland from './payments/heartland.mjs';
 import * as AdminTransactions from './payments/admin-transactions.mjs';
 function heartlandHelpers(){return {ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
@@ -106,7 +108,7 @@ async function onRequestPost(context) {
     ["Estimated Gallons", gallons],
     ["Preferred Delivery Date", deliveryDate || "Flexible / Not specified"],
     ["Additional Notes", notes || "None"],
-    ["Received", receivedAt]
+    ["Received", portalTime.dateTime(receivedAt)]
   ];
   const htmlRows = rows.map(([label, value]) => `
     <tr>
@@ -468,7 +470,7 @@ async function onRequestPost2(context) {
       </div>
 
       <p style="margin-top:20px;font-size:12px;color:#666;">
-        Received ${esc2(receivedAt)}
+        Received ${esc2(portalTime.dateTime(receivedAt))}
       </p>
     `,
     text: `New Website Message
@@ -481,7 +483,7 @@ Subject: ${subject}
 
 ${message}
 
-Received: ${receivedAt}`
+Received: ${portalTime.dateTime(receivedAt)}`
   };
   let internal;
   try {
@@ -1681,7 +1683,7 @@ async function mas90SendHealthAlert(env,{alertKey,alertType,severity="warning",r
       AND email_status IN ('pending','failed','sending')
   `).bind(key).run();
   if(Number(claimed?.meta?.changes||0)!==1)return {sent:false,deduped:true};
-  const localTime=new Date().toLocaleString("en-US",{timeZone:"America/Chicago",dateStyle:"long",timeStyle:"short"});
+  const localTime=portalTime.dateTime(new Date());
   const title=alertType==="missed_run"?"MAS 90 scheduled synchronization was missed":"MAS 90 synchronization failed";
   const safeTitle=notificationEscapeHtml(title),safeMessage=notificationEscapeHtml(alertMessage),safeRun=notificationEscapeHtml(runId||"Not available"),safeWhen=notificationEscapeHtml(localTime);
   const result=await accountApplicationSendEmail(env,{
@@ -3595,14 +3597,14 @@ async function customerPaymentsGet({request,env}){
       ORDER BY created_at DESC LIMIT 5000
     `).bind(account).all();
     const imported=importedResult?.results||[];
-    const online=onlineResult?.results||[];
+    const online=(onlineResult?.results||[]).map(row=>({...row,payment_date:portalTime.dateKey(row.created_at),posting_date:row.status==='captured'?portalTime.dateKey(row.completed_at):''}));
     const url=new URL(request.url);const query=String(url.searchParams.get("q")||"").trim().toLowerCase().slice(0,120);
     const sort=String(url.searchParams.get("sort")||"newest");
     const page=Math.max(1,Number.parseInt(url.searchParams.get("page")||"1",10)||1);
     const pageSize=Math.max(1,Math.min(100,Number.parseInt(url.searchParams.get("page_size")||"20",10)||20));
     let rows=imported.concat(online);
     if(query) rows=rows.filter(row=>[row.payment_date,row.posting_date,row.deposit_date,row.amount,row.reference,row.invoice_no,row.deposit_no,row.description,row.status,row.card_brand,row.card_last4].some(value=>String(value??"").toLowerCase().includes(query)));
-    const dateValue=row=>Date.parse(row.posting_date||row.payment_date||row.imported_at||0)||0;
+    const dateValue=row=>portalTime.parse(row.source==='portal'?(row.completed_at||row.created_at):(row.posting_date||row.payment_date||row.imported_at))?.getTime()||0;
     rows.sort((a,b)=>sort==="oldest"?dateValue(a)-dateValue(b):sort==="amount_desc"?Number(b.amount)-Number(a.amount):sort==="amount_asc"?Number(a.amount)-Number(b.amount):sort==="reference_asc"?String(a.reference||"").localeCompare(String(b.reference||"")):dateValue(b)-dateValue(a));
     const total=rows.length,offset=(page-1)*pageSize,pagedRows=rows.slice(offset,offset+pageSize);
     // The imported ledger remains the source of truth for lifetime totals. Portal
@@ -6226,15 +6228,7 @@ __name(backfillStatementTestCommunicationLog,"backfillStatementTestCommunication
 
 // Date-only filters mean whole Central calendar days, including 23/25-hour DST days.
 function communicationLogDateBoundary(value,nextDay=false){
-  if(!value)return '';
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
-  const date=new Date(value+'T00:00:00Z');
-  if(Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==value)return null;
-  if(nextDay)date.setUTCDate(date.getUTCDate()+1);
-  const wallClock=date.getTime();
-  let utc=wallClock-adminTimeZoneOffsetMs(new Date(wallClock),'America/Chicago');
-  utc=wallClock-adminTimeZoneOffsetMs(new Date(utc),'America/Chicago');
-  return new Date(utc).toISOString();
+  return portalTime.dayStart(value,nextDay);
 }
 __name(communicationLogDateBoundary,"communicationLogDateBoundary");
 
@@ -9458,7 +9452,7 @@ async function adminCustomerDocumentUpload({request,env}){
           const secureLink=await createPortalShortStatementLink({request,env,documentId,accountNumber:account});
           const smsLink=secureLink.replace(/^https?:\/\//i,"");
           const typeLabel=type==="invoice"?"Invoice":"Statement";
-          const effectiveDate=documentDate||new Date().toISOString().slice(0,10);
+          const effectiveDate=documentDate||portalTime.dateKey();
           const dateText=statementSmsDate(effectiveDate);
           if(type==="statement"){
             smsBody=`WOOTEN OIL CO INC\nCustomer #${account}\n${statementSmsMonth(effectiveDate)} Statement\nStatement Date: ${dateText}\nView PDF: ${smsLink}\nPlease do not reply.`;
@@ -9680,33 +9674,12 @@ function statementPdfEscape(value){
 __name(statementPdfEscape,"statementPdfEscape");
 
 function statementPdfDate(value){
-  const raw=String(value||"").trim();
-  let d;
-  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
-    const [y,m,day]=raw.split("-").map(Number);
-    d=new Date(Date.UTC(y,m-1,day,12,0,0));
-  }else{
-    d=new Date(raw||Date.now());
-  }
-  if(Number.isNaN(d.getTime())) d=new Date();
-  return d.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric",timeZone:"UTC"});
+  return portalTime.date(value||new Date(),{month:"long"});
 }
 __name(statementPdfDate,"statementPdfDate");
 
 function statementPdfShortDate(value){
-  const raw=String(value||"").trim();
-  let d;
-  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
-    const [y,m,day]=raw.split("-").map(Number);
-    d=new Date(Date.UTC(y,m-1,day,12,0,0));
-  }else{
-    d=new Date(raw||Date.now());
-  }
-  if(Number.isNaN(d.getTime())) d=new Date();
-  const y=d.getUTCFullYear();
-  const m=String(d.getUTCMonth()+1).padStart(2,"0");
-  const day=String(d.getUTCDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
+  return portalTime.dateKey(value||new Date());
 }
 __name(statementPdfShortDate,"statementPdfShortDate");
 
@@ -9718,10 +9691,7 @@ function statementSmsDate(value){
 __name(statementSmsDate,"statementSmsDate");
 
 function statementSmsMonth(value){
-  const raw=String(value||"").trim();
-  const iso=/^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:statementPdfShortDate(raw);
-  const d=new Date(`${iso}T12:00:00Z`);
-  return Number.isNaN(d.getTime())?"Statement":d.toLocaleDateString("en-US",{month:"long",timeZone:"UTC"});
+  return portalTime.date(value||new Date(),{month:"long",year:undefined,day:undefined});
 }
 __name(statementSmsMonth,"statementSmsMonth");
 
@@ -11286,7 +11256,7 @@ async function adminCreditCollections({request,env}){
     else if(view==="credit_hold")where.push(holdExpr);
     else if(view==="over_limit")where.push("COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0)");
     else if(view==="missing_contact")where.push("(trim(COALESCE(c.email,''))='' AND trim(COALESCE(c.phone,''))='')");
-    else if(view==="follow_up_due")where.push("trim(COALESCE(cc.follow_up_date,''))<>'' AND date(cc.follow_up_date)<=date('now')");
+    else if(view==="follow_up_due"){where.push("trim(COALESCE(cc.follow_up_date,''))<>'' AND date(cc.follow_up_date)<=date(?)");args.push(portalTime.dateKey());}
     const validStatuses=new Set(["unassigned","watch","contact_needed","contacted","promise_to_pay","dispute","resolved"]);
     if(validStatuses.has(collectionStatus)){
       if(collectionStatus==="unassigned")where.push("(cc.collection_status IS NULL OR trim(cc.collection_status)='' OR cc.collection_status='unassigned')");
@@ -11306,7 +11276,7 @@ async function adminCreditCollections({request,env}){
     const total=Math.max(0,Number(count?.total||0));
     const pages=Math.max(1,Math.ceil(total/pageSize));
     const safePage=Math.min(page,pages);
-    const summary=await env.DB.prepare("SELECT SUM(CASE WHEN "+totalExpr+">0 THEN "+totalExpr+" ELSE 0 END) AS total_ar,SUM(CASE WHEN "+pastDueExpr+">0 THEN "+pastDueExpr+" ELSE 0 END) AS past_due,SUM(CASE WHEN "+older90Expr+">0 THEN "+older90Expr+" ELSE 0 END) AS older_90,SUM(CASE WHEN "+holdExpr+" THEN 1 ELSE 0 END) AS credit_holds,SUM(CASE WHEN COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0) THEN 1 ELSE 0 END) AS over_limit,SUM(CASE WHEN trim(COALESCE(cc.follow_up_date,''))<>'' AND date(cc.follow_up_date)<=date('now') AND COALESCE(cc.collection_status,'')<>'resolved' THEN 1 ELSE 0 END) AS follow_up_due,COUNT(*) AS accounts FROM customers c"+joins+" WHERE "+activeExpr+" AND "+totalExpr+">0.004").first();
+    const summary=await env.DB.prepare("SELECT SUM(CASE WHEN "+totalExpr+">0 THEN "+totalExpr+" ELSE 0 END) AS total_ar,SUM(CASE WHEN "+pastDueExpr+">0 THEN "+pastDueExpr+" ELSE 0 END) AS past_due,SUM(CASE WHEN "+older90Expr+">0 THEN "+older90Expr+" ELSE 0 END) AS older_90,SUM(CASE WHEN "+holdExpr+" THEN 1 ELSE 0 END) AS credit_holds,SUM(CASE WHEN COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0) THEN 1 ELSE 0 END) AS over_limit,SUM(CASE WHEN trim(COALESCE(cc.follow_up_date,''))<>'' AND date(cc.follow_up_date)<=date(?) AND COALESCE(cc.collection_status,'')<>'resolved' THEN 1 ELSE 0 END) AS follow_up_due,COUNT(*) AS accounts FROM customers c"+joins+" WHERE "+activeExpr+" AND "+totalExpr+">0.004").bind(portalTime.dateKey()).first();
     const sql="SELECT c.account_number,c.account_name,c.email,c.phone,c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4,c.credit_hold,c.credit_limit,c.account_status,"+totalExpr+" AS total_balance,"+pastDueExpr+" AS past_due,"+older60Expr+" AS older_60,"+older90Expr+" AS older_90,COALESCE(NULLIF(cc.collection_status,''),'unassigned') AS collection_status,COALESCE(cc.follow_up_date,'') AS follow_up_date,COALESCE(cc.promised_amount,0) AS promised_amount,COALESCE(cc.promised_date,'') AS promised_date,COALESCE(cc.private_notes,'') AS private_notes,COALESCE(cc.updated_by,'') AS collection_updated_by,COALESCE(cc.updated_at,'') AS collection_updated_at,COALESCE((SELECT p.payment_date FROM customer_payments p WHERE p.account_number=c.account_number ORDER BY date(p.payment_date) DESC,p.id DESC LIMIT 1),'') AS last_payment_date,COALESCE((SELECT p.amount FROM customer_payments p WHERE p.account_number=c.account_number ORDER BY date(p.payment_date) DESC,p.id DESC LIMIT 1),0) AS last_payment_amount FROM customers c"+joins+whereSql+" ORDER BY "+orderSql+" LIMIT ? OFFSET ?";
     const result=await env.DB.prepare(sql).bind(...args,pageSize,(safePage-1)*pageSize).all();
     return notificationJson({success:true,read_only_financials:true,page:safePage,page_size:pageSize,total,pages,summary:{total_ar:Number(summary?.total_ar||0),past_due:Number(summary?.past_due||0),older_90:Number(summary?.older_90||0),credit_holds:Number(summary?.credit_holds||0),over_limit:Number(summary?.over_limit||0),follow_up_due:Number(summary?.follow_up_due||0),accounts:Number(summary?.accounts||0)},accounts:result?.results||[]});
@@ -11486,7 +11456,8 @@ async function adminCustomerActivityGet({request,env}){
     const [payments,documents,communications,fuelRequests,applications,logins,paymentChart,fuelChartSummary,lastChartPayment,paymentChartEntries]=await Promise.all([
       safeRows(env.DB.prepare(`WITH combined AS (
         SELECT 'mas90-'||id AS id,payment_date,posting_date,deposit_date,reference,source_invoice_no AS invoice_no,amount,description,
-          'mas90' AS source,'posted' AS status,'' AS card_brand,'' AS card_last4
+          'mas90' AS source,'posted' AS status,'' AS card_brand,'' AS card_last4,
+          NULL AS created_at,NULL AS updated_at,NULL AS completed_at
         FROM customer_payments WHERE account_number=?
         UNION ALL
         SELECT 'portal-'||id AS id,substr(created_at,1,10) AS payment_date,
@@ -11496,7 +11467,7 @@ async function adminCustomerActivityGet({request,env}){
           CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
           'portal' AS source,CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_reviews r WHERE r.intent_id=online_payment_transactions.id)
             AND NOT EXISTS(SELECT 1 FROM hosted_payment_review_resolutions r WHERE r.intent_id=online_payment_transactions.id)
-            THEN 'review' ELSE status END AS status,card_brand,card_last4
+            THEN 'review' ELSE status END AS status,card_brand,card_last4,created_at,updated_at,completed_at
         FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
       ) SELECT *,COUNT(*) OVER() AS total_count FROM combined
         ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`)
@@ -11506,11 +11477,12 @@ async function adminCustomerActivityGet({request,env}){
       safeRows(env.DB.prepare(`SELECT request_number,fuel_type,gallons,delivery_date,delivery_address,email_status,received_at,COUNT(*) OVER() AS total_count FROM fuel_requests WHERE customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)) ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(account,String(customer.email||""),String(customer.phone||""),pageSize,offset("fuel")).all(),"fuel requests"),
       safeRows(env.DB.prepare(`SELECT application_number,application_type,business_name,full_name,status,reviewed_by,reviewed_at,created_at FROM account_applications WHERE lower(email)=lower(?) OR phone=? ORDER BY created_at DESC,id DESC LIMIT 5`).bind(String(customer.email||""),String(customer.phone||"")).all(),"applications"),
       safeRows(env.DB.prepare(`SELECT result,user_agent,created_at,COUNT(*) OVER() AS total_count FROM customer_login_activity WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset("logins")).all(),"logins"),
-      safeRows(env.DB.prepare(`WITH normalized AS (SELECT amount,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,7) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2) ELSE NULL END AS month FROM customer_payments WHERE account_number=?) SELECT month,SUM(COALESCE(amount,0)) AS total_amount,COUNT(*) AS payment_count FROM normalized WHERE month IS NOT NULL AND month>=strftime('%Y-%m','now',?) GROUP BY month ORDER BY month DESC`).bind(account,chartStartModifier).all(),"payment chart"),
-      safeRows(env.DB.prepare(`SELECT COUNT(*) AS request_count,SUM(CASE WHEN trim(COALESCE(gallons,'')) GLOB '[0-9]*' THEN CAST(REPLACE(gallons,',','') AS REAL) ELSE 0 END) AS total_gallons FROM fuel_requests WHERE substr(received_at,1,7)>=strftime('%Y-%m','now',?) AND (customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)))`).bind(chartStartModifier,account,String(customer.email||""),String(customer.phone||"")).all(),"fuel chart"),
+      safeRows(env.DB.prepare(`WITH normalized AS (SELECT amount,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,7) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2) ELSE NULL END AS month FROM customer_payments WHERE account_number=?) SELECT month,SUM(COALESCE(amount,0)) AS total_amount,COUNT(*) AS payment_count FROM normalized WHERE month IS NOT NULL AND month>=strftime('%Y-%m',?,'start of month',?) GROUP BY month ORDER BY month DESC`).bind(account,portalTime.dateKey(),chartStartModifier).all(),"payment chart"),
+      safeRows(env.DB.prepare(`SELECT COUNT(*) AS request_count,SUM(CASE WHEN trim(COALESCE(gallons,'')) GLOB '[0-9]*' THEN CAST(REPLACE(gallons,',','') AS REAL) ELSE 0 END) AS total_gallons FROM fuel_requests WHERE substr(received_at,1,7)>=strftime('%Y-%m',?,'start of month',?) AND (customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)))`).bind(portalTime.dateKey(),chartStartModifier,account,String(customer.email||""),String(customer.phone||"")).all(),"fuel chart"),
       safeRows(env.DB.prepare(`SELECT amount,payment_date,posting_date,deposit_date FROM customer_payments WHERE account_number=? ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT 1`).bind(account).all(),"last chart payment"),
-      safeRows(env.DB.prepare(`WITH normalized AS (SELECT id,amount,payment_date,posting_date,deposit_date,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,10) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),4,2) ELSE NULL END AS chart_date FROM customer_payments WHERE account_number=?) SELECT id,amount,payment_date,posting_date,deposit_date,chart_date FROM normalized WHERE chart_date IS NOT NULL AND substr(chart_date,1,7)>=strftime('%Y-%m','now',?) ORDER BY chart_date ASC,id ASC LIMIT 5000`).bind(account,chartStartModifier).all(),"individual payment chart")
+      safeRows(env.DB.prepare(`WITH normalized AS (SELECT id,amount,payment_date,posting_date,deposit_date,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,10) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),4,2) ELSE NULL END AS chart_date FROM customer_payments WHERE account_number=?) SELECT id,amount,payment_date,posting_date,deposit_date,chart_date FROM normalized WHERE chart_date IS NOT NULL AND substr(chart_date,1,7)>=strftime('%Y-%m',?,'start of month',?) ORDER BY chart_date ASC,id ASC LIMIT 5000`).bind(account,portalTime.dateKey(),chartStartModifier).all(),"individual payment chart")
     ]);
+    for(const row of payments){if(row.source==='portal'){row.payment_date=portalTime.dateKey(row.created_at);row.posting_date=row.status==='captured'?portalTime.dateKey(row.completed_at):'';}}
     const pagination={};for(const [name,rows] of Object.entries({payments,documents,communications,fuel:fuelRequests,logins})){const total=Number(rows[0]?.total_count||0);pagination[name]={page:pages[name],page_size:pageSize,total,pages:Math.max(1,Math.ceil(total/pageSize))};}
     await adminAudit(env,request,"customer_activity_viewed","customer",account,String(customer.account_name||"Customer"));
     return notificationJson({success:true,customer,payments,documents,communications,fuel_requests:fuelRequests,applications,login_activity:logins,payment_chart:paymentChart,payment_chart_entries:paymentChartEntries,payment_chart_last:lastChartPayment[0]||null,fuel_chart_summary:paymentChartEntries,fuel_chart_stats:fuelChartSummary[0]||{},chart_months:chartMonths,pagination});
@@ -11611,7 +11583,7 @@ async function accountApplicationSendEmail(env,{to,subject,html,text,from}){
   }catch(error){return {sent:false,error:String(error?.message||"Email could not be sent.")};}
 }
 async function accountApplicationSendNotifications({request,env,applicationNumber,type,data}){
-  const applicantName=data.full_name;const accountName=type==="business"?data.business_name:applicantName;const submitted=new Date().toLocaleString("en-US",{timeZone:"America/Chicago",dateStyle:"long",timeStyle:"short"});
+  const applicantName=data.full_name;const accountName=type==="business"?data.business_name:applicantName;const submitted=portalTime.dateTime(new Date());
   const fleetCardsText=data.fleet_card_count?data.fleet_card_reasons.map((reason,index)=>`${index+1}. ${reason}`).join(" | "):"None requested";
   const applicationsFrom=String(env.APPLICATIONS_FROM_EMAIL||"Wooten Oil Applications <applications@wootenoil.com>").trim();
   const internalHtml=`<h2>New Wooten Oil Account Application</h2><p>A new ${notificationEscapeHtml(type)} account application was submitted.</p><table cellpadding="7" cellspacing="0" style="border-collapse:collapse"><tr><td><strong>Application</strong></td><td>${notificationEscapeHtml(applicationNumber)}</td></tr><tr><td><strong>Applicant</strong></td><td>${notificationEscapeHtml(applicantName)}</td></tr><tr><td><strong>Account name</strong></td><td>${notificationEscapeHtml(accountName)}</td></tr><tr><td><strong>Email</strong></td><td>${notificationEscapeHtml(data.email)}</td></tr><tr><td><strong>Phone</strong></td><td>${notificationEscapeHtml(data.phone)}</td></tr><tr><td><strong>Fleet cards</strong></td><td>${notificationEscapeHtml(String(data.fleet_card_count))}</td></tr><tr><td><strong>Card use / reason</strong></td><td>${notificationEscapeHtml(fleetCardsText)}</td></tr><tr><td><strong>Submitted</strong></td><td>${notificationEscapeHtml(submitted)} Central</td></tr></table><p>Review the application and its private documents in Customer Administration → Account Applications.</p><p><strong>Security:</strong> Identity and Tax ID documents are not attached to this email.</p>`;

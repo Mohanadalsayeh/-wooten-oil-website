@@ -1,3 +1,5 @@
+import '../assets/js/wooten-central-time.js';
+const portalTime=globalThis.WootenTime;
 // Read-only admin reporting over the saved online payment ledger.
 const response=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
 const statuses=['approved','pending','declined','canceled','unsubmitted','expired','failed','review','unknown'];
@@ -66,8 +68,8 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema}){
     }
     const from=date(params.get('from')),to=date(params.get('to'));
     if(from&&to&&from>to)invalid('The start date must be on or before the end date.');
-    if(from){predicates.push('julianday(created_at)>=julianday(?)');args.push(from);}
-    if(to){predicates.push("julianday(created_at)<julianday(?,'+1 day')");args.push(to);}
+    if(from){predicates.push('julianday(created_at)>=julianday(?)');args.push(portalTime.dayStart(from));}
+    if(to){predicates.push('julianday(created_at)<julianday(?)');args.push(portalTime.dayStart(to,true));}
     let min,max;
     if(params.get('min_amount')){min=cents(params.get('min_amount'));predicates.push('amount_cents>=?');args.push(min);}
     if(params.get('max_amount')){max=cents(params.get('max_amount'));predicates.push('amount_cents<=?');args.push(max);}

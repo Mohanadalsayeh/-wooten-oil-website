@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wooten Oil Admin</title>
@@ -6942,18 +6943,18 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
       <div><label for="ptStatus">Status</label><select id="ptStatus"><option value="">All statuses</option><option value="approved">Approved</option><option value="pending">Pending</option><option value="declined">Declined</option><option value="canceled">Cancel</option><option value="unsubmitted">Unsubmitted</option><option value="expired">Expired</option><option value="failed">Failed</option><option value="review">Review needed</option><option value="unknown">Unknown</option></select></div>
       <div><label for="ptEnvironment">Environment</label><select id="ptEnvironment"><option value="">All environments</option><option value="sandbox">Sandbox tests</option><option value="production">Live</option><option value="unknown">Unknown</option></select></div>
       <div><label for="ptProvider">Processor</label><select id="ptProvider"><option value="">All processors</option><option value="heartland">Heartland</option><option value="globalpayments">Global Payments</option><option value="unknown">Unknown</option></select></div>
-      <div><label for="ptFrom">From date (UTC)</label><input id="ptFrom" type="date"></div>
-      <div><label for="ptTo">To date (UTC)</label><input id="ptTo" type="date"></div>
+      <div><label for="ptFrom">From date (Central)</label><input id="ptFrom" type="date"></div>
+      <div><label for="ptTo">To date (Central)</label><input id="ptTo" type="date"></div>
       <div><label for="ptMinAmount">Minimum amount</label><input id="ptMinAmount" type="number" min="0" step="0.01" placeholder="0.00"></div>
       <div><label for="ptMaxAmount">Maximum amount</label><input id="ptMaxAmount" type="number" min="0" step="0.01" placeholder="Any amount"></div>
       <div><label for="ptSort">Sort by</label><select id="ptSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="amount_high">Highest amount</option><option value="amount_low">Lowest amount</option></select></div>
       <div class="pt-filter-actions"><button class="primary" id="ptApply" type="submit">Search / Apply</button><button class="secondary" id="ptReset" type="button">Clear filters</button></div>
     </form>
     <div class="pt-summary" id="ptSummary" aria-label="Matching transaction counts and total amounts"></div>
-    <div class="pt-toolbar"><div><strong id="ptCount">Open this page to load transactions.</strong><small>All dates and times are UTC. Sandbox records do not represent live funds.</small></div><div class="pt-actions"><button class="secondary" id="ptRefresh" type="button">Refresh</button><button class="secondary table-pdf-export-button" id="ptExport" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div>
+    <div class="pt-toolbar"><div><strong id="ptCount">Open this page to load transactions.</strong><small>All dates and times are Central (CDT/CST). Sandbox records do not represent live funds.</small></div><div class="pt-actions"><button class="secondary" id="ptRefresh" type="button">Refresh</button><button class="secondary table-pdf-export-button" id="ptExport" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div>
     <div id="ptMessage" class="pt-message" role="status" aria-live="polite" hidden></div>
     <div class="pt-progress" id="ptExportProgress" hidden><label id="ptExportLabel" for="ptProgress">Preparing export…</label><progress id="ptProgress" max="100" value="0"></progress></div>
-    <div class="pt-table-wrap"><table class="pt-table" data-auto-pdf="false" aria-label="Payment transactions"><thead><tr><th>Created (UTC)</th><th>Customer</th><th>Amount</th><th>Status</th><th>Environment</th><th>Processor</th><th>Reference</th></tr></thead><tbody id="ptRows"><tr><td colspan="7" class="pt-empty">Transactions will appear here.</td></tr></tbody></table></div>
+    <div class="pt-table-wrap"><table class="pt-table" data-auto-pdf="false" aria-label="Payment transactions"><thead><tr><th>Created (CT)</th><th>Customer</th><th>Amount</th><th>Status</th><th>Environment</th><th>Processor</th><th>Reference</th></tr></thead><tbody id="ptRows"><tr><td colspan="7" class="pt-empty">Transactions will appear here.</td></tr></tbody></table></div>
     <div class="pt-pagination"><button class="secondary" id="ptPrev" type="button" disabled>Previous 20</button><span id="ptPage">Page 1 of 1</span><button class="secondary" id="ptNext" type="button" disabled>Next 20</button></div>
   </section>
   <div class="pt-modal" id="ptModal" hidden>
@@ -7315,7 +7316,7 @@ try{
   let page=1,pages=1,loaded=false,loading=false,rows=[],activeActionTrigger=null;
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const money=value=>Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
-  const date=value=>{if(!value)return 'Not set';const parsed=new Date(String(value).length===10?value+'T12:00:00':value);return Number.isNaN(parsed.getTime())?String(value):parsed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});};
+  const date=value=>value?WootenTime.date(value):'Not set';
   const label=value=>String(value||'unassigned').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
   const key=()=>String(get('adminKey')?.value||'').trim();
   function message(text,ok){statusBox.className=text?'status show '+(ok?'ok':'bad'):'status';statusBox.textContent=text||'';}
@@ -7434,15 +7435,10 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
 
   function number(value){const result=Number(value);return Number.isFinite(result)&&result>0?Math.floor(result):0;}
   function parseDate(value){
-    const source=String(value||'').trim();
-    if(!source)return null;
-    const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(source)&&!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(source)?source.replace(' ','T')+'Z':source;
-    const date=new Date(normalized);
-    return Number.isNaN(date.getTime())?null:date;
+    return WootenTime.parse(value);
   }
   function formatCentral(value,includeSeconds){
-    const date=parseDate(value);if(!date)return 'Not reported';
-    return new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',second:includeSeconds?'2-digit':undefined,timeZoneName:'short'}).format(date);
+    return value?WootenTime.dateTime(value,{second:includeSeconds?'2-digit':undefined}):'Not reported';
   }
   function formatAgo(value){
     const date=parseDate(value);if(!date)return 'Never reported';
@@ -8006,17 +8002,7 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
 let preparedRows=[];
 
 function formatImportUpdateDate(value){
-  if(!value) return "Not imported yet";
-  const timestamp=importUpdateTimestamp(value);
-  if(!timestamp) return String(value);
-  const d=new Date(timestamp);
-  return d.toLocaleString("en-US",{
-    month:"short",
-    day:"numeric",
-    year:"numeric",
-    hour:"numeric",
-    minute:"2-digit"
-  });
+  return value?WootenTime.dateTime(value):'Not imported yet';
 }
 
 function importUpdateTimestamp(value){
@@ -8861,9 +8847,9 @@ function paymentDisplayDate(value){
   if(m) return `${m[2]}-${m[3]}-${m[1]}`;
   m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m) return `${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}-${m[3]}`;
-  const d=new Date(s);
-  if(Number.isNaN(d.getTime())) return s;
-  return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}-${d.getFullYear()}`;
+  const d=WootenTime.parse(s);
+  if(!d) return s;
+  return WootenTime.dateKey(d).replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$2-$3-$1');
 }
 
 function paymentPreviewFilteredRows(){
@@ -9469,7 +9455,7 @@ function renderInboxMessages(){
   pageMessages.forEach(message=>{
     const raw=message.date||"";
     const d=new Date(raw);
-    const receivedText=raw&&!Number.isNaN(d.getTime())?d.toLocaleString():raw;
+    const receivedText=raw?WootenTime.dateTime(raw):'';
 
     /* Desktop table row */
     const row=document.createElement("tr");
@@ -9673,7 +9659,7 @@ async function loadGmailPortalSyncStatus(){
     const res=await fetch("/api/admin/gmail-portal-sync/status",{headers:{"X-Admin-Key":key},cache:"no-store"});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||data.success===false) throw new Error(data.error||"Could not read Gmail sync status.");
-    document.getElementById("gmailSyncLastSuccess").textContent=data.last_success_at?new Date(data.last_success_at).toLocaleString():"Not yet";
+    document.getElementById("gmailSyncLastSuccess").textContent=data.last_success_at?WootenTime.dateTime(data.last_success_at):"Not yet";
     document.getElementById("gmailSyncTotal").textContent=String(data.synced_notifications||0);
     document.getElementById("gmailSyncError").textContent=data.last_error||"None";
     meta.style.display="grid";
@@ -9785,7 +9771,7 @@ function updateTwilioBalanceDisplay(data={}){
   box.classList.toggle("error",!hasBalance&&!!data.balance_error);
   if(hasBalance){
     box.innerHTML=`<span>Current Balance</span><strong>${currency==="USD"?"$":""}${balanceNumber.toFixed(2)}</strong>${currency!=="USD"?`<span>${twilioEsc(currency)}</span>`:""}`;
-    box.title="Twilio balance refreshed " + new Date().toLocaleTimeString();
+    box.title="Twilio balance refreshed " + WootenTime.dateTime(new Date());
   }else if(data.balance_error){
     box.textContent="Balance unavailable: "+String(data.balance_error);
   }else{
@@ -9850,7 +9836,7 @@ let twilioLookupHideTimer=null;
 function twilioEsc(value){return String(value==null?"":value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));}
 function twilioAdminHeaders(json=false){const key=document.getElementById("adminKey").value.trim();const headers={"X-Admin-Key":key,"Accept":"application/json"};if(json)headers["Content-Type"]="application/json";return headers;}
 function twilioValidationCompletedLabel(date=new Date()){
-  const stamp=date.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  const stamp=WootenTime.dateTime(date);
   return 'Verification completed • '+stamp+' Central Time';
 }
 function resetTwilioLookupProgress(){
@@ -10227,7 +10213,7 @@ document.getElementById("activationBtn").addEventListener("click",async()=>{
     document.getElementById("activationCustomerNumber").textContent=data.account_number||account;
     document.getElementById("activationCode").textContent=data.activation_code||"";
     document.getElementById("activationExpires").textContent=data.expires_at
-      ? new Date(data.expires_at).toLocaleString()
+      ? WootenTime.dateTime(data.expires_at)
       : "About 15 minutes";
 
     const el=document.getElementById("activationStatus");
@@ -10305,7 +10291,7 @@ document.getElementById("resetAssistBtn").addEventListener("click",async()=>{
     document.getElementById("resetAssistCustomerNumber").textContent=data.account_number||account;
     document.getElementById("resetAssistCode").textContent=data.reset_code||"";
     document.getElementById("resetAssistExpires").textContent=data.expires_at
-      ? new Date(data.expires_at).toLocaleString()
+      ? WootenTime.dateTime(data.expires_at)
       : "About 15 minutes";
 
     status.className="status show ok";
@@ -10377,10 +10363,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
 
   function fmtDate(value){
-    if(!value) return "—";
-    const d=new Date(String(value).replace(" ","T")+"Z");
-    if(Number.isNaN(d.getTime())) return esc(value);
-    return d.toLocaleString();
+    return WootenTime.dateTime(value);
   }
 
   function setDbStatus(message,good=false){
@@ -10927,13 +10910,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     status.className='status show '+(ok===true?'ok':ok===false?'bad':'');
     status.textContent=message||'';
   }
-  function formatDate(v){
-    if(!v) return 'No date';
-    try{
-      const d=/^\d{4}-\d{2}-\d{2}$/.test(v)?new Date(v+'T12:00:00'):new Date(v);
-      return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    }catch{return v;}
-  }
+  function formatDate(v){return WootenTime.date(v);}
   function formatSize(n){
     n=Number(n||0);
     if(n<1024) return n+' B';
@@ -10948,7 +10925,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const timestamp=raw.replace(' ','T');
     const parsed=new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(timestamp)?timestamp:timestamp+'Z');
     if(Number.isNaN(parsed.getTime()))return 'Time unavailable';
-    return parsed.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+    return WootenTime.dateTime(parsed);
   }
   function renderDocumentPage(){
     list.innerHTML='';
@@ -11153,10 +11130,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   let customerPage=1;
   const customerPageSize=20;
 
-  function todayLocal(){
-    const d=new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
+  function todayLocal(){return WootenTime.dateKey();}
   if(date && !date.value) date.value=todayLocal();
 
   function money(v){
@@ -11518,11 +11492,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   function esc(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
   function money(value){return Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});}
-  function displayDate(value){
-    if(!value)return '';
-    const raw=String(value).replace(' ','T')+(String(value).includes('T')?'':'Z');const date=new Date(raw);
-    return Number.isNaN(date.getTime())?String(value):date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  }
+  function displayDate(value){return value?WootenTime.dateTime(value):'';}
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function key(){return (get('adminKey').value||'').trim();}
   function configBody(){return {
@@ -11706,7 +11676,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }catch(error){if(popup)popup.close();setStatus(error.message||'Combined PDF could not be opened.',false);window.alert(error.message||'Combined PDF could not be opened.');}
   }
   function cleanupFormatBytes(bytes){const n=Math.max(0,Number(bytes)||0);if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
-  function cleanupFormatDate(value){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString();}
+  function cleanupFormatDate(value){return WootenTime.dateTime(value);}
   function reportRunName(run){
     const isTest=String(run.run_type||'').startsWith('test_');
     const isTestSend=isTest&&String(run.run_key||'').startsWith('testsend:');
@@ -11742,14 +11712,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     return reportRunName(run).replace(/[–—]/g,' ').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim()||'Statement Run';
   }
   function reportRunFileDate(value){
-    if(!value)return 'Unknown-Date';
-    const source=String(value).trim();
-    const raw=source.replace(' ','T')+(source.includes('T')?'':'Z');
-    const date=new Date(raw);
-    if(Number.isNaN(date.getTime()))return source.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')||'Unknown-Date';
-    const parts={};
-    new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:true}).formatToParts(date).forEach(part=>{if(part.type!=='literal')parts[part.type]=part.value;});
-    return [parts.year,parts.month,parts.day].join('-')+'_'+parts.hour+'-'+parts.minute+'_'+String(parts.dayPeriod||'').toUpperCase()+'_CT';
+    return value?WootenTime.numericDateTime(value,'ymd').replace(/[: ]/g,'-'):'Unknown-Date';
   }
   async function exportStatementRunReport(){
     const selectedIndexes=selectedReportRunIndexes();
@@ -12320,16 +12283,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   let activeAccount='';
   let customerTotal=0;
 
-  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dateValue(d){return WootenTime.dateKey(d);}
   const now=new Date();
-  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
+  const earlier=WootenTime.shiftDate(now,-90);
   if(!to.value) to.value=dateValue(now);
   if(!from.value) from.value=dateValue(earlier);
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-  function formatDate(v){
-    const d=new Date(String(v||'').replace(' ','T')+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  }
+  function formatDate(v){return WootenTime.dateTime(v);}
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function params(account,page){
     const p=new URLSearchParams();
@@ -12471,19 +12431,14 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   const openNodes=new Map();
 
   function dateValue(d){
-    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d).reduce((out,part)=>{out[part.type]=part.value;return out;},{});
-    return parts.year+'-'+parts.month+'-'+parts.day;
+    return WootenTime.dateKey(d);
   }
   const now=new Date();
-  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
+  const earlier=WootenTime.shiftDate(now,-90);
   if(!to.value)to.value=dateValue(now);
   if(!from.value)from.value=dateValue(earlier);
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-  function formatDate(v){
-    const raw=String(v||'').trim().replace(' ','T');
-    const d=new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)?raw:raw+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'});
-  }
+  function formatDate(v){return WootenTime.dateTime(v);}
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function params(account,page){
     const p=new URLSearchParams();
@@ -12987,7 +12942,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 (()=>{
  const g=id=>document.getElementById(id),list=g('requestCenterList'),status=g('requestCenterStatus');let page=1,pages=1,loaded=false;
  const key=()=>g('adminKey')?.value||sessionStorage.getItem('wootenAdminKey')||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
- const fmt=v=>v?new Date(String(v).replace(' ','T')+'Z').toLocaleString():'—';
+ const fmt=v=>v?WootenTime.dateTime(v):'—';
  function msg(t,ok=true){status.textContent=t||'';status.className='status'+(t?' show '+(ok?'ok':'bad'):'')}
  function requestIcon(k){const icons={
   'Change Type':'<svg viewBox="0 0 24 24"><path d="m4 16 9.5-9.5 4 4L8 20H4z"></path><path d="m12.5 7.5 4 4"></path></svg>',
@@ -13050,8 +13005,8 @@ let pagingRequests=false;
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
-  function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';if(!q)return auditEntries;return auditEntries.filter(row=>{const created=new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString(),admin=String(row.actor_name||''),action=String(row.action_type||'').replaceAll('_',' '),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
-  function renderAuditPage(){const filtered=filteredAuditEntries(),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
+  function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';if(!q)return auditEntries;return auditEntries.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=String(row.action_type||'').replaceAll('_',' '),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
+  function renderAuditPage(){const filtered=filteredAuditEntries(),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
   function renderAudit(entries){auditEntries=Array.isArray(entries)?entries:[];auditPage=1;renderAuditPage();}
   auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAuditPage();}});
   auditNext?.addEventListener('click',()=>{const pages=Math.max(1,Math.ceil(filteredAuditEntries().length/auditPageSize));if(auditPage<pages){auditPage++;renderAuditPage();}});
@@ -13070,7 +13025,7 @@ let pagingRequests=false;
 <script id="wooten-customer-activity-script-ver337">
 (()=>{
   const get=id=>document.getElementById(id),activityPanel=get('admin-tab-activity'),search=get('activityCustomerSearch'),searchBtn=get('activityCustomerSearchBtn'),results=get('activitySearchResults'),dashboard=get('activityDashboard'),status=get('activityStatus'),progress=get('activityLoadProgress'),progressBar=get('activityLoadProgressBar'),progressTrack=get('activityLoadProgressTrack'),progressCount=get('activityLoadProgressCount');let timer,currentAccount='',chartMonths=24,paymentChartMonths=24,balanceChartMonths=12,layoutLockDepth=0,lockedPanelStyle=null;const activityPages={payments:1,documents:1,communications:1,fuel:1,logins:1};
-  const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const money=v=>Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD'});const date=v=>{if(!v)return '—';const parsed=new Date(String(v).replace(' ','T')+(String(v).includes('Z')?'':'Z'));return Number.isNaN(parsed.getTime())?String(v):parsed.toLocaleString();};
+  const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const money=v=>Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD'});const date=v=>WootenTime.dateTime(v);
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function lockActivityLayout(target){const targetRect=target?.getBoundingClientRect(),bounds={width:Math.max(0,Math.floor(targetRect?.width||0)),height:Math.max(0,Math.ceil(targetRect?.height||0))};if(activityPanel&&layoutLockDepth++===0){const panelRect=activityPanel.getBoundingClientRect();lockedPanelStyle={width:activityPanel.style.width,maxWidth:activityPanel.style.maxWidth,overflowX:activityPanel.style.overflowX};activityPanel.style.width=Math.max(0,Math.floor(panelRect.width))+'px';activityPanel.style.maxWidth='100%';activityPanel.style.overflowX='hidden';activityPanel.classList.add('activity-layout-locked');activityPanel.setAttribute('aria-busy','true');}return bounds;}
   function sizeSkeleton(target,bounds){if(!target||!bounds)return;if(bounds.width){target.style.width=bounds.width+'px';target.style.maxWidth='100%';}if(bounds.height)target.style.minHeight=bounds.height+'px';target.style.overflow='hidden';}
@@ -13082,14 +13037,14 @@ let pagingRequests=false;
   function section(title,rows,wide=false,keyName='',meta=null){const total=Number(meta?.total??rows.length),page=Math.max(1,Number(meta?.page||1)),pages=Math.max(1,Number(meta?.pages||1));return '<section class="activity-section'+(wide?' activity-wide':'')+'"'+(keyName?' data-activity-section="'+esc(keyName)+'"':'')+'><div class="activity-section-head"><h3>'+esc(title)+'</h3><span class="activity-count">'+total+'</span></div><div class="activity-list">'+(rows.join('')||empty('No activity recorded.'))+'</div>'+(keyName&&total>20?'<div class="db-pagination activity-pagination"><button class="secondary" type="button" data-activity-page="'+(page-1)+'" data-activity-page-section="'+esc(keyName)+'" '+(page<=1?'disabled':'')+'>Previous 20</button><div class="db-page-info">Page '+page+' of '+pages+' • '+total+' records</div><button class="secondary" type="button" data-activity-page="'+(page+1)+'" data-activity-page-section="'+esc(keyName)+'" '+(page>=pages?'disabled':'')+'>Next 20</button></div>':'')+'</section>';}
   function periodSelect(chartName,selectedMonths){return '<select class="activity-chart-period" data-activity-chart-period data-activity-chart-name="'+chartName+'" aria-label="Chart time period">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[0,'All time']].map(option=>'<option value="'+option[0]+'"'+(Number(selectedMonths)===option[0]?' selected':'')+'>'+option[1]+'</option>').join('')+'</select>';}
   function paymentChart(monthlyRows,paymentEntries=[],selectedMonths=paymentChartMonths,currentBalance=0,lastPayment=null){
-    const validMonths=(monthlyRows||[]).filter(item=>/^\d{4}-\d{2}$/.test(String(item.month||''))),source=new Map(validMonths.map(item=>[String(item.month),{amount:Number(item.total_amount||0),count:Number(item.payment_count||0)}])),now=new Date();
-    const points=(paymentEntries||[]).filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item.chart_date||''))&&Number.isFinite(Number(item.amount))).map((item,index)=>{const parsed=new Date(String(item.chart_date)+'T12:00:00');return {key:String(item.chart_date)+'-'+index,date:String(item.chart_date),label:parsed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}),amount:Number(item.amount||0),reference:item.reference||item.description||'Payment'};}).sort((a,b)=>a.date.localeCompare(b.date));
+    const validMonths=(monthlyRows||[]).filter(item=>/^\d{4}-\d{2}$/.test(String(item.month||''))),source=new Map(validMonths.map(item=>[String(item.month),{amount:Number(item.total_amount||0),count:Number(item.payment_count||0)}])),now=new Date(WootenTime.dateKey()+'T12:00:00Z');
+    const points=(paymentEntries||[]).filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item.chart_date||''))&&Number.isFinite(Number(item.amount))).map((item,index)=>{const parsed=new Date(String(item.chart_date)+'T12:00:00');return {key:String(item.chart_date)+'-'+index,date:String(item.chart_date),label:WootenTime.date(item.chart_date,{year:'2-digit'}),amount:Number(item.amount||0),reference:item.reference||item.description||'Payment'};}).sort((a,b)=>a.date.localeCompare(b.date));
     const paymentCount=points.length,paymentTotal=points.reduce((sum,item)=>sum+item.amount,0),averagePayment=paymentCount?paymentTotal/paymentCount:0,maxAmount=Math.max(1,...points.map(item=>Math.max(0,item.amount))),width=Math.max(760,Math.min(16000,points.length*28+115)),height=326,left=68,right=width-28,top=58,bottom=258,plotHeight=bottom-top,step=(right-left)/Math.max(1,points.length-1),y=value=>bottom-(Math.max(0,value)/maxAmount)*plotHeight;
     const grids=[0,.25,.5,.75,1].map(factor=>{const py=bottom-factor*plotHeight;return '<line class="activity-trend-grid" x1="'+left+'" y1="'+py+'" x2="'+right+'" y2="'+py+'"></line><text class="activity-trend-axis" x="'+(left-8)+'" y="'+(py+4)+'" text-anchor="end">'+esc(money(maxAmount*factor).replace('.00',''))+'</text>';}).join('');
     const pointData=points.map((item,index)=>{const x=points.length===1?(left+right)/2:left+step*index;return {item,x,y:y(item.amount)};}),labelInterval=Math.max(1,Math.ceil(points.length/10));
     const labels=pointData.map((point,index)=>{const showLabel=index===0||index===points.length-1||index%labelInterval===0;return showLabel?'<text class="activity-trend-axis" x="'+point.x.toFixed(1)+'" y="'+(bottom+20)+'" text-anchor="middle">'+esc(point.item.label)+'</text>':'';}).join('');
     const coordinates=pointData.map(point=>point.x.toFixed(1)+','+point.y.toFixed(1)),trendLine=coordinates.length>1?'<polyline class="activity-trend-line" points="'+coordinates.join(' ')+'"></polyline>':'',trendArea=coordinates.length>1?'<path class="activity-trend-area" d="M '+pointData[0].x.toFixed(1)+' '+bottom+' L '+coordinates.join(' L ')+' L '+pointData[pointData.length-1].x.toFixed(1)+' '+bottom+' Z"></path>':'',dots=pointData.map(point=>'<g><title>'+esc(point.item.label+' — '+money(point.item.amount)+(point.item.reference?' — '+point.item.reference:''))+'</title><circle class="activity-trend-dot" cx="'+point.x.toFixed(1)+'" cy="'+point.y.toFixed(1)+'" r="4"></circle></g>').join('');
-    const recent=[];for(let index=5;index>=0;index--){const d=new Date(now.getFullYear(),now.getMonth()-index,1),keyName=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');recent.push(Number(source.get(keyName)?.amount||0));}const hasTrendHistory=validMonths.some(item=>String(item.month)<=new Date(now.getFullYear(),now.getMonth()-5,1).toISOString().slice(0,7))&&recent.filter(value=>value>0).length>=2,priorAverage=(recent[0]+recent[1]+recent[2])/3,recentAverage=(recent[3]+recent[4]+recent[5])/3;let trend='Not enough history',trendClass='';if(hasTrendHistory){if(priorAverage===0&&recentAverage>0){trend='Increasing';trendClass='increasing';}else{const ratio=priorAverage?recentAverage/priorAverage:1;if(ratio>1.10){trend='Increasing';trendClass='increasing';}else if(ratio<.90){trend='Decreasing';trendClass='decreasing';}else{trend='Stable';trendClass='stable';}}}
+    const recent=[];for(let index=5;index>=0;index--){const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-index,1,12)),keyName=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');recent.push(Number(source.get(keyName)?.amount||0));}const hasTrendHistory=validMonths.some(item=>String(item.month)<=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-5,1,12)).toISOString().slice(0,7))&&recent.filter(value=>value>0).length>=2,priorAverage=(recent[0]+recent[1]+recent[2])/3,recentAverage=(recent[3]+recent[4]+recent[5])/3;let trend='Not enough history',trendClass='';if(hasTrendHistory){if(priorAverage===0&&recentAverage>0){trend='Increasing';trendClass='increasing';}else{const ratio=priorAverage?recentAverage/priorAverage:1;if(ratio>1.10){trend='Increasing';trendClass='increasing';}else if(ratio<.90){trend='Decreasing';trendClass='decreasing';}else{trend='Stable';trendClass='stable';}}}
     const lastDate=lastPayment?(lastPayment.posting_date||lastPayment.deposit_date||lastPayment.payment_date||'—'):'—',lastText=lastPayment?money(lastPayment.amount)+' • '+esc(lastDate):'No payment recorded',emptyChart=points.length?'':'<div class="activity-empty">No payment history is available for this period.</div>',svg=points.length?'<div class="activity-trend-scroll"><svg viewBox="0 0 '+width+' '+height+'" style="min-width:'+width+'px" role="img" aria-label="Payment trend by date and amount, with current total balance shown separately"><text class="activity-trend-axis-title" x="'+left+'" y="25">Payment amount</text><line class="activity-trend-balance-line" x1="'+left+'" y1="43" x2="'+right+'" y2="43"></line><text class="activity-trend-balance-label" x="'+right+'" y="35" text-anchor="end">Current Total Balance: '+esc(money(currentBalance))+'</text>'+grids+trendArea+trendLine+dots+labels+'<text class="activity-trend-axis-title" x="'+((left+right)/2)+'" y="310" text-anchor="middle">Payment date</text></svg></div>':'';
     return '<section class="activity-payment-chart activity-trend-chart" data-activity-chart="payments" aria-label="Payment trend and balance"><div class="activity-payment-chart-head"><h3>Payment Trend</h3>'+periodSelect('payments',selectedMonths)+'</div><div class="activity-trend-current"><span>Current Total Balance</span><strong>'+money(currentBalance)+'</strong></div>'+svg+emptyChart+(points.length?'<div class="activity-trend-legend"><span><i class="activity-trend-swatch"></i>Payments</span><span><i class="activity-trend-line-swatch"></i>Trend line</span><span><i class="activity-trend-balance-swatch"></i>Current balance reference</span></div>':'')+'<div class="activity-trend-summary"><div><span>Total paid</span><strong>'+money(paymentTotal)+'</strong></div><div><span>Average payment</span><strong>'+money(averagePayment)+'</strong></div><div><span>Last payment</span><strong>'+lastText+'</strong></div><div><span>Recent trend</span><strong class="activity-trend-status '+trendClass+'">'+trend+'</strong></div></div></section>';
   }
@@ -13103,8 +13058,8 @@ let pagingRequests=false;
     const title=esc(r.reference||r.description||'Payment');
     const link=r.id?'<button class="activity-link activity-payment-link" type="button" data-activity-payment="'+esc(r.id)+'">'+title+'</button>':'<strong>'+title+'</strong>';
     const meta=online?'Customer Portal'+(r.card_last4?' • '+esc(r.card_brand||'Card')+' •••• '+esc(r.card_last4):''):'Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'');
-    const dateLabel=online?(r.status==='captured'?'Approved ':'Created '):'Posted ';
-    const recordDate=online&&r.status!=='captured'?r.payment_date:(r.posting_date||r.payment_date);
+    const dateLabel=online?({captured:'Approved ',declined:'Declined ',canceled:'Canceled ',pending:'Pending as of ',processing:'Processing as of ',failed:'Failed ',expired:'Expired '}[r.status]||'Created '):'Posted ';
+    const recordDate=online?WootenTime.dateTime((['pending','processing'].includes(r.status)?r.updated_at:r.completed_at)||r.created_at||r.payment_date):(r.posting_date||r.payment_date);
     return '<div class="activity-row"><div>'+link+'<small>'+meta+'</small><div class="activity-payment-status">'+statusBadge+'</div></div><div class="activity-row-side"><strong>'+money(r.amount)+'</strong><small>'+dateLabel+esc(recordDate||'—')+'</small></div></div>';
   }
   function render(data){const c=data.customer||{},ages=[c.current_balance,c.aging_category_1,c.aging_category_2,c.aging_category_3,c.aging_category_4].map(Number),total=ages.reduce((a,b)=>a+(Number.isFinite(b)?b:0),0),address=[c.address1,c.address2,c.address3,c.city,c.state,c.zip_code].filter(Boolean).join(', '),active=!c.account_status||String(c.account_status).toLowerCase()==='active';
@@ -13159,10 +13114,7 @@ let pagingRequests=false;
   let customerPage=1;
   const customerPageSize=20;
 
-  function todayLocal(){
-    const d=new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
+  function todayLocal(){return WootenTime.dateKey();}
   if(date && !date.value) date.value=todayLocal();
 
   function money(v){
@@ -13499,16 +13451,13 @@ let pagingRequests=false;
   let activeAccount='';
   let customerTotal=0;
 
-  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dateValue(d){return WootenTime.dateKey(d);}
   const now=new Date();
-  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
+  const earlier=WootenTime.shiftDate(now,-90);
   if(!to.value) to.value=dateValue(now);
   if(!from.value) from.value=dateValue(earlier);
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-  function formatDate(v){
-    const d=new Date(String(v||'').replace(' ','T')+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  }
+  function formatDate(v){return WootenTime.dateTime(v);}
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function params(account,page){
     const p=new URLSearchParams();
@@ -13647,16 +13596,13 @@ let pagingRequests=false;
   let totalCustomers=0;
   const openNodes=new Map();
 
-  function dateValue(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dateValue(d){return WootenTime.dateKey(d);}
   const now=new Date();
-  const earlier=new Date(now);earlier.setDate(earlier.getDate()-90);
+  const earlier=WootenTime.shiftDate(now,-90);
   if(!to.value)to.value=dateValue(now);
   if(!from.value)from.value=dateValue(earlier);
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-  function formatDate(v){
-    const d=new Date(String(v||'').replace(' ','T')+'Z');
-    return Number.isNaN(d.getTime())?String(v||''):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  }
+  function formatDate(v){return WootenTime.dateTime(v);}
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function params(account,page){
     const p=new URLSearchParams();
@@ -14138,7 +14084,7 @@ let pagingRequests=false;
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
-  function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
+  function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
   async function load(){if(loading)return;loading=true;auditMessage('');try{const owner=!!window.wootenAdminUser?.owner;if(owner){const usersRes=await fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),usersData=await usersRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);}const auditRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});let auditData=await auditRes.json().catch(()=>({})),auditOk=auditRes.ok&&auditData.success;if(auditOk&&!(auditData.entries||[]).length){await new Promise(resolve=>setTimeout(resolve,300));const retryRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});const retryData=await retryRes.json().catch(()=>({}));if(retryRes.ok&&retryData.success){auditData=retryData;auditOk=true;}}if(!auditOk){renderAudit([]);throw new Error(auditData.error||'Recent Admin Activity could not be loaded.');}renderAudit(auditData.entries||[]);loaded=true;auditMessage('Recent Admin Activity refreshed.',true);}catch(error){auditMessage(error.message||'Recent Admin Activity could not be loaded.',false);}finally{loading=false;}}
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
@@ -14163,13 +14109,13 @@ let pagingRequests=false;
   function render(rows){
     if(!rows.length){list.innerHTML='<div class="application-empty">No account applications match the selected filters.</div>';return;}
     list.innerHTML=rows.map(row=>{const display=row.application_type==='business'?(row.business_name||row.full_name):row.full_name;return '<article class="application-card" data-application-id="'+Number(row.id)+'">'+
-      '<button class="application-summary" type="button" data-application-toggle aria-expanded="false"><div><strong>'+esc(display)+'</strong><small>'+esc(row.application_number)+' • '+esc(row.full_name)+'</small></div><div><span class="application-type">'+esc(row.application_type)+'</span></div><div><span class="application-status-badge '+esc(row.status)+'">'+esc(label(row.status))+'</span><small>'+(row.reviewed_by?'Reviewed by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(new Date(String(row.reviewed_at).replace(' ','T')+'Z').toLocaleString()):''):'Submitted • '+esc(new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString()))+'</small></div><span aria-hidden="true">⌄</span></button>'+
+      '<button class="application-summary" type="button" data-application-toggle aria-expanded="false"><div><strong>'+esc(display)+'</strong><small>'+esc(row.application_number)+' • '+esc(row.full_name)+'</small></div><div><span class="application-type">'+esc(row.application_type)+'</span></div><div><span class="application-status-badge '+esc(row.status)+'">'+esc(label(row.status))+'</span><small>'+(row.reviewed_by?'Reviewed by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(WootenTime.dateTime(row.reviewed_at)):''):'Submitted • '+esc(WootenTime.dateTime(row.created_at||'')))+'</small></div><span aria-hidden="true">⌄</span></button>'+
       '<div class="application-detail" hidden><div class="application-info-grid">'+
-      info('Application #',row.application_number)+info('Account Type',row.application_type)+info('Submitted',new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString())+
+      info('Application #',row.application_number)+info('Account Type',row.application_type)+info('Submitted',WootenTime.dateTime(row.created_at||''))+
       (row.application_type==='business'?info('Legal Business Name',row.business_name)+info('DBA / Trade Name',row.dba_name)+info('Tax ID Last 4',row.tax_id_last4)+info('Years in Business',row.years_in_business):'')+
-      info('Applicant / Contact',row.full_name)+info('Job Title',row.job_title)+info('Preferred Contact',row.preferred_contact)+info('Email',row.email)+info('Phone',row.phone)+fleetCardInfo(row)+info('Last Reviewed By',row.reviewed_by?row.reviewed_by+(row.reviewed_at?' • '+new Date(String(row.reviewed_at).replace(' ','T')+'Z').toLocaleString():''):'Not reviewed yet')+info('Support Notification Email',Number(row.support_email_sent)?'Sent':'Failed')+info('Applicant Confirmation Email',Number(row.applicant_email_sent)?'Sent':'Failed')+info('Applicant Confirmation SMS',Number(row.confirmation_sms_sent)?'Sent':'Failed')+info('Address',[row.address_1,row.city,row.state,row.zip_code].filter(Boolean).join(', '),true)+info('Fuel Needs / Applicant Notes',row.applicant_notes,true)+(row.notification_error?info('Notification Delivery Details',row.notification_error,true):'')+'</div>'+
+      info('Applicant / Contact',row.full_name)+info('Job Title',row.job_title)+info('Preferred Contact',row.preferred_contact)+info('Email',row.email)+info('Phone',row.phone)+fleetCardInfo(row)+info('Last Reviewed By',row.reviewed_by?row.reviewed_by+(row.reviewed_at?' • '+WootenTime.dateTime(row.reviewed_at):''):'Not reviewed yet')+info('Support Notification Email',Number(row.support_email_sent)?'Sent':'Failed')+info('Applicant Confirmation Email',Number(row.applicant_email_sent)?'Sent':'Failed')+info('Applicant Confirmation SMS',Number(row.confirmation_sms_sent)?'Sent':'Failed')+info('Address',[row.address_1,row.city,row.state,row.zip_code].filter(Boolean).join(', '),true)+info('Fuel Needs / Applicant Notes',row.applicant_notes,true)+(row.notification_error?info('Notification Delivery Details',row.notification_error,true):'')+'</div>'+
       '<div class="application-documents">'+(row.has_tax_document?'<button class="secondary" type="button" data-application-file="tax">Open Tax ID Document</button>':'')+'<button class="secondary" type="button" data-application-file="identity">Open Driver’s License / State ID</button></div>'+
-      '<div class="application-review"><label class="application-review-notes">Admin Response / Notes<textarea data-application-notes maxlength="3000" placeholder="Optional response the customer should receive…">'+esc(row.admin_notes||'')+'</textarea></label><label class="application-review-status">Decision<select data-application-status><option value="pending"'+(row.status==='pending'||row.status==='new'||row.status==='under_review'?' selected':'')+'>Pending</option><option value="accepted"'+(row.status==='accepted'||row.status==='approved'?' selected':'')+'>Accepted</option><option value="denied"'+(row.status==='denied'||row.status==='declined'?' selected':'')+'>Denied</option></select><small class="application-review-meta">'+(row.reviewed_by?'Last saved by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(new Date(String(row.reviewed_at).replace(' ','T')+'Z').toLocaleString()):''):'Not reviewed yet')+'</small></label><div class="request-delivery-options"><strong>Notify applicant by</strong><label><input type="checkbox" data-application-portal> Portal</label><label><input type="checkbox" data-application-email checked> Email</label><label><input type="checkbox" data-application-sms> SMS</label><small>Portal is available only if this applicant already has a matching customer portal account.</small></div><button class="primary application-review-save" type="button" data-application-save>Save &amp; Notify</button></div><div class="application-delete-row"><small>Permanently removes this application and all uploaded documents. Main Admin only.</small><button class="danger-db-btn application-delete-btn" type="button" data-application-delete data-application-number="'+esc(row.application_number)+'" data-application-name="'+esc(display)+'">Delete Application</button></div></div></article>';}).join('');
+      '<div class="application-review"><label class="application-review-notes">Admin Response / Notes<textarea data-application-notes maxlength="3000" placeholder="Optional response the customer should receive…">'+esc(row.admin_notes||'')+'</textarea></label><label class="application-review-status">Decision<select data-application-status><option value="pending"'+(row.status==='pending'||row.status==='new'||row.status==='under_review'?' selected':'')+'>Pending</option><option value="accepted"'+(row.status==='accepted'||row.status==='approved'?' selected':'')+'>Accepted</option><option value="denied"'+(row.status==='denied'||row.status==='declined'?' selected':'')+'>Denied</option></select><small class="application-review-meta">'+(row.reviewed_by?'Last saved by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(WootenTime.dateTime(row.reviewed_at)):''):'Not reviewed yet')+'</small></label><div class="request-delivery-options"><strong>Notify applicant by</strong><label><input type="checkbox" data-application-portal> Portal</label><label><input type="checkbox" data-application-email checked> Email</label><label><input type="checkbox" data-application-sms> SMS</label><small>Portal is available only if this applicant already has a matching customer portal account.</small></div><button class="primary application-review-save" type="button" data-application-save>Save &amp; Notify</button></div><div class="application-delete-row"><small>Permanently removes this application and all uploaded documents. Main Admin only.</small><button class="danger-db-btn application-delete-btn" type="button" data-application-delete data-application-number="'+esc(row.application_number)+'" data-application-name="'+esc(display)+'">Delete Application</button></div></div></article>';}).join('');
   }
   async function load(){let value=6;const started=Date.now();progress.hidden=false;progressBar.style.width=value+'%';progressTrack.setAttribute('aria-valuenow',String(value));progressCount.textContent='Preparing';loadBtn.disabled=true;setStatus('');window.wootenAdminSkeleton?.cards(list,4,'application');const progressTimer=setInterval(()=>{value=Math.min(90,value+(value<55?9:value<78?4:2));progressBar.style.width=value+'%';progressTrack.setAttribute('aria-valuenow',String(value));progressCount.textContent='Loading… '+value+'%';},140);try{const params=new URLSearchParams({page:String(page),search:get('applicationSearch').value,status:get('applicationStatusFilter').value,type:get('applicationTypeFilter').value});const response=await fetch('/api/admin/account-applications?'+params,{headers:{'X-Admin-Key':adminKey()}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Applications could not be loaded.');render(data.applications||[]);totalPages=Number(data.total_pages||1);page=Number(data.page||1);pageInfo.textContent='Page '+page+' of '+totalPages+' • '+Number(data.total||0)+' applications';pagination.hidden=Number(data.total||0)===0;get('applicationPrev').disabled=page<=1;get('applicationNext').disabled=page>=totalPages;setStatus(Number(data.total||0)+' account application(s) found.',true);loaded=true;}catch(error){if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';setStatus(error.message||'Applications could not be loaded.',false);}finally{clearInterval(progressTimer);progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(resolve=>setTimeout(resolve,Math.max(350,800-(Date.now()-started))));progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');progressCount.textContent='Preparing';loadBtn.disabled=false;}}
   async function openFile(card,kind,button){button.disabled=true;const original=button.textContent;button.textContent='Opening…';try{const id=card.dataset.applicationId;const response=await fetch('/api/admin/account-applications/'+encodeURIComponent(id)+'/'+kind,{headers:{'X-Admin-Key':adminKey()}});if(!response.ok)throw new Error(await response.text()||'Document could not be opened.');const url=URL.createObjectURL(await response.blob());const anchor=document.createElement('a');anchor.href=url;anchor.target='_blank';anchor.rel='noopener';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){setStatus(error.message||'Document could not be opened.',false);}finally{button.disabled=false;button.textContent=original;}}
@@ -14229,7 +14175,7 @@ let pagingRequests=false;
  const key=()=>g('adminKey')?.value.trim()||'';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application'};
- const time=v=>{if(!v)return '';const raw=String(v).trim().replace(' ','T'),d=new Date(raw+(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)?'':'Z'));return Number.isNaN(d.getTime())?'':d.toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});};
+ const time=v=>v?WootenTime.dateTime(v):'';
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
  function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.textContent='0';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
@@ -14752,7 +14698,7 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=20260911-6"></script>
+<script src="assets/js/admin-payment-transactions.js?v=20260911ct1"></script>
 </body>
 </html>
 
@@ -16321,7 +16267,7 @@ html,body{
       const rows=filteredInboxMessagesForPdf();
       return normalizedData(
         ['Customer','Account #','Type','Received','Subject','From','Email','Message'],
-        rows.map(message=>{const date=new Date(message.date||'');const received=message.date&&!Number.isNaN(date.getTime())?date.toLocaleString():message.date;return [message.customer_name||'-',message.account_number||'-',message.type||'Message',received||'-',message.subject||'(No subject)',message.from||'',message.customer_email||'-',message.snippet||''];})
+        rows.map(message=>{const date=new Date(message.date||'');const received=message.date?WootenTime.dateTime(message.date):'';return [message.customer_name||'-',message.account_number||'-',message.type||'Message',received||'-',message.subject||'(No subject)',message.from||'',message.customer_email||'-',message.snippet||''];})
       );
     }
     if(title==='Recent Admin Activity'){
@@ -16330,12 +16276,12 @@ html,body{
       const filter=value('adminActivityFilter','all');
       const rows=(Array.isArray(data.entries)?data.entries:[]).filter(row=>{
         if(!query)return true;
-        const created=new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString();
+        const created=WootenTime.dateTime(row.created_at||'');
         const fields={date:[created],admin:[row.actor_name],action:[String(row.action_type||'').replaceAll('_',' ')],details:[row.detail||row.target_id||'']};
         fields.all=[...fields.date,...fields.admin,...fields.action,...fields.details];
         return (fields[filter]||fields.all).some(item=>String(item||'').toLowerCase().includes(query));
       });
-      return normalizedData(['Date','Admin','Action','Details'],rows.map(row=>[new Date(String(row.created_at||'').replace(' ','T')+'Z').toLocaleString(),row.actor_name,String(row.action_type||'').replaceAll('_',' '),row.detail||row.target_id||'-']));
+      return normalizedData(['Date','Admin','Action','Details'],rows.map(row=>[WootenTime.dateTime(row.created_at||''),row.actor_name,String(row.action_type||'').replaceAll('_',' '),row.detail||row.target_id||'-']));
     }
     if(title==='Twilio Phone Validation'&&typeof twilioResultsState!=='undefined'){
       const rows=await fetchEveryPage('/api/admin/twilio/phone-tools/results',{group:twilioResultsState.group||'all',q:twilioResultsState.search||''},'results',onProgress);
@@ -16420,7 +16366,7 @@ html,body{
     const {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight}=layout;
     let out='';
     out+=textCommand(title,margin,pageHeight-34,'F2',15,'0.04 0.14 0.25');
-    const generated=new Date().toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    const generated=WootenTime.dateTime(new Date());
     out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
     out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
     let top=pageHeight-72;
@@ -16952,7 +16898,7 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   function key(){return String(document.getElementById('adminKey')?.value||'').trim();}
-  function formatDate(value){const date=new Date(value);return Number.isNaN(date.getTime())?String(value||'—'):date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
+  function formatDate(value){return WootenTime.dateTime(value);}
   function formatBytes(value){let bytes=Math.max(0,Number(value)||0);if(bytes<1024)return bytes+' B';const units=['KB','MB','GB'];let unit=-1;do{bytes/=1024;unit++;}while(bytes>=1024&&unit<units.length-1);return bytes.toFixed(bytes>=10?1:2)+' '+units[unit];}
   function message(text,good){statusEl.className='status'+(text?' show '+(good?'ok':'bad'):'');statusEl.textContent=text||'';}
   function setBusy(value,label){busy=value;createBtn.disabled=value;refreshBtn.disabled=value;latestBtn.disabled=value||!backups.length;if(automaticToggle)automaticToggle.disabled=value;progress.hidden=!value;if(label)document.getElementById('portalBackupProgressLabel').textContent=label;}

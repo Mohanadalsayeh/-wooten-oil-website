@@ -22,14 +22,7 @@
   }
 
   function formatDate(value){
-    try{
-      var d=new Date(value);
-      if(Number.isNaN(d.getTime())) return String(value||'');
-      return d.toLocaleString('en-US',{
-        month:'short',day:'numeric',year:'numeric',
-        hour:'numeric',minute:'2-digit'
-      });
-    }catch(e){ return ''; }
+    return WootenTime.dateTime(value);
   }
 
   function notificationElements(){

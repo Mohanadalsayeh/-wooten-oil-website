@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Request Fuel Delivery | Wooten Oil Co Inc.</title>
@@ -3251,7 +3252,7 @@ body.request-fuel-page .fuel-field{
 
   function newReference(){
     const now=new Date();
-    const date=String(now.getFullYear()).slice(-2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+    const date=WootenTime.dateKey(now).replace(/-/g,'').slice(2);
     const random=Math.floor(1000+Math.random()*9000);
     return 'MSG-'+date+'-'+random;
   }
@@ -3408,7 +3409,7 @@ body.request-fuel-page .fuel-field{
 
   function newRequestNumber(){
     const now=new Date();
-    const date=String(now.getFullYear()).slice(-2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+    const date=WootenTime.dateKey(now).replace(/-/g,'').slice(2);
     const random=Math.floor(1000+Math.random()*9000);
     return 'WO-'+date+'-'+random;
   }
@@ -3631,7 +3632,7 @@ body.request-fuel-page .fuel-field{
 </script>
 
 
-<script src="assets/js/script-06.js?v=payment-sandbox-3"></script>
+<script src="assets/js/script-06.js?v=20260911ct1"></script>
 
 
 
@@ -4053,19 +4054,7 @@ body.request-fuel-page .fuel-field{
   }
 
   function formatNotificationPopupDate(value){
-    try{
-      var d=new Date(value);
-      if(Number.isNaN(d.getTime())) return String(value||'');
-      return d.toLocaleString('en-US',{
-        month:'short',
-        day:'numeric',
-        year:'numeric',
-        hour:'numeric',
-        minute:'2-digit'
-      });
-    }catch(e){
-      return String(value||'');
-    }
+    return WootenTime.dateTime(value);
   }
 
   function renderCustomerNotificationPopup(notification){
@@ -4790,14 +4779,7 @@ body.request-fuel-page .fuel-field{
   }
 
   function formatDate(value){
-    try{
-      var d=new Date(value);
-      if(Number.isNaN(d.getTime())) return String(value||'');
-      return d.toLocaleString('en-US',{
-        month:'short',day:'numeric',year:'numeric',
-        hour:'numeric',minute:'2-digit'
-      });
-    }catch(e){ return ''; }
+    return WootenTime.dateTime(value);
   }
 
   function notificationElements(){
