@@ -47,4 +47,12 @@
   #ptModal .pt-detail-actions button{min-width:0;padding:10px 6px;font-size:12px;white-space:normal}
 }
 
-#ptExport{width:auto!important}
+#ptExport,#ptDetailExport{width:auto!important}
+
+#ptPrint{background:#173650!important;border-color:#173650!important;color:#fff!important;box-shadow:none!important;transform:none!important}
+#ptPrint:not(:disabled):is(:hover,:focus-visible,:active){background:#294f73!important;border-color:#294f73!important;color:#fff!important}
+#ptDetailExport svg{flex:0 0 18px}
+@media(max-width:600px){
+  #ptModal #ptDetailExport{padding:10px 6px!important;font-size:12px!important;gap:6px!important}
+  #ptDetailExport span{min-width:0;line-height:1.2}
+}
