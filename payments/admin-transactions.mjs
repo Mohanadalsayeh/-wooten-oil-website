@@ -30,7 +30,7 @@ function integer(value,fallback,max){if(value===null)return fallback;if(!/^\d+$/
 function date(value){if(!value)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value)invalid('Enter a valid date.');return value;}
 function cents(value){if(!/^\d+(?:\.\d{1,2})?$/.test(value))invalid('Enter an amount with no more than two decimal places.');const result=Math.round(Number(value)*100);if(!Number.isSafeInteger(result))invalid('Amount is too large.');return result;}
 
-export async function handle({request,env,ensureSchema}){
+export async function handle({request,env,ensureSchema,ensureImportedSchema}){
   // Dispatcher authenticates admin users and checks Customer Activity permission.
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==String(env.ADMIN_IMPORT_KEY))return response({success:false,error:'Admin authorization is required.'},401);
   if(request.method!=='GET')return response({success:false,error:'Method not allowed.'},405);
@@ -38,6 +38,19 @@ export async function handle({request,env,ensureSchema}){
     if(!env.DB)return response({success:false,error:'The payment database is unavailable.'},503);
     const url=new URL(request.url),params=url.searchParams;
     const detail=url.pathname.slice('/api/admin/payment-transactions'.length);
+    if(detail.startsWith('/imported/')){
+      const id=detail.slice('/imported/'.length);
+      if(!/^\d+$/.test(id)||!Number.isSafeInteger(Number(id)))return response({success:false,error:'Payment not found.'},404);
+      await ensureImportedSchema();
+      const transaction=await env.DB.prepare(`SELECT 'mas90-'||p.id AS id,p.account_number,
+        COALESCE(NULLIF((SELECT c.account_name FROM customers c WHERE c.account_number=p.account_number LIMIT 1),''),p.customer_name,'') AS account_name,
+        CAST(ROUND(p.amount*100) AS INTEGER) AS amount_cents,'USD' AS currency,'mas90' AS source,
+        'posted' AS status,'posted' AS saved_status,'account_history' AS environment,'mas90' AS provider,
+        p.reference AS provider_reference,p.payment_type,p.payment_date,p.posting_date,p.deposit_date,p.deposit_no,
+        p.source_invoice_no AS invoice_no,p.imported_at,p.description AS result_message
+        FROM customer_payments p WHERE p.id=?`).bind(Number(id)).first();
+      return transaction?response({success:true,transaction}):response({success:false,error:'Payment not found.'},404);
+    }
     if(detail){
       if(!/^\/[^/]+$/.test(detail))return response({success:false,error:'Transaction not found.'},404);
       let id;try{id=decodeURIComponent(detail.slice(1));}catch{invalid('Invalid transaction reference.');}

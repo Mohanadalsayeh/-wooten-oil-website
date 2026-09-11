@@ -11494,7 +11494,9 @@ async function adminCustomerActivityGet({request,env}){
           COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,'' AS invoice_no,amount_cents/100.0 AS amount,
           CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') OR EXISTS(SELECT 1 FROM heartland_payment_attempts a WHERE a.intent_id=online_payment_transactions.id AND a.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
           CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
-          'portal' AS source,status,card_brand,card_last4
+          'portal' AS source,CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_reviews r WHERE r.intent_id=online_payment_transactions.id)
+            AND NOT EXISTS(SELECT 1 FROM hosted_payment_review_resolutions r WHERE r.intent_id=online_payment_transactions.id)
+            THEN 'review' ELSE status END AS status,card_brand,card_last4
         FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
       ) SELECT *,COUNT(*) OVER() AS total_count FROM combined
         ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`)
@@ -12364,7 +12366,7 @@ var worker_default = {
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/payment-transactions"||url.pathname.startsWith("/api/admin/payment-transactions/")){
-      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers())});
+      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers()),ensureImportedSchema:()=>ensureCustomerPaymentsSchema(env)});
     }
     if(/^\/api\/admin\/customer-activity\/documents\/\d+\/file$/.test(url.pathname)){
       if(request.method==="GET")return adminCustomerDocumentFileGet({request,env});
