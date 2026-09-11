@@ -1,4 +1,5 @@
 import * as Heartland from './payments/heartland.mjs';
+import * as AdminTransactions from './payments/admin-transactions.mjs';
 function heartlandHelpers(){return {ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
@@ -11405,6 +11406,7 @@ function adminGeneralAuditDescriptor(request){
 }
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
+  if(path.startsWith("/api/admin/payment-transactions"))return "customer_activity";
   if(path.startsWith("/api/admin/users"))return "manage_users";
   if(path.startsWith("/api/admin/credit-collections"))return "collections";
   if(path.includes("mas90-sync")||path.includes("mas90-health"))return "database";
@@ -12360,6 +12362,9 @@ var worker_default = {
     if(url.pathname==="/api/admin/customer-activity"){
       if(request.method==="GET")return adminCustomerActivityGet({request,env});
       return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/payment-transactions"||url.pathname.startsWith("/api/admin/payment-transactions/")){
+      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers())});
     }
     if(/^\/api\/admin\/customer-activity\/documents\/\d+\/file$/.test(url.pathname)){
       if(request.method==="GET")return adminCustomerDocumentFileGet({request,env});

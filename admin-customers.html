@@ -5554,6 +5554,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
   #admin-tab-collections .collections-summary>div[aria-describedby]:nth-child(n+3){border-top:1px solid #d7e1ea!important}
 }
 </style>
+<link rel="stylesheet" href="assets/css/admin-payment-transactions.css?v=20260911-1">
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -5656,6 +5657,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-tab="customers" data-admin-label="Customer Database"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></span>Database</button>
       <button class="admin-tab" id="admin-tab-btn-automation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-automation" data-admin-tab="automation" data-admin-label="MAS 90 Health"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/><circle cx="12" cy="12" r="9"/></svg></span>MAS 90 Health</button>
       <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity" data-admin-label="Customer Activity"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Customer Activity</button>
+      <button class="admin-tab" id="admin-tab-btn-payment-transactions" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-transactions" data-admin-tab="payment-transactions" data-admin-label="Payment Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Payment Transactions</button>
       <button class="admin-tab" id="admin-tab-btn-collections" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-collections" data-admin-tab="collections" data-admin-label="Credit &amp; Collections"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 9h10M7 13h6M16 13l2 2-2 2M8 3v4M16 3v4"/></svg></span>Credit &amp; Collections</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation" data-admin-label="Account Activation"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2 0 3.7.7 5 2M19 14v7M15.5 17.5h7"/></svg></span>Account Activation</button>
       <div class="admin-nav-group">Documents</div>
@@ -6929,6 +6931,38 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
     <div class="activity-search-row"><div><label for="activityCustomerSearch">Find Customer</label><input id="activityCustomerSearch" type="search" autocomplete="off" placeholder="Customer number, name, email, or phone"></div><button class="primary" id="activityCustomerSearchBtn" type="button">Search Customer</button></div>
     <div class="preview-progress activity-progress" id="activityLoadProgress" hidden><div class="preview-progress-head"><strong>Loading customer activity…</strong><span id="activityLoadProgressCount">Preparing</span></div><div class="preview-progress-track" id="activityLoadProgressTrack" role="progressbar" aria-label="Customer activity loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="activityLoadProgressBar"></span></div></div>
     <div id="activityStatus" class="status"></div><div id="activitySearchResults" class="activity-search-results"></div><div id="activityDashboard" class="activity-dashboard" hidden></div>
+  </div>
+
+  <section class="card admin-tab-panel" id="admin-tab-payment-transactions" role="tabpanel" aria-labelledby="admin-tab-btn-payment-transactions" data-admin-panel="payment-transactions" hidden>
+    <div class="admin-page-label">Online Payments</div>
+    <h2>Payment Transactions</h2>
+    <p>Search online payment attempts across all customers. Select a transaction to view its details and print a receipt or status record.</p>
+    <form id="paymentTransactionsFilters" class="pt-filters">
+      <div class="pt-search"><label for="ptSearch">Search transactions</label><input id="ptSearch" type="search" maxlength="160" placeholder="Customer name or number, reference, transaction ID, last 4 digits" autocomplete="off"></div>
+      <div><label for="ptStatus">Status</label><select id="ptStatus"><option value="">All statuses</option><option value="approved">Approved</option><option value="pending">Pending / Processing</option><option value="declined">Declined</option><option value="canceled">Canceled</option><option value="unsubmitted">Unsubmitted</option><option value="expired">Expired</option><option value="failed">Failed</option><option value="review">Review needed</option><option value="unknown">Unknown</option></select></div>
+      <div><label for="ptEnvironment">Environment</label><select id="ptEnvironment"><option value="">All environments</option><option value="sandbox">Sandbox tests</option><option value="production">Live</option><option value="unknown">Unknown</option></select></div>
+      <div><label for="ptProvider">Processor</label><select id="ptProvider"><option value="">All processors</option><option value="heartland">Heartland</option><option value="globalpayments">Global Payments</option><option value="unknown">Unknown</option></select></div>
+      <div><label for="ptFrom">From date (UTC)</label><input id="ptFrom" type="date"></div>
+      <div><label for="ptTo">To date (UTC)</label><input id="ptTo" type="date"></div>
+      <div><label for="ptMinAmount">Minimum amount</label><input id="ptMinAmount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div><label for="ptMaxAmount">Maximum amount</label><input id="ptMaxAmount" type="number" min="0" step="0.01" placeholder="Any amount"></div>
+      <div><label for="ptSort">Sort by</label><select id="ptSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="amount_high">Highest amount</option><option value="amount_low">Lowest amount</option></select></div>
+      <div class="pt-filter-actions"><button class="primary" id="ptApply" type="submit">Search / Apply</button><button class="secondary" id="ptReset" type="button">Clear filters</button></div>
+    </form>
+    <div class="pt-summary" id="ptSummary" aria-label="Matching transaction counts"></div>
+    <div class="pt-toolbar"><div><strong id="ptCount">Open this page to load transactions.</strong><small>All dates and times are UTC. Sandbox records do not represent live funds.</small></div><div class="pt-actions"><button class="secondary" id="ptRefresh" type="button">Refresh</button><button class="secondary" id="ptExport" type="button" disabled>Export PDF</button></div></div>
+    <div id="ptMessage" class="pt-message" role="status" aria-live="polite" hidden></div>
+    <div class="pt-progress" id="ptExportProgress" hidden><label id="ptExportLabel" for="ptProgress">Preparing export…</label><progress id="ptProgress" max="100" value="0"></progress></div>
+    <div class="pt-table-wrap"><table class="pt-table" data-auto-pdf="false" aria-label="Payment transactions"><thead><tr><th>Created (UTC)</th><th>Customer</th><th>Amount</th><th>Status</th><th>Environment</th><th>Processor</th><th>Reference</th></tr></thead><tbody id="ptRows"><tr><td colspan="7" class="pt-empty">Transactions will appear here.</td></tr></tbody></table></div>
+    <div class="pt-pagination"><button class="secondary" id="ptPrev" type="button" disabled>Previous 20</button><span id="ptPage">Page 1 of 1</span><button class="secondary" id="ptNext" type="button" disabled>Next 20</button></div>
+  </section>
+  <div class="pt-modal" id="ptModal" hidden>
+    <section class="pt-dialog collections-modal-card" role="dialog" aria-modal="true" aria-labelledby="ptDetailTitle" tabindex="-1">
+      <button class="collections-modal-close" id="ptClose" type="button" aria-label="Close transaction details">&times;</button>
+      <div class="admin-page-label">Payment Transactions</div><h2 id="ptDetailTitle">Transaction details</h2>
+      <div id="ptDetail" aria-live="polite"></div>
+      <div class="pt-detail-actions"><button class="secondary" id="ptDetailRefresh" type="button" disabled>Refresh status</button><button class="primary" id="ptPrint" type="button" disabled>Print transaction</button></div>
+    </section>
   </div>
 
   <div class="card admin-tab-panel collections-panel" id="admin-tab-collections" role="tabpanel" aria-labelledby="admin-tab-btn-collections" data-admin-panel="collections">
@@ -12652,7 +12686,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     currentUser=user||null;window.wootenAdminUser=currentUser;
     window.dispatchEvent(new Event('wooten-admin-auth-changed'));
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',automation:'database',activity:'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
+    const mapping={customers:'database',automation:'database',activity:'customer_activity','payment-transactions':'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
     let firstVisible=null;
     document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||section==='backup'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
@@ -13799,7 +13833,7 @@ let pagingRequests=false;
   function applyPermissions(user){
     currentUser=user||null;window.wootenAdminUser=currentUser;
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',automation:'database',activity:'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
+    const mapping={customers:'database',automation:'database',activity:'customer_activity','payment-transactions':'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
     let firstVisible=null;
     document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||section==='backup'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
@@ -14699,6 +14733,7 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
+<script src="assets/js/admin-payment-transactions.js?v=20260911-1"></script>
 </body>
 </html>
 
