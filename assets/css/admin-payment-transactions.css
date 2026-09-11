@@ -62,7 +62,7 @@
   #ptDetailSummary{gap:10px;margin-top:14px}
   #ptDetailScroll{padding:14px 18px 18px}
   #ptModal .pt-detail-footer{padding:12px}
-  #ptModal .pt-detail-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #ptModal .pt-detail-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   #ptModal .pt-detail-actions button{min-width:0;padding:10px 6px;font-size:12px;white-space:normal}
 }
 

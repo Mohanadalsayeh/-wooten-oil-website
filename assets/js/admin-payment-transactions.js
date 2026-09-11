@@ -163,7 +163,7 @@
     if(id.startsWith('portal-'))openDetail(id.slice(7));
     else if(/^mas90-\d+$/.test(id))openDetail('imported/'+id.slice(6));
   });
-  get('ptClose').addEventListener('click',closeDetail);get('ptPrint').addEventListener('click',printDetail);
+  get('ptClose').addEventListener('click',closeDetail);get('ptFooterClose').addEventListener('click',closeDetail);get('ptPrint').addEventListener('click',printDetail);
   get('ptDetailRefresh').addEventListener('click',()=>{if(activeId)window.WootenRefreshUI.run(get('ptDetailRefresh'),()=>openDetail(activeId,true)).finally(()=>{get('ptDetailRefresh').disabled=detailLoading||!activeId||!permitted();});});
   modal.addEventListener('click',event=>{if(event.target===modal)closeDetail();});
   document.addEventListener('keydown',event=>{
