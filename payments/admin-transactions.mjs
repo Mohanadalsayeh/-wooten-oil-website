@@ -33,7 +33,7 @@ function date(value){if(!value)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||
 function cents(value){if(!/^\d+(?:\.\d{1,2})?$/.test(value))invalid('Enter an amount with no more than two decimal places.');const result=Math.round(Number(value)*100);if(!Number.isSafeInteger(result))invalid('Amount is too large.');return result;}
 
 export async function handle({request,env,ensureSchema,ensureImportedSchema}){
-  // Dispatcher authenticates admin users and checks Customer Activity permission.
+  // Dispatcher authenticates admin users and checks Payment Transactions permission.
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==String(env.ADMIN_IMPORT_KEY))return response({success:false,error:'Admin authorization is required.'},401);
   if(request.method!=='GET')return response({success:false,error:'Method not allowed.'},405);
   try{

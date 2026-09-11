@@ -12,7 +12,7 @@
   const controllers=new Set();
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const credential=()=>String(get('adminKey')?.value||'').trim();
-  function permitted(){const u=window.wootenAdminUser;return !!credential()&&!!u&&(u.owner||(u.permissions||[]).includes('customer_activity'));}
+  function permitted(){const u=window.wootenAdminUser;return !!credential()&&WootenAdminAccess.has(u,'payment_transactions');}
   function money(row){const n=Number(row.amount_cents)/100;return (row.currency||'USD')+' '+(Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—');}
   function date(value){
     return WootenTime.numericDateTime(value,'ymd');
@@ -39,7 +39,7 @@
     get('ptPrev').disabled=locked||page<=1;get('ptNext').disabled=locked||page>=pages;
   }
   async function api(path,signal){
-    if(!permitted())throw new Error('Sign in with an admin account that has Customer Activity access.');
+    if(!permitted())throw new Error('Sign in with an admin account that has Payment Transactions access.');
     const key=credential(),controller=new AbortController();controllers.add(controller);
     const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
     const timer=setTimeout(abort,20000);

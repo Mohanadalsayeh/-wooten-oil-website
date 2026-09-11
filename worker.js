@@ -1,3 +1,5 @@
+import './assets/js/wooten-admin-access.js';
+const adminAccess=globalThis.WootenAdminAccess;
 import './assets/js/wooten-central-time.js';
 const portalTime=globalThis.WootenTime;
 import * as Heartland from './payments/heartland.mjs';
@@ -11287,14 +11289,22 @@ async function adminCreditCollections({request,env}){
 }
 __name(adminCreditCollections,"adminCreditCollections");
 
-const ADMIN_PERMISSION_KEYS=["database","customer_activity","collections","notifications","statements","communication","communications_settings","applications","activation"];
+const ADMIN_PERMISSION_KEYS=adminAccess.keys;
 async function ensureAdminUsersTables(env){
   if(!env?.DB) throw new Error("Admin user database is not configured.");
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,permissions TEXT NOT NULL DEFAULT '[]',active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL UNIQUE COLLATE NOCASE,display_name TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash TEXT NOT NULL,permissions TEXT NOT NULL DEFAULT '[]',permissions_version INTEGER NOT NULL DEFAULT 2,active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const userInfo=await env.DB.prepare(`PRAGMA table_info(admin_users)`).all();const userColumns=new Set((userInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
-  const userAdditions=[["username","TEXT NOT NULL DEFAULT ''"],["display_name","TEXT NOT NULL DEFAULT ''"],["password_salt","TEXT NOT NULL DEFAULT ''"],["password_hash","TEXT NOT NULL DEFAULT ''"],["permissions","TEXT NOT NULL DEFAULT '[]'"],["active","INTEGER NOT NULL DEFAULT 1"],["created_at","TEXT"],["updated_at","TEXT"]];
-  for(const [name,definition] of userAdditions)if(!userColumns.has(name))await env.DB.prepare(`ALTER TABLE admin_users ADD COLUMN ${name} ${definition}`).run();
+  const userAdditions=[["username","TEXT NOT NULL DEFAULT ''"],["display_name","TEXT NOT NULL DEFAULT ''"],["password_salt","TEXT NOT NULL DEFAULT ''"],["password_hash","TEXT NOT NULL DEFAULT ''"],["permissions","TEXT NOT NULL DEFAULT '[]'"],["permissions_version","INTEGER NOT NULL DEFAULT 1"],["active","INTEGER NOT NULL DEFAULT 1"],["created_at","TEXT"],["updated_at","TEXT"]];
+  for(const [name,definition] of userAdditions)if(!userColumns.has(name)){
+    try{await env.DB.prepare(`ALTER TABLE admin_users ADD COLUMN ${name} ${definition}`).run();}
+    catch(error){const current=await env.DB.prepare(`PRAGMA table_info(admin_users)`).all();if(!(current?.results||[]).some(column=>String(column.name).toLowerCase()===name))throw error;}
+  }
   await env.DB.prepare(`UPDATE admin_users SET created_at=COALESCE(created_at,CURRENT_TIMESTAMP),updated_at=COALESCE(updated_at,CURRENT_TIMESTAMP),permissions=COALESCE(NULLIF(permissions,''),'[]'),active=COALESCE(active,1)`).run();
+  const legacyUsers=await env.DB.prepare(`SELECT id,permissions FROM admin_users WHERE COALESCE(permissions_version,1)<2`).all();
+  for(const user of legacyUsers?.results||[]){
+    const permissions=JSON.stringify(adminAccess.legacyPermissions(user.permissions));
+    await env.DB.prepare(`UPDATE admin_users SET permissions=?,permissions_version=2 WHERE id=? AND COALESCE(permissions_version,1)<2 AND permissions=?`).bind(permissions,user.id,user.permissions).run();
+  }
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL,expires_at TEXT NOT NULL,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE)`).run();
   const sessionInfo=await env.DB.prepare(`PRAGMA table_info(admin_sessions)`).all();const sessionColumns=new Set((sessionInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   const sessionAdditions=[["token_hash","TEXT NOT NULL DEFAULT ''"],["user_id","INTEGER NOT NULL DEFAULT 0"],["expires_at","TEXT NOT NULL DEFAULT ''"],["last_seen_at","TEXT"],["created_at","TEXT"]];
@@ -11313,7 +11323,7 @@ function adminBytesHex(bytes){return [...bytes].map(v=>v.toString(16).padStart(2
 function adminHexBytes(hex){const clean=String(hex||"");const out=new Uint8Array(Math.floor(clean.length/2));for(let i=0;i<out.length;i++)out[i]=parseInt(clean.slice(i*2,i*2+2),16);return out;}
 async function adminSha256(value){return adminBytesHex(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value||"")))));}
 async function adminPasswordHash(password,saltHex){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(password||"")),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:adminHexBytes(saltHex),iterations:100000},key,256);return adminBytesHex(new Uint8Array(bits));}
-function adminSafePermissions(value){let source=value;try{if(typeof source==="string")source=JSON.parse(source);}catch{source=[];}return [...new Set((Array.isArray(source)?source:[]).map(v=>String(v||"")).filter(v=>ADMIN_PERMISSION_KEYS.includes(v)))];}
+function adminSafePermissions(value){return adminAccess.normalize(value);}
 function adminRequestActor(request,env){const ownerHeader=request.headers.get("X-Admin-Actor-Owner");return {id:Number(request.headers.get("X-Admin-Actor-Id")||0)||null,name:String(request.headers.get("X-Admin-Actor-Name")||"Wooten Oil Admin"),owner:ownerHeader!==null?ownerHeader==="1":((request.headers.get("X-Admin-Key")||"")===String(env.ADMIN_IMPORT_KEY||""))};}
 async function ensureAdminAuditV2(env){
   if(!env?.DB)throw new Error("Admin activity database is not configured.");
@@ -11376,12 +11386,17 @@ function adminGeneralAuditDescriptor(request){
 }
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
-  if(path.startsWith("/api/admin/payment-transactions"))return "customer_activity";
+  if(path.startsWith("/api/admin/payment-transactions"))return "payment_transactions";
+  if(path.startsWith("/api/admin/audit"))return "admin_activity";
+  if(path.startsWith("/api/admin/database-backups"))return "database_backup";
+  if(path.startsWith("/api/admin/request-center"))return "customer_requests";
+  if(path==="/api/admin/mas90-health")return "mas90_health";
+  if(path==="/api/admin/notification-bell")return ["customer_requests","applications"];
   if(path.startsWith("/api/admin/users"))return "manage_users";
   if(path.startsWith("/api/admin/credit-collections"))return "collections";
-  if(path.includes("mas90-sync")||path.includes("mas90-health"))return "database";
+  if(path.includes("mas90-sync"))return "database";
   if(path.startsWith("/api/admin/customer-activity"))return "customer_activity";
-  if(path.startsWith("/api/admin/account-applications")||path.startsWith("/api/admin/request-center"))return "applications";
+  if(path.startsWith("/api/admin/account-applications"))return "applications";
   if(path.includes("activation")||path.includes("password-reset-code"))return "activation";
   if(path.includes("gmail")||path.includes("twilio"))return "communications_settings";
   if(path.includes("communication-log"))return "communication";
@@ -11414,7 +11429,8 @@ async function adminAuthorizeRequest(request,env,path){
   if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY)){const headers=new Headers(request.headers);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");return {request:new Request(request,{headers}),actor:{name:"Wooten Oil Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}};}
   const session=await adminSessionFromCredential(env,credential);if(!session)return {response:notificationJson({success:false,error:"Your admin session is invalid or expired."},401)};
   if(path.startsWith("/api/admin/users"))return {response:notificationJson({success:false,error:"Only the Wooten Oil Admin can manage administrator users."},403)};
-  if(!path.startsWith("/api/admin/audit")&&!path.startsWith("/api/admin/database-backups")){const permission=adminPermissionForPath(path);if(!session.permissions.includes(permission))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};}
+  const required=[adminPermissionForPath(path)].flat();
+  if(!required.some(permission=>session.permissions.includes(permission)))return {response:notificationJson({success:false,error:"You do not have permission to use this admin section."},403)};
   const headers=new Headers(request.headers);headers.set("X-Admin-Key",String(env.ADMIN_IMPORT_KEY||""));headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");return {request:new Request(request,{headers}),actor:{id:session.user_id,name:session.display_name,owner:false,permissions:session.permissions}};
 }
 async function adminAuthLogin({request,env}){
@@ -11429,8 +11445,8 @@ async function adminAuthLogout({request,env}){const credential=String(request.he
 async function adminUsersApi({request,env}){
   try{await ensureAdminUsersTables(env);if(request.method==="GET"){const users=await env.DB.prepare(`SELECT id,username,display_name,permissions,active,created_at,updated_at FROM admin_users ORDER BY display_name COLLATE NOCASE`).all();return notificationJson({success:true,users:(users?.results||[]).map(u=>({...u,permissions:adminSafePermissions(u.permissions)}))});}
     const body=await request.json();const id=Number(body.id||0);const username=String(body.username||"").trim().slice(0,60);const displayName=String(body.display_name||"").trim().slice(0,100);const password=String(body.password||"");const permissions=adminSafePermissions(body.permissions);const active=body.active===false||body.active===0?0:1;if(!username||!displayName)return notificationJson({success:false,error:"Enter the user's name and username."},400);if(!/^[A-Za-z0-9._-]+$/.test(username))return notificationJson({success:false,error:"Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed."},400);if((!id||password)&&!(password.length>=8&&/[A-Za-z]/.test(password)&&/\d/.test(password)))return notificationJson({success:false,error:"Password must contain at least 8 characters, including at least one letter and one number."},400);const duplicateUser=await env.DB.prepare(`SELECT id FROM admin_users WHERE username=? COLLATE NOCASE AND id<>? LIMIT 1`).bind(username,id||0).first();if(duplicateUser)return notificationJson({success:false,error:"That username is already in use."},409);
-    let userId=id;if(id){const existing=await env.DB.prepare(`SELECT id FROM admin_users WHERE id=?`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Admin user not found."},404);if(password){const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,password_salt=?,password_hash=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active,id).run();}else await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,permissions=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,JSON.stringify(permissions),active,id).run();if(!active)await env.DB.prepare(`DELETE FROM admin_sessions WHERE user_id=?`).bind(id).run();}
-    else{const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);const result=await env.DB.prepare(`INSERT INTO admin_users(username,display_name,password_salt,password_hash,permissions,active) VALUES (?,?,?,?,?,?)`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active).run();userId=Number(result?.meta?.last_row_id||result?.meta?.last_insert_rowid||0);}
+    let userId=id;if(id){const existing=await env.DB.prepare(`SELECT id FROM admin_users WHERE id=?`).bind(id).first();if(!existing)return notificationJson({success:false,error:"Admin user not found."},404);if(password){const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,password_salt=?,password_hash=?,permissions=?,permissions_version=2,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active,id).run();}else await env.DB.prepare(`UPDATE admin_users SET username=?,display_name=?,permissions=?,permissions_version=2,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(username,displayName,JSON.stringify(permissions),active,id).run();if(!active)await env.DB.prepare(`DELETE FROM admin_sessions WHERE user_id=?`).bind(id).run();}
+    else{const salt=adminBytesHex(crypto.getRandomValues(new Uint8Array(16)));const hash=await adminPasswordHash(password,salt);const result=await env.DB.prepare(`INSERT INTO admin_users(username,display_name,password_salt,password_hash,permissions,active,permissions_version) VALUES (?,?,?,?,?,?,2)`).bind(username,displayName,salt,hash,JSON.stringify(permissions),active).run();userId=Number(result?.meta?.last_row_id||result?.meta?.last_insert_rowid||0);}
     await adminAudit(env,request,id?"admin_user_updated":"admin_user_created","admin_user",String(userId),`${displayName} (${username})`);return notificationJson({success:true,id:userId});
   }catch(error){console.error("adminUsersApi failed",error);const technicalDetail=String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,240);const errorText=technicalDetail.toLowerCase();const duplicate=errorText.includes("unique")||errorText.includes("constraint failed")&&errorText.includes("username");return notificationJson({success:false,error:duplicate?"That username is already in use.":`The admin user could not be saved.${technicalDetail?` Technical detail: ${technicalDetail}`:""}`},duplicate?409:500);}
 }
@@ -11842,8 +11858,11 @@ async function adminRequestCenterDecision({request,env}){
 __name(adminRequestCenterDecision,'adminRequestCenterDecision');
 
 
-async function adminNotificationBellGet({request,env}){
+async function adminNotificationBellGet({request,env,actor}){
   try{
+    const requestsAllowed=adminAccess.has(actor,'customer_requests');
+    const applicationsAllowed=adminAccess.has(actor,'applications');
+    if(!requestsAllowed&&!applicationsAllowed)return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
     await ensureRequestCenterSchema(env);
     const params=new URL(request.url).searchParams;
     let cursor=null;
@@ -11852,15 +11871,15 @@ async function adminNotificationBellGet({request,env}){
       catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
     }
     const counts=await env.DB.prepare(`SELECT
-      (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending') AS profile,
-      (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending') AS fuel,
-      (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending') AS applications`).first();
+      (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS profile,
+      (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS fuel,
+      (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1) AS applications`).first();
     const query=`SELECT * FROM (
-      SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending'
+      SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1
       UNION ALL
-      SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending'
+      SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1
       UNION ALL
-      SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending'
+      SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1
     ) ${cursor?'WHERE (sort_time,item_type,id) < (?,?,?)':''} ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21`;
     const statement=env.DB.prepare(query);
     const rows=((await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all())?.results)||[];
@@ -12300,10 +12319,12 @@ var worker_default = {
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
     }
+    let adminActor=null;
     if(url.pathname.startsWith("/api/admin/")){
       const authorization=await adminAuthorizeRequest(request,env,url.pathname);
       if(authorization.response)return authorization.response;
       request=authorization.request;
+      adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
     if(url.pathname==="/api/admin/users"){
@@ -12330,7 +12351,7 @@ var worker_default = {
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/notification-bell"){
-      if(request.method==="GET")return adminNotificationBellGet({request,env});
+      if(request.method==="GET")return adminNotificationBellGet({request,env,actor:adminActor});
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/customer-activity"){

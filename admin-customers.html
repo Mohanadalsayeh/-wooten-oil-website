@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
+<script src="/assets/js/wooten-admin-access.js?v=20260911access2"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wooten Oil Admin</title>
@@ -5556,6 +5557,16 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
 }
 </style>
 <link rel="stylesheet" href="assets/css/admin-payment-transactions.css?v=20260911-6">
+<style id="wooten-admin-permission-visibility">
+body #adminSidebar [data-admin-tab][hidden],
+body .admin-dashboard-card[hidden],
+body .admin-user-editor[hidden],
+body .admin-user-list-section[hidden],
+body .admin-audit-section[hidden],
+body .admin-header .admin-bell-shell[hidden]{display:none!important}
+.admin-user-permissions input{flex:0 0 18px}
+.admin-user-access-note{font-size:13px;line-height:1.5}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -7059,10 +7070,26 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-users" role="tabpanel" aria-labelledby="admin-tab-btn-users" data-admin-panel="users">
-    <div class="admin-page-label">Access Control</div><h2>Admin Users &amp; Permissions</h2><p>Create individual administrator accounts and choose exactly which sections each person can access. The owner Admin Import Key always retains full access.</p>
+    <div class="admin-page-label">Access Control</div><h2 id="adminAccessTitle">Admin Users &amp; Permissions</h2><p id="adminAccessDescription">Create individual administrator accounts and choose which sections each person can access. Existing access is retained when new permission choices are added. The Main Admin always retains full access.</p>
     <section class="admin-user-editor"><h3 id="adminUserEditorTitle">Add Admin User</h3><input id="adminUserId" type="hidden">
       <div class="admin-user-fields"><div><label for="adminUserDisplayName">Full Name</label><input id="adminUserDisplayName" type="text" maxlength="100" placeholder="Employee name"></div><div><label for="adminUserUsername">Username</label><input id="adminUserUsername" type="text" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9._-]+" aria-describedby="adminUserUsernameHint" placeholder="Example: john.smith"><small class="admin-user-field-hint" id="adminUserUsernameHint">Letters and numbers only; period, underscore, and hyphen are allowed. No spaces.</small></div><div><label for="adminUserPassword">Password</label><input id="adminUserPassword" type="password" minlength="8" autocomplete="new-password" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" aria-describedby="adminUserPasswordHint" placeholder="Letter + number, 8+ characters"><small class="admin-user-field-hint" id="adminUserPasswordHint">At least 8 characters with at least one letter and one number.</small></div></div>
-      <div class="admin-user-permissions" role="group" aria-label="Admin permissions"><label><input type="checkbox" value="database"> Database &amp; Imports</label><label><input type="checkbox" value="customer_activity"> Customer Activity</label><label><input type="checkbox" value="collections"> Credit &amp; Collections</label><label><input type="checkbox" value="notifications"> Notifications</label><label><input type="checkbox" value="statements"> Statements &amp; Invoices</label><label><input type="checkbox" value="communication"> Communication History</label><label><input type="checkbox" value="communications_settings"> Communications Settings</label><label><input type="checkbox" value="applications"> Account Applications</label><label><input type="checkbox" value="activation"> Account Activation</label></div>
+      <div class="admin-user-permissions" role="group" aria-label="Admin permissions">
+        <label><input type="checkbox" value="database"> Database &amp; Imports</label>
+        <label><input type="checkbox" value="mas90_health"> MAS 90 Automation Health</label>
+        <label><input type="checkbox" value="customer_activity"> Customer Activity Dashboard</label>
+        <label><input type="checkbox" value="payment_transactions"> Payment Transactions</label>
+        <label><input type="checkbox" value="collections"> Credit &amp; Collections</label>
+        <label><input type="checkbox" value="activation"> Account Activation</label>
+        <label><input type="checkbox" value="statements"> Statements &amp; Invoices</label>
+        <label><input type="checkbox" value="notifications"> Notifications</label>
+        <label><input type="checkbox" value="communication"> Communication History</label>
+        <label><input type="checkbox" value="communications_settings"> Communication Settings</label>
+        <label><input type="checkbox" value="applications"> Account Applications</label>
+        <label><input type="checkbox" value="customer_requests"> Customer Requests</label>
+        <label><input type="checkbox" value="admin_activity"> Recent Admin Activity</label>
+        <label><input type="checkbox" value="database_backup"> Backup &amp; Recovery</label>
+      </div>
+      <p class="admin-user-access-note">Dashboard access is included. Only the Main Admin can manage admin users. Creating, downloading, restoring, or scheduling backups still requires the Main Admin password.</p>
       <label class="admin-user-active"><input id="adminUserActive" type="checkbox" checked> Active — user may sign in</label><div class="actions"><button class="primary" id="adminUserSave" type="button">Create User</button><button class="secondary" id="adminUserCancel" type="button" hidden>Cancel Editing</button></div><div id="adminUserStatus" class="status"></div>
     </section>
     <section class="admin-user-list-section"><h3>Admin Users</h3><div id="adminUsersList" class="admin-users-list"></div></section>
@@ -8272,6 +8299,7 @@ function ensureImportStatusPolling(){
 }
 
 async function loadImportLastUpdates(){
+  if(!WootenAdminAccess.has(window.wootenAdminUser,'database'))return;
   ensureImportStatusPolling();
   if(importStatusRequestPending)return;
   const key=document.getElementById("adminKey")?.value.trim();
@@ -8657,6 +8685,7 @@ async function saveCustomerImportAreaCodeSetting(enabled){
 }
 
 async function loadCustomerImportAreaCodeSetting(){
+  if(!WootenAdminAccess.has(window.wootenAdminUser,'communications_settings'))return;
   const checkbox=document.getElementById("customerAutoFixAreaCode");
   const key=document.getElementById("adminKey")?.value.trim()||"";
   if(!checkbox||!key)return;
@@ -10776,6 +10805,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   function showAdminPage(name,{updateHash=true,focusTab=false}={}){
     if(!validPanels.has(name)&&!validParents.has(name)) name="dashboard";
+    if(!WootenAdminAccess.canOpen(window.wootenAdminUser,parentFor(name)))name="dashboard";
     const parent=parentFor(name);
     if(groups[parent]&&groups[parent].includes(name)) selectedChild[parent]=name;
     const activePanel=groups[parent]?(selectedChild[parent]||groups[parent][0]):parent;
@@ -10810,12 +10840,13 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     tab.addEventListener("keydown",e=>{
       if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End"].includes(e.key)) return;
       e.preventDefault();
-      let next=index;
-      if(e.key==="ArrowRight"||e.key==="ArrowDown") next=(index+1)%tabs.length;
-      if(e.key==="ArrowLeft"||e.key==="ArrowUp") next=(index-1+tabs.length)%tabs.length;
-      if(e.key==="Home") next=0;
-      if(e.key==="End") next=tabs.length-1;
-      showAdminPage(tabs[next].dataset.adminTab,{focusTab:true});
+      const visible=tabs.filter(item=>!item.hidden);if(!visible.length)return;
+      const current=visible.indexOf(tab);let next=current;
+      if(e.key==="ArrowRight"||e.key==="ArrowDown")next=(current+1)%visible.length;
+      if(e.key==="ArrowLeft"||e.key==="ArrowUp")next=(current-1+visible.length)%visible.length;
+      if(e.key==="Home")next=0;
+      if(e.key==="End")next=visible.length-1;
+      showAdminPage(visible[next].dataset.adminTab,{focusTab:true});
     });
   });
 
@@ -12644,18 +12675,25 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   let currentUser=null;
 
   function applyPermissions(user){
+    const get=id=>document.getElementById(id);
     currentUser=user||null;window.wootenAdminUser=currentUser;
     window.dispatchEvent(new Event('wooten-admin-auth-changed'));
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',automation:'database',activity:'customer_activity','payment-transactions':'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
+    const mapping=WootenAdminAccess.tabs;
     let firstVisible=null;
-    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||section==='backup'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
+    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(WootenAdminAccess.canOpen(user,section));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
     document.querySelectorAll('[data-admin-open]').forEach(button=>{const section=button.dataset.adminOpen;button.closest('.admin-dashboard-card').hidden=!(user&&(user.owner||permissions.has(mapping[section])));});
-    const ownerOnlyControls=document.querySelectorAll('#admin-tab-users input,#admin-tab-users button:not(#adminAuditRefresh)');
+    const ownerOnlyControls=document.querySelectorAll('.admin-user-editor input,.admin-user-editor button,.admin-user-list-section button');
     ownerOnlyControls.forEach(control=>{control.disabled=!user?.owner;control.setAttribute('aria-disabled',user?.owner?'false':'true');});
     document.querySelectorAll('.admin-user-editor,.admin-user-list-section').forEach(section=>{section.hidden=!user?.owner;});
     document.getElementById('admin-tab-users')?.classList.toggle('admin-user-management-locked',!user?.owner);
+    const auditAllowed=WootenAdminAccess.has(user,'admin_activity');
+    document.querySelector('.admin-audit-section').hidden=!auditAllowed;
+    document.querySelectorAll('.admin-audit-section input,.admin-audit-section select,.admin-audit-section button').forEach(control=>{control.disabled=!auditAllowed;control.setAttribute('aria-disabled',String(!auditAllowed));});
+    get('adminAccessTitle').textContent=user?.owner?'Admin Users & Permissions':'Recent Admin Activity';
+    get('adminAccessDescription').textContent=user?.owner?'Create individual administrator accounts and choose which sections each person can access. Existing access is retained when new permission choices are added. The Main Admin always retains full access.':'Review recorded administrator actions. Administrator accounts are managed by the Main Admin.';
+    const usersTab=get('admin-tab-btn-users');usersTab.lastChild.textContent=user?.owner?'Admin Users':'Admin Activity';usersTab.dataset.adminLabel=user?.owner?'Admin Users':'Admin Activity';
     const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
     if(user?.owner)setTimeout(()=>window.loadWootenAdminUsers?.(),0);
   }
@@ -13000,7 +13038,7 @@ let pagingRequests=false;
   window.__wootenAdminUsersInitialized=true;
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus'),auditPager=get('adminActivityPagination'),auditPagerSummary=get('adminActivityPaginationSummary'),auditPageIndicator=get('adminActivityPageIndicator'),auditPrev=get('adminActivityPrev'),auditNext=get('adminActivityNext'),auditSearch=get('adminActivitySearch'),auditSearchClear=get('adminActivitySearchClear'),auditFilter=get('adminActivityFilter');let loaded=false,loading=false,auditPage=1,auditEntries=[];const auditPageSize=20;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const labels={database:'Database & Imports',customer_activity:'Customer Activity',collections:'Credit & Collections',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
+  const labels=WootenAdminAccess.labels;
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
@@ -13013,7 +13051,8 @@ let pagingRequests=false;
   auditSearch?.addEventListener('input',()=>{auditPage=1;if(auditSearchClear)auditSearchClear.hidden=!auditSearch.value;renderAuditPage();});
   auditFilter?.addEventListener('change',()=>{auditPage=1;renderAuditPage();});
   auditSearchClear?.addEventListener('click',()=>{if(auditSearch){auditSearch.value='';auditSearch.focus();}auditSearchClear.hidden=true;auditPage=1;renderAuditPage();});
-  async function load(){if(loading)return;loading=true;auditMessage('');window.wootenAdminSkeleton?.audit(auditBody,7);try{const owner=!!window.wootenAdminUser?.owner;if(owner){const usersRes=await fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),usersData=await usersRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);}const auditRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});let auditData=await auditRes.json().catch(()=>({})),auditOk=auditRes.ok&&auditData.success;if(auditOk&&!(auditData.entries||[]).length){await new Promise(resolve=>setTimeout(resolve,300));const retryRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});const retryData=await retryRes.json().catch(()=>({}));if(retryRes.ok&&retryData.success){auditData=retryData;auditOk=true;}}if(!auditOk){renderAudit([]);throw new Error(auditData.error||'Recent Admin Activity could not be loaded.');}renderAudit(auditData.entries||[]);loaded=true;auditMessage('Recent Admin Activity refreshed.',true);}catch(error){if(auditBody.querySelector('.db-skeleton-row'))renderAudit([]);auditMessage(error.message||'Recent Admin Activity could not be loaded.',false);}finally{loading=false;}}
+  async function load(){if(loading||!WootenAdminAccess.has(window.wootenAdminUser,'admin_activity'))return;const loadUser=window.wootenAdminUser,loadKey=key(),current=()=>loadUser===window.wootenAdminUser&&loadKey===key();loading=true;auditMessage('');window.wootenAdminSkeleton?.audit(auditBody,7);try{const owner=!!window.wootenAdminUser?.owner;if(owner){const usersRes=await fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),usersData=await usersRes.json().catch(()=>({}));if(!current())return;if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);}const auditRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});let auditData=await auditRes.json().catch(()=>({})),auditOk=auditRes.ok&&auditData.success;if(!current())return;if(auditOk&&!(auditData.entries||[]).length){await new Promise(resolve=>setTimeout(resolve,300));const retryRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});const retryData=await retryRes.json().catch(()=>({}));if(!current())return;if(retryRes.ok&&retryData.success){auditData=retryData;auditOk=true;}}if(!auditOk){renderAudit([]);throw new Error(auditData.error||'Recent Admin Activity could not be loaded.');}renderAudit(auditData.entries||[]);loaded=true;auditMessage('Recent Admin Activity refreshed.',true);}catch(error){if(!current())return;if(auditBody.querySelector('.db-skeleton-row'))renderAudit([]);auditMessage(error.message||'Recent Admin Activity could not be loaded.',false);}finally{if(current())loading=false;}}
+  window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;loading=false;window.wootenAdminUsers=[];list.innerHTML='';renderAudit([]);auditMessage('');reset();});
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
   list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
@@ -13056,7 +13095,7 @@ let pagingRequests=false;
     const sandbox=online&&/^Sandbox test — no live funds\./.test(String(r.description||''));
     const statusBadge='<span class="pt-badge '+state[1]+'">'+state[0]+'</span>'+(sandbox?' <span class="pt-badge sandbox">Sandbox test</span>':'');
     const title=esc(r.reference||r.description||'Payment');
-    const link=r.id?'<button class="activity-link activity-payment-link" type="button" data-activity-payment="'+esc(r.id)+'">'+title+'</button>':'<strong>'+title+'</strong>';
+    const link=r.id&&WootenAdminAccess.has(window.wootenAdminUser,'payment_transactions')?'<button class="activity-link activity-payment-link" type="button" data-activity-payment="'+esc(r.id)+'">'+title+'</button>':'<strong>'+title+'</strong>';
     const meta=online?'Customer Portal'+(r.card_last4?' • '+esc(r.card_brand||'Card')+' •••• '+esc(r.card_last4):''):'Payment: '+esc(r.payment_date||'—')+(r.invoice_no?' • Invoice '+esc(r.invoice_no):'')+(r.deposit_date?' • Deposit '+esc(r.deposit_date):'');
     const dateLabel=online?({captured:'Approved ',declined:'Declined ',canceled:'Canceled ',pending:'Pending as of ',processing:'Processing as of ',failed:'Failed ',expired:'Expired '}[r.status]||'Created '):'Posted ';
     const recordDate=online?WootenTime.dateTime((['pending','processing'].includes(r.status)?r.updated_at:r.completed_at)||r.created_at||r.payment_date):(r.posting_date||r.payment_date);
@@ -13796,17 +13835,24 @@ let pagingRequests=false;
   let currentUser=null;
 
   function applyPermissions(user){
+    const get=id=>document.getElementById(id);
     currentUser=user||null;window.wootenAdminUser=currentUser;
     const permissions=new Set(Array.isArray(user?.permissions)?user.permissions:[]);
-    const mapping={customers:'database',automation:'database',activity:'customer_activity','payment-transactions':'customer_activity',collections:'collections',notifications:'notifications',documents:'statements',communication:'communication',settings:'communications_settings',applications:'applications',requests:'applications',activation:'activation'};
+    const mapping=WootenAdminAccess.tabs;
     let firstVisible=null;
-    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(section==='dashboard'||section==='users'||section==='backup'||user.owner||permissions.has(mapping[section]));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
+    document.querySelectorAll('[data-admin-tab]').forEach(tab=>{const section=tab.dataset.adminTab;const allowed=!!user&&(WootenAdminAccess.canOpen(user,section));tab.hidden=!allowed;if(allowed&&!firstVisible)firstVisible=tab;});
     document.querySelectorAll('[data-owner-nav]').forEach(group=>group.hidden=!user?.owner);
     document.querySelectorAll('[data-admin-open]').forEach(button=>{const section=button.dataset.adminOpen;button.closest('.admin-dashboard-card').hidden=!(user&&(user.owner||permissions.has(mapping[section])));});
-    const ownerOnlyControls=document.querySelectorAll('#admin-tab-users input,#admin-tab-users button:not(#adminAuditRefresh)');
+    const ownerOnlyControls=document.querySelectorAll('.admin-user-editor input,.admin-user-editor button,.admin-user-list-section button');
     ownerOnlyControls.forEach(control=>{control.disabled=!user?.owner;control.setAttribute('aria-disabled',user?.owner?'false':'true');});
     document.querySelectorAll('.admin-user-editor,.admin-user-list-section').forEach(section=>{section.hidden=!user?.owner;});
     document.getElementById('admin-tab-users')?.classList.toggle('admin-user-management-locked',!user?.owner);
+    const auditAllowed=WootenAdminAccess.has(user,'admin_activity');
+    document.querySelector('.admin-audit-section').hidden=!auditAllowed;
+    document.querySelectorAll('.admin-audit-section input,.admin-audit-section select,.admin-audit-section button').forEach(control=>{control.disabled=!auditAllowed;control.setAttribute('aria-disabled',String(!auditAllowed));});
+    get('adminAccessTitle').textContent=user?.owner?'Admin Users & Permissions':'Recent Admin Activity';
+    get('adminAccessDescription').textContent=user?.owner?'Create individual administrator accounts and choose which sections each person can access. Existing access is retained when new permission choices are added. The Main Admin always retains full access.':'Review recorded administrator actions. Administrator accounts are managed by the Main Admin.';
+    const usersTab=get('admin-tab-btn-users');usersTab.lastChild.textContent=user?.owner?'Admin Users':'Admin Activity';usersTab.dataset.adminLabel=user?.owner?'Admin Users':'Admin Activity';
     const selected=document.querySelector('[data-admin-tab][aria-selected="true"]');if(selected?.hidden&&firstVisible)setTimeout(()=>firstVisible.click(),0);
     if(user?.owner)setTimeout(()=>window.loadWootenAdminUsers?.(),0);
   }
@@ -14079,7 +14125,7 @@ let pagingRequests=false;
 (()=>{
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus');let loaded=false,loading=false;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const labels={database:'Database & Imports',customer_activity:'Customer Activity',collections:'Credit & Collections',notifications:'Notifications',statements:'Statements & Invoices',communication:'Communication History',communications_settings:'Communications Settings',applications:'Account Applications',activation:'Account Activation'};
+  const labels=WootenAdminAccess.labels;
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
@@ -14173,6 +14219,7 @@ let pagingRequests=false;
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
  const key=()=>g('adminKey')?.value.trim()||'';
+ const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='application'?'applications':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application'};
  const time=v=>v?WootenTime.dateTime(v):'';
@@ -14186,7 +14233,8 @@ let pagingRequests=false;
  }
  async function load(append=false,force=false){
    const token=key();if(token!==activeKey){controller?.abort();controller=null;flight=null;activeKey=token;clear();}
-   if(!token)return;if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
+   const canRead=allowed('application')||allowed('fuel');bell.closest('.admin-bell-shell').hidden=!canRead;
+   if(!token||!canRead){controller?.abort();controller=null;flight=null;clear();menu.hidden=true;bell.setAttribute('aria-expanded','false');return;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
    lastAttempt=Date.now();const abort=new AbortController();controller=abort;
    refresh.disabled=true;refresh.classList.add('is-loading');refresh.setAttribute('aria-busy','true');more.disabled=true;more.textContent=append?'Loading...':'Load More';
    const task=(async()=>{
@@ -14203,20 +14251,20 @@ let pagingRequests=false;
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
        const total=Number(data.total||0);badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
-       counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications']].map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
+       counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();
      }catch(e){if(!abort.signal.aborted&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(e.message||'Notifications could not be loaded.')+'</div>';}}
      finally{if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
- function openTarget(type){menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
+ function openTarget(type){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true);});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
  menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
  document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
- window.addEventListener('wooten-admin-auth-changed',()=>load(false,true));
+ window.addEventListener('wooten-admin-auth-changed',()=>{controller?.abort();controller=null;flight=null;clear();load(false,true);});
  for(const event of ['focus','pageshow','online'])window.addEventListener(event,()=>{if(!document.hidden)load();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
  setInterval(()=>{if(!document.hidden)load();},60000);
@@ -14698,7 +14746,7 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=20260911ct1"></script>
+<script src="assets/js/admin-payment-transactions.js?v=20260911access2"></script>
 </body>
 </html>
 
