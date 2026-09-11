@@ -770,23 +770,30 @@
     var fragment=document.createDocumentFragment();
     rows.forEach(function(r){
       var card=document.createElement('article');card.className='payment-history-card';
+      // Keep receipt decisions tied to the saved history row, not display labels.
+      card.dataset.paymentSource=String(r.source||'');
+      card.dataset.paymentStatus=String(r.status||'').toLowerCase();
+      // The history API prefixes sandbox records with this explicit notice.
+      card.dataset.paymentEnvironment=r.environment==='sandbox'||/^Sandbox test — no live funds\./.test(String(r.description||''))?'sandbox':'';
       var top=document.createElement('div');top.className='payment-history-card-top';
       var amt=document.createElement('strong');amt.textContent=money(r.amount);
       var date=document.createElement('time');date.textContent=paymentHistoryDate(r.payment_date);
       top.appendChild(amt);top.appendChild(date);card.appendChild(top);
       var grid=document.createElement('div');grid.className='payment-history-grid';
       function add(label,value,full){var item=document.createElement('div');item.className='payment-history-item'+(full?' full':'');var s=document.createElement('small');s.textContent=label;var v=document.createElement('strong');v.textContent=value||'—';item.appendChild(s);item.appendChild(v);grid.appendChild(item);}
-      add('Check No',r.reference||'—');
+      add(r.source==='portal'?'Transaction reference':'Check No',r.reference||'—');
       add('Invoice No',r.invoice_no||'—');
       add('Deposit No',r.deposit_no||'—');
       add('Deposit Date',paymentHistoryDate(r.deposit_date));
-      add('Posting Date',paymentHistoryDate(r.posting_date||r.payment_date));
+      add(r.source==='portal'?'Approval Date':'Posting Date',paymentHistoryDate(r.posting_date||(r.source==='mas90'?r.payment_date:'')));
       if(r.source==='portal'){
         var cardLabel=[r.card_brand,String(r.card_last4||'').trim()?'•••• '+String(r.card_last4).trim():''].filter(Boolean).join(' ');
         add('Card',cardLabel||'Secure card payment');
         var statusItem=document.createElement('div');statusItem.className='payment-history-item';
         var statusLabel=document.createElement('small');statusLabel.textContent='Status';
-        var statusBadge=document.createElement('span');statusBadge.className='payment-history-status-badge '+String(r.status||'processing').toLowerCase();statusBadge.textContent=String(r.status||'processing');
+        var status=String(r.status||'').toLowerCase();
+        var statusNames={captured:'Approved',declined:'Declined',pending:'Pending',processing:'Processing',canceled:'Canceled',expired:'Expired',failed:'Failed'};
+        var statusBadge=document.createElement('span');statusBadge.className='payment-history-status-badge '+(Object.prototype.hasOwnProperty.call(statusNames,status)?status:'unknown');statusBadge.textContent=Object.prototype.hasOwnProperty.call(statusNames,status)?statusNames[status]:'Status unavailable';
         statusItem.appendChild(statusLabel);statusItem.appendChild(statusBadge);grid.appendChild(statusItem);
       }
       if(String(r.description||'').trim()) add('Description / Memo',r.description,true);

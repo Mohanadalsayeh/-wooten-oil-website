@@ -806,7 +806,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       <div class="payment-history-head">
         <div>
           <h3>Payment History</h3>
-          <p>Payments imported from your Wooten Oil account history.</p>
+          <p>Account payments and online card transactions. Open a receipt or status record to print or save a copy.</p>
         </div>
         <button type="button" class="payment-history-refresh" id="paymentHistoryRefresh">Refresh</button>
       </div>
@@ -1377,7 +1377,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=hosted-payment-1"></script>
+<script src="assets/js/script-07.js?v=payment-records-20260911"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -3884,7 +3884,10 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 .payment-receipt-brand-place{margin-top:3px;color:#718196;font-size:13px}
 .payment-receipt-heading{text-align:right}
 .payment-receipt-heading h3{margin:0;color:#172d44;font-size:25px}
-.payment-receipt-posted{display:inline-block;margin-top:7px;color:#117443;font-size:13px;font-weight:700}
+.payment-receipt-posted{display:inline-block;margin-top:7px;color:#173650;font-size:13px;font-weight:700}
+.payment-receipt-posted[data-tone="approved"]{color:#117443}
+.payment-receipt-posted[data-tone="declined"]{color:#ad1428}
+.payment-receipt-posted[data-tone="pending"]{color:#875b12}
 .payment-receipt-meta{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -3908,16 +3911,17 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   gap:16px;
   padding:18px;
   border-radius:14px;
-  background:#eef8f2;
+  background:#f0f4f8;
 }
 .payment-receipt-amount span{color:#496479}
-.payment-receipt-amount strong{color:#117443;font-size:27px}
+.payment-receipt-amount strong{color:#173650;font-size:27px}
 .payment-receipt-detail-title{margin:24px 0 8px;color:#172d44;font-weight:800}
-.payment-receipt-table{width:100%;border-collapse:collapse}
+.payment-receipt-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .payment-receipt-table th,.payment-receipt-table td{
   padding:12px 4px;
   border-bottom:1px solid #e3eaf0;
   text-align:left;
+  overflow-wrap:anywhere;
 }
 .payment-receipt-table th{
   color:#718196;
@@ -3982,17 +3986,17 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
           <div class="payment-receipt-brand-mark" aria-hidden="true">WO</div>
           <div><div class="payment-receipt-brand-name">WOOTEN OIL CO., INC.</div><div class="payment-receipt-brand-place">Covington, Tennessee</div></div>
         </div>
-        <div class="payment-receipt-heading"><h3 id="paymentReceiptTitle">Payment Receipt</h3><span class="payment-receipt-posted">Payment posted</span></div>
+        <div class="payment-receipt-heading"><h3 id="paymentReceiptTitle">Payment Record</h3><span class="payment-receipt-posted" id="paymentReceiptStatus">Status unavailable</span></div>
       </div>
       <div class="payment-receipt-meta">
         <div><span class="payment-receipt-label">Customer</span><div class="payment-receipt-value" id="paymentReceiptCustomer">—</div></div>
         <div><span class="payment-receipt-label">Customer number</span><div class="payment-receipt-value" id="paymentReceiptCustomerNumber">—</div></div>
-        <div><span class="payment-receipt-label">Payment date</span><div class="payment-receipt-value" id="paymentReceiptDate">—</div></div>
+        <div><span class="payment-receipt-label" id="paymentReceiptDateLabel">Record date</span><div class="payment-receipt-value" id="paymentReceiptDate">—</div></div>
       </div>
-      <div class="payment-receipt-amount"><span>Amount received</span><strong id="paymentReceiptAmount">$0.00</strong></div>
+      <div class="payment-receipt-amount"><span id="paymentReceiptAmountLabel">Amount</span><strong id="paymentReceiptAmount">$0.00</strong></div>
       <div class="payment-receipt-detail-title">Payment details</div>
       <table class="payment-receipt-table">
-        <thead><tr><th>Applied invoice</th><th>Check no.</th><th>Deposit no.</th><th>Deposit date</th><th>Posting date</th></tr></thead>
+        <thead><tr><th>Applied invoice</th><th id="paymentReceiptReferenceLabel">Reference</th><th>Deposit no.</th><th>Deposit date</th><th id="paymentReceiptPostingLabel">Posting date</th></tr></thead>
         <tbody><tr>
           <td id="paymentReceiptInvoice" data-label="Applied invoice">—</td>
           <td id="paymentReceiptCheck" data-label="Check no.">—</td>
@@ -4001,7 +4005,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
           <td id="paymentReceiptPostingDate" data-label="Posting date">—</td>
         </tr></tbody>
       </table>
-      <p class="payment-receipt-note">This receipt confirms the payment record imported from your Wooten Oil account history. It does not show invoice line-item details.</p>
+      <p class="payment-receipt-note" id="paymentReceiptNote">This record does not confirm a successful payment.</p>
     </div>
     <div class="payment-receipt-actions">
       <button type="button" id="paymentReceiptClose">Close</button>
@@ -4029,6 +4033,53 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     });
   }
   function set(id,value){var element=document.getElementById(id);if(element)element.textContent=clean(value);}
+  function recordInfo(card){
+    var source=card.dataset.paymentSource;
+    var status=card.dataset.paymentStatus;
+    var sandbox=card.dataset.paymentEnvironment==='sandbox';
+    var info={title:'Payment Status Record',status:'Status unavailable',amount:'Amount',button:'View Status Record',tone:'neutral',note:'This record does not confirm a successful payment. Check the payment status for the latest information.'};
+    if(source==='mas90'&&status==='posted'){
+      return {title:'Payment Receipt',status:'Payment posted',amount:'Amount received',button:'View Receipt',tone:'approved',note:'This receipt confirms the payment record imported from your Wooten Oil account history. It does not show invoice line-item details.'};
+    }
+    if(source==='portal'){
+      switch(status){
+        case 'captured':
+          info={title:'Payment Receipt',status:'Approved',amount:'Amount approved',button:'View Receipt',tone:'approved',note:'This receipt records an approved online card payment. Your account balance may take up to 24 business hours to reflect the payment.'};
+          break;
+        case 'pending': case 'processing':
+          info.status=status==='pending'?'Pending':'Processing';info.amount='Amount requested';info.tone='pending';
+          info.note='The payment outcome is awaiting confirmation. This status record is not proof of payment. Check Payment Status before attempting another payment.';
+          break;
+        case 'declined':
+          info.title='Declined Payment Record';info.status='Declined';info.amount='Amount attempted';info.tone='declined';
+          info.note='This payment attempt was declined. This record is not a receipt for a successful payment.';
+          break;
+        case 'canceled':
+          info.title='Canceled Checkout Record';info.status='Canceled';info.amount='Amount selected';
+          info.note='This checkout was canceled. This record is not proof of payment or a refund confirmation.';
+          break;
+        case 'expired':
+          info.title='Expired Checkout Record';info.status='Expired';info.amount='Amount selected';
+          info.note='This checkout expired. This record does not confirm a successful payment.';
+          break;
+        case 'failed':
+          info.title='Failed Payment Record';info.status='Failed';info.amount='Amount attempted';info.tone='declined';
+          info.note='This payment attempt failed. This record does not confirm a successful payment.';
+          break;
+      }
+    }
+    if(sandbox){
+      info.title=status==='captured'&&source==='portal'?'Sandbox Payment Confirmation':'Sandbox '+info.title;
+      info.status='Sandbox — '+info.status;
+      info.amount='Test amount';
+      if(status==='captured'&&source==='portal'){
+        info.button='View Test Confirmation';
+        info.note='This confirms an approved sandbox test only. It does not pay your Wooten Oil account balance.';
+      }
+      info.note='Sandbox test — no live funds were collected. '+info.note;
+    }
+    return info;
+  }
   function cardField(card,label){
     var wanted=String(label).toLowerCase().replace(/[^a-z0-9]/g,'');
     var items=card.querySelectorAll('.payment-history-item');
@@ -4048,26 +4099,39 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       var button=document.createElement('button');
       button.type='button';
       button.className='payment-history-print-receipt';
-      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Receipt</span>';
-      button.setAttribute('aria-label','Open printable receipt for this payment');
+      var info=recordInfo(card);
+      button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>'+info.button+'</span>';
+      button.setAttribute('aria-label','Open printable '+info.title.toLowerCase());
       actions.appendChild(button);
       card.appendChild(actions);
     });
   }
   function openReceipt(card){
+    var info=recordInfo(card);
+    var online=card.dataset.paymentSource==='portal';
     var amount=card.querySelector('.payment-history-card-top strong');
     var date=card.querySelector('.payment-history-card-top time');
     var customerName=document.getElementById('acctName');
     var customerNumber=document.getElementById('acctNumber');
     set('paymentReceiptCustomer',customerName&&customerName.textContent);
     set('paymentReceiptCustomerNumber',customerNumber&&customerNumber.textContent);
+    set('paymentReceiptTitle',info.title);
+    set('paymentReceiptStatus',info.status);
+    document.getElementById('paymentReceiptStatus').dataset.tone=info.tone;
+    set('paymentReceiptAmountLabel',info.amount);
+    set('paymentReceiptNote',info.note);
+    set('paymentReceiptDateLabel',online?'Record date':'Payment date');
+    set('paymentReceiptReferenceLabel',online?'Transaction reference':'Check no.');
+    set('paymentReceiptPostingLabel',online?'Approval date':'Posting date');
+    document.getElementById('paymentReceiptCheck').setAttribute('data-label',online?'Transaction reference':'Check no.');
+    document.getElementById('paymentReceiptPostingDate').setAttribute('data-label',online?'Approval date':'Posting date');
     set('paymentReceiptDate',date&&date.textContent);
     set('paymentReceiptAmount',amount&&amount.textContent);
     set('paymentReceiptInvoice',cardField(card,'Invoice No'));
-    set('paymentReceiptCheck',cardField(card,'Check No'));
+    set('paymentReceiptCheck',cardField(card,online?'Transaction reference':'Check No'));
     set('paymentReceiptDeposit',cardField(card,'Deposit No'));
     set('paymentReceiptDepositDate',cardField(card,'Deposit Date'));
-    set('paymentReceiptPostingDate',cardField(card,'Posting Date'));
+    set('paymentReceiptPostingDate',cardField(card,online?'Approval Date':'Posting Date'));
     modal.hidden=false;
     document.body.style.overflow='hidden';
     closeButton.focus();
@@ -4080,24 +4144,24 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   function buildPrintableReceipt(){
     return '<!doctype html><html lang="en"><head><meta charset="utf-8">'+
       '<meta name="viewport" content="width=device-width,initial-scale=1">'+
-      '<title>Wooten Oil Payment Receipt</title><style>'+
+      '<title>Wooten Oil '+printValue('paymentReceiptTitle')+'</title><style>'+
       '@page{size:letter portrait;margin:0}*{box-sizing:border-box}html,body{width:100%;min-height:11in;margin:0;background:#fff;color:#172d44;font-family:Arial,Helvetica,sans-serif;font-size:12px}body{padding:.5in}'+
       '.receipt{width:100%;max-width:7.5in;min-height:10in;margin:0 auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid #d3262e}'+
       '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}'+
-      '.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}.title{text-align:right}.title h1{margin:0;font-size:23px}.posted{display:block;margin-top:6px;color:#117443;font-weight:700}'+
+      '.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}.title{text-align:right}.title h1{margin:0;font-size:23px}.posted{display:block;margin-top:6px;color:#173650;font-weight:700}'+
       '.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0}.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}'+
-      '.amount{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-radius:12px;background:#eef8f2}.amount span{color:#496479}.amount strong{color:#117443;font-size:25px}'+
-      '.details{margin:23px 0 8px;font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse}th,td{padding:11px 4px;border-bottom:1px solid #dfe7ed;text-align:left}th{color:#718196;font-size:9px;letter-spacing:.05em;text-transform:uppercase}td{font-weight:700}'+
+      '.amount{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-radius:12px;background:#f0f4f8}.amount span{color:#496479}.amount strong{color:#173650;font-size:25px}'+
+      '.details{margin:23px 0 8px;font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:11px 4px;border-bottom:1px solid #dfe7ed;text-align:left;overflow-wrap:anywhere}th{color:#718196;font-size:9px;letter-spacing:.05em;text-transform:uppercase}td{font-weight:700}'+
       '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:34px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
       '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}'+
       '@media print{.screen-actions{display:none!important}}'+
       '</style></head><body><main class="receipt">'+
-      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Payment Receipt</h1><span class="posted">Payment posted</span></div></header>'+
-      '<section class="meta"><div><span class="label">Customer</span><div class="value">'+printValue('paymentReceiptCustomer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+printValue('paymentReceiptCustomerNumber')+'</div></div><div><span class="label">Payment date</span><div class="value">'+printValue('paymentReceiptDate')+'</div></div></section>'+
-      '<section class="amount"><span>Amount received</span><strong>'+printValue('paymentReceiptAmount')+'</strong></section>'+
-      '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>Check no.</th><th>Deposit no.</th><th>Deposit date</th><th>Posting date</th></tr></thead><tbody><tr><td>'+printValue('paymentReceiptInvoice')+'</td><td>'+printValue('paymentReceiptCheck')+'</td><td>'+printValue('paymentReceiptDeposit')+'</td><td>'+printValue('paymentReceiptDepositDate')+'</td><td>'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
-      '<p class="note">This receipt confirms the payment record imported from your Wooten Oil account history. It does not show invoice line-item details.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment Receipt</div>'+
-      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print Receipt</button></div>'+
+      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>'+printValue('paymentReceiptTitle')+'</h1><span class="posted">'+printValue('paymentReceiptStatus')+'</span></div></header>'+
+      '<section class="meta"><div><span class="label">Customer</span><div class="value">'+printValue('paymentReceiptCustomer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+printValue('paymentReceiptCustomerNumber')+'</div></div><div><span class="label">'+printValue('paymentReceiptDateLabel')+'</span><div class="value">'+printValue('paymentReceiptDate')+'</div></div></section>'+
+      '<section class="amount"><span>'+printValue('paymentReceiptAmountLabel')+'</span><strong>'+printValue('paymentReceiptAmount')+'</strong></section>'+
+      '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>'+printValue('paymentReceiptReferenceLabel')+'</th><th>Deposit no.</th><th>Deposit date</th><th>'+printValue('paymentReceiptPostingLabel')+'</th></tr></thead><tbody><tr><td>'+printValue('paymentReceiptInvoice')+'</td><td>'+printValue('paymentReceiptCheck')+'</td><td>'+printValue('paymentReceiptDeposit')+'</td><td>'+printValue('paymentReceiptDepositDate')+'</td><td>'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
+      '<p class="note">'+printValue('paymentReceiptNote')+'</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment History</div>'+
+      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print</button></div>'+
       '</main></body></html>';
   }
   function printReceipt(){
@@ -4127,6 +4191,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     if(card)openReceipt(card);
   });
   closeButton.addEventListener('click',closeReceipt);
+  window.addEventListener('wooten:payment-account',closeReceipt);
   modal.addEventListener('click',function(event){if(event.target===modal)closeReceipt();});
   document.addEventListener('keydown',function(event){if(event.key==='Escape'&&!modal.hidden)closeReceipt();});
   printButton.addEventListener('click',printReceipt);
