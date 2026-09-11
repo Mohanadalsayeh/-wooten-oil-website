@@ -3589,7 +3589,7 @@ async function customerPaymentsGet({request,env}){
         COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,
         CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') OR EXISTS(SELECT 1 FROM heartland_payment_attempts a WHERE a.intent_id=online_payment_transactions.id AND a.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
         CASE status WHEN 'captured' THEN 'Portal card payment — captured' WHEN 'declined' THEN 'Portal card payment — declined' WHEN 'failed' THEN 'Portal card payment — setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Portal card payment — awaiting confirmation' END AS description,
-        created_at AS imported_at,'portal' AS source,status,card_brand,card_last4
+        created_at AS imported_at,created_at,updated_at,completed_at,'portal' AS source,status,card_brand,card_last4
       FROM online_payment_transactions
       WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
       ORDER BY created_at DESC LIMIT 5000

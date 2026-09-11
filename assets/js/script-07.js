@@ -722,6 +722,31 @@
     return s;
   }
 
+  function paymentHistoryDateTime(value){
+    if(!value)return '—';
+    var text=String(value).trim();
+    if(!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(text))return paymentHistoryDate(text);
+    var normalized=text.replace(' ','T');
+    if(!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized))normalized+='Z';
+    var timestamp=new Date(normalized);
+    if(!Number.isFinite(timestamp.getTime()))return '—';
+    var pad=function(number){return String(number).padStart(2,'0');};
+    var hours=timestamp.getUTCHours();
+    return pad(timestamp.getUTCMonth()+1)+'-'+pad(timestamp.getUTCDate())+'-'+timestamp.getUTCFullYear()+' '+
+      pad(hours%12||12)+':'+pad(timestamp.getUTCMinutes())+':'+pad(timestamp.getUTCSeconds())+' '+(hours>=12?'PM':'AM')+' UTC';
+  }
+
+  function paymentHistoryStatusDate(row){
+    var labels={captured:'Approval date & time',declined:'Declined date & time',canceled:'Canceled date & time',
+      pending:'Pending as of',processing:'Processing as of',failed:'Failed date & time',expired:'Expired date & time'};
+    var status=String(row.status||'').toLowerCase();
+    // Pending timestamps describe the saved status update, not settlement or a new payment.
+    var pending=status==='pending'||status==='processing';
+    var value=pending?(row.updated_at||row.created_at):row.completed_at;
+    if(!value&&status==='captured')value=row.posting_date;
+    return {label:labels[status]||'Status date & time',value:paymentHistoryDateTime(value)};
+  }
+
   function paymentSearchText(row){
     return [
       row.payment_date,
@@ -777,7 +802,7 @@
       card.dataset.paymentEnvironment=r.environment==='sandbox'||/^Sandbox test — no live funds\./.test(String(r.description||''))?'sandbox':'';
       var top=document.createElement('div');top.className='payment-history-card-top';
       var amt=document.createElement('strong');amt.textContent=money(r.amount);
-      var date=document.createElement('time');date.textContent=paymentHistoryDate(r.payment_date);
+      var date=document.createElement('time');date.textContent=r.source==='portal'?paymentHistoryDateTime(r.created_at||r.payment_date):paymentHistoryDate(r.payment_date);
       top.appendChild(amt);top.appendChild(date);card.appendChild(top);
       var grid=document.createElement('div');grid.className='payment-history-grid';
       function add(label,value,full){var item=document.createElement('div');item.className='payment-history-item'+(full?' full':'');var s=document.createElement('small');s.textContent=label;var v=document.createElement('strong');v.textContent=value||'—';item.appendChild(s);item.appendChild(v);grid.appendChild(item);}
@@ -785,7 +810,12 @@
       add('Invoice No',r.invoice_no||'—');
       add('Deposit No',r.deposit_no||'—');
       add('Deposit Date',paymentHistoryDate(r.deposit_date));
-      add(r.source==='portal'?'Approval Date':'Posting Date',paymentHistoryDate(r.posting_date||(r.source==='mas90'?r.payment_date:'')));
+      if(r.source==='portal'){
+        var statusDate=paymentHistoryStatusDate(r);
+        card.dataset.paymentStatusDateLabel=statusDate.label;
+        card.dataset.paymentStatusDate=statusDate.value;
+        add(statusDate.label,statusDate.value);
+      }else add('Posting Date',paymentHistoryDate(r.posting_date||r.payment_date));
       if(r.source==='portal'){
         var cardLabel=[r.card_brand,String(r.card_last4||'').trim()?'•••• '+String(r.card_last4).trim():''].filter(Boolean).join(' ');
         add('Card',cardLabel||'Secure card payment');

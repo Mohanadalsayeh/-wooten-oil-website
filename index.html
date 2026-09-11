@@ -1377,7 +1377,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=payment-records-20260911"></script>
+<script src="assets/js/script-07.js?v=payment-record-times-20260911"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -3874,7 +3874,9 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   place-items:center;
   flex:0 0 44px;
   width:44px;
+  min-width:44px;
   height:44px;
+  aspect-ratio:1;
   border-radius:11px;
   background:#d3262e;
   color:#fff;
@@ -4120,18 +4122,19 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     document.getElementById('paymentReceiptStatus').dataset.tone=info.tone;
     set('paymentReceiptAmountLabel',info.amount);
     set('paymentReceiptNote',info.note);
-    set('paymentReceiptDateLabel',online?'Record date':'Payment date');
+    set('paymentReceiptDateLabel',online?'Record date & time':'Payment date');
     set('paymentReceiptReferenceLabel',online?'Transaction reference':'Check no.');
-    set('paymentReceiptPostingLabel',online?'Approval date':'Posting date');
+    var statusDateLabel=online?(card.dataset.paymentStatusDateLabel||'Status date & time'):'Posting date';
+    set('paymentReceiptPostingLabel',statusDateLabel);
     document.getElementById('paymentReceiptCheck').setAttribute('data-label',online?'Transaction reference':'Check no.');
-    document.getElementById('paymentReceiptPostingDate').setAttribute('data-label',online?'Approval date':'Posting date');
+    document.getElementById('paymentReceiptPostingDate').setAttribute('data-label',statusDateLabel);
     set('paymentReceiptDate',date&&date.textContent);
     set('paymentReceiptAmount',amount&&amount.textContent);
     set('paymentReceiptInvoice',cardField(card,'Invoice No'));
     set('paymentReceiptCheck',cardField(card,online?'Transaction reference':'Check No'));
     set('paymentReceiptDeposit',cardField(card,'Deposit No'));
     set('paymentReceiptDepositDate',cardField(card,'Deposit Date'));
-    set('paymentReceiptPostingDate',cardField(card,online?'Approval Date':'Posting Date'));
+    set('paymentReceiptPostingDate',online?card.dataset.paymentStatusDate:cardField(card,'Posting Date'));
     modal.hidden=false;
     document.body.style.overflow='hidden';
     closeButton.focus();
@@ -4147,19 +4150,20 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<title>Wooten Oil '+printValue('paymentReceiptTitle')+'</title><style>'+
       '@page{size:letter portrait;margin:0}*{box-sizing:border-box}html,body{width:100%;min-height:11in;margin:0;background:#fff;color:#172d44;font-family:Arial,Helvetica,sans-serif;font-size:12px}body{padding:.5in}'+
       '.receipt{width:100%;max-width:7.5in;min-height:10in;margin:0 auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid #d3262e}'+
-      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}'+
+      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;min-width:42px;height:42px;aspect-ratio:1;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}'+
       '.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}.title{text-align:right}.title h1{margin:0;font-size:23px}.posted{display:block;margin-top:6px;color:#173650;font-weight:700}'+
       '.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0}.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}'+
       '.amount{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-radius:12px;background:#f0f4f8}.amount span{color:#496479}.amount strong{color:#173650;font-size:25px}'+
       '.details{margin:23px 0 8px;font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:11px 4px;border-bottom:1px solid #dfe7ed;text-align:left;overflow-wrap:anywhere}th{color:#718196;font-size:9px;letter-spacing:.05em;text-transform:uppercase}td{font-weight:700}'+
       '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:34px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
       '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}'+
-      '@media print{.screen-actions{display:none!important}}'+
+      '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
+      '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
       '</style></head><body><main class="receipt">'+
       '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>'+printValue('paymentReceiptTitle')+'</h1><span class="posted">'+printValue('paymentReceiptStatus')+'</span></div></header>'+
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+printValue('paymentReceiptCustomer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+printValue('paymentReceiptCustomerNumber')+'</div></div><div><span class="label">'+printValue('paymentReceiptDateLabel')+'</span><div class="value">'+printValue('paymentReceiptDate')+'</div></div></section>'+
       '<section class="amount"><span>'+printValue('paymentReceiptAmountLabel')+'</span><strong>'+printValue('paymentReceiptAmount')+'</strong></section>'+
-      '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>'+printValue('paymentReceiptReferenceLabel')+'</th><th>Deposit no.</th><th>Deposit date</th><th>'+printValue('paymentReceiptPostingLabel')+'</th></tr></thead><tbody><tr><td>'+printValue('paymentReceiptInvoice')+'</td><td>'+printValue('paymentReceiptCheck')+'</td><td>'+printValue('paymentReceiptDeposit')+'</td><td>'+printValue('paymentReceiptDepositDate')+'</td><td>'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
+      '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>'+printValue('paymentReceiptReferenceLabel')+'</th><th>Deposit no.</th><th>Deposit date</th><th>'+printValue('paymentReceiptPostingLabel')+'</th></tr></thead><tbody><tr><td data-label="Applied invoice">'+printValue('paymentReceiptInvoice')+'</td><td data-label="'+printValue('paymentReceiptReferenceLabel')+'">'+printValue('paymentReceiptCheck')+'</td><td data-label="Deposit no.">'+printValue('paymentReceiptDeposit')+'</td><td data-label="Deposit date">'+printValue('paymentReceiptDepositDate')+'</td><td data-label="'+printValue('paymentReceiptPostingLabel')+'">'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
       '<p class="note">'+printValue('paymentReceiptNote')+'</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment History</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print</button></div>'+
       '</main></body></html>';
@@ -4267,14 +4271,15 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<title>Wooten Oil Account Summary</title><style>'+
       '@page{size:letter portrait;margin:0}*{box-sizing:border-box}html,body{width:100%;min-height:11in;margin:0;background:#fff;color:#172d44;font-family:Arial,Helvetica,sans-serif;font-size:12px}body{padding:.5in}'+
       '.summary{width:100%;max-width:7.5in;min-height:10in;margin:0 auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid #d3262e}'+
-      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}'+
+      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;min-width:42px;height:42px;aspect-ratio:1;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}'+
       '.title{text-align:right}.title h1{margin:0;font-size:23px}.updated{display:block;margin-top:6px;color:#66798c}.customer{display:grid;grid-template-columns:2fr 1fr;gap:20px;padding:20px 0}'+
       '.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}'+
       '.balances{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.balance{padding:14px;border-radius:11px;background:#f3f7fa}.balance.total{background:#eef8f2}.balance strong{display:block;margin-top:7px;font-size:18px}'+
       '.section-title{margin:23px 0 8px;font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse}th,td{padding:10px 4px;border-bottom:1px solid #dfe7ed;text-align:left}th{color:#718196;font-size:9px;letter-spacing:.05em;text-transform:uppercase}th:last-child,td:last-child{text-align:right}td{font-weight:700}'+
       '.account{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;padding:14px;border-radius:11px;background:#f7f9fb}.address{grid-column:1/-1}.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:28px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
       '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}.screen-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}'+
-      '@media print{.screen-actions{display:none!important}}'+
+      '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
+      '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
       '</style></head><body><main class="summary">'+
       '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Account Summary</h1><span class="updated">Updated '+safeValue('statementUpdated')+'</span></div></header>'+
       '<section class="customer"><div><span class="label">Customer</span><div class="value">'+safeValue('acctName')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safeValue('acctNumber')+'</div></div></section>'+
@@ -4373,13 +4378,14 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<title>Wooten Oil Fuel Request</title><style>'+
       '@page{size:letter portrait;margin:0}*{box-sizing:border-box}html,body{width:100%;min-height:11in;margin:0;background:#fff;color:#172d44;font-family:Arial,Helvetica,sans-serif;font-size:12px}body{padding:.5in}'+
       '.request{width:100%;max-width:7.5in;min-height:10in;margin:0 auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid #d3262e}'+
-      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}'+
+      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;min-width:42px;height:42px;aspect-ratio:1;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}'+
       '.title{text-align:right}.title h1{margin:0;font-size:23px}.status{display:block;margin-top:6px;color:#117443;font-weight:700}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0}'+
       '.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}.section-title{margin:14px 0 8px;font-size:13px;font-weight:700}'+
       '.details{display:grid;grid-template-columns:repeat(2,1fr);gap:0 24px;border-top:1px solid #dfe7ed}.detail{padding:13px 4px;border-bottom:1px solid #dfe7ed}.wide{grid-column:1/-1}.notes{min-height:64px}'+
       '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:30px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
       '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}.screen-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}'+
-      '@media print{.screen-actions{display:none!important}}'+
+      '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
+      '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
       '</style></head><body><main class="request">'+
       '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Fuel Request</h1><span class="status">'+safe(data,'status')+'</span></div></header>'+
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+safe(data,'customer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safe(data,'customerNumber')+'</div></div><div><span class="label">Request number</span><div class="value">'+safe(data,'number')+'</div></div><div><span class="label">Submitted</span><div class="value">'+safe(data,'submitted')+'</div></div></section>'+
