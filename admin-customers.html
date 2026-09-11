@@ -661,7 +661,7 @@
 </style>
 <script id="wooten-admin-text-refresh-ver392">
 (function(){
-const ids=['collectionsRefresh','exceptionalRefresh','scheduleRefresh','adminAuditRefresh','portalBackupRefresh','dbRefreshBtn','livePaymentRefreshBtn','refreshInboxBtn','twilioRefreshLookupResults','mas90HealthRefresh'];
+const ids=['collectionsRefresh','exceptionalRefresh','scheduleRefresh','adminAuditRefresh','portalBackupRefresh','dbRefreshBtn','livePaymentRefreshBtn','refreshInboxBtn','twilioRefreshLookupResults','mas90HealthRefresh','ptRefresh','ptDetailRefresh'];
 const pending=new WeakSet();
 function render(b){const label=pending.has(b)?'Refreshing...':'Refresh';if(b.textContent!==label||b.children.length)b.textContent=label;}
 window.WootenRefreshUI={async run(b,task){if(!b||pending.has(b))return;pending.add(b);b.disabled=true;b.setAttribute('aria-busy','true');render(b);try{return await task();}finally{pending.delete(b);b.disabled=false;b.removeAttribute('aria-busy');render(b);}}};
@@ -5554,7 +5554,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
   #admin-tab-collections .collections-summary>div[aria-describedby]:nth-child(n+3){border-top:1px solid #d7e1ea!important}
 }
 </style>
-<link rel="stylesheet" href="assets/css/admin-payment-transactions.css?v=20260911-2">
+<link rel="stylesheet" href="assets/css/admin-payment-transactions.css?v=20260911-3">
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6950,7 +6950,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
       <div class="pt-filter-actions"><button class="primary" id="ptApply" type="submit">Search / Apply</button><button class="secondary" id="ptReset" type="button">Clear filters</button></div>
     </form>
     <div class="pt-summary" id="ptSummary" aria-label="Matching transaction counts"></div>
-    <div class="pt-toolbar"><div><strong id="ptCount">Open this page to load transactions.</strong><small>All dates and times are UTC. Sandbox records do not represent live funds.</small></div><div class="pt-actions"><button class="secondary" id="ptRefresh" type="button">Refresh</button><button class="secondary" id="ptExport" type="button" disabled>Export PDF</button></div></div>
+    <div class="pt-toolbar"><div><strong id="ptCount">Open this page to load transactions.</strong><small>All dates and times are UTC. Sandbox records do not represent live funds.</small></div><div class="pt-actions"><button class="secondary" id="ptRefresh" type="button">Refresh</button><button class="secondary table-pdf-export-button" id="ptExport" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div>
     <div id="ptMessage" class="pt-message" role="status" aria-live="polite" hidden></div>
     <div class="pt-progress" id="ptExportProgress" hidden><label id="ptExportLabel" for="ptProgress">Preparing export…</label><progress id="ptProgress" max="100" value="0"></progress></div>
     <div class="pt-table-wrap"><table class="pt-table" data-auto-pdf="false" aria-label="Payment transactions"><thead><tr><th>Created (UTC)</th><th>Customer</th><th>Amount</th><th>Status</th><th>Environment</th><th>Processor</th><th>Reference</th></tr></thead><tbody id="ptRows"><tr><td colspan="7" class="pt-empty">Transactions will appear here.</td></tr></tbody></table></div>
@@ -6966,7 +6966,7 @@ body #scheduleRefresh.secondary.schedule-report-refresh *{
       <div class="pt-detail-scroll" id="ptDetailScroll" tabindex="0" role="region" aria-label="Transaction details"><div id="ptDetail" aria-live="polite"></div></div>
       <footer class="pt-detail-footer">
         <div id="ptDetailMessage" class="pt-message" role="status" hidden></div>
-        <div class="pt-detail-actions"><button class="secondary" id="ptDetailRefresh" type="button" disabled>Refresh status</button><button class="secondary" id="ptDetailExport" type="button" disabled>Export PDF</button><button class="primary" id="ptPrint" type="button" disabled>Print</button></div>
+        <div class="pt-detail-actions"><button class="secondary" id="ptDetailRefresh" type="button" disabled>Refresh</button><button class="secondary" id="ptDetailExport" type="button" disabled>Export PDF</button><button class="primary" id="ptPrint" type="button" disabled>Print</button></div>
       </footer>
     </section>
   </div>
@@ -14752,7 +14752,7 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=20260911-2"></script>
+<script src="assets/js/admin-payment-transactions.js?v=20260911-3"></script>
 </body>
 </html>
 
@@ -17127,7 +17127,9 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 #livePaymentRefreshBtn,
 #refreshInboxBtn,
 #twilioRefreshLookupResults,
-#mas90HealthRefresh{
+#mas90HealthRefresh,
+#ptRefresh,
+#ptDetailRefresh{
   background:#35a96f!important;
   border-color:#35a96f!important;
   color:#fff!important;
@@ -17142,7 +17144,9 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 #livePaymentRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
 #refreshInboxBtn:not(:disabled):is(:hover,:focus-visible,:active),
 #twilioRefreshLookupResults:not(:disabled):is(:hover,:focus-visible,:active),
-#mas90HealthRefresh:not(:disabled):is(:hover,:focus-visible,:active){
+#mas90HealthRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#ptRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#ptDetailRefresh:not(:disabled):is(:hover,:focus-visible,:active){
   background:#289960!important;
   border-color:#289960!important;
   color:#fff!important;
@@ -17156,7 +17160,9 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 #livePaymentRefreshBtn:disabled,
 #refreshInboxBtn:disabled,
 #twilioRefreshLookupResults:disabled,
-#mas90HealthRefresh:disabled{opacity:.55!important}
+#mas90HealthRefresh:disabled,
+#ptRefresh:disabled,
+#ptDetailRefresh:disabled{opacity:.55!important}
 </style>
 <style id="wooten-table-action-vertical-spacing-ver371">
 /* Preserve breathing room between report text/status panels and table actions. */

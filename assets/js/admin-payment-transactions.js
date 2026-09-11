@@ -8,7 +8,7 @@
   const environmentNames={sandbox:'Sandbox test',production:'Live',unknown:'Unknown',account_history:'Imported account payment'};
   const filterIds={q:'ptSearch',status:'ptStatus',environment:'ptEnvironment',provider:'ptProvider',from:'ptFrom',to:'ptTo',min_amount:'ptMinAmount',max_amount:'ptMaxAmount',sort:'ptSort'};
   let page=1,pages=1,total=0,applied=new URLSearchParams(),loaded=false,busy=false,exporting=false;
-  let sequence=0,detailSequence=0,activeId='',current=null,opener=null,oldOverflow='',searchTimer;
+  let sequence=0,detailSequence=0,activeId='',current=null,detailLoading=false,opener=null,oldOverflow='',searchTimer;
   const controllers=new Set();
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const credential=()=>String(get('adminKey')?.value||'').trim();
@@ -84,14 +84,15 @@
   }
   async function openDetail(id,refresh=false){
     if(!permitted())return;
-    const token=++detailSequence;activeId=id;current=null;
+    const token=++detailSequence;activeId=id;current=null;detailLoading=true;
     if(!refresh){opener=document.activeElement;oldOverflow=document.body.style.overflow;modal.hidden=false;document.body.style.overflow='hidden';get('ptClose').focus();}
     get('ptDetailSummary').hidden=true;get('ptDetailSummary').innerHTML='';get('ptDetailMessage').hidden=true;get('ptDetailExport').disabled=true;get('ptDetailScroll').scrollTop=0;
     get('ptDetailTitle').textContent='Transaction details';get('ptDetail').innerHTML='<p class="pt-message">Loading transaction…</p>';get('ptPrint').disabled=true;get('ptDetailRefresh').disabled=true;
     try{const data=await api(endpoint+'/'+(id.startsWith('imported/')?'imported/'+encodeURIComponent(id.slice(9)):encodeURIComponent(id)));if(token!==detailSequence||modal.hidden)return;renderDetail(data.transaction);}
     catch(error){if(token!==detailSequence||modal.hidden)return;get('ptDetail').innerHTML='<p class="pt-message" data-tone="bad">'+escape(error.message)+'</p>';get('ptDetailRefresh').disabled=false;}
+    finally{if(token===detailSequence)detailLoading=false;}
   }
-  function closeDetail(){detailSequence++;current=null;activeId='';if(!modal.hidden){modal.hidden=true;document.body.style.overflow=oldOverflow;opener?.focus();}get('ptDetail').innerHTML='';get('ptDetailSummary').innerHTML='';get('ptDetailSummary').hidden=true;get('ptDetailExport').disabled=true;get('ptPrint').disabled=true;}
+  function closeDetail(){detailSequence++;current=null;activeId='';detailLoading=false;if(!modal.hidden){modal.hidden=true;document.body.style.overflow=oldOverflow;opener?.focus();}get('ptDetail').innerHTML='';get('ptDetailSummary').innerHTML='';get('ptDetailSummary').hidden=true;get('ptDetailRefresh').disabled=true;get('ptDetailExport').disabled=true;get('ptPrint').disabled=true;}
   function printDetail(){
     if(!current||!permitted())return;
     const popup=window.open('','_blank');if(!popup){get('ptDetail').insertAdjacentHTML('afterbegin','<p class="pt-message">Allow pop-ups to open the printable transaction.</p>');return;}
@@ -144,10 +145,10 @@
   get('ptSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>load(1,filterParams()),450);});
   form.addEventListener('change',event=>{if(event.target.id!=='ptSearch')load(1,filterParams());});
   get('ptReset').addEventListener('click',()=>{clearTimeout(searchTimer);form.reset();load(1,filterParams());});
-  get('ptRefresh').addEventListener('click',()=>load(1,filterParams()));
+  get('ptRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('ptRefresh'),()=>load(1,filterParams())).finally(controls));
   get('ptPrev').addEventListener('click',()=>load(page-1));get('ptNext').addEventListener('click',()=>load(page+1));
   get('ptExport').addEventListener('click',exportPdf);
-  body.addEventListener('click',event=>{const row=event.target.closest('[data-transaction]');if(row)openDetail(row.dataset.transaction);});
+  body.addEventListener('click',event=>{const link=event.target.closest('button.pt-open');if(!link||link.disabled)return;const row=link.closest('[data-transaction]');if(row)openDetail(row.dataset.transaction);});
   get('ptDetailExport').addEventListener('click',exportDetailPdf);
   document.addEventListener('click',event=>{
     const link=event.target.closest('[data-activity-payment]');if(!link)return;
@@ -156,7 +157,7 @@
     else if(/^mas90-\d+$/.test(id))openDetail('imported/'+id.slice(6));
   });
   get('ptClose').addEventListener('click',closeDetail);get('ptPrint').addEventListener('click',printDetail);
-  get('ptDetailRefresh').addEventListener('click',()=>{if(activeId)openDetail(activeId,true);});
+  get('ptDetailRefresh').addEventListener('click',()=>{if(activeId)window.WootenRefreshUI.run(get('ptDetailRefresh'),()=>openDetail(activeId,true)).finally(()=>{get('ptDetailRefresh').disabled=detailLoading||!activeId||!permitted();});});
   modal.addEventListener('click',event=>{if(event.target===modal)closeDetail();});
   document.addEventListener('keydown',event=>{
     if(modal.hidden)return;if(event.key==='Escape'){event.preventDefault();closeDetail();}
