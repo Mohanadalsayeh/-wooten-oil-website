@@ -29,10 +29,20 @@
       approvalDialog=dialog;
       dialog.className='sandbox-admin-dialog';
       dialog.setAttribute('aria-labelledby','sandboxAdminTitle');
-      dialog.innerHTML='<form><h2 id="sandboxAdminTitle">Sandbox payment approval</h2><p>Payments are currently for testing only. A Main Admin must enter their password to continue.</p><label for="sandboxAdminPassword">Main Admin password</label><input id="sandboxAdminPassword" type="password" autocomplete="off" required maxlength="512"><p class="sandbox-admin-error" role="alert"></p><div class="sandbox-admin-actions"><button type="button">Cancel</button><button type="submit">Authorize testing</button></div></form>';
+      dialog.innerHTML='<form><h2 id="sandboxAdminTitle" tabindex="-1" autofocus>Sandbox payment approval</h2><p>Payments are currently for testing only. A Main Admin must enter their password to continue.</p><label for="sandboxAdminPassword">Main Admin password</label><input id="sandboxAdminPassword" type="password" autocomplete="off" required maxlength="512"><p class="sandbox-admin-error" role="alert"></p><div class="sandbox-admin-actions"><button type="button">Cancel</button><button type="submit">Authorize testing</button></div></form>';
       document.body.appendChild(dialog);
       var form=dialog.querySelector('form'),input=dialog.querySelector('input'),error=dialog.querySelector('[role="alert"]'),submit=dialog.querySelector('[type="submit"]'),done=false;
-      function finish(ok){if(done)return;done=true;input.value='';dialog.close();dialog.remove();approvalDialog=null;approvalPromise=null;if(previous&&previous.isConnected)previous.focus();resolve(ok);}
+      var viewport=window.visualViewport;
+      function centerDialog(){
+        var width=viewport?viewport.width:window.innerWidth,height=viewport?viewport.height:window.innerHeight;
+        dialog.style.setProperty('--sandbox-dialog-top',((viewport?viewport.offsetTop:0)+height/2)+'px');
+        dialog.style.setProperty('--sandbox-dialog-left',((viewport?viewport.offsetLeft:0)+width/2)+'px');
+        dialog.style.setProperty('--sandbox-dialog-width',Math.max(0,width-32)+'px');
+        dialog.style.setProperty('--sandbox-dialog-height',Math.max(0,height-32)+'px');
+      }
+      window.addEventListener('resize',centerDialog);
+      if(viewport){viewport.addEventListener('resize',centerDialog);viewport.addEventListener('scroll',centerDialog);}
+      function finish(ok){if(done)return;done=true;window.removeEventListener('resize',centerDialog);if(viewport){viewport.removeEventListener('resize',centerDialog);viewport.removeEventListener('scroll',centerDialog);}input.value='';dialog.close();dialog.remove();approvalDialog=null;approvalPromise=null;if(previous&&previous.isConnected)previous.focus();resolve(ok);}
       dialog.addEventListener('cancel',function(e){e.preventDefault();finish(false);});
       dialog.querySelector('[type="button"]').onclick=function(){finish(false);};
       dialog.addEventListener('approval-reset',function(){finish(false);});
@@ -47,7 +57,7 @@
         }catch(err){if(!done){error.textContent=err.message;input.focus();}}
         finally{password='';submit.disabled=false;submit.textContent='Authorize testing';}
       };
-      dialog.showModal();input.focus();
+      centerDialog();dialog.showModal();dialog.querySelector('h2').focus({preventScroll:true});
     });
     return approvalPromise;
   }
