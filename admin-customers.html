@@ -14259,7 +14259,7 @@ let pagingRequests=false;
      finally{if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
- function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
+ function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true);});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
@@ -14749,7 +14749,7 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=posting1-20260911access2"></script>
+<script src="assets/js/admin-payment-transactions.js?v=notification-routing-20260912-1"></script>
 <link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=20260912pagination1">
 </body>
 </html>

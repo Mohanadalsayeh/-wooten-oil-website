@@ -220,11 +220,37 @@
   get('ptRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('ptRefresh'),()=>load(1,filterParams())).finally(controls));
   get('ptPrev').addEventListener('click',()=>load(page-1));get('ptNext').addEventListener('click',()=>load(page+1));
   get('ptExport').addEventListener('click',exportPdf);
-  window.addEventListener('wooten-open-payment-notification',async event=>{
-    if(!permitted()||typeof event.detail?.id!=='string')return;
-    await openDetail(event.detail.id);
-    if(current?.id===event.detail.id){try{await api(endpoint+'/'+encodeURIComponent(current.id)+(event.detail.sandboxId?'/sandbox-notification-read':'/notification-read'),null,{method:'POST',...(event.detail.sandboxId?{body:JSON.stringify({id:event.detail.sandboxId})}:{})});window.dispatchEvent(new Event('wooten-payment-notification-read'));}catch{}}
-  });
+  async function openPaymentNotification(detail){
+    if(!permitted()||typeof detail?.id!=='string'||!detail.id)return;
+    const menu=get('adminNotificationMenu'),bell=get('adminNotificationBell');
+    if(menu)menu.hidden=true;if(bell)bell.setAttribute('aria-expanded','false');
+    get('admin-tab-btn-payment-transactions')?.click();
+    await openDetail(detail.id);
+    if(current?.id!==detail.id)return;
+    // Older bell markup has no sandbox event ID. Open the correct transaction,
+    // but leave its alert unread until the updated bell can identify that event.
+    if(detail.sandbox&&!Number.isSafeInteger(detail.sandboxId))return;
+    try{
+      await api(endpoint+'/'+encodeURIComponent(current.id)+(detail.sandboxId?'/sandbox-notification-read':'/notification-read'),null,
+        {method:'POST',...(detail.sandboxId?{body:JSON.stringify({id:detail.sandboxId})}:{})});
+      window.dispatchEvent(new Event('wooten-payment-notification-read'));
+    }catch{}
+  }
+  window.addEventListener('wooten-open-payment-notification',event=>openPaymentNotification({...event.detail,sandbox:!!event.detail?.sandboxId}));
+  // Capture payment clicks before legacy bell handlers can treat an unknown
+  // payment type as a customer request. Other notification routes are untouched.
+  document.addEventListener('click',event=>{
+    const item=event.target.closest('#adminNotificationMenu [data-bell-type]');
+    const count=event.target.closest('#adminNotificationMenu [data-bell-count="payment"]');
+    if(!count&&(!item||!['payment','sandbox_payment'].includes(item.dataset.bellType)))return;
+    event.preventDefault();event.stopImmediatePropagation();
+    if(!permitted())return;
+    if(count){get('adminNotificationMenu').hidden=true;get('adminNotificationBell')?.setAttribute('aria-expanded','false');get('admin-tab-btn-payment-transactions')?.click();return;}
+    const id=item.dataset.paymentId;
+    if(!id){const output=get('adminNotificationSummary');if(output)output.textContent='Refresh notifications to open this payment.';return;}
+    const noticeId=Number(item.dataset.noticeId);
+    openPaymentNotification({id,sandbox:item.dataset.bellType==='sandbox_payment',sandboxId:item.dataset.bellType==='sandbox_payment'&&Number.isSafeInteger(noticeId)&&noticeId>0?noticeId:null});
+  },true);
   body.addEventListener('click',event=>{const link=event.target.closest('button.pt-open');if(!link||link.disabled)return;const row=link.closest('[data-transaction]');if(row)openDetail(row.dataset.transaction);});
   get('ptDetailExport').addEventListener('click',exportDetailPdf);
   get('ptDetail').addEventListener('submit',savePosting);
