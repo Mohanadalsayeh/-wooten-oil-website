@@ -1,3 +1,4 @@
+import * as Posting from './mas90-posting.mjs';
 import '../assets/js/wooten-central-time.js';
 const portalTime=globalThis.WootenTime;
 // Read-only admin reporting over the saved online payment ledger.
@@ -5,7 +6,7 @@ const response=(body,status=200)=>new Response(JSON.stringify(body),{status,head
 const statuses=['approved','pending','declined','canceled','unsubmitted','expired','failed','review','unknown'];
 const providers=['heartland','globalpayments','unknown'];
 const environments=['sandbox','production','unknown'];
-const base=`WITH transactions AS (
+const base=`WITH raw_transactions AS (
  SELECT p.rowid AS ledger_row,p.id,p.account_number,
  COALESCE((SELECT c.account_name FROM customers c WHERE c.account_number=p.account_number LIMIT 1),'') AS account_name,
  p.amount_cents,p.currency,p.payment_type,p.status AS saved_status,
@@ -24,22 +25,34 @@ const base=`WITH transactions AS (
  FROM online_payment_transactions p
  LEFT JOIN heartland_payment_attempts a ON a.intent_id=p.id
  LEFT JOIN hosted_payment_links h ON h.intent_id=p.id
+) , ${Posting.ctes}, transactions AS (
+ SELECT t.*,s.posting_status,s.entered_deposit_no,s.entered_check_no,s.posting_revision,s.posting_updated_by,s.posting_updated_at,
+ s.mas90_posting_date,s.mas90_deposit_date,s.mas90_invoices,s.posting_imported_at
+ FROM raw_transactions t JOIN posting_state s ON s.intent_id=t.id
 )`;
 const columns=`id,account_number,account_name,amount_cents,currency,payment_type,status,saved_status,provider,environment,
- provider_reference,provider_transaction_id,provider_status,card_brand,card_last4,created_at,updated_at,completed_at`;
+ provider_reference,provider_transaction_id,provider_status,card_brand,card_last4,created_at,updated_at,completed_at,posting_status,entered_deposit_no,entered_check_no,posting_revision,posting_updated_by,posting_updated_at,mas90_posting_date,mas90_deposit_date,mas90_invoices,posting_imported_at`;
 function invalid(message){const error=new Error(message);error.status=400;throw error;}
 function integer(value,fallback,max){if(value===null)return fallback;if(!/^\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)>max||Number(value)<1)invalid('Invalid page or page size.');return Number(value);}
 function date(value){if(!value)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value)invalid('Enter a valid date.');return value;}
 function cents(value){if(!/^\d+(?:\.\d{1,2})?$/.test(value))invalid('Enter an amount with no more than two decimal places.');const result=Math.round(Number(value)*100);if(!Number.isSafeInteger(result))invalid('Amount is too large.');return result;}
 
-export async function handle({request,env,ensureSchema,ensureImportedSchema}){
+export async function handle({request,env,ensureSchema,ensureImportedSchema,ensurePostingSchema,actor}){
   // Dispatcher authenticates admin users and checks Payment Transactions permission.
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==String(env.ADMIN_IMPORT_KEY))return response({success:false,error:'Admin authorization is required.'},401);
-  if(request.method!=='GET')return response({success:false,error:'Method not allowed.'},405);
+  if(!['GET','POST'].includes(request.method))return response({success:false,error:'Method not allowed.'},405);
   try{
     if(!env.DB)return response({success:false,error:'The payment database is unavailable.'},503);
     const url=new URL(request.url),params=url.searchParams;
     const detail=url.pathname.slice('/api/admin/payment-transactions'.length);
+    await ensureSchema();await ensurePostingSchema();
+    if(request.method==='POST'){
+      const match=detail.match(/^\/([^/]+)\/posting$/);
+      if(!match)return response({success:false,error:'Method not allowed.'},405);
+      let id;try{id=decodeURIComponent(match[1]);}catch{invalid('Invalid transaction reference.');}
+      return Posting.save({request,env,id,actor});
+    }
+
     if(detail.startsWith('/imported/')){
       const id=detail.slice('/imported/'.length);
       if(!/^\d+$/.test(id)||!Number.isSafeInteger(Number(id)))return response({success:false,error:'Payment not found.'},404);
@@ -59,6 +72,7 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema}){
       if(id.length>200)invalid('Invalid transaction reference.');
       await ensureSchema();
       const transaction=await env.DB.prepare(base+` SELECT ${columns},result_code,result_message,expires_at,last_check_ms,verification_detail FROM transactions WHERE id=?`).bind(id).first();
+      if(transaction){transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
       return transaction?response({success:true,transaction}):response({success:false,error:'Transaction not found.'},404);
     }
     const page=integer(params.get('page'),1,10000000),pageSize=integer(params.get('page_size'),20,200);
@@ -66,6 +80,8 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema}){
     for(const [name,allowed] of [['status',statuses],['provider',providers],['environment',environments]]){
       const value=params.get(name)||'';if(value){if(!allowed.includes(value))invalid('Invalid '+name+' filter.');predicates.push(name+'=?');args.push(value);}
     }
+    const posting=params.get('posting')||'';
+    if(posting){if(!Object.hasOwn(Posting.labels,posting))invalid('Invalid posting status.');predicates.push('posting_status=?');args.push(posting);}
     const from=date(params.get('from')),to=date(params.get('to'));
     if(from&&to&&from>to)invalid('The start date must be on or before the end date.');
     if(from){predicates.push('julianday(created_at)>=julianday(?)');args.push(portalTime.dayStart(from));}

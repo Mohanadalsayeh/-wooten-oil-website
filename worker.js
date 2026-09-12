@@ -4,6 +4,8 @@ import './assets/js/wooten-central-time.js';
 const portalTime=globalThis.WootenTime;
 import * as Heartland from './payments/heartland.mjs';
 import * as AdminTransactions from './payments/admin-transactions.mjs';
+import * as Mas90Posting from './payments/mas90-posting.mjs';
+async function ensurePostingSchema(env){await Promise.all([ensureCustomerPaymentsSchema(env),ensureAdminImportMetadataSchema(env)]);await Mas90Posting.ensureSchema(env);}
 function heartlandHelpers(){return {mas90MasterPasswordMatches,ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
@@ -2476,6 +2478,8 @@ async function adminCustomerPaymentsImport({ request, env }) {
   }
   if(!valid.length) return json3({success:false,error:"No valid payment records were found."},400);
 
+  await ensureAdminImportMetadataSchema(env);
+  await env.DB.prepare("UPDATE admin_import_metadata SET last_import_status='in_progress' WHERE import_type='payments'").run();
   let inserted=0,duplicates=0;
   const insertStmt=env.DB.prepare(`
     INSERT OR IGNORE INTO customer_payments
@@ -2499,6 +2503,7 @@ async function adminCustomerPaymentsImport({ request, env }) {
     }
   }catch(error){
     console.error("Customer payments import failed",error);
+    await env.DB.prepare("UPDATE admin_import_metadata SET last_import_status='failed' WHERE import_type='payments'").run().catch(()=>{});
     return json3({success:false,error:"Payment history import failed."},500);
   }
 
@@ -3576,42 +3581,20 @@ async function customerPaymentsGet({request,env}){
   try{
     await Promise.all([ensureCustomerPaymentsSchema(env),Heartland.ensureSchema(env,heartlandHelpers())]);
     const account=paymentAccount(customer.account_number);
-    const importedResult=await env.DB.prepare(`
-      SELECT
-        id,account_number,payment_date,posting_date,deposit_date,deposit_no,
-        source_invoice_no AS invoice_no,amount,reference,description,imported_at,
-        'mas90' AS source,'posted' AS status,'' AS card_brand,'' AS card_last4
-      FROM customer_payments
-      WHERE account_number=?
-      ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
-      LIMIT 5000
-    `).bind(account).all();
-    const onlineResult=await env.DB.prepare(`
-      SELECT id,account_number,substr(created_at,1,10) AS payment_date,
-        CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,
-        '' AS deposit_date,'' AS deposit_no,'' AS invoice_no,amount_cents/100.0 AS amount,
-        COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,
-        CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') OR EXISTS(SELECT 1 FROM heartland_payment_attempts a WHERE a.intent_id=online_payment_transactions.id AND a.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
-        CASE status WHEN 'captured' THEN 'Portal card payment — captured' WHEN 'declined' THEN 'Portal card payment — declined' WHEN 'failed' THEN 'Portal card payment — setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Portal card payment — awaiting confirmation' END AS description,
-        created_at AS imported_at,created_at,updated_at,completed_at,'portal' AS source,status,card_brand,card_last4
-      FROM online_payment_transactions
-      WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
-      ORDER BY created_at DESC LIMIT 5000
-    `).bind(account).all();
-    const imported=importedResult?.results||[];
-    const online=(onlineResult?.results||[]).map(row=>({...row,payment_date:portalTime.dateKey(row.created_at),posting_date:row.status==='captured'?portalTime.dateKey(row.completed_at):''}));
+    await ensurePostingSchema(env);
+    const history=await Mas90Posting.history(env,account);
     const url=new URL(request.url);const query=String(url.searchParams.get("q")||"").trim().toLowerCase().slice(0,120);
     const sort=String(url.searchParams.get("sort")||"newest");
     const page=Math.max(1,Number.parseInt(url.searchParams.get("page")||"1",10)||1);
     const pageSize=Math.max(1,Math.min(100,Number.parseInt(url.searchParams.get("page_size")||"20",10)||20));
-    let rows=imported.concat(online);
-    if(query) rows=rows.filter(row=>[row.payment_date,row.posting_date,row.deposit_date,row.amount,row.reference,row.invoice_no,row.deposit_no,row.description,row.status,row.card_brand,row.card_last4].some(value=>String(value??"").toLowerCase().includes(query)));
+    let rows=history.rows;
+    if(query) rows=rows.filter(row=>[row.payment_date,row.posting_date,row.deposit_date,row.amount,row.reference,row.confirmation_number,row.check_no,row.invoice_no,row.deposit_no,row.posting_status,row.description,row.status,row.card_brand,row.card_last4].some(value=>String(value??"").toLowerCase().includes(query)));
     const dateValue=row=>portalTime.parse(row.source==='portal'?(row.completed_at||row.created_at):(row.posting_date||row.payment_date||row.imported_at))?.getTime()||0;
     rows.sort((a,b)=>sort==="oldest"?dateValue(a)-dateValue(b):sort==="amount_desc"?Number(b.amount)-Number(a.amount):sort==="amount_asc"?Number(a.amount)-Number(b.amount):sort==="reference_asc"?String(a.reference||"").localeCompare(String(b.reference||"")):dateValue(b)-dateValue(a));
     const total=rows.length,offset=(page-1)*pageSize,pagedRows=rows.slice(offset,offset+pageSize);
     // The imported ledger remains the source of truth for lifetime totals. Portal
     // transactions are shown immediately, but are not added again after MAS 90 imports them.
-    const totalPaid=imported.reduce((sum,r)=>sum+paymentAmount(r.amount),0);
+    const totalPaid=history.totalPaid;
     return notificationJson({success:true,count:pagedRows.length,total,total_paid:totalPaid,page,page_size:pageSize,has_more:offset+pagedRows.length<total,payments:pagedRows});
   }catch(error){
     console.error('customerPaymentsGet failed',error);
@@ -11470,24 +11453,9 @@ async function adminCustomerActivityGet({request,env}){
     const offset=name=>(pages[name]-1)*pageSize;
     const safeRows=async(promise,label)=>{try{return (await promise)?.results||[];}catch(error){console.error(`Customer activity ${label} query failed`,error);return [];}};
     const [payments,documents,communications,fuelRequests,applications,logins,paymentChart,fuelChartSummary,lastChartPayment,paymentChartEntries]=await Promise.all([
-      safeRows(env.DB.prepare(`WITH combined AS (
-        SELECT 'mas90-'||id AS id,payment_date,posting_date,deposit_date,reference,source_invoice_no AS invoice_no,amount,description,
-          'mas90' AS source,'posted' AS status,'' AS card_brand,'' AS card_last4,
-          NULL AS created_at,NULL AS updated_at,NULL AS completed_at
-        FROM customer_payments WHERE account_number=?
-        UNION ALL
-        SELECT 'portal-'||id AS id,substr(created_at,1,10) AS payment_date,
-          CASE WHEN status='captured' THEN substr(completed_at,1,10) ELSE '' END AS posting_date,'' AS deposit_date,
-          COALESCE(NULLIF(provider_transaction_id,''),provider_reference) AS reference,'' AS invoice_no,amount_cents/100.0 AS amount,
-          CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_links h WHERE h.intent_id=online_payment_transactions.id AND h.environment='sandbox') OR EXISTS(SELECT 1 FROM heartland_payment_attempts a WHERE a.intent_id=online_payment_transactions.id AND a.environment='sandbox') THEN 'Sandbox test — no live funds. ' ELSE '' END ||
-          CASE status WHEN 'captured' THEN 'Customer portal card payment' WHEN 'declined' THEN 'Customer portal card payment declined' WHEN 'failed' THEN 'Customer portal card payment setup or request error' WHEN 'expired' THEN 'Portal payment link expired unpaid' WHEN 'canceled' THEN 'Portal payment link canceled unpaid' ELSE 'Customer portal card payment awaiting confirmation' END AS description,
-          'portal' AS source,CASE WHEN EXISTS(SELECT 1 FROM hosted_payment_reviews r WHERE r.intent_id=online_payment_transactions.id)
-            AND NOT EXISTS(SELECT 1 FROM hosted_payment_review_resolutions r WHERE r.intent_id=online_payment_transactions.id)
-            THEN 'review' ELSE status END AS status,card_brand,card_last4,created_at,updated_at,completed_at
-        FROM online_payment_transactions WHERE account_number=? AND status IN ('captured','declined','processing','pending','failed','expired','canceled')
-      ) SELECT *,COUNT(*) OVER() AS total_count FROM combined
-        ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT ? OFFSET ?`)
-        .bind(account,account,pageSize,offset("payments")).all(),"payments"),
+      (async()=>{await ensurePostingSchema(env);const {rows}=await Mas90Posting.history(env,account);
+        rows.sort((a,b)=>String(b.posting_date||b.payment_date).localeCompare(String(a.posting_date||a.payment_date))||String(b.id).localeCompare(String(a.id)));
+        return rows.slice(offset("payments"),offset("payments")+pageSize).map(r=>({...r,id:(r.source==='portal'?'portal-':'mas90-')+r.id,total_count:rows.length}));})(),
       safeRows(env.DB.prepare(`SELECT id,document_type,title,document_date,filename,size_bytes,created_at,COUNT(*) OVER() AS total_count FROM portal_customer_documents WHERE account_number=? ORDER BY COALESCE(document_date,created_at) DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset("documents")).all(),"documents"),
       safeRows(env.DB.prepare(`SELECT id,event_type,title,detail,portal_sent,email_sent,sms_sent,sms_status,sms_error_code,error_text,created_at,COUNT(*) OVER() AS total_count FROM admin_communication_log WHERE account_number=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(account,pageSize,offset("communications")).all(),"communications"),
       safeRows(env.DB.prepare(`SELECT request_number,fuel_type,gallons,delivery_date,delivery_address,email_status,received_at,COUNT(*) OVER() AS total_count FROM fuel_requests WHERE customer_account_number=? OR ((customer_account_number IS NULL OR trim(customer_account_number)='') AND (lower(email)=lower(?) OR phone=?)) ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(account,String(customer.email||""),String(customer.phone||""),pageSize,offset("fuel")).all(),"fuel requests"),
@@ -11498,7 +11466,7 @@ async function adminCustomerActivityGet({request,env}){
       safeRows(env.DB.prepare(`SELECT amount,payment_date,posting_date,deposit_date FROM customer_payments WHERE account_number=? ORDER BY COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) DESC,id DESC LIMIT 1`).bind(account).all(),"last chart payment"),
       safeRows(env.DB.prepare(`WITH normalized AS (SELECT id,amount,payment_date,posting_date,deposit_date,CASE WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '____-__-__%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,10) WHEN COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date) LIKE '__/__/____%' THEN substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),7,4)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),1,2)||'-'||substr(COALESCE(NULLIF(posting_date,''),NULLIF(deposit_date,''),payment_date),4,2) ELSE NULL END AS chart_date FROM customer_payments WHERE account_number=?) SELECT id,amount,payment_date,posting_date,deposit_date,chart_date FROM normalized WHERE chart_date IS NOT NULL AND substr(chart_date,1,7)>=strftime('%Y-%m',?,'start of month',?) ORDER BY chart_date ASC,id ASC LIMIT 5000`).bind(account,portalTime.dateKey(),chartStartModifier).all(),"individual payment chart")
     ]);
-    for(const row of payments){if(row.source==='portal'){row.payment_date=portalTime.dateKey(row.created_at);row.posting_date=row.status==='captured'?portalTime.dateKey(row.completed_at):'';}}
+    for(const row of payments){if(row.source==='portal'){row.payment_date=portalTime.dateKey(row.created_at);/* Posting date comes only from matched MAS 90 history. */}}
     const pagination={};for(const [name,rows] of Object.entries({payments,documents,communications,fuel:fuelRequests,logins})){const total=Number(rows[0]?.total_count||0);pagination[name]={page:pages[name],page_size:pageSize,total,pages:Math.max(1,Math.ceil(total/pageSize))};}
     await adminAudit(env,request,"customer_activity_viewed","customer",account,String(customer.account_name||"Customer"));
     return notificationJson({success:true,customer,payments,documents,communications,fuel_requests:fuelRequests,applications,login_activity:logins,payment_chart:paymentChart,payment_chart_entries:paymentChartEntries,payment_chart_last:lastChartPayment[0]||null,fuel_chart_summary:paymentChartEntries,fuel_chart_stats:fuelChartSummary[0]||{},chart_months:chartMonths,pagination});
@@ -12359,7 +12327,7 @@ var worker_default = {
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/payment-transactions"||url.pathname.startsWith("/api/admin/payment-transactions/")){
-      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers()),ensureImportedSchema:()=>ensureCustomerPaymentsSchema(env)});
+      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers()),ensureImportedSchema:()=>ensureCustomerPaymentsSchema(env),ensurePostingSchema:()=>ensurePostingSchema(env),actor:adminRequestActor(request,env).name});
     }
     if(/^\/api\/admin\/customer-activity\/documents\/\d+\/file$/.test(url.pathname)){
       if(request.method==="GET")return adminCustomerDocumentFileGet({request,env});

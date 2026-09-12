@@ -1385,7 +1385,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=20260911ct1"></script>
+<script src="assets/js/script-07.js?v=posting1-20260911ct1"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -4016,7 +4016,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
           <td id="paymentReceiptPostingDate" data-label="Posting date">—</td>
         </tr></tbody>
       </table>
-      <p class="payment-receipt-note" id="paymentReceiptNote">This record does not confirm a successful payment.</p>
+      <div id="paymentReceiptPostingDetails" class="payment-receipt-note"></div><p class="payment-receipt-note" id="paymentReceiptNote">This record does not confirm a successful payment.</p>
     </div>
     <div class="payment-receipt-actions">
       <button type="button" id="paymentReceiptClose">Close</button>
@@ -4144,6 +4144,16 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     set('paymentReceiptDeposit',cardField(card,'Deposit No'));
     set('paymentReceiptDepositDate',cardField(card,'Deposit Date'));
     set('paymentReceiptPostingDate',online?card.dataset.paymentStatusDate:cardField(card,'Posting Date'));
+    var postingBlock=document.getElementById('paymentReceiptPostingDetails');
+    var postingLabels={ready:'Awaiting account posting',awaiting_import:'Awaiting posting verification',review:'Posting under review',posted:'Posted to your account'};
+    postingBlock.innerHTML='';
+    if(online){
+      var allocations=[];try{allocations=JSON.parse(card.dataset.allocations||'[]');}catch(e){}
+      postingBlock.innerHTML='<p><strong>Online confirmation:</strong> '+escapeHtml(card.dataset.confirmation||'—')+'</p>'+
+        (postingLabels[card.dataset.postingStatus]?'<p><strong>Account posting:</strong> '+escapeHtml(postingLabels[card.dataset.postingStatus])+'</p>':'')+
+        '<p><strong>MAS 90 Check No.:</strong> '+escapeHtml(card.dataset.checkNo||'—')+'</p><p><strong>MAS 90 posting date:</strong> '+escapeHtml(card.dataset.postingDate||'—')+'</p>'+
+        (allocations.length?'<p><strong>Invoice allocations:</strong></p>'+allocations.map(function(a){return '<p>'+escapeHtml(a.invoice_no||'On account')+' — $'+escapeHtml(Number(a.amount).toFixed(2))+'</p>';}).join(''):'');
+    }
     modal.hidden=false;
     document.body.style.overflow='hidden';
     closeButton.focus();
@@ -4173,7 +4183,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+printValue('paymentReceiptCustomer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+printValue('paymentReceiptCustomerNumber')+'</div></div><div><span class="label">'+printValue('paymentReceiptDateLabel')+'</span><div class="value">'+printValue('paymentReceiptDate')+'</div></div></section>'+
       '<section class="amount"><span>'+printValue('paymentReceiptAmountLabel')+'</span><strong>'+printValue('paymentReceiptAmount')+'</strong></section>'+
       '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>'+printValue('paymentReceiptReferenceLabel')+'</th><th>Deposit no.</th><th>Deposit date</th><th>'+printValue('paymentReceiptPostingLabel')+'</th></tr></thead><tbody><tr><td data-label="Applied invoice">'+printValue('paymentReceiptInvoice')+'</td><td data-label="'+printValue('paymentReceiptReferenceLabel')+'">'+printValue('paymentReceiptCheck')+'</td><td data-label="Deposit no.">'+printValue('paymentReceiptDeposit')+'</td><td data-label="Deposit date">'+printValue('paymentReceiptDepositDate')+'</td><td data-label="'+printValue('paymentReceiptPostingLabel')+'">'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
-      '<p class="note">'+printValue('paymentReceiptNote')+'</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment History</div>'+
+      '<div class="note">'+document.getElementById('paymentReceiptPostingDetails').innerHTML+'</div><p class="note">'+printValue('paymentReceiptNote')+'</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment History</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print</button></div>'+
       '</main></body></html>';
   }

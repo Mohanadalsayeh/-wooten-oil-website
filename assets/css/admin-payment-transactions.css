@@ -68,8 +68,8 @@
 
 #ptExport,#ptDetailExport{width:auto!important}
 
-#ptPrint{background:#173650!important;border-color:#173650!important;color:#fff!important;box-shadow:none!important;transform:none!important}
-#ptPrint:not(:disabled):is(:hover,:focus-visible,:active){background:#294f73!important;border-color:#294f73!important;color:#fff!important}
+#ptPrint,#ptPrintReport{background:#173650!important;border-color:#173650!important;color:#fff!important;box-shadow:none!important;transform:none!important}
+#ptPrint:not(:disabled):is(:hover,:focus-visible,:active),#ptPrintReport:not(:disabled):is(:hover,:focus-visible,:active){background:#294f73!important;border-color:#294f73!important;color:#fff!important}
 #ptDetailExport svg{flex:0 0 18px}
 @media(max-width:600px){
   #ptModal #ptDetailExport{padding:10px 6px!important;font-size:12px!important;gap:6px!important}
@@ -85,3 +85,13 @@
   .pt-table td[data-label]::before{content:attr(data-label);display:block;margin-bottom:5px;color:#667c90;font-size:11px;font-weight:700}
   .pt-table td[data-label="Reference"]{grid-column:1/-1}
 }
+
+/* Portal-only MAS 90 references */
+.pt-posting-editor{border:1px solid #cbd8e3;border-radius:12px;padding:18px;margin-top:20px;background:#f5f8fb}
+.pt-posting-editor p{line-height:1.5;margin:10px 0}
+.pt-posting-inputs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pt-posting-editor label{display:block;font-weight:700;margin:12px 0 6px}
+.pt-posting-editor input,.pt-posting-editor textarea{box-sizing:border-box;width:100%;min-width:0;padding:12px;border:1px solid #c6d6e7;border-radius:8px;font:inherit}
+.pt-posting-editor textarea{min-height:70px;margin-bottom:12px}
+.pt-posting-audit{margin-top:16px}.pt-posting-audit p{overflow-wrap:anywhere;margin:10px 0}
+@media(max-width:600px){.pt-posting-inputs{grid-template-columns:1fr}.pt-actions{flex-wrap:wrap}}

@@ -6,7 +6,8 @@
   const statusNames={approved:'Approved',pending:'Pending',declined:'Declined',canceled:'Cancel',unsubmitted:'Unsubmitted',expired:'Expired',failed:'Failed',review:'Review needed',unknown:'Unknown',posted:'Posted'};
   const providerNames={heartland:'Heartland',globalpayments:'Global Payments',unknown:'Unknown',mas90:'MAS 90 account history'};
   const environmentNames={sandbox:'Sandbox test',production:'Live',unknown:'Unknown',account_history:'Imported account payment'};
-  const filterIds={q:'ptSearch',status:'ptStatus',environment:'ptEnvironment',provider:'ptProvider',from:'ptFrom',to:'ptTo',min_amount:'ptMinAmount',max_amount:'ptMaxAmount',sort:'ptSort'};
+  const postingNames={ready:'Ready for MAS 90 entry',awaiting_import:'Entered — awaiting verification',review:'Posting needs review',posted:'Posted in MAS 90',not_applicable:'Not eligible for posting'};
+  const filterIds={posting:'ptPosting',q:'ptSearch',status:'ptStatus',environment:'ptEnvironment',provider:'ptProvider',from:'ptFrom',to:'ptTo',min_amount:'ptMinAmount',max_amount:'ptMaxAmount',sort:'ptSort'};
   let page=1,pages=1,total=0,applied=new URLSearchParams(),loaded=false,busy=false,exporting=false;
   let sequence=0,detailSequence=0,activeId='',current=null,detailLoading=false,opener=null,oldOverflow='',searchTimer;
   const controllers=new Set();
@@ -35,16 +36,16 @@
   function controls(){
     const locked=busy||exporting||!permitted();
     form.querySelectorAll('input,select,button').forEach(el=>el.disabled=locked);
-    get('ptRefresh').disabled=locked;get('ptExport').disabled=locked||!total;
+    get('ptRefresh').disabled=locked;get('ptExport').disabled=locked||!total;get('ptPrintReport').disabled=locked||!total;
     get('ptPrev').disabled=locked||page<=1;get('ptNext').disabled=locked||page>=pages;
   }
-  async function api(path,signal){
+  async function api(path,signal,options={}){
     if(!permitted())throw new Error('Sign in with an admin account that has Payment Transactions access.');
     const key=credential(),controller=new AbortController();controllers.add(controller);
     const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
     const timer=setTimeout(abort,20000);
     try{
-      const response=await fetch(path,{headers:{'X-Admin-Key':key},cache:'no-store',signal:controller.signal});
+      const response=await fetch(path,{...options,headers:{'X-Admin-Key':key,...(options.body?{'Content-Type':'application/json'}:{})},cache:'no-store',signal:controller.signal});
       const data=await response.json();
       if(!permitted()||credential()!==key)throw new Error('Your admin session changed. Sign in again.');
       if(!response.ok||!data.success)throw new Error(data.error||'Payment transactions could not be loaded.');
@@ -65,7 +66,7 @@
     get('ptCount').textContent=total.toLocaleString()+' matching transaction'+(total===1?'':'s');
     get('ptPage').textContent='Page '+page+' of '+pages;
     get('ptSummary').innerHTML=[['total','All matches'],['approved','Approved'],['pending','Pending'],['declined','Declined'],['canceled','Canceled'],['review','Review needed']].map(([key,label])=>'<div class="pt-metric" data-metric="'+key+'"><span>'+label+'</span><strong>'+Number(data.summary[key]||0).toLocaleString()+'</strong><small class="pt-metric-note">transactions · total amount</small>'+summaryAmounts(data,key)+'</div>').join('');
-    body.innerHTML=data.transactions.length?data.transactions.map(row=>'<tr data-transaction="'+escape(row.id)+'"><td data-label="Created (CT)">'+tableDate(row.created_at)+'</td><td data-label="Customer"><strong>'+escape(row.account_name||'Customer name unavailable')+'</strong><small>#'+escape(row.account_number)+'</small></td><td data-label="Amount">'+escape(money(row))+'</td><td data-label="Status">'+badge(row)+'</td><td data-label="Environment"><span class="pt-badge '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(environment(row))+'</span></td><td data-label="Processor">'+escape(provider(row))+'</td><td data-label="Reference"><button class="pt-open" type="button" aria-label="Open transaction '+escape(row.provider_reference||row.id)+'">'+escape(row.provider_reference||row.id)+'</button><small>'+escape(row.provider_transaction_id||'No processor transaction ID')+'</small></td></tr>').join(''):'<tr><td colspan="7" class="pt-empty">No transactions match these filters.</td></tr>';
+    body.innerHTML=data.transactions.length?data.transactions.map(row=>'<tr data-transaction="'+escape(row.id)+'"><td data-label="Created (CT)">'+tableDate(row.created_at)+'</td><td data-label="Customer"><strong>'+escape(row.account_name||'Customer name unavailable')+'</strong><small>#'+escape(row.account_number)+'</small></td><td data-label="Amount">'+escape(money(row))+'</td><td data-label="Status">'+badge(row)+'<small>'+escape(postingNames[row.posting_status]||'')+'</small></td><td data-label="Environment"><span class="pt-badge '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(environment(row))+'</span></td><td data-label="Processor">'+escape(provider(row))+'</td><td data-label="Reference"><button class="pt-open" type="button" aria-label="Open transaction '+escape(row.provider_reference||row.id)+'">'+escape(row.provider_reference||row.id)+'</button><small>'+escape(row.provider_transaction_id||'No processor transaction ID')+'</small></td></tr>').join(''):'<tr><td colspan="7" class="pt-empty">No transactions match these filters.</td></tr>';
   }
   async function load(nextPage=1,filters=applied){
     if(!permitted()||exporting)return;
@@ -78,12 +79,36 @@
   function fields(row){
     if(row.source==='mas90')return [['Customer',row.account_name],['Customer number',row.account_number],['Status','Posted'],['Source','MAS 90 account history'],['Payment date',row.payment_date],['Posting date',row.posting_date],['Check / payment reference',row.provider_reference],['Invoice number',row.invoice_no],['Deposit number',row.deposit_no],['Deposit date',row.deposit_date],['Imported',date(row.imported_at)],['Payment record ID',row.id],['Description / memo',row.result_message,true]];
     const last4=/^\d{4}$/.test(String(row.card_last4||''))?'•••• '+row.card_last4:'';
-    return [['Customer',row.account_name||'Customer name unavailable'],['Customer number',row.account_number],['Status',status(row)],['Environment',environment(row)],['Processor',provider(row)],['Payment selection',row.payment_type==='full'?'Full balance':row.payment_type==='partial'?'Partial payment':row.payment_type],['Portal reference',row.provider_reference],['Processor transaction ID',row.provider_transaction_id],['Card',[row.card_brand,last4].filter(Boolean).join(' ')||'Not recorded'],['Created',date(row.created_at)],['Updated',date(row.updated_at)],['Completed',date(row.completed_at)],['Checkout expiration',date(row.expires_at)],['Last verification',row.last_check_ms?date(new Date(Number(row.last_check_ms)).toISOString()):'—'],['Processor status',row.provider_status],['Result code',row.result_code],['Portal transaction ID',row.id],['Result message',WootenTime.text(row.result_message),true],['Verification detail',WootenTime.text(row.verification_detail),true]];
+    return [['Customer',row.account_name||'Customer name unavailable'],['Customer number',row.account_number],['Status',status(row)],['Environment',environment(row)],['Processor',provider(row)],['Payment selection',row.payment_type==='full'?'Full balance':row.payment_type==='partial'?'Partial payment':row.payment_type],['Portal reference',row.provider_reference],['Processor transaction ID',row.provider_transaction_id],['Card',[row.card_brand,last4].filter(Boolean).join(' ')||'Not recorded'],['Created',date(row.created_at)],['Updated',date(row.updated_at)],['Completed',date(row.completed_at)],['Checkout expiration',date(row.expires_at)],['Last verification',row.last_check_ms?date(new Date(Number(row.last_check_ms)).toISOString()):'—'],...postingFields(row),['Processor status',row.provider_status],['Result code',row.result_code],['Portal transaction ID',row.id],['Result message',WootenTime.text(row.result_message),true],['Verification detail',WootenTime.text(row.verification_detail),true]];
+  }
+  function postingFields(row){
+    if(!row.posting_status)return [];
+    return [['MAS 90 posting',postingNames[row.posting_status]],['Entered Deposit No.',row.entered_deposit_no],['Entered Check No.',row.entered_check_no],['References saved by',row.posting_updated_by],['References saved at',date(row.posting_updated_at)],
+      ['Verified posting date',row.posting_status==='posted'?row.mas90_posting_date:'—'],['Verified deposit date',row.posting_status==='posted'?row.mas90_deposit_date:'—'],
+      ['Applied invoices',row.posting_status==='posted'?(row.posting?.allocations||[]).map(a=>(a.invoice_no||'Unallocated / on account')+' — '+money({amount_cents:Math.round(a.amount*100),currency:row.currency})).join('\n'):'—',true]];
+  }
+  function postingEditor(row){
+    if(row.source==='mas90'||row.posting_status==='not_applicable')return '';
+    return '<form id="ptPostingEditor" class="pt-posting-editor"><h3>MAS 90 posting references</h3><p>After posting the payment in MAS 90, enter its Deposit No. and Check No. These references are verified against imported payment history. Saving does not change the customer’s balance.</p>'+
+      (row.posting_status==='review'?'<p class="pt-message" data-tone="bad">Imported records do not form an exact match. Check the customer, amount, dates, and references in MAS 90.</p>':'')+
+      '<div class="pt-posting-inputs"><div><label for="ptDepositInput">Deposit No.</label><input id="ptDepositInput" name="deposit_no" maxlength="100" required autocomplete="off" value="'+escape(row.entered_deposit_no||'')+'"></div><div><label for="ptCheckInput">Check No.</label><input id="ptCheckInput" name="check_no" maxlength="150" required autocomplete="off" value="'+escape(row.entered_check_no||'')+'"></div></div>'+
+      '<label for="ptPostingNote">'+(row.posting_revision?'Reason for correction':'Employee note (optional)')+'</label><textarea id="ptPostingNote" maxlength="500" '+(row.posting_revision?'required':'')+'></textarea><button type="submit" class="primary">Save posting references</button><p id="ptPostingMessage" role="status"></p></form>'+
+      (row.posting_history?.length?'<details class="pt-posting-audit"><summary>Posting reference history</summary>'+row.posting_history.map(h=>'<p>'+escape(date(h.created_at)+' · '+h.actor+' · Deposit '+h.deposit_no+' / Check '+h.check_no+(h.old_deposit_no?' (previously '+h.old_deposit_no+' / '+h.old_check_no+')':'')+' · '+h.note)+'</p>').join('')+'</details>':'');
+  }
+  async function savePosting(event){
+    event.preventDefault();const row=current,token=detailSequence,editor=event.target;
+    if(!row||editor.id!=='ptPostingEditor')return;
+    const payload={deposit_no:get('ptDepositInput').value,check_no:get('ptCheckInput').value,note:get('ptPostingNote').value,revision:row.posting_revision};
+    const button=editor.querySelector('button'),output=get('ptPostingMessage');
+    editor.querySelectorAll('input,textarea,button').forEach(e=>e.disabled=true);button.textContent='Saving…';
+    try{await api(endpoint+'/'+encodeURIComponent(row.id)+'/posting',null,{method:'POST',body:JSON.stringify(payload)});
+      if(token!==detailSequence||current!==row)return;await openDetail(row.id,true);await load(page);
+    }catch(error){if(token!==detailSequence||current!==row)return;output.textContent=error.message;output.style.color='#b91c30';editor.querySelectorAll('input,textarea,button').forEach(e=>e.disabled=false);button.textContent='Save posting references';}
   }
   function renderDetail(row){
     current=row;get('ptDetailTitle').textContent=title(row);
     get('ptDetailSummary').innerHTML='<strong>'+escape(money(row))+'</strong>'+badge(row);get('ptDetailSummary').hidden=false;
-    get('ptDetail').innerHTML='<p class="pt-record-note '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(notice(row))+'</p><dl class="pt-fields">'+fields(row).map(([label,value,wide])=>'<div'+(wide?' class="pt-wide"':'')+'><dt>'+escape(label)+'</dt><dd>'+escape(value||'—')+'</dd></div>').join('')+'</dl>';
+    get('ptDetail').innerHTML='<p class="pt-record-note '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(notice(row))+'</p><dl class="pt-fields">'+fields(row).map(([label,value,wide])=>'<div'+(wide?' class="pt-wide"':'')+'><dt>'+escape(label)+'</dt><dd>'+escape(value||'—')+'</dd></div>').join('')+'</dl>'+postingEditor(row);
     get('ptPrint').disabled=false;get('ptDetailRefresh').disabled=false;get('ptDetailExport').disabled=false;
   }
   async function openDetail(id,refresh=false){
@@ -100,7 +125,7 @@
   function printDetail(){
     if(!current||!permitted())return;
     const popup=window.open('','_blank');if(!popup){get('ptDetail').insertAdjacentHTML('afterbegin','<p class="pt-message">Allow pop-ups to open the printable transaction.</p>');return;}
-    const html='<!doctype html><html lang="en"><head><meta charset="utf-8"><title>'+escape(title(current))+'</title><style>@page{size:letter portrait;margin:.5in}*{box-sizing:border-box}body{font:13px Arial,sans-serif;color:#20374c;margin:0;padding:24px}main{max-width:740px;margin:auto}header{border-bottom:2px solid #b91c30;padding-bottom:15px}h1{font-size:24px;margin:12px 0}header p{font-weight:bold;letter-spacing:.04em}.pt-record-head{display:flex;justify-content:space-between;align-items:center;margin:20px 0}.pt-record-head strong{font-size:25px}.pt-badge{font-weight:bold}.pt-record-note{border:1px solid #bfcddd;padding:14px;line-height:1.5}.pt-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px 22px}.pt-fields>div{break-inside:avoid;border-bottom:1px solid #dae2eb;padding-bottom:10px;min-width:0}.pt-wide{grid-column:1/-1}dt{color:#607487;font-size:11px;margin-bottom:5px}dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:10px;margin:22px 0}button{padding:12px 20px;cursor:pointer}footer{font-size:10px;color:#607487;margin-top:24px}@media print{body{padding:0}.actions{display:none}}</style></head><body><main><header><p>WOOTEN OIL CO., INC.</p><h1>'+escape(title(current))+'</h1></header><div class="pt-record-head">'+get('ptDetailSummary').innerHTML+'</div>'+get('ptDetail').innerHTML+'<footer>Wooten Oil Customer Portal • Record printed '+escape(date(new Date()))+'. Times are Central (CDT/CST).</footer><div class="actions"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div></main></body></html>';
+    const html='<!doctype html><html lang="en"><head><meta charset="utf-8"><title>'+escape(title(current))+'</title><style>@page{size:letter portrait;margin:.5in}*{box-sizing:border-box}body{font:13px Arial,sans-serif;color:#20374c;margin:0;padding:24px}main{max-width:740px;margin:auto}header{border-bottom:2px solid #b91c30;padding-bottom:15px}h1{font-size:24px;margin:12px 0}header p{font-weight:bold;letter-spacing:.04em}.pt-record-head{display:flex;justify-content:space-between;align-items:center;margin:20px 0}.pt-record-head strong{font-size:25px}.pt-badge{font-weight:bold}.pt-record-note{border:1px solid #bfcddd;padding:14px;line-height:1.5}.pt-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px 22px}.pt-fields>div{break-inside:avoid;border-bottom:1px solid #dae2eb;padding-bottom:10px;min-width:0}.pt-wide{grid-column:1/-1}dt{color:#607487;font-size:11px;margin-bottom:5px}dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:10px;margin:22px 0}button{padding:12px 20px;cursor:pointer}footer{font-size:10px;color:#607487;margin-top:24px}@media print{body{padding:0}.actions{display:none}}</style></head><body><main><header><p>WOOTEN OIL CO., INC.</p><h1>'+escape(title(current))+'</h1></header><div class="pt-record-head">'+get('ptDetailSummary').innerHTML+'</div>'+get('ptDetail').innerHTML.replace(/<form[\s\S]*?<\/form>/g,'').replace(/<details[\s\S]*?<\/details>/g,'')+'<footer>Wooten Oil Customer Portal • Record printed '+escape(date(new Date()))+'. Times are Central (CDT/CST).</footer><div class="actions"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div></main></body></html>';
     popup.document.open();popup.document.write(html);popup.document.close();popup.focus();setTimeout(()=>{try{if(!popup.closed)popup.print();}catch{}},350);
   }
   async function exportDetailPdf(){
@@ -140,11 +165,35 @@
       if(!rows.length)throw new Error('No transactions match these filters.');
       if(rows.length!==expected)throw new Error('The complete transaction list could not be loaded. Please try again.');
       valid();const reportTitle='Payment Transactions'+(filters.get('environment')==='sandbox'?' - SANDBOX TESTS - NO LIVE FUNDS':'');
-      await window.WootenAdminTablePdf.exportData(reportTitle,['Created (CT)','Customer # / Name','Amount','Status','Environment','Processor','Portal reference / Transaction ID'],rows.map(row=>[date(row.created_at),row.account_number+' / '+row.account_name,money(row),status(row),row.environment==='sandbox'?'SANDBOX - NO LIVE FUNDS':environment(row),provider(row),(row.provider_reference||row.id)+' / '+(row.provider_transaction_id||'Not recorded')]),progress);
+      await window.WootenAdminTablePdf.exportData(reportTitle,['Created (CT)','Customer # / Name','Amount','Status / Posting','Environment','Processor','Portal reference / Transaction ID / MAS 90 references'],rows.map(row=>[date(row.created_at),row.account_number+' / '+row.account_name,money(row),status(row)+' / '+(postingNames[row.posting_status]||''),row.environment==='sandbox'?'SANDBOX - NO LIVE FUNDS':environment(row),provider(row),(row.provider_reference||row.id)+' / '+(row.provider_transaction_id||'Not recorded')+' / Deposit: '+(row.entered_deposit_no||'—')+' / Check: '+(row.entered_check_no||'—')]),progress);
       valid();message('Exported all '+rows.length.toLocaleString()+' matching transactions to PDF.','ok');
     }catch(error){if(token===sequence)message(error.message,'bad');}
     finally{if(token===sequence){exporting=false;get('ptExportProgress').hidden=true;controls();}}
   }
+  async function printReport(){
+    if(busy||exporting||!permitted())return;
+    const popup=window.open('','_blank');if(!popup){message('Allow pop-ups to print the report.','bad');return;}
+    popup.document.write('<p>Preparing payment report…</p>');popup.document.close();
+    const token=++sequence,key=credential(),filters=filterParams();exporting=true;controls();
+    try{
+      const rows=[],ids=new Set();let expected=null,snapshot=null,count=1;
+      for(let n=1;n<=count;n++){
+        if(token!==sequence||key!==credential()||!permitted())throw new Error('Report canceled because the session changed.');
+        const params=new URLSearchParams(filters);params.set('page',n);params.set('page_size','200');if(snapshot!==null)params.set('snapshot',snapshot);
+        const data=await api(endpoint+'?'+params);
+        if(expected===null){expected=data.total;snapshot=data.snapshot;count=data.pages;}
+        if(expected!==data.total||count!==data.pages||data.page!==n)throw new Error('Transactions changed. Please print the report again.');
+        for(const r of data.transactions){if(ids.has(r.id))throw new Error('Transactions changed. Please print again.');ids.add(r.id);rows.push(r);}
+      }
+      if(token!==sequence||key!==credential()||!permitted())throw new Error('Report canceled because the session changed.');
+      if(rows.length!==expected||!rows.length)throw new Error('No complete report is available.');
+      const totals=new Map();rows.forEach(r=>{const k=environment(r)+' / '+(r.currency||'USD');totals.set(k,(totals.get(k)||0)+r.amount_cents);});
+      const html='<html><head><title>Payment Posting Report</title><style>@page{size:letter landscape;margin:.4in}body{font:12px Arial;color:#173650}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:8px;border-bottom:1px solid #ccd5df;text-align:left;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}@media print{button{display:none}}</style></head><body><h1>Wooten Oil — Payment Posting Report</h1><p>'+escape(rows.length+' payments · '+date(new Date()))+'</p><p>'+escape([...totals].map(([k,v])=>k+': '+(v/100).toFixed(2)).join(' · '))+'</p><p>Printing does not confirm entry or posting in MAS 90. Verify live payment status before entry. Sandbox records are tests only.</p><table><thead><tr><th>Customer</th><th>Amount / environment</th><th>Confirmation / processor ID</th><th>Payment / posting status</th><th>Deposit No. / Check No.</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+escape(r.account_number+' / '+r.account_name)+'</td><td>'+escape(money(r)+' / '+environment(r))+'</td><td>'+escape((r.provider_reference||r.id)+' / '+(r.provider_transaction_id||'—'))+'</td><td>'+escape(status(r)+' / '+postingNames[r.posting_status])+'</td><td>'+escape((r.entered_deposit_no||'________')+' / '+(r.entered_check_no||'________'))+'</td></tr>').join('')+'</tbody></table><button onclick="window.print()">Print</button></body></html>';
+      popup.document.open();popup.document.write(html);popup.document.close();popup.focus();popup.print();
+    }catch(error){popup.close();if(token===sequence)message(error.message,'bad');}
+    finally{if(token===sequence){exporting=false;controls();}}
+  }
+  get('ptPrintReport').addEventListener('click',printReport);
   form.addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchTimer);load(1,filterParams());});
   get('ptSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>load(1,filterParams()),450);});
   form.addEventListener('change',event=>{if(event.target.id!=='ptSearch')load(1,filterParams());});
@@ -154,6 +203,7 @@
   get('ptExport').addEventListener('click',exportPdf);
   body.addEventListener('click',event=>{const link=event.target.closest('button.pt-open');if(!link||link.disabled)return;const row=link.closest('[data-transaction]');if(row)openDetail(row.dataset.transaction);});
   get('ptDetailExport').addEventListener('click',exportDetailPdf);
+  get('ptDetail').addEventListener('submit',savePosting);
   document.addEventListener('click',event=>{
     const link=event.target.closest('[data-activity-payment]');if(!link)return;
     const id=link.dataset.activityPayment;
@@ -165,7 +215,7 @@
   modal.addEventListener('click',event=>{if(event.target===modal)closeDetail();});
   document.addEventListener('keydown',event=>{
     if(modal.hidden)return;if(event.key==='Escape'){event.preventDefault();closeDetail();}
-    if(event.key==='Tab'){const nodes=[...modal.querySelectorAll('button:not([disabled]),[tabindex="0"]')];const first=nodes[0],last=nodes.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+    if(event.key==='Tab'){const nodes=[...modal.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),summary,[tabindex="0"]')];const first=nodes[0],last=nodes.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
   });
   function show(){if(!panel.hidden&&!loaded&&!busy&&permitted())load(1,filterParams());}
   new MutationObserver(show).observe(panel,{attributes:true,attributeFilter:['hidden']});

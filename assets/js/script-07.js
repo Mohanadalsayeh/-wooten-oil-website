@@ -711,7 +711,6 @@
     // Pending timestamps describe the saved status update, not settlement or a new payment.
     var pending=status==='pending'||status==='processing';
     var value=pending?(row.updated_at||row.created_at):row.completed_at;
-    if(!value&&status==='captured')value=row.posting_date;
     return {label:labels[status]||'Status date & time',value:paymentHistoryDateTime(value)};
   }
 
@@ -766,6 +765,11 @@
       // Keep receipt decisions tied to the saved history row, not display labels.
       card.dataset.paymentSource=String(r.source||'');
       card.dataset.paymentStatus=String(r.status||'').toLowerCase();
+      card.dataset.postingStatus=r.posting_status||'';
+      card.dataset.postingDate=r.posting_date||'';
+      card.dataset.checkNo=r.check_no||'';
+      card.dataset.confirmation=r.confirmation_number||'';
+      card.dataset.allocations=JSON.stringify(r.allocations||[]);
       // The history API prefixes sandbox records with this explicit notice.
       card.dataset.paymentEnvironment=r.environment==='sandbox'||/^Sandbox test — no live funds\./.test(String(r.description||''))?'sandbox':'';
       var top=document.createElement('div');top.className='payment-history-card-top';
@@ -775,7 +779,15 @@
       var grid=document.createElement('div');grid.className='payment-history-grid';
       function add(label,value,full){var item=document.createElement('div');item.className='payment-history-item'+(full?' full':'');var s=document.createElement('small');s.textContent=label;var v=document.createElement('strong');v.textContent=value||'—';item.appendChild(s);item.appendChild(v);grid.appendChild(item);}
       add(r.source==='portal'?'Transaction reference':'Check No',r.reference||'—');
+      if(r.source==='portal'){
+        add('Online confirmation',r.confirmation_number||'—');
+        add('Check No',r.check_no||'—');
+        var postingNames={ready:'Awaiting account posting',awaiting_import:'Awaiting posting verification',review:'Posting under review',posted:'Posted to your account'};
+        if(postingNames[r.posting_status])add('Account posting',postingNames[r.posting_status]);
+        if(r.posting_status==='posted')add('MAS 90 Posting Date',paymentHistoryDate(r.posting_date));
+      }
       add('Invoice No',r.invoice_no||'—');
+      if(r.source==='portal'&&r.allocations&&r.allocations.length)add('Invoice allocations',r.allocations.map(function(a){return (a.invoice_no||'On account')+' — '+money(a.amount);}).join('; '),true);
       add('Deposit No',r.deposit_no||'—');
       add('Deposit Date',paymentHistoryDate(r.deposit_date));
       if(r.source==='portal'){
