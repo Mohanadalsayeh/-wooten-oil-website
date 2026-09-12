@@ -6,12 +6,13 @@ import * as Heartland from './payments/heartland.mjs';
 import * as AdminTransactions from './payments/admin-transactions.mjs';
 import * as Mas90Posting from './payments/mas90-posting.mjs';
 import * as PaymentNotices from './payments/notifications.mjs';
+import * as PaymentStatusEmails from './payments/status-emails.mjs';
 async function ensurePostingSchema(env){await Promise.all([ensureCustomerPaymentsSchema(env),ensureAdminImportMetadataSchema(env)]);await Mas90Posting.ensureSchema(env);}
 function heartlandHelpers(){return {mas90MasterPasswordMatches,ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
 async function dispatchPaymentNotices(env){
   try{
     await Heartland.ensureSchema(env,heartlandHelpers());
-    await PaymentNotices.pump(env,{
+    const transport={
       configured:channel=>channel==='email'?Boolean(env.RESEND_API_KEY):twilioConfig(env).configured,
       async send(channel,event){
         if(channel==='sms'){
@@ -25,13 +26,15 @@ async function dispatchPaymentNotices(env){
         }
         const response=await fetch('https://api.resend.com/emails',{
           method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},
-          body:JSON.stringify({from:'Wooten Oil <'+(env.FUEL_FROM_EMAIL||'support@wootenoil.com')+'>',to:[event.email],subject:'Payment received — '+event.reference,text:event.message})
+          body:JSON.stringify({from:'Wooten Oil <'+(env.FUEL_FROM_EMAIL||'support@wootenoil.com')+'>',to:[event.email],subject:event.subject||'Payment received — '+event.reference,text:event.message})
         });
         const result=await response.json().catch(()=>({}));
         if(!response.ok){const error=new Error('Email provider rejected the confirmation (HTTP '+response.status+').');error.definite=response.status<500;throw error;}
         return {id:result.id};
       }
-    });
+    };
+    const results=await Promise.allSettled([PaymentNotices.pump(env,transport),PaymentStatusEmails.pump(env,transport)]);
+    for(const result of results)if(result.status==='rejected')console.error('Payment message processing failed',result.reason);
   }catch(error){console.error('Payment notification processing failed',error);}
 }
 async function paymentReplyWithNotices(reply,env,ctx){
@@ -2595,6 +2598,7 @@ async function ensureOnlinePaymentTransactionsSchema(env){
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_account_created ON online_payment_transactions(account_number,created_at DESC)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_status_created ON online_payment_transactions(status,created_at DESC)`).run();
   await PaymentNotices.ensureSchema(env);
+  await PaymentStatusEmails.ensureSchema(env);
 }
 __name(ensureOnlinePaymentTransactionsSchema,"ensureOnlinePaymentTransactionsSchema");
 
@@ -12691,7 +12695,7 @@ var worker_default = {
     }
 
     if (url.pathname === "/api/customer/payment/cancel") {
-      if (request.method === "POST" && Heartland.selected(env)) return Heartland.cancel({request,env},heartlandHelpers());
+      if (request.method === "POST" && Heartland.selected(env)) return paymentReplyWithNotices(Heartland.cancel({request,env},heartlandHelpers()),env,ctx);
       return methodNotAllowed();
     }
 
