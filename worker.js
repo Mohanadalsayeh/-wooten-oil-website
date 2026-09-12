@@ -4,7 +4,7 @@ import './assets/js/wooten-central-time.js';
 const portalTime=globalThis.WootenTime;
 import * as Heartland from './payments/heartland.mjs';
 import * as AdminTransactions from './payments/admin-transactions.mjs';
-function heartlandHelpers(){return {ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
+function heartlandHelpers(){return {mas90MasterPasswordMatches,ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -12660,6 +12660,11 @@ var worker_default = {
 
     if (url.pathname === "/api/customer/payments") {
       if (request.method === "GET") return customerPaymentsGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/customer/payment/sandbox-authorize") {
+      if (request.method === "POST" && Heartland.selected(env)) return Heartland.authorize({request,env},heartlandHelpers());
       return methodNotAllowed();
     }
 

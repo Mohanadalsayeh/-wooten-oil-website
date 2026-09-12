@@ -1,3 +1,4 @@
+import {approve,requireApproval} from './sandbox-approval.mjs';
 // Heartland Portico sandbox checkout. Card numbers/CVV never enter this module.
 // Contract: official Portico WSDL/schema1 and Global Payments PorticoConnector.
 import { DOMParser } from './vendor/xml-parser.mjs';
@@ -191,10 +192,17 @@ export async function cancel({request,env},helpers){
     return json({success:true,payment:publicPayment(after)});
   }catch(error){return json({success:false,error:safeError(error,env)},error.http||503);}
 }
+export async function authorize({request,env},helpers){
+  try{
+    const customer=await context(request,env,helpers,true),body=await bodyJson(request);
+    return json({success:true,...await approve(env,customer,body.password,helpers.mas90MasterPasswordMatches)});
+  }catch(error){return json({success:false,error:safeError(error,env)},error.http||503);}
+}
 export async function session({request,env},helpers){
   let created;
   try{
     const customer=await context(request,env,helpers,true),b=await bodyJson(request),account=helpers.paymentAccount(customer.account_number);
+    await requireApproval(request,env,customer);
     if(!await ready(env))return json({success:false,error:'Heartland background confirmation is starting. Please try again after the next scheduled check.'},503);
     const amount=b.payment_type==='full'?helpers.onlinePaymentTotalCents(customer):b.payment_type==='partial'?helpers.onlinePaymentPartialCents(b.amount):0;
     const max=Number(env.HEARTLAND_MAX_PAYMENT_CENTS||1000000);
@@ -252,6 +260,7 @@ async function executeCharge(env,p,token){
 export async function charge({request,env,ctx},helpers){
   try{
     const c=await context(request,env,helpers,true),b=await bodyJson(request);
+    await requireApproval(request,env,c);
     if(Object.keys(b).some(key=>!['payment_intent_id','payment_reference'].includes(key)))return json({success:false,error:'Only the secure payment token and checkout ID are accepted.'},400);
     const token=b.payment_reference;
     if(typeof token!=='string'||token.length<10||token.length>300||!/[A-Za-z]/.test(token)||!/^[A-Za-z0-9_-]+$/.test(token))return json({success:false,error:'The secure card token is invalid. Enter the card details again.'},400);

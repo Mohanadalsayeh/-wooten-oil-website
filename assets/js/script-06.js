@@ -18,6 +18,39 @@
   var provider='globalpayments',publicKey='',serverReady=false,cardForm=null,mountedIntent='',mountSerial=0,tokenSubmitted=false,sdkPromise=null;
   var returnId=new URL(window.location.href).searchParams.get('payment_return')||'';
   if(!/^[0-9a-f-]{36}$/i.test(returnId))returnId='';
+  var sandboxApproval='',sandboxExpires=0,approvalDialog=null,approvalPromise=null;
+  function clearApproval(){sandboxApproval='';sandboxExpires=0;}
+  function authorizeSandbox(){
+    if(sandboxApproval&&sandboxExpires>Date.now()+5000)return Promise.resolve(true);
+    if(approvalPromise)return approvalPromise;
+    var ticket=generation;
+    approvalPromise=new Promise(function(resolve){
+      var previous=document.activeElement,dialog=document.createElement('dialog');
+      approvalDialog=dialog;
+      dialog.className='sandbox-admin-dialog';
+      dialog.setAttribute('aria-labelledby','sandboxAdminTitle');
+      dialog.innerHTML='<form><h2 id="sandboxAdminTitle">Sandbox payment approval</h2><p>Payments are currently for testing only. A Main Admin must enter their password to continue.</p><label for="sandboxAdminPassword">Main Admin password</label><input id="sandboxAdminPassword" type="password" autocomplete="off" required maxlength="512"><p class="sandbox-admin-error" role="alert"></p><div class="sandbox-admin-actions"><button type="button">Cancel</button><button type="submit">Authorize testing</button></div></form>';
+      document.body.appendChild(dialog);
+      var form=dialog.querySelector('form'),input=dialog.querySelector('input'),error=dialog.querySelector('[role="alert"]'),submit=dialog.querySelector('[type="submit"]'),done=false;
+      function finish(ok){if(done)return;done=true;input.value='';dialog.close();dialog.remove();approvalDialog=null;approvalPromise=null;if(previous&&previous.isConnected)previous.focus();resolve(ok);}
+      dialog.addEventListener('cancel',function(e){e.preventDefault();finish(false);});
+      dialog.querySelector('[type="button"]').onclick=function(){finish(false);};
+      dialog.addEventListener('approval-reset',function(){finish(false);});
+      form.onsubmit=async function(e){
+        e.preventDefault();if(submit.disabled)return;submit.disabled=true;submit.textContent='Checking…';error.textContent='';
+        var password=input.value;input.value='';
+        try{
+          var pending=requestJson('/api/customer/payment/sandbox-authorize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:password})});password='';
+          var data=await pending;
+          if(done||ticket!==generation)return;
+          sandboxApproval=data.approval;sandboxExpires=data.expires;finish(true);
+        }catch(err){if(!done){error.textContent=err.message;input.focus();}}
+        finally{password='';submit.disabled=false;submit.textContent='Authorize testing';}
+      };
+      dialog.showModal();input.focus();
+    });
+    return approvalPromise;
+  }
   function setMessage(text,state){
     message.textContent=text||'';
     message.className='payment-coming-soon'+(text?' show':'')+(state?' '+state:'');
@@ -76,6 +109,7 @@
     var serial=mountSerial,ticket=generation,id=p.payment_intent_id;
     cardContainer.hidden=false;cancelCard.hidden=false;
     try{
+      if(!await authorizeSandbox()){mountedIntent='';cardContainer.hidden=true;return;}
       await loadHeartland();
       if(serial!==mountSerial||ticket!==generation||!payment||payment.payment_intent_id!==id||!payment.can_pay)return;
       window.GlobalPayments.configure({publicApiKey:publicKey});
@@ -95,12 +129,14 @@
       cardForm.on('token-success',async function(response){
         if(serial!==mountSerial||ticket!==generation||tokenSubmitted||!payment||payment.payment_intent_id!==id||!payment.can_pay)return;
         if(!response||typeof response.paymentReference!=='string'){setMessage('Heartland did not return a card token. Please check the card details.','error');return;}
+        if(!await authorizeSandbox())return;
+        if(ticket!==generation||serial!==mountSerial)return;
         tokenSubmitted=true;setBusy(true);cardContainer.hidden=true;cancelCard.hidden=true;
         result.textContent='Submitting your sandbox payment. Please wait for its saved result.';
         try{
-          var data=await requestJson('/api/customer/payment/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_intent_id:id,payment_reference:response.paymentReference})});
+          var data=await requestJson('/api/customer/payment/charge',{method:'POST',headers:{'Content-Type':'application/json','X-Sandbox-Approval':sandboxApproval},body:JSON.stringify({payment_intent_id:id,payment_reference:response.paymentReference})});
           if(ticket!==generation)return;
-          setMessage('','');renderPayment(data.payment);
+          clearApproval();setMessage('','');renderPayment(data.payment);
         }catch(error){
           if(ticket!==generation)return;
           // The sale may have reached Heartland. Only read status after a lost response.
@@ -247,10 +283,12 @@
       setMessage('Please enter a partial payment amount of at least $1.00.','error');amount.focus();return;
     }
     var ticket=generation;
+    if(provider==='heartland'&&!await authorizeSandbox())return;
+    if(ticket!==generation||busy)return;
     setBusy(true);setMessage(provider==='heartland'?'Preparing your secure card fields…':'Opening the Global Payments secure payment page…','processing');
     try{
       var data=await requestJson('/api/customer/payment/session',{
-        method:'POST',headers:{Accept:'application/json','Content-Type':'application/json'},
+        method:'POST',headers:{Accept:'application/json','Content-Type':'application/json','X-Sandbox-Approval':sandboxApproval},
         body:JSON.stringify({payment_type:paymentType,amount:paymentType==='partial'?value:undefined})
       });
       if(ticket!==generation)return;
@@ -282,7 +320,7 @@
   if(cancelCard)cancelCard.addEventListener('click',cancelHeartland);
   window.addEventListener('wooten:payment-account',function(event){
     var account=String(event.detail&&event.detail.account_number||'');
-    if(account!==currentAccount){generation++;disposeHeartland();provider='globalpayments';serverReady=false;publicKey='';currentAccount=account;payment=null;announced='';statusUnavailable=false;secure.hidden=true;setMessage('','');setBusy(false);}
+    if(account!==currentAccount){generation++;clearApproval();if(approvalDialog)approvalDialog.dispatchEvent(new Event('approval-reset'));disposeHeartland();provider='globalpayments';serverReady=false;publicKey='';currentAccount=account;payment=null;announced='';statusUnavailable=false;secure.hidden=true;setMessage('','');setBusy(false);}
     refreshStatus();
   });
   window.addEventListener('pageshow',function(){setBusy(false);refreshStatus();});
