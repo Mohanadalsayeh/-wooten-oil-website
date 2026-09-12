@@ -8910,8 +8910,8 @@ async function adminCustomersDatabaseGet({ request, env }) {
       account_desc: "account_number DESC",
       name_asc: "account_name COLLATE NOCASE ASC, account_number ASC",
       name_desc: "account_name COLLATE NOCASE DESC, account_number ASC",
-      balance_desc: "COALESCE(current_balance,0) DESC, account_number ASC",
-      balance_asc: "COALESCE(current_balance,0) ASC, account_number ASC",
+      balance_desc: "(COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)) DESC, account_number ASC",
+      balance_asc: "(COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)) ASC, account_number ASC",
       updated_desc: "datetime(updated_at) DESC, account_number ASC"
     }[sort] || "account_number ASC";
 

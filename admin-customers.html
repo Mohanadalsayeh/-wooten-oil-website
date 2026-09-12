@@ -6129,7 +6129,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <th>Customer / Company</th>
             <th>Email</th>
             <th>Phone</th>
-            <th class="money">Current Balance</th>
+            <th class="money">Total Balance</th>
             <th>Status</th>
             <th>Online Account</th>
           </tr>
@@ -10506,7 +10506,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
         <td class="db-company"><button class="db-customer-link" type="button" data-db-row="${index}" aria-label="View ${esc(row.account_name||"customer")} details">${esc(row.account_name||"")}</button></td>
         <td class="email-cell db-email" title="${esc(row.email||"")}">${esc(row.email||"—")}</td>
         <td>${esc(row.phone||"—")}</td>
-        <td class="money">${money(row.current_balance)}</td>
+        <td class="money">${money(['current_balance','aging_category_1','aging_category_2','aging_category_3','aging_category_4'].reduce((sum,key)=>sum+(Number(row[key])||0),0))}</td>
         <td>${statusBadge}</td>
         <td>${online}</td>
       </tr>`;
@@ -16291,14 +16291,14 @@ html,body{
         search:value('dbSearch').trim(),email:value('dbEmailFilter','all'),phone:value('dbPhoneFilter','all'),online:value('dbOnlineFilter','all'),status:value('dbStatusFilter','all'),sort:value('dbSort','account_asc')
       },'customers',onProgress);
       return normalizedData(
-        ['Customer #','Contact','Customer / Company','Email','Phone','Current Balance','Status','Online Account'],
+        ['Customer #','Contact','Customer / Company','Email','Phone','Total Balance','Status','Online Account'],
         rows.map(row=>{
           const contact=[];
           if(String(row.phone||'').trim())contact.push('Phone');
           if(String(row.email||'').trim())contact.push('Email');
           if(Number(row.online_activated))contact.push('Portal');
           const status=String(row.account_status||'').trim()||'Active';
-          return [row.account_number,contact.join(', ')||'-',row.account_name,row.email||'-',row.phone||'-',money(row.current_balance),status,Number(row.online_activated)?'Activated':'Not activated'];
+          return [row.account_number,contact.join(', ')||'-',row.account_name,row.email||'-',row.phone||'-',money(['current_balance','aging_category_1','aging_category_2','aging_category_3','aging_category_4'].reduce((sum,key)=>sum+(Number(row[key])||0),0)),status,Number(row.online_activated)?'Activated':'Not activated'];
         })
       );
     }
