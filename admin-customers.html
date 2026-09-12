@@ -14221,16 +14221,16 @@ let pagingRequests=false;
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
  const key=()=>g('adminKey')?.value.trim()||'';
- const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='application'?'applications':type==='payment'?'payment_transactions':'customer_requests');
+ const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
- const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received'};
+ const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
  const time=v=>v?WootenTime.dateTime(v):'';
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
  function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.textContent='0';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
-   list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
+   list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
    list.scrollTop=scroll;more.hidden=!nextCursor;
  }
  async function load(append=false,force=false){
@@ -14259,11 +14259,11 @@ let pagingRequests=false;
      finally{if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
- function openTarget(type,id){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
+ function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true);});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
- menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
+ menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId,item.dataset.noticeId);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
  document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  window.addEventListener('wooten-admin-auth-changed',()=>{controller?.abort();controller=null;flight=null;clear();load(false,true);});

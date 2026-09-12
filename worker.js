@@ -7,17 +7,19 @@ import * as AdminTransactions from './payments/admin-transactions.mjs';
 import * as Mas90Posting from './payments/mas90-posting.mjs';
 import * as PaymentNotices from './payments/notifications.mjs';
 import * as PaymentStatusEmails from './payments/status-emails.mjs';
+import * as SandboxNotices from './payments/sandbox-notifications.mjs';
 async function ensurePostingSchema(env){await Promise.all([ensureCustomerPaymentsSchema(env),ensureAdminImportMetadataSchema(env)]);await Mas90Posting.ensureSchema(env);}
 function heartlandHelpers(){return {mas90MasterPasswordMatches,ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
 async function dispatchPaymentNotices(env){
   try{
     await Heartland.ensureSchema(env,heartlandHelpers());
+    await ensureCustomerNotificationsTable(env);
     const transport={
       configured:channel=>channel==='email'?Boolean(env.RESEND_API_KEY):twilioConfig(env).configured,
       async send(channel,event){
         if(channel==='sms'){
           try{
-            const result=await twilioSendSms(env,event.phone,event.message+' Reply STOP to opt out.',{statusCallbackUrl:new URL('/api/twilio/message-status?payment_notice='+event.id,env.PUBLIC_SITE_URL||'https://wootenoil.com').href,signal:AbortSignal.timeout(15000)});
+            const result=await twilioSendSms(env,event.phone,event.message+' Reply STOP to opt out.',{statusCallbackUrl:new URL(event.sandbox_notice_id?'/api/twilio/message-status?sandbox_notice='+event.sandbox_notice_id+'&sandbox_channel='+event.sandbox_notice_channel:'/api/twilio/message-status?payment_notice='+event.id,env.PUBLIC_SITE_URL||'https://wootenoil.com').href,signal:AbortSignal.timeout(15000)});
             return {id:result.sid};
           }catch(error){
             error.definite=Boolean(error.twilioStatus&&error.twilioStatus<500)||error.twilioCode==='21610'||/not a valid|not configured/.test(error.message);
@@ -33,7 +35,7 @@ async function dispatchPaymentNotices(env){
         return {id:result.id};
       }
     };
-    const results=await Promise.allSettled([PaymentNotices.pump(env,transport),PaymentStatusEmails.pump(env,transport)]);
+    const results=await Promise.allSettled([PaymentNotices.pump(env,transport),PaymentStatusEmails.pump(env,transport),SandboxNotices.pump(env,transport)]);
     for(const result of results)if(result.status==='rejected')console.error('Payment message processing failed',result.reason);
   }catch(error){console.error('Payment notification processing failed',error);}
 }
@@ -2599,6 +2601,7 @@ async function ensureOnlinePaymentTransactionsSchema(env){
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_status_created ON online_payment_transactions(status,created_at DESC)`).run();
   await PaymentNotices.ensureSchema(env);
   await PaymentStatusEmails.ensureSchema(env);
+  await SandboxNotices.ensureSchema(env);
 }
 __name(ensureOnlinePaymentTransactionsSchema,"ensureOnlinePaymentTransactionsSchema");
 
@@ -6631,6 +6634,7 @@ async function twilioMessageStatusPost({request,env}){
   const errorMessage=(status==="failed"||status==="opted_out")?twilioErrorDescription(code,params.get("ErrorMessage")||""):"";
   await ensureOnlinePaymentTransactionsSchema(env);
   await PaymentNotices.smsStatus(env,sid,status,errorMessage,new URL(request.url).searchParams.get('payment_notice'));
+  await SandboxNotices.smsStatus(env,sid,status,errorMessage,new URL(request.url).searchParams.get('sandbox_notice'),new URL(request.url).searchParams.get('sandbox_channel'));
   const current=await env.DB.prepare(`SELECT sms_status,sms_to FROM admin_communication_log WHERE sms_sid=? LIMIT 1`).bind(sid).first();
   const currentStatus=String(current?.sms_status||"");
   if(currentStatus==="opted_out"||(status==="pending"&&["delivered","failed","opted_out"].includes(currentStatus))) return new Response(null,{status:204});
@@ -11874,14 +11878,14 @@ async function adminNotificationBellGet({request,env,actor}){
     const params=new URL(request.url).searchParams;
     let cursor=null;
     if(params.get('cursor')){
-      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['profile','fuel','application','payment'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
+      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['profile','fuel','application','payment','sandbox_payment'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
       catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
     }
     const counts=await env.DB.prepare(`SELECT
       (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS profile,
       (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS fuel,
       (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1) AS applications,
-      (SELECT COUNT(*) FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) AS payment`).first();
+      (SELECT COUNT(*) FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) + (SELECT COUNT(*) FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) AS payment`).first();
     const query=`SELECT * FROM (
       SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1
       UNION ALL
@@ -11890,11 +11894,14 @@ async function adminNotificationBellGet({request,env,actor}){
       SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1
       UNION ALL
       SELECT 'payment',id,reference,customer_name||' — USD '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1
+      UNION ALL
+      SELECT 'sandbox_payment',id,reference,customer_name||' — '||title||' — '||currency||' '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1
     ) ${cursor?'WHERE (sort_time,item_type,id) < (?,?,?)':''} ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21`;
     const statement=env.DB.prepare(query);
     const rows=((await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all())?.results)||[];
     const items=rows.slice(0,20),last=items[items.length-1],hasMore=rows.length>20;
     for(const item of items)if(item.item_type==='payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM payment_notification_events WHERE id=?').bind(item.id).first())?.intent_id;}
+    for(const item of items)if(item.item_type==='sandbox_payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM sandbox_payment_notifications WHERE id=?').bind(item.id).first())?.intent_id;}
     return notificationJson({success:true,total:Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0)+Number(counts?.payment||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
   }catch(error){
     console.error('adminNotificationBellGet',error);

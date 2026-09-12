@@ -79,7 +79,14 @@
   function fields(row){
     if(row.source==='mas90')return [['Customer',row.account_name],['Customer number',row.account_number],['Status','Posted'],['Source','MAS 90 account history'],['Payment date',row.payment_date],['Posting date',row.posting_date],['Check / payment reference',row.provider_reference],['Invoice number',row.invoice_no],['Deposit number',row.deposit_no],['Deposit date',row.deposit_date],['Imported',date(row.imported_at)],['Payment record ID',row.id],['Description / memo',row.result_message,true]];
     const last4=/^\d{4}$/.test(String(row.card_last4||''))?'•••• '+row.card_last4:'';
-    return [['Customer',row.account_name||'Customer name unavailable'],['Customer number',row.account_number],['Status',status(row)],['Environment',environment(row)],['Processor',provider(row)],['Payment selection',row.payment_type==='full'?'Full balance':row.payment_type==='partial'?'Partial payment':row.payment_type],['Portal reference',row.provider_reference],['Processor transaction ID',row.provider_transaction_id],['Card',[row.card_brand,last4].filter(Boolean).join(' ')||'Not recorded'],['Created',date(row.created_at)],['Updated',date(row.updated_at)],['Completed',date(row.completed_at)],['Checkout expiration',date(row.expires_at)],['Last verification',row.last_check_ms?date(new Date(Number(row.last_check_ms)).toISOString()):'—'],...postingFields(row),...notificationFields(row),...statusEmailFields(row),['Processor status',row.provider_status],['Result code',row.result_code],['Portal transaction ID',row.id],['Result message',WootenTime.text(row.result_message),true],['Verification detail',WootenTime.text(row.verification_detail),true]];
+    return [['Customer',row.account_name||'Customer name unavailable'],['Customer number',row.account_number],['Status',status(row)],['Environment',environment(row)],['Processor',provider(row)],['Payment selection',row.payment_type==='full'?'Full balance':row.payment_type==='partial'?'Partial payment':row.payment_type],['Portal reference',row.provider_reference],['Processor transaction ID',row.provider_transaction_id],['Card',[row.card_brand,last4].filter(Boolean).join(' ')||'Not recorded'],['Created',date(row.created_at)],['Updated',date(row.updated_at)],['Completed',date(row.completed_at)],['Checkout expiration',date(row.expires_at)],['Last verification',row.last_check_ms?date(new Date(Number(row.last_check_ms)).toISOString()):'—'],...postingFields(row),...notificationFields(row),...statusEmailFields(row),...sandboxNotificationFields(row),['Processor status',row.provider_status],['Result code',row.result_code],['Portal transaction ID',row.id],['Result message',WootenTime.text(row.result_message),true],['Verification detail',WootenTime.text(row.verification_detail),true]];
+  }
+  function sandboxNotificationFields(row){
+    const states={queued:'Queued',waiting:'Waiting for configuration',sending:'Sending',accepted:'Accepted by provider',delivered:'Delivered',failed:'Failed',uncertain:'Needs delivery review',skipped:'Not sent'};
+    return (row.sandbox_notifications||[]).flatMap(n=>[
+      ['Sandbox notification',n.title],['Status recorded',date(n.created_at)],['Portal notification','Added to customer and admin notifications'],
+      ...[['email','Customer email'],['sms','Customer text'],['admin_sms','Office text']].flatMap(([c,label])=>[[label,states[n[c+'_state']]||n[c+'_state']],[label+' detail',n[c+'_note']],[label+' message ID',n[c+'_id']]])
+    ]);
   }
   function statusEmailFields(row){
     return (row.status_emails||[]).flatMap(n=>[
@@ -216,7 +223,7 @@
   window.addEventListener('wooten-open-payment-notification',async event=>{
     if(!permitted()||typeof event.detail?.id!=='string')return;
     await openDetail(event.detail.id);
-    if(current?.id===event.detail.id){try{await api(endpoint+'/'+encodeURIComponent(current.id)+'/notification-read',null,{method:'POST'});window.dispatchEvent(new Event('wooten-payment-notification-read'));}catch{}}
+    if(current?.id===event.detail.id){try{await api(endpoint+'/'+encodeURIComponent(current.id)+(event.detail.sandboxId?'/sandbox-notification-read':'/notification-read'),null,{method:'POST',...(event.detail.sandboxId?{body:JSON.stringify({id:event.detail.sandboxId})}:{})});window.dispatchEvent(new Event('wooten-payment-notification-read'));}catch{}}
   });
   body.addEventListener('click',event=>{const link=event.target.closest('button.pt-open');if(!link||link.disabled)return;const row=link.closest('[data-transaction]');if(row)openDetail(row.dataset.transaction);});
   get('ptDetailExport').addEventListener('click',exportDetailPdf);

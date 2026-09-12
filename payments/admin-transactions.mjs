@@ -1,6 +1,7 @@
 import * as Posting from './mas90-posting.mjs';
 import * as Notices from './notifications.mjs';
 import * as StatusEmails from './status-emails.mjs';
+import * as SandboxNotices from './sandbox-notifications.mjs';
 import '../assets/js/wooten-central-time.js';
 const portalTime=globalThis.WootenTime;
 // Read-only admin reporting over the saved online payment ledger.
@@ -49,6 +50,14 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
     const detail=url.pathname.slice('/api/admin/payment-transactions'.length);
     await ensureSchema();await ensurePostingSchema();
     if(request.method==='POST'){
+      const sandboxRead=detail.match(/^\/([^/]+)\/sandbox-notification-read$/);
+      if(sandboxRead){
+        if(request.headers.get('Origin')!==url.origin||request.headers.get('Sec-Fetch-Site')==='cross-site')return response({success:false,error:'Use the portal to acknowledge notifications.'},403);
+        let body;try{body=await request.json();}catch{return response({success:false,error:'Invalid notification.'},400);}
+        if(!Number.isSafeInteger(body?.id)||body.id<1)return response({success:false,error:'Invalid notification.'},400);
+        await env.DB.prepare('UPDATE sandbox_payment_notifications SET admin_read=1 WHERE id=? AND intent_id=? AND activated=1').bind(body.id,decodeURIComponent(sandboxRead[1])).run();
+        return response({success:true});
+      }
       const read=detail.match(/^\/([^/]+)\/notification-read$/);
       if(read){
         if(request.headers.get('Origin')!==url.origin||request.headers.get('Sec-Fetch-Site')==='cross-site')return response({success:false,error:'Use the portal to acknowledge notifications.'},403);
@@ -80,7 +89,7 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
       if(id.length>200)invalid('Invalid transaction reference.');
       await ensureSchema();
       const transaction=await env.DB.prepare(base+` SELECT ${columns},result_code,result_message,expires_at,last_check_ms,verification_detail FROM transactions WHERE id=?`).bind(id).first();
-      if(transaction){transaction.status_emails=await StatusEmails.detail(env,id);transaction.notifications=await Notices.detail(env,id);transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
+      if(transaction){transaction.sandbox_notifications=await SandboxNotices.detail(env,id);transaction.status_emails=await StatusEmails.detail(env,id);transaction.notifications=await Notices.detail(env,id);transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
       return transaction?response({success:true,transaction}):response({success:false,error:'Transaction not found.'},404);
     }
     const page=integer(params.get('page'),1,10000000),pageSize=integer(params.get('page_size'),20,200);
