@@ -14221,21 +14221,21 @@ let pagingRequests=false;
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
  const key=()=>g('adminKey')?.value.trim()||'';
- const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='application'?'applications':'customer_requests');
+ const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='application'?'applications':type==='payment'?'payment_transactions':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
- const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application'};
+ const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received'};
  const time=v=>v?WootenTime.dateTime(v):'';
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
  function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.textContent='0';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
-   list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending customer requests or applications.</div>';
+   list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
    list.scrollTop=scroll;more.hidden=!nextCursor;
  }
  async function load(append=false,force=false){
    const token=key();if(token!==activeKey){controller?.abort();controller=null;flight=null;activeKey=token;clear();}
-   const canRead=allowed('application')||allowed('fuel');bell.closest('.admin-bell-shell').hidden=!canRead;
+   const canRead=allowed('application')||allowed('fuel')||allowed('payment');bell.closest('.admin-bell-shell').hidden=!canRead;
    if(!token||!canRead){controller?.abort();controller=null;flight=null;clear();menu.hidden=true;bell.setAttribute('aria-expanded','false');return;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
    lastAttempt=Date.now();const abort=new AbortController();controller=abort;
    refresh.disabled=true;refresh.classList.add('is-loading');refresh.setAttribute('aria-busy','true');more.disabled=true;more.textContent=append?'Loading...':'Load More';
@@ -14253,20 +14253,21 @@ let pagingRequests=false;
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
        const total=Number(data.total||0);badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
-       counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
+       counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();
      }catch(e){if(!abort.signal.aborted&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(e.message||'Notifications could not be loaded.')+'</div>';}}
      finally{if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
- function openTarget(type){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
+ function openTarget(type,id){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else{g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true);});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
- menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
+ menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
  document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  window.addEventListener('wooten-admin-auth-changed',()=>{controller?.abort();controller=null;flight=null;clear();load(false,true);});
+ window.addEventListener('wooten-payment-notification-read',()=>load(false,true));
  for(const event of ['focus','pageshow','online'])window.addEventListener(event,()=>{if(!document.hidden)load();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
  setInterval(()=>{if(!document.hidden)load();},60000);

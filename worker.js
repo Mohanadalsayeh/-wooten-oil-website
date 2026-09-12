@@ -5,8 +5,38 @@ const portalTime=globalThis.WootenTime;
 import * as Heartland from './payments/heartland.mjs';
 import * as AdminTransactions from './payments/admin-transactions.mjs';
 import * as Mas90Posting from './payments/mas90-posting.mjs';
+import * as PaymentNotices from './payments/notifications.mjs';
 async function ensurePostingSchema(env){await Promise.all([ensureCustomerPaymentsSchema(env),ensureAdminImportMetadataSchema(env)]);await Mas90Posting.ensureSchema(env);}
 function heartlandHelpers(){return {mas90MasterPasswordMatches,ensureHostedPaymentsSchema,getCustomerFromSession,paymentAccount,onlinePaymentTotalCents,onlinePaymentPartialCents:onlinePaymentCents};}
+async function dispatchPaymentNotices(env){
+  try{
+    await Heartland.ensureSchema(env,heartlandHelpers());
+    await PaymentNotices.pump(env,{
+      configured:channel=>channel==='email'?Boolean(env.RESEND_API_KEY):twilioConfig(env).configured,
+      async send(channel,event){
+        if(channel==='sms'){
+          try{
+            const result=await twilioSendSms(env,event.phone,event.message+' Reply STOP to opt out.',{statusCallbackUrl:new URL('/api/twilio/message-status?payment_notice='+event.id,env.PUBLIC_SITE_URL||'https://wootenoil.com').href,signal:AbortSignal.timeout(15000)});
+            return {id:result.sid};
+          }catch(error){
+            error.definite=Boolean(error.twilioStatus&&error.twilioStatus<500)||error.twilioCode==='21610'||/not a valid|not configured/.test(error.message);
+            throw error;
+          }
+        }
+        const response=await fetch('https://api.resend.com/emails',{
+          method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},
+          body:JSON.stringify({from:'Wooten Oil <'+(env.FUEL_FROM_EMAIL||'support@wootenoil.com')+'>',to:[event.email],subject:'Payment received — '+event.reference,text:event.message})
+        });
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok){const error=new Error('Email provider rejected the confirmation (HTTP '+response.status+').');error.definite=response.status<500;throw error;}
+        return {id:result.id};
+      }
+    });
+  }catch(error){console.error('Payment notification processing failed',error);}
+}
+async function paymentReplyWithNotices(reply,env,ctx){
+  try{return await reply;}finally{ctx.waitUntil(dispatchPaymentNotices(env));}
+}
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -2564,6 +2594,7 @@ async function ensureOnlinePaymentTransactionsSchema(env){
   `).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_account_created ON online_payment_transactions(account_number,created_at DESC)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_online_payments_status_created ON online_payment_transactions(status,created_at DESC)`).run();
+  await PaymentNotices.ensureSchema(env);
 }
 __name(ensureOnlinePaymentTransactionsSchema,"ensureOnlinePaymentTransactionsSchema");
 
@@ -6545,7 +6576,7 @@ async function twilioSendSms(env,to,body,options={}){
   const response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Messages.json`,{
     method:"POST",
     headers:{"Authorization":`Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`,"Content-Type":"application/x-www-form-urlencoded"},
-    body:params.toString()
+    body:params.toString(),signal:options.signal
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
@@ -6594,6 +6625,8 @@ async function twilioMessageStatusPost({request,env}){
   const code=String(params.get("ErrorCode")||"");
   const status=twilioDeliveryStatus(params.get("MessageStatus")||params.get("SmsStatus"),code);
   const errorMessage=(status==="failed"||status==="opted_out")?twilioErrorDescription(code,params.get("ErrorMessage")||""):"";
+  await ensureOnlinePaymentTransactionsSchema(env);
+  await PaymentNotices.smsStatus(env,sid,status,errorMessage,new URL(request.url).searchParams.get('payment_notice'));
   const current=await env.DB.prepare(`SELECT sms_status,sms_to FROM admin_communication_log WHERE sms_sid=? LIMIT 1`).bind(sid).first();
   const currentStatus=String(current?.sms_status||"");
   if(currentStatus==="opted_out"||(status==="pending"&&["delivered","failed","opted_out"].includes(currentStatus))) return new Response(null,{status:204});
@@ -11374,7 +11407,7 @@ function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/database-backups"))return "database_backup";
   if(path.startsWith("/api/admin/request-center"))return "customer_requests";
   if(path==="/api/admin/mas90-health")return "mas90_health";
-  if(path==="/api/admin/notification-bell")return ["customer_requests","applications"];
+  if(path==="/api/admin/notification-bell")return ["customer_requests","applications","payment_transactions"];
   if(path.startsWith("/api/admin/users"))return "manage_users";
   if(path.startsWith("/api/admin/credit-collections"))return "collections";
   if(path.includes("mas90-sync"))return "database";
@@ -11830,29 +11863,35 @@ async function adminNotificationBellGet({request,env,actor}){
   try{
     const requestsAllowed=adminAccess.has(actor,'customer_requests');
     const applicationsAllowed=adminAccess.has(actor,'applications');
-    if(!requestsAllowed&&!applicationsAllowed)return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
+    const paymentsAllowed=adminAccess.has(actor,'payment_transactions');
+    if(!requestsAllowed&&!applicationsAllowed&&!paymentsAllowed)return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
     await ensureRequestCenterSchema(env);
+    await Heartland.ensureSchema(env,heartlandHelpers());
     const params=new URL(request.url).searchParams;
     let cursor=null;
     if(params.get('cursor')){
-      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['profile','fuel','application'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
+      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['profile','fuel','application','payment'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
       catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
     }
     const counts=await env.DB.prepare(`SELECT
       (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS profile,
       (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS fuel,
-      (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1) AS applications`).first();
+      (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1) AS applications,
+      (SELECT COUNT(*) FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) AS payment`).first();
     const query=`SELECT * FROM (
       SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1
       UNION ALL
       SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1
       UNION ALL
       SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1
+      UNION ALL
+      SELECT 'payment',id,reference,customer_name||' — USD '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1
     ) ${cursor?'WHERE (sort_time,item_type,id) < (?,?,?)':''} ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21`;
     const statement=env.DB.prepare(query);
     const rows=((await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all())?.results)||[];
     const items=rows.slice(0,20),last=items[items.length-1],hasMore=rows.length>20;
-    return notificationJson({success:true,total:Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
+    for(const item of items)if(item.item_type==='payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM payment_notification_events WHERE id=?').bind(item.id).first())?.intent_id;}
+    return notificationJson({success:true,total:Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0)+Number(counts?.payment||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
   }catch(error){
     console.error('adminNotificationBellGet',error);
     return notificationJson({success:false,error:'Admin notifications could not be loaded.'},500);
@@ -12642,12 +12681,12 @@ var worker_default = {
     }
 
     if (url.pathname === "/api/customer/payment/charge") {
-      if (request.method === "POST") return Heartland.selected(env)?Heartland.charge({request,env,ctx},heartlandHelpers()):notificationJson({success:false,error:"Payments now use the external secure payment page. Refresh the portal to continue."},410);
+      if (request.method === "POST") return Heartland.selected(env)?paymentReplyWithNotices(Heartland.charge({request,env,ctx},heartlandHelpers()),env,ctx):notificationJson({success:false,error:"Payments now use the external secure payment page. Refresh the portal to continue."},410);
       return methodNotAllowed();
     }
 
     if (url.pathname === "/api/customer/payment/status") {
-      if (request.method === "GET") return Heartland.selected(env)?Heartland.status({request,env},heartlandHelpers()):customerHostedPaymentGet({request,env});
+      if (request.method === "GET") return paymentReplyWithNotices(Heartland.selected(env)?Heartland.status({request,env},heartlandHelpers()):customerHostedPaymentGet({request,env}),env,ctx);
       return methodNotAllowed();
     }
 
@@ -12657,7 +12696,7 @@ var worker_default = {
     }
 
     if (url.pathname === "/api/customer/payment/return") {
-      if (["GET","POST"].includes(request.method)) return hostedPaymentReturn({request,env});
+      if (["GET","POST"].includes(request.method)) return paymentReplyWithNotices(hostedPaymentReturn({request,env}),env,ctx);
       return methodNotAllowed();
     }
 
@@ -12859,8 +12898,10 @@ return env.ASSETS.fetch(request);
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(reconcileHostedPayments(env));
-    ctx.waitUntil(Heartland.scheduled(env,heartlandHelpers()));
+    ctx.waitUntil((async()=>{
+      await Promise.allSettled([reconcileHostedPayments(env),Heartland.scheduled(env,heartlandHelpers())]);
+      await dispatchPaymentNotices(env);
+    })());
     // Add this dedicated trigger without removing existing scheduled jobs.
     if(controller.cron==='*/2 * * * *') return;
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));

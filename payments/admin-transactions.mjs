@@ -1,4 +1,5 @@
 import * as Posting from './mas90-posting.mjs';
+import * as Notices from './notifications.mjs';
 import '../assets/js/wooten-central-time.js';
 const portalTime=globalThis.WootenTime;
 // Read-only admin reporting over the saved online payment ledger.
@@ -47,6 +48,12 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
     const detail=url.pathname.slice('/api/admin/payment-transactions'.length);
     await ensureSchema();await ensurePostingSchema();
     if(request.method==='POST'){
+      const read=detail.match(/^\/([^/]+)\/notification-read$/);
+      if(read){
+        if(request.headers.get('Origin')!==url.origin||request.headers.get('Sec-Fetch-Site')==='cross-site')return response({success:false,error:'Use the portal to acknowledge notifications.'},403);
+        await env.DB.prepare('UPDATE payment_notification_events SET admin_read=1 WHERE intent_id=? AND activated=1').bind(decodeURIComponent(read[1])).run();
+        return response({success:true});
+      }
       const match=detail.match(/^\/([^/]+)\/posting$/);
       if(!match)return response({success:false,error:'Method not allowed.'},405);
       let id;try{id=decodeURIComponent(match[1]);}catch{invalid('Invalid transaction reference.');}
@@ -72,7 +79,7 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
       if(id.length>200)invalid('Invalid transaction reference.');
       await ensureSchema();
       const transaction=await env.DB.prepare(base+` SELECT ${columns},result_code,result_message,expires_at,last_check_ms,verification_detail FROM transactions WHERE id=?`).bind(id).first();
-      if(transaction){transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
+      if(transaction){transaction.notifications=await Notices.detail(env,id);transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
       return transaction?response({success:true,transaction}):response({success:false,error:'Transaction not found.'},404);
     }
     const page=integer(params.get('page'),1,10000000),pageSize=integer(params.get('page_size'),20,200);
