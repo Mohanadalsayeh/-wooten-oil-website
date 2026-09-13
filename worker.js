@@ -28,7 +28,7 @@ async function dispatchPaymentNotices(env){
         }
         const response=await fetch('https://api.resend.com/emails',{
           method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},
-          body:JSON.stringify({from:event.from||'Wooten Oil <'+(env.FUEL_FROM_EMAIL||'support@wootenoil.com')+'>',to:[event.email],subject:event.subject||'Payment received — '+event.reference,text:event.message})
+          body:JSON.stringify({from:'Wooten Oil Payments <payments@wootenoil.com>',to:[event.email],subject:event.subject||'Payment received — '+event.reference,text:event.message})
         });
         const result=await response.json().catch(()=>({}));
         if(!response.ok){const error=new Error('Email provider rejected the confirmation (HTTP '+response.status+').');error.definite=response.status<500;throw error;}
@@ -7837,8 +7837,8 @@ async function customerNotificationsGet({ request, env }) {
       message: row.message || "",
       created_at: row.created_at,
       read: !!row.read_at,
-      sender_name: "Wooten Oil Co Inc.",
-      sender_email: "support@wootenoil.com",
+      sender_name: row.action_type==="sandbox_payment"?"Wooten Oil Payments":"Wooten Oil Co Inc.",
+      sender_email: row.action_type==="sandbox_payment"?"payments@wootenoil.com":"support@wootenoil.com",
       recipient_email: String(customer.email || ""),
       action_type: String(row.action_type || ""),
       action_id: row.action_id == null ? null : Number(row.action_id),
@@ -8018,8 +8018,8 @@ async function customerNotificationDetailGet({ request, env }) {
         message: row.message || "",
         created_at: row.created_at,
         read: !!row.read_at,
-        sender_name: "Wooten Oil Co Inc.",
-        sender_email: "support@wootenoil.com",
+        sender_name: row.action_type==="sandbox_payment"?"Wooten Oil Payments":"Wooten Oil Co Inc.",
+        sender_email: row.action_type==="sandbox_payment"?"payments@wootenoil.com":"support@wootenoil.com",
         recipient_email: String(customer.email || ""),
         action_type: String(row.action_type || ""),
         action_id: row.action_id == null ? null : Number(row.action_id),
