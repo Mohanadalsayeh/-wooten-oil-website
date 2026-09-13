@@ -44,7 +44,7 @@ export async function pump(env,transport){
     const claim=await env.DB.prepare(`UPDATE payment_status_emails SET state='sending',attempt_at=CURRENT_TIMESTAMP,note='',subject=?,message=?,recipient=? WHERE id=? AND state IN ('queued','waiting')`).bind(subject,message,recipient,n.id).run();
     if(!claim.meta?.changes)continue;
     try{
-      const result=await transport.send('email',{email:recipient,subject,message,reference:n.reference});
+      const result=await transport.send('email',{from:'Wooten Oil Payments <payments@wootenoil.com>',email:recipient,subject,message,reference:n.reference});
       if(!result?.id)throw new Error('Missing provider message ID.');
       await env.DB.prepare("UPDATE payment_status_emails SET state='accepted',message_id=?,note='Accepted by the email provider; inbox delivery is not confirmed.' WHERE id=? AND state='sending'").bind(result.id,n.id).run();
     }catch(e){

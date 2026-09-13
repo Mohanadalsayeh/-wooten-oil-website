@@ -28,7 +28,7 @@ async function dispatchPaymentNotices(env){
         }
         const response=await fetch('https://api.resend.com/emails',{
           method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},
-          body:JSON.stringify({from:'Wooten Oil <'+(env.FUEL_FROM_EMAIL||'support@wootenoil.com')+'>',to:[event.email],subject:event.subject||'Payment received — '+event.reference,text:event.message})
+          body:JSON.stringify({from:event.from||'Wooten Oil <'+(env.FUEL_FROM_EMAIL||'support@wootenoil.com')+'>',to:[event.email],subject:event.subject||'Payment received — '+event.reference,text:event.message})
         });
         const result=await response.json().catch(()=>({}));
         if(!response.ok){const error=new Error('Email provider rejected the confirmation (HTTP '+response.status+').');error.definite=response.status<500;throw error;}
