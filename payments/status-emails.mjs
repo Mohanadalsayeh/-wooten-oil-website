@@ -1,5 +1,5 @@
 import '../assets/js/wooten-central-time.js';
-const recipient='payments@wootenoil.com';
+const recipient='support@wootenoil.com';
 const labels={captured:'Approved',canceled:'Canceled',pending:'Pending',declined:'Declined (Denied)'};
 export async function ensureSchema(env){
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS payment_status_emails (
@@ -7,7 +7,7 @@ export async function ensureSchema(env){
     account_number TEXT NOT NULL,amount_cents INTEGER NOT NULL,currency TEXT NOT NULL,
     reference TEXT,processor_id TEXT,event_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     state TEXT NOT NULL DEFAULT 'queued',message_id TEXT,note TEXT,
-    subject TEXT,message TEXT,recipient TEXT NOT NULL DEFAULT 'payments@wootenoil.com',
+    subject TEXT,message TEXT,recipient TEXT NOT NULL DEFAULT 'support@wootenoil.com',
     checked_at TEXT NOT NULL DEFAULT '',attempt_at TEXT,UNIQUE(intent_id,status))`).run();
   // One notice for each outcome reached, never for a repeated poll or old record.
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS payment_status_email_event AFTER UPDATE OF status ON online_payment_transactions
