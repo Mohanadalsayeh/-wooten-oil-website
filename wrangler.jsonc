@@ -4,6 +4,13 @@
   "compatibility_date": "2026-08-16",
   "keep_vars": true,
 
+  "triggers": {
+    "crons": [
+      "*/2 * * * *",
+      "0 * * * *"
+    ]
+  },
+
   "assets": {
     "directory": ".",
     "binding": "ASSETS",

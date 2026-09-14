@@ -11912,6 +11912,7 @@ __name(adminNotificationBellGet,'adminNotificationBellGet');
 
 const PORTAL_DATABASE_BACKUP_PREFIX="portal-database-backups/";
 const PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION=30;
+const PORTAL_DATABASE_BACKUP_ROW_BATCH=1000;
 const PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES=new Set([
   "admin_sessions",
   "customer_sessions",
@@ -11933,6 +11934,33 @@ async function portalDatabaseAutomaticBackupEnabled(env){
 }
 function portalBackupSafeName(value){return String(value||"").replace(/[^A-Za-z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)||"backup";}
 function portalBackupSqlName(value){return `"${String(value||"").replace(/"/g,'""')}"`;}
+async function portalBackupTableIntegritySeed(table){
+  return sha256(`wooten-oil-portal-table-v1\n${JSON.stringify({name:String(table?.name||""),schema:String(table?.schema||""),columns:Array.isArray(table?.columns)?table.columns:[]})}`);
+}
+function portalBackupSchemaHasUnsafeSql(source){
+  let quote="";
+  for(let index=0;index<source.length;index++){
+    const character=source[index],next=source[index+1]||"";
+    if(quote){
+      if(quote==="]"&&character==="]"){if(next==="]"){index++;continue;}quote="";continue;}
+      if(character===quote){if(next===quote){index++;continue;}quote="";}continue;
+    }
+    if(character==="'"||character==='"'||character==='`'){quote=character;continue;}
+    if(character==="["){quote="]";continue;}
+    if((character==="-"&&next==="-")||(character==="/"&&next==="*"))return true;
+    if(character===";"&&source.slice(index+1).trim())return true;
+  }
+  return !!quote;
+}
+function portalBackupRestoreCreateSql(schema,tableName){
+  const source=String(schema||"").trim();
+  if(portalBackupSchemaHasUnsafeSql(source))throw new Error(`Backup table ${tableName} contains an unsafe schema definition.`);
+  const match=source.match(/^(CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)(?:"((?:[^"]|"")*)"|`((?:[^`]|``)*)`|\[((?:[^\]]|\]\])*)\]|([A-Za-z_][A-Za-z0-9_]*))(\s*\([\s\S]*\)(?:\s+(?:WITHOUT\s+ROWID|STRICT)(?:\s*,\s*(?:WITHOUT\s+ROWID|STRICT))?)?)\s*;?\s*$/i);
+  if(!match)throw new Error(`Backup table ${tableName} does not contain a safe CREATE TABLE definition.`);
+  const declared=match[2]!==undefined?match[2].replace(/""/g,'"'):match[3]!==undefined?match[3].replace(/``/g,'`'):match[4]!==undefined?match[4].replace(/\]\]/g,']'):match[5];
+  if(String(declared)!==String(tableName))throw new Error(`Backup schema name does not match table ${tableName}.`);
+  return `${match[1]}${portalBackupSqlName(tableName)}${match[6]}`;
+}
 function portalBackupCentralStamp(date=new Date()){
   const parts={};
   for(const part of new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date))if(part.type!=="literal")parts[part.type]=part.value;
@@ -11978,15 +12006,21 @@ async function portalBackupBuildPlan(env){
     const name=String(table.name||"");
     if(!name||name.startsWith("_cf_")||name.startsWith("sqlite_")||name.startsWith("_portal_restore_")||PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES.has(name))continue;
     const countResult=await env.DB.prepare(`SELECT COUNT(*) AS total FROM ${portalBackupSqlName(name)}`).first();
+    const columnResult=await env.DB.prepare(`PRAGMA table_info(${portalBackupSqlName(name)})`).all();
+    const columnInfo=columnResult?.results||[];
+    const columns=columnInfo.map(column=>String(column.name||"")).filter(Boolean);
+    if(!columns.length)throw new Error(`Portal table ${name} has no backup-eligible columns.`);
+    const primaryKeyColumns=columnInfo.filter(column=>Number(column.pk||0)>0).sort((a,b)=>Number(a.pk||0)-Number(b.pk||0)).map(column=>String(column.name||"")).filter(Boolean);
+    const orderBy=(primaryKeyColumns.length?primaryKeyColumns:["rowid"]).map(portalBackupSqlName).join(",");
     const rowCount=Math.max(0,Number(countResult?.total||0));
-    tables.push({name,schema:String(table.sql||""),row_count:rowCount});
+    tables.push({name,schema:String(table.sql||""),columns,row_count:rowCount,order_by:orderBy});
     totalRows+=rowCount;
   }
   return {tables,totalRows};
 }
 async function portalBackupStreamToR2(env,key,metadata,plan){
   if(typeof env?.NOTIFICATION_ATTACHMENTS?.createMultipartUpload!=="function")throw new Error("Backup storage does not support streamed database backups.");
-  const upload=await env.NOTIFICATION_ATTACHMENTS.createMultipartUpload(key,{httpMetadata:{contentType:"application/json",contentDisposition:`attachment; filename="${metadata.filename}"`},customMetadata:{backup_id:metadata.backup_id,source:metadata.source,created_by:String(metadata.created_by||"Wooten Oil Admin").slice(0,100),created_at:metadata.created_at,table_count:String(plan.tables.length),total_rows:String(plan.totalRows),encoding:"identity",filename:metadata.filename}});
+  const upload=await env.NOTIFICATION_ATTACHMENTS.createMultipartUpload(key,{httpMetadata:{contentType:"application/json",contentDisposition:`attachment; filename="${metadata.filename}"`},customMetadata:{backup_id:metadata.backup_id,source:metadata.source,created_by:String(metadata.created_by||"Wooten Oil Admin").slice(0,100),created_at:metadata.created_at,table_count:String(plan.tables.length),total_rows:String(plan.totalRows),encoding:"identity",integrity:"sha256-chain-v1",filename:metadata.filename}});
   const encoder=new TextEncoder();
   const minimumPartBytes=5*1024*1024;
   const buffers=[];
@@ -12014,27 +12048,32 @@ async function portalBackupStreamToR2(env,key,metadata,plan){
     if(bufferedBytes>=minimumPartBytes)await flush(false);
   }
   try{
-    const header={format:"wooten-oil-portal-d1-backup",format_version:2,created_at:metadata.created_at,timezone:"America/Chicago",backup_id:metadata.backup_id,source:metadata.source,created_by:metadata.created_by,excluded_ephemeral_tables:[...PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES],excluded_internal_table_prefixes:["_cf_","sqlite_"],table_count:plan.tables.length,total_rows:plan.totalRows};
+    const header={format:"wooten-oil-portal-d1-backup",format_version:3,integrity:"sha256-chain-v1",created_at:metadata.created_at,timezone:"America/Chicago",backup_id:metadata.backup_id,source:metadata.source,created_by:metadata.created_by,excluded_ephemeral_tables:[...PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES],excluded_internal_table_prefixes:["_cf_","sqlite_"],table_count:plan.tables.length,total_rows:plan.totalRows};
     await write(JSON.stringify(header).slice(0,-1)+',"tables":[');
     for(let tableIndex=0;tableIndex<plan.tables.length;tableIndex++){
       const table=plan.tables[tableIndex];
       if(tableIndex)await write(',');
-      await write(JSON.stringify({name:table.name,schema:table.schema,row_count:table.row_count}).slice(0,-1)+',"rows":[');
+      await write(JSON.stringify({name:table.name,schema:table.schema,columns:table.columns,row_count:table.row_count}).slice(0,-1)+',"rows":[');
       let wroteRow=false;
-      const pageSize=250;
+      let tableHash=await portalBackupTableIntegritySeed(table);
+      const pageSize=PORTAL_DATABASE_BACKUP_ROW_BATCH;
       for(let offset=0;offset<table.row_count;offset+=pageSize){
-        const page=await env.DB.prepare(`SELECT * FROM ${portalBackupSqlName(table.name)} LIMIT ? OFFSET ?`).bind(pageSize,offset).all();
+        const page=await env.DB.prepare(`SELECT * FROM ${portalBackupSqlName(table.name)} ORDER BY ${table.order_by} LIMIT ? OFFSET ?`).bind(pageSize,offset).all();
         const batch=page?.results||[];
-        if(batch.length){await write((wroteRow?',':'')+batch.map(row=>JSON.stringify(row)).join(','));wroteRow=true;}
+        if(batch.length){
+          const serialized=JSON.stringify(batch);
+          tableHash=await sha256(`${tableHash}\n${serialized}`);
+          await write((wroteRow?',':'')+serialized.slice(1,-1));wroteRow=true;
+        }
         if(batch.length<pageSize)break;
       }
-      await write(']}');
+      await write(`],"integrity_sha256":${JSON.stringify(tableHash)}}`);
     }
     await write(']}');
     await flush(true);
     if(!uploadedParts.length)throw new Error("The database backup produced an empty file.");
     await upload.complete(uploadedParts);
-    return {stored_bytes:totalBytes,uncompressed_bytes:totalBytes,encoding:"identity",sha256:""};
+    return {stored_bytes:totalBytes,uncompressed_bytes:totalBytes,encoding:"identity",integrity:"sha256-chain-v1",sha256:""};
   }catch(error){
     try{await upload.abort();}catch{}
     throw error;
@@ -12063,7 +12102,7 @@ async function portalBackupCleanupAutomatic(env){
 }
 function portalBackupObjectSummary(object){
   const meta=object?.customMetadata||{};
-  return {key:String(object?.key||""),filename:String(meta.filename||String(object?.key||"").split("/").pop()||"portal-database-backup.json.gz"),source:String(meta.source||(String(object?.key||"").includes("/automatic/")?"automatic":"manual")),created_by:String(meta.created_by||"Wooten Oil Admin"),created_at:String(meta.created_at||object?.uploaded||""),table_count:Number(meta.table_count||0),total_rows:Number(meta.total_rows||0),uncompressed_bytes:Number(meta.uncompressed_bytes||0),stored_bytes:Number(object?.size||0),sha256:String(meta.sha256||"")};
+  return {key:String(object?.key||""),filename:String(meta.filename||String(object?.key||"").split("/").pop()||"portal-database-backup.json.gz"),source:String(meta.source||(String(object?.key||"").includes("/automatic/")?"automatic":"manual")),created_by:String(meta.created_by||"Wooten Oil Admin"),created_at:String(meta.created_at||object?.uploaded||""),table_count:Number(meta.table_count||0),total_rows:Number(meta.total_rows||0),uncompressed_bytes:Number(meta.uncompressed_bytes||0),stored_bytes:Number(object?.size||0),integrity:String(meta.integrity||""),sha256:String(meta.sha256||"")};
 }
 async function* portalBackupJsonTokens(stream){
   if(!stream?.getReader)throw new Error("The selected backup file cannot be read.");
@@ -12133,7 +12172,7 @@ async function portalBackupParseJsonValue(cursor,firstToken=null){
   }
   throw new Error("The backup contains an invalid JSON value.");
 }
-async function portalBackupReadTable(cursor,handlers){
+async function portalBackupReadTable(cursor,handlers,formatVersion=0){
   await cursor.expect("{");const metadata={};let rowsFound=false;
   if((await cursor.peek())?.type==="}")throw new Error("The backup contains an empty table entry.");
   while(true){
@@ -12141,13 +12180,15 @@ async function portalBackupReadTable(cursor,handlers){
     if(key==="rows"){
       if(!metadata.name)throw new Error("A backup table is missing its name.");
       await handlers.start(metadata);rowsFound=true;await cursor.expect("[");let rows=[];
-      if((await cursor.peek())?.type!=="]")while(true){const row=await portalBackupParseJsonValue(cursor);if(!row||Array.isArray(row)||typeof row!=="object")throw new Error(`Table ${metadata.name} contains an invalid row.`);rows.push(row);if(rows.length>=250){await handlers.rows(metadata,rows);rows=[];}const separator=await cursor.take();if(separator.type==="]")break;if(separator.type!==",")throw new Error(`Table ${metadata.name} contains invalid row data.`);}
+      if((await cursor.peek())?.type!=="]")while(true){const row=await portalBackupParseJsonValue(cursor);if(!row||Array.isArray(row)||typeof row!=="object")throw new Error(`Table ${metadata.name} contains an invalid row.`);rows.push(row);if(rows.length>=PORTAL_DATABASE_BACKUP_ROW_BATCH){await handlers.rows(metadata,rows);rows=[];}const separator=await cursor.take();if(separator.type==="]")break;if(separator.type!==",")throw new Error(`Table ${metadata.name} contains invalid row data.`);}
       else await cursor.take();
-      if(rows.length)await handlers.rows(metadata,rows);await handlers.end(metadata);
+      if(rows.length)await handlers.rows(metadata,rows);
     }else metadata[key]=await portalBackupParseJsonValue(cursor);
     const separator=await cursor.take();if(separator.type==="}")break;if(separator.type!==",")throw new Error("The backup contains invalid table data.");
   }
   if(!rowsFound)throw new Error(`Backup table ${metadata.name||"unknown"} does not contain rows.`);
+  if(Number(formatVersion)>=3&&!/^[a-f0-9]{64}$/i.test(String(metadata.integrity_sha256||"")))throw new Error(`Backup table ${metadata.name||"unknown"} is missing its integrity check.`);
+  await handlers.end(metadata);
 }
 async function portalBackupReadTables(stream,handlers){
   const cursor=new PortalBackupTokenCursor(portalBackupJsonTokens(stream)[Symbol.asyncIterator]());
@@ -12158,7 +12199,7 @@ async function portalBackupReadTables(stream,handlers){
     if(key==="tables"){
       if(header.format!=="wooten-oil-portal-d1-backup")throw new Error("The selected file is not a Wooten Oil portal database backup.");
       tablesFound=true;await cursor.expect("[");let tableCount=0;
-      if((await cursor.peek())?.type!=="]")while(true){await portalBackupReadTable(cursor,handlers);tableCount++;if(tableCount>200)throw new Error("The backup contains too many database tables.");const separator=await cursor.take();if(separator.type==="]")break;if(separator.type!==",")throw new Error("The backup contains invalid table separators.");}
+      if((await cursor.peek())?.type!=="]")while(true){await portalBackupReadTable(cursor,handlers,Number(header.format_version||0));tableCount++;if(tableCount>200)throw new Error("The backup contains too many database tables.");const separator=await cursor.take();if(separator.type==="]")break;if(separator.type!==",")throw new Error("The backup contains invalid table separators.");}
       else await cursor.take();header.parsed_table_count=tableCount;
     }else header[key]=await portalBackupParseJsonValue(cursor);
     const separator=await cursor.take();if(separator.type==="}")break;if(separator.type!==",")throw new Error("The backup contains invalid top-level data.");
@@ -12179,26 +12220,37 @@ async function portalBackupRestoreDatabase(env,object){
       async start(metadata){
         const name=String(metadata.name||"");
         if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)||name.startsWith("_cf_")||name.startsWith("sqlite_")||name.startsWith("_portal_restore_")||PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES.has(name))throw new Error(`Backup table ${name||"unknown"} is not eligible for restore.`);
-        const exists=await env.DB.prepare(`SELECT name FROM sqlite_schema WHERE type='table' AND name=? LIMIT 1`).bind(name).first();if(!exists)throw new Error(`Current portal table ${name} does not exist.`);
-        const info=await env.DB.prepare(`PRAGMA table_info(${portalBackupSqlName(name)})`).all();const currentColumns=(info?.results||[]).map(row=>String(row.name||"")).filter(Boolean);if(!currentColumns.length)throw new Error(`Current portal table ${name} has no restorable columns.`);
-        const stage=`_portal_restore_${restoreId}_${staged.length+1}`;await env.DB.prepare(`DROP TABLE IF EXISTS ${portalBackupSqlName(stage)}`).run();await env.DB.prepare(`CREATE TABLE ${portalBackupSqlName(stage)} AS SELECT * FROM ${portalBackupSqlName(name)} WHERE 0`).run();
-        active={name,stage,currentColumns,columnSet:new Set(currentColumns),restoreColumns:null,expectedRows:Math.max(0,Number(metadata.row_count)||0),stagedRows:0};staged.push(active);
+        const existing=await env.DB.prepare(`SELECT name FROM sqlite_schema WHERE type='table' AND name=? LIMIT 1`).bind(name).first();
+        const backupColumns=Array.isArray(metadata.columns)?metadata.columns.map(column=>String(column||"")).filter(column=>column&&column.length<=128&&!column.includes("\0")):[];
+        if(new Set(backupColumns).size!==backupColumns.length)throw new Error(`Backup table ${name} contains duplicate column names.`);
+        let currentColumns=[],createSql="";
+        if(existing){const info=await env.DB.prepare(`PRAGMA table_info(${portalBackupSqlName(name)})`).all();currentColumns=(info?.results||[]).map(row=>String(row.name||"")).filter(Boolean);}
+        else{
+          if(!backupColumns.length)throw new Error(`Current portal table ${name} is missing and this older backup cannot recreate it.`);
+          createSql=portalBackupRestoreCreateSql(metadata.schema,name);currentColumns=backupColumns;
+        }
+        if(!currentColumns.length)throw new Error(`Portal table ${name} has no restorable columns.`);
+        const stage=`_portal_restore_${restoreId}_${staged.length+1}`;await env.DB.prepare(`DROP TABLE IF EXISTS ${portalBackupSqlName(stage)}`).run();
+        await env.DB.prepare(`CREATE TABLE ${portalBackupSqlName(stage)} (${currentColumns.map(column=>`${portalBackupSqlName(column)} BLOB`).join(",")})`).run();
+        const columnSet=new Set(currentColumns),restoreColumns=backupColumns.filter(column=>columnSet.has(column));
+        active={name,stage,existing:!!existing,createSql,currentColumns,columnSet,restoreColumns:restoreColumns.length?restoreColumns:null,expectedRows:Math.max(0,Number(metadata.row_count)||0),stagedRows:0,integrityHash:await portalBackupTableIntegritySeed(metadata)};staged.push(active);
       },
       async rows(metadata,rows){
         if(!active||active.name!==String(metadata.name||""))throw new Error("Backup table order is invalid.");
         if(!active.restoreColumns){active.restoreColumns=Object.keys(rows[0]||{}).filter(column=>active.columnSet.has(column));if(!active.restoreColumns.length)throw new Error(`Backup table ${active.name} has no columns matching the current portal database.`);}
+        active.integrityHash=await sha256(`${active.integrityHash}\n${JSON.stringify(rows)}`);
         const columns=active.restoreColumns,quotedColumns=columns.map(portalBackupSqlName).join(","),extract=columns.map(column=>`json_extract(value,'${portalBackupJsonPath(column).replace(/'/g,"''")}')`).join(",");
         await env.DB.prepare(`INSERT INTO ${portalBackupSqlName(active.stage)} (${quotedColumns}) SELECT ${extract} FROM json_each(?)`).bind(JSON.stringify(rows)).run();active.stagedRows+=rows.length;totalRows+=rows.length;if(totalRows>10000000)throw new Error("The backup contains more rows than the portal restore safety limit.");
       },
-      async end(metadata){if(!active||active.name!==String(metadata.name||""))throw new Error("Backup table completion is invalid.");if(active.stagedRows!==active.expectedRows)throw new Error(`Backup table ${active.name} expected ${active.expectedRows} rows but contained ${active.stagedRows}.`);active=null;}
+      async end(metadata){if(!active||active.name!==String(metadata.name||""))throw new Error("Backup table completion is invalid.");if(active.stagedRows!==active.expectedRows)throw new Error(`Backup table ${active.name} expected ${active.expectedRows} rows but contained ${active.stagedRows}.`);if(metadata.integrity_sha256&&active.integrityHash!==String(metadata.integrity_sha256).toLowerCase())throw new Error(`Backup table ${active.name} failed its integrity check.`);active=null;}
     });
     if(!staged.length)throw new Error("The selected backup does not contain any restorable portal tables.");
     const statements=[env.DB.prepare("PRAGMA defer_foreign_keys=ON")];
-    for(const item of [...staged].reverse())statements.push(env.DB.prepare(`DELETE FROM ${portalBackupSqlName(item.name)}`));
-    for(const item of staged)if(item.restoreColumns?.length){const columns=item.restoreColumns.map(portalBackupSqlName).join(",");statements.push(env.DB.prepare(`INSERT INTO ${portalBackupSqlName(item.name)} (${columns}) SELECT ${columns} FROM ${portalBackupSqlName(item.stage)}`));}
-    for(const item of staged)statements.push(env.DB.prepare(`DROP TABLE ${portalBackupSqlName(item.stage)}`));
+    for(const item of [...staged].reverse())if(item.existing)statements.push(env.DB.prepare(`DELETE FROM ${portalBackupSqlName(item.name)}`));
+    for(const item of staged){if(!item.existing)statements.push(env.DB.prepare(item.createSql));if(item.restoreColumns?.length){const columns=item.restoreColumns.map(portalBackupSqlName).join(",");statements.push(env.DB.prepare(`INSERT INTO ${portalBackupSqlName(item.name)} (${columns}) SELECT ${columns} FROM ${portalBackupSqlName(item.stage)}`));}}
     await env.DB.batch(statements);
-    return {table_count:staged.length,total_rows:totalRows,backup_created_at:String(header.created_at||"")};
+    for(const item of staged)await env.DB.prepare(`DROP TABLE ${portalBackupSqlName(item.stage)}`).run();
+    return {table_count:staged.length,total_rows:totalRows,recreated_table_count:staged.filter(item=>!item.existing).length,integrity_verified:Number(header.format_version||0)>=3,backup_created_at:String(header.created_at||"")};
   }catch(error){for(const item of staged)try{await env.DB.prepare(`DROP TABLE IF EXISTS ${portalBackupSqlName(item.stage)}`).run();}catch{}throw error;}
 }
 async function portalBackupAcquireRestoreLock(env,actor){
@@ -12909,12 +12961,15 @@ return env.ASSETS.fetch(request);
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil((async()=>{
-      await Promise.allSettled([reconcileHostedPayments(env),Heartland.scheduled(env,heartlandHelpers())]);
-      await dispatchPaymentNotices(env);
-    })());
-    // Add this dedicated trigger without removing existing scheduled jobs.
-    if(controller.cron==='*/2 * * * *') return;
+    if(controller.cron==='*/2 * * * *'){
+      ctx.waitUntil((async()=>{
+        await Promise.allSettled([reconcileHostedPayments(env),Heartland.scheduled(env,heartlandHelpers())]);
+        await dispatchPaymentNotices(env);
+      })());
+      return;
+    }
+    // The hourly maintenance trigger runs these jobs once and checks whether
+    // the local Central-Time backup hour has arrived.
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
     ctx.waitUntil(processDueStatementSchedules(env));
     ctx.waitUntil(checkMas90AutomationHealth(env));
