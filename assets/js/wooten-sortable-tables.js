@@ -120,8 +120,43 @@
     return true;
   }
 
+  function normalizedAlignment(value, element) {
+    var alignment = String(value || '').toLowerCase();
+    if (alignment === 'start') return getComputedStyle(element).direction === 'rtl' ? 'right' : 'left';
+    if (alignment === 'end') return getComputedStyle(element).direction === 'rtl' ? 'left' : 'right';
+    return alignment === 'right' || alignment === 'center' ? alignment : 'left';
+  }
+
+  function bodyCellForColumn(table, columnIndex) {
+    var rows = Array.from(table.tBodies).flatMap(function (tbody) { return Array.from(tbody.rows); });
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      var row = rows[rowIndex];
+      if (row.hidden || row.matches('[data-no-sort], [class*="skeleton"]')) continue;
+      var cell = row.cells[columnIndex];
+      if (!cell || Number(cell.colSpan || 1) !== 1 || cell.hidden) continue;
+      return cell;
+    }
+    return null;
+  }
+
+  function syncHeaderAlignments(table) {
+    if (!table.tHead) return;
+    Array.from(table.tHead.rows).forEach(function (headerRow) {
+      Array.from(headerRow.cells).forEach(function (header) {
+        if (Number(header.colSpan || 1) !== 1) return;
+        var bodyCell = bodyCellForColumn(table, header.cellIndex);
+        if (!bodyCell) return;
+        var alignment = normalizedAlignment(getComputedStyle(bodyCell).textAlign, bodyCell);
+        header.classList.remove('wo-column-align-left', 'wo-column-align-center', 'wo-column-align-right');
+        header.classList.add('wo-column-align-' + alignment);
+      });
+    });
+  }
+
   function enhanceTable(table) {
-    if (!table.tHead || table.matches('[data-no-column-sort]')) return;
+    if (!table.tHead) return;
+    syncHeaderAlignments(table);
+    if (table.matches('[data-no-column-sort]')) return;
     var headers = Array.from(table.tHead.querySelectorAll('th'));
     if (!headers.length) return;
 
@@ -156,6 +191,7 @@
       header.appendChild(button);
     });
 
+    syncHeaderAlignments(table);
     applyState(table);
   }
 

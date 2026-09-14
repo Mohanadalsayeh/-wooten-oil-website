@@ -90,14 +90,32 @@ table tbody td .twilio-type {
 
 .wo-table-sort-label {
   min-width: 0;
+  width: 100%;
+  text-align: inherit;
   overflow-wrap: anywhere;
 }
 
 .wo-table-sort-icon {
   position: relative;
+  justify-self: end;
   width: 12px;
   height: 16px;
   opacity: .55;
+}
+
+body table thead th.wo-column-align-left,
+body table thead th.wo-column-align-left .wo-table-sort-button {
+  text-align: left !important;
+}
+
+body table thead th.wo-column-align-center,
+body table thead th.wo-column-align-center .wo-table-sort-button {
+  text-align: center !important;
+}
+
+body table thead th.wo-column-align-right,
+body table thead th.wo-column-align-right .wo-table-sort-button {
+  text-align: right !important;
 }
 
 .wo-table-sort-icon::before,
