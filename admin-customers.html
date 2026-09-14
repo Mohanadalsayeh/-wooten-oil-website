@@ -14755,7 +14755,7 @@ let pagingRequests=false;
 }
 </style>
 <script src="assets/js/admin-payment-transactions.js?v=notification-routing-20260912-1"></script>
-<link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=20260912pagination1">
+<link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=20260914pagination2">
 </body>
 </html>
 
@@ -17298,25 +17298,38 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 <script src="assets/js/wooten-sortable-tables.js?v=20260914-3"></script>
 <link rel="stylesheet" href="assets/css/wooten-communication-tree-arrow.css?v=20260914-1">
 <link rel="stylesheet" href="assets/css/wooten-application-tree-arrow.css?v=20260914-2">
-<style id="wooten-customer-activity-pagination-range-fix-ver443">
-/* Keep Previous, page information, and Next fully inside every activity card. */
-.activity-section > .activity-pagination{
-  width:calc(100% - 32px)!important;
-  max-width:calc(100% - 32px)!important;
+<style id="wooten-customer-activity-pagination-range-fix-ver444">
+/* Auto width makes the browser subtract both side margins from the pager. */
+.activity-section[data-activity-section] > .db-pagination.activity-pagination{
+  position:relative!important;
+  inset:auto!important;
+  width:auto!important;
+  max-width:none!important;
+  min-width:0!important;
   margin:20px 16px 22px!important;
   padding:16px 0 0!important;
   box-sizing:border-box!important;
+  overflow:visible!important;
 }
-.activity-section > .activity-pagination > button:first-child{
+.activity-section[data-activity-section] > .activity-pagination > button{
+  position:static!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+  transform:none!important;
+}
+.activity-section[data-activity-section] > .activity-pagination > button:first-child{
   margin-left:0!important;
+  justify-self:start!important;
 }
-.activity-section > .activity-pagination > button:last-child{
+.activity-section[data-activity-section] > .activity-pagination > button:last-child{
   margin-right:0!important;
+  justify-self:end!important;
 }
 @media(max-width:600px){
-  .activity-section > .activity-pagination{
-    width:calc(100% - 24px)!important;
-    max-width:calc(100% - 24px)!important;
+  .activity-section[data-activity-section] > .db-pagination.activity-pagination{
+    width:auto!important;
+    max-width:none!important;
     margin:16px 12px 18px!important;
     padding-top:14px!important;
   }
