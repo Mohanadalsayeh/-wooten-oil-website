@@ -151,6 +151,8 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
   padding: 9px 32px 9px 10px !important;
   box-sizing: border-box !important;
   line-height: 1.35 !important;
+  transition: none !important;
+  animation: none !important;
 }
 
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-label,
@@ -187,8 +189,26 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
   margin: 0 !important;
   padding: 9px 32px 9px 10px !important;
   border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
   box-shadow: none !important;
   transform: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:focus .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:active .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:focus .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:active .wo-table-sort-label {
+  font-weight: inherit !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
 }
 
 .wo-table-sort-icon::before,
