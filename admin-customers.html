@@ -17298,3 +17298,27 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 <script src="assets/js/wooten-sortable-tables.js?v=20260914-3"></script>
 <link rel="stylesheet" href="assets/css/wooten-communication-tree-arrow.css?v=20260914-1">
 <link rel="stylesheet" href="assets/css/wooten-application-tree-arrow.css?v=20260914-2">
+<style id="wooten-customer-activity-pagination-range-fix-ver443">
+/* Keep Previous, page information, and Next fully inside every activity card. */
+.activity-section > .activity-pagination{
+  width:calc(100% - 32px)!important;
+  max-width:calc(100% - 32px)!important;
+  margin:20px 16px 22px!important;
+  padding:16px 0 0!important;
+  box-sizing:border-box!important;
+}
+.activity-section > .activity-pagination > button:first-child{
+  margin-left:0!important;
+}
+.activity-section > .activity-pagination > button:last-child{
+  margin-right:0!important;
+}
+@media(max-width:600px){
+  .activity-section > .activity-pagination{
+    width:calc(100% - 24px)!important;
+    max-width:calc(100% - 24px)!important;
+    margin:16px 12px 18px!important;
+    padding-top:14px!important;
+  }
+}
+</style>
