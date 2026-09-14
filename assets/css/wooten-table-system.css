@@ -122,14 +122,6 @@ body table thead th.wo-column-align-right .wo-table-sort-button {
   text-align: right !important;
 }
 
-/* Live database tables keep every header label left and every sort arrow right. */
-body table[data-pdf-table-name="Live Customer Database"] thead th,
-body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button {
-  text-align: left !important;
-}
-
 /*
  * Anchor live-table sort arrows independently from the label. This keeps the
  * arrow against the right edge and prevents older button hover rules from
@@ -137,6 +129,7 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
  */
 body table[data-pdf-table-name="Live Customer Database"] thead th.wo-sortable-heading,
 body table[data-pdf-table-name="Live Customer Payments Database"] thead th.wo-sortable-heading {
+  padding: 0 !important;
   vertical-align: middle !important;
 }
 
@@ -163,7 +156,7 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
   margin: 0 !important;
   padding: 0 !important;
   line-height: inherit !important;
-  text-align: left !important;
+  text-align: inherit !important;
 }
 
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-icon,
@@ -209,6 +202,11 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
   transform: none !important;
   transition: none !important;
   animation: none !important;
+}
+
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label {
+  color: var(--wo-table-sort-hover) !important;
 }
 
 .wo-table-sort-icon::before,
