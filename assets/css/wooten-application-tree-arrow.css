@@ -1,0 +1,77 @@
+/* Account Applications: match the Communication History row-tree arrow. */
+.application-summary{
+  grid-template-columns:18px minmax(240px,2fr) minmax(135px,.8fr) minmax(155px,1fr)!important;
+}
+
+.application-tree-chevron{
+  grid-column:1;
+  grid-row:1;
+  align-self:center;
+  justify-self:start;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  color:#6a7b8d;
+  transform:rotate(0deg);
+  transform-origin:50% 50%;
+  transition:transform .18s ease,color .18s ease;
+}
+
+.application-tree-chevron svg{
+  display:block;
+  width:14px;
+  height:14px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.application-summary[aria-expanded="false"] .application-tree-chevron{
+  transform:rotate(0deg);
+}
+
+.application-summary[aria-expanded="true"] .application-tree-chevron{
+  color:#17324d;
+  transform:rotate(90deg);
+}
+
+.application-summary-customer{grid-column:2}
+.application-summary-type{grid-column:3}
+.application-summary-status{grid-column:4}
+
+@media(max-width:850px){
+  .application-summary{
+    grid-template-columns:18px minmax(0,1fr)!important;
+  }
+
+  .application-tree-chevron{
+    grid-column:1;
+    grid-row:1 / span 3;
+    align-self:start;
+    margin-top:3px;
+  }
+
+  .application-summary-customer{
+    grid-column:2!important;
+    grid-row:1;
+  }
+
+  .application-summary-type{
+    grid-column:2!important;
+    grid-row:2;
+  }
+
+  .application-summary-status{
+    grid-column:2!important;
+    grid-row:3;
+    justify-self:start;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .application-tree-chevron{transition:none}
+}

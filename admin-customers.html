@@ -14157,7 +14157,7 @@ let pagingRequests=false;
   function render(rows){
     if(!rows.length){list.innerHTML='<div class="application-empty">No account applications match the selected filters.</div>';return;}
     list.innerHTML=rows.map(row=>{const display=row.application_type==='business'?(row.business_name||row.full_name):row.full_name;return '<article class="application-card" data-application-id="'+Number(row.id)+'">'+
-      '<button class="application-summary" type="button" data-application-toggle aria-expanded="false"><div><strong>'+esc(display)+'</strong><small>'+esc(row.application_number)+' • '+esc(row.full_name)+'</small></div><div><span class="application-type">'+esc(row.application_type)+'</span></div><div><span class="application-status-badge '+esc(row.status)+'">'+esc(label(row.status))+'</span><small>'+(row.reviewed_by?'Reviewed by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(WootenTime.dateTime(row.reviewed_at)):''):'Submitted • '+esc(WootenTime.dateTime(row.created_at||'')))+'</small></div><span aria-hidden="true">⌄</span></button>'+
+      '<button class="application-summary" type="button" data-application-toggle aria-expanded="false"><span class="application-tree-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></span><div class="application-summary-customer"><strong>'+esc(display)+'</strong><small>'+esc(row.application_number)+' • '+esc(row.full_name)+'</small></div><div class="application-summary-type"><span class="application-type">'+esc(row.application_type)+'</span></div><div class="application-summary-status"><span class="application-status-badge '+esc(row.status)+'">'+esc(label(row.status))+'</span><small>'+(row.reviewed_by?'Reviewed by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(WootenTime.dateTime(row.reviewed_at)):''):'Submitted • '+esc(WootenTime.dateTime(row.created_at||'')))+'</small></div></button>'+
       '<div class="application-detail" hidden><div class="application-info-grid">'+
       info('Application #',row.application_number)+info('Account Type',row.application_type)+info('Submitted',WootenTime.dateTime(row.created_at||''))+
       (row.application_type==='business'?info('Legal Business Name',row.business_name)+info('DBA / Trade Name',row.dba_name)+info('Tax ID Last 4',row.tax_id_last4)+info('Years in Business',row.years_in_business):'')+
@@ -17292,3 +17292,4 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-1">
 <script src="assets/js/wooten-sortable-tables.js?v=20260914-1"></script>
 <link rel="stylesheet" href="assets/css/wooten-communication-tree-arrow.css?v=20260914-1">
+<link rel="stylesheet" href="assets/css/wooten-application-tree-arrow.css?v=20260914-1">

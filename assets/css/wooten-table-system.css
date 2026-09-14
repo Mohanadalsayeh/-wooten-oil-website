@@ -121,16 +121,22 @@ table tbody td .twilio-type {
 }
 
 .wo-table-sort-button:hover,
-.wo-table-sort-button:focus-visible {
-  background: rgba(23, 63, 99, .08);
-  color: var(--wo-table-sort-accent);
-  outline: none;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.wo-table-sort-button:focus,
+.wo-table-sort-button:focus-visible,
+.wo-table-sort-button:active {
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  outline: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  text-shadow: none !important;
+  transform: none !important;
 }
 
-.wo-table-sort-button:focus-visible {
-  box-shadow: inset 0 0 0 2px rgba(31, 78, 121, .38);
+.wo-table-sort-button:hover .wo-table-sort-label,
+.wo-table-sort-button:focus-visible .wo-table-sort-label {
+  font-weight: 900 !important;
 }
 
 .wo-sortable-heading[aria-sort="ascending"] .wo-table-sort-icon,
