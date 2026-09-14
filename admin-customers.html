@@ -7403,7 +7403,8 @@ body #collectionsActionMenu button{pointer-events:auto!important}
   panel.addEventListener('click',event=>{const target=event.target instanceof Element?event.target:null;const trigger=target?.closest('[data-collection-menu]');if(!trigger||!panel.contains(trigger))return;event.preventDefault();event.stopPropagation();openActionMenu(trigger,trigger.dataset.collectionAccount);},true);
   document.addEventListener('click',event=>{if(!actionMenu?.hidden&&!actionMenu.contains(event.target)&&!event.target.closest('[data-collection-menu]'))closeActionMenu();});
   window.addEventListener('resize',()=>closeActionMenu());window.addEventListener('scroll',()=>closeActionMenu(),true);
-  get('collectionsApply').addEventListener('click',()=>load(true));get('collectionsRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('collectionsRefresh'),()=>load(false)));get('collectionsSearch').addEventListener('keydown',event=>{if(event.key==='Enter')load(true);});get('collectionsPrev').addEventListener('click',()=>{if(page>1){page--;load(false);}});get('collectionsNext').addEventListener('click',()=>{if(page<pages){page++;load(false);}});get('collectionsModalClose').addEventListener('click',closeModal);get('collectionsModalCancel').addEventListener('click',closeModal);get('collectionsModalSave').addEventListener('click',save);modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(actionMenu&&!actionMenu.hidden){closeActionMenu(true);return;}if(!modal.hidden)closeModal();});
+  get('collectionsApply').addEventListener('click',()=>load(true));get('collectionsRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('collectionsRefresh'),()=>load(false)));get('collectionsSearch').addEventListener('keydown',event=>{if(event.key==='Enter')load(true);});get('collectionsPrev').wootenGoToPage = target => { page=target;return load(false); };
+get('collectionsPrev').addEventListener('click',()=>{if(page>1){page--;load(false);}});get('collectionsNext').addEventListener('click',()=>{if(page<pages){page++;load(false);}});get('collectionsModalClose').addEventListener('click',closeModal);get('collectionsModalCancel').addEventListener('click',closeModal);get('collectionsModalSave').addEventListener('click',save);modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(actionMenu&&!actionMenu.hidden){closeActionMenu(true);return;}if(!modal.hidden)closeModal();});
   get('collectionsExportPdf').addEventListener('click',async()=>{if(!rows.length){message('Load at least one collection account before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',false);return;}const button=get('collectionsExportPdf'),buttonLabel=button.querySelector('span');button.disabled=true;if(buttonLabel)buttonLabel.textContent='Loading all records…';try{const exportRows=await loadAllRowsForExport(progress=>{if(buttonLabel)buttonLabel.textContent=progress.pages>1?'Loading '+progress.page+' of '+progress.pages+'…':'Preparing PDF…';});if(!exportRows.length)throw new Error('No collection accounts match the selected filters.');if(buttonLabel)buttonLabel.textContent='Preparing PDF…';await window.WootenAdminTablePdf.exportData('Credit and Collections Worklist',['Customer #','Customer','Total Balance','Past Due','60+','90+','Credit Limit','Credit Hold','Last Payment','Collection Status','Follow-up'],exportRows.map(row=>[row.account_number,row.account_name,money(row.total_balance),money(row.past_due),money(row.older_60),money(row.older_90),Number(row.credit_limit||0)>0?money(row.credit_limit):'Not set',hold(row)?'Yes':'No',row.last_payment_date?money(row.last_payment_amount)+' on '+date(row.last_payment_date):'None found',label(row.collection_status),date(row.follow_up_date)]));message('Exported '+exportRows.length.toLocaleString()+' collection account(s) to PDF.',true);}catch(error){message(error.message||'The collections worklist could not be exported.',false);}finally{button.disabled=false;if(buttonLabel)buttonLabel.textContent='Export PDF';}});
   document.getElementById('admin-tab-btn-collections')?.addEventListener('click',()=>{if(!loaded)load(true);});document.querySelectorAll('[data-admin-open="collections"]').forEach(button=>button.addEventListener('click',()=>{if(!loaded)load(true);}));
   window.loadWootenCollections=load;
@@ -9260,7 +9261,8 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     if(loaded) loadPayments();
   });
 
-  prevBtn.addEventListener("click",()=>{if(page>1){page--;loadPayments();}});
+  prevBtn.wootenGoToPage = target => { page=target;return loadPayments(); };
+prevBtn.addEventListener("click",()=>{if(page>1){page--;loadPayments();}});
   nextBtn.addEventListener("click",()=>{page++;loadPayments();});
 })();
 
@@ -9664,6 +9666,7 @@ document.getElementById("refreshInboxBtn").addEventListener("click",()=>window.W
 document.getElementById("inboxSearch").addEventListener("input",()=>{inboxPage=1;renderInboxMessages();});
 document.getElementById("inboxTypeFilter").addEventListener("change",()=>{inboxPage=1;renderInboxMessages();});
 document.getElementById("inboxSort").addEventListener("change",()=>{inboxPage=1;renderInboxMessages();});
+document.getElementById("inboxPrevBtn").wootenGoToPage = target => { inboxPage=target;renderInboxMessages(); };
 document.getElementById("inboxPrevBtn")?.addEventListener("click",()=>{if(inboxPage>1){inboxPage--;renderInboxMessages();}});
 document.getElementById("inboxNextBtn")?.addEventListener("click",()=>{
   const search=(document.getElementById("inboxSearch")?.value||"").trim().toLowerCase();
@@ -10056,6 +10059,7 @@ twilioPhoneTools.area?.addEventListener('input',()=>{twilioPhoneTools.area.value
 twilioPhoneTools.summary?.addEventListener('click',event=>{const btn=event.target.closest('[data-twilio-group]');if(btn)selectTwilioResultsGroup(btn.dataset.twilioGroup);});
 twilioPhoneTools.results?.addEventListener('click',event=>{const btn=event.target.closest('[data-twilio-verify-sms]');if(btn)verifyTwilioVoipSms(btn.dataset.twilioVerifySms,btn);});
 twilioPhoneTools.resultsSearch?.addEventListener('input',()=>{clearTimeout(twilioResultsState.searchTimer);twilioResultsState.searchTimer=setTimeout(()=>{twilioResultsState.search=String(twilioPhoneTools.resultsSearch.value||'').trim();twilioResultsState.page=1;if(twilioResultsState.group)loadTwilioResults();},300);});
+twilioPhoneTools.prev.wootenGoToPage = target => { twilioResultsState.page=target;return loadTwilioResults(); };
 twilioPhoneTools.prev?.addEventListener('click',()=>{if(twilioResultsState.page>1){twilioResultsState.page--;loadTwilioResults();}});
 twilioPhoneTools.next?.addEventListener('click',()=>{if(twilioResultsState.page<twilioResultsState.pages){twilioResultsState.page++;loadTwilioResults();}});
 setTimeout(loadTwilioPhoneTools,300);
@@ -10773,7 +10777,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   onlineFilter.addEventListener("change",filtersChanged);
   statusFilter.addEventListener("change",filtersChanged);
   sort.addEventListener("change",filtersChanged);
-  prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:true});}});
+  prevBtn.wootenGoToPage = target => { page=target;return loadDatabase({silent:true}); };
+prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:true});}});
   nextBtn.addEventListener("click",()=>{page++;loadDatabase({silent:true});});
 
   search.addEventListener("input",()=>{
@@ -11019,7 +11024,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     }
     renderDocumentPage();
   }
-  prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;renderDocumentPage();}});
+  prevPage.wootenGoToPage = target => { documentPage=target;renderDocumentPage(); };
+prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;renderDocumentPage();}});
   nextPage?.addEventListener('click',()=>{const pages=Math.max(1,Math.ceil(currentDocuments.length/documentPageSize));if(documentPage<pages){documentPage++;renderDocumentPage();}});
   exportPdf?.addEventListener('click',async()=>{
     if(!currentDocuments.length){setStatus('Load customer documents before exporting.',false);return;}
@@ -11332,7 +11338,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   }
   if(phoneScope)phoneScope.addEventListener('change',contactFiltersChanged);
   if(emailScope)emailScope.addEventListener('change',contactFiltersChanged);
-  if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;render();}});
+  customerPrev.wootenGoToPage = target => { customerPage=target;render(); };
+if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;render();}});
   if(customerNext)customerNext.addEventListener('click',function(){const pages=Math.max(1,Math.ceil(filteredCustomers().length/customerPageSize));if(customerPage<pages){customerPage++;render();}});
 
   list.addEventListener('change',function(e){
@@ -11491,7 +11498,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
   function setProgress(processed,total,moved,failed,label){const percent=total?Math.min(100,Math.round(processed/total*100)):100;progress.hidden=false;progressLabel.textContent=label||'Moving customers…';progressCount.textContent=processed.toLocaleString()+' / '+total.toLocaleString()+' • '+moved.toLocaleString()+' moved'+(failed?' • '+failed.toLocaleString()+' failed':'');progressBar.style.width=percent+'%';progressTrack.setAttribute('aria-valuenow',String(percent));}
   async function load(force=false){if(loading||(!force&&loaded))return;loading=true;refresh.disabled=true;syncControls();list.innerHTML='<div class="admin-inline-skeleton">'+Array.from({length:6},(_,index)=>'<div class="admin-inline-skeleton-row preview"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(index%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div>';try{const capability=await request('/api/admin/statement-scheduling?compact=1');if(capability?.capabilities?.exceptional_statement_customers_v1!==true)throw new Error('Deploy the included worker.js before using Exceptional Customers.');const data=await request('/api/admin/statement-scheduling/preview?type=exceptional');customers=Array.isArray(data.customers)?data.customers:[];const accounts=new Set(customers.map(row=>String(row.account_number||'')));for(const account of [...selected])if(!accounts.has(account))selected.delete(account);loaded=true;render();setStatus(customers.length.toLocaleString()+' exceptional customer'+(customers.length===1?'':'s')+' loaded.',true);}catch(error){customers=[];filtered=[];list.innerHTML='<div class="schedule-empty">'+esc(error.message||'Exceptional Customers could not be loaded.')+'</div>';setStatus(error.message||'Exceptional Customers could not be loaded.',false);}finally{loading=false;refresh.disabled=false;syncControls();}}
   async function moveAccounts(accounts,target){const normalized=[...new Set(accounts)].filter(Boolean);if(!normalized.length||!['A','B'].includes(target))return;if(!window.confirm('Move '+normalized.length.toLocaleString()+' selected customer'+(normalized.length===1?'':'s')+' from Exceptional Customers to Cycle '+target+'?'))return;section.querySelectorAll('button,input,select').forEach(control=>control.disabled=true);let processed=0,moved=0,failed=0;const errors=[];setProgress(0,normalized.length,0,0,'Preparing customer batches…');try{for(let start=0;start<normalized.length;start+=50){const batch=normalized.slice(start,start+50);try{const data=await request('/api/admin/customer-statement-cycle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_numbers:batch,statement_cycle:target})});moved+=Number(data.updated||0);}catch(error){failed+=batch.length;errors.push(error.message||'A customer batch failed.');}processed+=batch.length;setProgress(processed,normalized.length,moved,failed,processed>=normalized.length?'Move complete':'Moving customer batches…');}selected.clear();await new Promise(resolve=>window.setTimeout(resolve,350));await load(true);if(typeof window.refreshStatementCyclePreviews==='function')await window.refreshStatementCyclePreviews();setStatus(moved.toLocaleString()+' customer'+(moved===1?'':'s')+' moved to Cycle '+target+(failed?' • '+failed.toLocaleString()+' failed. '+errors[0]:'.'),failed===0);}finally{section.querySelectorAll('button,input,select').forEach(control=>control.disabled=false);syncControls();prev.disabled=page<=1;next.disabled=page>=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));}}
-  search.addEventListener('input',()=>{page=1;render();});refresh.addEventListener('click',()=>window.WootenRefreshUI.run(refresh,()=>load(true)));exportPdf.addEventListener('click',async()=>{if(!filtered.length){setStatus('Load Exceptional Customers before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}const label=exportPdf.querySelector('span');exportPdf.dataset.exporting='true';syncControls();try{await window.WootenAdminTablePdf.exportData('Exceptional Customers — Statement Scheduling Exclusions',['Customer #','Customer Name','Total Balance','Scheduling Assignment'],filtered.map(row=>[row.account_number,row.account_name||'Customer',money(row.total_balance),'Exceptional — No scheduled statements']),(done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');});setStatus(filtered.length.toLocaleString()+' exceptional customer'+(filtered.length===1?'':'s')+' exported to PDF.',true);}catch(error){setStatus(error.message||'The Exceptional Customers table could not be exported.',false);}finally{delete exportPdf.dataset.exporting;if(label)label.textContent='Export PDF';syncControls();}});prev.addEventListener('click',()=>{page--;render();});next.addEventListener('click',()=>{page++;render();});selectMatching.addEventListener('click',()=>{filtered.forEach(row=>selected.add(String(row.account_number||'')));render();});clear.addEventListener('click',()=>{selected.clear();render();});moveButtons.forEach(button=>button.addEventListener('click',()=>moveAccounts([...selected],button.dataset.exceptionalBulkMove)));
+  search.addEventListener('input',()=>{page=1;render();});refresh.addEventListener('click',()=>window.WootenRefreshUI.run(refresh,()=>load(true)));exportPdf.addEventListener('click',async()=>{if(!filtered.length){setStatus('Load Exceptional Customers before exporting.',false);return;}if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}const label=exportPdf.querySelector('span');exportPdf.dataset.exporting='true';syncControls();try{await window.WootenAdminTablePdf.exportData('Exceptional Customers — Statement Scheduling Exclusions',['Customer #','Customer Name','Total Balance','Scheduling Assignment'],filtered.map(row=>[row.account_number,row.account_name||'Customer',money(row.total_balance),'Exceptional — No scheduled statements']),(done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');});setStatus(filtered.length.toLocaleString()+' exceptional customer'+(filtered.length===1?'':'s')+' exported to PDF.',true);}catch(error){setStatus(error.message||'The Exceptional Customers table could not be exported.',false);}finally{delete exportPdf.dataset.exporting;if(label)label.textContent='Export PDF';syncControls();}});prev.wootenGoToPage = target => { page=target;render(); };
+prev.addEventListener('click',()=>{page--;render();});next.addEventListener('click',()=>{page++;render();});selectMatching.addEventListener('click',()=>{filtered.forEach(row=>selected.add(String(row.account_number||'')));render();});clear.addEventListener('click',()=>{selected.clear();render();});moveButtons.forEach(button=>button.addEventListener('click',()=>moveAccounts([...selected],button.dataset.exceptionalBulkMove)));
   list.addEventListener('change',event=>{const checkbox=event.target.closest('[data-exceptional-customer-check]');if(!checkbox)return;if(checkbox.checked)selected.add(checkbox.value);else selected.delete(checkbox.value);syncControls();});
   list.addEventListener('click',async event=>{const button=event.target.closest('[data-save-exceptional-assignment]');if(!button)return;const row=button.closest('[data-exceptional-customer]'),account=row?.dataset.exceptionalCustomer||'',target=row?.querySelector('select')?.value||'';if(!account||target==='E')return;await moveAccounts([account],target).catch(error=>setStatus(error.message||'Customer assignment could not be saved.',false));});
   window.loadExceptionalCustomers=load;
@@ -11688,6 +11696,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     const next=pager.querySelector('[data-schedule-result-next]');
     if(summary)summary.textContent='Showing '+(start+1)+'–'+finish+' of '+rows.length;
     if(pageInfo)pageInfo.textContent='Page '+current+' of '+pages;
+    if(prev)prev.wootenGoToPage=target=>setScheduleResultPage(runElement,target);
     if(prev)prev.disabled=current<=1;
     if(next)next.disabled=current>=pages;
   }
@@ -11889,6 +11898,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     if(pagination){
       pagination.hidden=matches.length<=previewPageSize;
       const pageInfo=pagination.querySelector('[data-schedule-preview-page-info]'),prev=pagination.querySelector('[data-schedule-preview-prev]'),next=pagination.querySelector('[data-schedule-preview-next]');
+      if(prev)prev.wootenGoToPage=target=>{previewPages[type]=target;renderPreviewMatches(type,query);};
       if(pageInfo)pageInfo.textContent='Page '+page+' of '+pages;
       if(prev)prev.disabled=page<=1;
       if(next)next.disabled=page>=pages;
@@ -12437,9 +12447,11 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     detailEl.hidden=true;customersEl.hidden=false;activeAccount='';
     if(customersPagination)customersPagination.hidden=customerTotal<=20;
   });
-  if(customersPrev)customersPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;loadCustomers(false);}});
+  customersPrev.wootenGoToPage = target => { customerPage=target;return loadCustomers(false); };
+if(customersPrev)customersPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;loadCustomers(false);}});
   if(customersNext)customersNext.addEventListener('click',function(){customerPage++;loadCustomers(false);});
-  if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){detailPage--;loadCustomerEntries();}});
+  entriesPrev.wootenGoToPage = target => { detailPage=target;return loadCustomerEntries(); };
+if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){detailPage--;loadCustomerEntries();}});
   if(entriesNext)entriesNext.addEventListener('click',function(){detailPage++;loadCustomerEntries();});
   [from,to,type].forEach(el=>el&&el.addEventListener('change',function(){loadCustomers(true);}));
   let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(function(){loadCustomers(true);},350);});
@@ -12646,7 +12658,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       e.preventDefault();e.stopPropagation();
       const account=pager.getAttribute('data-account');
       const state=openNodes.get(account);if(!state)return;
-      const nextPage=pager.getAttribute('data-tree-action')==='next'?state.page+1:state.page-1;
+      const nextPage=pager.dataset.wootenTargetPage?Number(pager.dataset.wootenTargetPage):(pager.getAttribute('data-tree-action')==='next'?state.page+1:state.page-1);
       if(nextPage>=1&&nextPage<=state.pages)loadNode(account,nextPage);
       return;
     }
@@ -12656,7 +12668,8 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     openNodes.set(account,{loading:true,page:1,pages:1,total:0,entries:[]});
     loadNode(account,1);
   });
-  if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage--;openNodes.clear();loadCustomers(false);}});
+  prev.wootenGoToPage = target => { customerPage=target;openNodes.clear();return loadCustomers(false); };
+if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage--;openNodes.clear();loadCustomers(false);}});
   if(next)next.addEventListener('click',function(){customerPage++;openNodes.clear();loadCustomers(false);});
   [from,to,type].forEach(el=>el&&el.addEventListener('change',()=>loadCustomers(true)));
   let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(()=>loadCustomers(true),350);});
@@ -13035,7 +13048,8 @@ let pagingRequests=false;
      pagingRequests=false;
    }
  }
- g('requestCenterLoad').addEventListener('click',()=>{page=1;load()});g('requestCenterType').addEventListener('change',()=>{page=1;load()});g('requestCenterStatusFilter').addEventListener('change',()=>{page=1;load()});let timer;g('requestCenterSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load()},300)});g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPage(page-1)}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){changeRequestPage(page+1)}});g('admin-tab-btn-requests').addEventListener('click',()=>{if(!loaded)load()});
+ g('requestCenterLoad').addEventListener('click',()=>{page=1;load()});g('requestCenterType').addEventListener('change',()=>{page=1;load()});g('requestCenterStatusFilter').addEventListener('change',()=>{page=1;load()});let timer;g('requestCenterSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load()},300)});g('requestCenterPrev').wootenGoToPage = target => { return changeRequestPage(target); };
+g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPage(page-1)}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){changeRequestPage(page+1)}});g('admin-tab-btn-requests').addEventListener('click',()=>{if(!loaded)load()});
 })();
 </script>
 
@@ -13053,7 +13067,8 @@ let pagingRequests=false;
   function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';if(!q)return auditEntries;return auditEntries.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=String(row.action_type||'').replaceAll('_',' '),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
   function renderAuditPage(){const filtered=filteredAuditEntries(),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
   function renderAudit(entries){auditEntries=Array.isArray(entries)?entries:[];auditPage=1;renderAuditPage();}
-  auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAuditPage();}});
+  auditPrev.wootenGoToPage = target => { auditPage=target;renderAuditPage(); };
+auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAuditPage();}});
   auditNext?.addEventListener('click',()=>{const pages=Math.max(1,Math.ceil(filteredAuditEntries().length/auditPageSize));if(auditPage<pages){auditPage++;renderAuditPage();}});
   auditSearch?.addEventListener('input',()=>{auditPage=1;if(auditSearchClear)auditSearchClear.hidden=!auditSearch.value;renderAuditPage();});
   auditFilter?.addEventListener('change',()=>{auditPage=1;renderAuditPage();});
@@ -13323,7 +13338,8 @@ let pagingRequests=false;
   }
   if(phoneScope)phoneScope.addEventListener('change',contactFiltersChanged);
   if(emailScope)emailScope.addEventListener('change',contactFiltersChanged);
-  if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;render();}});
+  customerPrev.wootenGoToPage = target => { customerPage=target;render(); };
+if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;render();}});
   if(customerNext)customerNext.addEventListener('click',function(){const pages=Math.max(1,Math.ceil(filteredCustomers().length/customerPageSize));if(customerPage<pages){customerPage++;render();}});
 
   list.addEventListener('change',function(e){
@@ -13613,9 +13629,11 @@ let pagingRequests=false;
     detailEl.hidden=true;customersEl.hidden=false;activeAccount='';
     if(customersPagination)customersPagination.hidden=customerTotal<=20;
   });
-  if(customersPrev)customersPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;loadCustomers(false);}});
+  customersPrev.wootenGoToPage = target => { customerPage=target;return loadCustomers(false); };
+if(customersPrev)customersPrev.addEventListener('click',function(){if(customerPage>1){customerPage--;loadCustomers(false);}});
   if(customersNext)customersNext.addEventListener('click',function(){customerPage++;loadCustomers(false);});
-  if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){detailPage--;loadCustomerEntries();}});
+  entriesPrev.wootenGoToPage = target => { detailPage=target;return loadCustomerEntries(); };
+if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){detailPage--;loadCustomerEntries();}});
   if(entriesNext)entriesNext.addEventListener('click',function(){detailPage++;loadCustomerEntries();});
   [from,to,type].forEach(el=>el&&el.addEventListener('change',function(){loadCustomers(true);}));
   let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(function(){loadCustomers(true);},350);});
@@ -13808,7 +13826,7 @@ let pagingRequests=false;
       e.preventDefault();e.stopPropagation();
       const account=pager.getAttribute('data-account');
       const state=openNodes.get(account);if(!state)return;
-      const nextPage=pager.getAttribute('data-tree-action')==='next'?state.page+1:state.page-1;
+      const nextPage=pager.dataset.wootenTargetPage?Number(pager.dataset.wootenTargetPage):(pager.getAttribute('data-tree-action')==='next'?state.page+1:state.page-1);
       if(nextPage>=1&&nextPage<=state.pages)loadNode(account,nextPage);
       return;
     }
@@ -13818,7 +13836,8 @@ let pagingRequests=false;
     openNodes.set(account,{loading:true,page:1,pages:1,total:0,entries:[]});
     loadNode(account,1);
   });
-  if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage--;openNodes.clear();loadCustomers(false);}});
+  prev.wootenGoToPage = target => { customerPage=target;openNodes.clear();return loadCustomers(false); };
+if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage--;openNodes.clear();loadCustomers(false);}});
   if(next)next.addEventListener('click',function(){customerPage++;openNodes.clear();loadCustomers(false);});
   [from,to,type].forEach(el=>el&&el.addEventListener('change',()=>loadCustomers(true)));
   let timer;search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(()=>loadCustomers(true),350);});
@@ -14175,7 +14194,8 @@ let pagingRequests=false;
   async function save(card,button){button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/account-applications',{method:'POST',headers:{'X-Admin-Key':adminKey(),'Content-Type':'application/json'},body:JSON.stringify({id:Number(card.dataset.applicationId),status:card.querySelector('[data-application-status]').value,admin_notes:card.querySelector('[data-application-notes]').value,portal:!!card.querySelector('[data-application-portal]')?.checked,email:!!card.querySelector('[data-application-email]')?.checked,sms:!!card.querySelector('[data-application-sms]')?.checked})});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Review could not be saved.');if(card.querySelector('[data-application-sms]')?.checked)await refreshTwilioBalance();setStatus('Application review saved.',true);await load();}catch(error){setStatus(error.message||'Review could not be saved.',false);button.disabled=false;button.textContent='Save Review';}}
   async function deleteApplication(card,button){if(!window.wootenAdminUser?.owner){setStatus('Only the Main Admin can permanently delete account applications.',false);requestAnimationFrame(()=>statusBox.scrollIntoView({behavior:'smooth',block:'center'}));return;}const number=button.dataset.applicationNumber||'',name=button.dataset.applicationName||'this applicant';const confirmed=window.confirm('Permanently delete application '+number+' for '+name+'?\n\nThis will permanently delete the complete application record, private admin notes, Tax ID document, and Driver’s License / State ID file from the server. This action cannot be undone.');if(!confirmed)return;button.disabled=true;button.textContent='Deleting…';try{const response=await fetch('/api/admin/account-applications/'+encodeURIComponent(card.dataset.applicationId),{method:'DELETE',headers:{'X-Admin-Key':adminKey(),'Accept':'application/json'}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Application could not be deleted.');setStatus('Application '+(data.application_number||number)+' and '+Number(data.files_deleted||0)+' uploaded file(s) were permanently deleted.',true);await load();}catch(error){setStatus(error.message||'Application could not be deleted.',false);button.disabled=false;button.textContent='Delete Application';}}
   list.addEventListener('click',event=>{const card=event.target.closest('[data-application-id]');if(!card)return;const toggle=event.target.closest('[data-application-toggle]');if(toggle){const detail=card.querySelector('.application-detail'),open=detail.hidden,chevron=toggle.querySelector('.application-tree-chevron');detail.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(chevron)chevron.style.setProperty('transform',open?'rotate(90deg)':'rotate(0deg)','important');return;}const file=event.target.closest('[data-application-file]');if(file){openFile(card,file.dataset.applicationFile,file);return;}const saveBtn=event.target.closest('[data-application-save]');if(saveBtn){save(card,saveBtn);return;}const deleteBtn=event.target.closest('[data-application-delete]');if(deleteBtn)deleteApplication(card,deleteBtn);});
-  loadBtn.addEventListener('click',()=>{page=1;load();});get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}});get('applicationNext').addEventListener('click',()=>{if(page<totalPages){page++;load();}});get('applicationTypeFilter').addEventListener('change',()=>{page=1;load();});get('applicationStatusFilter').addEventListener('change',()=>{page=1;load();});
+  loadBtn.addEventListener('click',()=>{page=1;load();});get('applicationPrev').wootenGoToPage = target => { page=target;return load(); };
+get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}});get('applicationNext').addEventListener('click',()=>{if(page<totalPages){page++;load();}});get('applicationTypeFilter').addEventListener('change',()=>{page=1;load();});get('applicationStatusFilter').addEventListener('change',()=>{page=1;load();});
   let timer;get('applicationSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load();},350);});get('admin-tab-btn-applications').addEventListener('click',()=>{if(!loaded)load();});
 })();
 </script>
@@ -14754,8 +14774,11 @@ let pagingRequests=false;
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=notification-routing-20260912-1"></script>
-<link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=20260914pagination3">
+<script src="assets/js/admin-payment-transactions.js?v=446"></script>
+<link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=446">
+
+<link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=446">
+<script src="assets/js/wooten-numbered-pagination.js?v=446"></script>
 </body>
 </html>
 
@@ -17017,7 +17040,8 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
   createBtn.addEventListener('click',create);refreshBtn.addEventListener('click',()=>window.WootenRefreshUI.run(refreshBtn,()=>load()));latestBtn.addEventListener('click',()=>download(backups[0]));
   automaticToggle?.addEventListener('change',()=>updateAutomaticSchedule(automaticToggle.checked));
   rowsEl.addEventListener('click',event=>{const restoreButton=event.target.closest('[data-backup-restore]');if(restoreButton){restore({key:restoreButton.dataset.backupRestore,filename:restoreButton.dataset.backupFilename});return;}const button=event.target.closest('[data-backup-key]');if(!button)return;download({key:button.dataset.backupKey,filename:button.dataset.backupFilename});});
-  prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
+  prev.wootenGoToPage = target => { page=target;render(); };
+prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{if(page<Math.ceil(backups.length/PAGE_SIZE)){page++;render();}});
   helpBtn?.addEventListener('click',()=>window.alert([
     'Portal Database Backup:',
     '',

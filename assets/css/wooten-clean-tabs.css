@@ -1,0 +1,23 @@
+/* Style 1: flat underline navigation for the four administration section groups. */
+body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs{
+  display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;
+  justify-content:flex-start!important;align-items:stretch!important;gap:0 22px!important;
+  margin:0 0 24px!important;padding:0!important;min-width:0!important;
+  border:0!important;border-bottom:1px solid #d8e3ed!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;
+}
+body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs .admin-subtab{
+  flex:0 1 auto!important;width:auto!important;min-width:0!important;min-height:48px!important;
+  margin:0!important;padding:12px 14px!important;border:0!important;border-bottom:3px solid transparent!important;
+  border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  color:#526a84!important;font-size:14px!important;font-weight:600!important;
+  text-align:left!important;white-space:normal!important;line-height:1.45!important;
+  transform:none!important;animation:none!important;transition:color .15s ease!important;text-decoration:none!important;
+}
+body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs .admin-subtab:hover{color:#0b2948!important;background:transparent!important;transform:none!important}
+body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs .admin-subtab[aria-selected="true"]{color:#0b2948!important;border-bottom-color:#0b2948!important;background:transparent!important;box-shadow:none!important}
+body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs .admin-subtab:focus-visible{outline:2px solid #3b73ab!important;outline-offset:-3px!important}
+@media(max-width:600px){
+  body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs{gap:0 8px!important}
+  body :is(#admin-tab-customers,#admin-tab-database,#admin-tab-documents,#admin-tab-communication,#admin-tab-messages,#admin-tab-settings,#admin-tab-gmail) > .admin-subtabs .admin-subtab{padding:11px 8px!important;font-size:13px!important;flex:1 1 auto!important}
+}

@@ -218,6 +218,7 @@
   form.addEventListener('change',event=>{if(event.target.id!=='ptSearch')load(1,filterParams());});
   get('ptReset').addEventListener('click',()=>{clearTimeout(searchTimer);form.reset();load(1,filterParams());});
   get('ptRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('ptRefresh'),()=>load(1,filterParams())).finally(controls));
+  get('ptPrev').wootenGoToPage=target=>load(target);
   get('ptPrev').addEventListener('click',()=>load(page-1));get('ptNext').addEventListener('click',()=>load(page+1));
   get('ptExport').addEventListener('click',exportPdf);
   async function openPaymentNotification(detail){

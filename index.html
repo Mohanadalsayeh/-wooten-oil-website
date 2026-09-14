@@ -2243,6 +2243,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   refreshButton?.addEventListener('click',skeleton);
   search?.addEventListener('input',resetAndRender);
   typeFilter?.addEventListener('change',resetAndRender);
+  prev.wootenGoToPage=function(target){page=target;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});};
   prev.addEventListener('click',function(){if(page>1){page--;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});}});
   next.addEventListener('click',function(){var pages=Math.max(1,Math.ceil(rows().length/pageSize));if(page<pages){page++;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});}});
   new MutationObserver(function(){
@@ -3506,7 +3507,7 @@ body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-hist
 }
 </style>
 
-<link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=20260912pagination1">
+<link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=446">
 </body>
 <style id="wooten-customer-close-and-login-hover-ver347">
 /* Close controls must override ordinary navigation-item hover fills. */
@@ -5202,3 +5203,5 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-5">
 <script src="assets/js/wooten-sortable-tables.js?v=20260914-3"></script>
 </html>
+
+<script src="assets/js/wooten-numbered-pagination.js?v=446"></script>
