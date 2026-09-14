@@ -130,6 +130,67 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
   text-align: left !important;
 }
 
+/*
+ * Anchor live-table sort arrows independently from the label. This keeps the
+ * arrow against the right edge and prevents older button hover rules from
+ * changing the header's vertical geometry.
+ */
+body table[data-pdf-table-name="Live Customer Database"] thead th.wo-sortable-heading,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th.wo-sortable-heading {
+  vertical-align: middle !important;
+}
+
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 9px 32px 9px 10px !important;
+  box-sizing: border-box !important;
+  line-height: 1.35 !important;
+}
+
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-label {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: inherit !important;
+  text-align: left !important;
+}
+
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-icon,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-icon {
+  position: absolute !important;
+  top: calc(50% - 8px) !important;
+  right: 10px !important;
+  left: auto !important;
+  width: 12px !important;
+  height: 16px !important;
+  margin: 0 !important;
+}
+
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:hover,
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:focus,
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:focus-visible,
+body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:active,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:focus,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:focus-visible,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:active {
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 9px 32px 9px 10px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
 .wo-table-sort-icon::before,
 .wo-table-sort-icon::after {
   position: absolute;
