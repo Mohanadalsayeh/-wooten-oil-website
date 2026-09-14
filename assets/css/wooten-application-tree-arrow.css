@@ -14,7 +14,7 @@
   width:18px;
   height:18px;
   color:#6a7b8d;
-  transform:rotate(0deg);
+  transform:rotate(0deg)!important;
   transform-origin:50% 50%;
   transition:transform .18s ease,color .18s ease;
 }
@@ -31,12 +31,12 @@
 }
 
 .application-summary[aria-expanded="false"] .application-tree-chevron{
-  transform:rotate(0deg);
+  transform:rotate(0deg)!important;
 }
 
 .application-summary[aria-expanded="true"] .application-tree-chevron{
   color:#17324d;
-  transform:rotate(90deg);
+  transform:rotate(90deg)!important;
 }
 
 .application-summary-customer{grid-column:2}

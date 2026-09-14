@@ -8,6 +8,7 @@
   --wo-table-heading-color: #405a72;
   --wo-table-heading-bg: #f2f6fa;
   --wo-table-sort-accent: #173f63;
+  --wo-table-sort-hover: #0d2340;
 }
 
 /* Admin tables use one dense, readable typography system. */
@@ -134,9 +135,13 @@ table tbody td .twilio-type {
   transform: none !important;
 }
 
+.wo-table-sort-button:hover {
+  color: var(--wo-table-sort-hover) !important;
+}
+
 .wo-table-sort-button:hover .wo-table-sort-label,
 .wo-table-sort-button:focus-visible .wo-table-sort-label {
-  font-weight: 900 !important;
+  font-weight: inherit !important;
 }
 
 .wo-sortable-heading[aria-sort="ascending"] .wo-table-sort-icon,
