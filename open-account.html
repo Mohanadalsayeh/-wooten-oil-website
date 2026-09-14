@@ -37,7 +37,10 @@
     .back-link{display:inline-flex;align-items:center;gap:8px;color:var(--navy);font-weight:800;text-decoration:none}
     .back-link:hover,.back-link:focus-visible{text-decoration:underline;text-underline-offset:4px}
     main{width:min(1040px,calc(100% - 32px));margin:34px auto 54px}
-    .application-shell{overflow:hidden;border:1px solid rgba(255,255,255,.36);border-radius:24px;background:#fff;box-shadow:var(--shadow)}
+    .application-shell{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.36);border-radius:24px;background:#fff;box-shadow:var(--shadow)}
+    .application-close{position:absolute;z-index:3;top:18px;right:18px;width:42px;height:42px;box-sizing:border-box;border:1px solid #efb9b7;border-radius:12px;background:#fff3f2;color:var(--red);padding:0;font-family:inherit;font-size:26px;font-weight:500;line-height:1;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}
+    .application-close:hover,.application-close:active{background:#b73333;border-color:#b73333;color:#fff;text-decoration:none}
+    .application-close:focus-visible{outline:3px solid rgba(199,55,50,.25);outline-offset:2px}
     .application-head{padding:clamp(28px,5vw,52px);background:linear-gradient(135deg,#f7fafc,#fff);border-bottom:1px solid var(--line)}
     .eyebrow{display:flex;align-items:center;gap:9px;margin-bottom:12px;color:var(--red);font-size:.79rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase}
     .eyebrow::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--red)}
@@ -109,6 +112,7 @@ textarea{min-height:116px;padding:13px 14px;resize:vertical}
       .back-link span{display:none}
       main{width:calc(100% - 20px);margin:18px auto 34px}
       .application-shell{border-radius:18px}
+      .application-close{top:14px;right:14px}
       .grid,.type-options{grid-template-columns:1fr}
       .field.full{grid-column:auto}
       form{padding-top:28px}
@@ -145,6 +149,7 @@ textarea{min-height:116px;padding:13px 14px;resize:vertical}
 
   <main>
     <article class="application-shell">
+      <a class="application-close" href="index.html#top" aria-label="Close new customer application">&times;</a>
       <header class="application-head">
         <div class="eyebrow">New customer application</div>
         <h1>Open a Wooten Oil Account</h1>
