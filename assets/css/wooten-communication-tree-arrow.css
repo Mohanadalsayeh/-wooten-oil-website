@@ -1,0 +1,49 @@
+/* Communication Log: keep the expand arrow left and synchronize its direction. */
+.communication-tree-node > .communication-customer-row > .communication-tree-chevron {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  align-self: center !important;
+  justify-self: start !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  color: #6a7b8d !important;
+  transform: rotate(0deg) !important;
+  transform-origin: 50% 50% !important;
+  transition: transform .18s ease, color .18s ease !important;
+}
+
+.communication-tree-node > .communication-customer-row > .communication-tree-chevron svg {
+  display: block !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.communication-tree-node > .communication-customer-row > .communication-customer-name {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  min-width: 0 !important;
+}
+
+/* Closed points right; expanded points down. aria-expanded is the source of truth. */
+.communication-tree-node > .communication-customer-row[aria-expanded="true"] > .communication-tree-chevron {
+  color: #17324d !important;
+  transform: rotate(90deg) !important;
+}
+
+.communication-tree-node > .communication-customer-row[aria-expanded="false"] > .communication-tree-chevron {
+  transform: rotate(0deg) !important;
+}
+
+@media (max-width: 620px) {
+  .communication-tree-node > .communication-customer-row {
+    grid-template-columns: 18px minmax(0, 1fr) 62px !important;
+    column-gap: 10px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .communication-tree-node > .communication-customer-row > .communication-tree-chevron {
+    transition: none !important;
+  }
+}

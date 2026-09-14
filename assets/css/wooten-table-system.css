@@ -1,0 +1,165 @@
+/* Wooten Oil shared table typography and sortable-header controls. */
+
+:root {
+  --wo-table-heading-size: 12px;
+  --wo-table-heading-weight: 700;
+  --wo-table-body-size: 13px;
+  --wo-table-body-weight: 400;
+  --wo-table-heading-color: #405a72;
+  --wo-table-heading-bg: #f2f6fa;
+  --wo-table-sort-accent: #173f63;
+}
+
+/* Admin tables use one dense, readable typography system. */
+body table:not(.payment-receipt-table) thead th {
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+  font-size: var(--wo-table-heading-size) !important;
+  font-weight: var(--wo-table-heading-weight) !important;
+  line-height: 1.35 !important;
+  letter-spacing: .03em !important;
+  text-transform: uppercase !important;
+  color: var(--wo-table-heading-color) !important;
+  background-color: var(--wo-table-heading-bg) !important;
+}
+
+body table:not(.payment-receipt-table) tbody td {
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+  font-size: var(--wo-table-body-size) !important;
+  font-weight: var(--wo-table-body-weight) !important;
+  line-height: 1.45 !important;
+}
+
+/* The customer payment record remains intentionally larger like a receipt. */
+.payment-receipt-table thead th {
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  letter-spacing: .035em !important;
+  text-transform: uppercase !important;
+}
+
+.payment-receipt-table tbody td {
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1.55 !important;
+}
+
+/* Retain meaningful emphasis within the standardized body typography. */
+table tbody td strong,
+table tbody td .status,
+table tbody td .badge,
+table tbody td .pill,
+table tbody td .twilio-valid,
+table tbody td .twilio-invalid,
+table tbody td .twilio-error,
+table tbody td .twilio-type {
+  font-weight: 700 !important;
+}
+
+/* Sort buttons fill the header without changing the table's column geometry. */
+.wo-sortable-heading {
+  padding: 0 !important;
+}
+
+.wo-table-sort-button {
+  appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  margin: 0;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.wo-table-sort-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wo-table-sort-icon {
+  position: relative;
+  width: 12px;
+  height: 16px;
+  opacity: .55;
+}
+
+.wo-table-sort-icon::before,
+.wo-table-sort-icon::after {
+  position: absolute;
+  left: 2px;
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  content: "";
+}
+
+.wo-table-sort-icon::before {
+  top: 2px;
+  border-bottom: 5px solid currentColor;
+}
+
+.wo-table-sort-icon::after {
+  bottom: 2px;
+  border-top: 5px solid currentColor;
+}
+
+.wo-table-sort-button:hover,
+.wo-table-sort-button:focus-visible {
+  background: rgba(23, 63, 99, .08);
+  color: var(--wo-table-sort-accent);
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wo-table-sort-button:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(31, 78, 121, .38);
+}
+
+.wo-sortable-heading[aria-sort="ascending"] .wo-table-sort-icon,
+.wo-sortable-heading[aria-sort="descending"] .wo-table-sort-icon {
+  opacity: 1;
+  color: var(--wo-table-sort-accent);
+}
+
+.wo-sortable-heading[aria-sort="ascending"] .wo-table-sort-icon::after,
+.wo-sortable-heading[aria-sort="descending"] .wo-table-sort-icon::before {
+  opacity: .18;
+}
+
+/* Preserve compact special-table padding while using the same typography. */
+.mas90-failure-table .wo-table-sort-button,
+.twilio-lookup-table .wo-table-sort-button,
+.schedule-cleanup-table .wo-table-sort-button,
+.pt-table .wo-table-sort-button {
+  padding: 9px 8px;
+}
+
+@media (max-width: 800px) {
+  .wo-table-sort-button {
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wo-table-sort-button {
+    transition: none !important;
+  }
+}

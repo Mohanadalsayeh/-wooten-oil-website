@@ -1,0 +1,41 @@
+/* Keep the Preferred Delivery Date centered on both axes, including iOS Safari. */
+body.request-fuel-page #deliveryDate {
+  height: 50px !important;
+  min-height: 50px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 48px !important;
+  text-align: center !important;
+}
+
+body.request-fuel-page #deliveryDate::-webkit-date-and-time-value {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 48px !important;
+  text-align: center !important;
+}
+
+body.request-fuel-page #deliveryDate::-webkit-datetime-edit {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 48px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
+  text-align: center !important;
+}
+
+body.request-fuel-page #deliveryDate::-webkit-datetime-edit-fields-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 48px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
