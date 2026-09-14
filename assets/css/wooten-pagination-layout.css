@@ -10,9 +10,10 @@ body :is(.doc-admin-pagination,.schedule-result-pagination,.customer-documents-p
   body :is(.db-pagination,.twilio-results-pager,.pt-pagination,.doc-admin-pagination-controls,.schedule-result-pagination-controls,.customer-documents-page-controls,#adminActivityPagination .admin-activity-pagination-controls)>button{font-size:13px!important;padding-left:10px!important;padding-right:10px!important}
 }
 
-/* Customer Activity pagers have their own side margins. Auto width keeps the
-   Previous, page information, and Next controls inside each activity card. */
-body .activity-section[data-activity-section] > .db-pagination.activity-pagination{
+/* The shared :is() selectors inherit #adminActivityPagination's specificity,
+   even when they match .db-pagination. Use the real dashboard ID to beat that
+   priority: auto width then subtracts both margins instead of overflowing. */
+body #activityDashboard .activity-section[data-activity-section] > .db-pagination.activity-pagination{
   position:relative!important;
   inset:auto!important;
   width:auto!important;
@@ -24,19 +25,19 @@ body .activity-section[data-activity-section] > .db-pagination.activity-paginati
   padding-right:0!important;
   box-sizing:border-box!important;
 }
-body .activity-section[data-activity-section] > .db-pagination.activity-pagination > button{
+body #activityDashboard .activity-section[data-activity-section] > .db-pagination.activity-pagination > button{
   position:static!important;
   min-width:0!important;
   max-width:100%!important;
   box-sizing:border-box!important;
   transform:none!important;
 }
-body .activity-section[data-activity-section] > .db-pagination.activity-pagination > button:last-child{
+body #activityDashboard .activity-section[data-activity-section] > .db-pagination.activity-pagination > button:last-child{
   justify-self:end!important;
   margin-right:0!important;
 }
 @media(max-width:600px){
-  body .activity-section[data-activity-section] > .db-pagination.activity-pagination{
+  body #activityDashboard .activity-section[data-activity-section] > .db-pagination.activity-pagination{
     width:auto!important;
     max-width:none!important;
     margin-left:12px!important;
