@@ -1311,11 +1311,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 <div class="contact-message-overlay" id="contactMessageOverlay" role="dialog" aria-modal="true" aria-labelledby="contactMessageTitle">
   <div class="contact-message-dialog">
+    <div class="contact-message-header">
     <button class="contact-message-close" id="contactMessageClose" type="button" aria-label="Close">&times;</button>
     <div class="eyebrow">Contact Wooten Oil</div>
     <h2 id="contactMessageTitle">Send Us a Message</h2>
-    <p class="contact-message-intro">Fill out the form below. Your message will be sent directly to Wooten Oil, and we’ll email you a confirmation with your message reference number.</p>
+    </div>
     <form id="contactMessageForm">
+      <div class="contact-message-body">
+      <p class="contact-message-intro">Fill out the form below. Your message will be sent directly to Wooten Oil, and we’ll email you a confirmation with your message reference number.</p>
       <div class="contact-message-grid">
         <div class="contact-message-field"><label for="contactName">Name *</label><input id="contactName" name="name" required autocomplete="name"></div>
         <div class="contact-message-field"><label for="contactEmail">Email *</label><input id="contactEmail" name="email" type="email" required autocomplete="email"></div>
@@ -1323,11 +1326,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         <div class="contact-message-field"><label for="contactSubject">Subject *</label><input id="contactSubject" name="subject" required maxlength="140"></div>
         <div class="contact-message-field full"><label for="contactMessage">Message *</label><textarea id="contactMessage" name="message" required maxlength="5000"></textarea></div>
       </div>
+      </div>
+      <div class="contact-message-footer">
       <div class="contact-message-actions">
-        <button class="btn btn-primary" id="contactMessageSubmit" type="submit">Send Message</button>
         <button class="btn btn-outline" id="contactMessageCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="contactMessageSubmit" type="submit">Send Message</button>
       </div>
       <div class="contact-message-status" id="contactMessageStatus" role="status" aria-live="polite"></div>
+      </div>
     </form>
   </div>
 </div>
@@ -5205,3 +5211,4 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 </html>
 
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
+<link rel="stylesheet" href="assets/css/wooten-contact-layout.css?v=448">
