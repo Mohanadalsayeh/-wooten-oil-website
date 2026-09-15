@@ -1,0 +1,134 @@
+/* Contact form: stationary header/actions, independently scrolling fields. */
+#contactMessageOverlay {
+  align-items: center !important;
+  padding: 16px !important;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+#contactMessageOverlay > .contact-message-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(780px, 100%);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-top: 4px solid #d92328;
+  border-radius: 18px;
+  background: #fff;
+  color: #102d49;
+}
+#contactMessageOverlay .contact-message-header {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 28px 94px 24px 32px;
+  border-bottom: 1px solid #d9e1e8;
+}
+#contactMessageOverlay .contact-message-header .eyebrow {
+  margin: 0 0 14px;
+  color: #102d49;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+#contactMessageOverlay .contact-message-header h2 {
+  margin: 0;
+  color: #102d49;
+  font-size: 32px;
+  line-height: 1.2;
+}
+#contactMessageOverlay .contact-message-close {
+  top: 22px !important;
+  right: 24px !important;
+}
+#contactMessageForm {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+#contactMessageOverlay .contact-message-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #8997a4 #f0f3f6;
+  padding: 24px 32px 28px;
+}
+#contactMessageOverlay .contact-message-body::-webkit-scrollbar { width: 8px; }
+#contactMessageOverlay .contact-message-body::-webkit-scrollbar-track { background: #f0f3f6; }
+#contactMessageOverlay .contact-message-body::-webkit-scrollbar-thumb {
+  background: #8997a4;
+  border: 2px solid #f0f3f6;
+  border-radius: 8px;
+}
+#contactMessageOverlay .contact-message-intro { color: #5c6876; }
+#contactMessageOverlay .contact-message-grid { gap: 20px; }
+#contactMessageOverlay .contact-message-field { min-width: 0; }
+#contactMessageOverlay .contact-message-field label { color: #102d49; }
+#contactMessageOverlay .contact-message-field input { min-height: 52px; }
+#contactMessageOverlay .contact-message-field textarea { min-height: 150px; }
+#contactMessageOverlay .contact-message-field input,
+#contactMessageOverlay .contact-message-field textarea { font-size: 16px; }
+#contactMessageOverlay .contact-message-footer {
+  flex: 0 0 auto;
+  padding: 20px 32px;
+  border-top: 1px solid #d9e1e8;
+  background: #fff;
+}
+#contactMessageOverlay .contact-message-actions {
+  justify-content: flex-end;
+  gap: 16px;
+  margin: 0;
+}
+#contactMessageOverlay .contact-message-actions .btn {
+  min-height: 48px;
+  margin: 0;
+  border-radius: 10px;
+  font-size: 16px;
+}
+#contactMessageOverlay #contactMessageSubmit {
+  background: #d92328;
+  color: #fff;
+  border: 1px solid #d92328;
+  padding: 12px 24px;
+}
+#contactMessageOverlay #contactMessageCancel {
+  color: #526174;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 12px 16px;
+}
+#contactMessageOverlay #contactMessageCancel:hover { background: #f0f3f6; }
+#contactMessageOverlay #contactMessageSubmit:hover:not(:disabled) { background: #b91c22; }
+#contactMessageOverlay .contact-message-status { overflow-wrap: anywhere; font-size: 14px; }
+@media (max-width: 640px) {
+  #contactMessageOverlay { padding: 8px !important; }
+  #contactMessageOverlay > .contact-message-dialog {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
+  #contactMessageOverlay .contact-message-header { padding: 18px 76px 18px 20px; }
+  #contactMessageOverlay .contact-message-header .eyebrow { font-size: 11px; margin-bottom: 10px; }
+  #contactMessageOverlay .contact-message-header h2 { font-size: 24px; }
+  #contactMessageOverlay .contact-message-close { top: 16px !important; right: 16px !important; }
+  #contactMessageOverlay .contact-message-body { padding: 20px; }
+  #contactMessageOverlay .contact-message-grid { grid-template-columns: 1fr; gap: 16px; }
+  #contactMessageOverlay .contact-message-footer { padding: 14px 16px; }
+  #contactMessageOverlay .contact-message-actions { gap: 8px; flex-wrap: nowrap; }
+  #contactMessageOverlay .contact-message-status { padding: 10px; margin-top: 10px; }
+}
+@media (max-height: 480px) {
+  #contactMessageOverlay .contact-message-header { padding-top: 12px; padding-bottom: 12px; }
+  #contactMessageOverlay .contact-message-header .eyebrow { margin-bottom: 6px; }
+  #contactMessageOverlay .contact-message-header h2 { font-size: 22px; }
+  #contactMessageOverlay .contact-message-footer { padding-top: 8px; padding-bottom: 8px; }
+}
