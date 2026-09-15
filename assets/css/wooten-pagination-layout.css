@@ -104,6 +104,7 @@ body #activityDashboard .activity-section[data-activity-section] > [data-wooten-
 body [data-wooten-pager] .wooten-page-gap{color:#607b96!important;min-width:18px;text-align:center}
 body [data-wooten-pager][hidden]{display:none!important}
 /* Use available panel width, including narrow cards on a desktop dashboard. */
+/* Ver447: Give numbers their own wrapping row on narrow panels. */
 body :is(#adminActivityPagination,[data-wooten-pager])[data-wooten-pager].wooten-pager-compact,
 body #adminActivityPagination [data-wooten-pager].wooten-pager-compact,
 body #activityDashboard .activity-section[data-activity-section] > [data-wooten-pager].wooten-pager-compact{
@@ -117,17 +118,17 @@ body #activityDashboard .activity-section[data-activity-section] > [data-wooten-
 body :is(#adminActivityPagination,[data-wooten-pager])[data-wooten-pager].wooten-pager-compact > .wooten-page-prev,
 body #adminActivityPagination [data-wooten-pager].wooten-pager-compact > .wooten-page-prev,
 body #activityDashboard .activity-section[data-activity-section] > [data-wooten-pager].wooten-pager-compact > .wooten-page-prev{
-  grid-column:1!important;grid-row:2!important;justify-self:start!important;
+  grid-column:1!important;grid-row:3!important;justify-self:start!important;
 }
-body [data-wooten-pager].wooten-pager-compact > .wooten-page-numbers{grid-column:2!important;grid-row:2!important;gap:4px!important}
+body [data-wooten-pager].wooten-pager-compact > .wooten-page-numbers{grid-column:1 / -1!important;grid-row:2!important;gap:6px!important;flex-wrap:wrap!important;width:100%!important;max-width:100%!important;justify-self:stretch!important;}
 body :is(#adminActivityPagination,[data-wooten-pager])[data-wooten-pager].wooten-pager-compact > .wooten-page-next,
 body #adminActivityPagination [data-wooten-pager].wooten-pager-compact > .wooten-page-next,
 body #activityDashboard .activity-section[data-activity-section] > [data-wooten-pager].wooten-pager-compact > .wooten-page-next{
-  grid-column:3!important;grid-row:2!important;
+  grid-column:3!important;grid-row:3!important;
 }
 body [data-wooten-pager].wooten-pager-compact button,
 body #adminActivityPagination [data-wooten-pager].wooten-pager-compact button,
-body #activityDashboard .activity-section[data-activity-section] > [data-wooten-pager].wooten-pager-compact button{padding:0 7px!important;min-width:32px!important}
+body #activityDashboard .activity-section[data-activity-section] > [data-wooten-pager].wooten-pager-compact button{padding:0 9px!important;min-width:40px!important;height:44px!important;min-height:44px!important;}
 @media(prefers-reduced-motion:reduce){body [data-wooten-pager] button{transition:none!important}}
 body :is(#adminActivityPagination,[data-wooten-pager])[data-wooten-pager][style*="display: none"],
 body :is(#adminActivityPagination,[data-wooten-pager])[data-wooten-pager][style*="display:none"]{display:none!important}

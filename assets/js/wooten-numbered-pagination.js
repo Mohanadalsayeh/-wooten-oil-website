@@ -1,11 +1,9 @@
-/* Ver446: shared, direct page navigation. Existing loaders own data and filters. */
+/* Ver447: shared, direct page navigation. Existing loaders own data and filters. */
 (() => {
   'use strict';
   const selector = '.db-pagination,.twilio-results-pager,.pt-pagination,.doc-admin-pagination-controls,.schedule-result-pagination-controls,.customer-documents-page-controls,.admin-activity-pagination-controls';
   const states = new WeakMap();
-  function pageList(page, pages, compact, narrow) {
-    if(narrow)return [page];
-    if (compact) return [...new Set([Math.max(1,page-1),page,Math.min(pages,page+1)])];
+  function pageList(page, pages) {
     const kept = new Set([1,pages,page]);
     for(let i=Math.max(1,page-1);i<=Math.min(pages,page+1);i++) kept.add(i);
     if(page<=2) for(let i=1;i<=Math.min(3,pages);i++) kept.add(i);
@@ -44,10 +42,10 @@
     }
     state.prev=prev;state.next=next;state.page=page;state.pages=pages;
     const width=pager.getBoundingClientRect().width;
-    const compact=width<620,narrow=width<360;
+    const compact=width<620;
     pager.classList.toggle('wooten-pager-compact',compact);
-    const values=pageList(page,pages,compact,narrow);
-    const key=[page,pages,compact,narrow,state.busy,prev.disabled&&next.disabled].join(':');
+    const values=pageList(page,pages);
+    const key=[page,pages,compact,state.busy,prev.disabled&&next.disabled].join(':');
     if(state.key===key)return;
     state.key=key;
     const focused=state.numbers.contains(document.activeElement);
