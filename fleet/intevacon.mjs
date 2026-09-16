@@ -36,18 +36,36 @@ export function cleanCard(r){
 export function cleanTransaction(r,run){
  const received=stamp(r.received_at);
  need(received>=run.window_from&&received<=run.window_to,'Transaction falls outside this run’s 30-day window.');
- need(r.detail_complete===true,'Transaction details were not collected.');
- need(Array.isArray(r.items)&&r.items.length<=100,'Invalid product lines.');
- return {transaction_id:id(r.transaction_id),card_number:id(r.card_number),cardholder:text(r.cardholder),received_at:received,local_date_time:text(r.local_date_time,60),merchant:text(r.merchant),merchant_city:text(r.merchant_city),status:text(r.status,40),transaction_type:text(r.transaction_type,40),decline_reason:text(r.decline_reason),driver:text(r.driver),vehicle:text(r.vehicle),odometer:text(r.odometer,30),items:r.items.map(item=>{
+ const table=r.source==='transaction_table';
+ need(table||r.source===undefined,'Unknown transaction format.');
+ if(table){
+   need(r.row_complete===true,'Transaction table row was not collected completely.');
+   for(const k of ['invoice_number','local_date_time','merchant','merchant_city','status','cardholder'])need(typeof r[k]==='string','A required transaction column is missing.');
+   for(const k of ['total_sale','billable_amount'])need(Object.hasOwn(r,k),'A transaction total column is missing.');
+ }else{
+   // An older installed agent can continue running while the PC update is applied.
+   need(r.detail_complete===true,'Transaction details were not collected.');
+   need(Array.isArray(r.items)&&r.items.length<=100,'Invalid product lines.');
+ }
+ return {transaction_id:id(r.transaction_id),card_number:id(r.card_number),cardholder:text(r.cardholder),received_at:received,local_date_time:text(r.local_date_time,60),merchant:text(r.merchant),merchant_city:text(r.merchant_city),status:text(r.status,40),transaction_type:text(r.transaction_type,40),decline_reason:text(r.decline_reason),driver:text(r.driver),vehicle:text(r.vehicle),odometer:text(r.odometer,30),invoice_number:table?text(r.invoice_number,80):'',processed_on:table?text(r.processed_on,60):'',posted_on:table?text(r.posted_on,60):'',source:table?'transaction_table':'transaction_detail',total_sale:table?money(r.total_sale):null,billable_amount:table?money(r.billable_amount):null,items:table?[]:r.items.map(item=>{
    const quantity=text(item.quantity,30);need(/^-?\d+(?:\.\d+)?$/.test(quantity),'Invalid product quantity.');
    return {product:text(item.product,100),quantity,unit:text(item.unit,20)};
  })};
 }
-// Explicit field lists are also used on read, so imported price fields never reach customers.
-function project(kind,p){
- const fields=kind==='cards'?['card_number','status','card_type','cardholder','assigned_to','driver_no','vehicle_no','last_used_on']:['transaction_id','card_number','cardholder','received_at','local_date_time','merchant','merchant_city','status','transaction_type','decline_reason','driver','vehicle','odometer'];
+function money(value){
+ if(value===null)return null;
+ need(typeof value==='string'&&/^-?\d{1,12}\.\d{2}$/.test(value),'Transaction totals must be decimal strings or null.');
+ return value;
+}
+// Customer responses explicitly include Total Sale; Billable Amount is admin-only.
+function project(kind,p,admin){
+ const fields=kind==='cards'?['card_number','status','card_type','cardholder','assigned_to','driver_no','vehicle_no','last_used_on']:['transaction_id','invoice_number','card_number','cardholder','received_at','local_date_time','processed_on','posted_on','merchant','merchant_city','status','transaction_type','decline_reason','driver','vehicle','odometer'];
  const result=Object.fromEntries(fields.map(k=>[k,typeof p[k]==='string'?p[k]:'']));
- if(kind==='transactions')result.items=(Array.isArray(p.items)?p.items:[]).map(i=>({product:text(i.product,100),quantity:text(i.quantity,30),unit:text(i.unit,20)}));
+ if(kind==='transactions'){
+   result.total_sale=p.total_sale==null?null:money(p.total_sale);
+   if(admin)result.billable_amount=p.billable_amount==null?null:money(p.billable_amount);
+   result.items=(Array.isArray(p.items)?p.items:[]).map(i=>({product:text(i.product,100),quantity:text(i.quantity,30),unit:text(i.unit,20)}));
+ }
  return result;
 }
 async function deviceAuth(request,db){
@@ -63,7 +81,7 @@ async function getRun(db,device,runId){
 }
 async function agent(request,db,path){
  const device=await deviceAuth(request,db);
- if(path==='/ping'&&request.method==='GET')return json({success:true,version:1,window_days:30});
+ if(path==='/ping'&&request.method==='GET')return json({success:true,version:1,window_days:30,capabilities:['transaction_table_v2']});
  need(request.method==='POST','Method not allowed.',405);
  const b=await body(request);
  if(path==='/failure'){
@@ -155,12 +173,17 @@ async function readData(request,db,customer,admin){
    where.push('f.received_at>=? AND f.received_at<=?');
    args.push(run?.window_from||new Date(Date.now()-30*DAY).toISOString(),run?.window_to||now());
  }
- if(search){where.push("(f.record_id LIKE ? ESCAPE '\\' OR json_extract(f.payload,'$.cardholder') LIKE ? ESCAPE '\\' OR f.account_number LIKE ? ESCAPE '\\')");const s='%'+search.replace(/[\\%_]/g,'\\$&')+'%';args.push(s,s,s);}
+ if(search){
+   const fields=['f.record_id',"json_extract(f.payload,'$.cardholder')",'f.account_number'];
+   if(kind==='transactions')fields.push("json_extract(f.payload,'$.invoice_number')","json_extract(f.payload,'$.card_number')");
+   where.push('('+fields.map(f=>f+" LIKE ? ESCAPE '\\'").join(' OR ')+')');
+   const s='%'+search.replace(/[\\%_]/g,'\\$&')+'%';args.push(...fields.map(()=>s));
+ }
  const join=`FROM ${table} f LEFT JOIN customers c ON c.account_number=f.account_number`;
  const filter=where.length?' WHERE '+where.join(' AND '):'';
  const total=(await db.prepare(`SELECT COUNT(*) AS n ${join}${filter}`).bind(...args).first()).n;
  const list=await rows(db.prepare(`SELECT f.payload,f.account_number,c.id AS customer_id ${join}${filter} ORDER BY ${kind==='cards'?'f.record_id':'f.received_at DESC,f.record_id DESC'} LIMIT ? OFFSET ?`).bind(...args,size,(page-1)*size));
- const items=list.map(r=>{const result=project(kind,JSON.parse(r.payload));if(admin){result.account_number=r.account_number;result.needs_review=!r.account_number||!r.customer_id;}return result;});
+ const items=list.map(r=>{const result=project(kind,JSON.parse(r.payload),admin);if(admin){result.account_number=r.account_number;result.needs_review=!r.account_number||!r.customer_id;}return result;});
  // Customer summaries are scoped in SQL, never filtered in browser JavaScript.
  const summary=await db.prepare(`SELECT COUNT(*) AS cards,SUM(CASE WHEN lower(json_extract(payload,'$.status'))='active' THEN 1 ELSE 0 END) AS active FROM fleet_cards ${!admin?'WHERE account_number=?':account?'WHERE account_number=?':''}`).bind(...(!admin||account?[account]:[])).first();
  return json({success:true,kind,items,total,page,pages:Math.max(1,Math.ceil(total/size)),summary:{cards:summary.cards,active:summary.active||0},last_sync:run?.completed_at||null,window_from:run?.window_from||null,window_to:run?.window_to||null,card_scope:run?.card_scope||null,account_number:!admin?customer.account_number:account});

@@ -2,12 +2,17 @@
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const central=v=>v?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',dateStyle:'medium',timeStyle:'short'}).format(new Date(v))+' CT':'Not synced yet';
+function dollars(value){
+ if(typeof value!=='string'||!/^(-?)(\d{1,12})\.(\d{2})$/.test(value))return '—';
+ const [,sign,whole,cents]=value.match(/^(-?)(\d{1,12})\.(\d{2})$/);
+ return `${sign}$${whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')}.${cents}`;
+}
 function pages(current,last){const set=new Set([1,last,current-1,current,current+1]);if(current<=2){set.add(2);set.add(3);}if(current>=last-1){set.add(last-1);set.add(last-2);}return [...set].filter(n=>n>0&&n<=last).sort((a,b)=>a-b);}
 function badge(value){return `<span class="fleet-badge ${/^(active|invoiced|processed)$/i.test(value)?'good':/declined|cancel|inactive/i.test(value)?'bad':''}">${esc(value||'Unknown')}</span>`;}
 function mount(root,admin){
  let kind='cards',page=1,serial=0,controller=null,loaded=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer or transaction number" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div><div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div><div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
  const message=(value,error=false)=>{const el=get('[data-message]');el.textContent=value;el.hidden=!value;el.classList.toggle('error',error);};
  async function api(path,options={}){
@@ -20,13 +25,20 @@ function mount(root,admin){
   get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
   const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
-  const headers=kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction','When / Location','Card / Cardholder','Status','Purchase details'];
+  const headers=kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction / Invoice','Total Sale',...(admin?['Billable Amount']:[]),'Dates / Location','Card / Cardholder','Status','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table><thead><tr>'+headers.map(h=>`<th scope="col">${h}</th>`).join('')+'</tr></thead><tbody>';
   for(const r of data.items){
    let cells=[];if(admin)cells.push(esc(r.account_number||'Unmatched')+(r.needs_review?'<small>Needs account review</small>':''));
    if(kind==='cards')cells.push(esc(r.card_number),badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
-   else cells.push(esc(r.transaction_id),`${esc(r.local_date_time||central(r.received_at))}<small>${esc([r.merchant,r.merchant_city].filter(Boolean).join(' · '))}</small>`,`${esc(r.card_number)}<small>${esc(r.cardholder)}</small>`,`${badge(r.status)}<small>${esc(r.transaction_type)}${r.decline_reason?' · '+esc(r.decline_reason):''}</small>`,`<details class="fleet-products"><summary>${r.items.length?'View products and quantity':'View details'}</summary>${r.items.length?'<ul>'+r.items.map(i=>`<li>${esc(i.product)}: ${esc(i.quantity)}${i.unit?' '+esc(i.unit):' (quantity)'}</li>`).join('')+'</ul>':'<p>No product lines were supplied.</p>'}<small>Driver: ${esc(r.driver||'—')}<br>Vehicle: ${esc(r.vehicle||'—')}${r.odometer?'<br>Odometer: '+esc(r.odometer):''}</small></details>`);
+   else {
+    cells.push(esc(r.transaction_id)+`<small>Invoice: ${esc(r.invoice_number||'—')}</small>`, `<span class="fleet-money">${dollars(r.total_sale)}</span>`);
+    if(admin)cells.push(`<span class="fleet-money">${dollars(r.billable_amount)}</span>`);
+    cells.push(`Local: ${esc(r.local_date_time||'—')}<small>Received: ${esc(r.received_at?central(r.received_at):'—')}</small>${r.processed_on?'<small>Processed: '+esc(r.processed_on)+'</small>':''}${r.posted_on?'<small>Posted: '+esc(r.posted_on)+'</small>':''}<small>${esc([r.merchant,r.merchant_city].filter(Boolean).join(' · '))}</small>`,
+     `${esc(r.card_number)}<small>${esc(r.cardholder)}</small>`,
+     `${badge(r.status)}<small>${esc(r.transaction_type)}${r.decline_reason?' · '+esc(r.decline_reason):''}</small>`);
+    cells.push(`Driver: ${esc(r.driver||'—')}<small>Vehicle: ${esc(r.vehicle||'—')}${r.odometer?'<br>Odometer: '+esc(r.odometer):''}</small>`);
+   }
    html+='<tr>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>';
   }
   if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.'}</td></tr>`;
