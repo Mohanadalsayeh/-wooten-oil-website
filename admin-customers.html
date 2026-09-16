@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
-<script src="/assets/js/wooten-admin-access.js?v=20260911access2"></script>
+<script src="/assets/js/wooten-admin-access.js?v=449"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wooten Oil Admin</title>
@@ -5670,6 +5670,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <button class="admin-tab" id="admin-tab-btn-automation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-automation" data-admin-tab="automation" data-admin-label="MAS 90 Health"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/><circle cx="12" cy="12" r="9"/></svg></span>MAS 90 Health</button>
       <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity" data-admin-label="Customer Activity"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Customer Activity</button>
       <button class="admin-tab" id="admin-tab-btn-payment-transactions" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-transactions" data-admin-tab="payment-transactions" data-admin-label="Payment Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Payment Transactions</button>
+      <button class="admin-tab" id="admin-tab-btn-fleet" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-fleet" data-admin-tab="fleet" data-admin-label="Fleet Cards &amp; Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Fleet Cards &amp; Transactions</button>
       <button class="admin-tab" id="admin-tab-btn-collections" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-collections" data-admin-tab="collections" data-admin-label="Credit &amp; Collections"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 9h10M7 13h6M16 13l2 2-2 2M8 3v4M16 3v4"/></svg></span>Credit &amp; Collections</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation" data-admin-label="Account Activation"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2 0 3.7.7 5 2M19 14v7M15.5 17.5h7"/></svg></span>Account Activation</button>
       <div class="admin-nav-group">Documents</div>
@@ -6945,6 +6946,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <div id="activityStatus" class="status"></div><div id="activitySearchResults" class="activity-search-results"></div><div id="activityDashboard" class="activity-dashboard" hidden></div>
   </div>
 
+<section class="card admin-tab-panel" id="admin-tab-fleet" role="tabpanel" aria-labelledby="admin-tab-btn-fleet" data-admin-panel="fleet" hidden><h2>Fleet Cards &amp; Transactions</h2><p>Review customer fleet activity and Intevacon synchronization.</p><div id="adminFleetRoot"></div></section>
   <section class="card admin-tab-panel" id="admin-tab-payment-transactions" role="tabpanel" aria-labelledby="admin-tab-btn-payment-transactions" data-admin-panel="payment-transactions" hidden>
     <div class="admin-page-label">Online Payments</div>
     <h2>Payment Transactions</h2>
@@ -7080,6 +7082,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         <label><input type="checkbox" value="mas90_health"> MAS 90 Automation Health</label>
         <label><input type="checkbox" value="customer_activity"> Customer Activity Dashboard</label>
         <label><input type="checkbox" value="payment_transactions"> Payment Transactions</label>
+        <label><input type="checkbox" value="fleet_cards"> Fleet Cards &amp; Transactions</label>
         <label><input type="checkbox" value="collections"> Credit &amp; Collections</label>
         <label><input type="checkbox" value="activation"> Account Activation</label>
         <label><input type="checkbox" value="statements"> Statements &amp; Invoices</label>
@@ -17360,3 +17363,6 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
   }
 }
 </style>
+
+<link rel="stylesheet" href="assets/css/wooten-fleet.css?v=449">
+<script src="assets/js/wooten-fleet.js?v=449"></script>

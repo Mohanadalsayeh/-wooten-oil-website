@@ -6,6 +6,7 @@
     mas90_health:'MAS 90 Automation Health',
     customer_activity:'Customer Activity Dashboard',
     payment_transactions:'Payment Transactions',
+    fleet_cards:'Fleet Cards & Transactions',
     collections:'Credit & Collections',
     activation:'Account Activation',
     statements:'Statements & Invoices',
@@ -19,6 +20,7 @@
   });
   const tabs=Object.freeze({
     customers:'database',automation:'mas90_health',activity:'customer_activity',
+    fleet:'fleet_cards',
     'payment-transactions':'payment_transactions',collections:'collections',activation:'activation',
     documents:'statements',notifications:'notifications',communication:'communication',
     settings:'communications_settings',applications:'applications',requests:'customer_requests',

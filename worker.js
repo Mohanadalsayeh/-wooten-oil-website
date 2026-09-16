@@ -1,3 +1,4 @@
+import * as IntevaconFleet from './fleet/intevacon.mjs';
 import './assets/js/wooten-admin-access.js';
 const adminAccess=globalThis.WootenAdminAccess;
 import './assets/js/wooten-central-time.js';
@@ -11410,6 +11411,7 @@ function adminGeneralAuditDescriptor(request){
 }
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
+  if(path.startsWith("/api/admin/fleet/"))return "fleet_cards";
   if(path.startsWith("/api/admin/payment-transactions"))return "payment_transactions";
   if(path.startsWith("/api/admin/audit"))return "admin_activity";
   if(path.startsWith("/api/admin/database-backups"))return "database_backup";
@@ -12389,6 +12391,8 @@ var worker_default = {
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname.startsWith("/api/intevacon-agent/"))return IntevaconFleet.handle({request,env});
+    if(url.pathname==="/api/customer/fleet")return IntevaconFleet.handle({request,env,customer:await getCustomerFromSession(request,env)});
     let adminActor=null;
     if(url.pathname.startsWith("/api/admin/")){
       const authorization=await adminAuthorizeRequest(request,env,url.pathname);
@@ -12397,6 +12401,7 @@ var worker_default = {
       adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
+    if(url.pathname.startsWith("/api/admin/fleet/"))return IntevaconFleet.handle({request,env,actor:adminActor,audit:(action,id)=>adminAudit(env,request,action,"fleet_device",id,"Intevacon sync credential")});
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});
       return methodNotAllowed();
