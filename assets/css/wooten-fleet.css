@@ -14,3 +14,11 @@
 .wooten-fleet .fleet-health[data-state="complete"]{background:#effaf3;border-color:#b9dfc6;border-left-color:#22804a;color:#175c35}
 .wooten-fleet .fleet-health[data-state="failed"]{background:#fff1f2;border-color:#fecdd3;border-left-color:#be123c;color:#881337}
 .wooten-fleet .fleet-health[data-state="collecting"],.wooten-fleet .fleet-health[data-state="uploading"],.wooten-fleet .fleet-health[data-state="overdue"]{background:#fffbeb;border-color:#f3d894;border-left-color:#b7791f;color:#784c0c}
+
+.wooten-fleet .fleet-card-number{font-weight:700!important}
+
+/* Customer Fleet dialog: match Payment History's portal close control. */
+.fleet-modal .fleet-modal-header{position:relative;padding-top:30px;padding-right:96px;min-height:102px;box-sizing:border-box}
+.fleet-modal .fleet-modal-header>[data-close]{position:absolute!important;top:30px!important;right:30px!important;z-index:20;width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;box-sizing:border-box!important;margin:0!important;padding:0!important;border:1px solid #d7e1e9!important;border-radius:12px!important;background:#eef3f7!important;color:#17324d!important;font-family:inherit!important;font-size:26px!important;font-weight:500!important;line-height:1!important;text-decoration:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;box-shadow:none!important;transition:background .15s ease,border-color .15s ease,color .15s ease!important}
+.fleet-modal .fleet-modal-header>[data-close]:is(:hover,:active){background:#b73333!important;border-color:#b73333!important;color:#fff!important;-webkit-text-fill-color:#fff!important;box-shadow:none!important;text-decoration:none!important;transform:none!important}
+.fleet-modal .fleet-modal-header>[data-close]:focus-visible{outline:3px solid rgba(47,125,215,.25);outline-offset:2px}

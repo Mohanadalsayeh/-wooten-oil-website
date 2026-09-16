@@ -1,7 +1,5 @@
-Deploy these changed portal files to the existing project. Redeploy the Worker/backend so fleet/intevacon.mjs is live; worker.js is unchanged and intentionally omitted. Then install PC v1.9.
+Apply over portal Ver453. Replace the two included customer frontend files.
 
-Admin Fleet Cards & Transactions now shows collection/publishing progress, last successful pull with Central Time date and time and counts, and the latest failure reason and time. The panel refreshes every 30 seconds while open. Last good data remains available after failure. After four hours without a report, it shows an overdue notice: the PC may be off or unreachable; the exact cause cannot be known remotely. No email/SMS alerts are added.
+Matches the customer Fleet Cards & Transactions header X button to the Payment History portal close control: 42px rounded square, light gray-blue background, navy X, red hover/tap with white X, matching focus ring and 30px top/right placement. Header spacing reserves room for the close button on desktop and phone. The existing close event handler is unchanged; the footer Done button is unaffected.
 
-The new fleet_health table is created automatically; no manual migration required. Failure messages use approved reason categories plus a safe browser error code. Customer API responses do not expose admin status or Billable Amount.
-
-Verification: 12 backend tests passed including atomic publication, account isolation and pre-upload failure reporting. UI text/state/escaping checks passed. Browser visual rendering could not be run in this environment because Chromium is not installed.
+No admin, backend, or sync PC changes. Styling was compared against the existing Payment History portal rules; live browser visual verification was unavailable here.
