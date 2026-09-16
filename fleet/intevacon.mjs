@@ -1,6 +1,7 @@
 /* Wooten Oil fleet sync v1. Isolated from MAS 90 and payment processing. */
 const DAY = 86400000;
 const schemas = [
+ `CREATE TABLE IF NOT EXISTS fleet_health(device_id TEXT PRIMARY KEY,state TEXT NOT NULL,started_at TEXT NOT NULL,updated_at TEXT NOT NULL,error TEXT)`,
  `CREATE TABLE IF NOT EXISTS fleet_devices(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,last_seen TEXT,last_error TEXT)`,
  `CREATE TABLE IF NOT EXISTS fleet_runs(id TEXT PRIMARY KEY,device_id TEXT NOT NULL,state TEXT NOT NULL,started_at TEXT NOT NULL,completed_at TEXT,window_from TEXT NOT NULL,window_to TEXT NOT NULL,cards_expected INTEGER NOT NULL,transactions_expected INTEGER NOT NULL,pages_expected INTEGER NOT NULL,card_scope TEXT NOT NULL,error TEXT)`,
  `CREATE UNIQUE INDEX IF NOT EXISTS fleet_one_upload ON fleet_runs(state) WHERE state='uploading'`,
@@ -79,15 +80,37 @@ async function getRun(db,device,runId){
  const run=await db.prepare('SELECT * FROM fleet_runs WHERE id=? AND device_id=?').bind(runId,device.id).first();
  need(run,'Run not found.',404);return run;
 }
+const failureReasons = {
+ login_required:'Intevacon sign-in expired or could not be completed. Run Login.cmd or check the saved automatic login.',
+ browser_navigation:'The browser could not load an Intevacon page. Check the PC internet connection and Intevacon access.',
+ browser_failed:'The browser could not start or stopped unexpectedly. Check the sync PC and Status.cmd.',
+ export_failed:'The card export could not be read. Intevacon may have changed its page or export format.',
+ incomplete_collection:'The collection was incomplete or failed validation. The previous successful data was kept.',
+ upload_failed:'The collected data could not be uploaded or confirmed by the portal. Check the sync PC connection and Status.cmd.',
+ setup_required:'The sync PC requires configuration or validation. Run Configure.cmd or Validate.cmd.',
+ cancelled:'The sync was cancelled before completion was confirmed.',
+ collection_failed:'The data pull failed. Check Status.cmd on the sync PC for the diagnostic details.'
+};
+function healthWrite(db,device,state,error=null){
+ const time=now();
+ return db.prepare(`INSERT INTO fleet_health(device_id,state,started_at,updated_at,error) VALUES(?,?,?,?,?)
+ ON CONFLICT(device_id) DO UPDATE SET state=excluded.state,started_at=CASE WHEN excluded.state='collecting' THEN excluded.started_at ELSE fleet_health.started_at END,updated_at=excluded.updated_at,error=excluded.error`).bind(device.id,state,time,time,error);
+}
 async function agent(request,db,path){
  const device=await deviceAuth(request,db);
- if(path==='/ping'&&request.method==='GET')return json({success:true,version:1,window_days:30,capabilities:['transaction_table_v2']});
+ if(path==='/ping'&&request.method==='GET')return json({success:true,version:1,window_days:30,capabilities:['transaction_table_v2','sync_health_v1']});
  need(request.method==='POST','Method not allowed.',405);
  const b=await body(request);
+ if(path==='/progress'){
+   need(b.state==='collecting','Invalid sync state.');
+   await healthWrite(db,device,'collecting').run();return json({success:true});
+ }
  if(path==='/failure'){
-   const codes=['login_required','collection_failed','upload_failed','setup_required'];
-   const error=codes.includes(b.code)?b.code:'collection_failed';
+   const code=Object.hasOwn(failureReasons,b.code)?b.code:'collection_failed';
+   const diagnostic=typeof b.diagnostic==='string'&&/^ERR_[A-Z0-9_]{1,70}$/.test(b.diagnostic)?' ('+b.diagnostic+')':'';
+   const error=failureReasons[code]+diagnostic;
    await db.batch([
+    healthWrite(db,device,'failed',error),
     db.prepare('UPDATE fleet_devices SET last_seen=?,last_error=? WHERE id=?').bind(now(),error,device.id),
     db.prepare("UPDATE fleet_runs SET state='failed',error=? WHERE device_id=? AND state='uploading'").bind(error,device.id)
    ]);return json({success:true});
@@ -104,6 +127,7 @@ async function agent(request,db,path){
    const runId=crypto.randomUUID();
    try{await db.prepare("INSERT INTO fleet_runs(id,device_id,state,started_at,window_from,window_to,cards_expected,transactions_expected,pages_expected,card_scope) VALUES(?,?,'uploading',?,?,?,?,?,?,?)").bind(runId,device.id,now(),from,to,cards,tx,pages,b.card_scope).run();}
    catch(e){if(/UNIQUE|constraint/i.test(e.message))throw new Problem('Another upload is in progress. Retry later.',409);throw e;}
+   await healthWrite(db,device,'uploading').run();
    return json({success:true,run_id:runId});
  }
  const run=await getRun(db,device,text(b.run_id,36));
@@ -148,7 +172,8 @@ async function agent(request,db,path){
     db.prepare("UPDATE fleet_runs SET state='complete',completed_at=? WHERE id=? AND state='publishing'").bind(now(),run.id),
     db.prepare('UPDATE fleet_devices SET last_seen=?,last_error=NULL WHERE id=?').bind(now(),device.id),
     db.prepare("DELETE FROM fleet_stage WHERE run_id=? AND EXISTS(SELECT 1 FROM fleet_runs WHERE id=? AND state='complete')").bind(run.id,run.id),
-    db.prepare("DELETE FROM fleet_stage WHERE run_id IN(SELECT id FROM fleet_runs WHERE state='failed')")
+    db.prepare("DELETE FROM fleet_stage WHERE run_id IN(SELECT id FROM fleet_runs WHERE state='failed')"),
+    healthWrite(db,device,'complete')
    ]);
    const committed=await getRun(db,device,run.id);
    need(committed.state==='complete','Collection changed before publication; nothing was published.',409);
@@ -194,7 +219,9 @@ async function administration(request,db,path,actor,audit){
  if(path==='/status'&&request.method==='GET'){
    const devices=await rows(db.prepare('SELECT id,name,active,created_at,last_seen,last_error FROM fleet_devices ORDER BY created_at DESC'));
    const runs=await rows(db.prepare('SELECT id,state,started_at,completed_at,cards_expected,transactions_expected,error FROM fleet_runs ORDER BY started_at DESC LIMIT 10'));
-   return json({success:true,devices,runs});
+   const latest=await db.prepare('SELECT h.* FROM fleet_health h JOIN fleet_devices d ON d.id=h.device_id WHERE d.active=1 ORDER BY h.updated_at DESC LIMIT 1').first();
+   const last_success=await db.prepare('SELECT r.completed_at,r.cards_expected,r.transactions_expected FROM fleet_meta m JOIN fleet_runs r ON r.id=m.run_id WHERE m.id=1').first();
+   return json({success:true,devices,runs,latest,last_success});
  }
  need(actor.owner===true,'Only the main administrator can manage sync credentials.',403);
  need(request.method==='POST','Method not allowed.',405);sameOrigin(request);

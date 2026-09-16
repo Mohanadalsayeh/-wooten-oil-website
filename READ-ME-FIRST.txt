@@ -1,42 +1,7 @@
-WOOTEN OIL PORTAL Ver450 - INTEVACON TABLE SYNC
+Deploy these changed portal files to the existing project. Redeploy the Worker/backend so fleet/intevacon.mjs is live; worker.js is unchanged and intentionally omitted. Then install PC v1.9.
 
-This incremental update is for the existing Ver449 portal with fleet sync.
-It contains only the changed portal files plus this deployment note:
-  fleet/intevacon.mjs
-  assets/js/wooten-fleet.js
-  assets/css/wooten-fleet.css
-  index.html
-  admin-customers.html
+Admin Fleet Cards & Transactions now shows collection/publishing progress, last successful pull with Central Time date and time and counts, and the latest failure reason and time. The panel refreshes every 30 seconds while open. Last good data remains available after failure. After four hours without a report, it shows an overdue notice: the PC may be off or unreachable; the exact cause cannot be known remotely. No email/SMS alerts are added.
 
-1. Copy these files into the existing portal project, preserving folders.
-2. Deploy the frontend AND rebuild/redeploy the Worker using your existing
-   deployment process. The existing worker.js imports fleet/intevacon.mjs;
-   worker.js itself has not changed and is intentionally not included.
-3. Apply Intevacon-Table-Sync-v1.4.zip on the existing sync PC.
-4. Run Validate.cmd, then Sync-Now.cmd.
+The new fleet_health table is created automatically; no manual migration required. Failure messages use approved reason categories plus a safe browser error code. Customer API responses do not expose admin status or Billable Amount.
 
-No database migration or new sync credential is needed. Older installed
-agents can still upload their previous detail format during the update.
-The new agent checks portal compatibility and requires a new validation.
-
-CUSTOMER VIEW
-Total Sale, transaction/invoice numbers, dates, card/cardholder, merchant and
-city, status, and driver/vehicle information when available.
-There is no products/gallons detail panel. Missing amounts show a dash,
-zero is $0.00, and negative amounts keep their sign.
-
-ADMINISTRATOR VIEW
-The same information plus Billable Amount and account-review status.
-Billable Amount, unit prices and cost fields are excluded from customer
-responses on the server. Account permissions continue to scope customer data.
-Search supports invoice numbers, transaction numbers, cards and cardholders.
-
-The rolling 30-day window, complete-run publication, duplicate prevention,
-card/account matching and ownership review protections are preserved.
-Historical rows from an older agent show a dash for Total Sale until the next
-successful table sync refreshes them; no amount is guessed or back-calculated.
-
-Local checks cover source table pagination without detail clicks, exact
-money parsing, required fields, incomplete uploads, account isolation and
-customer/admin views at desktop and mobile widths. Live collection is verified
-by Validate.cmd on the sync PC.
+Verification: 12 backend tests passed including atomic publication, account isolation and pre-upload failure reporting. UI text/state/escaping checks passed. Browser visual rendering could not be run in this environment because Chromium is not installed.
