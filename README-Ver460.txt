@@ -1,0 +1,1 @@
+Apply over Ver459 and deploy the frontend. Sync now keeps the selected Fleet cards navy background, navy border, white text and rounded corners for normal, hover, focus, pressed and disabled states. Disabled controls still cannot be clicked; the focus outline remains available. No Worker or PC update required. CSS changes only; live-browser visual verification was not available.
