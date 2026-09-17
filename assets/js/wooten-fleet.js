@@ -32,8 +32,8 @@ function healthMarkup(data){
  if(state==='uploading')title='Publishing collected data…';
  if(state==='failed'){title='Data pull failed';detail=h.error||'The PC did not provide a reason. Check Status.cmd.';}
  const time=h?.updated_at;
- const overdue=time&&Date.now()-Date.parse(time)>4*60*60*1000;
- if(overdue){title='No recent sync report';state='overdue';detail='No update has been received for over four hours. Check that the sync PC is on, signed in and connected. The portal cannot determine the reason while the PC is unreachable.'+(h.state==='failed'?' Last reported failure: '+(h.error||'Unknown'):'');}
+ const overdue=time&&Date.now()-Date.parse(time)>((data.control?.hours||2)+2)*60*60*1000;
+ if(overdue){title='No recent sync report';state='overdue';detail='No update has been received within the expected sync interval. Check that the sync PC is on, signed in and connected. The portal cannot determine the reason while the PC is unreachable.'+(h.state==='failed'?' Last reported failure: '+(h.error||'Unknown'):'');}
  if(!h&&success){state='complete';title='Data pulled successfully';}
  const active=state==='collecting'||state==='uploading';
  const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
@@ -41,9 +41,10 @@ function healthMarkup(data){
  return `<strong>${esc(title)}</strong>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}<span>Last successful pull: ${esc(central(success?.completed_at))}</span>${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
 function mount(root,admin){
+ let controlDirty=false;
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><button type="button" data-save-schedule>Save schedule</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
  {
   const pager=get('[data-pages]');pager.setAttribute('data-wooten-pager','');
@@ -141,20 +142,39 @@ function mount(root,admin){
    // Keep the last successfully loaded rows; the next poll retries.
   }finally{refreshing=false;}
  }
- function clear(){loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ function clear(){controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
  root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.dataset.kind){kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){load();if(admin)status();}});
  get('form').addEventListener('submit',e=>{e.preventDefault();page=1;load();});get('[name=review]')?.addEventListener('change',()=>{page=1;load();});
  async function status(){
   const ticket=serial;
   try{const data=await api('/api/admin/fleet/status');if(ticket!==serial)return;
+   const control=data.control;
+   if(control){
+    if(!controlDirty)get('[data-sync-hours]').value=String(control.hours);
+    const running=control.lease_until&&Date.parse(control.lease_until)>Date.now();
+    get('[data-sync-now]').disabled=!!control.requested_at||!!running;
+    const connected=control.poll_at&&Date.now()-Date.parse(control.poll_at)<3*60000;
+    get('[data-control-status]').textContent=(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Install the updated agent and run Enable-Schedule.cmd; keep Windows signed in.');
+   }
    get('[data-owner]').hidden=!window.wootenAdminUser?.owner;
    const health=get('[data-health]');health.innerHTML=healthMarkup(data);
-   health.dataset.state=data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>4*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
+   health.dataset.state=data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>((data.control?.hours||2)+2)*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
    get('[data-sync-status]').innerHTML='<p class="fleet-note">'+(data.runs[0]?`Latest run: ${esc(data.runs[0].state)} · ${esc(central(data.runs[0].started_at))}${data.runs[0].error?' · '+esc(data.runs[0].error):''}`:'No sync runs yet.')+'</p>'+data.devices.map(d=>`<div class="fleet-device-row"><span><strong>${esc(d.name)}</strong><small class="fleet-note"> · ${d.active?'Active':'Revoked'} · ${esc(central(d.last_seen))}${d.last_error?' · '+esc(d.last_error):''}</small></span>${d.active&&window.wootenAdminUser?.owner?`<button type="button" data-revoke="${esc(d.id)}">Revoke</button>`:''}</div>`).join('');
    if(data.last_success?.completed_at&&data.last_success.completed_at!==lastSync)await refreshAfterSync();
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
  }
  if(admin){
+  get('[data-sync-hours]').addEventListener('change',()=>{controlDirty=true;});
+  get('[data-save-schedule]').addEventListener('click',async()=>{
+   const btn=get('[data-save-schedule]');btn.disabled=true;
+   try{await api('/api/admin/fleet/schedule',{method:'POST',body:JSON.stringify({hours:Number(get('[data-sync-hours]').value)})});controlDirty=false;message('Schedule saved. The next automatic pull is timed from now.');await status();}
+   catch(e){message(e.message,true);}finally{btn.disabled=false;}
+  });
+  get('[data-sync-now]').addEventListener('click',async()=>{
+   const btn=get('[data-sync-now]');btn.disabled=true;
+   try{await api('/api/admin/fleet/request-sync',{method:'POST',body:'{}'});message('Sync requested. The PC will start when it next checks in.');await status();}
+   catch(e){message(e.message,true);btn.disabled=false;}
+  });
   get('.fleet-device-panel').addEventListener('toggle',()=>{if(get('.fleet-device-panel').open)status();});
   get('[data-create]').addEventListener('click',async()=>{const btn=get('[data-create]');btn.disabled=true;const ticket=serial;try{const d=await api('/api/admin/fleet/devices',{method:'POST',body:JSON.stringify({name:'Intevacon Windows PC'})});if(ticket!==serial)return;const token=get('[data-token]');token.hidden=false;token.innerHTML=`<div class="fleet-token"><p>Copy this credential into Configure on the sync PC. It is shown once.</p><code>${esc(d.token)}</code><br><button type="button" data-hide-token>Hide credential</button></div>`;token.querySelector('[data-hide-token]').onclick=()=>{token.replaceChildren();token.hidden=true;};await status();}catch(e){if(ticket===serial)message(e.message,true);}finally{btn.disabled=false;}});
   get('[data-sync-status]').addEventListener('click',async e=>{const btn=e.target.closest('[data-revoke]');if(!btn)return;if(!confirm('Revoke this PC’s fleet sync credential? Its uploads will stop.'))return;btn.disabled=true;try{await api('/api/admin/fleet/devices/revoke',{method:'POST',body:JSON.stringify({id:btn.dataset.revoke})});await status();}catch(e){message(e.message,true);btn.disabled=false;}});

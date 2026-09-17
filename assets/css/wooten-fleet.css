@@ -35,3 +35,5 @@
 .wooten-fleet .fleet-sync-progress[data-progress-state="failed"] .fleet-sync-fill{width:100%;background:#be123c}
 @keyframes fleet-sync-activity{0%{transform:translateX(-100%)}100%{transform:translateX(386%)}}
 @media(prefers-reduced-motion:reduce){.wooten-fleet .fleet-sync-progress .fleet-sync-fill{animation:none!important}}
+
+.fleet-sync-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:12px 0 20px}.wooten-fleet .fleet-sync-controls select{display:block;margin-top:5px;padding:10px 14px;min-height:44px;border:1px solid #bccddd;border-radius:10px;background:#fff;color:#193953;font:inherit}.fleet-sync-controls p{flex-basis:100%;margin:0;font-size:13px}.wooten-fleet [data-sync-now]{background:#193953;color:#fff}
