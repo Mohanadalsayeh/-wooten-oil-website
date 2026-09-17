@@ -1,0 +1,28 @@
+/* Ver470: bold column labels for the requested administration tables. */
+body :is(
+ table[data-pdf-table-name="Live Customer Database"],
+ table[data-pdf-table-name="Live Customer Payments Database"],
+ #admin-tab-payment-transactions table,
+ #admin-tab-fleet table,
+ #admin-tab-collections table,
+ #admin-tab-messages table,
+ table[data-pdf-table-name="Recent Admin Activity"],
+ #admin-tab-backup table
+) thead th,
+body :is(
+ table[data-pdf-table-name="Live Customer Database"],
+ table[data-pdf-table-name="Live Customer Payments Database"],
+ #admin-tab-payment-transactions table,
+ #admin-tab-fleet table,
+ #admin-tab-collections table,
+ #admin-tab-messages table,
+ table[data-pdf-table-name="Recent Admin Activity"],
+ #admin-tab-backup table
+) thead th :is(button,.wo-table-sort-label),
+body :is(
+ #admin-tab-database,#admin-tab-payment-transactions,#admin-tab-fleet,
+ #admin-tab-collections,#admin-tab-messages,#admin-tab-backup
+) table thead th button:is(:hover,:focus,:focus-visible,:active){
+ --wo-table-heading-weight:700;
+ font-weight:700!important;
+}
