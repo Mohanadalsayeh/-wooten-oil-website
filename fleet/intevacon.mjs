@@ -233,7 +233,7 @@ async function readData(request,db,customer,admin){
  }
  if(search){
    const fields=['f.record_id',"json_extract(f.payload,'$.cardholder')",'f.account_number'];
-   if(kind==='transactions')fields.push("json_extract(f.payload,'$.invoice_number')","json_extract(f.payload,'$.card_number')");
+   if(kind==='transactions')fields.push(...['invoice_number','card_number','received_at','entry_method','merchant','auth_ref','total_sale','driver_number','driver_name','driver','vehicle_number','vehicle_description','vehicle','processed_on'].map(field=>"json_extract(f.payload,'$."+field+"')"));
    where.push('('+fields.map(f=>f+" LIKE ? ESCAPE '\\'").join(' OR ')+')');
    const s='%'+search.replace(/[\\%_]/g,'\\$&')+'%';args.push(...fields.map(()=>s));
  }
