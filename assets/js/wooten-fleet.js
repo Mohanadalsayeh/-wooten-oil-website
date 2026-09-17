@@ -9,6 +9,21 @@ function dollars(value){
 }
 function pages(current,last){const set=new Set([1,last,current-1,current,current+1]);if(current<=2){set.add(2);set.add(3);}if(current>=last-1){set.add(last-1);set.add(last-2);}return [...set].filter(n=>n>0&&n<=last).sort((a,b)=>a-b);}
 function badge(value){return `<span class="fleet-badge ${/^(active|invoiced|processed)$/i.test(value)?'good':/declined|cancel|inactive/i.test(value)?'bad':''}">${esc(value||'Unknown')}</span>`;}
+function fleetPager(page,last,total){
+ let numbers='',previous=0;
+ const number=n=>`<button type="button" class="wooten-page-number" data-page="${n}" aria-label="${n===page?'Page '+n+', current page':'Go to page '+n}" ${n===page?'aria-current="page"':''} ${last===1?'disabled':''}>${n}</button>`;
+ for(const n of pages(page,last)){
+  if(previous&&n-previous===2)numbers+=number(previous+1);
+  else if(previous&&n-previous>2)numbers+='<span class="wooten-page-gap" aria-hidden="true">…</span>';
+  numbers+=number(n);previous=n;
+ }
+ return `<button type="button" class="secondary wooten-page-prev" data-page="${page-1}" ${page<=1?'disabled':''}>Previous 20</button><span class="wooten-page-summary">Page ${page} of ${last}</span><span class="wooten-page-numbers" role="group" aria-label="Page numbers">${numbers}</span><button type="button" class="secondary wooten-page-next" data-page="${page+1}" ${page>=last?'disabled':''}>Next 20</button>`;
+}
+function fleetPdfData(kind,items){
+ const account=r=>(r.account_number||'Unmatched')+(r.needs_review?' (Needs account review)':'');
+ if(kind==='cards')return {headers:['Portal account','Card number','Status','Cardholder','Assigned to','Driver / Vehicle'],rows:items.map(r=>[account(r),r.card_number,r.status,r.cardholder,r.assigned_to||'—',[r.driver_no||'—',r.vehicle_no||'—'].join(' / ')])};
+ return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+(r.local_date_time||'—'),'Received: '+central(r.received_at),r.processed_on?'Processed: '+r.processed_on:'',r.posted_on?'Posted: '+r.posted_on:'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Driver: '+(r.driver||'—')+' / Vehicle: '+(r.vehicle||'—')+(r.odometer?' / Odometer: '+r.odometer:'')])};
+}
 function healthMarkup(data){
  const h=data.latest,success=data.last_success;
  let state=h?.state||'unknown',title='No data-pull status received yet.',detail='';
@@ -23,10 +38,15 @@ function healthMarkup(data){
  return `<strong>${esc(title)}</strong>${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}<span>Last successful pull: ${esc(central(success?.completed_at))}</span>${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
 function mount(root,admin){
- let kind='cards',page=1,serial=0,controller=null,loaded=false;
+ let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div><div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
+ {
+  const pager=get('[data-pages]');pager.setAttribute('data-wooten-pager','');
+  const resizePager=()=>pager.classList.toggle('wooten-pager-compact',pager.getBoundingClientRect().width<620);
+  new ResizeObserver(resizePager).observe(pager);resizePager();
+ }
  const message=(value,error=false)=>{const el=get('[data-message]');el.textContent=value;el.hidden=!value;el.classList.toggle('error',error);};
  async function api(path,options={}){
   const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})};
@@ -40,15 +60,15 @@ function mount(root,admin){
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
   const headers=kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction / Invoice','Total Sale',...(admin?['Billable Amount']:[]),'Dates / Location','Card / Cardholder','Status','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
-  let html='<table><thead><tr>'+headers.map(h=>`<th scope="col">${h}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map(h=>`<th scope="col">${h}</th>`).join('')+'</tr></thead><tbody>';
   for(const r of data.items){
    let cells=[];if(admin)cells.push(esc(r.account_number||'Unmatched')+(r.needs_review?'<small>Needs account review</small>':''));
-   if(kind==='cards')cells.push(esc(r.card_number),badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
+   if(kind==='cards')cells.push('<strong class="fleet-card-number">'+esc(r.card_number)+'</strong>',badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
    else {
     cells.push(esc(r.transaction_id)+`<small>Invoice: ${esc(r.invoice_number||'—')}</small>`, `<span class="fleet-money">${dollars(r.total_sale)}</span>`);
     if(admin)cells.push(`<span class="fleet-money">${dollars(r.billable_amount)}</span>`);
     cells.push(`Local: ${esc(r.local_date_time||'—')}<small>Received: ${esc(r.received_at?central(r.received_at):'—')}</small>${r.processed_on?'<small>Processed: '+esc(r.processed_on)+'</small>':''}${r.posted_on?'<small>Posted: '+esc(r.posted_on)+'</small>':''}<small>${esc([r.merchant,r.merchant_city].filter(Boolean).join(' · '))}</small>`,
-     `${esc(r.card_number)}<small>${esc(r.cardholder)}</small>`,
+     `<strong class="fleet-card-number">${esc(r.card_number)}</strong><small>${esc(r.cardholder)}</small>`,
      `${badge(r.status)}<small>${esc(r.transaction_type)}${r.decline_reason?' · '+esc(r.decline_reason):''}</small>`);
     cells.push(`Driver: ${esc(r.driver||'—')}<small>Vehicle: ${esc(r.vehicle||'—')}${r.odometer?'<br>Odometer: '+esc(r.odometer):''}</small>`);
    }
@@ -56,10 +76,38 @@ function mount(root,admin){
   }
   if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.'}</td></tr>`;
   get('[data-table]').innerHTML=html+'</tbody></table>';
-  let numbers='',previous=0;for(const n of pages(page,data.pages)){if(previous&&n-previous>1)numbers+='<span aria-hidden="true">…</span>';numbers+=`<button type="button" data-page="${n}" aria-label="Page ${n}" ${page===n?'aria-current="page"':''}>${n}</button>`;previous=n;}
-  get('[data-pages]').innerHTML=`<span>Page ${page} of ${data.pages} · ${data.total.toLocaleString()} records</span><div class="fleet-page-numbers"><button type="button" data-page="${page-1}" ${page<=1?'disabled':''} aria-label="Previous page">‹</button>${numbers}<button type="button" data-page="${page+1}" ${page>=data.pages?'disabled':''} aria-label="Next page">›</button></div>`;
+  get('[data-pages]').innerHTML=fleetPager(page,data.pages,data.total);
+  if(admin)get('[data-export]').disabled=exporting||!data.items.length;
  }
+ async function exportPdf(){
+  if(!admin||exporting)return;
+  const button=get('[data-export]'),ticket=serial,exportKind=kind,signal=controller?.signal;
+  if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',true);return;}
+  exporting=true;button.disabled=true;
+  const query=new URLSearchParams({kind:exportKind,search:get('[name=search]').value,page:'1'});
+  if(get('[name=review]').checked)query.set('review','1');
+  try{
+   let first=null,items=[];
+   for(let n=1;n<= (first?.pages||1);n++){
+    button.textContent=first?'Loading page '+n+' of '+first.pages+'…':'Loading records…';
+    query.set('page',String(n));
+    const data=await api('/api/admin/fleet/data?'+query,{signal});
+    if(ticket!==serial)return;
+    if(!first)first=data;
+    if(data.last_sync!==first.last_sync||data.total!==first.total)throw Error('Fleet data changed during export. Please export again.');
+    items.push(...data.items);
+   }
+   if(items.length!==first.total)throw Error('The complete fleet table could not be loaded. Please export again.');
+   const data=fleetPdfData(exportKind,items);
+   button.textContent='Preparing PDF…';
+   await window.WootenAdminTablePdf.exportData(exportKind==='cards'?'Fleet Cards':'Fleet Transactions',data.headers,data.rows);
+   if(ticket===serial)message('Exported '+items.length.toLocaleString()+' records to PDF.');
+  }catch(e){if(ticket===serial&&e.name!=='AbortError')message(e.message||'Fleet PDF export failed.',true);}
+  finally{exporting=false;button.textContent='Export PDF';button.disabled=!get('[data-table] tbody tr strong.fleet-card-number');}
+ }
+ if(admin)get('[data-export]').addEventListener('click',exportPdf);
  async function load(){
+  if(admin)get('[data-export]').disabled=true;
   controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
   get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';message('Loading fleet records…');root.setAttribute('aria-busy','true');
   const query=new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});if(admin&&get('[name=review]').checked)query.set('review','1');
@@ -67,7 +115,7 @@ function mount(root,admin){
   catch(e){if(ticket===serial&&e.name!=='AbortError')message(e.message,true);}
   finally{if(ticket===serial)root.removeAttribute('aria-busy');}
  }
- function clear(){controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ function clear(){if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
  root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.dataset.kind){kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){load();if(admin)status();}});
  get('form').addEventListener('submit',e=>{e.preventDefault();page=1;load();});get('[name=review]')?.addEventListener('change',()=>{page=1;load();});
  async function status(){

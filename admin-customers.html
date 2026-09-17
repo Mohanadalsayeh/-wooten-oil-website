@@ -16172,6 +16172,8 @@ html,body{
 
   function cellText(cell){
     const copy=cell.cloneNode(true);
+    // Sort controls contain the visible column name; retain their text.
+    if(cell.tagName==='TH')copy.querySelectorAll('button').forEach(button=>button.replaceWith(...button.childNodes));
     copy.querySelectorAll('svg,button,input,select,textarea').forEach(node=>node.remove());
     return cleanText(copy.textContent);
   }
@@ -16438,7 +16440,7 @@ html,body{
       if(index%250===0){onProgress?.(index,data.rows.length,'Preparing pages');await new Promise(resolve=>setTimeout(resolve,0));}
     }
     onProgress?.(data.rows.length,data.rows.length,'Preparing pages');
-    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages};
+    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
   }
 
   function textCommand(text,x,y,font,size,color){
@@ -16469,7 +16471,7 @@ html,body{
       let cellX=margin;
       widths.forEach((width,index)=>{
         if(index)out+='0.88 0.91 0.94 RG 0.35 w '+cellX.toFixed(2)+' '+bottom.toFixed(2)+' m '+cellX.toFixed(2)+' '+top.toFixed(2)+' l S\n';
-        row.lines[index].forEach((line,lineIndex)=>{out+=textCommand(line,cellX+3,top-11-lineIndex*9,'F1',7.5,'0.10 0.19 0.28');});
+        row.lines[index].forEach((line,lineIndex)=>{out+=textCommand(line,cellX+3,top-11-lineIndex*9,layout.boldColumns[index]?'F2':'F1',7.5,'0.10 0.19 0.28');});
         cellX+=width;
       });
       top=bottom;
@@ -17364,5 +17366,5 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 }
 </style>
 
-<link rel="stylesheet" href="assets/css/wooten-fleet.css?v=451">
-<script src="assets/js/wooten-fleet.js?v=451"></script>
+<link rel="stylesheet" href="assets/css/wooten-fleet.css?v=455">
+<script src="assets/js/wooten-fleet.js?v=455"></script>
