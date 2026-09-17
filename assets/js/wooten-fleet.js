@@ -124,13 +124,13 @@ function mount(root,admin){
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
   const headers=kind==='transactions'?(admin?adminTransactionColumns:customerTransactionColumns).map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
-  let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
+  let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
   for(const r of data.items){
    let cells=[];if(admin)cells.push(esc(r.account_number||'Unmatched')+(r.needs_review?'<small>Needs account review</small>':''));
    if(kind==='cards')cells.push('<strong class="fleet-card-number">'+esc(r.card_number)+'</strong>',badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
    else if(admin)cells.push(...adminTransactionCells(r));
    else cells.push(...customerTransactionCells(r));
-   html+='<tr>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>';
+   html+='<tr>'+cells.map((c,i)=>'<td data-fleet-align="'+(['total_sale','billable_amount'].includes(fleetSortKeys(kind,admin)[i])?'right':'left')+'">'+c+'</td>').join('')+'</tr>';
   }
   if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.'}</td></tr>`;
   get('[data-table]').innerHTML=html+'</tbody></table>';

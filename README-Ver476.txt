@@ -1,0 +1,1 @@
+Replace the four files and deploy Pages. Header labels now align with their column values in admin/customer fleet tables. Text is left aligned; Total Sale and Billable Amount are right aligned. Shared padding removes the extra header indent. Sort arrows remain on the right. No Worker or PC changes.
