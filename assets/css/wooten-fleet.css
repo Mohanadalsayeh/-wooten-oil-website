@@ -55,3 +55,13 @@
 .wooten-fleet .fleet-table-wrap th .wo-table-sort-button:focus-visible{outline:2px solid #66a6d8!important;outline-offset:-2px!important}
 .wooten-fleet .fleet-table-wrap th .wo-table-sort-label{display:block!important;width:max-content!important;min-width:100%!important;white-space:nowrap!important;overflow-wrap:normal!important;text-align:left!important}
 .wooten-fleet .fleet-table-wrap th .wo-table-sort-icon{position:absolute!important;top:calc(50% - 8px)!important;right:14px!important;left:auto!important;width:12px!important;height:16px!important;margin:0!important}
+
+/* Ver467: shared 3B green refresh style for admin and customer fleet views. */
+.wooten-fleet button[data-refresh],
+.wooten-fleet button[data-refresh]:is(:hover,:focus,:focus-visible,:active,:disabled){
+ background:#35a96f!important;border-color:#35a96f!important;color:#fff!important;-webkit-text-fill-color:#fff!important;
+ font-weight:400!important;font-style:normal!important;text-decoration:none!important;
+ box-shadow:none!important;transform:none!important;filter:none!important;text-shadow:none!important;
+}
+.wooten-fleet button[data-refresh]:not(:disabled):is(:hover,:focus-visible,:active){background:#289960!important;border-color:#289960!important}
+.wooten-fleet button[data-refresh]:disabled{opacity:.55!important;cursor:not-allowed!important}
