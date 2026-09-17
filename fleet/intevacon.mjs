@@ -240,7 +240,16 @@ async function readData(request,db,customer,admin){
  const join=`FROM ${table} f LEFT JOIN customers c ON c.account_number=f.account_number`;
  const filter=where.length?' WHERE '+where.join(' AND '):'';
  const total=(await db.prepare(`SELECT COUNT(*) AS n ${join}${filter}`).bind(...args).first()).n;
- const list=await rows(db.prepare(`SELECT f.payload,f.account_number,c.id AS customer_id ${join}${filter} ORDER BY ${kind==='cards'?'f.record_id':'f.received_at DESC,f.record_id DESC'} LIMIT ? OFFSET ?`).bind(...args,size,(page-1)*size));
+ const sortKeys=kind==='cards'?['card_number','status','cardholder','assigned_to','driver_no']:['received_at','transaction_id','local_date_time','entry_method','decline_reason','merchant','auth_ref','card_number','total_sale','billable_amount','cardholder','driver_number','driver_name','vehicle_number','vehicle_description','raw_vehicle_id','odometer','processed_on'];
+ if(admin)sortKeys.push('account_number');else sortKeys.splice(sortKeys.indexOf('billable_amount'),kind==='transactions'?1:0);
+ const sort=q.get('sort'),direction=q.get('direction')==='desc'?'DESC':'ASC';
+ let order=kind==='cards'?'f.record_id':'f.received_at DESC,f.record_id DESC';
+ if(sortKeys.includes(sort)){
+  const expression=sort==='account_number'?'f.account_number':sort==='received_at'?'f.received_at':"json_extract(f.payload,'$."+sort+"')";
+  const numeric=['total_sale','billable_amount','odometer'].includes(sort);
+  order=`${numeric?'CAST('+expression+' AS REAL)':expression+' COLLATE NOCASE'} ${direction},f.record_id ${direction}`;
+ }
+ const list=await rows(db.prepare(`SELECT f.payload,f.account_number,c.id AS customer_id ${join}${filter} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...args,size,(page-1)*size));
  const items=list.map(r=>{const result=project(kind,JSON.parse(r.payload),admin);if(admin){result.account_number=r.account_number;result.needs_review=!r.account_number||!r.customer_id;}return result;});
  // Customer summaries are scoped in SQL, never filtered in browser JavaScript.
  const summary=await db.prepare(`SELECT COUNT(*) AS cards,SUM(CASE WHEN lower(json_extract(payload,'$.status'))='active' THEN 1 ELSE 0 END) AS active FROM fleet_cards ${!admin?'WHERE account_number=?':account?'WHERE account_number=?':''}`).bind(...(!admin||account?[account]:[])).first();
