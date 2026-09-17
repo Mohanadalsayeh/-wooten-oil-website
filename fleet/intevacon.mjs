@@ -45,14 +45,16 @@ export function cleanTransaction(r,run){
  need(table||r.source===undefined,'Unknown transaction format.');
  if(table){
    need(r.row_complete===true,'Transaction table row was not collected completely.');
-   for(const k of ['invoice_number','local_date_time','merchant','merchant_city','status','cardholder'])need(typeof r[k]==='string','A required transaction column is missing.');
+   need(r.column_set===undefined||r.column_set==='selected_v1','Unknown transaction column set.');
+   const required=r.column_set==='selected_v1'?['local_date_time','entry_method','decline_reason','merchant','auth_ref','cardholder','driver_number','driver_name','vehicle_number','vehicle_description','raw_vehicle_id','odometer','processed_on']:['invoice_number','local_date_time','merchant','merchant_city','status','cardholder'];
+   for(const k of required)need(typeof r[k]==='string','A required transaction column is missing: '+k);
    for(const k of ['total_sale','billable_amount'])need(Object.hasOwn(r,k),'A transaction total column is missing.');
  }else{
    // An older installed agent can continue running while the PC update is applied.
    need(r.detail_complete===true,'Transaction details were not collected.');
    need(Array.isArray(r.items)&&r.items.length<=100,'Invalid product lines.');
  }
- return {transaction_id:id(r.transaction_id),card_number:id(r.card_number),cardholder:text(r.cardholder),received_at:received,local_date_time:text(r.local_date_time,60),merchant:text(r.merchant),merchant_city:text(r.merchant_city),status:text(r.status,40),transaction_type:text(r.transaction_type,40),decline_reason:text(r.decline_reason),driver:text(r.driver),vehicle:text(r.vehicle),odometer:text(r.odometer,30),invoice_number:table?text(r.invoice_number,80):'',processed_on:table?text(r.processed_on,60):'',posted_on:table?text(r.posted_on,60):'',source:table?'transaction_table':'transaction_detail',total_sale:table?money(r.total_sale):null,billable_amount:table?money(r.billable_amount):null,items:table?[]:r.items.map(item=>{
+ return {entry_method:text(r.entry_method),auth_ref:text(r.auth_ref),driver_number:text(r.driver_number),driver_name:text(r.driver_name),vehicle_number:text(r.vehicle_number),vehicle_description:text(r.vehicle_description),raw_vehicle_id:text(r.raw_vehicle_id),transaction_id:id(r.transaction_id),card_number:id(r.card_number),cardholder:text(r.cardholder),received_at:received,local_date_time:text(r.local_date_time,60),merchant:text(r.merchant),merchant_city:text(r.merchant_city),status:text(r.status,40),transaction_type:text(r.transaction_type,40),decline_reason:text(r.decline_reason),driver:text(r.driver),vehicle:text(r.vehicle),odometer:text(r.odometer,30),invoice_number:table?text(r.invoice_number,80):'',processed_on:table?text(r.processed_on,60):'',posted_on:table?text(r.posted_on,60):'',source:table?'transaction_table':'transaction_detail',total_sale:table?money(r.total_sale):null,billable_amount:table?money(r.billable_amount):null,items:table?[]:r.items.map(item=>{
    const quantity=text(item.quantity,30);need(/^-?\d+(?:\.\d+)?$/.test(quantity),'Invalid product quantity.');
    return {product:text(item.product,100),quantity,unit:text(item.unit,20)};
  })};
@@ -64,7 +66,7 @@ function money(value){
 }
 // Customer responses explicitly include Total Sale; Billable Amount is admin-only.
 function project(kind,p,admin){
- const fields=kind==='cards'?['card_number','status','card_type','cardholder','assigned_to','driver_no','vehicle_no','last_used_on']:['transaction_id','invoice_number','card_number','cardholder','received_at','local_date_time','processed_on','posted_on','merchant','merchant_city','status','transaction_type','decline_reason','driver','vehicle','odometer'];
+ const fields=kind==='cards'?['card_number','status','card_type','cardholder','assigned_to','driver_no','vehicle_no','last_used_on']:['transaction_id','invoice_number','card_number','cardholder','received_at','local_date_time','processed_on','posted_on','merchant','merchant_city','status','transaction_type','decline_reason','driver','vehicle','odometer','entry_method','auth_ref','driver_number','driver_name','vehicle_number','vehicle_description','raw_vehicle_id'];
  const result=Object.fromEntries(fields.map(k=>[k,typeof p[k]==='string'?p[k]:'']));
  if(kind==='transactions'){
    result.total_sale=p.total_sale==null?null:money(p.total_sale);
@@ -105,7 +107,7 @@ async function agent(request,db,path){
  if(path==='/ping'&&request.method==='GET'){
    const settings=await db.prepare('SELECT days FROM fleet_pull_settings WHERE id=1').first();
    // Keep the legacy window field so an installed v2.0 agent can still connect.
-   return json({success:true,version:1,window_days:30,selected_window_days:settings.days,capabilities:['transaction_table_v2','sync_health_v1','window_selection_v1']});
+   return json({success:true,version:1,window_days:30,selected_window_days:settings.days,capabilities:['transaction_table_v2','sync_health_v1','window_selection_v1','selected_columns_v1']});
  }
  need(request.method==='POST','Method not allowed.',405);
  const b=await body(request);

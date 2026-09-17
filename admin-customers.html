@@ -16426,6 +16426,10 @@ html,body{
   async function preparePdfPages(data,onProgress){
     const pageWidth=792,pageHeight=612,margin=32,available=pageWidth-margin*2;
     const widths=columnWidths(data.headers,data.rows,available);
+    if(data.fullCells){
+      const card=data.headers.findIndex(h=>/^card number$/i.test(cleanText(h)));
+      if(card>=0&&widths[card]<100){const extra=100-widths[card],rest=available-widths[card];widths.forEach((w,i)=>{widths[i]=i===card?100:w-extra*w/rest;});}
+    }
     const headerLines=data.headers.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.56))),4));
     const headerHeight=Math.max(24,Math.max(...headerLines.map(lines=>lines.length))*9+8);
     const printableHeight=(pageHeight-72)-headerHeight-42;
@@ -16433,7 +16437,18 @@ html,body{
     let used=0;
     for(let index=0;index<data.rows.length;index++){
       const source=data.rows[index];
-      const lines=source.map((text,column)=>wrapText(text,Math.max(3,Math.floor((widths[column]-6)/(7.5*.52))),10));
+      const lines=source.map((text,column)=>wrapText(text,Math.max(3,Math.floor((widths[column]-6)/(7.5*.52))),data.fullCells?Infinity:10));
+      if(data.fullCells){
+        const maxLines=Math.max(1,Math.floor((printableHeight-7)/9)),lineCount=Math.max(...lines.map(value=>value.length));
+        for(let offset=0;offset<lineCount;offset+=maxLines){
+          const chunk=lines.map(value=>value.slice(offset,offset+maxLines));
+          const row={lines:chunk,height:Math.max(20,Math.max(...chunk.map(value=>value.length))*9+7)};
+          if(pages[pages.length-1].length&&used+row.height>printableHeight){pages.push([]);used=0;}
+          pages[pages.length-1].push(row);used+=row.height;
+        }
+        if(index%250===0){onProgress?.(index,data.rows.length,'Preparing pages');await new Promise(resolve=>setTimeout(resolve,0));}
+        continue;
+      }
       const row={lines,height:Math.max(20,Math.max(...lines.map(value=>value.length))*9+7)};
       if(pages[pages.length-1].length&&used+row.height>printableHeight){pages.push([]);used=0;}
       pages[pages.length-1].push(row);used+=row.height;
@@ -16527,6 +16542,7 @@ html,body{
 
   async function exportDataPdf(title,headers,rows,onProgress,options={}){
     const data=normalizedData(headers,rows);
+    data.fullCells=options.fullCells===true;
     if(Number.isSafeInteger(options.recordCount)&&options.recordCount>=0)data.recordCount=options.recordCount;
     if(!data.rows.length)throw new Error('Load the table data before exporting it.');
     const blob=await buildPdf(title,data,onProgress);
@@ -17367,4 +17383,4 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 </style>
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=460">
-<script src="assets/js/wooten-fleet.js?v=459"></script>
+<script src="assets/js/wooten-fleet.js?v=461"></script>

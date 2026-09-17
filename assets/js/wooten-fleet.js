@@ -20,10 +20,13 @@ function fleetPager(page,last,total){
  }
  return `<button type="button" class="secondary wooten-page-prev" data-page="${page-1}" ${page<=1?'disabled':''}>Previous 20</button><span class="wooten-page-summary">Page ${page} of ${last}</span><span class="wooten-page-numbers" role="group" aria-label="Page numbers">${numbers}</span><button type="button" class="secondary wooten-page-next" data-page="${page+1}" ${page>=last?'disabled':''}>Next 20</button>`;
 }
+function driverVehicleDetails(r){
+ return [['Driver #',r.driver_number],['Driver name',r.driver_name||r.driver],['Vehicle #',r.vehicle_number],['Vehicle description',r.vehicle_description||r.vehicle],['Raw VehicleID',r.raw_vehicle_id],['Odometer',r.odometer]].map(([label,value])=>label+': '+(value||'—'));
+}
 function fleetPdfData(kind,items){
  const account=r=>(r.account_number||'Unmatched')+(r.needs_review?' (Needs account review)':'');
  if(kind==='cards')return {headers:['Portal account','Card number','Status','Cardholder','Assigned to','Driver / Vehicle'],rows:items.map(r=>[account(r),r.card_number,r.status,r.cardholder,r.assigned_to||'—',[r.driver_no||'—',r.vehicle_no||'—'].join(' / ')])};
- return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+(r.local_date_time||'—'),'Received: '+central(r.received_at),r.processed_on?'Processed: '+r.processed_on:'',r.posted_on?'Posted: '+r.posted_on:'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Driver: '+(r.driver||'—')+' / Vehicle: '+(r.vehicle||'—')+(r.odometer?' / Odometer: '+r.odometer:'')])};
+ return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Entry / Auth Ref','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+(r.local_date_time||'—'),'Received: '+central(r.received_at),r.processed_on?'Processed: '+r.processed_on:'',r.posted_on?'Posted: '+r.posted_on:'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Entry method: '+(r.entry_method||'—')+' / Auth Ref: '+(r.auth_ref||'—'),driverVehicleDetails(r).join('; ')])};
 }
 function healthMarkup(data){
  const h=data.latest,success=data.last_success;
@@ -64,7 +67,7 @@ function mount(root,admin){
   get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
   const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
-  const headers=kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction / Invoice','Total Sale',...(admin?['Billable Amount']:[]),'Dates / Location','Card / Cardholder','Status','Driver / Vehicle'];
+  const headers=kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction / Invoice','Total Sale',...(admin?['Billable Amount']:[]),'Dates / Location','Card / Cardholder','Status / Decline','Entry / Auth Ref','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map(h=>`<th scope="col">${h}</th>`).join('')+'</tr></thead><tbody>';
   for(const r of data.items){
@@ -76,7 +79,7 @@ function mount(root,admin){
     cells.push(`Local: ${esc(r.local_date_time||'—')}<small>Received: ${esc(r.received_at?central(r.received_at):'—')}</small>${r.processed_on?'<small>Processed: '+esc(r.processed_on)+'</small>':''}${r.posted_on?'<small>Posted: '+esc(r.posted_on)+'</small>':''}<small>${esc([r.merchant,r.merchant_city].filter(Boolean).join(' · '))}</small>`,
      `<strong class="fleet-card-number">${esc(r.card_number)}</strong><small>${esc(r.cardholder)}</small>`,
      `${badge(r.status)}<small>${esc(r.transaction_type)}${r.decline_reason?' · '+esc(r.decline_reason):''}</small>`);
-    cells.push(`Driver: ${esc(r.driver||'—')}<small>Vehicle: ${esc(r.vehicle||'—')}${r.odometer?'<br>Odometer: '+esc(r.odometer):''}</small>`);
+    cells.push(`Entry method: ${esc(r.entry_method||'—')}<small>Auth Ref: ${esc(r.auth_ref||'—')}</small>`,driverVehicleDetails(r).map(line=>'<small>'+esc(line)+'</small>').join(''));
    }
    html+='<tr>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>';
   }
@@ -106,7 +109,7 @@ function mount(root,admin){
    if(items.length!==first.total)throw Error('The complete fleet table could not be loaded. Please export again.');
    const data=fleetPdfData(exportKind,items);
    button.textContent='Preparing PDF…';
-   await window.WootenAdminTablePdf.exportData(exportKind==='cards'?'Fleet Cards':'Fleet Transactions',data.headers,data.rows);
+   await window.WootenAdminTablePdf.exportData(exportKind==='cards'?'Fleet Cards':'Fleet Transactions',data.headers,data.rows,undefined,{fullCells:true});
    if(ticket===serial)message('Exported '+items.length.toLocaleString()+' records to PDF.');
   }catch(e){if(ticket===serial&&e.name!=='AbortError')message(e.message||'Fleet PDF export failed.',true);}
   finally{exporting=false;button.textContent='Export PDF';button.disabled=!get('[data-table] tbody tr strong.fleet-card-number');}
