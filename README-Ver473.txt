@@ -1,0 +1,1 @@
+Replace four files and deploy Pages. Adds a fleet-card icon beside the admin sync status heading, matching the MAS 90 retrieval icon sizing and rounded tile. Icon colors follow success, processing and failure states. No Worker or PC update needed.

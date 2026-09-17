@@ -126,3 +126,12 @@ body #customerFleetRoot .fleet-customer-toolbar .fleet-tabs{flex:0 0 auto;margin
 .wooten-fleet .fleet-skeleton-bar{display:block;height:14px;border-radius:5px;background:linear-gradient(90deg,#e6edf3 25%,#f5f8fb 50%,#e6edf3 75%);background-size:200% 100%;animation:fleet-skeleton-shimmer 1.5s ease-in-out infinite}
 @keyframes fleet-skeleton-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
 @media(prefers-reduced-motion:reduce){.wooten-fleet .fleet-skeleton-bar{animation:none;background:#e6edf3}}
+
+/* Ver473: match the MAS 90 retrieval panel icon treatment. */
+.wooten-fleet .fleet-health-heading{display:flex;align-items:center;gap:20px;margin-bottom:4px}
+.wooten-fleet .fleet-health-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#eaf2fb;color:#1f63a8;flex:0 0 auto}
+.wooten-fleet .fleet-health-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.wooten-fleet .fleet-health[data-state="complete"] .fleet-health-icon{background:#dff3e7;color:#22734a}
+.wooten-fleet .fleet-health:is([data-state="collecting"],[data-state="uploading"],[data-state="overdue"]) .fleet-health-icon{background:#f6c654;color:#674808}
+.wooten-fleet .fleet-health[data-state="failed"] .fleet-health-icon{background:#f4dada;color:#a52b31}
+@media(max-width:600px){.wooten-fleet .fleet-health-heading{gap:12px}}
