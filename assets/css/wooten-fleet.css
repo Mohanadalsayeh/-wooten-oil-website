@@ -117,3 +117,12 @@ body #customerFleetRoot .fleet-customer-toolbar .fleet-tabs{flex:0 0 auto;margin
  #customerFleetRoot .fleet-customer-toolbar .fleet-toolbar{flex-basis:100%}
  #customerFleetRoot .fleet-summary{gap:8px 18px;flex-wrap:wrap}
 }
+
+/* Ver472: loading placeholders match the current table's columns. */
+.wooten-fleet .fleet-skeleton{min-width:100%;width:max-content}
+.wooten-fleet .fleet-skeleton-row{display:grid;grid-template-columns:repeat(var(--fleet-skeleton-columns),minmax(160px,1fr))}
+.wooten-fleet .fleet-skeleton-heading{padding:14px 16px;background:#f2f6fa;color:#193953;font-size:12px;font-weight:700;white-space:nowrap;border-bottom:1px solid #e6edf3}
+.wooten-fleet .fleet-skeleton-cell{padding:17px 16px;border-bottom:1px solid #e6edf3}
+.wooten-fleet .fleet-skeleton-bar{display:block;height:14px;border-radius:5px;background:linear-gradient(90deg,#e6edf3 25%,#f5f8fb 50%,#e6edf3 75%);background-size:200% 100%;animation:fleet-skeleton-shimmer 1.5s ease-in-out infinite}
+@keyframes fleet-skeleton-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){.wooten-fleet .fleet-skeleton-bar{animation:none;background:#e6edf3}}

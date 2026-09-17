@@ -51,6 +51,12 @@ function fleetPdfData(kind,items){
  if(kind==='cards')return {headers:['Portal account','Card number','Status','Cardholder','Assigned to','Driver / Vehicle'],rows:items.map(r=>[account(r),r.card_number,r.status,r.cardholder,r.assigned_to||'—',[r.driver_no||'—',r.vehicle_no||'—'].join(' / ')])};
  return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Entry / Auth Ref','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+(r.local_date_time||'—'),'Received: '+central(r.received_at),r.processed_on?'Processed: '+r.processed_on:'',r.posted_on?'Posted: '+r.posted_on:'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Entry method: '+(r.entry_method||'—')+' / Auth Ref: '+(r.auth_ref||'—'),driverVehicleDetails(r).join('; ')])};
 }
+function fleetSkeleton(kind,admin){
+ const headers=kind==='transactions'?(admin?adminTransactionColumns:customerTransactionColumns).map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
+ if(admin)headers.unshift('Portal account');
+ const row=(heading,index)=>'<div class="fleet-skeleton-row">'+headers.map((label,column)=>heading?'<div class="fleet-skeleton-heading">'+esc(label)+'</div>':'<div class="fleet-skeleton-cell"><span class="fleet-skeleton-bar" style="width:'+([72,85,60][(column+index)%3])+'%"></span></div>').join('')+'</div>';
+ return '<div class="fleet-skeleton" aria-hidden="true" style="--fleet-skeleton-columns:'+headers.length+'">'+row(true,0)+Array.from({length:5},(_,i)=>row(false,i)).join('')+'</div>';
+}
 function healthMarkup(data){
  const h=data.latest,success=data.last_success;
  let state=h?.state||'unknown',title='No data-pull status received yet.',detail='';
@@ -144,10 +150,10 @@ function mount(root,admin){
  async function load(){
   if(admin)get('[data-export]').disabled=true;
   controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
-  get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';message('Loading fleet records…');root.setAttribute('aria-busy','true');
+  get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';message('Loading fleet records…');root.setAttribute('aria-busy','true');
   const query=new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});if(admin&&get('[name=review]').checked)query.set('review','1');
   try{const data=await api((admin?'/api/admin/fleet/data':'/api/customer/fleet')+'?'+query,{signal:controller.signal});if(ticket!==serial)return;loadedQuery=query.toString();display(data);message('');}
-  catch(e){if(ticket===serial&&e.name!=='AbortError')message(e.message,true);}
+  catch(e){if(ticket===serial&&e.name!=='AbortError'){get('[data-table]').innerHTML='';message(e.message,true);}}
   finally{if(ticket===serial)root.removeAttribute('aria-busy');}
  }
  // Only replace visible rows when a newly committed sync is available.

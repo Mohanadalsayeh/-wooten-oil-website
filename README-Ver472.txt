@@ -1,0 +1,1 @@
+Replace the four files and deploy Pages. Skeleton rows appear during opening, switching tabs, search, pagination, and manual Refresh for admin/customer fleet tables. Errors remove placeholders. Background sync checks retain visible records. Reduced motion is respected. No Worker or PC update needed.
