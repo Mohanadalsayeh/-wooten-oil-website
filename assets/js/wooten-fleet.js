@@ -48,7 +48,7 @@ function mount(root,admin){
  let controlDirty=false;
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
  {
   const pager=get('[data-pages]');pager.setAttribute('data-wooten-pager','');
@@ -90,7 +90,7 @@ function mount(root,admin){
  }
  async function exportPdf(){
   if(!admin||exporting)return;
-  const button=get('[data-export]'),ticket=serial,exportKind=kind,signal=controller?.signal;
+  const button=get('[data-export]'),buttonLabel=button.querySelector('span'),ticket=serial,exportKind=kind,signal=controller?.signal;
   if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',true);return;}
   exporting=true;button.disabled=true;
   const query=new URLSearchParams({kind:exportKind,search:get('[name=search]').value,page:'1'});
@@ -98,7 +98,7 @@ function mount(root,admin){
   try{
    let first=null,items=[];
    for(let n=1;n<= (first?.pages||1);n++){
-    button.textContent=first?'Loading page '+n+' of '+first.pages+'…':'Loading records…';
+    buttonLabel.textContent=first?'Loading page '+n+' of '+first.pages+'…':'Loading records…';
     query.set('page',String(n));
     const data=await api('/api/admin/fleet/data?'+query,{signal});
     if(ticket!==serial)return;
@@ -108,11 +108,11 @@ function mount(root,admin){
    }
    if(items.length!==first.total)throw Error('The complete fleet table could not be loaded. Please export again.');
    const data=fleetPdfData(exportKind,items);
-   button.textContent='Preparing PDF…';
+   buttonLabel.textContent='Preparing PDF…';
    await window.WootenAdminTablePdf.exportData(exportKind==='cards'?'Fleet Cards':'Fleet Transactions',data.headers,data.rows,undefined,{fullCells:true});
    if(ticket===serial)message('Exported '+items.length.toLocaleString()+' records to PDF.');
   }catch(e){if(ticket===serial&&e.name!=='AbortError')message(e.message||'Fleet PDF export failed.',true);}
-  finally{exporting=false;button.textContent='Export PDF';button.disabled=!get('[data-table] tbody tr strong.fleet-card-number');}
+  finally{exporting=false;buttonLabel.textContent='Export PDF';button.disabled=!get('[data-table] tbody tr strong.fleet-card-number');}
  }
  if(admin)get('[data-export]').addEventListener('click',exportPdf);
  async function load(){
