@@ -1,0 +1,3 @@
+Apply over Ver456 preserving paths, then deploy and refresh the browser.
+Admin and customer fleet tables refresh on detection of a newly completed sync. Checks run every 30 seconds while the fleet view is open and browser tab is visible. The customer view also checks when returning to the browser tab. Tabs and applied filters are preserved; pages are clamped if necessary. Failed or unchanged syncs do not replace visible rows. PDF exports defer automatic updates. Network failures retain rows and retry at the next poll.
+No Worker or PC changes. JavaScript syntax and refresh behavior tests passed (new/unchanged sync, filters, page bounds, failure, stale response, customer endpoint, export guard). Live-site browser verification not performed.

@@ -35,10 +35,13 @@ function healthMarkup(data){
  const overdue=time&&Date.now()-Date.parse(time)>4*60*60*1000;
  if(overdue){title='No recent sync report';state='overdue';detail='No update has been received for over four hours. Check that the sync PC is on, signed in and connected. The portal cannot determine the reason while the PC is unreachable.'+(h.state==='failed'?' Last reported failure: '+(h.error||'Unknown'):'');}
  if(!h&&success){state='complete';title='Data pulled successfully';}
- return `<strong>${esc(title)}</strong>${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}<span>Last successful pull: ${esc(central(success?.completed_at))}</span>${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
+ const active=state==='collecting'||state==='uploading';
+ const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
+ const bar=`<div class="fleet-sync-progress" data-progress-state="${state}"><span class="fleet-sync-progress-label">${esc(label)}</span><div class="fleet-sync-track" ${active?'role="progressbar" aria-label="'+esc(label)+'"':state==='complete'?'role="progressbar" aria-label="Sync complete" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"':'aria-hidden="true"'}><span class="fleet-sync-fill"></span></div></div>`;
+ return `<strong>${esc(title)}</strong>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}<span>Last successful pull: ${esc(central(success?.completed_at))}</span>${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
 function mount(root,admin){
- let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false;
+ let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
  root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
@@ -55,6 +58,7 @@ function mount(root,admin){
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw Error(data.error||'Fleet records could not be loaded.');return data;
  }
  function display(data){
+  lastSync=data.last_sync;
   get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
   const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
@@ -111,11 +115,33 @@ function mount(root,admin){
   controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
   get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';message('Loading fleet records…');root.setAttribute('aria-busy','true');
   const query=new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});if(admin&&get('[name=review]').checked)query.set('review','1');
-  try{const data=await api((admin?'/api/admin/fleet/data':'/api/customer/fleet')+'?'+query,{signal:controller.signal});if(ticket!==serial)return;display(data);message('');}
+  try{const data=await api((admin?'/api/admin/fleet/data':'/api/customer/fleet')+'?'+query,{signal:controller.signal});if(ticket!==serial)return;loadedQuery=query.toString();display(data);message('');}
   catch(e){if(ticket===serial&&e.name!=='AbortError')message(e.message,true);}
   finally{if(ticket===serial)root.removeAttribute('aria-busy');}
  }
- function clear(){if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ // Only replace visible rows when a newly committed sync is available.
+ async function refreshAfterSync(){
+  if(!loadedQuery||refreshing||exporting||root.hasAttribute('aria-busy'))return;
+  refreshing=true;
+  const ticket=serial,query=new URLSearchParams(loadedQuery),signal=controller?.signal;
+  try{
+   const path=admin?'/api/admin/fleet/data':'/api/customer/fleet';
+   let data=await api(path+'?'+query,{signal});
+   if(ticket!==serial||exporting||!data.last_sync||data.last_sync===lastSync)return;
+   if(Number(query.get('page'))>data.pages){
+    query.set('page',String(data.pages));
+    data=await api(path+'?'+query,{signal});
+    if(ticket!==serial||exporting)return;
+   }
+   const table=get('[data-table]'),left=table.scrollLeft,top=table.scrollTop;
+   page=Number(query.get('page'));loadedQuery=query.toString();display(data);
+   table.scrollLeft=left;table.scrollTop=top;
+   message('Fleet records refreshed after a successful sync.');
+  }catch(e){
+   // Keep the last successfully loaded rows; the next poll retries.
+  }finally{refreshing=false;}
+ }
+ function clear(){loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
  root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.dataset.kind){kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){load();if(admin)status();}});
  get('form').addEventListener('submit',e=>{e.preventDefault();page=1;load();});get('[name=review]')?.addEventListener('change',()=>{page=1;load();});
  async function status(){
@@ -125,6 +151,7 @@ function mount(root,admin){
    const health=get('[data-health]');health.innerHTML=healthMarkup(data);
    health.dataset.state=data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>4*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
    get('[data-sync-status]').innerHTML='<p class="fleet-note">'+(data.runs[0]?`Latest run: ${esc(data.runs[0].state)} · ${esc(central(data.runs[0].started_at))}${data.runs[0].error?' · '+esc(data.runs[0].error):''}`:'No sync runs yet.')+'</p>'+data.devices.map(d=>`<div class="fleet-device-row"><span><strong>${esc(d.name)}</strong><small class="fleet-note"> · ${d.active?'Active':'Revoked'} · ${esc(central(d.last_seen))}${d.last_error?' · '+esc(d.last_error):''}</small></span>${d.active&&window.wootenAdminUser?.owner?`<button type="button" data-revoke="${esc(d.id)}">Revoke</button>`:''}</div>`).join('');
+   if(data.last_success?.completed_at&&data.last_success.completed_at!==lastSync)await refreshAfterSync();
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
  }
  if(admin){
@@ -132,7 +159,7 @@ function mount(root,admin){
   get('[data-create]').addEventListener('click',async()=>{const btn=get('[data-create]');btn.disabled=true;const ticket=serial;try{const d=await api('/api/admin/fleet/devices',{method:'POST',body:JSON.stringify({name:'Intevacon Windows PC'})});if(ticket!==serial)return;const token=get('[data-token]');token.hidden=false;token.innerHTML=`<div class="fleet-token"><p>Copy this credential into Configure on the sync PC. It is shown once.</p><code>${esc(d.token)}</code><br><button type="button" data-hide-token>Hide credential</button></div>`;token.querySelector('[data-hide-token]').onclick=()=>{token.replaceChildren();token.hidden=true;};await status();}catch(e){if(ticket===serial)message(e.message,true);}finally{btn.disabled=false;}});
   get('[data-sync-status]').addEventListener('click',async e=>{const btn=e.target.closest('[data-revoke]');if(!btn)return;if(!confirm('Revoke this PC’s fleet sync credential? Its uploads will stop.'))return;btn.disabled=true;try{await api('/api/admin/fleet/devices/revoke',{method:'POST',body:JSON.stringify({id:btn.dataset.revoke})});await status();}catch(e){message(e.message,true);btn.disabled=false;}});
  }
- return {load,clear,status,get loaded(){return loaded;}};
+ return {load,clear,status,refreshAfterSync,get loaded(){return loaded;}};
 }
 const adminRoot=document.getElementById('adminFleetRoot');
 if(adminRoot){
@@ -148,6 +175,8 @@ if(open){
  dialog.innerHTML='<div class="fleet-modal-inner"><header class="fleet-modal-header"><div><small>WOOTEN OIL</small><h2 id="fleetModalTitle">Fleet cards & transactions</h2></div><button type="button" data-close aria-label="Close fleet information">×</button></header><div class="fleet-modal-body"><div id="customerFleetRoot"></div></div><footer class="fleet-modal-footer"><span>View your cards and fuel activity</span><button type="button" data-close>Done</button></footer></div>';
  document.body.appendChild(dialog);const view=mount(dialog.querySelector('#customerFleetRoot'),false);
  open.addEventListener('click',()=>{view.clear();dialog.showModal();view.load();});
+ const poll=()=>{if(dialog.open&&!document.hidden)view.refreshAfterSync();};
+ setInterval(poll,30000);document.addEventListener('visibilitychange',poll);
  dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
  dialog.addEventListener('close',()=>view.clear());
  window.addEventListener('wooten:payment-account',()=>{view.clear();if(dialog.open)dialog.close();});

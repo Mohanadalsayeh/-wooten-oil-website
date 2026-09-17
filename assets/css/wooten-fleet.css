@@ -24,3 +24,14 @@
 .fleet-modal .fleet-modal-header>[data-close]:focus-visible{outline:3px solid rgba(47,125,215,.25);outline-offset:2px}
 
 .fleet-export-actions{display:flex;justify-content:flex-end;margin:12px 0}.fleet-export-actions [data-export]{background:#e8eef4;border-color:#cbdbea}
+
+/* Sync stages use activity animation because collection has no percentage feed. */
+.wooten-fleet .fleet-sync-progress{margin:7px 0 9px;width:100%}
+.wooten-fleet .fleet-sync-progress-label{display:block;font-size:13px;font-weight:600;margin-bottom:7px}
+.wooten-fleet .fleet-sync-track{height:10px;width:100%;overflow:hidden;border-radius:999px;background:rgba(100,116,139,.16)}
+.wooten-fleet .fleet-sync-fill{display:block;height:100%;width:0;border-radius:inherit;background:currentColor}
+.wooten-fleet .fleet-sync-progress:is([data-progress-state="collecting"],[data-progress-state="uploading"]) .fleet-sync-fill{width:35%;animation:fleet-sync-activity 1.8s ease-in-out infinite}
+.wooten-fleet .fleet-sync-progress[data-progress-state="complete"] .fleet-sync-fill{width:100%;background:#22804a}
+.wooten-fleet .fleet-sync-progress[data-progress-state="failed"] .fleet-sync-fill{width:100%;background:#be123c}
+@keyframes fleet-sync-activity{0%{transform:translateX(-100%)}100%{transform:translateX(386%)}}
+@media(prefers-reduced-motion:reduce){.wooten-fleet .fleet-sync-progress .fleet-sync-fill{animation:none!important}}
