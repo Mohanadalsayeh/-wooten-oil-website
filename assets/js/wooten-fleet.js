@@ -57,6 +57,17 @@ function fleetSkeleton(kind,admin){
  const row=(heading,index)=>'<div class="fleet-skeleton-row">'+headers.map((label,column)=>heading?'<div class="fleet-skeleton-heading">'+esc(label)+'</div>':'<div class="fleet-skeleton-cell"><span class="fleet-skeleton-bar" style="width:'+([72,85,60][(column+index)%3])+'%"></span></div>').join('')+'</div>';
  return '<div class="fleet-skeleton" aria-hidden="true" style="--fleet-skeleton-columns:'+headers.length+'">'+row(true,0)+Array.from({length:5},(_,i)=>row(false,i)).join('')+'</div>';
 }
+function pullTimingMarkup(data){
+ const h=data.latest,active=['collecting','uploading'].includes(h?.state);
+ const start=Date.parse(h?.started_at),end=active?Date.now():Date.parse(h?.updated_at);
+ let duration='Not available';
+ if(Number.isFinite(start)&&Number.isFinite(end)&&end>=start){
+  const seconds=Math.floor((end-start)/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
+  duration=(hours?hours+'h ':'')+minutes+'m '+seconds%60+'s'+(active?' elapsed':'');
+ }
+ const next=data.control?.requested_at?'Queued — waiting for sync PC':data.control?.next_due?central(data.control.next_due):'Not scheduled yet';
+ return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>Next pull</span><strong>'+esc(next)+'</strong></div></div>';
+}
 function healthMarkup(data){
  const h=data.latest,success=data.last_success;
  let state=h?.state||'unknown',title='No data-pull status received yet.',detail='';
@@ -71,7 +82,7 @@ function healthMarkup(data){
  const active=state==='collecting'||state==='uploading';
  const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
  const bar=`<div class="fleet-sync-progress" data-progress-state="${state}"><span class="fleet-sync-progress-label">${esc(label)}</span><div class="fleet-sync-track" ${active?'role="progressbar" aria-label="'+esc(label)+'"':state==='complete'?'role="progressbar" aria-label="Sync complete" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"':'aria-hidden="true"'}><span class="fleet-sync-fill"></span></div></div>`;
- return `<div class="fleet-health-heading"><span class="fleet-health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span><strong>${esc(title)}</strong></div>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}<span>Last successful pull: ${esc(central(success?.completed_at))}</span>${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
+ return `<div class="fleet-health-heading"><span class="fleet-health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span><strong>${esc(title)}</strong></div>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}${pullTimingMarkup(data)}${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
 function mount(root,admin){
  let controlDirty=false;

@@ -1,0 +1,1 @@
+Replace included files and deploy Pages. Admin sync panel now displays latest pull duration, last successful pull date/time, and next scheduled pull date/time in Central Time. Active duration updates with existing 30-second status refresh. Duration measures collection-start report through final status report; failed attempts show their duration. No Worker or PC update required.
