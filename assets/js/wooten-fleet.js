@@ -23,6 +23,21 @@ function fleetPager(page,last,total){
 function driverVehicleDetails(r){
  return [['Driver #',r.driver_number],['Driver name',r.driver_name||r.driver],['Vehicle #',r.vehicle_number],['Vehicle description',r.vehicle_description||r.vehicle],['Raw VehicleID',r.raw_vehicle_id],['Odometer',r.odometer]].map(([label,value])=>label+': '+(value||'—'));
 }
+// The source transaction export's 18 checked columns, in source order.
+const adminTransactionColumns=[
+ ['Received On',r=>r.received_at?central(r.received_at):'—'],
+ ['Tran #',r=>r.transaction_id],['Local Date/Time',r=>r.local_date_time],
+ ['Entry Method',r=>r.entry_method],['Decline Reason',r=>r.decline_reason],
+ ['Merchant',r=>r.merchant],['Auth Ref',r=>r.auth_ref],['Card Number',r=>r.card_number,'card'],
+ ['Total Sale',r=>dollars(r.total_sale),'money'],['Billable Amount',r=>dollars(r.billable_amount),'money'],
+ ['Cardholder',r=>r.cardholder],['Driver#',r=>r.driver_number],['Driver Name',r=>r.driver_name||r.driver],
+ ['Vehicle#',r=>r.vehicle_number],['Vehicle Desc',r=>r.vehicle_description||r.vehicle],
+ ['Raw VehicleID',r=>r.raw_vehicle_id],['Odometer',r=>r.odometer],['Processed On',r=>r.processed_on]
+];
+function adminTransactionCells(r){return adminTransactionColumns.map(([,value,type])=>{
+ const text=esc(value(r)??'—')||'—';
+ return type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
+});}
 function fleetPdfData(kind,items){
  const account=r=>(r.account_number||'Unmatched')+(r.needs_review?' (Needs account review)':'');
  if(kind==='cards')return {headers:['Portal account','Card number','Status','Cardholder','Assigned to','Driver / Vehicle'],rows:items.map(r=>[account(r),r.card_number,r.status,r.cardholder,r.assigned_to||'—',[r.driver_no||'—',r.vehicle_no||'—'].join(' / ')])};
@@ -67,12 +82,13 @@ function mount(root,admin){
   get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
   const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
-  const headers=kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction / Invoice','Total Sale',...(admin?['Billable Amount']:[]),'Dates / Location','Card / Cardholder','Status / Decline','Entry / Auth Ref','Driver / Vehicle'];
+  const headers=admin&&kind==='transactions'?adminTransactionColumns.map(([label])=>label):kind==='cards'?['Card number','Status','Cardholder','Assigned to','Driver / Vehicle']:['Transaction / Invoice','Total Sale',...(admin?['Billable Amount']:[]),'Dates / Location','Card / Cardholder','Status / Decline','Entry / Auth Ref','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map(h=>`<th scope="col">${h}</th>`).join('')+'</tr></thead><tbody>';
   for(const r of data.items){
    let cells=[];if(admin)cells.push(esc(r.account_number||'Unmatched')+(r.needs_review?'<small>Needs account review</small>':''));
    if(kind==='cards')cells.push('<strong class="fleet-card-number">'+esc(r.card_number)+'</strong>',badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
+   else if(admin)cells.push(...adminTransactionCells(r));
    else {
     cells.push(esc(r.transaction_id)+`<small>Invoice: ${esc(r.invoice_number||'—')}</small>`, `<span class="fleet-money">${dollars(r.total_sale)}</span>`);
     if(admin)cells.push(`<span class="fleet-money">${dollars(r.billable_amount)}</span>`);
