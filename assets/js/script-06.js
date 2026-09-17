@@ -16,6 +16,8 @@
   var busy=false,checking=false,statusUnavailable=false,currentAccount='',generation=0,payment=null,announced='';
   var cardContainer=document.getElementById('heartlandCardForm'),cancelCard=document.getElementById('heartlandCancel'),note=document.getElementById('portalPaymentNote');
   var provider='globalpayments',publicKey='',serverReady=false,cardForm=null,mountedIntent='',mountSerial=0,tokenSubmitted=false,sdkPromise=null;
+  var method=document.getElementById('heartlandMethod'),methodChoice=document.getElementById('heartlandMethodChoice'),achForm=document.getElementById('heartlandAchForm'),receiptButton=document.getElementById('heartlandReceipt');
+  var achIntent='';
   var returnId=new URL(window.location.href).searchParams.get('payment_return')||'';
   if(!/^[0-9a-f-]{36}$/i.test(returnId))returnId='';
   var sandboxApproval='',sandboxExpires=0,approvalDialog=null,approvalPromise=null;
@@ -70,7 +72,8 @@
     busy=value;
     button.disabled=value||checking||statusUnavailable||paymentBlocked()||(provider==='heartland'&&!serverReady);
     button.setAttribute('aria-busy',value?'true':'false');
-    button.textContent=provider==='heartland'?(value?'Please wait…':'Continue to Card Payment'):(value?'Opening Secure Payment…':'Continue to Secure Payment');
+    button.textContent=provider==='heartland'?(value?'Please wait…':(method&&method.value==='ach'?'Continue to Bank Payment':'Continue to Card Payment')):(value?'Opening Secure Payment…':'Continue to Secure Payment');
+    if(method)method.disabled=value||paymentBlocked();
     full.disabled=partial.disabled=value||paymentBlocked();
     if(amount)amount.disabled=value||paymentBlocked();
   }
@@ -91,6 +94,8 @@
   }
   function disposeHeartland(){
     mountSerial++;mountedIntent='';
+    achIntent='';if(achForm){achForm.reset();achForm.hidden=true;}
+    ['heartlandBillingAddress','heartlandBillingZip','heartlandShipDate'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
     if(cardForm){try{cardForm.dispose();}catch(ignore){}cardForm=null;}
     ['heartland-card-holder','heartland-card-number','heartland-card-expiration','heartland-card-cvv','heartland-card-submit'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='';});
     if(cardContainer)cardContainer.hidden=true;
@@ -98,9 +103,10 @@
   }
   function acceptProvider(data){
     if(data.provider==='heartland'){
+      if(methodChoice)methodChoice.hidden=!data.ach_enabled;
       provider='heartland';publicKey=data.public_api_key||publicKey;
       if(typeof data.ready==='boolean')serverReady=data.ready;
-      if(note)note.textContent='Heartland securely processes your card details. Your payment status is saved to your account even if you close the portal.';
+      if(note)note.textContent='Heartland processes your payment securely. Your payment status is saved to your account even if you close the portal.';
     }
   }
   function loadHeartland(){
@@ -141,10 +147,12 @@
         if(!response||typeof response.paymentReference!=='string'){setMessage('Heartland did not return a card token. Please check the card details.','error');return;}
         if(!await authorizeSandbox())return;
         if(ticket!==generation||serial!==mountSerial)return;
+        var billing={address:document.getElementById('heartlandBillingAddress').value.trim(),zip:document.getElementById('heartlandBillingZip').value.trim(),ship_date:document.getElementById('heartlandShipDate').value};
+        if(!billing.address||!/^\d{5}(?:-?\d{4})?$/.test(billing.zip)){setMessage('Enter your billing address and ZIP code, then press Pay again.','error');document.getElementById('heartlandBillingAddress').focus();return;}
         tokenSubmitted=true;setBusy(true);cardContainer.hidden=true;cancelCard.hidden=true;
         result.textContent='Submitting your sandbox payment. Please wait for its saved result.';
         try{
-          var data=await requestJson('/api/customer/payment/charge',{method:'POST',headers:{'Content-Type':'application/json','X-Sandbox-Approval':sandboxApproval},body:JSON.stringify({payment_intent_id:id,payment_reference:response.paymentReference})});
+          var data=await requestJson('/api/customer/payment/charge',{method:'POST',headers:{'Content-Type':'application/json','X-Sandbox-Approval':sandboxApproval},body:JSON.stringify({payment_intent_id:id,payment_reference:response.paymentReference,billing:billing})});
           if(ticket!==generation)return;
           clearApproval();setMessage('','');renderPayment(data.payment);
         }catch(error){
@@ -157,24 +165,59 @@
       if(cardForm.ready)cardForm.ready(function(){if(serial===mountSerial&&ticket===generation)setMessage('Sandbox checkout — use a test card only. No live funds will be collected.','processing');});
     }catch(error){if(serial===mountSerial&&ticket===generation){disposeHeartland();setMessage(error.message,'error');if(cancelCard)cancelCard.hidden=false;}}
   }
+  function mountAch(p){
+    if(!achForm||achIntent===p.payment_intent_id)return;
+    disposeHeartland();achIntent=p.payment_intent_id;achForm.hidden=false;cancelCard.hidden=false;
+    document.getElementById('heartlandAchTerms').textContent=p.authorization_terms;
+    achForm.querySelector('[type="submit"]').textContent='Submit $'+p.amount+' ACH — Sandbox';
+    achForm.querySelector('[type="submit"]').disabled=false;
+  }
+  if(achForm)achForm.addEventListener('submit',async function(event){
+    event.preventDefault();if(busy||!payment||!payment.can_pay||payment.payment_method!=='ach')return;
+    if(!achForm.reportValidity())return;
+    var data=new FormData(achForm),ticket=generation,id=payment.payment_intent_id;
+    if(data.get('account')!==data.get('confirm_account')){setMessage('The bank account numbers do not match.','error');return;}
+    if(!await authorizeSandbox()||ticket!==generation||busy||!payment||payment.payment_intent_id!==id)return;
+    var bank={name:data.get('name'),routing:data.get('routing'),account:data.get('account'),check_type:data.get('check_type'),account_type:data.get('account_type'),accepted:data.get('accepted')==='on',authorization_version:payment.authorization_version};
+    setBusy(true);achForm.querySelector('[type="submit"]').disabled=true;
+    try{
+      var job=requestJson('/api/customer/payment/ach-charge',{method:'POST',headers:{'Content-Type':'application/json','X-Sandbox-Approval':sandboxApproval},body:JSON.stringify({payment_intent_id:id,bank:bank})});
+      bank.account='';bank.routing='';data=null;achForm.reset();achForm.hidden=true;cancelCard.hidden=true;
+      var reply=await job;if(ticket!==generation)return;clearApproval();setMessage('','');renderPayment(reply.payment);
+    }catch(error){if(ticket===generation){achIntent='';setMessage(error.message,'error');statusUnavailable=true;setBusy(false);await refreshStatus();}}
+    finally{bank.account='';bank.routing='';}
+  });
+  if(receiptButton)receiptButton.addEventListener('click',function(){
+    if(!payment)return;var p=payment,w=window.open('','_blank');if(!w){setMessage('Allow pop-ups to print the payment record.','error');return;}
+    w.opener=null;w.document.title='Wooten Oil — Sandbox payment record';
+    var h=w.document.createElement('h1');h.textContent='Wooten Oil — Sandbox payment record';w.document.body.appendChild(h);
+    var values=[['Notice','Sandbox only. No live funds transferred.'],['Customer account',currentAccount],['Amount','$'+p.amount],['Status',p.status],['Method',p.payment_method==='ach'?'Bank account (ACH)':'Card'],['Portal reference',p.reference],['Heartland transaction ID',p.transaction_id]];
+    if(p.payment_method==='ach')values=values.concat([['Bank status',p.ach_state],['Account holder',p.holder],['Account type',p.check_type+' / '+p.account_type],['Bank account','•••• '+p.bank_last4],['Routing','••• '+p.routing_last4],['Authorization accepted',p.authorized_at&&window.WootenTime?WootenTime.dateTime(p.authorized_at):p.authorized_at],['Authorization version',p.authorization_version],['Authorization',p.authorization_text],['Void status',p.void_state],['Void transaction ID',p.void_txn_id]]);
+    values.forEach(function(pair){if(!pair[1])return;var e=w.document.createElement('p'),b=w.document.createElement('strong');b.textContent=pair[0]+': ';e.appendChild(b);e.appendChild(w.document.createTextNode(pair[1]));w.document.body.appendChild(e);});
+    var style=w.document.createElement('style');style.textContent='@page{margin:.6in}body{font:15px Arial;color:#173650;max-width:850px;margin:32px auto;padding:16px}p{line-height:1.5;overflow-wrap:anywhere}@media print{button{display:none}}';w.document.head.appendChild(style);
+    var print=w.document.createElement('button');print.textContent='Print / Save PDF';print.onclick=function(){w.print();};w.document.body.appendChild(print);w.focus();
+  });
   function renderHeartland(p){
     if(!p){disposeHeartland();setMessage(serverReady?'Sandbox checkout — use a test card only.':'Sandbox checkout is waiting for its background confirmation service. Try Check Payment Status shortly.','processing');
       if(!serverReady){secure.hidden=false;secureAmount.textContent='';result.textContent='No payment has been started.';result.className='portal-payment-result show processing';}return;}
     secureAmount.textContent='$'+p.amount;
     var text='',state='processing';
     if(p.status==='initiated'){
-      text=p.can_pay?'Your $'+p.amount+' sandbox checkout is ready. Enter a test card below, then press Pay. Opening this form does not submit a payment.':'This unsubmitted checkout is not ready. Cancel it and start again.';
-      if(p.can_pay&&serverReady&&!statusUnavailable)mountHeartland(p);else{disposeHeartland();if(cancelCard)cancelCard.hidden=false;}
+      text=p.can_pay?'Your $'+p.amount+' sandbox checkout is ready. Enter the '+(p.payment_method==='ach'?'test bank':'test card')+' details below. Opening this form does not submit a payment.':'This unsubmitted checkout is not ready. Cancel it and start again.';
+      if(p.can_pay&&serverReady&&!statusUnavailable){if(p.payment_method==='ach')mountAch(p);else mountHeartland(p);}else{disposeHeartland();if(cancelCard)cancelCard.hidden=false;}
     }else{
       disposeHeartland();
       if(p.status==='captured'){
         text='Sandbox test payment approved for $'+p.amount+'. No live funds were collected. Confirmation: '+p.reference+'.';state='success';
         if(announced!==p.payment_intent_id){announced=p.payment_intent_id;window.dispatchEvent(new CustomEvent('wooten:payment-completed',{detail:p}));}
+      }else if(p.payment_method==='ach'&&p.status==='pending'&&!p.active){
+        text='Sandbox ACH request accepted. Bank status: '+(p.ach_state||'Pending')+'. No live funds were transferred. Reference: '+p.reference+'.';
       }else if(p.active){
         text=p.review_required?'Your earlier sandbox payment needs review because Heartland returned more than one successful sale. Please contact Wooten Oil with reference '+p.reference+'.':
           'Your earlier $'+p.amount+' sandbox payment is awaiting confirmation. We will keep checking even if you close the portal. Opening this form does not start another payment.';
         if(p.review_required)state='review';
       }else if(p.status==='declined'){text='The sandbox card attempt was declined. You can start a new checkout to try another test card.';state='error';}
+      else if(p.payment_method==='ach'&&p.void_state==='confirmed')text='Heartland confirmed this sandbox bank payment was voided. No live funds were transferred.';
       else if(p.status==='canceled'||p.status==='expired')text='The unsubmitted sandbox checkout was '+p.status+'. You can choose an amount and start again.';
       else{text='The sandbox checkout could not be prepared. Check the Heartland setup before trying again.';state='error';}
     }
@@ -191,6 +234,7 @@
 
   function renderPayment(data){
     payment=data||null;
+    if(receiptButton)receiptButton.hidden=!(payment&&payment.provider==='heartland'&&payment.status!=='initiated');
     secure.hidden=!payment;resume.hidden=true;resume.removeAttribute('href');setBusy(false);
     if(provider==='heartland'){renderHeartland(payment);return;}
     if(!payment)return;
@@ -295,11 +339,11 @@
     var ticket=generation;
     if(provider==='heartland'&&!await authorizeSandbox())return;
     if(ticket!==generation||busy)return;
-    setBusy(true);setMessage(provider==='heartland'?'Preparing your secure card fields…':'Opening the Global Payments secure payment page…','processing');
+    setBusy(true);setMessage(provider==='heartland'?'Preparing your payment form…':'Opening the Global Payments secure payment page…','processing');
     try{
       var data=await requestJson('/api/customer/payment/session',{
         method:'POST',headers:{Accept:'application/json','Content-Type':'application/json','X-Sandbox-Approval':sandboxApproval},
-        body:JSON.stringify({payment_type:paymentType,amount:paymentType==='partial'?value:undefined})
+        body:JSON.stringify({payment_type:paymentType,payment_method:method?method.value:'card',amount:paymentType==='partial'?value:undefined})
       });
       if(ticket!==generation)return;
       acceptProvider(data);
@@ -323,6 +367,7 @@
     if(partial.checked&&amount)amount.focus();
     setMessage('','');
   }
+  if(method)method.addEventListener('change',function(){disposeHeartland();setBusy(false);});
   full.addEventListener('change',choiceChanged);
   partial.addEventListener('change',choiceChanged);
   button.addEventListener('click',beginPayment);
@@ -330,7 +375,7 @@
   if(cancelCard)cancelCard.addEventListener('click',cancelHeartland);
   window.addEventListener('wooten:payment-account',function(event){
     var account=String(event.detail&&event.detail.account_number||'');
-    if(account!==currentAccount){generation++;clearApproval();if(approvalDialog)approvalDialog.dispatchEvent(new Event('approval-reset'));disposeHeartland();provider='globalpayments';serverReady=false;publicKey='';currentAccount=account;payment=null;announced='';statusUnavailable=false;secure.hidden=true;setMessage('','');setBusy(false);}
+    if(account!==currentAccount){generation++;clearApproval();if(approvalDialog)approvalDialog.dispatchEvent(new Event('approval-reset'));disposeHeartland();provider='globalpayments';if(methodChoice)methodChoice.hidden=true;if(method)method.value='card';if(receiptButton)receiptButton.hidden=true;serverReady=false;publicKey='';currentAccount=account;payment=null;announced='';statusUnavailable=false;secure.hidden=true;setMessage('','');setBusy(false);}
     refreshStatus();
   });
   window.addEventListener('pageshow',function(){setBusy(false);refreshStatus();});

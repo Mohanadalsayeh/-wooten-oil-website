@@ -12434,7 +12434,7 @@ var worker_default = {
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/payment-transactions"||url.pathname.startsWith("/api/admin/payment-transactions/")){
-      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers()),ensureImportedSchema:()=>ensureCustomerPaymentsSchema(env),ensurePostingSchema:()=>ensurePostingSchema(env),actor:adminRequestActor(request,env).name});
+      return AdminTransactions.handle({request,env,ensureSchema:()=>Heartland.ensureSchema(env,heartlandHelpers()),ensureImportedSchema:()=>ensureCustomerPaymentsSchema(env),ensurePostingSchema:()=>ensurePostingSchema(env),actor:adminRequestActor(request,env).name,owner:adminActor?.owner===true});
     }
     if(/^\/api\/admin\/customer-activity\/documents\/\d+\/file$/.test(url.pathname)){
       if(request.method==="GET")return adminCustomerDocumentFileGet({request,env});
@@ -12748,6 +12748,10 @@ var worker_default = {
       return methodNotAllowed();
     }
 
+    if (url.pathname === "/api/customer/payment/ach-charge") {
+      if (request.method === "POST" && Heartland.selected(env)) return paymentReplyWithNotices(Heartland.achCharge({request,env,ctx},heartlandHelpers()),env,ctx);
+      return methodNotAllowed();
+    }
     if (url.pathname === "/api/customer/payment/charge") {
       if (request.method === "POST") return Heartland.selected(env)?paymentReplyWithNotices(Heartland.charge({request,env,ctx},heartlandHelpers()),env,ctx):notificationJson({success:false,error:"Payments now use the external secure payment page. Refresh the portal to continue."},410);
       return methodNotAllowed();

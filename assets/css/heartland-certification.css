@@ -1,0 +1,11 @@
+.heartland-method{display:grid;gap:8px;max-width:360px;margin:16px 0}
+.heartland-method[hidden],.heartland-ach-form[hidden]{display:none!important}
+.heartland-card-form input,.heartland-ach-form input:not([type=checkbox]),.heartland-method select,.heartland-ach-form select{box-sizing:border-box;width:100%;min-height:46px;border:1px solid #b9cddd;border-radius:8px;padding:10px 12px;font:inherit;color:#173650;background:#fff}
+.heartland-card-form label,.heartland-ach-grid label{display:grid;gap:8px;color:#173650}
+.heartland-card-form small{display:block;margin-top:6px;color:#5e7690}
+.heartland-ach-form{margin-top:20px;color:#173650}
+.heartland-ach-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.heartland-ach-terms{padding:16px;background:#f2f7fb;border:1px solid #d5e2ec;border-radius:10px;line-height:1.6}
+.heartland-ach-consent{display:flex;align-items:flex-start;gap:10px;margin:18px 0;line-height:1.5}
+.heartland-ach-consent input{margin-top:5px;flex:none}
+@media(max-width:600px){.heartland-ach-grid{grid-template-columns:1fr}}

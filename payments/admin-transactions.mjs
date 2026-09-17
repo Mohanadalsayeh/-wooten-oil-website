@@ -1,3 +1,5 @@
+import * as Heartland from './heartland.mjs';
+import * as Cert from './heartland-certification.mjs';
 import * as Posting from './mas90-posting.mjs';
 import * as Notices from './notifications.mjs';
 import * as StatusEmails from './status-emails.mjs';
@@ -40,7 +42,7 @@ function integer(value,fallback,max){if(value===null)return fallback;if(!/^\d+$/
 function date(value){if(!value)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value)invalid('Enter a valid date.');return value;}
 function cents(value){if(!/^\d+(?:\.\d{1,2})?$/.test(value))invalid('Enter an amount with no more than two decimal places.');const result=Math.round(Number(value)*100);if(!Number.isSafeInteger(result))invalid('Amount is too large.');return result;}
 
-export async function handle({request,env,ensureSchema,ensureImportedSchema,ensurePostingSchema,actor}){
+export async function handle({request,env,ensureSchema,ensureImportedSchema,ensurePostingSchema,actor,owner=false}){
   // Dispatcher authenticates admin users and checks Payment Transactions permission.
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==String(env.ADMIN_IMPORT_KEY))return response({success:false,error:'Admin authorization is required.'},401);
   if(!['GET','POST'].includes(request.method))return response({success:false,error:'Method not allowed.'},405);
@@ -50,6 +52,8 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
     const detail=url.pathname.slice('/api/admin/payment-transactions'.length);
     await ensureSchema();await ensurePostingSchema();
     if(request.method==='POST'){
+      const voidMatch=detail.match(/^\/([^/]+)\/ach-void$/);
+      if(voidMatch)return Heartland.voidAch({request,env,id:decodeURIComponent(voidMatch[1]),actor,owner});
       const sandboxRead=detail.match(/^\/([^/]+)\/sandbox-notification-read$/);
       if(sandboxRead){
         if(request.headers.get('Origin')!==url.origin||request.headers.get('Sec-Fetch-Site')==='cross-site')return response({success:false,error:'Use the portal to acknowledge notifications.'},403);
@@ -89,7 +93,7 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
       if(id.length>200)invalid('Invalid transaction reference.');
       await ensureSchema();
       const transaction=await env.DB.prepare(base+` SELECT ${columns},result_code,result_message,expires_at,last_check_ms,verification_detail FROM transactions WHERE id=?`).bind(id).first();
-      if(transaction){transaction.sandbox_notifications=await SandboxNotices.detail(env,id);transaction.status_emails=await StatusEmails.detail(env,id);transaction.notifications=await Notices.detail(env,id);transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
+      if(transaction){transaction.certification=Cert.publicMetadata(await Cert.metadata(env,id));transaction.sandbox_notifications=await SandboxNotices.detail(env,id);transaction.status_emails=await StatusEmails.detail(env,id);transaction.notifications=await Notices.detail(env,id);transaction.posting=await Posting.detail(env,id);transaction.posting_history=(await env.DB.prepare('SELECT revision,old_deposit_no,old_check_no,deposit_no,check_no,actor,note,created_at FROM online_payment_posting_audit WHERE intent_id=? ORDER BY id DESC').bind(id).all()).results||[];}
       return transaction?response({success:true,transaction}):response({success:false,error:'Transaction not found.'},404);
     }
     const page=integer(params.get('page'),1,10000000),pageSize=integer(params.get('page_size'),20,200);

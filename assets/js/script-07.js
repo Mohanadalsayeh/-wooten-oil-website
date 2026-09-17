@@ -764,6 +764,7 @@
       var card=document.createElement('article');card.className='payment-history-card';
       // Keep receipt decisions tied to the saved history row, not display labels.
       card.dataset.paymentSource=String(r.source||'');
+      card.dataset.paymentMethod=r.payment_method||'card';
       card.dataset.paymentStatus=String(r.status||'').toLowerCase();
       card.dataset.postingStatus=r.posting_status||'';
       card.dataset.postingDate=r.posting_date||'';
@@ -798,7 +799,7 @@
       }else add('Posting Date',paymentHistoryDate(r.posting_date||r.payment_date));
       if(r.source==='portal'){
         var cardLabel=[r.card_brand,String(r.card_last4||'').trim()?'•••• '+String(r.card_last4).trim():''].filter(Boolean).join(' ');
-        add('Card',cardLabel||'Secure card payment');
+        add(r.payment_method==='ach'?'Bank account':'Card',r.payment_method==='ach'?'ACH •••• '+r.bank_last4:cardLabel||'Secure card payment');
         var statusItem=document.createElement('div');statusItem.className='payment-history-item';
         var statusLabel=document.createElement('small');statusLabel.textContent='Status';
         var status=String(r.status||'').toLowerCase();

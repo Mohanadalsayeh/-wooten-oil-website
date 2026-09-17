@@ -79,7 +79,12 @@
   function fields(row){
     if(row.source==='mas90')return [['Customer',row.account_name],['Customer number',row.account_number],['Status','Posted'],['Source','MAS 90 account history'],['Payment date',row.payment_date],['Posting date',row.posting_date],['Check / payment reference',row.provider_reference],['Invoice number',row.invoice_no],['Deposit number',row.deposit_no],['Deposit date',row.deposit_date],['Imported',date(row.imported_at)],['Payment record ID',row.id],['Description / memo',row.result_message,true]];
     const last4=/^\d{4}$/.test(String(row.card_last4||''))?'•••• '+row.card_last4:'';
-    return [['Customer',row.account_name||'Customer name unavailable'],['Customer number',row.account_number],['Status',status(row)],['Environment',environment(row)],['Processor',provider(row)],['Payment selection',row.payment_type==='full'?'Full balance':row.payment_type==='partial'?'Partial payment':row.payment_type],['Portal reference',row.provider_reference],['Processor transaction ID',row.provider_transaction_id],['Card',[row.card_brand,last4].filter(Boolean).join(' ')||'Not recorded'],['Created',date(row.created_at)],['Updated',date(row.updated_at)],['Completed',date(row.completed_at)],['Checkout expiration',date(row.expires_at)],['Last verification',row.last_check_ms?date(new Date(Number(row.last_check_ms)).toISOString()):'—'],...postingFields(row),...notificationFields(row),...statusEmailFields(row),...sandboxNotificationFields(row),['Processor status',row.provider_status],['Result code',row.result_code],['Portal transaction ID',row.id],['Result message',WootenTime.text(row.result_message),true],['Verification detail',WootenTime.text(row.verification_detail),true]];
+    return [['Customer',row.account_name||'Customer name unavailable'],['Customer number',row.account_number],['Status',status(row)],['Environment',environment(row)],['Processor',provider(row)],['Payment selection',row.payment_type==='full'?'Full balance':row.payment_type==='partial'?'Partial payment':row.payment_type],['Portal reference',row.provider_reference],['Processor transaction ID',row.provider_transaction_id],['Card',[row.card_brand,last4].filter(Boolean).join(' ')||'Not recorded'],['Created',date(row.created_at)],['Updated',date(row.updated_at)],['Completed',date(row.completed_at)],['Checkout expiration',date(row.expires_at)],['Last verification',row.last_check_ms?date(new Date(Number(row.last_check_ms)).toISOString()):'—'],...certificationFields(row),...postingFields(row),...notificationFields(row),...statusEmailFields(row),...sandboxNotificationFields(row),['Processor status',row.provider_status],['Result code',row.result_code],['Portal transaction ID',row.id],['Result message',WootenTime.text(row.result_message),true],['Verification detail',WootenTime.text(row.verification_detail),true]];
+  }
+  function certificationFields(row){
+    const c=row.certification;if(!c)return [];
+    if(c.payment_method!=='ach')return [['Address verification result',c.avs_code],['Security code result',c.cvv_code]];
+    return [['Payment method','Bank account (ACH)'],['Account holder',c.holder],['Bank account',c.bank_last4?'•••• '+c.bank_last4:''],['Routing',c.routing_last4?'••• '+c.routing_last4:''],['Account type',c.check_type+' / '+c.account_type],['Bank status',c.ach_state],['Authorization accepted',date(c.authorized_at)],['Authorization version',c.authorization_version],['ACH authorization',c.authorization_text,true],['Void status',c.void_state],['Void transaction ID',c.void_txn_id]];
   }
   function sandboxNotificationFields(row){
     const states={queued:'Queued',waiting:'Waiting for configuration',sending:'Sending',accepted:'Accepted by provider',delivered:'Delivered',failed:'Failed',uncertain:'Needs delivery review',skipped:'Not sent'};
@@ -128,6 +133,15 @@
     current=row;get('ptDetailTitle').textContent=title(row);
     get('ptDetailSummary').innerHTML='<strong>'+escape(money(row))+'</strong>'+badge(row);get('ptDetailSummary').hidden=false;
     get('ptDetail').innerHTML='<p class="pt-record-note '+(row.environment==='sandbox'?'sandbox':'')+'">'+escape(notice(row))+'</p><dl class="pt-fields">'+fields(row).map(([label,value,wide])=>'<div'+(wide?' class="pt-wide"':'')+'><dt>'+escape(label)+'</dt><dd>'+escape(value||'—')+'</dd></div>').join('')+'</dl>'+postingEditor(row);
+    if(window.wootenAdminUser?.owner===true&&row.environment==='sandbox'&&row.certification?.payment_method==='ach'&&row.result_code==='ACH_ACCEPTED'&&!row.certification.void_state){
+      const voidButton=document.createElement('button');voidButton.type='button';voidButton.className='pt-open';voidButton.textContent='Void sandbox ACH test';
+      voidButton.onclick=async()=>{
+        if(!window.confirm('Void this sandbox ACH test for '+money(row)+'? No live funds are involved.'))return;
+        const token=detailSequence;voidButton.disabled=true;voidButton.textContent='Requesting void…';
+        try{await api(endpoint+'/'+encodeURIComponent(row.id)+'/ach-void',undefined,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});if(token===detailSequence)await openDetail(row.id,true);}
+        catch(error){if(token===detailSequence){const message=document.createElement('p');message.textContent=error.message+' Refresh this record to check the saved void status.';get('ptDetail').appendChild(message);}}
+      };get('ptDetail').appendChild(voidButton);
+    }
     get('ptPrint').disabled=false;get('ptDetailRefresh').disabled=false;get('ptDetailExport').disabled=false;
   }
   async function openDetail(id,refresh=false){

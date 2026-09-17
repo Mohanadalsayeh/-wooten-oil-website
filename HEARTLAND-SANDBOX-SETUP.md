@@ -1,3 +1,5 @@
+> Ver478 update: See HEARTLAND-CERTIFICATION-Ver478.md for the assigned certification identifiers, billing address fields, and new sandbox ACH flow. The card-only instructions below describe the earlier setup. Production remains disabled.
+
 # Wooten Oil — Integrated Heartland sandbox checkout
 
 This update adds card fields inside the customer portal. Heartland hosts the sensitive fields in secure iframes; the Worker receives a token, never card numbers or security codes. This package accepts sandbox keys only and cannot charge live cards.

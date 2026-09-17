@@ -94,7 +94,11 @@ export async function history(env,account){
   const matched=new Set(online.filter(r=>r.posting_status==='posted'||r.posting_status==='awaiting_import'&&r.posting_match_ready===1).map(r=>JSON.stringify([r.entered_deposit_no,r.entered_check_no])));
   const importedFields=['id','account_number','payment_date','posting_date','deposit_date','deposit_no','invoice_no','amount','reference','description','imported_at','source','status'];
   const rows=imported.filter(r=>!matched.has(JSON.stringify([r.deposit_no,r.reference]))).map(r=>Object.fromEntries(importedFields.map(k=>[k,r[k]??''])));
+  const certifications=new Map((await env.DB.prepare('SELECT h.* FROM heartland_certification h JOIN online_payment_transactions p ON p.id=h.intent_id WHERE p.account_number=?').bind(account).all()).results.map(m=>[m.intent_id,m]));
   for(const r of online){
+    const cert=certifications.get(r.id);
+    r.payment_method=cert?.method||'card';
+    r.bank_last4=cert?.bank_last4||'';
     r.status=r.history_status;
     r.payment_date=globalThis.WootenTime.dateKey(r.created_at);
     r.posting_date=r.posting_status==='posted'?r.mas90_posting_date:'';
@@ -104,8 +108,9 @@ export async function history(env,account){
     r.invoice_no=r.posting_status==='posted'?r.mas90_invoices:'';
     r.allocations=r.posting_status==='posted'?imported.filter(m=>m.deposit_no===r.entered_deposit_no&&m.reference===r.entered_check_no).map(m=>({invoice_no:m.invoice_no,amount:m.amount,posting_date:m.posting_date})):[];
     r.description=(r.environment==='sandbox'?'Sandbox test — no live funds. ':'')+'Online payment — '+(r.status==='captured'?'approved':r.status)+'.'+(r.posting_status!=='not_applicable'?' '+labels[r.posting_status]+'.':'');
+    if(cert?.method==='ach')r.description+=' Bank status: '+(cert.ach_state||'Pending')+'. Account holder: '+cert.holder+'. '+cert.check_type+' '+cert.account_type+' account •••• '+cert.bank_last4+'. Authorization accepted '+cert.authorized_at+' ('+cert.authorization_version+'): '+cert.authorization_text+(cert.void_state?' Void: '+cert.void_state+'.':'');
     // Explicit customer allowlist: no gateway secrets, idempotency keys, or private employee notes.
-    const allowed=['id','account_number','payment_date','posting_date','deposit_date','deposit_no','check_no','invoice_no','amount','reference','confirmation_number','description','source','status','environment','created_at','updated_at','completed_at','card_brand','card_last4','posting_status','allocations'];
+    const allowed=['id','account_number','payment_date','posting_date','deposit_date','deposit_no','check_no','invoice_no','amount','reference','confirmation_number','description','source','status','environment','created_at','updated_at','completed_at','card_brand','card_last4','payment_method','bank_last4','posting_status','allocations'];
     rows.push(Object.fromEntries(allowed.map(k=>[k,r[k]??''])));
   }
   return {rows,totalPaid:imported.reduce((sum,r)=>sum+Math.round(Number(r.amount)*100),0)/100};

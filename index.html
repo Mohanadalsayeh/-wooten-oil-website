@@ -357,6 +357,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 .sandbox-admin-dialog input{width:100%;box-sizing:border-box;height:44px;border:1px solid #b9cadd;border-radius:8px;padding:0 12px;font-size:16px}
 .sandbox-admin-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}.sandbox-admin-actions button{min-height:44px;padding:10px 16px;border:0;border-radius:10px;background:#eaf0f5;color:#17314b;cursor:pointer}.sandbox-admin-actions button[type=submit]{background:#173b55;color:white}.sandbox-admin-actions button:disabled{opacity:.6;cursor:wait}.sandbox-admin-error{color:#b61c29;min-height:1em}
 </style>
+<link rel="stylesheet" href="assets/css/heartland-certification.css?v=478">
 </head>
 <body>
 
@@ -742,6 +743,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           <label for="partialPaymentAmount">Partial payment amount</label>
           <div class="partial-payment-input"><span>$</span><input id="partialPaymentAmount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00"></div>
         </div>
+        <div id="heartlandMethodChoice" class="heartland-method" hidden><label for="heartlandMethod">Payment method</label><select id="heartlandMethod"><option value="card">Credit / debit card</option><option value="ach">Bank account (ACH) — sandbox</option></select></div>
         <div class="payment-notice"><strong>Payment Notice:</strong> Payments submitted through the Wooten Oil Customer Portal will be reflected on your account within 24 business hours.</div>
         <button type="button" class="payment-continue" id="portalPaymentContinue">Continue to Secure Payment</button>
         <div class="payment-coming-soon" id="portalPaymentMessage" role="status" aria-live="polite"></div>
@@ -754,9 +756,27 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
             <div class="heartland-field heartland-wide"><span>Card number</span><div id="heartland-card-number"></div></div>
             <div class="heartland-field"><span>Expiration date</span><div id="heartland-card-expiration"></div></div>
             <div class="heartland-field"><span>Security code</span><div id="heartland-card-cvv"></div></div>
+            <div class="heartland-wide"><label for="heartlandBillingAddress">Billing street address</label><input id="heartlandBillingAddress" maxlength="100" autocomplete="billing address-line1" required></div>
+            <div><label for="heartlandBillingZip">Billing ZIP code</label><input id="heartlandBillingZip" maxlength="10" inputmode="numeric" autocomplete="billing postal-code" required></div>
+            <div><label for="heartlandShipDate">Shipment date (if applicable)</label><input id="heartlandShipDate" type="date"><small>Leave blank for an account payment without a shipment.</small></div>
             <div class="heartland-wide heartland-pay" id="heartland-card-submit"></div>
             <p class="heartland-wide heartland-security">Card details are securely handled by Heartland. Use sandbox test cards only.</p>
           </div>
+          <form id="heartlandAchForm" class="heartland-ach-form" hidden autocomplete="off">
+            <h4>Bank account payment — sandbox</h4><p>Use only the bank numbers supplied in Heartland’s ACH test script. No live funds will be transferred.</p>
+            <div class="heartland-ach-grid">
+              <label>Account holder’s full name<input name="name" maxlength="100" required autocomplete="off"></label>
+              <label>Account ownership<select name="check_type"><option value="PERSONAL">Personal</option><option value="BUSINESS">Business</option></select></label>
+              <label>Account type<select name="account_type"><option value="CHECKING">Checking</option><option value="SAVINGS">Savings</option></select></label>
+              <label>Routing number<input name="routing" inputmode="numeric" maxlength="9" pattern="[0-9]{9}" required autocomplete="off"></label>
+              <label>Account number<input name="account" type="password" inputmode="numeric" maxlength="17" required autocomplete="off"></label>
+              <label>Confirm account number<input name="confirm_account" type="password" inputmode="numeric" maxlength="17" required autocomplete="off"></label>
+            </div>
+            <p id="heartlandAchTerms" class="heartland-ach-terms"></p>
+            <label class="heartland-ach-consent"><input name="accepted" type="checkbox" required> <span>I agree to the ACH authorization above.</span></label>
+            <button type="submit" class="payment-continue">Submit sandbox ACH payment</button>
+          </form>
+          <button type="button" class="portal-payment-cancel" id="heartlandReceipt" hidden>Print payment status record</button>
           <button type="button" class="portal-payment-cancel" id="heartlandCancel" hidden>Cancel unsubmitted checkout</button>
           <a class="portal-payment-cancel" id="portalPaymentResume" rel="noreferrer" hidden>Resume Secure Payment</a>
           <button type="button" class="portal-payment-cancel" id="portalPaymentCheck">Check Payment Status</button>
@@ -1356,7 +1376,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-05.js"></script>
 
 
-<script src="assets/js/script-06.js?v=20260912center1"></script>
+<script src="assets/js/script-06.js?v=478"></script>
 
 
 
@@ -1392,7 +1412,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=posting1-20260911ct1"></script>
+<script src="assets/js/script-07.js?v=478"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -4162,6 +4182,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
         '<p><strong>MAS 90 Check No.:</strong> '+escapeHtml(card.dataset.checkNo||'—')+'</p><p><strong>MAS 90 posting date:</strong> '+escapeHtml(card.dataset.postingDate||'—')+'</p>'+
         (allocations.length?'<p><strong>Invoice allocations:</strong></p>'+allocations.map(function(a){return '<p>'+escapeHtml(a.invoice_no||'On account')+' — $'+escapeHtml(Number(a.amount).toFixed(2))+'</p>';}).join(''):'');
     }
+    if(card.dataset.paymentMethod==='ach')postingBlock.innerHTML+='<p><strong>Bank payment authorization and status</strong></p><p>'+escapeHtml(cardField(card,'Description / Memo'))+'</p>';
     modal.hidden=false;
     document.body.style.overflow='hidden';
     closeButton.focus();
@@ -5215,4 +5236,4 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-contact-layout.css?v=448">
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=476">
-<script src="assets/js/wooten-fleet.js?v=476"></script>
+<script src="assets/js/wooten-fleet.js?v=477"></script>
