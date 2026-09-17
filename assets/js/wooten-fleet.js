@@ -1,6 +1,7 @@
 (function(){
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const periodLabel=days=>({30:'Last 30 days',21:'Last 3 weeks',14:'Last 2 weeks',7:'Last 1 week'}[days]||'Last 30 days');
 const central=v=>v?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',dateStyle:'medium',timeStyle:'short'}).format(new Date(v))+' CT':'Not synced yet';
 function dollars(value){
  if(typeof value!=='string'||!/^(-?)(\d{1,12})\.(\d{2})$/.test(value))return '—';
@@ -44,7 +45,7 @@ function mount(root,admin){
  let controlDirty=false;
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><button type="button" data-save-schedule>Save schedule</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Card, customer, transaction or invoice" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled>Export PDF</button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
  {
   const pager=get('[data-pages]');pager.setAttribute('data-wooten-pager','');
@@ -150,11 +151,11 @@ function mount(root,admin){
   try{const data=await api('/api/admin/fleet/status');if(ticket!==serial)return;
    const control=data.control;
    if(control){
-    if(!controlDirty)get('[data-sync-hours]').value=String(control.hours);
+    if(!controlDirty){get('[data-sync-hours]').value=String(control.hours);get('[data-sync-days]').value=String(control.window_days||30);}
     const running=control.lease_until&&Date.parse(control.lease_until)>Date.now();
-    get('[data-sync-now]').disabled=!!control.requested_at||!!running;
+    get('[data-sync-now]').disabled=controlDirty||!!control.requested_at||!!running;
     const connected=control.poll_at&&Date.now()-Date.parse(control.poll_at)<3*60000;
-    get('[data-control-status]').textContent=(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Install the updated agent and run Enable-Schedule.cmd; keep Windows signed in.');
+    get('[data-control-status]').textContent=(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Install the updated agent and run Enable-Schedule.cmd; keep Windows signed in.');
    }
    get('[data-owner]').hidden=!window.wootenAdminUser?.owner;
    const health=get('[data-health]');health.innerHTML=healthMarkup(data);
@@ -164,10 +165,12 @@ function mount(root,admin){
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
  }
  if(admin){
-  get('[data-sync-hours]').addEventListener('change',()=>{controlDirty=true;});
+  const settingsChanged=()=>{controlDirty=true;get('[data-sync-now]').disabled=true;message('Save settings to apply this schedule and history period. Then use Sync now to pull immediately.');};
+  get('[data-sync-hours]').addEventListener('change',settingsChanged);
+  get('[data-sync-days]').addEventListener('change',settingsChanged);
   get('[data-save-schedule]').addEventListener('click',async()=>{
    const btn=get('[data-save-schedule]');btn.disabled=true;
-   try{await api('/api/admin/fleet/schedule',{method:'POST',body:JSON.stringify({hours:Number(get('[data-sync-hours]').value)})});controlDirty=false;message('Schedule saved. The next automatic pull is timed from now.');await status();}
+   try{await api('/api/admin/fleet/schedule',{method:'POST',body:JSON.stringify({hours:Number(get('[data-sync-hours]').value),window_days:Number(get('[data-sync-days]').value)})});controlDirty=false;message('Settings saved. The selected history will appear after the next successful pull. Use Sync now to pull immediately.');await status();}
    catch(e){message(e.message,true);}finally{btn.disabled=false;}
   });
   get('[data-sync-now]').addEventListener('click',async()=>{

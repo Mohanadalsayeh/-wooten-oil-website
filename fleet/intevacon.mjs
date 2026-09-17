@@ -1,6 +1,8 @@
 /* Wooten Oil fleet sync v1. Isolated from MAS 90 and payment processing. */
 const DAY = 86400000;
 const schemas = [
+ `CREATE TABLE IF NOT EXISTS fleet_pull_settings(id INTEGER PRIMARY KEY CHECK(id=1),days INTEGER NOT NULL DEFAULT 30 CHECK(days IN (7,14,21,30)))`,
+ `INSERT OR IGNORE INTO fleet_pull_settings(id) VALUES(1)`,
  `CREATE TABLE IF NOT EXISTS fleet_control(id INTEGER PRIMARY KEY CHECK(id=1),hours INTEGER NOT NULL DEFAULT 2,requested_at TEXT,next_due TEXT,lease TEXT,lease_device TEXT,lease_until TEXT,poll_at TEXT)`,
  `INSERT OR IGNORE INTO fleet_control(id) VALUES(1)`,
  `CREATE TABLE IF NOT EXISTS fleet_health(device_id TEXT PRIMARY KEY,state TEXT NOT NULL,started_at TEXT NOT NULL,updated_at TEXT NOT NULL,error TEXT)`,
@@ -38,7 +40,7 @@ export function cleanCard(r){
 }
 export function cleanTransaction(r,run){
  const received=stamp(r.received_at);
- need(received>=run.window_from&&received<=run.window_to,'Transaction falls outside this run’s 30-day window.');
+ need(received>=run.window_from&&received<=run.window_to,'Transaction falls outside this run’s collection window.');
  const table=r.source==='transaction_table';
  need(table||r.source===undefined,'Unknown transaction format.');
  if(table){
@@ -100,10 +102,20 @@ function healthWrite(db,device,state,error=null){
 }
 async function agent(request,db,path){
  const device=await deviceAuth(request,db);
- if(path==='/ping'&&request.method==='GET')return json({success:true,version:1,window_days:30,capabilities:['transaction_table_v2','sync_health_v1']});
+ if(path==='/ping'&&request.method==='GET'){
+   const settings=await db.prepare('SELECT days FROM fleet_pull_settings WHERE id=1').first();
+   // Keep the legacy window field so an installed v2.0 agent can still connect.
+   return json({success:true,version:1,window_days:30,selected_window_days:settings.days,capabilities:['transaction_table_v2','sync_health_v1','window_selection_v1']});
+ }
  need(request.method==='POST','Method not allowed.',405);
  const b=await body(request);
  if(path==='/poll'){
+   const supportsWindow=b.window_selection_v1===true;
+   const settings=await db.prepare('SELECT days FROM fleet_pull_settings WHERE id=1').first();
+   if(!supportsWindow&&settings.days!==30){
+    await healthWrite(db,device,'failed','The sync PC needs the v2.1 pull-period update before it can collect the selected history. Existing portal data was kept.').run();
+    return json({success:true,run:false,update_required:true});
+   }
    const time=now(),lease=crypto.randomUUID();
    // Recover work interrupted by a PC shutdown or the task's 110-minute limit.
    await db.prepare("UPDATE fleet_runs SET state='failed',error='Sync PC stopped reporting before completion.' WHERE state='uploading' AND device_id IN (SELECT lease_device FROM fleet_control WHERE lease_until<?)").bind(time).run();
@@ -111,8 +123,10 @@ async function agent(request,db,path){
    await db.prepare('UPDATE fleet_control SET poll_at=? WHERE id=1').bind(time).run();
    const claimed=await db.prepare(`UPDATE fleet_control SET lease=?,lease_device=?,lease_until=?,requested_at=NULL,next_due=strftime('%Y-%m-%dT%H:%M:%fZ',?, '+' || hours || ' hours')
     WHERE id=1 AND (lease_until IS NULL OR lease_until<?) AND (requested_at IS NOT NULL OR next_due IS NULL OR next_due<=?)
-    AND NOT EXISTS(SELECT 1 FROM fleet_runs WHERE state='uploading') RETURNING hours`).bind(lease,device.id,new Date(Date.now()+2*3600000).toISOString(),time,time,time).first();
-   return json({success:true,run:!!claimed,lease:claimed?lease:null});
+    AND NOT EXISTS(SELECT 1 FROM fleet_runs WHERE state='uploading')
+    AND (?=1 OR (SELECT days FROM fleet_pull_settings WHERE id=1)=30)
+    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+2*3600000).toISOString(),time,time,time,supportsWindow?1:0).first();
+   return json({success:true,run:!!claimed,lease:claimed?lease:null,window_days:claimed?claimed.window_days:null});
  }
  if(path==='/finish'){
    await db.prepare('UPDATE fleet_control SET lease=NULL,lease_device=NULL,lease_until=NULL WHERE id=1 AND lease=? AND lease_device=?').bind(text(b.lease,36),device.id).run();
@@ -134,7 +148,7 @@ async function agent(request,db,path){
  }
  if(path==='/begin'){
    const from=stamp(b.window_from),to=stamp(b.window_to),span=Date.parse(to)-Date.parse(from);
-   need(Math.abs(span-30*DAY)<1000,'Every run must cover exactly the previous 30 days.');
+   need([7,14,21,30].some(days=>Math.abs(span-days*DAY)<1000),'Choose a collection window of 7, 14, 21 or 30 days.');
    need(Date.parse(to)<=Date.now()+5*60000&&Date.parse(to)>=Date.now()-24*60*60000,'Collection window is stale or in the future.');
    const cards=integer(b.cards_expected),tx=integer(b.transactions_expected),pages=integer(b.pages_expected,10000);
    need(cards>0,'The card export is empty; existing data was kept.');
@@ -238,7 +252,7 @@ async function administration(request,db,path,actor,audit){
    const runs=await rows(db.prepare('SELECT id,state,started_at,completed_at,cards_expected,transactions_expected,error FROM fleet_runs ORDER BY started_at DESC LIMIT 10'));
    const latest=await db.prepare('SELECT h.* FROM fleet_health h JOIN fleet_devices d ON d.id=h.device_id WHERE d.active=1 ORDER BY h.updated_at DESC LIMIT 1').first();
    const last_success=await db.prepare('SELECT r.completed_at,r.cards_expected,r.transactions_expected FROM fleet_meta m JOIN fleet_runs r ON r.id=m.run_id WHERE m.id=1').first();
-   const control=await db.prepare('SELECT hours,requested_at,next_due,lease_until,poll_at FROM fleet_control WHERE id=1').first();
+   const control=await db.prepare('SELECT hours,requested_at,next_due,lease_until,poll_at,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days FROM fleet_control WHERE id=1').first();
    return json({success:true,devices,runs,latest,last_success,control});
  }
  if(path==='/request-sync'||path==='/schedule'){
@@ -246,8 +260,11 @@ async function administration(request,db,path,actor,audit){
    const b=await body(request),time=now();
    if(path==='/schedule'){
     need(Number.isInteger(b.hours)&&b.hours>=2&&b.hours<=24&&b.hours%2===0,'Choose 2 through 24 hours in increments of 2.');
-    await db.prepare('UPDATE fleet_control SET hours=?,next_due=? WHERE id=1').bind(b.hours,new Date(Date.now()+b.hours*3600000).toISOString()).run();
-    if(audit)await audit('fleet_schedule_changed',String(b.hours));
+    if(Object.hasOwn(b,'window_days'))need([7,14,21,30].includes(b.window_days),'Choose 30 days, 3 weeks, 2 weeks or 1 week.');
+    const updates=[db.prepare('UPDATE fleet_control SET hours=?,next_due=? WHERE id=1').bind(b.hours,new Date(Date.now()+b.hours*3600000).toISOString())];
+    if(Object.hasOwn(b,'window_days'))updates.push(db.prepare('UPDATE fleet_pull_settings SET days=? WHERE id=1').bind(b.window_days));
+    await db.batch(updates);
+    if(audit)await audit('fleet_schedule_changed',String(b.hours)+(Object.hasOwn(b,'window_days')?'h / '+b.window_days+'d':''));
    }else{
     const c=await db.prepare('SELECT * FROM fleet_control WHERE id=1').first();
     need(!c.lease_until||c.lease_until<time,'A sync is already running.',409);
