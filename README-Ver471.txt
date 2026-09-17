@@ -1,0 +1,1 @@
+Replace four included files and deploy Pages. Customer fleet layout 7: unified toolbar, compact counts, sync dates below table, compact footer and content-sized dialog. Mobile controls wrap. Longer records still scroll when needed to keep content accessible. No Worker or PC update needed.

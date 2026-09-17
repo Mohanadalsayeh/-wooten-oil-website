@@ -89,3 +89,31 @@ body .wooten-fleet .fleet-tabs button[data-kind]:focus-visible{outline:2px solid
   body .wooten-fleet .fleet-tabs{gap:0 8px!important}
   body .wooten-fleet .fleet-tabs button[data-kind]{padding:11px 8px!important;font-size:13px!important;flex:1 1 auto!important}
 }
+
+/* Ver471: customer layout 7, unified toolbar and compact summary. */
+.fleet-modal{height:auto;max-height:calc(100dvh - 32px)}
+.fleet-modal .fleet-modal-inner{height:auto;max-height:calc(100dvh - 34px)}
+.fleet-modal .fleet-modal-body{flex:1 1 auto;padding-top:16px;scrollbar-gutter:auto}
+.fleet-modal .fleet-modal-header{padding-top:20px;padding-bottom:18px;min-height:88px}
+.fleet-modal .fleet-modal-header>[data-close]{top:20px!important}
+.fleet-modal .fleet-modal-footer{padding-top:10px;padding-bottom:10px}
+#customerFleetRoot .fleet-customer-toolbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+body #customerFleetRoot .fleet-customer-toolbar .fleet-tabs{flex:0 0 auto;margin:0!important;gap:0 10px!important}
+#customerFleetRoot .fleet-customer-toolbar .fleet-toolbar{flex:1 1 340px;margin:0;align-items:center;gap:8px}
+#customerFleetRoot .fleet-search{min-width:130px}
+#customerFleetRoot .fleet-search input{margin:0}
+#customerFleetRoot .fleet-summary{display:flex;gap:20px;align-items:center;margin:0 0 12px;padding:10px 14px;background:#f5f8fb;border:1px solid #d8e3ed;border-radius:10px}
+#customerFleetRoot .fleet-stat{display:flex;align-items:baseline;gap:6px;flex:0 1 auto;min-width:0;border:0;background:transparent;padding:0}
+#customerFleetRoot .fleet-stat strong{display:inline;font-size:16px}
+#customerFleetRoot .fleet-stat span{font-size:13px}
+#customerFleetRoot .fleet-table-wrap{margin:0 0 10px}
+#customerFleetRoot .fleet-meta{margin:8px 0;font-size:12px}
+#customerFleetRoot .fleet-pages{margin:10px 0 0}
+@media(max-width:600px){
+ .fleet-modal{max-height:calc(100dvh - 16px)}
+ .fleet-modal .fleet-modal-inner{max-height:calc(100dvh - 18px)}
+ #customerFleetRoot .fleet-customer-toolbar{gap:10px}
+ body #customerFleetRoot .fleet-customer-toolbar .fleet-tabs{flex:1 1 100%}
+ #customerFleetRoot .fleet-customer-toolbar .fleet-toolbar{flex-basis:100%}
+ #customerFleetRoot .fleet-summary{gap:8px 18px;flex-wrap:wrap}
+}
