@@ -1,0 +1,1 @@
+Replace these three files and deploy Pages. Fleet cards and Transactions now match Customer Database underline tabs, including selected, hover, focus and mobile styles. Applies to admin and customer fleet views. No Worker or PC changes required.

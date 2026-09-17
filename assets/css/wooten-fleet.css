@@ -65,3 +65,27 @@
 }
 .wooten-fleet button[data-refresh]:not(:disabled):is(:hover,:focus-visible,:active){background:#289960!important;border-color:#289960!important}
 .wooten-fleet button[data-refresh]:disabled{opacity:.55!important;cursor:not-allowed!important}
+
+/* Ver468: match Customer Database underline tabs on admin and customer fleet views. */
+body .wooten-fleet .fleet-tabs{
+  display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;
+  justify-content:flex-start!important;align-items:stretch!important;gap:0 22px!important;
+  margin:0 0 24px!important;padding:0!important;min-width:0!important;
+  border:0!important;border-bottom:1px solid #d8e3ed!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;
+}
+body .wooten-fleet .fleet-tabs button[data-kind]{
+  flex:0 1 auto!important;width:auto!important;min-width:0!important;min-height:48px!important;
+  margin:0!important;padding:12px 14px!important;border:0!important;border-bottom:3px solid transparent!important;
+  border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  color:#526a84!important;font-size:14px!important;font-weight:600!important;
+  text-align:left!important;white-space:normal!important;line-height:1.45!important;
+  transform:none!important;animation:none!important;transition:color .15s ease!important;text-decoration:none!important;
+}
+body .wooten-fleet .fleet-tabs button[data-kind]:hover{color:#0b2948!important;background:transparent!important;transform:none!important}
+body .wooten-fleet .fleet-tabs button[data-kind][aria-pressed="true"]{color:#0b2948!important;border-bottom-color:#0b2948!important;background:transparent!important;box-shadow:none!important}
+body .wooten-fleet .fleet-tabs button[data-kind]:focus-visible{outline:2px solid #3b73ab!important;outline-offset:-3px!important}
+@media(max-width:600px){
+  body .wooten-fleet .fleet-tabs{gap:0 8px!important}
+  body .wooten-fleet .fleet-tabs button[data-kind]{padding:11px 8px!important;font-size:13px!important;flex:1 1 auto!important}
+}
