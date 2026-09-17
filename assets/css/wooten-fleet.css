@@ -40,3 +40,18 @@
 
 /* Ver462: inherit the same primary and PDF states as the admin controls. */
 #adminFleetRoot button[data-sync-now]{min-width:140px;min-height:44px;max-width:100%;white-space:nowrap}
+
+/* Ver465: preserve readable intrinsic column widths, including empty results. */
+.wooten-fleet .fleet-table-wrap{max-width:100%;overflow-x:auto}
+.wooten-fleet .fleet-table-wrap table{table-layout:auto!important;width:max-content!important;min-width:100%!important}
+.wooten-fleet .fleet-table-wrap th{min-width:160px!important;white-space:nowrap!important;vertical-align:middle!important;text-align:left!important;background:#f2f6fa!important}
+.wooten-fleet .fleet-table-wrap th .wo-table-sort-button,
+.wooten-fleet .fleet-table-wrap th .wo-table-sort-button:is(:hover,:focus,:focus-visible,:active){
+ position:relative!important;display:block!important;width:100%!important;min-width:160px!important;min-height:44px!important;
+ padding:13px 38px 13px 16px!important;margin:0!important;border:0!important;border-radius:0!important;
+ background:transparent!important;color:#193953!important;font:inherit!important;line-height:1.4!important;text-align:left!important;
+ box-shadow:none!important;transform:none!important;transition:none!important;animation:none!important;filter:none!important;text-decoration:none!important;
+}
+.wooten-fleet .fleet-table-wrap th .wo-table-sort-button:focus-visible{outline:2px solid #66a6d8!important;outline-offset:-2px!important}
+.wooten-fleet .fleet-table-wrap th .wo-table-sort-label{display:block!important;width:max-content!important;min-width:100%!important;white-space:nowrap!important;overflow-wrap:normal!important;text-align:left!important}
+.wooten-fleet .fleet-table-wrap th .wo-table-sort-icon{position:absolute!important;top:calc(50% - 8px)!important;right:14px!important;left:auto!important;width:12px!important;height:16px!important;margin:0!important}
