@@ -80,6 +80,16 @@ function mount(root,admin){
  }
  const message=(value,error=false)=>{const el=get('[data-message]');el.textContent=value;el.hidden=!value;el.classList.toggle('error',error);};
  async function api(path,options={}){
+  const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})};
+  if(admin){const key=document.getElementById('adminKey')?.value?.trim();if(!key)throw Error('Sign in as an administrator.');headers['X-Admin-Key']=key;}
+  const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options,headers:{...headers,...options.headers}});
+  const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw Error(data.error||'Fleet records could not be loaded.');return data;
+ }
+ function display(data){
+  lastSync=data.last_sync;
+  get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
+  const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
+  get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
   const headers=kind==='transactions'?(admin?adminTransactionColumns:customerTransactionColumns).map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map(h=>`<th scope="col">${h}</th>`).join('')+'</tr></thead><tbody>';
