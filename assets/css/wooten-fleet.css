@@ -11,7 +11,7 @@
 .wooten-fleet .fleet-health{display:flex;flex-direction:column;gap:5px;padding:16px 18px;margin:0 0 18px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#334155;overflow-wrap:anywhere;font-size:14px;line-height:1.5}
 .wooten-fleet .fleet-health strong{font-size:16px;color:inherit}
 .wooten-fleet .fleet-health p{margin:3px 0}
-.wooten-fleet .fleet-health[data-state="complete"]{background:#effaf3;border-color:#b9dfc6;color:#175c35}
+.wooten-fleet .fleet-health[data-state="complete"]{background:#f2fbf6;border-color:#b9dcc8;color:#175c35}
 .wooten-fleet .fleet-health[data-state="failed"]{background:#fff1f2;border-color:#fecdd3;color:#881337}
 .wooten-fleet .fleet-health[data-state="collecting"],.wooten-fleet .fleet-health[data-state="uploading"],.wooten-fleet .fleet-health[data-state="overdue"]{background:#fffbeb;border-color:#f3d894;color:#784c0c}
 
