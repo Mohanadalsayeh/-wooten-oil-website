@@ -124,14 +124,18 @@ async function agent(request,db,path){
    await db.prepare("UPDATE fleet_health SET state='failed',error='Sync PC stopped before completion. Check Status.cmd on the PC.',updated_at=? WHERE state IN ('collecting','uploading') AND device_id IN (SELECT lease_device FROM fleet_control WHERE lease_until<?)").bind(time,time).run();
    await db.prepare('UPDATE fleet_control SET poll_at=? WHERE id=1').bind(time).run();
    const claimed=await db.prepare(`UPDATE fleet_control SET lease=?,lease_device=?,lease_until=?,requested_at=NULL,next_due=strftime('%Y-%m-%dT%H:%M:%fZ',?, '+' || hours || ' hours')
-    WHERE id=1 AND (lease_until IS NULL OR lease_until<?) AND (?=1 OR requested_at IS NOT NULL OR next_due IS NULL OR next_due<=?)
+    WHERE id=1 AND (lease_until IS NULL OR lease_until<?) AND (?=1 OR requested_at IS NOT NULL OR next_due IS NULL OR next_due<=? OR (lease IS NOT NULL AND lease_until<?))
     AND NOT EXISTS(SELECT 1 FROM fleet_runs WHERE state='uploading')
     AND (?=1 OR (SELECT days FROM fleet_pull_settings WHERE id=1)=30)
-    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+2*3600000).toISOString(),time,time,b.run_now===true?1:0,time,supportsWindow?1:0).first();
+    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+2*3600000).toISOString(),time,time,b.run_now===true?1:0,time,time,supportsWindow?1:0).first();
    return json({success:true,run:!!claimed,lease:claimed?lease:null,window_days:claimed?claimed.window_days:null});
  }
  if(path==='/finish'){
-   await db.prepare('UPDATE fleet_control SET lease=NULL,lease_device=NULL,lease_until=NULL WHERE id=1 AND lease=? AND lease_device=?').bind(text(b.lease,36),device.id).run();
+   const lease=text(b.lease,36),failed=b.failed===true,time=now();
+   await db.batch([
+    db.prepare("UPDATE fleet_runs SET state='failed',error='Pull interrupted; automatic retry queued.' WHERE state='uploading' AND device_id=? AND ?=1 AND EXISTS(SELECT 1 FROM fleet_control WHERE id=1 AND lease=? AND lease_device=?)").bind(device.id,failed?1:0,lease,device.id),
+    db.prepare('UPDATE fleet_control SET requested_at=CASE WHEN ?=1 THEN COALESCE(requested_at,?) ELSE requested_at END,lease=NULL,lease_device=NULL,lease_until=NULL WHERE id=1 AND lease=? AND lease_device=?').bind(failed?1:0,time,lease,device.id)
+   ]);
    return json({success:true});
  }
  if(path==='/progress'){
