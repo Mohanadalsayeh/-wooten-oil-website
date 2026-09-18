@@ -261,7 +261,7 @@ if(adminRoot){
 const open=document.getElementById('dashboardFleet');
 if(open){
  const dialog=document.createElement('dialog');dialog.className='fleet-modal wooten-fleet';dialog.setAttribute('aria-labelledby','fleetModalTitle');
- dialog.innerHTML='<div class="fleet-modal-inner"><header class="fleet-modal-header"><div><small>WOOTEN OIL</small><h2 id="fleetModalTitle">Fleet cards & transactions</h2></div><button type="button" data-close aria-label="Close fleet information">×</button></header><div class="fleet-modal-body"><div id="customerFleetRoot"></div></div><footer class="fleet-modal-footer"><span>View your cards and fuel activity</span><button type="button" data-close>Done</button></footer></div>';
+ dialog.innerHTML='<div class="fleet-modal-inner"><header class="fleet-modal-header"><div class="details-toolbar"><button type="button" class="dashboard-back" data-close aria-label="Back to Dashboard"><svg class="dashboard-back-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg><span>Dashboard</span></button><span class="dashboard-form-name"><span class="dashboard-form-separator" aria-hidden="true">&#92;</span><span id="fleetModalTitle">Fleet Cards &amp; Transactions</span></span></div></header><div class="fleet-modal-body"><div id="customerFleetRoot"></div></div><footer class="fleet-modal-footer"><span>View your cards and fuel activity</span><button type="button" data-close>Done</button></footer></div>';
  document.body.appendChild(dialog);const view=mount(dialog.querySelector('#customerFleetRoot'),false);
  open.addEventListener('click',()=>{view.clear();dialog.showModal();view.load();});
  const poll=()=>{if(dialog.open&&!document.hidden)view.refreshAfterSync();};

@@ -168,7 +168,7 @@
 
 <link rel="stylesheet" href="assets/css/wooten-notification-pdf-bottom-breathing-room.css">
 
-<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=heartland-integrated-1">
+<link rel="stylesheet" href="assets/css/wooten-customer-payments.css?v=484">
 
 <link rel="stylesheet" href="assets/css/wooten-farm-tractor-visual.css">
 
@@ -1465,47 +1465,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script id="wooten-main-menu-controller" src="assets/js/wooten-main-menu-controller.js"></script>
 
 <script id="wooten-menu-notification-exclusive-controller" src="assets/js/wooten-menu-notification-exclusive-controller.js"></script>
-
-<button type="button" class="payment-history-back-to-top" id="paymentHistoryBackToTop" aria-label="Back to the top of payment history" title="Back to top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"></path></svg></button>
-
-<script id="wooten-payment-history-mobile-navigation-script">
-(function () {
-  'use strict';
-
-  var panel = document.getElementById('customerPaymentHistory');
-  var list = document.getElementById('paymentHistoryList');
-  var topButton = document.getElementById('paymentHistoryBackToTop');
-  if (!panel || !list || !topButton) return;
-
-  function panelIsOpen() {
-    var style = window.getComputedStyle(panel);
-    return style.display !== 'none' && style.visibility !== 'hidden' && panel.getClientRects().length > 0;
-  }
-
-  function updateTopButton() {
-    topButton.classList.toggle('is-visible', panelIsOpen());
-  }
-
-  topButton.addEventListener('click', function () {
-    var behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    var current = panel;
-    while (current) {
-      if (current.scrollTop) current.scrollTo({ top: 0, behavior: behavior });
-      current = current.parentElement;
-    }
-    window.scrollTo({ top: 0, behavior: behavior });
-    panel.scrollIntoView({ behavior: behavior, block: 'start' });
-    setTimeout(function () {
-      var toolbar = panel.querySelector('.details-toolbar');
-      if (toolbar) toolbar.setAttribute('tabindex', '-1');
-      if (toolbar) toolbar.focus({ preventScroll: true });
-    }, behavior === 'smooth' ? 450 : 0);
-  });
-
-  new MutationObserver(updateTopButton).observe(panel, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
-  window.setTimeout(updateTopButton, 500);
-})();
-</script>
 
 <button type="button" class="wooten-mobile-back-top" id="wootenMobileBackTop" aria-label="Back to top" title="Back to top">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"></path></svg>
@@ -3535,6 +3494,8 @@ body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-hist
 </style>
 
 <link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=447">
+<link rel="stylesheet" href="assets/css/wooten-customer-back-to-top.css?v=486">
+<script src="assets/js/wooten-customer-back-to-top.js?v=486"></script>
 </body>
 <style id="wooten-customer-close-and-login-hover-ver347">
 /* Close controls must override ordinary navigation-item hover fills. */
@@ -4214,7 +4175,9 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>'+printValue('paymentReceiptReferenceLabel')+'</th><th>Deposit no.</th><th>Deposit date</th><th>'+printValue('paymentReceiptPostingLabel')+'</th></tr></thead><tbody><tr><td data-label="Applied invoice">'+printValue('paymentReceiptInvoice')+'</td><td data-label="'+printValue('paymentReceiptReferenceLabel')+'">'+printValue('paymentReceiptCheck')+'</td><td data-label="Deposit no.">'+printValue('paymentReceiptDeposit')+'</td><td data-label="Deposit date">'+printValue('paymentReceiptDepositDate')+'</td><td data-label="'+printValue('paymentReceiptPostingLabel')+'">'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
       '<div class="note">'+document.getElementById('paymentReceiptPostingDetails').innerHTML+'</div><p class="note">'+printValue('paymentReceiptNote')+'</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment History</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print</button></div>'+
-      '</main></body></html>';
+      '</main><link rel="stylesheet" href="assets/css/wooten-customer-back-to-top.css?v=486">
+<script src="assets/js/wooten-customer-back-to-top.js?v=486"></script>
+</body></html>';
   }
   function printReceipt(){
     var receiptWindow=window.open('','_blank');
@@ -4337,7 +4300,9 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<div class="section-title">Account information</div><section class="account"><div><span class="label">Terms</span><div class="value">'+safeValue('acctTerms')+'</div></div><div><span class="label">Credit hold</span><div class="value">'+safeValue('acctCreditHold')+'</div></div><div><span class="label">Credit limit</span><div class="value">'+safeValue('acctCreditLimit')+'</div></div><div><span class="label">Phone</span><div class="value">'+safeValue('acctPhone')+'</div></div><div><span class="label">Email</span><div class="value">'+safeValue('acctEmail')+'</div></div><div class="address"><span class="label">Billing address</span><div class="value">'+safeValue('acctAddress')+'</div></div></section>'+
       '<p class="note">Balances reflect the latest information available in the Wooten Oil customer portal. Payments may take up to 24 business hours to appear.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Account Summary</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Account Summary</span></button></div>'+
-      '</main></body></html>';
+      '</main><link rel="stylesheet" href="assets/css/wooten-customer-back-to-top.css?v=486">
+<script src="assets/js/wooten-customer-back-to-top.js?v=486"></script>
+</body></html>';
   }
   function printAccountSummary(){
     var summaryWindow=window.open('','_blank');
@@ -4440,7 +4405,9 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<div class="section-title">Request details</div><section class="details"><div class="detail"><span class="label">Fuel type</span><div class="value">'+safe(data,'fuelType')+'</div></div><div class="detail"><span class="label">Estimated gallons</span><div class="value">'+safe(data,'gallons')+'</div></div><div class="detail"><span class="label">Preferred delivery date</span><div class="value">'+safe(data,'deliveryDate')+'</div></div><div class="detail wide"><span class="label">Delivery address</span><div class="value">'+safe(data,'address')+'</div></div><div class="detail wide notes"><span class="label">Notes</span><div class="value">'+safe(data,'notes')+'</div></div></section>'+
       '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Request</span></button></div>'+
-      '</main></body></html>';
+      '</main><link rel="stylesheet" href="assets/css/wooten-customer-back-to-top.css?v=486">
+<script src="assets/js/wooten-customer-back-to-top.js?v=486"></script>
+</body></html>';
   }
   function printFuelRequest(card){
     var requestWindow=window.open('','_blank');
@@ -5235,5 +5202,5 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-contact-layout.css?v=448">
 
-<link rel="stylesheet" href="assets/css/wooten-fleet.css?v=483">
-<script src="assets/js/wooten-fleet.js?v=477"></script>
+<link rel="stylesheet" href="assets/css/wooten-fleet.css?v=485">
+<script src="assets/js/wooten-fleet.js?v=485"></script>

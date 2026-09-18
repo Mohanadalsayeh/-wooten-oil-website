@@ -151,3 +151,16 @@ body .wooten-fleet .fleet-table-wrap table :is(th,td)[data-fleet-align="left"],
 body .wooten-fleet .fleet-table-wrap table th[data-fleet-align="left"] :is(.wo-table-sort-button,.wo-table-sort-label){text-align:left!important}
 body .wooten-fleet .fleet-table-wrap table :is(th,td)[data-fleet-align="right"],
 body .wooten-fleet .fleet-table-wrap table th[data-fleet-align="right"] :is(.wo-table-sort-button,.wo-table-sort-label){text-align:right!important}
+
+/* Ver485: customer Fleet header matches the Account Summary breadcrumb. */
+.fleet-modal .fleet-modal-header{display:block;padding:20px 26px 16px;min-height:0}
+.fleet-modal .fleet-modal-header .details-toolbar{justify-content:flex-start;gap:10px;margin:0;padding:0;border:0;min-width:0}
+.fleet-modal .fleet-modal-header .dashboard-back{flex:0 0 auto;border:0;border-radius:9px;padding:9px 12px;background:#eef3f7;color:#20394f;font:inherit;font-weight:900;min-height:44px}
+.fleet-modal .fleet-modal-header .dashboard-back:hover{background:#e2eaf0}
+.fleet-modal .fleet-modal-header .dashboard-form-name{display:inline-flex;align-items:center;gap:10px;min-width:0;color:#667585;line-height:1.4}
+.fleet-modal .fleet-modal-header .dashboard-form-separator{flex:0 0 auto}
+@media(max-width:620px){
+ .fleet-modal .fleet-modal-header{padding:15px}
+ .fleet-modal .fleet-modal-header .details-toolbar,.fleet-modal .fleet-modal-header .dashboard-form-name{gap:8px}
+ .fleet-modal .fleet-modal-header .dashboard-form-name{font-size:.78rem}
+}
