@@ -87,7 +87,7 @@ function healthMarkup(data){
  const active=state==='collecting'||state==='uploading';
  const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
  const bar=`<div class="fleet-sync-progress" data-progress-state="${state}"><span class="fleet-sync-progress-label">${esc(label)}</span><div class="fleet-sync-track" ${active?'role="progressbar" aria-label="'+esc(label)+'"':state==='complete'?'role="progressbar" aria-label="Sync complete" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"':'aria-hidden="true"'}><span class="fleet-sync-fill"></span></div></div>`;
- return `<div class="fleet-health-heading"><span class="fleet-health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span><strong>${esc(title)}</strong></div>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}${pullTimingMarkup(data)}${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
+ return `<div class="fleet-health-heading"><span class="fleet-health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7.5" ry="3"></ellipse><path d="M4.5 5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V5M4.5 11v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path d="M15.5 8.5h5m-2.2-2.2 2.2 2.2-2.2 2.2"></path></svg></span><strong>${esc(title)}</strong></div>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}${pullTimingMarkup(data)}${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
 function mount(root,admin){
  let controlDirty=false;
@@ -234,7 +234,11 @@ function mount(root,admin){
    catch(e){message(e.message,true);}finally{btn.disabled=false;}
   });
   get('[data-sync-now]').addEventListener('click',async()=>{
-   const btn=get('[data-sync-now]');btn.disabled=true;
+   const btn=get('[data-sync-now]');
+   if(btn.disabled||controlDirty)return;
+   const days=Number(get('[data-sync-days]').value);
+   if(!window.confirm('Start a fleet cards and transactions sync?\n\nThis will ask the sync PC to pull the latest fleet cards and the last '+days+' days of transactions from Intevacon.\n\nKeep the sync PC powered on, connected to the internet, and signed in to Windows.\n\nSelect OK to request the sync, or Cancel to go back.'))return;
+   btn.disabled=true;
    try{await api('/api/admin/fleet/request-sync',{method:'POST',body:'{}'});message('Sync requested. The PC will start when it next checks in.');await status();}
    catch(e){message(e.message,true);btn.disabled=false;}
   });
