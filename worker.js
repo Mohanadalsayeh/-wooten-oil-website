@@ -1,3 +1,4 @@
+import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconFleet from './fleet/intevacon.mjs';
 import './assets/js/wooten-admin-access.js';
 const adminAccess=globalThis.WootenAdminAccess;
@@ -9786,12 +9787,20 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
   rightText(570,638,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
 
   // Customer box
-  rect(42,552,528,64,light,line,0.8);
-  text(56,592,10,"BILL TO",true,slate);
-  text(56,574,13,statementPdfSafeText(customer?.account_name)||"Customer",true,navy);
   const address=statementCustomerAddress(customer);
-  if(address[0]) text(300,590,10,address[0],false,slate);
-  if(address[1]) text(300,573,10,address[1],false,slate);
+  function customerBox(drawRect,drawText){
+    drawRect(42,552,528,76,light,line,0.8);
+    drawText(56,614,9,"BILL TO",true,slate);
+    const fit=(y,size,value,bold,color)=>{
+      const safe=statementPdfSafeText(value);
+      const fitted=Math.min(size,500/Math.max(1,safe.length*0.65));
+      drawText(56,y,Number(fitted.toFixed(2)),safe,bold,color);
+    };
+    fit(598,13,customer?.account_name||"Customer",true,navy);
+    if(address[0])fit(583,9.5,address[0],false,slate);
+    if(address[1])fit(568,9.5,address[1],false,slate);
+  }
+  customerBox(rect,text);
 
   // Summary heading
   text(42,522,15,"Account Summary",true,navy);
@@ -9892,8 +9901,10 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     pText(42,751,22,"WOOTEN OIL CO INC.",true,white);
     pText(42,730,10,"RECENT PAYMENTS",true,[0.88,0.92,0.96]);
     pRight(570,750,12,`Customer # ${statementPdfSafeText(customer?.account_number)||"-"}`,true,white);
-    pText(42,658,15,statementPdfSafeText(customer?.account_name)||"Customer",true,navy);
-    pText(42,638,9.5,`${payments.length} most recent payment${payments.length===1?"":"s"} included with statement dated ${statementPdfDate(statementDate)}.`,false,slate);
+    pText(42,657,13,"Statement Date",true,slate);
+    pText(42,638,12,statementPdfDate(statementDate),false,navy);
+    customerBox(pRect,pText);
+    pText(42,533,9.5,`${payments.length} most recent payment${payments.length===1?"":"s"}`,false,slate);
 
     const columns=[
       {x:42,label:"PAYMENT DATE"},
@@ -9903,7 +9914,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
       {x:375,label:"POSTED DATE"},
       {x:472,label:"DEPOSIT DATE"}
     ];
-    const headerY=600,rowH=24,tableRight=570;
+    const headerY=492,rowH=19;
     pRect(42,headerY,528,28,navy);
     columns.forEach(col=>{
       if(col.label==="AMOUNT")pCenter(337.5,headerY+9,9,col.label,true,white);
@@ -9970,47 +9981,6 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
   return new TextEncoder().encode(pdf);
 }
 __name(statementBuildPdf,"statementBuildPdf");
-
-function statementExtractPdfPageStreams(pdfBytes){
-  const source=new TextDecoder().decode(pdfBytes instanceof Uint8Array?pdfBytes:new Uint8Array(pdfBytes||[]));
-  const streams=[];
-  const pattern=/\d+ 0 obj\s*<< \/Length \d+ >>\s*stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  let match;
-  while((match=pattern.exec(source)))streams.push(match[1]);
-  return streams;
-}
-__name(statementExtractPdfPageStreams,"statementExtractPdfPageStreams");
-
-function statementBuildCombinedPdf(pdfParts){
-  const pageStreams=[];
-  for(const part of pdfParts||[])pageStreams.push(...statementExtractPdfPageStreams(part));
-  if(!pageStreams.length)throw new Error("No generated statement pages were available for the combined PDF.");
-  const objects=[];
-  objects[1]="<< /Type /Catalog /Pages 2 0 R >>";
-  objects[3]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-  objects[4]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
-  const kids=[];
-  pageStreams.forEach((stream,index)=>{
-    const pageId=5+index*2,contentId=pageId+1;
-    kids.push(`${pageId} 0 R`);
-    objects[pageId]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentId} 0 R >>`;
-    objects[contentId]=`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`;
-  });
-  objects[2]=`<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pageStreams.length} >>`;
-  const objectCount=4+pageStreams.length*2;
-  let pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
-  const offsets=[0];
-  for(let i=1;i<=objectCount;i++){
-    offsets[i]=new TextEncoder().encode(pdf).length;
-    pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;
-  }
-  const xrefOffset=new TextEncoder().encode(pdf).length;
-  pdf+=`xref\n0 ${objectCount+1}\n0000000000 65535 f \n`;
-  for(let i=1;i<=objectCount;i++)pdf+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
-  pdf+=`trailer\n<< /Size ${objectCount+1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
-  return new TextEncoder().encode(pdf);
-}
-__name(statementBuildCombinedPdf,"statementBuildCombinedPdf");
 
 const STATEMENT_COMBINED_CUSTOMERS_PER_PART=250;
 
@@ -10230,6 +10200,78 @@ async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,t
 }
 __name(statementSendEmail,"statementSendEmail");
 
+async function statementLoadCustomer(env,account){
+  return await env.DB.prepare(`
+          SELECT
+            account_number,account_name,address1,address2,address3,city,state,zip_code,phone,email,
+            current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,
+            COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
+            COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
+            COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled
+          FROM customers
+          WHERE account_number=?
+          LIMIT 1
+        `).bind(account).first();
+}
+async function statementLoadPayments(env,account,paymentCount){
+        let recentPayments=[];
+        if(paymentCount>0){
+          const paymentResult=await env.DB.prepare(`
+            SELECT
+              payment_date,
+              reference AS check_number,
+              source_invoice_no AS invoice_number,
+              amount,
+              posting_date,
+              deposit_date
+            FROM customer_payments
+            WHERE account_number=?
+            ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
+            LIMIT ?
+          `).bind(account,paymentCount).all();
+          recentPayments=paymentResult?.results||[];
+        }
+  return recentPayments;
+}
+
+async function adminPreviewStatementsPost({request,env}){
+  try{
+    if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return notificationJson({success:false,error:'Unauthorized.'},401);
+    if(!env.DB)return notificationJson({success:false,error:'Customer database is not configured.'},503);
+    let body;
+    try{body=await request.json();}catch{return notificationJson({success:false,error:'Invalid request data.'},400);}
+    const rawAccounts=Array.isArray(body?.accounts)?body.accounts:[];
+    const normalized=rawAccounts.map(normalizeNotificationAccount);
+    if(!normalized.length||normalized.some(account=>!account))return notificationJson({success:false,error:'Select valid customers to preview.'},400);
+    const accounts=[...new Set(normalized)];
+    if(accounts.length>20)return notificationJson({success:false,error:'Preview statements in batches of 20 customers or fewer.'},413);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(body.statement_date||'')))return notificationJson({success:false,error:'Choose the statement date.'},400);
+    const statementDate=statementPdfShortDate(body.statement_date);
+    if(statementDate!==body.statement_date)return notificationJson({success:false,error:'Choose a valid statement date.'},400);
+    const paymentCount=Math.max(0,Math.min(20,Number.parseInt(body.payment_count,10)||0));
+    await ensureAdminContactPreferencesTable(env);
+    await ensureCustomerPaymentsSchema(env);
+    const pdfs=[];
+    for(const account of accounts){
+      const customer=await statementLoadCustomer(env,account);
+      if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
+      const payments=await statementLoadPayments(env,account,paymentCount);
+      pdfs.push(statementBuildPdf(customer,statementDate,payments));
+    }
+    // Preview has no document storage, notification, or delivery operations.
+    return new Response(statementBuildCombinedPdf(pdfs),{headers:{
+      'Content-Type':'application/pdf',
+      'Content-Disposition':`inline; filename="Wooten-Oil-Statements-Preview-${statementDate}.pdf"`,
+      'Cache-Control':'private, no-store',
+      'X-Content-Type-Options':'nosniff',
+      'X-Statement-Customer-Count':String(accounts.length)
+    }});
+  }catch(error){
+    console.error('Statement preview failed',error);
+    return notificationJson({success:false,error:'The statement preview could not be completed. Please try again.'},500);
+  }
+}
+
 async function adminGenerateStatementsPost({request,env}){
   try{
     const supplied=request.headers.get("X-Admin-Key")||"";
@@ -10272,17 +10314,7 @@ async function adminGenerateStatementsPost({request,env}){
     for(const account of accounts){
       let objectKey="";
       try{
-        const customer=await env.DB.prepare(`
-          SELECT
-            account_number,account_name,address1,address2,address3,city,state,zip_code,phone,email,
-            current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,
-            COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
-            COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
-            COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled
-          FROM customers
-          WHERE account_number=?
-          LIMIT 1
-        `).bind(account).first();
+        const customer=await statementLoadCustomer(env,account);
 
         if(!customer){
           results.push({account_number:account,success:false,error:"Customer not found."});
@@ -10297,23 +10329,7 @@ async function adminGenerateStatementsPost({request,env}){
           statementNumber(customer.aging_category_4);
         const total=current+previous;
 
-        let recentPayments=[];
-        if(paymentCount>0){
-          const paymentResult=await env.DB.prepare(`
-            SELECT
-              payment_date,
-              reference AS check_number,
-              source_invoice_no AS invoice_number,
-              amount,
-              posting_date,
-              deposit_date
-            FROM customer_payments
-            WHERE account_number=?
-            ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
-            LIMIT ?
-          `).bind(account,paymentCount).all();
-          recentPayments=paymentResult?.results||[];
-        }
+        const recentPayments=await statementLoadPayments(env,account,paymentCount);
 
         const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments);
         generatedPdfParts.push(pdfBytes);
@@ -11388,6 +11404,7 @@ function adminGeneralAuditDescriptor(request){
     "/api/admin/statement-customers":["statement_customers_viewed","statements","Statement customer list viewed"],
     "/api/admin/communication-log":["communication_history_viewed","communication","Communication history viewed"],
     "/api/admin/communication-log/resend":["communication_resent","communication","Communication resend requested"],
+    "/api/admin/statements/preview":["statements_previewed","statements","Statement preview opened"],
     "/api/admin/statements/generate":["statements_generated","statements","Statement generation requested"],
     "/api/admin/statement-scheduling":[method==="GET"?"statement_schedule_viewed":"statement_schedule_changed","statements",method==="GET"?"Statement schedule viewed":"Statement schedule changed"],
     "/api/admin/statement-scheduling/preview":["statement_schedule_previewed","statements","Statement schedule previewed"],
@@ -12625,6 +12642,11 @@ var worker_default = {
 
     if (url.pathname === "/api/twilio/incoming-message") {
       if (request.method === "POST") return twilioIncomingMessagePost({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statements/preview") {
+      if (request.method === "POST") return adminPreviewStatementsPost({ request, env });
       return methodNotAllowed();
     }
 

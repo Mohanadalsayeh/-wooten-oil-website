@@ -1,0 +1,19 @@
+#documentSectionSendStatements .statement-action-panel .statement-send-actions{
+  align-items:flex-end!important;
+}
+#documentSectionSendStatements .statement-preview-send-stack{
+  display:grid;
+  gap:10px;
+  min-width:0;
+}
+#documentSectionSendStatements .statement-action-panel .statement-preview-send-stack button{
+  width:100%!important;
+}
+#statementPreviewLinks{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px 20px;
+  padding:12px 0 4px;
+}
+#statementPreviewLinks[hidden]{display:none}
+#statementPreviewLinks a{color:#173650;text-decoration:underline}

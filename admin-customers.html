@@ -6675,9 +6675,13 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div class="statement-action-panel">
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
+          <div class="statement-preview-send-stack">
+          <button class="secondary" id="statementPreview" type="button" disabled>Preview Statements</button>
           <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
+          </div>
           <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
         </div>
+        <div id="statementPreviewLinks" hidden aria-live="polite"></div>
         <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
           <div class="preview-progress-head"><strong id="statementCustomerLoadProgressLabel">Loading statement customers…</strong><span id="statementCustomerLoadProgressCount">Preparing</span></div>
           <div class="preview-progress-track" id="statementCustomerLoadProgressTrack" role="progressbar" aria-label="Statement customer loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="statementCustomerLoadProgressBar"></span></div>
@@ -11244,6 +11248,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   }
   function updateCount(){
     if(selectedCount) selectedCount.textContent=selected.size+' selected';
+    const previewButton=document.getElementById('statementPreview');
+    if(previewButton)previewButton.disabled=selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
     const exportButton=document.getElementById('statementExportCustomersPdf');
     if(exportButton) exportButton.disabled=selected.size===0||exportButton.dataset.exporting==='true';
     if(selectAllVisible){
@@ -11394,7 +11400,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   }
 
   sendBtn.addEventListener('click',async function(){
-    if(sendBtn.dataset.requestPending==='true') return;
+    if(sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true') return;
     const key=document.getElementById('adminKey').value.trim();
     const accounts=Array.from(selected);
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
@@ -11413,6 +11419,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     if(!confirmed) return;
 
     sendBtn.dataset.requestPending='true';
+    updateCount();
     sendBtn.disabled=true;loadBtn.disabled=true;
     sendBtn.textContent='Generating Statements…';
     progress.innerHTML='';
@@ -11479,10 +11486,14 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       delete sendBtn.dataset.requestPending;
       sendBtn.disabled=false;loadBtn.disabled=false;
       sendBtn.textContent='Generate & Send Statements';
+      updateCount();
     }
   });
 })();
 </script>
+<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=494">
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=494"></script>
+
 
 
 <script id="wooten-exceptional-customers-script">
