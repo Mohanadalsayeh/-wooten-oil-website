@@ -1,0 +1,45 @@
+Wooten Oil - Limited fleet sync retries (Ver481 / PC agent 2.5)
+Replaces Ver480. Ver480 does not need to be installed first.
+
+INSTALL
+1. Replace the included portal files in GitHub:
+   fleet/intevacon.mjs
+   assets/js/wooten-fleet.js
+   admin-customers.html
+   Deploy both the Pages frontend and Worker build. worker.js is unchanged.
+2. On your current pull PC, wait for any active collector to finish.
+   Copy sync_agent.py and Schedule.ps1 from the included PC folder into your
+   existing Intevacon sync folder, replacing these two files only.
+3. Run your existing Enable-Schedule.cmd under the Windows user used to configure
+   the collector. The sign-in trigger and one-minute checks are retained.
+4. Refresh the admin portal (Ctrl+F5). If Action required appears, fix its stated
+   problem and click Sync now. Confirm the request. Check Status.cmd on the PC.
+
+POLICY
+- Offline/logged-out PC before a pull: work remains queued or overdue. Checks at
+  Windows sign-in and every minute pick it up once the PC can reach the portal.
+  Unsuccessful portal connection checks do not consume collection retries.
+- Temporary network/upload errors and interrupted pulls: at most THREE retries
+  after the original attempt, waiting 1, 5, then 15 minutes after each failure.
+- If the third retry fails: automatic pulls pause until you fix the problem and
+  click Sync now in the admin portal. No further scheduled full pulls occur.
+- Login/verification, setup, validation, export-format, browser-start, and unknown
+  collection failures: pause immediately; inspect the reason and Status.cmd.
+- Paused or backoff state cannot be bypassed by periodic checks, Windows sign-in,
+  changing the schedule, or the Enable-Schedule immediate check.
+- Sync now resets the retry budget and resumes after confirmation.
+- A successful pull clears the retry history and returns to the normal schedule.
+- Interrupted pulls retain a recovery record. Losing that record can require
+  waiting for the server lease to expire (up to two hours), then a bounded retry.
+- Portal data from the previous verified pull remains available on failure.
+- Windows must be signed in; site verification cannot be bypassed automatically.
+- Older PC agents are asked to update before starting another scheduled pull.
+
+CHECKED
+Actual Worker handlers against a local SQLite adapter: delays, fourth failure
+pause, immediate permanent-error pause, stale finish protection, duplicate
+exclusion, manual resume, schedule-change pause preservation, success reset,
+expired-lease recovery, and old-agent guard.
+Mocked PC recovery: success, classified failure, interrupted restart, and offline
+finish recovery. JavaScript and Python syntax passed.
+Live Windows Task Scheduler and Intevacon login must be verified on your PC.

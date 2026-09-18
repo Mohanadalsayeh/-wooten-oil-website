@@ -1,6 +1,8 @@
 /* Wooten Oil fleet sync v1. Isolated from MAS 90 and payment processing. */
 const DAY = 86400000;
 const schemas = [
+ `CREATE TABLE IF NOT EXISTS fleet_retry(id INTEGER PRIMARY KEY CHECK(id=1),failures INTEGER NOT NULL DEFAULT 0,retry_at TEXT,paused INTEGER NOT NULL DEFAULT 0,reason TEXT)`,
+ `INSERT OR IGNORE INTO fleet_retry(id) VALUES(1)`,
  `CREATE TABLE IF NOT EXISTS fleet_pull_settings(id INTEGER PRIMARY KEY CHECK(id=1),days INTEGER NOT NULL DEFAULT 30 CHECK(days IN (7,14,21,30)))`,
  `INSERT OR IGNORE INTO fleet_pull_settings(id) VALUES(1)`,
  `CREATE TABLE IF NOT EXISTS fleet_control(id INTEGER PRIMARY KEY CHECK(id=1),hours INTEGER NOT NULL DEFAULT 2,requested_at TEXT,next_due TEXT,lease TEXT,lease_device TEXT,lease_until TEXT,poll_at TEXT)`,
@@ -94,6 +96,8 @@ const failureReasons = {
  incomplete_collection:'The collection was incomplete or failed validation. The previous successful data was kept.',
  upload_failed:'The collected data could not be uploaded or confirmed by the portal. Check the sync PC connection and Status.cmd.',
  setup_required:'The sync PC requires configuration or validation. Run Configure.cmd or Validate.cmd.',
+ interrupted:'The previous pull stopped before completion.',
+ temporary_error:'A temporary collection or network error interrupted the pull.',
  cancelled:'The sync was cancelled before completion was confirmed.',
  collection_failed:'The data pull failed. Check Status.cmd on the sync PC for the diagnostic details.'
 };
@@ -101,6 +105,23 @@ function healthWrite(db,device,state,error=null){
  const time=now();
  return db.prepare(`INSERT INTO fleet_health(device_id,state,started_at,updated_at,error) VALUES(?,?,?,?,?)
  ON CONFLICT(device_id) DO UPDATE SET state=excluded.state,started_at=CASE WHEN excluded.state='collecting' THEN excluded.started_at ELSE fleet_health.started_at END,updated_at=excluded.updated_at,error=excluded.error`).bind(device.id,state,time,time,error);
+}
+async function finishPull(db,deviceId,lease,failed,code='interrupted'){
+ const time=now();
+ const transient=['browser_navigation','upload_failed','temporary_error','interrupted'].includes(code);
+ const reason=failureReasons[code]||failureReasons.collection_failed;
+ const gate='EXISTS(SELECT 1 FROM fleet_control WHERE id=1 AND lease=? AND lease_device=?)';
+ await db.batch([
+  db.prepare(`UPDATE fleet_retry SET
+   failures=CASE WHEN ?=1 THEN failures+1 ELSE 0 END,
+   paused=CASE WHEN ?=1 AND (?=0 OR failures>=3) THEN 1 ELSE 0 END,
+   retry_at=CASE WHEN ?=1 AND ?=1 AND failures<3 THEN strftime('%Y-%m-%dT%H:%M:%fZ',?, CASE failures WHEN 0 THEN '+1 minutes' WHEN 1 THEN '+5 minutes' ELSE '+15 minutes' END) ELSE NULL END,
+   reason=CASE WHEN ?=1 THEN ? ELSE NULL END
+   WHERE id=1 AND ${gate}`).bind(failed?1:0,failed?1:0,transient?1:0,failed?1:0,transient?1:0,time,failed?1:0,reason,lease,deviceId),
+  db.prepare(`UPDATE fleet_runs SET state='failed',error=? WHERE state='uploading' AND device_id=? AND ?=1 AND ${gate}`).bind(reason,deviceId,failed?1:0,lease,deviceId),
+  db.prepare(`UPDATE fleet_health SET state='failed',error=?,updated_at=? WHERE device_id=? AND ?=1 AND ${gate}`).bind(reason,time,deviceId,failed?1:0,lease,deviceId),
+  db.prepare('UPDATE fleet_control SET requested_at=NULL,lease=NULL,lease_device=NULL,lease_until=NULL WHERE id=1 AND lease=? AND lease_device=?').bind(lease,deviceId)
+ ]);
 }
 async function agent(request,db,path){
  const device=await deviceAuth(request,db);
@@ -112,6 +133,10 @@ async function agent(request,db,path){
  need(request.method==='POST','Method not allowed.',405);
  const b=await body(request);
  if(path==='/poll'){
+   if(b.retry_policy_v1!==true){
+    await healthWrite(db,device,'failed','Update the sync PC to agent 2.5 for limited automatic retries.').run();
+    return json({success:true,run:false,update_required:true});
+   }
    const supportsWindow=b.window_selection_v1===true;
    const settings=await db.prepare('SELECT days FROM fleet_pull_settings WHERE id=1').first();
    if(!supportsWindow&&settings.days!==30){
@@ -119,23 +144,20 @@ async function agent(request,db,path){
     return json({success:true,run:false,update_required:true});
    }
    const time=now(),lease=crypto.randomUUID();
-   // Recover work interrupted by a PC shutdown or the task's 110-minute limit.
-   await db.prepare("UPDATE fleet_runs SET state='failed',error='Sync PC stopped reporting before completion.' WHERE state='uploading' AND device_id IN (SELECT lease_device FROM fleet_control WHERE lease_until<?)").bind(time).run();
-   await db.prepare("UPDATE fleet_health SET state='failed',error='Sync PC stopped before completion. Check Status.cmd on the PC.',updated_at=? WHERE state IN ('collecting','uploading') AND device_id IN (SELECT lease_device FROM fleet_control WHERE lease_until<?)").bind(time,time).run();
+   const expired=await db.prepare('SELECT lease,lease_device FROM fleet_control WHERE id=1 AND lease IS NOT NULL AND lease_until<?').bind(time).first();
+   if(expired)await finishPull(db,expired.lease_device,expired.lease,true,'interrupted');
    await db.prepare('UPDATE fleet_control SET poll_at=? WHERE id=1').bind(time).run();
    const claimed=await db.prepare(`UPDATE fleet_control SET lease=?,lease_device=?,lease_until=?,requested_at=NULL,next_due=strftime('%Y-%m-%dT%H:%M:%fZ',?, '+' || hours || ' hours')
-    WHERE id=1 AND (lease_until IS NULL OR lease_until<?) AND (?=1 OR requested_at IS NOT NULL OR next_due IS NULL OR next_due<=? OR (lease IS NOT NULL AND lease_until<?))
+    WHERE id=1 AND (lease_until IS NULL OR lease_until<?)
+    AND EXISTS(SELECT 1 FROM fleet_retry WHERE id=1 AND paused=0 AND
+      ((retry_at IS NOT NULL AND retry_at<=?) OR (retry_at IS NULL AND (?=1 OR requested_at IS NOT NULL OR next_due IS NULL OR next_due<=?))))
     AND NOT EXISTS(SELECT 1 FROM fleet_runs WHERE state='uploading')
     AND (?=1 OR (SELECT days FROM fleet_pull_settings WHERE id=1)=30)
-    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+2*3600000).toISOString(),time,time,b.run_now===true?1:0,time,time,supportsWindow?1:0).first();
+    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+2*3600000).toISOString(),time,time,time,b.run_now===true?1:0,time,supportsWindow?1:0).first();
    return json({success:true,run:!!claimed,lease:claimed?lease:null,window_days:claimed?claimed.window_days:null});
  }
  if(path==='/finish'){
-   const lease=text(b.lease,36),failed=b.failed===true,time=now();
-   await db.batch([
-    db.prepare("UPDATE fleet_runs SET state='failed',error='Pull interrupted; automatic retry queued.' WHERE state='uploading' AND device_id=? AND ?=1 AND EXISTS(SELECT 1 FROM fleet_control WHERE id=1 AND lease=? AND lease_device=?)").bind(device.id,failed?1:0,lease,device.id),
-    db.prepare('UPDATE fleet_control SET requested_at=CASE WHEN ?=1 THEN COALESCE(requested_at,?) ELSE requested_at END,lease=NULL,lease_device=NULL,lease_until=NULL WHERE id=1 AND lease=? AND lease_device=?').bind(failed?1:0,time,lease,device.id)
-   ]);
+   await finishPull(db,device.id,text(b.lease,36),b.failed===true,text(b.code,50)||'interrupted');
    return json({success:true});
  }
  if(path==='/progress'){
@@ -268,7 +290,8 @@ async function administration(request,db,path,actor,audit){
    const latest=await db.prepare('SELECT h.* FROM fleet_health h JOIN fleet_devices d ON d.id=h.device_id WHERE d.active=1 ORDER BY h.updated_at DESC LIMIT 1').first();
    const last_success=await db.prepare('SELECT r.completed_at,r.cards_expected,r.transactions_expected FROM fleet_meta m JOIN fleet_runs r ON r.id=m.run_id WHERE m.id=1').first();
    const control=await db.prepare('SELECT hours,requested_at,next_due,lease_until,poll_at,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days FROM fleet_control WHERE id=1').first();
-   return json({success:true,devices,runs,latest,last_success,control});
+   const retry=await db.prepare('SELECT failures,retry_at,paused,reason FROM fleet_retry WHERE id=1').first();
+   return json({success:true,devices,runs,latest,last_success,control,retry});
  }
  if(path==='/request-sync'||path==='/schedule'){
    need(request.method==='POST','Method not allowed.',405);sameOrigin(request);
@@ -287,6 +310,7 @@ async function administration(request,db,path,actor,audit){
     need(!h||Date.parse(h.updated_at)<Date.now()-2*3600000,'A sync is already running.',409);
     const queued=await db.prepare('UPDATE fleet_control SET requested_at=COALESCE(requested_at,?) WHERE id=1 AND (lease_until IS NULL OR lease_until<?) RETURNING id').bind(time,time).first();
     need(queued,'A sync is already running.',409);
+    await db.prepare('UPDATE fleet_retry SET failures=0,retry_at=NULL,paused=0,reason=NULL WHERE id=1').run();
     if(audit)await audit('fleet_sync_requested','manual');
    }
    return json({success:true});

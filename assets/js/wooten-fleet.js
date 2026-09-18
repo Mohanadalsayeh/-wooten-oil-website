@@ -70,7 +70,7 @@ function pullTimingMarkup(data){
   const seconds=Math.floor((end-start)/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
   duration=(hours?hours+'h ':'')+minutes+'m '+seconds%60+'s'+(active?' elapsed':'');
  }
- const next=data.control?.requested_at?'Queued — waiting for sync PC':data.control?.next_due?central(data.control.next_due):'Not scheduled yet';
+ const next=data.control?.lease_until&&Date.parse(data.control.lease_until)>Date.now()?'Pull in progress':data.retry?.paused?'Paused — action required':data.retry?.retry_at?'Retry '+Math.min(data.retry.failures,3)+' of 3 · '+central(data.retry.retry_at):data.control?.requested_at?'Queued — waiting for sync PC':data.control?.next_due?central(data.control.next_due):'Not scheduled yet';
  return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>Next pull</span><strong>'+esc(next)+'</strong></div></div>';
 }
 function healthMarkup(data){
@@ -84,6 +84,8 @@ function healthMarkup(data){
  const overdue=time&&Date.now()-Date.parse(time)>((data.control?.hours||2)+2)*60*60*1000;
  if(overdue){title='No recent sync report';state='overdue';detail='No update has been received within the expected sync interval. Check that the sync PC is on, signed in and connected. The portal cannot determine the reason while the PC is unreachable.'+(h.state==='failed'?' Last reported failure: '+(h.error||'Unknown'):'');}
  if(!h&&success){state='complete';title='Data pulled successfully';}
+ if(data.retry?.paused){state='failed';title='Action required — automatic pulls paused';detail=(data.retry.reason||'Pull could not complete.')+' '+(data.retry.failures>3?'The three automatic retries have been used. ':'')+'Fix the issue, then click Sync now to resume.';}
+ else if(data.retry?.retry_at&&state!=='collecting'&&state!=='uploading'){title='Automatic retry scheduled';detail=(data.retry.reason||'Pull was interrupted.')+' Retry '+Math.min(data.retry.failures,3)+' of 3 is scheduled for '+central(data.retry.retry_at)+'.';}
  const active=state==='collecting'||state==='uploading';
  const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
  const bar=`<div class="fleet-sync-progress" data-progress-state="${state}"><span class="fleet-sync-progress-label">${esc(label)}</span><div class="fleet-sync-track" ${active?'role="progressbar" aria-label="'+esc(label)+'"':state==='complete'?'role="progressbar" aria-label="Sync complete" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"':'aria-hidden="true"'}><span class="fleet-sync-fill"></span></div></div>`;
@@ -215,11 +217,11 @@ function mount(root,admin){
     const running=control.lease_until&&Date.parse(control.lease_until)>Date.now();
     get('[data-sync-now]').disabled=controlDirty||!!control.requested_at||!!running;
     const connected=control.poll_at&&Date.now()-Date.parse(control.poll_at)<3*60000;
-    get('[data-control-status]').textContent=(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Install the updated agent and run Enable-Schedule.cmd; keep Windows signed in.');
+    get('[data-control-status]').textContent=data.retry?.paused?'Automatic pulls paused. '+(data.retry.reason||'')+' Fix the issue, then click Sync now to resume.':data.retry?.retry_at&&!running?'Automatic retry '+Math.min(data.retry.failures,3)+' of 3: '+central(data.retry.retry_at)+'. '+(connected?'Sync PC is checking for requests.':'Waiting for the sync PC to reconnect.'):(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Install the updated agent and run Enable-Schedule.cmd; keep Windows signed in.');
    }
    get('[data-owner]').hidden=!window.wootenAdminUser?.owner;
    const health=get('[data-health]');health.innerHTML=healthMarkup(data);
-   health.dataset.state=data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>((data.control?.hours||2)+2)*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
+   health.dataset.state=data.retry?.paused?'failed':data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>((data.control?.hours||2)+2)*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
    get('[data-sync-status]').innerHTML='<p class="fleet-note">'+(data.runs[0]?`Latest run: ${esc(data.runs[0].state)} · ${esc(central(data.runs[0].started_at))}${data.runs[0].error?' · '+esc(data.runs[0].error):''}`:'No sync runs yet.')+'</p>'+data.devices.map(d=>`<div class="fleet-device-row"><span><strong>${esc(d.name)}</strong><small class="fleet-note"> · ${d.active?'Active':'Revoked'} · ${esc(central(d.last_seen))}${d.last_error?' · '+esc(d.last_error):''}</small></span>${d.active&&window.wootenAdminUser?.owner?`<button type="button" data-revoke="${esc(d.id)}">Revoke</button>`:''}</div>`).join('');
    if(data.last_success?.completed_at&&data.last_success.completed_at!==lastSync)await refreshAfterSync();
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
