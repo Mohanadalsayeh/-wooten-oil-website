@@ -1,6 +1,6 @@
 /* Shared customer form navigation, including native dialog scroll areas. */
 #customerFormsBackToTop{
- position:fixed!important;right:max(18px,env(safe-area-inset-right))!important;bottom:calc(22px + env(safe-area-inset-bottom))!important;
+ position:fixed!important;top:auto!important;left:auto!important;transform:none!important;right:max(18px,env(safe-area-inset-right))!important;bottom:calc(22px + env(safe-area-inset-bottom))!important;
  z-index:2147483647!important;display:grid!important;place-items:center!important;box-sizing:border-box!important;
  width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;margin:0!important;padding:0!important;
  border:0!important;border-radius:50%!important;background:#173650!important;color:#fff!important;

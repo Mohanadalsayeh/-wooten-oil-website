@@ -20,9 +20,13 @@
   }
   function update(){
     frame=0;active=currentForm();
-    const host=active&&active!==document.documentElement?active:document.body;
+    // Ordinary overlays use backdrop filters, which make fixed children scroll with them.
+    // Keep the control at body level, except native dialogs that require the top layer.
+    const host=active&&active.matches("dialog[open]")?active:document.body;
     if(button.parentElement!==host)host.appendChild(button);
-    const show=!!active&&scrollers(active).some(el=>el.scrollTop>160);
+    const dashboard=active&&active.querySelector("#customerDashboard");
+    const onDashboard=!!dashboard&&visible(dashboard);
+    const show=!!active&&!onDashboard&&scrollers(active).some(el=>el.scrollTop>160);
     button.hidden=!show;
     document.body.classList.toggle('customer-form-back-top-active',!!active);
   }
