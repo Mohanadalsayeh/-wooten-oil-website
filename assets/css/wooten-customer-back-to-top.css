@@ -10,5 +10,5 @@
 #customerFormsBackToTop svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round}
 #customerFormsBackToTop:focus-visible{outline:3px solid #7eaee7;outline-offset:3px}
 body.customer-form-back-top-active #wootenMobileBackTop{display:none!important}
-@media(min-width:769px){#customerFormsBackToTop{right:28px!important;bottom:28px!important}}
+@media(min-width:761px),(hover:hover) and (pointer:fine){#customerFormsBackToTop{display:none!important}}
 @media print{#customerFormsBackToTop{display:none!important}}
