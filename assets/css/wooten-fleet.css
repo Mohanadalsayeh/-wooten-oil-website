@@ -169,3 +169,11 @@ body .wooten-fleet .fleet-table-wrap table th[data-fleet-align="right"] :is(.wo-
 @media(max-width:760px),(pointer:coarse){
  #customerFleetRoot .fleet-search input[type="search"]{font-size:16px!important}
 }
+
+/* Match the customer search input to the portal's standard action height. */
+#customerFleetRoot .fleet-search input[type="search"]{
+ box-sizing:border-box;height:var(--wooten-action-button-height,44px)!important;
+ min-height:var(--wooten-action-button-height,44px)!important;
+ padding-top:0!important;padding-bottom:0!important;
+}
+#customerFleetRoot .fleet-search input[type="search"]:focus-visible{outline-offset:-3px;box-shadow:none}
