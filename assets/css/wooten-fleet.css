@@ -164,3 +164,8 @@ body .wooten-fleet .fleet-table-wrap table th[data-fleet-align="right"] :is(.wo-
  .fleet-modal .fleet-modal-header .details-toolbar,.fleet-modal .fleet-modal-header .dashboard-form-name{gap:8px}
  .fleet-modal .fleet-modal-header .dashboard-form-name{font-size:.78rem}
 }
+
+/* Keep autofocus without mobile browsers zooming a small input. */
+@media(max-width:760px),(pointer:coarse){
+ #customerFleetRoot .fleet-search input[type="search"]{font-size:16px!important}
+}
