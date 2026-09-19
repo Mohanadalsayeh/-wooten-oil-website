@@ -11299,6 +11299,15 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     status.className='status show '+(ok===true?'ok':ok===false?'bad':'');
     status.textContent=message||'';
   }
+  function filterSummary(){
+    const count=filteredCustomers().length;
+    return count.toLocaleString('en-US')+' customer'+(count===1?' matches':'s match')+' your filters. '+
+      'Exceptional customers '+(showExceptional.checked?'are included.':'are hidden.');
+  }
+  function updateFilterStatus(){
+    if(!customers.length||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true')return;
+    setStatus(filterSummary(),true);
+  }
   function showSendReport({selectedTotal=0,processed=0,succeeded=0,failed=0,portalSent=0,emailSent=0,smsSent=0,batches=0,complete=true,error=''}){
     if(!sendReport)return;
     const metric=(value,label)=>'<div class="statement-send-report-metric"><strong>'+Number(value||0).toLocaleString()+'</strong><span>'+esc(label)+'</span></div>';
@@ -11339,7 +11348,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
         if(!eligibleAccounts.has(account)) selected.delete(account);
       }
       render();
-      setStatus(customers.length+' customers loaded. '+filteredCustomers().length+' match the current filters. Select the customers who should receive a statement.',true);
+      setStatus(filterSummary(),true);
     }catch(e){
       customers=[];selected.clear();render();
       setStatus(e.message||'Customers could not be loaded.',false);
@@ -11350,18 +11359,16 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   }
 
   loadBtn.addEventListener('click',loadCustomers);
-  search.addEventListener('input',function(){customerPage=1;render();});
+  search.addEventListener('input',function(){customerPage=1;render();updateFilterStatus();});
   function contactFiltersChanged(){
     customerPage=1;
     const eligible=new Set(eligibleCustomers().map(c=>c.account_number));
     for(const account of Array.from(selected)) if(!eligible.has(account)) selected.delete(account);
     if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
     render();
+    updateFilterStatus();
   }
-  showExceptional.addEventListener('change',function(){
-    contactFiltersChanged();
-    setStatus(filteredCustomers().length+' customers match the current filters. Exceptional customers '+(showExceptional.checked?'are shown.':'are hidden and excluded from selection.'),true);
-  });
+  showExceptional.addEventListener('change',contactFiltersChanged);
   if(phoneScope)phoneScope.addEventListener('change',contactFiltersChanged);
   if(emailScope)emailScope.addEventListener('change',contactFiltersChanged);
   customerPrev.wootenGoToPage = target => { customerPage=target;render(); };

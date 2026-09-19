@@ -1,0 +1,15 @@
+Wooten Oil Portal - Ver502
+Statement customer count wording
+
+Replace admin-customers.html in GitHub, publish the website, then refresh
+the admin page. Apply this after Ver501. No Worker or sync PC update is needed.
+
+The customer status message now starts with the number matching the filters:
+  400 customers match your filters. Exceptional customers are hidden.
+
+The count updates when changing the search, phone/email filters, or the
+Show exceptional customers checkbox. It no longer leads with the total
+loaded from the database. Loading, preview, and sending status messages
+are preserved while those operations are in progress.
+
+Checked JavaScript syntax and message output locally.
