@@ -1,3 +1,4 @@
+import {statementLetterhead} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconFleet from './fleet/intevacon.mjs';
 import './assets/js/wooten-admin-access.js';
@@ -9772,13 +9773,8 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     text(Math.max(42,right-s.length*avg),y,size,s,bold,color);
   }
 
-  // Header
-  rect(0,700,612,92,navy);
-  rect(0,696,612,4,red);
-  text(42,751,22,"WOOTEN OIL CO INC.",true,white);
-  text(42,730,10,"513 East Sanford Avenue, Covington, TN 38019",false,[0.88,0.92,0.96]);
-  text(42,714,9.5,"(901) 476-2684  |  support@wootenoil.com",false,[0.88,0.92,0.96]);
-  rightText(548,750,20,"ACCOUNT STATEMENT",true,white);
+  // Shared clean letterhead, repeated on every statement page.
+  add(statementLetterhead());
 
   // Statement meta
   text(42,657,13,"Statement Date",true,slate);
@@ -9896,15 +9892,13 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
       pText(center-(safe.length*avg/2),y,size,safe,bold,color);
     };
 
-    pRect(0,700,612,92,navy);
-    pRect(0,696,612,4,red);
-    pText(42,751,22,"WOOTEN OIL CO INC.",true,white);
-    pText(42,730,10,"RECENT PAYMENTS",true,[0.88,0.92,0.96]);
-    pRight(570,750,12,`Customer # ${statementPdfSafeText(customer?.account_number)||"-"}`,true,white);
+    pAdd(statementLetterhead());
+    pRight(570,657,10,"Customer #",true,slate);
+    pRight(570,638,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
     pText(42,657,13,"Statement Date",true,slate);
     pText(42,638,12,statementPdfDate(statementDate),false,navy);
     customerBox(pRect,pText);
-    pText(42,533,9.5,`${payments.length} most recent payment${payments.length===1?"":"s"}`,false,slate);
+    pText(42,533,9.5,`Recent Payments - ${payments.length} most recent payment${payments.length===1?"":"s"}`,false,slate);
 
     const columns=[
       {x:42,label:"PAYMENT DATE"},

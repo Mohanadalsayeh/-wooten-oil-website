@@ -16470,7 +16470,8 @@ html,body{
     }
     const headerLines=data.headers.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.56))),4));
     const headerHeight=Math.max(24,Math.max(...headerLines.map(lines=>lines.length))*9+8);
-    const printableHeight=(pageHeight-72)-headerHeight-42;
+    const tableTop=pageHeight-(data.statementLetterhead?142:72);
+    const printableHeight=tableTop-headerHeight-42;
     const pages=[[]];
     let used=0;
     for(let index=0;index<data.rows.length;index++){
@@ -16493,7 +16494,7 @@ html,body{
       if(index%250===0){onProgress?.(index,data.rows.length,'Preparing pages');await new Promise(resolve=>setTimeout(resolve,0));}
     }
     onProgress?.(data.rows.length,data.rows.length,'Preparing pages');
-    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
+    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,tableTop,statementLetterhead:data.statementLetterhead,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
   }
 
   function textCommand(text,x,y,font,size,color){
@@ -16503,11 +16504,16 @@ html,body{
   function pageContent(title,totalRecords,layout,rows,pageIndex,pageCount){
     const {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight}=layout;
     let out='';
-    out+=textCommand(title,margin,pageHeight-34,'F2',15,'0.04 0.14 0.25');
     const generated=WootenTime.dateTime(new Date());
-    out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
-    out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
-    let top=pageHeight-72;
+    if(layout.statementLetterhead){
+      out+=layout.statementLetterhead({width:pageWidth,height:pageHeight,margin,title});
+      out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-126,'F1',8,'0.38 0.46 0.55');
+    }else{
+      out+=textCommand(title,margin,pageHeight-34,'F2',15,'0.04 0.14 0.25');
+      out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
+      out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
+    }
+    let top=layout.tableTop;
     out+='0.94 0.96 0.98 rg '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re f\n';
     out+='0.80 0.85 0.89 RG 0.55 w '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re S\n';
     let x=margin;
@@ -16535,6 +16541,10 @@ html,body{
   }
 
   async function buildPdf(title,data,onProgress){
+    if(/\bstatements?\b/i.test(String(title))){
+      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=504');
+      data.statementLetterhead=module.statementLetterhead;
+    }
     const layout=await preparePdfPages(data,onProgress);
     const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','',
       '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',

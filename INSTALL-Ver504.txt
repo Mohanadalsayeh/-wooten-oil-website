@@ -1,0 +1,30 @@
+Wooten Oil Portal - Ver504
+Clean statement letterhead with red WO logo
+
+Apply this update after Ver503. Preserve the included folder paths.
+
+Website files:
+  admin-customers.html
+  assets/js/wooten-statement-letterhead.mjs
+
+Worker files:
+  worker.js
+  assets/js/wooten-statement-letterhead.mjs (included as a Worker module)
+
+Deploy both the website and Worker through your existing deployment process.
+The Worker imports the shared module, so deploy it with the Worker and retain
+all existing Worker dependencies. Refresh the admin page after publishing.
+No sync PC update is required.
+
+The clean white letterhead places the red WO logo left of the company name,
+with address, phone and email underneath, report title on the right, and a
+thin navy divider. Used for previews, newly generated manual and scheduled
+customer statements, payment continuation pages, and statement table reports.
+Customer identification and per-customer Page X of Y numbering are retained.
+
+Previously stored PDFs are not rewritten. Generate a new preview or statement
+to see the new letterhead. This update does not send any statements itself.
+
+Validation: statement preview regression checks, multi-customer PDF merging,
+per-customer headers and page numbering, admin report exports across multiple
+pages, inline JavaScript parsing, and visual inspection of rendered PDFs.
