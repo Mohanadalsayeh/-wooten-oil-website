@@ -68,11 +68,13 @@ if(section&&button&&status&&links){
       const pdf=statementBuildCombinedPdf(parts);
       previewUrl=URL.createObjectURL(new Blob([pdf],{type:'application/pdf'}));
       const open=document.createElement('a');
-      open.textContent='Open Preview PDF';open.href=previewUrl;open.target='_blank';open.rel='noopener';
+      open.textContent='Open PDF';open.setAttribute('aria-label','Open preview PDF');open.href=previewUrl;open.target='_blank';open.rel='noopener';
       const download=document.createElement('a');
-      download.textContent='Download Preview PDF';download.href=previewUrl;
+      download.textContent='Download PDF';download.setAttribute('aria-label','Download preview PDF');download.href=previewUrl;
       download.download='Wooten-Oil-Statements-Preview-'+statementDate+'.pdf';
-      links.append(open,download);links.hidden=false;
+      const ready=document.createElement('span');ready.className='statement-preview-ready';ready.textContent='Preview PDF ready';
+      const actions=document.createElement('div');actions.className='statement-preview-file-actions';actions.append(open,download);
+      links.append(ready,actions);links.hidden=false;
       if(popup&&!popup.closed){
         try{popup.location.replace(previewUrl);}catch{/* The links remain available if the tab could not be navigated. */}
       }

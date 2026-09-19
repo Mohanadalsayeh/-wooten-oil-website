@@ -6672,14 +6672,16 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
           </div>
         </div>
 
-      <div class="statement-action-panel">
+      <div class="statement-action-panel statement-balanced-grid">
+        <div class="statement-action-heading">
+          <h3>Statement actions</h3>
+          <span class="statement-selected-count" id="statementSelectedCount">0 selected</span>
+        </div>
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
-          <div class="statement-preview-send-stack">
+          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
           <button class="secondary" id="statementPreview" type="button" disabled>Preview Statements</button>
           <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
-          </div>
-          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
         </div>
         <div id="statementPreviewLinks" hidden aria-live="polite"></div>
         <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
@@ -6696,9 +6698,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <input id="statementSelectAllVisible" type="checkbox">
             <span>Select all shown</span>
           </label>
-          <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
-          <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
-          <span class="statement-selected-count" id="statementSelectedCount">0 selected</span>
+          <div class="statement-selection-actions">
+            <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
+            <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
+          </div>
         </div>
       </div>
 
@@ -11491,8 +11494,8 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   });
 })();
 </script>
-<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=494">
-<script type="module" src="assets/js/wooten-statement-preview.mjs?v=494"></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=495">
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=495"></script>
 
 
 
