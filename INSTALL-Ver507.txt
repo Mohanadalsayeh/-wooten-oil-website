@@ -1,0 +1,14 @@
+Wooten Oil Portal - Ver507
+Sending Options above Statement & Customer Filters
+
+Apply after Ver506. Replace admin-customers.html and publish the website.
+Refresh the admin page after publishing. No Worker or sync PC update is needed.
+
+Send Account Statements now shows these panels in order:
+1. Sending Options
+2. Statement & Customer Filters
+3. Statement actions
+
+The actual page order is updated for desktop, phone and keyboard navigation.
+Delivery choices, filters, selections and statement generation are unchanged.
+Verified panel order, unique form control IDs and unchanged JavaScript.

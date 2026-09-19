@@ -6594,6 +6594,39 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         </div>
       </div>
 
+      <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
+          <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
+            <strong>Sending Options</strong>
+            <span>Choose how the selected account statements are delivered.</span>
+          </div>
+          <div class="schedule-options schedule-option-cards statement-delivery-card-grid">
+            <label class="schedule-option schedule-option-card" for="statementPortalNotification">
+              <input id="statementPortalNotification" type="checkbox" checked>
+              <span class="schedule-option-shell">
+                <span class="schedule-option-icon schedule-option-icon-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"></circle><path d="M6.5 19c.5-4 2.4-6 5.5-6s5 2 5.5 6"></path></svg></span>
+                <span class="schedule-option-copy"><strong>Customer Portal</strong><small>Make generated statements available in the customer portal.</small></span>
+                <span class="schedule-option-switch" aria-hidden="true"></span>
+              </span>
+            </label>
+            <label class="schedule-option schedule-option-card" for="statementEmailPdf">
+              <input id="statementEmailPdf" type="checkbox" checked>
+              <span class="schedule-option-shell">
+                <span class="schedule-option-icon schedule-option-icon-email" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"></path><path d="M15 3v5h5"></path><path d="M8 13h8M8 17h5"></path></svg></span>
+                <span class="schedule-option-copy"><strong>Email PDF</strong><small>Email generated statements as PDF attachments.</small></span>
+                <span class="schedule-option-switch" aria-hidden="true"></span>
+              </span>
+            </label>
+            <label class="schedule-option schedule-option-card" for="statementSmsLink">
+              <input id="statementSmsLink" type="checkbox" checked>
+              <span class="schedule-option-shell">
+                <span class="schedule-option-icon schedule-option-icon-sms" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><circle cx="9" cy="10.5" r=".7"></circle><circle cx="12" cy="10.5" r=".7"></circle><circle cx="15" cy="10.5" r=".7"></circle><path d="M15.5 15.5h5v5h-5z"></path><path d="M16.5 15.5v-1a1.5 1.5 0 0 1 3 0v1"></path></svg></span>
+                <span class="schedule-option-copy"><strong>SMS secure PDF link</strong><small>Send customers a secure PDF link by SMS.</small></span>
+                <span class="schedule-option-switch" aria-hidden="true"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
       <div class="statement-filter-panel">
         <div class="statement-filter-heading">
           <strong>Statement &amp; Customer Filters</strong>
@@ -6638,39 +6671,6 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         </div>
         </div>
       </div>
-
-      <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
-          <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
-            <strong>Sending Options</strong>
-            <span>Choose how the selected account statements are delivered.</span>
-          </div>
-          <div class="schedule-options schedule-option-cards statement-delivery-card-grid">
-            <label class="schedule-option schedule-option-card" for="statementPortalNotification">
-              <input id="statementPortalNotification" type="checkbox" checked>
-              <span class="schedule-option-shell">
-                <span class="schedule-option-icon schedule-option-icon-portal" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"></circle><path d="M6.5 19c.5-4 2.4-6 5.5-6s5 2 5.5 6"></path></svg></span>
-                <span class="schedule-option-copy"><strong>Customer Portal</strong><small>Make generated statements available in the customer portal.</small></span>
-                <span class="schedule-option-switch" aria-hidden="true"></span>
-              </span>
-            </label>
-            <label class="schedule-option schedule-option-card" for="statementEmailPdf">
-              <input id="statementEmailPdf" type="checkbox" checked>
-              <span class="schedule-option-shell">
-                <span class="schedule-option-icon schedule-option-icon-email" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"></path><path d="M15 3v5h5"></path><path d="M8 13h8M8 17h5"></path></svg></span>
-                <span class="schedule-option-copy"><strong>Email PDF</strong><small>Email generated statements as PDF attachments.</small></span>
-                <span class="schedule-option-switch" aria-hidden="true"></span>
-              </span>
-            </label>
-            <label class="schedule-option schedule-option-card" for="statementSmsLink">
-              <input id="statementSmsLink" type="checkbox" checked>
-              <span class="schedule-option-shell">
-                <span class="schedule-option-icon schedule-option-icon-sms" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><circle cx="9" cy="10.5" r=".7"></circle><circle cx="12" cy="10.5" r=".7"></circle><circle cx="15" cy="10.5" r=".7"></circle><path d="M15.5 15.5h5v5h-5z"></path><path d="M16.5 15.5v-1a1.5 1.5 0 0 1 3 0v1"></path></svg></span>
-                <span class="schedule-option-copy"><strong>SMS secure PDF link</strong><small>Send customers a secure PDF link by SMS.</small></span>
-                <span class="schedule-option-switch" aria-hidden="true"></span>
-              </span>
-            </label>
-          </div>
-        </div>
 
       <div class="statement-action-panel statement-balanced-grid">
         <div class="statement-action-heading">
