@@ -1,0 +1,23 @@
+Wooten Oil Portal - Ver506
+Rounded statement report panels
+
+Apply after Ver505. Replace these files, preserving their paths:
+  worker.js
+  admin-customers.html
+  assets/js/wooten-statement-letterhead.mjs
+
+Publish the website and redeploy the Worker with its updated shared module.
+Retain all existing Worker dependencies. No sync PC update is required.
+
+Rounded corners now appear on customer information panels, balance cards,
+aging tables, payment notices, and payment continuation tables. Statement
+administration report exports also use rounded outer table corners.
+
+The same template covers previews, manual statements and scheduled statements.
+Existing saved PDFs remain unchanged. Generate a fresh preview after deploying.
+Customer data, balances, payment rows, and per-customer page numbering are kept.
+This update does not send statements by itself.
+
+Validation: rendered summary and payment pages plus multipage statement report;
+statement preview regression checks including combined PDFs and page numbering;
+Worker/module syntax and 35 inline admin scripts checked.

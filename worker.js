@@ -1,4 +1,4 @@
-import {statementLetterhead} from './assets/js/wooten-statement-letterhead.mjs';
+import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconFleet from './fleet/intevacon.mjs';
 import './assets/js/wooten-admin-access.js';
@@ -9764,6 +9764,11 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     if(fillColor) add(`${rgb(...fillColor)} rg ${x} ${y} ${w} ${h} re f`);
     if(strokeColor) add(`${width} w ${rgb(...strokeColor)} RG ${x} ${y} ${w} ${h} re S`);
   }
+  function roundedRect(x,y,w,h,fillColor,strokeColor=null,width=1,emit=add){
+    const path=statementRoundedPath(x,y,w,h);
+    if(fillColor)emit(`${rgb(...fillColor)} rg ${path} f`);
+    if(strokeColor)emit(`${width} w ${rgb(...strokeColor)} RG ${path} S`);
+  }
   function lineTo(x1,y1,x2,y2,color=line,width=1){
     add(`${width} w ${rgb(...color)} RG ${x1} ${y1} m ${x2} ${y2} l S`);
   }
@@ -9796,7 +9801,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     if(address[0])fit(583,9.5,address[0],false,slate);
     if(address[1])fit(568,9.5,address[1],false,slate);
   }
-  customerBox(rect,text);
+  customerBox(roundedRect,text);
 
   // Summary heading
   text(42,522,15,"Account Summary",true,navy);
@@ -9804,9 +9809,9 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
 
   // Summary cards
   const cardY=438, cardH=52, cardW=168, gap=12;
-  rect(42,cardY,cardW,cardH,[0.94,0.96,0.98],line,0.8);
-  rect(42+cardW+gap,cardY,cardW,cardH,[0.975,0.978,0.982],line,0.8);
-  rect(42+(cardW+gap)*2,cardY,cardW,cardH,[0.94,0.96,0.98],line,0.8);
+  roundedRect(42,cardY,cardW,cardH,[0.94,0.96,0.98],line,0.8);
+  roundedRect(42+cardW+gap,cardY,cardW,cardH,[0.975,0.978,0.982],line,0.8);
+  roundedRect(42+(cardW+gap)*2,cardY,cardW,cardH,[0.94,0.96,0.98],line,0.8);
 
   text(55,472,8.5,"CURRENT BALANCE",true,slate);
   text(55,449,18,statementMoney(current),true,navy);
@@ -9822,6 +9827,8 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
   text(42,404,9.5,"Previous Balance is the total of all 31+ day aging categories.",false,slate);
 
   const tableX=42, tableY=205, tableW=528, rowH=27;
+  const agingPath=statementRoundedPath(tableX,tableY-rowH,tableW,rowH*8);
+  add(`q ${agingPath} W n`);
   rect(tableX,tableY+rowH*6,tableW,rowH,navy);
   text(56,tableY+rowH*6+9,9,"AGING PERIOD",true,white);
   rightText(556,tableY+rowH*6+9,9,"BALANCE",true,white);
@@ -9846,8 +9853,10 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
   text(56,tableY-rowH+9,10.5,"TOTAL BALANCE",true,navy);
   rightText(556,tableY-rowH+9,12,statementMoney(total),true,navy);
 
+  add(`Q 0.8 w ${rgb(...line)} RG ${agingPath} S`);
+
   // Payment/info note
-  rect(42,112,528,54,[1.0,0.975,0.91],[0.91,0.78,0.45],0.8);
+  roundedRect(42,112,528,54,[1.0,0.975,0.91],[0.91,0.78,0.45],0.8);
   text(56,148,9.5,"PAYMENT NOTICE",true,[0.43,0.30,0.08]);
   text(56,133,8.5,"Portal payments may take up to 24 business hours",false,[0.43,0.30,0.08]);
   text(56,120,8.5,"to appear on your account.",false,[0.43,0.30,0.08]);
@@ -9897,7 +9906,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     pRight(570,638,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
     pText(42,657,13,"Statement Date",true,slate);
     pText(42,638,12,statementPdfDate(statementDate),false,navy);
-    customerBox(pRect,pText);
+    customerBox((...args)=>roundedRect(...args,pAdd),pText);
     pText(42,533,9.5,`Recent Payments - ${payments.length} most recent payment${payments.length===1?"":"s"}`,false,slate);
 
     const columns=[
@@ -9909,6 +9918,9 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
       {x:472,label:"DEPOSIT DATE"}
     ];
     const headerY=492,rowH=19;
+    const paymentTableBottom=headerY-rowH*payments.length;
+    const paymentPath=statementRoundedPath(42,paymentTableBottom,528,28+rowH*payments.length);
+    pAdd(`q ${paymentPath} W n`);
     pRect(42,headerY,528,28,navy);
     columns.forEach(col=>{
       if(col.label==="AMOUNT")pCenter(337.5,headerY+9,9,col.label,true,white);
@@ -9926,6 +9938,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     });
     const tableBottom=headerY-rowH*payments.length;
     [125,202,300,375,472].forEach(x=>pLine(x,tableBottom,x,headerY+28,line,0.45));
+    pAdd(`Q 0.8 w ${rgb(...line)} RG ${paymentPath} S`);
     pLine(42,82,570,82,line,0.7);
     pText(42,63,8.5,"Wooten Oil Co Inc.  |  West Tennessee Petroleum Delivery",false,slate);
     pRight(570,63,8.5,"Payment History",false,slate);

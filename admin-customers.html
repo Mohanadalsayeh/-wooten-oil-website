@@ -16494,7 +16494,7 @@ html,body{
       if(index%250===0){onProgress?.(index,data.rows.length,'Preparing pages');await new Promise(resolve=>setTimeout(resolve,0));}
     }
     onProgress?.(data.rows.length,data.rows.length,'Preparing pages');
-    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,tableTop,statementLetterhead:data.statementLetterhead,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
+    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,tableTop,statementLetterhead:data.statementLetterhead,statementRoundedPath:data.statementRoundedPath,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
   }
 
   function textCommand(text,x,y,font,size,color){
@@ -16514,6 +16514,12 @@ html,body{
       out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
     }
     let top=layout.tableTop;
+    let tablePath='';
+    if(layout.statementRoundedPath){
+      const tableHeight=headerHeight+rows.reduce((sum,row)=>sum+row.height,0);
+      tablePath=layout.statementRoundedPath(margin,top-tableHeight,available,tableHeight,10);
+      out+='q '+tablePath+' W n\n';
+    }
     out+='0.94 0.96 0.98 rg '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re f\n';
     out+='0.80 0.85 0.89 RG 0.55 w '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re S\n';
     let x=margin;
@@ -16535,6 +16541,7 @@ html,body{
       });
       top=bottom;
     });
+    if(tablePath)out+='Q 0.80 0.85 0.89 RG 0.55 w '+tablePath+' S\n';
     out+=textCommand('Wooten Oil Customer Administration',margin,22,'F1',8,'0.38 0.46 0.55');
     out+=textCommand('Page '+(pageIndex+1)+' of '+pageCount,pageWidth/2-22,22,'F2',8,'0.20 0.29 0.38');
     return out;
@@ -16542,8 +16549,9 @@ html,body{
 
   async function buildPdf(title,data,onProgress){
     if(/\bstatements?\b/i.test(String(title))){
-      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=505');
+      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=506');
       data.statementLetterhead=module.statementLetterhead;
+      data.statementRoundedPath=module.statementRoundedPath;
     }
     const layout=await preparePdfPages(data,onProgress);
     const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','',
