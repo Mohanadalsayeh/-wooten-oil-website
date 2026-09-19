@@ -2251,6 +2251,15 @@ input[type="file"]:focus-visible{
 .statement-scheduling-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
 .schedule-card{border:1px solid #d7e1ea;border-radius:14px;background:#f8fafc;padding:16px}
 .schedule-card h3{margin:0 0 5px;color:var(--navy);font-size:18px}.schedule-card>p{margin:0 0 14px;color:#68798a;font-size:13px;line-height:1.5}
+
+/* Cycle controls share the existing portal checkbox/toggle styling. */
+.schedule-cycle-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+.schedule-cycle-heading h3{flex:1;min-width:0;margin:0}
+.schedule-enabled.schedule-title-toggle{margin:0;min-height:44px;font-size:inherit;line-height:1.35;color:inherit}
+.schedule-title-toggle input{flex-shrink:0}
+.schedule-cycle-enabled-status{font-size:12px;color:#68798a}
+.schedule-cycle-controls{border:0;padding:0;margin:0;min-width:0;width:100%}
+.schedule-cycle-controls:disabled{opacity:.48}
 .schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
 .schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 .schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
@@ -6790,9 +6799,12 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 
       <div class="statement-scheduling-grid">
         <section class="schedule-card">
-          <h3>A — Monthly Cycle</h3>
+          <div class="schedule-cycle-heading">
+            <h3><label class="schedule-enabled schedule-title-toggle" for="scheduleMonthlyEnabled"><input id="scheduleMonthlyEnabled" type="checkbox" aria-controls="scheduleMonthlyControls"><span>A — Monthly Cycle</span></label></h3>
+            <span id="scheduleMonthlyEnabledStatus" class="schedule-cycle-enabled-status" aria-live="polite">Disabled</span>
+          </div>
           <p>Sends monthly statements only to active customers assigned to Statement Cycle A.</p>
-          <label class="schedule-enabled"><input id="scheduleMonthlyEnabled" type="checkbox"> Enable Monthly Cycle statements</label>
+          <fieldset id="scheduleMonthlyControls" class="schedule-cycle-controls" aria-label="A — Monthly Cycle settings and customers" disabled>
           <div class="schedule-fields">
             <div class="schedule-field"><label for="scheduleMonthlyDay">Day of Month</label><input id="scheduleMonthlyDay" type="number" min="1" max="28" value="1"></div>
             <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
@@ -6803,6 +6815,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <div class="preview-progress-track" id="scheduleTestMonthlyProgressTrack" role="progressbar" aria-label="Cycle A dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestMonthlyProgressBar"></span></div>
           </div>
           <div id="schedulePreviewMonthlyResults" class="schedule-preview-inline" aria-live="polite"></div>
+          </fieldset>
         </section>
 
         <section class="schedule-card" hidden aria-hidden="true">
@@ -6822,9 +6835,12 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         </section>
 
         <section class="schedule-card">
-          <h3>B — Weekly / Biweekly Cycle</h3>
+          <div class="schedule-cycle-heading">
+            <h3><label class="schedule-enabled schedule-title-toggle" for="scheduleWeeklyEnabled"><input id="scheduleWeeklyEnabled" type="checkbox" aria-controls="scheduleWeeklyControls"><span>B — Weekly / Biweekly Cycle</span></label></h3>
+            <span id="scheduleWeeklyEnabledStatus" class="schedule-cycle-enabled-status" aria-live="polite">Disabled</span>
+          </div>
           <p>Sends statements every week or every two weeks to active customers assigned to Statement Cycle B.</p>
-          <label class="schedule-enabled"><input id="scheduleWeeklyEnabled" type="checkbox"> Enable Cycle B statements</label>
+          <fieldset id="scheduleWeeklyControls" class="schedule-cycle-controls" aria-label="B — Weekly / Biweekly Cycle settings and customers" disabled>
           <div class="schedule-fields">
             <div class="schedule-field"><label for="scheduleWeeklyFrequency">Frequency</label><select id="scheduleWeeklyFrequency"><option value="weekly">Every week</option><option value="biweekly">Every 2 weeks</option></select></div>
             <div class="schedule-field"><label for="scheduleWeeklyDay">Weekday</label><select id="scheduleWeeklyDay"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
@@ -6837,6 +6853,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <div class="preview-progress-track" id="scheduleTestWeeklyProgressTrack" role="progressbar" aria-label="Cycle B dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestWeeklyProgressBar"></span></div>
           </div>
           <div id="schedulePreviewWeeklyResults" class="schedule-preview-inline" aria-live="polite"></div>
+          </fieldset>
         </section>
       </div>
 
@@ -11605,12 +11622,17 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   }
   function syncCycleEnabledState(){
     const monthlyOn=monthlyEnabled.checked,weeklyOn=weeklyEnabled.checked;
+    [['Monthly',monthlyOn],['Weekly',weeklyOn]].forEach(([name,on])=>{
+      const controls=get('schedule'+name+'Controls'),state=get('schedule'+name+'EnabledStatus');
+      if(controls)controls.disabled=!on;
+      if(state)state.textContent=on?'Enabled':'Disabled';
+    });
     monthlyDay.disabled=!monthlyOn;monthlyHour.disabled=!monthlyOn;
     const monthlyPreview=get('schedulePreviewMonthly');if(monthlyPreview)monthlyPreview.disabled=!monthlyOn;
     const weeklyPreview=get('schedulePreviewWeekly');if(weeklyPreview)weeklyPreview.disabled=!weeklyOn;
     syncRunSelectionState('monthly');syncRunSelectionState('weekly');
     syncWeeklyFrequency();
-    const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=(!monthlyOn&&!weeklyOn)||((bulkSelections.monthly?.size||0)+(bulkSelections.weekly?.size||0)===0);
+    const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=((monthlyOn?(bulkSelections.monthly?.size||0):0)+(weeklyOn?(bulkSelections.weekly?.size||0):0)===0);
   }
   function applyConfig(config){
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
@@ -11908,7 +11930,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     const account=String(row.account_number||'');
     return '<div class="schedule-preview-row" data-schedule-customer="'+esc(account)+'"><label class="schedule-bulk-check" title="Select for Test / Run or assignment move"><input type="checkbox" data-bulk-cycle-customer data-preview-type="'+type+'" value="'+esc(account)+'" '+(bulkSelections[type]?.has(account)?'checked':'')+' aria-label="Select '+esc(row.account_name||account)+' for Test, Run, or assignment move"></label><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(account)+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement assignment for '+esc(row.account_name||account||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option><option value="E" '+(cycle==='E'?'selected':'')+'>Exceptional — No scheduled statements</option></select><button type="button" data-save-statement-cycle>Save Assignment</button></div></div>';
   }
-  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),moves=preview?[...preview.querySelectorAll('[data-bulk-move]')]:[],clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected for Test / Run';moves.forEach(move=>move.disabled=selected===0);if(clear)clear.disabled=selected===0;syncRunSelectionState(type);const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=(!monthlyEnabled.checked&&!weeklyEnabled.checked)||((bulkSelections.monthly?.size||0)+(bulkSelections.weekly?.size||0)===0);}
+  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),moves=preview?[...preview.querySelectorAll('[data-bulk-move]')]:[],clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected for Test / Run';moves.forEach(move=>move.disabled=selected===0);if(clear)clear.disabled=selected===0;syncRunSelectionState(type);const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=((monthlyEnabled.checked?(bulkSelections.monthly?.size||0):0)+(weeklyEnabled.checked?(bulkSelections.weekly?.size||0):0)===0);}
   function setBulkProgress(type,processed,total,moved,failed,label='Moving customers…'){
     const host=previewTargets[type]?.querySelector('[data-bulk-progress]');if(!host)return;
     const percent=total?Math.min(100,Math.round(processed/total*100)):100;host.hidden=false;

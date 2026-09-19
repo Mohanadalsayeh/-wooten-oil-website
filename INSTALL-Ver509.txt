@@ -1,0 +1,11 @@
+Wooten Oil Portal — Ver509
+
+Update package: changed files only. Apply over your current portal.
+
+Replace admin-customers.html in the website with the included file, publish the website update, then refresh the admin page. No Worker or sync PC agent update is required.
+
+Cycle A and B now use the existing portal toggle beside each title. Turning a cycle off disables all its schedule fields, preview/test/run actions, search, customer selection, assignments, bulk moves, and pagination. Settings and selections are retained while disabled. Existing prerequisites still apply when reenabled.
+
+Use Save Schedule to save cycle enable/disable changes for automatic scheduling.
+
+Validation: inline script syntax, fieldset structure, independent cycle controls, retained values and selections, Test All eligibility, and biweekly weekday restriction.
