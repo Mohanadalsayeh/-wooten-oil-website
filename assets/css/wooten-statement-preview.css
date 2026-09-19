@@ -78,3 +78,26 @@
   #documentSectionSendStatements .statement-balanced-grid #statementPreviewLinks a{min-height:44px}
 }
 @media(prefers-reduced-motion:reduce){#documentSectionSendStatements .statement-balanced-grid .statement-send-actions>button{transition:none}}
+
+/* Ver501: balanced-grid customer visibility and selection controls. */
+#documentSectionSendStatements .statement-balanced-grid .statement-exception-filter{
+  display:flex;align-items:center;gap:10px;min-height:44px;margin:0;
+  color:#43596d;font-size:14px;font-weight:700;cursor:pointer;
+}
+#documentSectionSendStatements .statement-balanced-grid #statementShowExceptional{
+  appearance:auto!important;-webkit-appearance:checkbox!important;
+  position:static!important;opacity:1!important;flex:0 0 18px!important;
+  width:18px!important;height:18px!important;min-height:18px!important;
+  margin:0!important;padding:0!important;accent-color:#173650;
+}
+#documentSectionSendStatements .statement-balanced-grid .statement-selection-actions{
+  flex-basis:100%;justify-content:flex-start;
+}
+#documentSectionSendStatements .statement-customer-name .statement-exception-badge{
+  display:table;margin-top:4px;padding:2px 8px;border-radius:6px;
+  background:#fff3d8;color:#80520b;font-size:12px;font-weight:700;
+}
+@media(max-width:700px){
+  #documentSectionSendStatements .statement-balanced-grid .statement-exception-filter,
+  #documentSectionSendStatements .statement-balanced-grid .statement-select-all{flex-basis:100%}
+}

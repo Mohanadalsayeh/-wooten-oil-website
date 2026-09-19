@@ -1,0 +1,32 @@
+Wooten Oil Portal - Ver501
+Balanced statement actions with exceptional customer visibility
+
+REPLACE THESE FILES, keeping their existing paths:
+  admin-customers.html
+  assets/css/wooten-statement-preview.css
+  worker.js
+
+Deploy the updated Worker first, then publish the website files through
+GitHub / Cloudflare Pages. After deployment, refresh the admin page.
+The Worker update supplies each customer's statement cycle to the table.
+If only the website is updated, Load Customers will ask for the Worker update.
+No Intevacon sync PC update is needed.
+
+BEHAVIOR
+- Desktop: balanced two-column actions: Load Customers / Export PDF,
+  then Preview Statements / Generate & Send Statements.
+- Phone: actions stack at the shared button height.
+- Show exceptional customers is unchecked initially.
+- Checked: exceptional customers appear and can be selected manually.
+- Unchecked: exceptional customers disappear and are removed from selection.
+- Select All Customers respects the exceptional and contact filters.
+- Select all shown continues to select only the displayed page.
+- Exceptional customers have an Exceptional label beside their details.
+- Generate remains disabled when nothing is selected.
+- This checkbox does not move customers between statement cycles or change
+  automatic statement schedules.
+
+VALIDATION
+JavaScript syntax, Worker response/SQL, filtering and selection behavior,
+pagination, busy/empty controls, and prior midnight-login regression checks
+passed locally. No live emails, texts or statements were sent during checks.

@@ -6694,6 +6694,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         </div>
 
         <div class="statement-selection-toolbar">
+          <label class="statement-exception-filter" for="statementShowExceptional">
+            <input id="statementShowExceptional" type="checkbox">
+            <span>Show exceptional customers</span>
+          </label>
           <label class="statement-select-all">
             <input id="statementSelectAllVisible" type="checkbox">
             <span>Select all shown</span>
@@ -11167,6 +11171,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   const selectAllCustomers=document.getElementById('statementSelectAllCustomers');
   const clearSelection=document.getElementById('statementClearSelection');
   const selectedCount=document.getElementById('statementSelectedCount');
+  const showExceptional=document.getElementById('statementShowExceptional');
   const status=document.getElementById('statementBatchStatus');
   const progress=document.getElementById('statementBatchProgress');
   const sendReport=document.getElementById('statementSendReport');
@@ -11200,6 +11205,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function esc(v){
     return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
+  function isExceptional(c){return String(c.statement_cycle||'').trim().toUpperCase()==='E';}
   function eligibleCustomers(){
     return customers.filter(c=>{
       const hasPhone=!!String(c.phone||'').trim();
@@ -11208,7 +11214,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       const emailChoice=emailScope?emailScope.value:'all';
       const phoneMatch=phoneChoice==='all'||(phoneChoice==='with'?hasPhone:!hasPhone);
       const emailMatch=emailChoice==='all'||(emailChoice==='with'?hasEmail:!hasEmail);
-      return phoneMatch&&emailMatch;
+      return phoneMatch&&emailMatch&&(showExceptional.checked||!isExceptional(c));
     });
   }
   function scopeSelectLabel(){
@@ -11252,7 +11258,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function updateCount(){
     if(selectedCount) selectedCount.textContent=selected.size+' selected';
     const previewButton=document.getElementById('statementPreview');
-    sendBtn.disabled=selected.size===0||sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
+    showExceptional.disabled=sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
+    sendBtn.disabled=selected.size===0||showExceptional.disabled;
     if(previewButton)previewButton.disabled=selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
     const exportButton=document.getElementById('statementExportCustomersPdf');
     if(exportButton) exportButton.disabled=selected.size===0||exportButton.dataset.exporting==='true';
@@ -11277,7 +11284,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       const hasPhone=!!String(c.phone||'').trim();
       return '<label class="statement-customer-row">'+
         '<input type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'>'+
-        '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small><small class="statement-customer-address">'+esc(customerAddress(c)||'No address on file')+'</small></span>'+
+        '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small>'+(isExceptional(c)?'<small class="statement-exception-badge">Exceptional</small>':'')+'<small class="statement-customer-address">'+esc(customerAddress(c)||'No address on file')+'</small></span>'+
         '<span class="statement-money statement-current">'+money(c.current_balance)+'</span>'+
         '<span class="statement-money statement-previous">'+money(c.previous_balance)+'</span>'+
         '<span class="statement-money statement-total">'+money(c.total_balance)+'</span>'+
@@ -11316,6 +11323,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       const data=await res.json().catch(()=>({}));
       if(!res.ok||data.success===false) throw new Error(data.error||'Customers could not be loaded.');
       const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
+      if(loadedCustomers.some(c=>typeof c.statement_cycle!=='string'))throw new Error('Update the Worker included with Ver501, then load customers again.');
       customers=[];
       customerPage=1;
       if(!loadedCustomers.length){render();updateAdminActionProgress('statementCustomerLoad',0,0,'Loading customers in batches…');}
@@ -11326,11 +11334,12 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
         updateAdminActionProgress('statementCustomerLoad',customers.length,loadedCustomers.length,'Loading customers in batches…');
         await new Promise(resolve=>setTimeout(resolve,0));
       }
+      const eligibleAccounts=new Set(eligibleCustomers().map(c=>c.account_number));
       for(const account of Array.from(selected)){
-        if(!customers.some(c=>c.account_number===account)) selected.delete(account);
+        if(!eligibleAccounts.has(account)) selected.delete(account);
       }
       render();
-      setStatus(customers.length+' customers loaded. Select the customers who should receive a statement.',true);
+      setStatus(customers.length+' customers loaded. '+filteredCustomers().length+' match the current filters. Select the customers who should receive a statement.',true);
     }catch(e){
       customers=[];selected.clear();render();
       setStatus(e.message||'Customers could not be loaded.',false);
@@ -11349,6 +11358,10 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
     render();
   }
+  showExceptional.addEventListener('change',function(){
+    contactFiltersChanged();
+    setStatus(filteredCustomers().length+' customers match the current filters. Exceptional customers '+(showExceptional.checked?'are shown.':'are hidden and excluded from selection.'),true);
+  });
   if(phoneScope)phoneScope.addEventListener('change',contactFiltersChanged);
   if(emailScope)emailScope.addEventListener('change',contactFiltersChanged);
   customerPrev.wootenGoToPage = target => { customerPage=target;render(); };
@@ -11496,7 +11509,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   updateCount();
 })();
 </script>
-<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=496">
+<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=501">
 <script type="module" src="assets/js/wooten-statement-preview.mjs?v=495"></script>
 
 

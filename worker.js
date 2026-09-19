@@ -10105,13 +10105,14 @@ async function adminStatementCustomersGet({request,env}){
     if(!env.DB) return notificationJson({success:false,error:"Customer database is not configured."},503);
 
     await ensureAdminContactPreferencesTable(env);
+    await ensureCustomerStatementCycleColumn(env);
     const result=await env.DB.prepare(`
       SELECT
         account_number,account_name,email,phone,
         address1,address2,address3,city,state,zip_code,
         current_balance,
         aging_category_1,aging_category_2,aging_category_3,aging_category_4,
-        account_status,
+        account_status,statement_cycle,
         COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
         COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
         COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled,
@@ -10146,7 +10147,8 @@ async function adminStatementCustomersGet({request,env}){
         contact_sms_enabled:Number(c.contact_sms_enabled)!==0,
         contact_portal_enabled:Number(c.contact_portal_enabled)!==0,
         online_activated:!!c.online_activated,
-        account_status:c.account_status||""
+        account_status:c.account_status||"",
+        statement_cycle:String(c.statement_cycle||"A").trim().toUpperCase()
       };
     });
 
