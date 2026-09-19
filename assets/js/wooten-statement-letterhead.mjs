@@ -34,7 +34,7 @@ export function statementLetterhead({width=612,height=792,margin=42,title='Accou
 }
 
 // Closed PDF path for smoothly rounded panel outlines and table clipping.
-export function statementRoundedPath(x,y,w,h,radius=10){
+export function statementRoundedPath(x,y,w,h,radius=6){
   const r=Math.max(0,Math.min(radius,w/2,h/2)),k=r*.55228475;
   return `${x+r} ${y} m ${x+w-r} ${y} l ${x+w-r+k} ${y} ${x+w} ${y+r-k} ${x+w} ${y+r} c ${x+w} ${y+h-r} l ${x+w} ${y+h-r+k} ${x+w-r+k} ${y+h} ${x+w-r} ${y+h} c ${x+r} ${y+h} l ${x+r-k} ${y+h} ${x} ${y+h-r+k} ${x} ${y+h-r} c ${x} ${y+r} l ${x} ${y+r-k} ${x+r-k} ${y} ${x+r} ${y} c h`;
 }

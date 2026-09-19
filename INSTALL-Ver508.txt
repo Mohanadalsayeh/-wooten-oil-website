@@ -1,0 +1,19 @@
+Wooten Oil Portal - Ver508
+Slightly sharper statement panel corners
+
+Apply after Ver507. Replace these files, preserving their paths:
+  admin-customers.html
+  assets/js/wooten-statement-letterhead.mjs
+
+Publish the website and redeploy the Worker with the updated shared module.
+worker.js itself is unchanged and is not included. Rebuild/redeploy the Worker
+so generated customer PDFs use the updated shared module.
+No sync PC update is needed.
+
+Reduced statement panel and table corner radius from 10 to 6 PDF points.
+Applies to customer statement previews, newly generated manual/scheduled
+statements, payment continuation pages and statement report exports.
+The red WO logo keeps its existing shape. Existing saved PDFs are unchanged.
+Generate a fresh preview after deployment.
+
+Checked rendered PDF layout and statement preview regression checks.

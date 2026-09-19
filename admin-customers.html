@@ -16517,7 +16517,7 @@ html,body{
     let tablePath='';
     if(layout.statementRoundedPath){
       const tableHeight=headerHeight+rows.reduce((sum,row)=>sum+row.height,0);
-      tablePath=layout.statementRoundedPath(margin,top-tableHeight,available,tableHeight,10);
+      tablePath=layout.statementRoundedPath(margin,top-tableHeight,available,tableHeight);
       out+='q '+tablePath+' W n\n';
     }
     out+='0.94 0.96 0.98 rg '+margin+' '+(top-headerHeight)+' '+available+' '+headerHeight+' re f\n';
@@ -16549,7 +16549,7 @@ html,body{
 
   async function buildPdf(title,data,onProgress){
     if(/\bstatements?\b/i.test(String(title))){
-      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=506');
+      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=508');
       data.statementLetterhead=module.statementLetterhead;
       data.statementRoundedPath=module.statementRoundedPath;
     }
