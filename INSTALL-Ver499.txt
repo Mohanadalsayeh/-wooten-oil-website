@@ -1,0 +1,41 @@
+Wooten Oil portal Ver499 - Scheduled pull time and queued button state
+
+INSTALL
+Replace these website files in your existing GitHub project, keeping the
+same paths, and allow Cloudflare Pages to deploy:
+- admin-customers.html
+- assets/js/wooten-fleet.js
+- assets/css/wooten-fleet.css
+
+This update does not require a Worker deployment or new PC files.
+Keep the Ver497 PC update and Ver498 Worker update already installed.
+
+WHAT CHANGED
+The Next scheduled pull box shows the saved date and time in Central
+Time. A queued manual request or active pull is explained underneath,
+instead of replacing the scheduled time. Scheduled retries show their
+retry time. Paused schedules still show Paused rather than a promise
+that a pull will run.
+
+The manual button now explains its state:
+- Sync now: ready for a request.
+- Queuing...: submitting the request.
+- Sync queued: waiting for the PC to pick up the existing request.
+- Syncing...: the current pull is running.
+
+A queued request continues to disable the button, preventing duplicate
+requests. Queuing and display changes do not change the pull schedule.
+
+IF THE REQUEST REMAINS QUEUED
+The portal has already accepted the request. Keep the pull PC awake,
+connected to the internet and signed in to Windows. Run
+Enable-Schedule.cmd from the existing Intevacon sync folder if the
+scheduled checks are not running. A successful manual Sync-Now.cmd run
+alone does not confirm that the scheduled task is enabled.
+If it remains queued, run Status.cmd and review the latest error.
+
+VALIDATION
+Local checks passed for queued, running, retry, paused and overdue
+displays, Central Time formatting, button states, cancellation, request
+failure recovery and duplicate-click protection. Browser rendering and
+the live PC connection were not tested in this environment.

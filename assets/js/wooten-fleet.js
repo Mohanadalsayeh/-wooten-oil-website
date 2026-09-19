@@ -70,8 +70,17 @@ function pullTimingMarkup(data){
   const seconds=Math.floor((end-start)/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
   duration=(hours?hours+'h ':'')+minutes+'m '+seconds%60+'s'+(active?' elapsed':'');
  }
- const next=data.control?.lease_until&&Date.parse(data.control.lease_until)>Date.now()?'Pull in progress':data.retry?.paused?'Paused — action required':data.retry?.retry_at?'Retry '+Math.min(data.retry.failures,3)+' of 3 · '+central(data.retry.retry_at):data.control?.requested_at?'Queued — waiting for sync PC':data.control?.next_due?central(data.control.next_due):'Not scheduled yet';
- return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>Next pull</span><strong>'+esc(next)+'</strong></div></div>';
+ const control=data.control||{},running=active||(control.lease_until&&Date.parse(control.lease_until)>Date.now());
+ const retryAt=!running&&!data.retry?.paused?data.retry?.retry_at:null;
+ const next=data.retry?.paused?'Paused — action required':retryAt?central(retryAt):control.next_due?central(control.next_due):'Not scheduled yet';
+ const note=data.retry?.paused?'Automatic pulls are paused.':running?'A pull is currently in progress.':retryAt?'Automatic retry '+Math.min(data.retry.failures,3)+' of 3':control.requested_at?'Manual sync queued — waiting for the sync PC.':control.next_due&&Date.parse(control.next_due)<=Date.now()?'Scheduled time has passed — waiting for the sync PC.':'';
+ return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>'+(retryAt?'Next retry':'Next scheduled pull')+'</span><strong>'+esc(next)+'</strong>'+(note?'<span class="fleet-next-pull-note">'+esc(note)+'</span>':'')+'</div></div>';
+}
+function syncButtonState(control={},dirty=false,pending=false){
+ const running=!!(control.lease_until&&Date.parse(control.lease_until)>Date.now());
+ return {disabled:dirty||pending||!!control.requested_at||running,
+  label:pending?'Queuing…':running?'Syncing…':control.requested_at?'Sync queued':'Sync now',
+  detail:dirty?'Save settings before requesting a sync.':pending?'The sync request is being submitted.':running?'A sync is already running.':control.requested_at?'A manual sync is already queued. It will start when the sync PC checks in.':''};
 }
 function healthMarkup(data){
  const h=data.latest,success=data.last_success;
@@ -93,11 +102,17 @@ function healthMarkup(data){
 }
 function mount(root,admin){
  let controlDirty=false;
+ let lastControl={},syncRequestPending=false;
  let sortKey='',sortDirection='asc';
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
  root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate sync credential for the Windows PC.</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
+ function updateSyncButton(){
+  if(!admin)return;
+  const state=syncButtonState(lastControl,controlDirty,syncRequestPending),button=get('[data-sync-now]');
+  button.disabled=state.disabled;button.textContent=state.label;button.title=state.detail;
+ }
  if(!admin){
   const toolbar=document.createElement('div');toolbar.className='fleet-customer-toolbar';
   root.prepend(toolbar);toolbar.append(get('.fleet-tabs'),get('.fleet-toolbar'));
@@ -215,7 +230,7 @@ function mount(root,admin){
    if(control){
     if(!controlDirty){get('[data-sync-hours]').value=String(control.hours);get('[data-sync-days]').value=String(control.window_days||30);}
     const running=control.lease_until&&Date.parse(control.lease_until)>Date.now();
-    get('[data-sync-now]').disabled=controlDirty||!!control.requested_at||!!running;
+    lastControl=control;updateSyncButton();
     const connected=control.poll_at&&Date.now()-Date.parse(control.poll_at)<3*60000;
     get('[data-control-status]').textContent=data.retry?.paused?'Automatic pulls paused. '+(data.retry.reason||'')+' Fix the issue, then click Sync now to resume.':data.retry?.retry_at&&!running?'Automatic retry '+Math.min(data.retry.failures,3)+' of 3: '+central(data.retry.retry_at)+'. '+(connected?'Sync PC is checking for requests.':'Waiting for the sync PC to reconnect.'):(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Install the updated agent and run Enable-Schedule.cmd; keep Windows signed in.');
    }
@@ -227,7 +242,7 @@ function mount(root,admin){
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
  }
  if(admin){
-  const settingsChanged=()=>{controlDirty=true;get('[data-sync-now]').disabled=true;message('Save settings to apply this schedule and history period. Then use Sync now to pull immediately.');};
+  const settingsChanged=()=>{controlDirty=true;updateSyncButton();message('Save settings to apply this schedule and history period. Then use Sync now to pull immediately.');};
   get('[data-sync-hours]').addEventListener('change',settingsChanged);
   get('[data-sync-days]').addEventListener('change',settingsChanged);
   get('[data-save-schedule]').addEventListener('click',async()=>{
@@ -240,9 +255,10 @@ function mount(root,admin){
    if(btn.disabled||controlDirty)return;
    const days=Number(get('[data-sync-days]').value);
    if(!window.confirm('Start a fleet cards and transactions sync?\n\nThis will ask the sync PC to pull the latest fleet cards and the last '+days+' days of transactions from Intevacon.\n\nKeep the sync PC powered on, connected to the internet, and signed in to Windows.\n\nSelect OK to request the sync, or Cancel to go back.'))return;
-   btn.disabled=true;
-   try{await api('/api/admin/fleet/request-sync',{method:'POST',body:'{}'});message('Sync requested. The PC will start when it next checks in.');await status();}
-   catch(e){message(e.message,true);btn.disabled=false;}
+   syncRequestPending=true;updateSyncButton();
+   try{await api('/api/admin/fleet/request-sync',{method:'POST',body:'{}'});lastControl={...lastControl,requested_at:lastControl.requested_at||new Date().toISOString()};message('Sync requested. The PC will start when it next checks in.');await status();}
+   catch(e){message(e.message,true);}
+   finally{syncRequestPending=false;updateSyncButton();}
   });
   get('.fleet-device-panel').addEventListener('toggle',()=>{if(get('.fleet-device-panel').open)status();});
   get('[data-create]').addEventListener('click',async()=>{const btn=get('[data-create]');btn.disabled=true;const ticket=serial;try{const d=await api('/api/admin/fleet/devices',{method:'POST',body:JSON.stringify({name:'Intevacon Windows PC'})});if(ticket!==serial)return;const token=get('[data-token]');token.hidden=false;token.innerHTML=`<div class="fleet-token"><p>Copy this credential into Configure on the sync PC. It is shown once.</p><code>${esc(d.token)}</code><br><button type="button" data-hide-token>Hide credential</button></div>`;token.querySelector('[data-hide-token]').onclick=()=>{token.replaceChildren();token.hidden=true;};await status();}catch(e){if(ticket===serial)message(e.message,true);}finally{btn.disabled=false;}});

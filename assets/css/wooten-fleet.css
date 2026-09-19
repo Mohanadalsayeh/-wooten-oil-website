@@ -141,6 +141,7 @@ body #customerFleetRoot .fleet-customer-toolbar .fleet-tabs{flex:0 0 auto;margin
 .wooten-fleet .fleet-pull-timings>div{padding:12px 14px;border:1px solid currentColor;border-radius:10px;background:rgba(255,255,255,.55)}
 .wooten-fleet .fleet-pull-timings span{display:block;font-size:12px;margin-bottom:5px}
 .wooten-fleet .fleet-pull-timings strong{display:block;font-size:14px;font-variant-numeric:tabular-nums}
+.wooten-fleet .fleet-pull-timings .fleet-next-pull-note{margin:6px 0 0;font-weight:400;line-height:1.45}
 @media(max-width:700px){.wooten-fleet .fleet-pull-timings{grid-template-columns:1fr}}
 
 /* Ver476: one shared text edge for headings and their data cells. */
