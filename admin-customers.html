@@ -16542,7 +16542,7 @@ html,body{
 
   async function buildPdf(title,data,onProgress){
     if(/\bstatements?\b/i.test(String(title))){
-      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=504');
+      const module=await import('./assets/js/wooten-statement-letterhead.mjs?v=505');
       data.statementLetterhead=module.statementLetterhead;
     }
     const layout=await preparePdfPages(data,onProgress);

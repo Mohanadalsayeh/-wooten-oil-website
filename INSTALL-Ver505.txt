@@ -1,0 +1,18 @@
+Wooten Oil Portal - Ver505
+Right-aligned statement header
+
+Apply after Ver504. Replace the included files, preserving their paths:
+  admin-customers.html
+  assets/js/wooten-statement-letterhead.mjs
+
+Publish the website and redeploy the Worker with the updated shared module.
+worker.js itself is unchanged and is not included in this update.
+The Worker must be rebuilt/redeployed to use the new module for customer PDFs.
+No sync PC update is required.
+
+Account Statement and Customer Accounts now align with the right print margin.
+The shared alignment applies to statement pages and statement report headers.
+Generate a fresh preview to see the change; existing stored PDFs are unchanged.
+
+Verified rendered statement layout and exact right-edge text coordinates on
+both pages. Statement preview and per-customer page numbering checks passed.
