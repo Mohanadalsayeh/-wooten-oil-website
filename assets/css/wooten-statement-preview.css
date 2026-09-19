@@ -101,3 +101,16 @@
   #documentSectionSendStatements .statement-balanced-grid .statement-exception-filter,
   #documentSectionSendStatements .statement-balanced-grid .statement-select-all{flex-basis:100%}
 }
+
+/* Ver503: one selection checkbox with the live selected total in its label. */
+#documentSectionSendStatements .statement-balanced-grid .statement-select-all{
+  min-width:0!important;max-width:100%;
+}
+#documentSectionSendStatements .statement-balanced-grid .statement-select-all .statement-selection-copy{
+  white-space:normal!important;line-height:1.5!important;
+}
+#documentSectionSendStatements .statement-balanced-grid .statement-select-all #statementSelectedCount{
+  display:inline!important;width:auto!important;margin:0!important;padding:0!important;
+  background:transparent!important;border:0!important;border-radius:0!important;
+  color:inherit!important;font:inherit!important;white-space:nowrap!important;
+}

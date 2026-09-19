@@ -6675,7 +6675,6 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div class="statement-action-panel statement-balanced-grid">
         <div class="statement-action-heading">
           <h3>Statement actions</h3>
-          <span class="statement-selected-count" id="statementSelectedCount">0 selected</span>
         </div>
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
@@ -6698,9 +6697,9 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <input id="statementShowExceptional" type="checkbox">
             <span>Show exceptional customers</span>
           </label>
-          <label class="statement-select-all">
+          <label class="statement-select-all" for="statementSelectAllVisible">
             <input id="statementSelectAllVisible" type="checkbox">
-            <span>Select all shown</span>
+            <span class="statement-selection-copy">Select all shown <span aria-hidden="true">·</span> <span id="statementSelectedCount" aria-live="polite" aria-atomic="true">0 selected</span></span>
           </label>
           <div class="statement-selection-actions">
             <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
@@ -11516,7 +11515,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   updateCount();
 })();
 </script>
-<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=501">
+<link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=503">
 <script type="module" src="assets/js/wooten-statement-preview.mjs?v=495"></script>
 
 

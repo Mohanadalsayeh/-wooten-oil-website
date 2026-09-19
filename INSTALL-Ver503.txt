@@ -1,0 +1,20 @@
+Wooten Oil Portal - Ver503
+Combined selection checkbox and count
+
+Replace these website files, keeping their paths:
+  admin-customers.html
+  assets/css/wooten-statement-preview.css
+
+Publish through GitHub / Cloudflare Pages, then refresh the admin page.
+Apply after Ver501 or Ver502. No Worker or sync PC update is needed.
+
+The selection checkbox now reads:
+  Select all shown · 20 selected
+
+The count updates using the existing selection logic. The separate selected
+count in the heading has been removed. The checkbox still selects the current
+page; the count reports the total selected across pages. Select All Customers
+and Clear Selection continue to work as before.
+
+Checked markup, unique control IDs, JavaScript syntax, and preservation of
+the existing behavior scripts.
