@@ -1,0 +1,12 @@
+Wooten Oil Portal Ver500
+
+Upload admin-customers.html to the same location in your GitHub repository, replacing the existing file, and let Cloudflare Pages finish deploying. Then refresh the admin page once.
+
+Changes:
+- Generate & Send Statements is disabled when no customers are selected, while customers load, and while a send or preview is running.
+- Fresh admin logins after midnight use their own Central Time login date. The page no longer repeatedly logs out a new session because the page was opened the previous day.
+- End-of-day session expiry remains enabled.
+
+Website-only update. No Worker deployment or sync PC changes are needed.
+
+Verification: JavaScript syntax and targeted logic checks for selection/busy states, midnight expiry, repeated timer checks after re-login, and daylight-saving dates passed. Live browser verification was not performed.

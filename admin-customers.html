@@ -6681,7 +6681,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
           <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
           <button class="secondary" id="statementPreview" type="button" disabled>Preview Statements</button>
-          <button class="primary" id="statementGenerateSend" type="button">Generate &amp; Send Statements</button>
+          <button class="primary" id="statementGenerateSend" type="button" disabled>Generate &amp; Send Statements</button>
         </div>
         <div id="statementPreviewLinks" hidden aria-live="polite"></div>
         <div class="preview-progress" id="statementCustomerLoadProgress" hidden>
@@ -11252,6 +11252,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function updateCount(){
     if(selectedCount) selectedCount.textContent=selected.size+' selected';
     const previewButton=document.getElementById('statementPreview');
+    sendBtn.disabled=selected.size===0||sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
     if(previewButton)previewButton.disabled=selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
     const exportButton=document.getElementById('statementExportCustomersPdf');
     if(exportButton) exportButton.disabled=selected.size===0||exportButton.dataset.exporting==='true';
@@ -11303,7 +11304,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   async function loadCustomers(){
     const key=document.getElementById('adminKey').value.trim();
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
-    loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';
+    loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';updateCount();
     list.innerHTML='<div class="admin-inline-skeleton" aria-hidden="true">'+Array.from({length:8},(_,r)=>'<div class="admin-inline-skeleton-row statement"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div>';
     beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
     await new Promise(resolve=>requestAnimationFrame(resolve));
@@ -11335,7 +11336,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       setStatus(e.message||'Customers could not be loaded.',false);
     }finally{
       hideAdminActionProgress('statementCustomerLoad');
-      loadBtn.disabled=false;loadBtn.textContent='Load Customers';
+      loadBtn.disabled=false;loadBtn.textContent='Load Customers';updateCount();
     }
   }
 
@@ -11403,7 +11404,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   }
 
   sendBtn.addEventListener('click',async function(){
-    if(sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true') return;
+    if(sendBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true') return;
     const key=document.getElementById('adminKey').value.trim();
     const accounts=Array.from(selected);
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
@@ -11492,6 +11493,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       updateCount();
     }
   });
+  updateCount();
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=496">
@@ -12710,6 +12712,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
   const submitBtn=form ? form.querySelector('button[type="submit"]') : null;
   const storageKey='wootenAdminLoginSession';
   let currentUser=null;
+  let adminSessionDay=adminCentralDayKey();
 
   function applyPermissions(user){
     const get=id=>document.getElementById(id);
@@ -12786,8 +12789,9 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
   }
 
   function saveSession(){
+    adminSessionDay=adminCentralDayKey();
     try{
-      sessionStorage.setItem(storageKey, JSON.stringify({login:loginName.value.trim(),key:(keyField.value||'').trim(),user:currentUser,day:adminCentralDayKey()}));
+      sessionStorage.setItem(storageKey, JSON.stringify({login:loginName.value.trim(),key:(keyField.value||'').trim(),user:currentUser,day:adminSessionDay}));
     }catch(_e){}
   }
 
@@ -12850,6 +12854,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
         return false;
       }
       loginName.value=String(data.login||check.user?.username||'Admin');
+      adminSessionDay=String(data.day);
       keyField.value=savedKey;
       keyPrompt.value=savedKey;
       applyPermissions(check.user||data.user);
@@ -12944,9 +12949,8 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
     if(!restored) openLogin();
   });
 
-  const adminSessionDayAtLoad=adminCentralDayKey();
   window.setInterval(function(){
-    if((keyField.value||'').trim() && adminCentralDayKey()!==adminSessionDayAtLoad){
+    if((keyField.value||'').trim() && adminCentralDayKey()!==adminSessionDay){
       expireAdminSession('Your admin session expired at the end of the day. Please sign in again.');
     }
   },30000);
