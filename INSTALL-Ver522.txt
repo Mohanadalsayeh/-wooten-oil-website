@@ -1,0 +1,14 @@
+Wooten Oil Portal — Ver522
+
+Apply after Ver521.
+
+Upload/replace these files in the website repository, keeping the paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+
+Each Statement Run Report history title now opens that specific run in the statement progress window. Title hover changes only the underline. Removed the standalone View statement progress button and redundant Customer progress & PDFs link from each record. Combined PDF links, export selection checkboxes, and expandable report details remain available.
+
+Progress loading skeletons and automatic opening when a run starts remain available.
+
+No Worker update is needed.
+After publishing the website changes, refresh the admin page.

@@ -1,4 +1,4 @@
-/* Ver521: skeleton rows while loading or refreshing statement run details. */
+/* Ver522: open statement progress from each report history title. */
 (function(){
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,11 +45,6 @@
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
     });
-    for(const [id,label] of [['scheduleReport','View statement progress']]){
-      const target=document.getElementById(id);if(!target)continue;
-      const button=document.createElement('button');button.type='button';button.className='secondary sp-reopen';button.textContent=label;
-      button.addEventListener('click',async()=>{try{await discover(false);if(ids.length)show();else if(recent.length)watch([recent[0].id]);else prepare('Statement progress','');}catch(error){prepare('Statement progress','');errorText(error.message);}});target.before(button);
-    }
   }
   function errorText(message){mount();const el=host.querySelector('#sp-error');el.textContent=message||'';el.hidden=!message;}
   function show(){mount();if(host.hidden){lastFocus=document.activeElement;host.hidden=false;document.body.classList.add('sp-open');host.querySelector('[data-sp-close]').focus({preventScroll:true});}render();poll(true);}
