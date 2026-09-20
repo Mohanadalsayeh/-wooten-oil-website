@@ -1,0 +1,60 @@
+WOOTEN OIL PORTAL - Ver510
+Fuel request saving, admin visibility, and customer confirmations
+
+INSTALLATION
+1. Replace the included files at their existing paths in your portal GitHub
+   repository. This ZIP contains only changed files.
+2. Deploy the updated website AND Worker using your existing deployment process.
+   worker.js has changed; a website-only upload is not sufficient.
+   Keep the existing Worker dependency folders in the repository.
+3. If /api/fuel-request is served by a Pages Function, the included Pages handler
+   now uses the same Worker route. Its DB binding must point to the SAME D1
+   database used by the admin/customer portal, not a separate fuel database.
+4. Keep RESEND_API_KEY configured on the service handling fuel requests.
+   FUEL_TO_EMAIL: support@wootenoil.com (or your existing office recipient).
+   FUEL_FROM_EMAIL: your existing Resend-authorized sender. If blank/unset,
+   the handler uses Wooten Oil <support@wootenoil.com> for BOTH emails.
+   The sender's domain must be verified in Resend.
+5. Reload the customer fuel form and admin page after deployment.
+   No MAS 90 or Intevacon PC update is required.
+
+CHANGES
+- A success response requires a saved database record.
+- Missing fuel tables/columns are initialized without deleting existing requests.
+- Signed-in customer requests are linked to the authenticated account. Expired
+  or mismatched account sessions show a clear error instead of losing the link.
+- An empty customer email field uses the signed-in account's email when present.
+- The office email and customer confirmation are attempted independently.
+- Both emails use the same sender fallback and bounded sending time.
+- Separate office/customer email results are stored and shown in request details.
+  Sent means accepted by the email provider; it does not prove inbox delivery.
+- Missing email configuration or email failure does not discard a saved request.
+- Repeated submission with the same number/details returns the saved request
+  without sending duplicate emails or creating another request.
+- The form rejects HTML, empty, or incomplete API responses as confirmation.
+- Admin Customer Requests reloads when opened; account-number searches now work
+  for fuel requests as well as profile requests.
+
+WHERE TO FIND REQUESTS
+Admin > Customer Requests > Request Type: Fuel Delivery Requests.
+Select All statuses, clear the search, then click Load Requests.
+You can search using the request number or customer account number.
+The notification bell also lists pending fuel requests.
+The signed-in customer's Fuel Request History shows requests for that account.
+
+AFTER DEPLOYMENT
+Search for the original request before submitting another real order.
+Existing records are preserved. A request that was never saved cannot be
+recovered by this code update alone. If the original is still missing, retain
+its request number and submission time so the live Worker/email logs can be
+checked. Do not resend a real order merely to test the change.
+
+VALIDATION
+Local tests used SQLite and simulated email-provider responses; no real emails,
+SMS messages, fuel orders, or production database writes were made.
+Passed: required database saving; new/legacy schemas; office/customer email
+failures independently; sender fallback; missing email setup; truthful client
+confirmation; identical and concurrent retries; customer-session isolation;
+admin account search; customer history; Pages/Worker handler consistency; and
+JavaScript syntax checks.
+Live deployment, bindings, and inbox delivery have not been verified here.

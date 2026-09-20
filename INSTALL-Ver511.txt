@@ -1,0 +1,59 @@
+WOOTEN OIL PORTAL — Ver511
+Statement progress window and individual customer PDF links
+
+INSTALLATION
+1. Replace/add the five included application files at their existing relative
+   paths in your portal repository. Keep all other project files in place.
+2. Deploy the website AND Worker through your existing deployment process.
+   Include assets/js/wooten-statement-progress-server.mjs with worker.js;
+   it is a Worker dependency. A website-only update is not sufficient.
+3. Keep the existing DB and NOTIFICATION_ATTACHMENTS bindings, email settings,
+   and Twilio settings. New progress tables are created automatically without
+   deleting existing data. No sync-PC or MAS 90 update is needed.
+4. Reload the admin page after deployment. Start new runs to use the detailed
+   progress history and individual test-PDF links.
+
+WHAT CHANGED
+- Manual Generate & Send, cycle Run, Test, and Test All open the same window.
+- Header: statement name and date. Footer: instructions, pagination, and recent
+  statement runs. Close hides the window; View statement progress reopens it.
+- The table shows customer name, ID, total balance, a progress bar per customer,
+  and separate Portal / Email / SMS results, including explicit failure reasons.
+- Each customer's name becomes a PDF link when that exact statement is ready.
+  Hover adds an underline only. It does not change the text color, background,
+  size, or position. PDF access requires an authorized admin session.
+- PDFs are saved for the run; opening one later does not regenerate it using
+  a newer balance. Test PDFs are private admin files, not customer documents.
+- Progress is persisted as PDF creation and delivery stages finish. It can be
+  reopened from recent runs or Customer progress & PDFs in the schedule report.
+- New automatic runs open their progress window while the authorized admin page
+  is open. The window cannot appear on a closed browser; results remain available
+  afterward. Existing scheduling triggers and intervals are unchanged.
+- Manual runs and tests still require the admin page to remain open while their
+  batches process. Closing only the progress window does not stop processing.
+- Selections, statement date and delivery options are saved when a run starts.
+  Changing the controls later does not change a run already in progress.
+- Selected channel failures are counted separately from successful PDF creation.
+  A portal notification failure does not block the email/SMS attempts.
+- Repeating a request for the same tracked customer/run does not resend it.
+
+STATUS MEANINGS
+Portal: Sent successfully means the customer notification was saved.
+Email: Sent to provider means the email service accepted the message. It does
+not prove inbox delivery. Provider rejection reasons are shown as Failed.
+SMS: Sent to provider changes to Delivered or Failed when the existing Twilio
+callback reports an outcome. Failure messages/codes appear in the row.
+Not selected: that delivery option was not requested for the run.
+Test — not sent: PDF creation succeeded; no email, SMS, portal notification, or
+customer-visible document was sent/created. Tests do not confirm actual delivery.
+Queued / Generating / Sending: real processing stages, not simulated timers.
+
+VALIDATION
+Local checks passed using SQLite fixtures, stored PDF bytes, simulated providers,
+and a DOM harness: progress during sending, missing contact details, independent
+channel failures, exact PDF access and authorization, repeated-request protection,
+SMS callback updates, dry tests, Test All selections, automatic-run discovery,
+unchanged option snapshots, modal controls, escaped names, logout cleanup, and
+JavaScript syntax. Existing statement preview tests also passed.
+No real customer emails, SMS messages, production writes, or deployments were
+performed. Live deployment and actual provider delivery remain to be verified.

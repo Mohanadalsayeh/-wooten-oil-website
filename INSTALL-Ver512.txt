@@ -1,0 +1,34 @@
+WOOTEN OIL PORTAL — Ver512
+Statement report payment counts and clearer labels
+
+INSTALL
+1. Apply this update to the existing portal with the Ver511 files in place.
+2. Replace worker.js and admin-customers.html at their existing paths.
+   This package contains only the changed application files.
+3. Deploy both the website and Worker. Keep all existing assets and bindings.
+4. Reload the admin page and export the Statement Run Report again.
+   Previously downloaded report PDFs do not change automatically.
+
+FIX
+Live statement generation now returns and saves payment_count using the actual
+number of recent payment records included in that customer's statement. It uses
+the records loaded for that PDF, not the requested maximum and not the total
+number of payments ever made by the customer.
+
+The exported Statement details column clearly separates:
+  PDF: Generated
+  Payment records included: [count]
+  Balance: [statement balance]
+
+Old report rows that never recorded a payment count show Not recorded rather
+than an assumed zero. Existing recorded zero counts remain zero. No historical
+count is guessed from today's payment data, and old statements are not resent.
+Test A, Test B, and Test All retain their actual included-payment counts.
+
+VALIDATION
+Passed local SQLite/provider-fixture checks for manual live runs, stored schedule
+results, A/B dry tests, a requested limit larger than the available payment
+records, a one-record limit, zero selected payment records, and report export
+with old/missing counts and valid zero/nonzero counts. JavaScript syntax passed.
+No real emails, SMS messages, customer charges, or production writes were made.
+The update has not been deployed from this session.

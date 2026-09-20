@@ -22,13 +22,15 @@ In your Cloudflare Pages project, add:
 
 The FROM address must use a domain that is verified in Resend.
 
-3. OPTIONAL BUT RECOMMENDED: D1 DATABASE
-Create a D1 database, for example: wooten-oil-orders
-Run schema.sql on that database.
-Bind it to the Pages project with the binding name exactly:
+3. REQUIRED: PORTAL D1 DATABASE
+Use the SAME D1 database used by the admin and customer portal.
+Bind it to the service handling /api/fuel-request with the binding name exactly:
 DB
 
-The backend works without DB, but D1 is recommended so each request is stored.
+Do not create a separate fuel-only database. The current Worker configuration
+uses wooten-oil-requests. The fuel handler creates its table and adds missing
+fuel-request columns automatically, preserving existing records.
+Requests cannot report success unless they have been saved to this database.
 
 4. REDEPLOY
 After adding the Function and settings, redeploy the Pages project.
@@ -38,7 +40,12 @@ Expected behavior:
 - Customer taps Submit Fuel Request.
 - Website asks for confirmation.
 - Request is POSTed to /api/fuel-request.
-- Backend validates and saves it (if DB is configured).
-- Backend sends the email to Support@wootenoil.com through Resend.
+- Backend validates and saves the request before attempting either email.
+- Backend independently attempts the office email and customer confirmation.
+- The customer confirmation uses the configured sender, with support@wootenoil.com
+  as its fallback. The sender domain must be verified in Resend.
+- A saved request remains available even if email is unavailable. The form
+  shows a warning instead of claiming the email was sent.
+- Admin: Customer Requests > Fuel Delivery Requests > Load Requests.
 - The same request number is shown to the customer and included in the email.
 - FormSubmit and mailto are not used.

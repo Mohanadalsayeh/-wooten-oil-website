@@ -1,3 +1,4 @@
+import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconFleet from './fleet/intevacon.mjs';
@@ -61,268 +62,115 @@ function validRequestNumber(value) {
   return /^WO-\d{6}-\d{4}$/.test(String(value || ""));
 }
 __name(validRequestNumber, "validRequestNumber");
-async function onRequestPost(context) {
-  const { request, env } = context;
+async function onRequestPost({request,env}) {
   let body;
+  try { body=await request.json(); } catch { return json({success:false,error:"Invalid request data."},400); }
+  if(!body || typeof body!=="object" || Array.isArray(body)) return json({success:false,error:"Invalid request data."},400);
+  if(!env.DB) return json({success:false,error:"The request service is unavailable. Your fuel request has not been saved. Please call Wooten Oil at (901) 476-2684."},503);
+  const requestNumber=String(body.requestNumber||"").trim();
+  if(!validRequestNumber(requestNumber)) return json({success:false,error:"Invalid request number."},400);
+  let customer=null;
+  const hasSession=Boolean(parseCookies(request)[SESSION_COOKIE]);
   try {
-    body = await request.json();
-  } catch {
-    return json({ success: false, error: "Invalid request data." }, 400);
+    if(hasSession) customer=await getCustomerFromSession(request,env);
+  } catch(error) {
+    console.error("Fuel request account lookup failed",error);
+    return json({success:false,error:"Your account could not be checked. Please try again."},503);
   }
-  const requestNumber = String(body.requestNumber || "").trim();
-  const customerName = String(body.customerName || "").trim();
-  const phone = String(body.phone || "").trim();
-  const email = String(body.email || "").trim();
-  const deliveryAddress = String(body.deliveryAddress || "").trim();
-  const fuelType = String(body.fuelType || "").trim();
-  const gallons = String(body.gallons || "").trim();
-  const deliveryDate = String(body.deliveryDate || "").trim();
-  const notes = String(body.notes || "").trim();
-  const submittedFrom = String(body.submittedFrom || "").trim();
-  if (!validRequestNumber(requestNumber)) {
-    return json({ success: false, error: "Invalid request number." }, 400);
-  }
-  if (!customerName || !phone || !deliveryAddress || !fuelType || !gallons) {
-    return json({ success: false, error: "Please complete all required fields." }, 400);
-  }
-  if (!/^\d+(?:\.\d+)?$/.test(gallons) || Number(gallons) <= 0 || Number(gallons) > 1e6) {
-    return json({ success: false, error: "Estimated gallons is not valid." }, 400);
-  }
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ success: false, error: "Customer email is not valid." }, 400);
-  }
-  if (!env.RESEND_API_KEY) {
-    return json({ success: false, error: "Email service is not configured yet." }, 503);
-  }
-  const receivedAt = (/* @__PURE__ */ new Date()).toISOString();
-  let customerAccountNumber="";
-  if(env.DB){
-    try{
-      const signedInCustomer=await getCustomerFromSession(request,env);
-      if(signedInCustomer){
-        customerAccountNumber=String(signedInCustomer.account_number||"").trim();
-      }
-    }catch(error){
-      console.error("Could not identify signed-in customer for fuel request",error);
-    }
-  }
-  if (env.DB) {
-    try {
-      await ensureFuelRequestHistorySchema(env);
-      await env.DB.prepare(`
-        INSERT INTO fuel_requests
-        (request_number, customer_account_number, customer_name, phone, email, delivery_address, fuel_type,
-         gallons, delivery_date, notes, submitted_from, received_at, email_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        requestNumber,
-        customerAccountNumber,
-        customerName,
-        phone,
-        email,
-        deliveryAddress,
-        fuelType,
-        gallons,
-        deliveryDate,
-        notes,
-        submittedFrom,
-        receivedAt,
-        "pending"
-      ).run();
-    } catch (error) {
-      console.error("D1 insert failed", error);
-      return json({
-        success: false,
-        error: "This request could not be saved. Please try again."
-      }, 500);
-    }
-  }
-  const fromAddress = env.FUEL_FROM_EMAIL || "Wooten Oil Website <orders@wootenoil.com>";
-  const toAddress = env.FUEL_TO_EMAIL || "Support@wootenoil.com";
-  const subject = `Fuel Delivery Request ${requestNumber} - ${customerName}`;
-  const rows = [
-    ["Request Number", requestNumber],
-    ["Customer / Company Name", customerName],
-    ["Phone Number", phone],
-    ["Customer Email", email || "Not provided"],
-    ["Delivery Address", deliveryAddress],
-    ["Fuel Type", fuelType],
-    ["Estimated Gallons", gallons],
-    ["Preferred Delivery Date", deliveryDate || "Flexible / Not specified"],
-    ["Additional Notes", notes || "None"],
-    ["Received", portalTime.dateTime(receivedAt)]
-  ];
-  const htmlRows = rows.map(([label, value]) => `
-    <tr>
-      <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-weight:700;vertical-align:top;width:210px">
-        ${esc(label)}
-      </td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top">
-        ${esc(value)}
-      </td>
-    </tr>`).join("");
-  const html2 = `
-  <!doctype html>
-  <html>
-    <body style="font-family:Arial,sans-serif;color:#111827;background:#f3f4f6;padding:24px">
-      <div style="max-width:700px;margin:auto;background:#fff;border-radius:12px;overflow:hidden">
-
-        <div style="background:#b9342b;color:#fff;padding:20px 24px">
-          <div style="font-size:22px;font-weight:800">
-            New Fuel Delivery Request
-          </div>
-
-          <div style="margin-top:6px;font-size:16px">
-            ${esc(requestNumber)}
-          </div>
-        </div>
-
-        <table role="presentation"
-               style="width:100%;border-collapse:collapse">
-          ${htmlRows}
-        </table>
-
-        <div style="padding:16px 24px;color:#6b7280;font-size:12px">
-          Submitted from ${esc(submittedFrom || "wootenoil.com")}
-        </div>
-
-      </div>
-    </body>
-  </html>`;
-  const emailPayload = {
-    from: fromAddress,
-    to: [toAddress],
-    subject,
-    html: html2,
-    text: rows.map(([label, value]) => `${label}: ${value}`).join("\n"),
-    tags: [{
-      name: "request_number",
-      value: requestNumber.replace(/[^A-Za-z0-9_-]/g, "_")
-    }]
+  const requestedAccount=String(body.customerAccountNumber||"").trim();
+  if((requestedAccount||hasSession) && !customer) return json({success:false,error:"Your sign-in has expired. Please sign in again before submitting this account's fuel request."},401);
+  if(requestedAccount && requestedAccount!==String(customer.account_number||"").trim()) return json({success:false,error:"Your selected account has changed. Please reopen the fuel request form and try again."},409);
+  const values={
+    customer_account_number:String(customer?.account_number||"").trim(),
+    customer_name:String(body.customerName||"").trim(),
+    phone:String(body.phone||"").trim(),
+    email:String(body.email||customer?.email||"").trim(),
+    delivery_address:String(body.deliveryAddress||"").trim(),
+    fuel_type:String(body.fuelType||"").trim(),
+    gallons:String(body.gallons||"").trim(),
+    delivery_date:String(body.deliveryDate||"").trim(),
+    notes:String(body.notes||"").trim()
   };
-  if (email) {
-    emailPayload.reply_to = email;
-  }
-  let resendResponse;
-  let resendData = {};
+  if(!values.customer_name||!values.phone||!values.delivery_address||!values.fuel_type||!values.gallons) return json({success:false,error:"Please complete all required fields."},400);
+  if(!/^\d+(?:\.\d+)?$/.test(values.gallons)||Number(values.gallons)<=0||Number(values.gallons)>1e6) return json({success:false,error:"Estimated gallons is not valid."},400);
+  if(values.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) return json({success:false,error:"Customer email is not valid."},400);
+  const receivedAt=new Date().toISOString();
+  const submittedFrom=String(body.submittedFrom||"").trim();
+  let inserted;
   try {
-    resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": `fuel-request-${requestNumber}`
-      },
-      body: JSON.stringify(emailPayload)
-    });
-    try {
-      resendData = await resendResponse.json();
-    } catch {
+    await ensureFuelRequestHistorySchema(env);
+    inserted=await env.DB.prepare(`INSERT INTO fuel_requests
+      (request_number,customer_account_number,customer_name,phone,email,delivery_address,fuel_type,gallons,delivery_date,notes,submitted_from,received_at,email_status,customer_email_status)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_number) DO NOTHING`).bind(
+        requestNumber,...Object.values(values),submittedFrom,receivedAt,'pending',values.email?'pending':'not_requested'
+      ).run();
+    if(Number(inserted.meta?.changes)!==1) {
+      const existing=await env.DB.prepare('SELECT * FROM fuel_requests WHERE request_number=?').bind(requestNumber).first();
+      if(!existing||Object.entries(values).some(([k,v])=>String(existing[k]||'')!==v)) return json({success:false,error:"This request number is already in use. Close this message and submit the form again to get a new number."},409);
+      return fuelRequestSavedReply(existing);
     }
-  } catch (error) {
-    console.error("Resend request failed", error);
-    if (env.DB) {
-      await env.DB.prepare(
-        "UPDATE fuel_requests SET email_status = ? WHERE request_number = ?"
-      ).bind("network_error", requestNumber).run().catch(() => {
-      });
-    }
-    return json({
-      success: false,
-      error: "The order was saved, but the email notification could not be sent. Please call Wooten Oil."
-    }, 502);
+  } catch(error) {
+    console.error("Fuel request could not be saved",error);
+    return json({success:false,error:"Your fuel request could not be saved. Your information is still on the form; please try again."},500);
   }
-  if (!resendResponse.ok) {
-    console.error("Resend error", resendData);
-    if (env.DB) {
-      await env.DB.prepare(
-        "UPDATE fuel_requests SET email_status = ? WHERE request_number = ?"
-      ).bind(`failed_${resendResponse.status}`, requestNumber).run().catch(() => {
-      });
-    }
-    return json({
-      success: false,
-      error: "The order was saved, but the email notification could not be sent. Please call Wooten Oil."
-    }, 502);
-  }
-  if (email) {
-    try {
-      const customerPayload = {
-        from: env.FUEL_FROM_EMAIL,
-        to: [email],
-        subject: `Wooten Oil Fuel Request Confirmation - ${requestNumber}`,
-        html: `
-          <h2>Fuel Request Confirmation</h2>
-          <p>Thank you for submitting your fuel delivery request to Wooten Oil.</p>
-
-          <p style="font-size:20px;">
-            <strong>Confirmation Number: ${esc(requestNumber)}</strong>
-          </p>
-
-          <hr>
-
-          <p><strong>Customer:</strong> ${esc(customerName)}</p>
-          <p><strong>Fuel Type:</strong> ${esc(fuelType)}</p>
-          <p><strong>Estimated Gallons:</strong> ${esc(gallons)}</p>
-          <p><strong>Delivery Address:</strong> ${esc(deliveryAddress)}</p>
-          <p><strong>Preferred Delivery Date:</strong> ${esc(deliveryDate || "Not specified")}</p>
-
-          <p>We have received your request and will contact you if additional information is needed.</p>
-
-          <p>Please keep your confirmation number for your records.</p>
-
-          <p>
-            Thank you,<br>
-            <strong>Wooten Oil Company</strong>
-          </p>
-        `,
-        text: `Wooten Oil Fuel Request Confirmation
-
-Confirmation Number: ${requestNumber}
-
-Customer: ${customerName}
-Fuel Type: ${fuelType}
-Estimated Gallons: ${gallons}
-Delivery Address: ${deliveryAddress}
-Preferred Delivery Date: ${deliveryDate || "Not specified"}
-
-We have received your request and will contact you if additional information is needed.
-
-Please keep your confirmation number for your records.
-
-Wooten Oil Company`
-      };
-      const customerResponse = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-          "Idempotency-Key": `fuel-confirmation-${requestNumber}`
-        },
-        body: JSON.stringify(customerPayload)
-      });
-      if (!customerResponse.ok) {
-        console.error(
-          "Customer confirmation email failed",
-          await customerResponse.text()
-        );
-      }
-    } catch (error) {
-      console.error("Customer confirmation email error", error);
-    }
-  }
-  if (env.DB) {
-    await env.DB.prepare(
-      "UPDATE fuel_requests SET email_status = ?, resend_email_id = ? WHERE request_number = ?"
-    ).bind("sent", resendData.id || "", requestNumber).run().catch(() => {
-    });
-  }
-  return json({
-    success: true,
-    requestNumber,
-    emailId: resendData.id || null
-  });
+  const fromAddress=String(env.FUEL_FROM_EMAIL||'Wooten Oil <support@wootenoil.com>').trim()||'Wooten Oil <support@wootenoil.com>';
+  const toAddress=String(env.FUEL_TO_EMAIL||'support@wootenoil.com').trim()||'support@wootenoil.com';
+  const rows=[
+    ['Request Number',requestNumber],['Customer #',values.customer_account_number||'Guest'],
+    ['Customer / Company Name',values.customer_name],['Phone Number',values.phone],
+    ['Customer Email',values.email||'Not provided'],['Delivery Address',values.delivery_address],
+    ['Fuel Type',values.fuel_type],['Estimated Gallons',values.gallons],
+    ['Preferred Delivery Date',values.delivery_date||'Flexible / Not specified'],
+    ['Additional Notes',values.notes||'None'],['Received',portalTime.dateTime(receivedAt)]
+  ];
+  const detailsHtml='<table role="presentation" style="width:100%;border-collapse:collapse">'+rows.map(([label,value])=>`<tr><th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${esc(label)}</th><td style="padding:10px;border-bottom:1px solid #e5e7eb">${esc(value)}</td></tr>`).join('')+'</table>';
+  const detailsText=rows.map(([label,value])=>`${label}: ${value}`).join('\n');
+  const officePayload={from:fromAddress,to:[toAddress],subject:`Fuel Delivery Request ${requestNumber} - ${values.customer_name}`,
+    html:`<div style="font-family:Arial,sans-serif;color:#172033;max-width:700px;margin:auto"><h2>New Fuel Delivery Request</h2>${detailsHtml}<p>Submitted from ${esc(submittedFrom||'wootenoil.com')}</p></div>`,text:detailsText,
+    ...(values.email?{reply_to:values.email}:{})};
+  const customerPayload={from:fromAddress,to:[values.email],reply_to:toAddress,subject:`Wooten Oil Fuel Request Confirmation - ${requestNumber}`,
+    html:`<div style="font-family:Arial,sans-serif;color:#172033;max-width:700px;margin:auto"><h2>Fuel Request Confirmation</h2><p>Thank you. Your fuel request has been received by Wooten Oil.</p>${detailsHtml}<p>This confirms receipt of your request. Delivery is subject to confirmation by our office.</p><p>Please keep your request number for your records.<br>Wooten Oil Co. Inc.<br>(901) 476-2684 | support@wootenoil.com</p></div>`,
+    text:`Your fuel request has been received by Wooten Oil.\n\n${detailsText}\n\nThis confirms receipt of your request. Delivery is subject to confirmation by our office.\nPlease keep your request number for your records.\nWooten Oil Co. Inc.\n(901) 476-2684 | support@wootenoil.com`};
+  // A failure in either email must not prevent the other email or undo a saved request.
+  const [office,confirmation]=await Promise.all([
+    fuelRequestSendEmail(env,officePayload,`fuel-request-${requestNumber}`),
+    values.email?fuelRequestSendEmail(env,customerPayload,`fuel-confirmation-${requestNumber}`):Promise.resolve({status:'not_requested',id:''})
+  ]);
+  try {
+    await env.DB.prepare('UPDATE fuel_requests SET email_status=?,resend_email_id=?,customer_email_status=?,customer_resend_email_id=? WHERE request_number=?')
+      .bind(office.status,office.id,confirmation.status,confirmation.id,requestNumber).run();
+  } catch(error) { console.error('Fuel request email status could not be saved',error); }
+  return fuelRequestSavedReply({request_number:requestNumber,email_status:office.status,resend_email_id:office.id,customer_email_status:confirmation.status});
 }
+async function fuelRequestSendEmail(env,payload,key) {
+  if(!env.RESEND_API_KEY) return {status:'not_configured',id:''};
+  try {
+    const response=await fetch('https://api.resend.com/emails',{
+      method:'POST',signal:AbortSignal.timeout(10000),
+      headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify(payload)
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data.id) {
+      console.error('Fuel request email was not accepted',{request:key,status:response.status});
+      return {status:response.ok?'invalid_response':`failed_${response.status}`,id:''};
+    }
+    return {status:'sent',id:String(data.id)};
+  } catch(error) {
+    console.error('Fuel request email could not be confirmed',{request:key,error:String(error?.name||'NetworkError')});
+    return {status:'network_error',id:''};
+  }
+}
+function fuelRequestSavedReply(row) {
+  const office=row.email_status||'pending',customer=row.customer_email_status||'unknown';
+  const warnings=[];
+  if(office!=='sent') warnings.push('Your request is saved for our office to review, but the office email notification has not been confirmed.');
+  if(customer==='not_requested') warnings.push('No customer email address was provided, so no confirmation email was sent.');
+  else if(customer!=='sent') warnings.push('Your confirmation email has not been confirmed as sent. Keep the request number below; you do not need to submit another request.');
+  return json({success:true,saved:true,requestNumber:row.request_number,emailId:row.resend_email_id||null,
+    notifications:{office:{status:office},customer:{status:customer}},warning:warnings.join(' '),
+    message:customer==='sent'?'Your request is saved and your confirmation email was sent. Please check your inbox or spam folder.':'Your request is saved for Wooten Oil to review.'});
+}
+
 __name(onRequestPost, "onRequestPost");
 function onRequestGet() {
   return json({
@@ -334,16 +182,44 @@ __name(onRequestGet, "onRequestGet");
 
 
 async function ensureFuelRequestHistorySchema(env) {
-  if(!env.DB) return;
-  const info=await env.DB.prepare(`PRAGMA table_info(fuel_requests)`).all();
-  const columns=(info?.results||[]).map(r=>String(r.name||"").toLowerCase());
-  if(!columns.includes("customer_account_number")){
-    await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN customer_account_number TEXT`).run();
+  if(!env?.DB) throw new Error('Customer database is not configured.');
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS fuel_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  request_number TEXT NOT NULL UNIQUE,
+  customer_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT,
+  delivery_address TEXT NOT NULL,
+  fuel_type TEXT NOT NULL,
+  gallons TEXT NOT NULL,
+  delivery_date TEXT,
+  notes TEXT,
+  submitted_from TEXT,
+  received_at TEXT NOT NULL,
+  email_status TEXT NOT NULL DEFAULT 'pending',
+  resend_email_id TEXT
+)`).run();
+  const info=await env.DB.prepare('PRAGMA table_info(fuel_requests)').all();
+  const columns=new Set((info?.results||[]).map(row=>String(row.name||'').toLowerCase()));
+  const additions=[
+    ['customer_account_number','TEXT'],
+    ['decision_status',"TEXT NOT NULL DEFAULT 'pending'"],
+    ['decision_note','TEXT'],['decision_by','TEXT'],['decision_at','TEXT'],
+    ['resend_email_id','TEXT'],
+    ['customer_email_status',"TEXT NOT NULL DEFAULT 'unknown'"],
+    ['customer_resend_email_id','TEXT']
+  ];
+  for(const [name,definition] of additions) {
+    if(columns.has(name)) continue;
+    try { await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN ${name} ${definition}`).run(); }
+    catch(error) {
+      // Another request may have completed the same additive migration.
+      const refreshed=await env.DB.prepare('PRAGMA table_info(fuel_requests)').all();
+      if(!(refreshed?.results||[]).some(row=>String(row.name).toLowerCase()===name)) throw error;
+    }
   }
-  if(!columns.includes("decision_status")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_status TEXT NOT NULL DEFAULT 'pending'`).run();
-  if(!columns.includes("decision_note")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_note TEXT`).run();
-  if(!columns.includes("decision_by")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_by TEXT`).run();
-  if(!columns.includes("decision_at")) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN decision_at TEXT`).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_fuel_requests_received_at ON fuel_requests(received_at DESC)').run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_fuel_requests_customer ON fuel_requests(customer_account_number,received_at DESC)').run();
 }
 __name(ensureFuelRequestHistorySchema,"ensureFuelRequestHistorySchema");
 
@@ -10174,6 +10050,7 @@ async function statementSendEmail(env,customer,pdfBytes,filename,statementDate,t
     const dateLabel=statementPdfDate(statementDate);
     const response=await fetch("https://api.resend.com/emails",{
       method:"POST",
+      signal:AbortSignal.timeout(20000),
       headers:{
         "Authorization":`Bearer ${env.RESEND_API_KEY}`,
         "Content-Type":"application/json",
@@ -10281,6 +10158,43 @@ async function adminPreviewStatementsPost({request,env}){
   }
 }
 
+async function adminStatementProgress({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
+  try{
+    const url=new URL(request.url);
+    if(request.method==="POST"){
+      const body=await request.json();
+      const accounts=[...new Set((Array.isArray(body.accounts)?body.accounts:[]).map(normalizeNotificationAccount).filter(Boolean))];
+      if(!accounts.length||accounts.length>5000)return notificationJson({success:false,error:"Select between 1 and 5,000 customers."},400);
+      const options={portal:body.portal_notification===true,email:body.email_pdf===true,sms:body.sms_link===true,dry_run:false,payment_count:Math.max(0,Math.min(20,Number(body.payment_count)||0))};
+      if(!options.portal&&!options.email&&!options.sms)return notificationJson({success:false,error:"Choose at least one delivery option."},400);
+      const customers=[];
+      for(let i=0;i<accounts.length;i+=80){
+        const chunk=accounts.slice(i,i+80);
+        const found=(await env.DB.prepare(`SELECT account_number,account_name,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number IN (${chunk.map(()=>'?').join(',')})`).bind(...chunk).all()).results||[];
+        const mapped=new Map(found.map(c=>[c.account_number,c]));
+        customers.push(...chunk.map(account=>mapped.get(account)||{account_number:account,account_name:account,total_balance:0}));
+      }
+      const id='manual-'+crypto.randomUUID();
+      await StatementProgress.create(env,{id,source:'manual',title:'Account Statements — Manual Send',date:statementPdfShortDate(body.statement_date),options,customers});
+      return notificationJson({success:true,job_id:id});
+    }
+    const id=url.searchParams.get('job_id');
+    if(url.pathname.endsWith('/pdf')){
+      const account=normalizeNotificationAccount(url.searchParams.get('account'));
+      const item=await StatementProgress.job(env,id);
+      if(!item||!item.customers.some(c=>c.account_number===account))return new Response('Statement not found.',{status:404});
+      const row=await StatementProgress.savedRow(env,id,account);
+      if(!row?.pdf_key)return new Response('This customer PDF is not available yet.',{status:404});
+      const object=await env.NOTIFICATION_ATTACHMENTS?.get(row.pdf_key);
+      if(!object)return new Response('The saved statement PDF is unavailable.',{status:404});
+      return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${String(row.filename||'Statement.pdf').replace(/[^a-zA-Z0-9._-]/g,'_')}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+    }
+    if(id){const item=await StatementProgress.snapshot(env,id);return notificationJson(item?{success:true,job:item}:{success:false,error:'Progress is available for runs started after the Ver511 update.'},item?200:404);}
+    return notificationJson({success:true,jobs:await StatementProgress.recent(env)});
+  }catch(error){return notificationJson({success:false,error:String(error?.message||error)},500);}
+}
+
 async function adminGenerateStatementsPost({request,env}){
   try{
     const supplied=request.headers.get("X-Admin-Key")||"";
@@ -10291,6 +10205,13 @@ async function adminGenerateStatementsPost({request,env}){
     let body={};
     try{body=await request.json();}catch{
       return notificationJson({success:false,error:"Invalid request data."},400);
+    }
+    const progressId=String(body.progress_job_id||((body.statement_run_id||body.run_id)?'schedule-'+(body.statement_run_id||body.run_id):'')).trim();
+    const progressJob=progressId?await StatementProgress.job(env,progressId):null;
+    if(progressId&&!progressJob)return notificationJson({success:false,error:"Statement progress job not found. Start a new run."},409);
+    if(progressJob){
+      body={...body,statement_date:progressJob.statement_date,payment_count:progressJob.options.payment_count,dry_run:progressJob.options.dry_run,portal_notification:progressJob.options.portal,email_pdf:progressJob.options.email,sms_link:progressJob.options.sms};
+      if(Number(body.statement_run_id||body.run_id||0)!==Number(progressJob.run_id))return notificationJson({success:false,error:"Statement run does not match the progress job."},409);
     }
     const dryRun=body.dry_run===true;
     const statementRunId=Math.max(0,Number(body.statement_run_id||body.run_id||0));
@@ -10304,6 +10225,7 @@ async function adminGenerateStatementsPost({request,env}){
     if(!accounts.length) return notificationJson({success:false,error:"Select at least one customer."},400);
     if(accounts.length>20) return notificationJson({success:false,error:"Send statements in batches of 20 customers or fewer."},413);
 
+    if(progressJob&&accounts.some(account=>!progressJob.customers.some(c=>c.account_number===account)))return notificationJson({success:false,error:"A customer is outside this run's selected list."},409);
     const statementDate=statementPdfShortDate(body.statement_date||new Date().toISOString());
     const paymentCount=Math.max(0,Math.min(20,Number.parseInt(body.payment_count,10)||0));
     const emailPdf=body.email_pdf!==false;
@@ -10321,13 +10243,22 @@ async function adminGenerateStatementsPost({request,env}){
     const generatedPdfParts=[];
 
     for(const account of accounts){
-      let objectKey="";
+      let objectKey="",documentSaved=false,progressRow=null;
+      const persist=async()=>{if(progressRow)await StatementProgress.save(env,progressId,progressRow);};
+      const channelProgress=async(channel,status,reason='')=>{if(progressRow){progressRow.channels[channel]={status,reason};await persist();}};
       try{
+        if(progressJob){
+          progressRow=await StatementProgress.claim(env,progressId,progressJob.customers.find(c=>c.account_number===account),progressJob.options);
+          if(!progressRow){
+            const existing=await StatementProgress.savedRow(env,progressId,account);
+            results.push(existing?.result||{account_number:account,success:false,error:"This customer is already being processed. No duplicate delivery was attempted."});
+            continue;
+          }
+        }
         const customer=await statementLoadCustomer(env,account);
 
         if(!customer){
-          results.push({account_number:account,success:false,error:"Customer not found."});
-          continue;
+          throw new Error("Customer not found.");
         }
 
         const current=statementNumber(customer.current_balance);
@@ -10337,6 +10268,7 @@ async function adminGenerateStatementsPost({request,env}){
           statementNumber(customer.aging_category_3)+
           statementNumber(customer.aging_category_4);
         const total=current+previous;
+        if(progressRow){Object.assign(progressRow,{account_name:customer.account_name||account,total_balance:total});await persist();}
 
         const recentPayments=await statementLoadPayments(env,account,paymentCount);
 
@@ -10346,6 +10278,13 @@ async function adminGenerateStatementsPost({request,env}){
         const title=`Statement ${statementPdfDate(statementDate)}`;
 
         if(dryRun){
+          if(progressRow){
+            const key=`statement-progress/${progressId}/${account}.pdf`;
+            if(!env.NOTIFICATION_ATTACHMENTS)throw new Error('Statement storage is required to view test PDFs.');
+            await env.NOTIFICATION_ATTACHMENTS.put(key,pdfBytes,{httpMetadata:{contentType:'application/pdf'}});
+            Object.assign(progressRow,{pdf_key:key,filename,stage:'complete'});
+            for(const channel of Object.values(progressRow.channels))if(channel.status!=='not_selected'){channel.status='test';channel.reason='PDF validated. Test only — not sent.';}
+          }
           results.push({
             account_number:account,
             account_name:customer.account_name||"",
@@ -10361,6 +10300,7 @@ async function adminGenerateStatementsPost({request,env}){
             email_sent:false,
             sms_sent:false
           });
+          if(progressRow){progressRow.result=results.at(-1);await persist();}
           continue;
         }
 
@@ -10388,6 +10328,8 @@ async function adminGenerateStatementsPost({request,env}){
         ).run();
 
         const documentId=docResult?.meta?.last_row_id||docResult?.meta?.last_insert_rowid||null;
+        documentSaved=Boolean(documentId);
+        if(progressRow){Object.assign(progressRow,{pdf_key:objectKey,filename,stage:'sending'});await persist();}
 
         const notificationMessage=
           `${filename} is ready. Current Balance: ${statementMoney(current)}. `+
@@ -10398,8 +10340,10 @@ async function adminGenerateStatementsPost({request,env}){
         const customerSmsLink=smsLink && Number(customer.contact_sms_enabled)!==0;
 
         let notificationId=null;
-        let portalDuplicatePrevented=false;
+        let portalDuplicatePrevented=false,portalError="";
         if(customerPortalNotification){
+          await channelProgress('portal','sending');
+          try{
           const portalClaimed=await claimStatementRunDelivery(env,statementRunId,account,"portal");
           if(!portalClaimed){
             portalDuplicatePrevented=true;
@@ -10419,26 +10363,31 @@ async function adminGenerateStatementsPost({request,env}){
           notificationId=notificationResult?.meta?.last_row_id||notificationResult?.meta?.last_insert_rowid||null;
           await finishStatementRunDelivery(env,statementRunId,account,"portal",{status:notificationId?"sent":"failed",deliveryId:notificationId||"",errorText:notificationId?"":"portal_insert_failed"}).catch(()=>{});
           }
+          }catch(error){portalError=String(error?.message||error);await finishStatementRunDelivery(env,statementRunId,account,"portal",{status:"failed",errorText:portalError}).catch(()=>{});}
         }
 
-        const portalWarning=notificationId?"":(!portalNotification?"Portal delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_portal_enabled)===0?"Portal delivery is disabled for this customer.":portalDuplicatePrevented?"Duplicate portal delivery was prevented for safety.":"The portal notification could not be created.");
+        const portalWarning=notificationId?"":(!portalNotification?"Portal delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_portal_enabled)===0?"Portal delivery is disabled for this customer.":portalDuplicatePrevented?"Duplicate portal delivery was prevented for safety.":(portalError||"The portal notification could not be created."));
+        await channelProgress("portal",!portalNotification?"not_selected":notificationId?"sent":"failed",portalNotification?portalWarning:"");
 
         let emailResult={sent:false,reason:emailPdf?"email_not_selected":"email_disabled"};
         let emailDuplicatePrevented=false;
         if(customerEmailPdf){
+          await channelProgress('email','sending');
           const emailClaimed=await claimStatementRunDelivery(env,statementRunId,account,"email");
           if(!emailClaimed){
             emailDuplicatePrevented=true;
             emailResult={sent:false,reason:"duplicate_send_prevented"};
           }else{
             const emailIdempotencyKey=statementRunId?`statement-run-${statementRunId}-${account}-email`:"";
-            emailResult=await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total,emailIdempotencyKey);
+            try{emailResult=await statementSendEmail(env,customer,pdfBytes,filename,statementDate,total,emailIdempotencyKey);}
+            catch(error){emailResult={sent:false,reason:String(error?.message||error)};}
             await finishStatementRunDelivery(env,statementRunId,account,"email",{status:emailResult.sent?"sent":"failed",deliveryId:emailResult.id||"",errorText:emailResult.sent?"":(emailResult.reason||"")}).catch(()=>{});
           }
         }
 
         const emailWarning=emailResult.sent?"":(!emailPdf?"Email delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_email_enabled)===0?"Email delivery is disabled for this customer.":emailDuplicatePrevented?"Duplicate email delivery was prevented for safety.":emailResult.reason==="no_email"?"No email address is on file for this customer.":emailResult.reason==="email_not_configured"?"Email delivery service is not configured.":String(emailResult.reason||"Email delivery failed."));
 
+        await channelProgress('email',!emailPdf?'not_selected':emailResult.sent?'accepted':'failed',emailPdf?(emailResult.sent?'Email service accepted the message. Inbox delivery is not confirmed.':emailWarning):'');
         if(notificationId && emailResult.sent){
           try{
             await env.DB.prepare(`
@@ -10454,6 +10403,7 @@ async function adminGenerateStatementsPost({request,env}){
         let smsResult={sent:false,reason:customerSmsLink?"no_phone":(smsLink?"sms_not_selected":"sms_disabled"),body:"",to:twilioNormalizePhone(customer.phone||""),code:""};
         let smsDuplicatePrevented=false;
         if(customerSmsLink && customer.phone){
+          await channelProgress('sms','sending');
           const smsClaimed=await claimStatementRunDelivery(env,statementRunId,account,"sms");
           if(!smsClaimed){
             smsDuplicatePrevented=true;
@@ -10476,7 +10426,7 @@ async function adminGenerateStatementsPost({request,env}){
               `Statement Date: ${statementSmsDate(statementDate)}\n`+
               `View PDF: ${smsLink}\n`+
               `Please do not reply.`;
-            const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status")});
+            const sent=await twilioSendSms(env,customer.phone,smsBody,{statusCallbackUrl:twilioCallbackUrl(request,"/api/twilio/message-status"),signal:AbortSignal.timeout(20000)});
             smsResult={sent:true,sid:sent.sid||"",body:smsBody,to:sent.to||twilioNormalizePhone(customer.phone),code:""};
             await finishStatementRunDelivery(env,statementRunId,account,"sms",{status:"sent",deliveryId:smsResult.sid||""}).catch(()=>{});
           }catch(error){
@@ -10491,6 +10441,8 @@ async function adminGenerateStatementsPost({request,env}){
 
         const smsWarning=smsResult.sent?"":(!smsLink?"SMS delivery is disabled in Statement & Delivery Settings.":Number(customer.contact_sms_enabled)===0?"SMS delivery is disabled for this customer.":!customer.phone?"No phone number is on file for this customer.":smsDuplicatePrevented?"Duplicate SMS delivery was prevented for safety.":String(smsResult.code||"")==="21610"?"Customer has opted out of SMS messages (Twilio 21610).":String(smsResult.reason||"SMS delivery failed."));
 
+        if(progressRow)progressRow.sms_sid=smsResult.sid||'';
+        await channelProgress('sms',!smsLink?'not_selected':smsResult.sent?'accepted':'failed',smsLink?(smsResult.sent?'SMS provider accepted the message; awaiting delivery confirmation.':smsWarning):'');
         try{
           if(notificationId){
             await env.DB.prepare(`
@@ -10537,6 +10489,7 @@ async function adminGenerateStatementsPost({request,env}){
           document_id:documentId,
           notification_id:notificationId,
           filename,
+          payment_count:recentPayments.length,
           current_balance:current,
           previous_balance:previous,
           total_balance:total,
@@ -10549,10 +10502,12 @@ async function adminGenerateStatementsPost({request,env}){
           sms_sent:!!smsResult.sent,
           sms_duplicate_prevented:smsDuplicatePrevented,
           sms_sid:smsResult.sid||"",
-          sms_warning:smsWarning
+          sms_warning:smsWarning,
+          delivery_failed:(!notificationId&&portalNotification)||(!emailResult.sent&&emailPdf)||(!smsResult.sent&&smsLink)
         });
+        if(progressRow){progressRow.stage='complete';progressRow.result=results.at(-1);await persist();}
       }catch(error){
-        if(objectKey){
+        if(objectKey&&!documentSaved){
           try{await env.NOTIFICATION_ATTACHMENTS.delete(objectKey);}catch{}
         }
         console.error("statement generation failed",account,error);
@@ -10561,6 +10516,11 @@ async function adminGenerateStatementsPost({request,env}){
           success:false,
           error:String(error?.message||error)
         });
+        if(progressRow){
+          progressRow.stage='failed';progressRow.error=String(error?.message||error);progressRow.result=results.at(-1);
+          for(const channel of Object.values(progressRow.channels))if(['queued','sending'].includes(channel.status)){channel.status='failed';channel.reason=progressRow.error;}
+          await persist();
+        }
       }
     }
 
@@ -10794,6 +10754,7 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,
         customer_count=?,target_json=?,cursor_position=0,processed_count=0,detail_json='[]'
       WHERE id=?
     `).bind(customers.length,JSON.stringify(customers.map(c=>c.account_number)),runId).run();
+    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:central.date,options:{portal:Number(config.portal_enabled)!==0,email:Number(config.email_enabled)!==0,sms:Number(config.sms_enabled)!==0,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
     if(!customers.length){
       await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_completed":"completed",runId).run();
     }
@@ -10840,12 +10801,22 @@ async function continueStatementSchedule(env,runId,origin){
   const batchSize=Math.min(baseBatchSize,remainingInCombinedPart);
   const accounts=targets.slice(cursor,cursor+batchSize);
   if(!accounts.length){
-    const failure=results.filter(r=>!r.success).length;
+    const failure=results.filter(r=>!r.success||r.delivery_failed).length;
     await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,processed_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(String(run.run_type||"").startsWith("test_")?(failure?"test_completed_with_errors":"test_completed"):(failure?"completed_with_errors":"completed"),results.length,runId).run();
     await finalizeStatementRunCombinedPdf(env,runId).catch(async error=>{console.error("Statement combined PDF finalization failed",error);await env.DB.prepare(`UPDATE statement_schedule_runs SET combined_pdf_error=? WHERE id=?`).bind(String(error?.message||error),runId).run().catch(()=>{});});
     return {success:failure===0,run_id:runId,complete:true,processed:results.length,total:targets.length,succeeded:results.length-failure,failed:failure};
   }
 
+  if(!await StatementProgress.job(env,'schedule-'+runId)){
+    const legacyConfig=await statementScheduleConfig(env);
+    const customers=[];
+    for(let i=0;i<targets.length;i+=80){
+      const chunk=targets.slice(i,i+80);
+      const found=(await env.DB.prepare(`SELECT account_number,account_name,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number IN (${chunk.map(()=>'?').join(',')})`).bind(...chunk).all()).results||[];
+      const mapped=new Map(found.map(c=>[c.account_number,c]));customers.push(...chunk.map(account=>mapped.get(account)||{account_number:account}));
+    }
+    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:preDryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(preDryRun?'Test — ':'')+'Cycle '+run.statement_cycle+' Account Statements',date:statementCentralParts().date,options:{portal:Number(legacyConfig.portal_enabled)!==0,email:Number(legacyConfig.email_enabled)!==0,sms:Number(legacyConfig.sms_enabled)!==0,dry_run:preDryRun,payment_count:Number(legacyConfig.payment_count)||0},customers});
+  }
   // Claim this exact batch BEFORE generating or sending anything. This prevents duplicate
   // SMS/email/portal delivery if two browser/network continuation requests overlap.
   const claimedThrough=cursor+accounts.length;
@@ -10870,8 +10841,10 @@ async function continueStatementSchedule(env,runId,origin){
   const isTest=preIsTest;
   const testSend=preTestSend;
   const dryRun=preDryRun;
-  const config=await statementScheduleConfig(env);
-  const central=statementCentralParts();
+  const savedProgress=await StatementProgress.job(env,'schedule-'+runId);
+  const savedOptions=savedProgress.options;
+  const config={payment_count:savedOptions.payment_count,portal_enabled:savedOptions.portal?1:0,email_enabled:savedOptions.email?1:0,sms_enabled:savedOptions.sms?1:0};
+  const central={date:savedProgress.statement_date};
   const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
   const generateRequest=new Request(`${siteOrigin}/api/admin/statements/generate`,{
     method:"POST",headers:{"X-Admin-Key":String(env.ADMIN_IMPORT_KEY||""),"Content-Type":"application/json","Accept":"application/json"},
@@ -10894,7 +10867,7 @@ async function continueStatementSchedule(env,runId,origin){
     }catch(error){batchCombinedError=String(error?.message||error);console.error("Statement combined PDF part append failed",error);}
   }
   const processed=claimedThrough;
-  const success=results.filter(r=>r.success).length;
+  const success=results.filter(r=>r.success&&!r.delivery_failed).length;
   const failure=results.length-success;
   const portalSuccess=results.filter(r=>r.success&&r.portal_notified).length;
   const emailSuccess=results.filter(r=>r.success&&r.email_sent).length;
@@ -11008,7 +10981,7 @@ async function adminStatementScheduling({request,env}){
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})(),combined_pdf_parts:(()=>{try{return JSON.parse(row.combined_pdf_parts_json||"[]");}catch{return [];}})(),group_combined_pdf_parts:(()=>{try{return JSON.parse(row.group_combined_pdf_parts_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true,exceptional_statement_customers_v1:true}});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_progress_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true,exceptional_statement_customers_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
@@ -11805,9 +11778,7 @@ async function ensureRequestCenterSchema(env){
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_profile_change_account_created ON profile_change_requests(account_number,created_at DESC)`).run();
-  const fuelInfo=await env.DB.prepare(`PRAGMA table_info(fuel_requests)`).all();
-  const fuelCols=new Set((fuelInfo?.results||[]).map(r=>String(r.name||'').toLowerCase()));
-  for(const [name,def] of [['decision_status',"TEXT NOT NULL DEFAULT 'pending'"],['decision_note','TEXT'],['decision_by','TEXT'],['decision_at','TEXT']]) if(!fuelCols.has(name)) await env.DB.prepare(`ALTER TABLE fuel_requests ADD COLUMN ${name} ${def}`).run();
+  await ensureFuelRequestHistorySchema(env);
   await ensureAccountApplicationsTable(env);
   await env.DB.prepare(`UPDATE account_applications SET status='pending' WHERE status IN ('new','under_review')`).run();
   await env.DB.prepare(`UPDATE account_applications SET status='accepted' WHERE status='approved'`).run();
@@ -11870,8 +11841,8 @@ __name(customerProfileChangeRequests,'customerProfileChangeRequests');
 async function adminRequestCenterGet({request,env}){
   try{await ensureRequestCenterSchema(env);const u=new URL(request.url),type=String(u.searchParams.get('type')||'profile'),status=String(u.searchParams.get('status')||''),q=String(u.searchParams.get('q')||'').trim().toLowerCase(),page=Math.max(1,Number(u.searchParams.get('page')||1)),per=20,off=(page-1)*per;let rows=[],total=0;
     if(type==='fuel'){
-      let where='1=1',vals=[];if(status){where+=' AND COALESCE(decision_status,\'pending\')=?';vals.push(status)}if(q){where+=' AND lower(COALESCE(request_number,\'\')||\' \'||COALESCE(customer_name,\'\')||\' \'||COALESCE(email,\'\')||\' \'||COALESCE(phone,\'\')) LIKE ?';vals.push('%'+q+'%')}
-      total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM fuel_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT rowid id,request_number,customer_account_number account_number,customer_name account_name,email,phone,fuel_type,gallons,delivery_date,delivery_address,notes,COALESCE(decision_status,'pending') status,decision_note admin_response,decision_by decided_by,decision_at decided_at,received_at created_at FROM fuel_requests WHERE ${where} ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];
+      let where='1=1',vals=[];if(status){where+=' AND COALESCE(decision_status,\'pending\')=?';vals.push(status)}if(q){where+=' AND lower(COALESCE(customer_account_number,\'\')||\' \'||COALESCE(request_number,\'\')||\' \'||COALESCE(customer_name,\'\')||\' \'||COALESCE(email,\'\')||\' \'||COALESCE(phone,\'\')) LIKE ?';vals.push('%'+q+'%')}
+      total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM fuel_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT rowid id,request_number,customer_account_number account_number,customer_name account_name,email,phone,email_status,customer_email_status,fuel_type,gallons,delivery_date,delivery_address,notes,COALESCE(decision_status,'pending') status,decision_note admin_response,decision_by decided_by,decision_at decided_at,received_at created_at FROM fuel_requests WHERE ${where} ORDER BY datetime(received_at) DESC,rowid DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];
     }else{
       let where='1=1',vals=[];if(status){where+=' AND status=?';vals.push(status)}if(q){where+=' AND lower(request_number||\' \'||account_number||\' \'||COALESCE(account_name,\'\')||\' \'||requested_value) LIKE ?';vals.push('%'+q+'%')}
       total=Number((await env.DB.prepare(`SELECT COUNT(*) total FROM profile_change_requests WHERE ${where}`).bind(...vals).first())?.total||0);const r=await env.DB.prepare(`SELECT id,request_number,account_number,account_name,change_type,current_value,requested_value,customer_note,status,admin_response,decided_by,decided_at,created_at FROM profile_change_requests WHERE ${where} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(...vals,per,off).all();rows=r?.results||[];for(const row of rows){const c=await requestCenterCustomerByAccount(env,row.account_number);row.email=c?.email||'';row.phone=c?.phone||'';}
@@ -12656,6 +12627,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statements/preview") {
       if (request.method === "POST") return adminPreviewStatementsPost({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statements/progress" || url.pathname === "/api/admin/statements/progress/pdf") {
+      if(request.method==='GET'||(request.method==='POST'&&!url.pathname.endsWith('/pdf')))return adminStatementProgress({request,env});
       return methodNotAllowed();
     }
 

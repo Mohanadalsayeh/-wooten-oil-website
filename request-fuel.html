@@ -3449,7 +3449,7 @@ body.request-fuel-page .fuel-field{
     yes.disabled=false;
     no.style.display='inline-flex';
     no.textContent='Done';
-    if(status) status.textContent=warning||"Your request was received by Wooten Oil's website system and the email notification was sent.";
+    if(status) status.textContent=warning||'Your fuel request is saved for Wooten Oil to review.';
     overlay.dataset.stage='complete';
     var customerAccount=document.getElementById('fuelCustomerAccount');
     if(customerAccount && customerAccount.value && window.wootenAddCustomerNotification){
@@ -3501,13 +3501,13 @@ body.request-fuel-page .fuel-field{
       });
       let data={};
       try{ data=await response.json(); }catch(err){}
-      if(!response.ok || data.success===false){
-        throw new Error(data.error || data.message || 'Wooten Oil server returned an error.');
+      if(!response.ok || data.success!==true || data.saved!==true || data.requestNumber!==request.requestNumber){
+        throw new Error(data.error || data.message || 'The server did not confirm that your request was saved. Keep this form open and try again, or call Wooten Oil at (901) 476-2684.');
       }
-      showSuccess(request.requestNumber,data.warning||'');
+      showSuccess(data.requestNumber,data.warning||data.message||'');
     }catch(err){
       console.error('Fuel request submission failed:',err);
-      showError('The request was not confirmed as sent. Please try again.');
+      showError(err.message||'The request was not confirmed as saved. Please try again.');
     }finally{
       if(overlay.dataset.stage==='sending'){
         showError('The request was not confirmed as sent. Please try again.');
