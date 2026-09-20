@@ -1,0 +1,33 @@
+Wooten Oil Portal — Ver516
+Overall statement progress and temporary action locks
+
+Apply after Ver515. Replace these three files in GitHub, keeping their paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+- assets/css/wooten-statement-progress.css
+
+Wait for Cloudflare Pages deployment to finish, then reload the admin page.
+No Worker update is required.
+
+Changes:
+- Full-width, labeled Overall progress bar below the processed-customer count.
+- Percentage uses the actual processed customers across the current run(s).
+- Animated activity while processing; finalizing remains below 100% until done.
+- Preparing and temporarily unavailable progress updates are clearly identified.
+- Completion is green; completion with errors is amber.
+- "Recent statement run" label appears before the dropdown on desktop and above it on phones.
+- Recent-run dropdown and Export PDF remain disabled while preparing, processing,
+  or finalizing. They become available when processing is complete.
+- Test All waits for both selected cycles to complete before unlocking these controls.
+- Customer PDF links, pagination, X, and Done remain available during processing.
+- Respects reduced-motion preferences.
+
+Verified using mocked APIs in Chromium:
+- Preparing, partial progress, finalizing, completion, and completion with errors
+- Temporary connection failure and recovery without releasing the action lock
+- Combined Test All progress, startup failure, and blocked duplicate control events
+- Desktop and phone layout, dropdown/export alignment, reduced motion
+- Customer PDF opening, underline-only hover, full report PDF export, pagination
+- Cycle action locks from Ver515, plus script syntax checks
+
+No live emails or SMS messages were sent during verification.

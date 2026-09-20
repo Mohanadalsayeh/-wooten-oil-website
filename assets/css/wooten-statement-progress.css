@@ -4,6 +4,18 @@
 .sp-header{padding:22px 24px 18px;border-bottom:1px solid #dae4ed;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;background:#fff}
 .sp-header h2{margin:0 0 6px;font-size:24px;line-height:1.3;color:#102b43}.sp-header p{margin:0;font-size:14px;color:#62778e}.sp-header .sp-eyebrow{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#ce2429;margin-bottom:6px}
 .sp-toolbar{padding:12px 24px;background:#f3f7fa;border-bottom:1px solid #dce6ef;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.sp-toolbar p{margin:0;font-size:14px}.sp-toolbar strong{color:#19384f}
+.sp-toolbar{flex-shrink:0}
+.sp-overall{width:100%;min-width:0}
+.sp-overall-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:13px;line-height:1.4}
+.sp-overall-heading span{color:#526b81;text-align:right}
+.sp-overall-track{height:10px;overflow:hidden;border-radius:5px;background:#dfe8ef}
+#sp-overall-fill{display:block;height:100%;width:0;background:#247bb6;border-radius:inherit;transition:width .25s ease}
+.sp-overall[data-state="running"] #sp-overall-fill{background-image:linear-gradient(110deg,transparent 30%,#ffffff4d 50%,transparent 70%);background-size:100px 100%;animation:sp-overall-running 1.4s linear infinite}
+.sp-overall[data-state="complete"] #sp-overall-fill{background:#258050}
+.sp-overall[data-state="errors"] #sp-overall-fill{background:#b77817}
+.sp-overall[data-state="waiting"] #sp-overall-fill{background:#8597a7}
+@keyframes sp-overall-running{to{background-position:100px 0}}
+@media(prefers-reduced-motion:reduce){.sp-overall[data-state="running"] #sp-overall-fill{animation:none}#sp-overall-fill{transition:none}}
 .sp-table-wrap{overflow:auto;min-height:150px;flex:1}.sp-table{border-collapse:collapse;width:100%;min-width:1000px;font-size:14px}.sp-table th{position:sticky;top:0;z-index:1;background:#edf3f7;color:#526b81;font-size:12px;text-transform:uppercase;text-align:left;padding:13px 16px;border-bottom:1px solid #cfdeea}.sp-table td{padding:15px 16px;vertical-align:top;border-bottom:1px solid #e3ebf2}.sp-table th:first-child{width:24%}.sp-table th:nth-child(2){width:11%}.sp-table th:nth-child(3){width:16%}.sp-table small{display:block;color:#637a90;font-size:12px;line-height:1.45;margin-top:5px}.sp-table .sp-balance{white-space:nowrap;font-weight:700}.sp-table progress{display:block;margin:8px 0 0;width:100%;height:8px;accent-color:#258050}.sp-table tr.sp-has-error progress{accent-color:#cc2937}.sp-badge{font-size:13px;font-weight:700}.sp-badge[data-state=failed],.sp-row-error{color:#b32436}.sp-badge[data-state=sent],.sp-badge[data-state=delivered]{color:#197342}.sp-badge[data-state=accepted],.sp-badge[data-state=sending],.sp-badge[data-state=test]{color:#1b5f9c}.sp-badge[data-state=not_selected],.sp-badge[data-state=not_sent],.sp-badge[data-state=queued]{color:#637a90}
 /* Keep name controls text-only, including hover/active states from shared button rules. */
 .sp-overlay #sp-rows button.sp-customer-link,
@@ -16,13 +28,15 @@
 .sp-overlay .sp-table th:first-child{width:22%}.sp-overlay .sp-table th:nth-child(2){width:11%}.sp-overlay .sp-table th:nth-child(3){width:16%}.sp-overlay .sp-table th:nth-child(4){width:14%}.sp-overlay .sp-table th:nth-child(5){width:19%}.sp-overlay .sp-table th:nth-child(6){width:18%}
 .sp-overlay .sp-table td,.sp-overlay .sp-table small,.sp-overlay .sp-table .wo-table-sort-label{white-space:normal!important;overflow-wrap:anywhere}
 .sp-overlay #sp-rows tr:is(:hover,:focus-within),.sp-overlay #sp-rows tr:is(:hover,:focus-within)>td{background:#fff!important;box-shadow:none!important;transform:none!important}
-.sp-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid #dce6ef;background:#fff;flex-shrink:0}
+.sp-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:16px;padding:14px 24px;border-bottom:1px solid #dce6ef;background:#fff;flex-shrink:0}
+.sp-history-field{display:flex;align-items:center;gap:12px;min-width:0}
+.sp-history-field label{margin:0;font-size:14px;color:#19384f;white-space:nowrap;flex-shrink:0}
 .sp-footer{padding:16px 24px;border-top:1px solid #d5e1ec;background:#fff;display:flex;flex-direction:column;gap:14px;flex-shrink:0}
 .sp-footer p{font-size:13px;line-height:1.5;color:#62778e;margin:0}
 .sp-footer-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%}
 .sp-pager{display:flex;align-items:center;gap:10px;font-size:13px}
 .sp-dialog button.sp-button,.sp-dialog select.sp-history{box-sizing:border-box!important;min-height:44px!important;height:44px!important;width:auto;margin:0!important;padding:8px 13px!important;background:#f2f6f9;border:1px solid #d5e1ec;border-radius:6px;box-shadow:none;color:#19384f;font:inherit;font-size:14px;cursor:pointer;transform:none!important}
-.sp-dialog button.sp-button:disabled{opacity:.45;cursor:default}
+.sp-dialog button.sp-button:disabled,.sp-dialog select.sp-history:disabled{opacity:.45;cursor:default}
 .sp-dialog select.sp-history{width:100%;max-width:460px;min-width:0;text-overflow:ellipsis}
 .sp-dialog button.sp-export{display:inline-flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;min-width:142px}
 .sp-export svg{height:20px;width:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
@@ -37,3 +51,4 @@
 .sp-overlay .sp-pdf-open{background:none!important;border:0!important;box-shadow:none!important;color:#19384f!important;text-decoration:underline!important;font-weight:700}
 .sp-reopen{margin:10px 0}.sp-empty{padding:28px!important;text-align:center;color:#637a90}body.sp-open{overflow:hidden!important}
 @media(max-width:650px){.sp-overlay{padding:10px}.sp-dialog{max-height:calc(100dvh - 20px);border-radius:8px}.sp-header{padding:16px;gap:12px}.sp-header h2{font-size:20px}.sp-toolbar{padding:12px 16px}.sp-actions{padding:12px 16px;gap:10px}.sp-dialog button.sp-export{min-width:0;padding:8px 10px!important}.sp-footer{padding:12px 16px}.sp-footer-actions{flex-wrap:wrap;gap:12px}.sp-pager{gap:7px}.sp-dialog button.sp-done{min-width:80px}.sp-table-wrap{min-height:100px}.sp-pdf-status,.sp-error{padding:10px 16px}}
+@media(max-width:650px){.sp-history-field{flex-direction:column;align-items:stretch;gap:6px}.sp-history-field label{font-size:13px}.sp-overall-heading{gap:8px}.sp-overall-heading strong{white-space:nowrap}}
