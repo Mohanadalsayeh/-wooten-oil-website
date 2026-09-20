@@ -1,4 +1,4 @@
-/* Ver523: orange progress for one email/SMS failure; red when both fail. */
+/* Ver524: open manual and scheduled jobs from the unified Statement Run Report. */
 (function(){
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -170,6 +170,6 @@
   function boot(){mount();window.addEventListener('wooten-admin-auth-changed',()=>{
     if(!key()||!window.WootenAdminAccess?.has(window.wootenAdminUser,'statements')){serial++;close();ids=[];snapshots=[];recent=[];preparing=false;progressUnavailable=false;tableLoading=false;seenAuto.clear();sessionUser=null;pdfUrls.forEach(url=>URL.revokeObjectURL(url));pdfUrls.clear();pdfStatus('');render();}
     else discover().catch(()=>{});
-  });setInterval(()=>{if(!document.hidden)discover().catch(()=>{});},30000);setTimeout(()=>discover().catch(()=>{}),3000);document.addEventListener('click',event=>{const link=event.target.closest('[data-statement-progress-run]');if(link){event.preventDefault();event.stopPropagation();watch(['schedule-'+link.dataset.statementProgressRun]);}});}
+  });setInterval(()=>{if(!document.hidden)discover().catch(()=>{});},30000);setTimeout(()=>discover().catch(()=>{}),3000);document.addEventListener('click',event=>{const link=event.target.closest('[data-statement-progress-run],[data-statement-progress-job]');if(link){event.preventDefault();event.stopPropagation();watch([link.dataset.statementProgressJob||'schedule-'+link.dataset.statementProgressRun]);}});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

@@ -1,0 +1,22 @@
+Wooten Oil Portal — Ver524
+Apply after Ver523.
+
+Upload these files to the same paths in your portal project:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+
+Deploy the portal frontend, then refresh the admin page.
+No worker.js update is required. Keep the Worker and progress server module from the earlier updates.
+
+Changes:
+- Removes the duplicate Statement Sending Status Report and individual result rows beneath the Send Account Statements customer table.
+- Includes saved manual sends in the Statement Run Report history alongside scheduled runs and tests, newest first, up to 20 runs.
+- Manual run records include statement date, customer/processed counts, PDF generation results, errors, and Portal/Email/SMS status totals.
+- Click a manual or scheduled run title to open its exact progress window. Hover changes only the underline.
+- Manual customer delivery details, failure reasons, and balances are included in search and selected-run PDF exports.
+- Distinguishes provider acceptance from confirmed delivery. Refresh reads updated saved SMS delivery status.
+- History reads do not generate statements or send messages. Unavailable details show a retry message rather than zero counts.
+
+Manual history uses the saved progress jobs introduced in Ver511. This update does not recreate earlier unsaved manual runs.
+
+Verified with mocked endpoints: desktop/mobile layout, manual and scheduled history, exact PDF/job links, hover behavior, search/export, reload persistence, failure/retry handling, and manual send completion after removing the inline report. No live messages were sent during verification.
