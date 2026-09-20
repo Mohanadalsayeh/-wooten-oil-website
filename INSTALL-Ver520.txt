@@ -1,0 +1,12 @@
+Wooten Oil Portal — Ver520
+
+Apply after Ver519.
+
+Upload/replace these files in the website repository, keeping the paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+
+Removes the View statement progress button below the Send Account Statements customer table. The progress window still opens when starting a run. The shortcut in the Statement Run Report tab remains available.
+
+No Worker update is needed.
+After publishing the website changes, refresh the admin page.

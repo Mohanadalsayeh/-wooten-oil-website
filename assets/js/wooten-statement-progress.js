@@ -1,4 +1,4 @@
-/* Ver519: hide overall progress when statement processing is complete. */
+/* Ver520: keep the progress shortcut in Statement Run Report only. */
 (function(){
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,7 +45,7 @@
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
     });
-    for(const [id,label] of [['statementBatchProgress','View statement progress'],['scheduleReport','View statement progress']]){
+    for(const [id,label] of [['scheduleReport','View statement progress']]){
       const target=document.getElementById(id);if(!target)continue;
       const button=document.createElement('button');button.type='button';button.className='secondary sp-reopen';button.textContent=label;
       button.addEventListener('click',async()=>{try{await discover(false);if(ids.length)show();else if(recent.length)watch([recent[0].id]);else prepare('Statement progress','');}catch(error){prepare('Statement progress','');errorText(error.message);}});target.before(button);
