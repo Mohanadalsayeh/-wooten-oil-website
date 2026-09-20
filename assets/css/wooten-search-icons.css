@@ -1,0 +1,32 @@
+/* Ver531: the Statement Run Report search icon for every portal search field.
+   A decorative background also covers fields inserted after the page loads,
+   without changing labels, focus, input events, or existing clear controls. */
+html body input[type="search"],
+html body #admin-tab-database .db-toolbar input[type="search"],
+html body .sp-dialog .sp-actions input[type="search"]{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23617b91' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;
+  background-position:left 13px center!important;
+  background-size:19px 19px!important;
+  padding-left:43px!important;
+}
+
+/* Keep the inbox toolbar's compact field width when its text inset grows. */
+@media(min-width:721px){
+  .inbox-tools #inboxSearch{width:220px}
+}
+
+/* These three fields previously supplied their own decorative SVG. */
+html body .schedule-report-search-field>svg,
+html body .admin-activity-search-wrap>.admin-activity-search-icon,
+html body .fuel-history-search-wrap>.fuel-history-search-icon{
+  display:none!important;
+}
+
+/* Keep browser-provided search decorations from duplicating the icon.
+   The native cancel button and the portal's clear buttons stay available. */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration{
+  -webkit-appearance:none;
+}

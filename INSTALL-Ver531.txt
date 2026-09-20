@@ -1,0 +1,28 @@
+Wooten Oil Portal - Ver531
+Apply after Ver530.
+
+Replace these files in the same locations in your portal project:
+  admin-customers.html
+  index.html
+
+Add this new stylesheet:
+  assets/css/wooten-search-icons.css
+
+Publish the updated portal files, then refresh the admin and customer pages.
+No Worker update is required.
+
+Changes
+- Adds the same magnifying-glass icon used by Statement Run Report to search
+  fields across the admin and customer portal.
+- Covers dynamic fields in cycle previews, fleet records, and statement progress.
+- Uses a shared decorative background with space between the icon and text.
+- Prevents duplicate icons in Statement Run Report, admin activity, and customer
+  fuel request history, which previously had their own search icons.
+- Preserves existing field colors, focus styling, clear controls, and search logic.
+- Keeps the inbox search field's existing desktop width.
+
+Validation
+Browser layout checks passed for 20 admin and 4 customer search fields, including
+dynamic fields, at desktop and phone widths. Checked icon/text spacing, duplicate
+icons, field dimensions, background colors, clear-button space, disabled and focus
+states, and keyboard entry. No server code changed and no customer messages sent.
