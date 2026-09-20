@@ -1,0 +1,18 @@
+Wooten Oil Portal — Ver523
+
+Apply after Ver522.
+
+Upload/replace these files in the website repository, keeping the paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+- assets/css/wooten-statement-progress.css
+
+Customer progress bars show:
+- Red when both email and SMS have failed.
+- Orange when exactly one of email or SMS has failed.
+- Existing colors when neither email nor SMS has failed.
+
+Colors update as delivery status changes. Failure labels and reasons remain visible. This applies to the shared progress window used for manual, scheduled, test, and history runs.
+
+No Worker update is needed.
+After publishing the website changes, refresh the admin page.

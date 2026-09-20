@@ -1,4 +1,4 @@
-/* Ver522: open statement progress from each report history title. */
+/* Ver523: orange progress for one email/SMS failure; red when both fail. */
 (function(){
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -69,11 +69,12 @@
   function rowHtml(row,job){
     const channels=['portal','email','sms'].map(name=>row.channels?.[name]||{status:'queued'});
     const isDone=['complete','failed','stopped'].includes(row.stage),hasError=row.stage==='failed'||row.stage==='stopped'||channels.some(c=>c.status==='failed');
+    const partialDeliveryFailure=channels.slice(1).filter(channel=>channel.status==='failed').length===1;
     const selected=channels.filter(c=>c.status!=='not_selected'),finished=selected.filter(c=>!['queued','sending'].includes(c.status)).length;
     const percent=isDone?100:Math.round(((row.pdf_ready?1:0)+finished)/(1+selected.length)*100);
     const status=hasError?(isDone?'Completed with errors':'Sending — issue reported'):row.stage==='complete'?(job.options.dry_run?'Test complete':'Processing complete'):row.stage==='generating'?'Generating PDF':row.stage==='sending'?'Sending statements':row.stage==='stopped'?'Stopped':'Queued';
     const name=row.pdf_ready?'<button type="button" class="sp-customer-link" data-sp-job="'+esc(job.id)+'" data-sp-pdf="'+esc(row.account_number)+'" aria-label="Open PDF statement for '+esc(row.account_name)+'"><span>'+esc(row.account_name)+'</span></button>':'<span class="sp-customer-pending">'+esc(row.account_name)+'</span>';
-    return '<tr class="'+(hasError?'sp-has-error':'')+'"><td>'+name+'<small>Customer # '+esc(row.account_number)+(job.source==='test'?' • Test':'')+'</small>'+(!row.pdf_ready?'<small>PDF '+(isDone?'unavailable':'pending')+'</small>':'')+'</td><td class="sp-balance">'+money(row.total_balance)+'</td><td><span class="'+(hasError?'sp-row-error':'')+'">'+esc(status)+'</span><progress max="100" value="'+percent+'" aria-label="Progress for '+esc(row.account_name)+'"></progress><small>'+percent+'%'+(row.error?' • '+esc(row.error):'')+'</small></td>'+channels.map(c=>'<td><span class="sp-badge" data-state="'+esc(c.status)+'">'+esc(labels[c.status]||c.status)+'</span>'+(c.reason?'<small>'+esc(c.reason)+'</small>':'')+'</td>').join('')+'</tr>';
+    return '<tr class="'+(hasError?'sp-has-error':'')+(partialDeliveryFailure?' sp-partial-delivery-failure':'')+'"><td>'+name+'<small>Customer # '+esc(row.account_number)+(job.source==='test'?' • Test':'')+'</small>'+(!row.pdf_ready?'<small>PDF '+(isDone?'unavailable':'pending')+'</small>':'')+'</td><td class="sp-balance">'+money(row.total_balance)+'</td><td><span class="'+(hasError?'sp-row-error':'')+'">'+esc(status)+'</span><progress max="100" value="'+percent+'" aria-label="Progress for '+esc(row.account_name)+'"></progress><small>'+percent+'%'+(row.error?' • '+esc(row.error):'')+'</small></td>'+channels.map(c=>'<td><span class="sp-badge" data-state="'+esc(c.status)+'">'+esc(labels[c.status]||c.status)+'</span>'+(c.reason?'<small>'+esc(c.reason)+'</small>':'')+'</td>').join('')+'</tr>';
   }
   function render(){
     if(!host)return;
