@@ -6,6 +6,9 @@
 .sp-toolbar{padding:12px 24px;background:#f3f7fa;border-bottom:1px solid #dce6ef;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.sp-toolbar p{margin:0;font-size:14px}.sp-toolbar strong{color:#19384f}
 .sp-toolbar{flex-shrink:0}
 .sp-overall{width:100%;min-width:0}
+.sp-table .sp-skeleton-row td{height:100px;box-sizing:border-box;overflow:hidden}
+.sp-table .sp-skeleton-row .db-skeleton-cell{max-width:100%}
+.sp-table .sp-skeleton-row .db-skeleton-cell+.db-skeleton-cell{margin-top:18px;height:11px}
 .sp-overall-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:13px;line-height:1.4}
 .sp-overall-heading span{color:#526b81;text-align:right}
 .sp-overall-track{height:10px;overflow:hidden;border-radius:5px;background:#dfe8ef}

@@ -1,0 +1,15 @@
+Wooten Oil Portal — Ver521
+
+Apply after Ver520.
+
+Upload/replace these files in the website repository, keeping the paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+- assets/css/wooten-statement-progress.css
+
+The statement progress table now shows the portal's shimmer skeleton rows when opening/loading a run, refreshing run details, or changing the Recent statement run dropdown. Dropdown, export and pagination controls are disabled while the table loads. Customer results replace the skeletons when ready; loading failures clear the skeleton and show the error. Routine background polling keeps existing rows readable.
+
+The overall progress bar still hides after processing completes. The customer-table View statement progress shortcut remains removed.
+
+No Worker update is needed.
+After publishing the website changes, refresh the admin page.
