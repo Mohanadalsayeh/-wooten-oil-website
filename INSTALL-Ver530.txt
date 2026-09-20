@@ -1,0 +1,24 @@
+Wooten Oil Portal - Ver530
+Apply after Ver529.
+
+Replace these files in the same locations in your portal project:
+  admin-customers.html
+  assets/js/wooten-statement-preview.mjs
+  assets/css/wooten-statement-preview.css
+
+Publish the updated portal files, then refresh the admin page.
+No Worker update is required.
+
+Changes
+- Removed the separate Preview PDF ready panel and its Open PDF / Download PDF
+  links below the statement action buttons.
+- Preview Statements continues to open the combined statement PDF in a new tab.
+- If pop-ups are blocked, the existing status area explains how to allow them
+  and retry. No preview-links panel is displayed.
+- Removed the unused panel styles and updated preview asset cache versions.
+
+Validation
+The existing preview checks passed with the panel removed: a 21-customer preview
+still combines multiple batches into one PDF; processing locks and error recovery
+work; blocked pop-ups display retry guidance; failed batches do not expose partial
+PDFs. Checks used local fixtures and did not send customer emails or SMS.

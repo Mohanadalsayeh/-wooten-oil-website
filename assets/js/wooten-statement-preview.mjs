@@ -1,9 +1,9 @@
+/* Ver530: open the preview directly without a separate preview-links panel. */
 import {statementBuildCombinedPdf} from './wooten-statement-pdf.mjs?v=494';
 
 const section=document.getElementById('documentSectionSendStatements');
 const button=document.getElementById('statementPreview');
 const status=document.getElementById('statementBatchStatus');
-const links=document.getElementById('statementPreviewLinks');
 let previewUrl='';
 
 function message(text,ok){
@@ -11,7 +11,7 @@ function message(text,ok){
   status.className='status show'+(ok===true?' ok':ok===false?' bad':'');
 }
 
-if(section&&button&&status&&links){
+if(section&&button&&status){
   button.addEventListener('click',async()=>{
     if(button.dataset.requestPending==='true')return;
     const send=document.getElementById('statementGenerateSend');
@@ -35,9 +35,11 @@ if(section&&button&&status&&links){
         popup.document.title='Preparing statement preview';
         popup.document.body.textContent='Preparing your statement preview. Nothing is being sent.';
       }
-    }catch{popup=null;}
+    }catch{try{popup?.close();}catch{}popup=null;}
+    if(!popup||popup.closed){
+      message('Allow pop-ups for this site, then click Preview Statements again to open your PDF.',false);return;
+    }
     if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl='';}
-    links.replaceChildren();links.hidden=true;
     const controls=Array.from(section.querySelectorAll('input,select,button'));
     const disabled=controls.map(control=>control.disabled);
     controls.forEach(control=>{control.disabled=true;});
@@ -67,17 +69,8 @@ if(section&&button&&status&&links){
       }
       const pdf=statementBuildCombinedPdf(parts);
       previewUrl=URL.createObjectURL(new Blob([pdf],{type:'application/pdf'}));
-      const open=document.createElement('a');
-      open.textContent='Open PDF';open.setAttribute('aria-label','Open preview PDF');open.href=previewUrl;open.target='_blank';open.rel='noopener';
-      const download=document.createElement('a');
-      download.textContent='Download PDF';download.setAttribute('aria-label','Download preview PDF');download.href=previewUrl;
-      download.download='Wooten-Oil-Statements-Preview-'+statementDate+'.pdf';
-      const ready=document.createElement('span');ready.className='statement-preview-ready';ready.textContent='Preview PDF ready';
-      const actions=document.createElement('div');actions.className='statement-preview-file-actions';actions.append(open,download);
-      links.append(ready,actions);links.hidden=false;
-      if(popup&&!popup.closed){
-        try{popup.location.replace(previewUrl);}catch{/* The links remain available if the tab could not be navigated. */}
-      }
+      if(popup.closed)throw new Error('The preview window was closed. Click Preview Statements again to reopen it.');
+      try{popup.location.replace(previewUrl);}catch{throw new Error('The preview window could not open the PDF. Allow pop-ups for this site, then click Preview Statements again.');}
       message('Preview ready: '+accounts.length+' customer statement'+(accounts.length===1?'':'s')+' in one PDF. Nothing has been sent.',true);
     }catch(error){
       try{if(popup&&!popup.closed)popup.close();}catch{}

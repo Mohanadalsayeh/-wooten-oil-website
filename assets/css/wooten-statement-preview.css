@@ -1,4 +1,4 @@
-/* Ver496: balanced statement actions using the shared Preview B button height. */
+/* Ver530: balanced statement actions without the removed preview-links panel. */
 #documentSectionSendStatements .statement-action-panel.statement-balanced-grid{
   padding:20px!important;
   border:1px solid #d6e2ec;
@@ -40,24 +40,13 @@
 /* CSS icons survive the existing loading/progress label updates. */
 #documentSectionSendStatements .statement-balanced-grid #statementLoadCustomers::before,
 #documentSectionSendStatements .statement-balanced-grid #statementPreview::before,
-#documentSectionSendStatements .statement-balanced-grid #statementGenerateSend::before,
-#documentSectionSendStatements .statement-preview-ready::before{
+#documentSectionSendStatements .statement-balanced-grid #statementGenerateSend::before{
   content:"";display:block;flex:0 0 19px;width:19px;height:19px;background:currentColor;
   -webkit-mask:var(--statement-action-icon) center/contain no-repeat;mask:var(--statement-action-icon) center/contain no-repeat;
 }
 #statementLoadCustomers{--statement-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M2 21v-2a7 7 0 0 1 14 0v2M16 3a4 4 0 0 1 0 8M22 21v-2a7 7 0 0 0-4-6'/%3E%3C/svg%3E")}
 #statementPreview{--statement-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E")}
 #statementGenerateSend{--statement-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13'/%3E%3C/svg%3E")}
-#documentSectionSendStatements .statement-preview-ready{--statement-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6v20h12V6ZM14 2v5h5M8 14l3 3 5-6'/%3E%3C/svg%3E")}
-#documentSectionSendStatements .statement-balanced-grid #statementPreviewLinks{
-  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;
-  margin-top:16px;padding:12px 14px;border-radius:10px;background:#f3f7fa;color:#62768a;font-size:14px;
-}
-#documentSectionSendStatements .statement-balanced-grid #statementPreviewLinks[hidden]{display:none!important}
-#documentSectionSendStatements .statement-preview-ready{display:flex;align-items:center;gap:8px}
-#documentSectionSendStatements .statement-preview-file-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px}
-#documentSectionSendStatements #statementPreviewLinks a{color:#173650;text-decoration:none;min-height:32px;display:inline-flex;align-items:center}
-#documentSectionSendStatements #statementPreviewLinks a:hover{text-decoration:underline}
 #documentSectionSendStatements .statement-action-panel.statement-balanced-grid .statement-selection-toolbar{
   display:flex!important;flex-wrap:wrap!important;justify-content:space-between!important;align-items:center!important;
   gap:12px!important;margin-top:18px!important;padding-top:16px!important;
@@ -75,7 +64,6 @@
   #documentSectionSendStatements .statement-action-panel.statement-balanced-grid .statement-send-actions{grid-template-columns:minmax(0,1fr)!important}
   #documentSectionSendStatements .statement-balanced-grid .statement-selection-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
   #documentSectionSendStatements .statement-balanced-grid .statement-selection-actions>button{--wooten-action-button-height:48px;width:100%!important;min-height:48px!important}
-  #documentSectionSendStatements .statement-balanced-grid #statementPreviewLinks a{min-height:44px}
 }
 @media(prefers-reduced-motion:reduce){#documentSectionSendStatements .statement-balanced-grid .statement-send-actions>button{transition:none}}
 
