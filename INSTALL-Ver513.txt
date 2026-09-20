@@ -1,0 +1,32 @@
+Wooten Oil Portal — Ver513
+Statement progress window fixes
+
+Apply after Ver510, Ver511 and Ver512. This ZIP contains only changed website files.
+Replace these files in GitHub, preserving the paths:
+  admin-customers.html
+  assets/js/wooten-statement-progress.js
+  assets/css/wooten-statement-progress.css
+
+Allow Cloudflare Pages to finish deploying, then reload the admin page.
+This update does not require a new Worker deployment; keep the Ver512 Worker
+and the statement progress server module from Ver511 installed.
+
+Changes
+- Customer names use text-only controls with an underline on hover.
+- Clicking a name opens the exact saved customer PDF through the authenticated endpoint.
+- If the browser blocks the new tab, an Open PDF link appears in the window.
+- PDF errors remain visible with their reason.
+- Recent statement runs and Export PDF share an aligned toolbar above the table.
+- Export PDF includes every customer in the selected run(s), across table pages.
+- Removed the extra overall progress bar at the upper right; customer bars remain.
+- Standard portal X close button and bottom-right Done button.
+- Done/X close the window without cancelling the statement run.
+- Fits desktop and phone screens; the wide customer table scrolls inside the window on phones.
+- Applies to manual sends, scheduled runs, Test A, Test B and Test All.
+
+Verification
+Browser-tested desktop and phone layouts, underline-only hover, PDF opening,
+PDF export, X/Done, and compatibility with the portal's table tools.
+Verified popup-blocked and missing-PDF cases, all-row export, Test All,
+and existing backend PDF access controls using local fixtures.
+No customer messages were sent and no live records were changed during testing.

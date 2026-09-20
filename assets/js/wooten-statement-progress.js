@@ -1,12 +1,14 @@
-/* Ver511: shared manual, scheduled and dry-test statement progress window. */
+/* Ver513: shared statement progress, private PDF opening and aligned actions. */
 (function(){
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=value=>Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
   const day=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')?new Date(value+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):String(value||'');
   const key=()=>document.getElementById('adminKey')?.value.trim()||'';
-  let host,ids=[],snapshots=[],page=1,serial=0,busy=false,timer=0,lastFocus=null,recent=[],pendingTitle='',pendingDate='',localMessage='',sessionUser=null;
+  let host,ids=[],snapshots=[],page=1,serial=0,busy=false,timer=0,lastFocus=null,recent=[],pendingTitle='',pendingDate='',localMessage='',sessionUser=null,exporting=false;
   const pageSize=40,seenAuto=new Set(),openedAt=Date.now();
+  const labels={queued:'Queued',sending:'Sending…',sent:'Sent successfully',accepted:'Sent to provider',delivered:'Delivered',failed:'Failed',not_selected:'Not selected',not_sent:'Not sent',test:'Test — not sent'};
+  const openingPdfs=new Set(),pdfUrls=new Set();
   async function api(path,options={}){
     const response=await fetch(path,{...options,headers:{'X-Admin-Key':key(),'Accept':'application/json',...(options.headers||{})},cache:'no-store'});
     const data=await response.json().catch(()=>({}));
@@ -16,13 +18,22 @@
   function mount(){
     if(host)return;
     host=document.createElement('div');host.className='sp-overlay';host.hidden=true;
-    host.innerHTML='<section class="sp-dialog" role="dialog" aria-modal="true" aria-labelledby="sp-title" aria-describedby="sp-notice"><header class="sp-header"><div><p class="sp-eyebrow">Wooten Oil • Statement progress</p><h2 id="sp-title"></h2><p id="sp-date"></p></div><button type="button" class="sp-button" data-sp-close aria-label="Close statement progress window">Close</button></header><div class="sp-toolbar"><p id="sp-summary" role="status" aria-live="polite">Preparing…</p><progress id="sp-total" value="0" max="100" aria-label="Overall statement progress"></progress></div><div class="sp-error" id="sp-error" role="status" hidden></div><div class="sp-table-wrap"><table class="sp-table"><thead><tr><th scope="col">Customer / ID</th><th scope="col">Total balance</th><th scope="col">Progress</th><th scope="col">Customer portal</th><th scope="col">Email PDF</th><th scope="col">SMS text</th></tr></thead><tbody id="sp-rows"></tbody></table></div><footer class="sp-footer"><p id="sp-notice"></p><div class="sp-pager"><button type="button" class="sp-button" data-sp-prev>Previous</button><span id="sp-page"></span><button type="button" class="sp-button" data-sp-next>Next</button></div><select class="sp-history" aria-label="Open a recent statement run"><option value="">Recent statement runs…</option></select></footer></section>';
+    host.innerHTML=`<section class="sp-dialog" role="dialog" aria-modal="true" aria-labelledby="sp-title" aria-describedby="sp-notice">
+      <header class="sp-header"><div><p class="sp-eyebrow">Wooten Oil • Statement progress</p><h2 id="sp-title"></h2><p id="sp-date"></p></div><button type="button" class="sp-close" data-sp-close aria-label="Close statement progress window">&times;</button></header>
+      <div class="sp-toolbar"><p id="sp-summary" role="status" aria-live="polite">Preparing…</p></div>
+      <div class="sp-actions"><select class="sp-history" aria-label="Open a recent statement run"><option value="">Recent statement runs…</option></select><button type="button" class="sp-button sp-export" data-sp-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>
+      <div class="sp-error" id="sp-error" role="status" hidden></div><div class="sp-pdf-status" id="sp-pdf-status" role="status" aria-live="polite" hidden></div>
+      <div class="sp-table-wrap"><table class="sp-table" data-auto-pdf="false"><thead><tr><th scope="col">Customer / ID</th><th scope="col">Total balance</th><th scope="col">Progress</th><th scope="col">Customer portal</th><th scope="col">Email PDF</th><th scope="col">SMS text</th></tr></thead><tbody id="sp-rows"></tbody></table></div>
+      <footer class="sp-footer"><p id="sp-notice"></p><div class="sp-footer-actions"><div class="sp-pager"><button type="button" class="sp-button" data-sp-prev>Previous</button><span id="sp-page"></span><button type="button" class="sp-button" data-sp-next>Next</button></div><button type="button" class="sp-button sp-done" data-sp-close>Done</button></div></footer>
+    </section>`;
     document.body.appendChild(host);
     host.addEventListener('click',event=>{
-      if(event.target.closest('[data-sp-close]'))close();
-      if(event.target.closest('[data-sp-prev]')){page--;render();}
-      if(event.target.closest('[data-sp-next]')){page++;render();}
-      const link=event.target.closest('[data-sp-pdf]');if(link){event.preventDefault();openPdf(link.dataset.spJob,link.dataset.spPdf);}
+      const target=event.target.closest?.('button,[data-sp-pdf]');if(!target||target.disabled)return;
+      if(target.matches('[data-sp-close]')){event.preventDefault();close();return;}
+      if(target.matches('[data-sp-prev]')){page--;render();return;}
+      if(target.matches('[data-sp-next]')){page++;render();return;}
+      if(target.matches('[data-sp-export]')){exportReport();return;}
+      if(target.matches('[data-sp-pdf]')){event.preventDefault();event.stopPropagation();openPdf(target.dataset.spJob,target.dataset.spPdf);}
     });
     host.querySelector('.sp-history').addEventListener('change',event=>{if(event.target.value)watch([event.target.value]);});
     host.addEventListener('keydown',event=>{
@@ -41,8 +52,8 @@
   function errorText(message){mount();const el=host.querySelector('#sp-error');el.textContent=message||'';el.hidden=!message;}
   function show(){mount();if(host.hidden){lastFocus=document.activeElement;host.hidden=false;document.body.classList.add('sp-open');host.querySelector('[data-sp-close]').focus({preventScroll:true});}render();poll();}
   function close(){if(!host)return;host.hidden=true;document.body.classList.remove('sp-open');clearTimeout(timer);lastFocus?.focus?.({preventScroll:true});}
-  function prepare(title,date){serial++;ids=[];snapshots=[];page=1;localMessage='';pendingTitle=title||'Account Statements';pendingDate=date||'';mount();errorText('');show();}
-  async function watch(jobIds,options={}){ids=[...new Set(jobIds.filter(Boolean))];serial++;page=1;snapshots=[];localMessage='';if(options.title)pendingTitle=options.title;mount();errorText('');show();await poll();}
+  function prepare(title,date){serial++;ids=[];snapshots=[];page=1;localMessage='';pendingTitle=title||'Account Statements';pendingDate=date||'';mount();errorText('');pdfStatus('');show();}
+  async function watch(jobIds,options={}){ids=[...new Set(jobIds.filter(Boolean))];serial++;page=1;snapshots=[];localMessage='';if(options.title)pendingTitle=options.title;mount();errorText('');pdfStatus('');show();await poll();}
   async function startManual(options){prepare('Account Statements — Manual Send',options.statement_date);const data=await api('/api/admin/statements/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});await watch([data.job_id]);return data.job_id;}
   async function poll(){
     clearTimeout(timer);if(!ids.length||host?.hidden)return;
@@ -61,8 +72,7 @@
     const selected=channels.filter(c=>c.status!=='not_selected'),finished=selected.filter(c=>!['queued','sending'].includes(c.status)).length;
     const percent=isDone?100:Math.round(((row.pdf_ready?1:0)+finished)/(1+selected.length)*100);
     const status=hasError?(isDone?'Completed with errors':'Sending — issue reported'):row.stage==='complete'?(job.options.dry_run?'Test complete':'Processing complete'):row.stage==='generating'?'Generating PDF':row.stage==='sending'?'Sending statements':row.stage==='stopped'?'Stopped':'Queued';
-    const name=row.pdf_ready?'<a class="sp-customer-link" href="/api/admin/statements/progress/pdf?job_id='+encodeURIComponent(job.id)+'&amp;account='+encodeURIComponent(row.account_number)+'" data-sp-job="'+esc(job.id)+'" data-sp-pdf="'+esc(row.account_number)+'" aria-label="Open PDF statement for '+esc(row.account_name)+'">'+esc(row.account_name)+'</a>':'<span class="sp-customer-pending">'+esc(row.account_name)+'</span>';
-    const labels={queued:'Queued',sending:'Sending…',sent:'Sent successfully',accepted:'Sent to provider',delivered:'Delivered',failed:'Failed',not_selected:'Not selected',not_sent:'Not sent',test:'Test — not sent'};
+    const name=row.pdf_ready?'<button type="button" class="sp-customer-link" data-sp-job="'+esc(job.id)+'" data-sp-pdf="'+esc(row.account_number)+'" aria-label="Open PDF statement for '+esc(row.account_name)+'"><span>'+esc(row.account_name)+'</span></button>':'<span class="sp-customer-pending">'+esc(row.account_name)+'</span>';
     return '<tr class="'+(hasError?'sp-has-error':'')+'"><td>'+name+'<small>Customer # '+esc(row.account_number)+(job.source==='test'?' • Test':'')+'</small>'+(!row.pdf_ready?'<small>PDF '+(isDone?'unavailable':'pending')+'</small>':'')+'</td><td class="sp-balance">'+money(row.total_balance)+'</td><td><span class="'+(hasError?'sp-row-error':'')+'">'+esc(status)+'</span><progress max="100" value="'+percent+'" aria-label="Progress for '+esc(row.account_name)+'"></progress><small>'+percent+'%'+(row.error?' • '+esc(row.error):'')+'</small></td>'+channels.map(c=>'<td><span class="sp-badge" data-state="'+esc(c.status)+'">'+esc(labels[c.status]||c.status)+'</span>'+(c.reason?'<small>'+esc(c.reason)+'</small>':'')+'</td>').join('')+'</tr>';
   }
   function render(){
@@ -71,26 +81,59 @@
     host.querySelector('#sp-title').textContent=snapshots.length===1?snapshots[0].title:snapshots.length>1?'Test — All Selected Statement Cycles':pendingTitle;
     const dates=[...new Set(snapshots.map(j=>day(j.statement_date)))];host.querySelector('#sp-date').textContent='Statement date: '+(dates.join(' / ')||day(pendingDate)||'Preparing…');
     host.querySelector('#sp-summary').textContent=snapshots.length?processed.toLocaleString()+' of '+total.toLocaleString()+' processed • '+failed.toLocaleString()+' with errors'+(complete?' • Complete':''):'Preparing selected customers…';
-    host.querySelector('#sp-total').value=total?processed/total*100:complete?100:0;
+    host.querySelector('[data-sp-export]').disabled=exporting||!total;
     host.querySelector('#sp-notice').textContent=dry?'Test only — nothing is sent. Click a customer name to open their generated PDF.':complete?'Click a customer name to open their PDF. Email acceptance is not inbox confirmation; SMS delivery updates when reported.':'Keep this page open for manual runs and tests. You can close this window and reopen progress. Customer PDF links appear as files are generated.';
     const pages=Math.max(1,Math.ceil(total/pageSize));page=Math.max(1,Math.min(page,pages));
     const body=host.querySelector('#sp-rows'),html=rows.slice((page-1)*pageSize,page*pageSize).map(({row,job})=>rowHtml(row,job)).join('')||'<tr><td colspan="6" class="sp-empty">'+(snapshots.length?'No customers in this run.':'Preparing statement progress…')+'</td></tr>';
     if(body.innerHTML!==html){const focused=document.activeElement,account=focused?.dataset?.spPdf,job=focused?.dataset?.spJob;body.innerHTML=html;if(account){[...body.querySelectorAll('[data-sp-pdf]')].find(el=>el.dataset.spPdf===account&&el.dataset.spJob===job)?.focus({preventScroll:true});}}
     host.querySelector('#sp-page').textContent='Page '+page+' of '+pages;host.querySelector('[data-sp-prev]').disabled=page<=1;host.querySelector('[data-sp-next]').disabled=page>=pages;
-    const select=host.querySelector('.sp-history'),options='<option value="">Recent statement runs…</option>'+recent.map(j=>'<option value="'+esc(j.id)+'">'+esc(j.title+' • '+day(j.statement_date)+' • '+j.created_at+' UTC')+'</option>').join('');
+    const select=host.querySelector('.sp-history'),options='<option value="">Recent statement runs…</option>'+recent.map(j=>'<option value="'+esc(j.id)+'">'+esc(j.title+' • '+day(j.statement_date)+' • '+(window.WootenTime?.dateTime(j.created_at)||j.created_at+' UTC'))+'</option>').join('');
     if(select.innerHTML!==options)select.innerHTML=options;
+    select.value=ids.length===1&&recent.some(j=>j.id===ids[0])?ids[0]:'';
   }
   async function finish(message){localMessage=message||'';await poll();if(message)errorText(message);}
+  function pdfStatus(message,url,account){
+    mount();const box=host.querySelector('#sp-pdf-status');box.textContent=message;box.hidden=!message;
+    if(url){const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.className='sp-pdf-open';link.textContent='Open PDF';link.setAttribute('aria-label','Open PDF statement for customer '+account);box.append(' ',link);}
+  }
   async function openPdf(id,account){
-    // Reserve the tab within the click gesture so mobile popup blockers do not hide it.
-    const tab=window.open('about:blank','_blank');if(tab)tab.opener=null;
+    const token=id+':'+account;if(openingPdfs.has(token))return;openingPdfs.add(token);
+    const auth=key(),version=serial;let tab=null;
+    pdfStatus('Opening statement for customer '+account+'…');
     try{
-      const response=await fetch('/api/admin/statements/progress/pdf?'+new URLSearchParams({job_id:id,account}),{headers:{'X-Admin-Key':key(),'Accept':'application/pdf'},cache:'no-store'});
-      if(!response.ok||!String(response.headers.get('Content-Type')).includes('application/pdf'))throw new Error('This statement PDF could not be opened. Please refresh progress and try again.');
-      const url=URL.createObjectURL(await response.blob());
-      if(tab)tab.location.href=url;else{const link=document.createElement('a');link.href=url;link.download='Statement-'+account+'.pdf';link.click();}
-      setTimeout(()=>URL.revokeObjectURL(url),300000);
-    }catch(error){tab?.close();errorText(error.message);}
+      // Reserve a tab during the click, and retain a real link if popups are blocked.
+      try{tab=window.open('about:blank','_blank');if(tab)tab.opener=null;}catch{tab=null;}
+      const response=await fetch('/api/admin/statements/progress/pdf?'+new URLSearchParams({job_id:id,account}),{headers:{'X-Admin-Key':auth,'Accept':'application/pdf'},cache:'no-store'});
+      if(!response.ok){
+        const type=response.headers.get('Content-Type')||'';
+        const reason=type.includes('json')?(await response.json().catch(()=>({}))).error:await response.text();
+        throw new Error(reason||'This statement PDF could not be opened. Please refresh progress and try again.');
+      }
+      if(!String(response.headers.get('Content-Type')).toLowerCase().includes('application/pdf'))throw new Error('The server did not return a PDF. Refresh the portal and try again.');
+      if(auth!==key()){tab?.close();return;}
+      const blob=await response.blob();if(auth!==key()){tab?.close();return;}
+      const url=URL.createObjectURL(blob);
+      pdfUrls.add(url);let opened=false;
+      try{if(tab&&!tab.closed){tab.location.href=url;opened=true;}}catch{tab?.close();}
+      if(version===serial)pdfStatus(opened?'Statement opened for customer '+account+'.':'Statement ready for customer '+account+'. Click Open PDF to view it.',url,account);
+      setTimeout(()=>{URL.revokeObjectURL(url);pdfUrls.delete(url);if(host?.querySelector('.sp-pdf-open')?.getAttribute('href')===url)pdfStatus('Click the customer name to open this statement again.');},300000);
+    }catch(error){tab?.close();if(auth===key()&&version===serial)pdfStatus(error.message);}
+    finally{openingPdfs.delete(token);}
+  }
+  async function exportReport(){
+    if(exporting||!snapshots.some(job=>job.rows.length))return;
+    if(!window.WootenAdminTablePdf?.exportData){errorText('The PDF exporter is not available. Refresh the portal and try again.');return;}
+    const button=host.querySelector('[data-sp-export]'),label=button.querySelector('span');
+    exporting=true;button.disabled=true;label.textContent='Exporting…';
+    try{
+      const rows=snapshots.flatMap(job=>job.rows.map(row=>[
+        row.account_name+'\nCustomer # '+row.account_number+(snapshots.length>1?'\n'+job.title:''),money(row.total_balance),
+        (row.stage==='complete'?(job.options.dry_run?'Test complete':Object.values(row.channels||{}).some(c=>c.status==='failed')?'Completed with errors':'Processing complete'):row.stage)+(row.error?'\n'+row.error:''),
+        ...['portal','email','sms'].map(name=>{const c=row.channels?.[name]||{status:'queued'};return (labels[c.status]||c.status)+(c.reason?'\n'+c.reason:'');})
+      ]));
+      await window.WootenAdminTablePdf.exportData(host.querySelector('#sp-title').textContent+' — '+host.querySelector('#sp-date').textContent,['Customer / ID','Total balance','Progress','Customer portal','Email PDF','SMS text'],rows);
+    }catch(error){errorText(error.message||'The statement progress report could not be exported.');}
+    finally{exporting=false;label.textContent='Export PDF';render();}
   }
   async function discover(auto=true){
     const user=window.wootenAdminUser;
@@ -112,7 +155,7 @@
   }
   window.WootenStatementProgress={prepare,watch,startManual,finish,refresh:poll,close,openPdf};
   function boot(){mount();window.addEventListener('wooten-admin-auth-changed',()=>{
-    if(!key()||!window.WootenAdminAccess?.has(window.wootenAdminUser,'statements')){serial++;close();ids=[];snapshots=[];recent=[];seenAuto.clear();sessionUser=null;render();}
+    if(!key()||!window.WootenAdminAccess?.has(window.wootenAdminUser,'statements')){serial++;close();ids=[];snapshots=[];recent=[];seenAuto.clear();sessionUser=null;pdfUrls.forEach(url=>URL.revokeObjectURL(url));pdfUrls.clear();pdfStatus('');render();}
     else discover().catch(()=>{});
   });setInterval(()=>{if(!document.hidden)discover().catch(()=>{});},30000);setTimeout(()=>discover().catch(()=>{}),3000);document.addEventListener('click',event=>{const link=event.target.closest('[data-statement-progress-run]');if(link){event.preventDefault();event.stopPropagation();watch(['schedule-'+link.dataset.statementProgressRun]);}});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
