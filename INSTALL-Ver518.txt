@@ -1,0 +1,18 @@
+Wooten Oil Portal — Ver518
+Contain Cycle A and Cycle B loading skeletons
+
+Apply after Ver517. Replace admin-customers.html in GitHub with the file in this ZIP.
+Wait for Cloudflare Pages deployment to finish, then reload the admin page.
+No Worker update is required.
+
+The loading skeletons in both cycle customer previews now resize to the available
+panel width. Fixed-width placeholder columns have been replaced with flexible
+columns, and each row includes its padding and border within its width.
+The shimmer stays inside each row's rounded border.
+Existing phone stacking and cycle processing locks are preserved.
+
+Verified the rendered layout in Chromium at widths of 390, 820, 901, 1100,
+1450, and 1920 pixels. Both cycle skeletons had zero horizontal overflow.
+The original layout reproduced a 60-pixel overflow at 1450 pixels.
+
+This is a CSS-only change. No customer data, processing logic, or Worker code changed.

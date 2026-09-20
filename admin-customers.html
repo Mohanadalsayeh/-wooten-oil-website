@@ -2263,6 +2263,11 @@ input[type="file"]:focus-visible{
 .schedule-cycle-controls[data-processing="true"]{opacity:1}
 .schedule-cycle-controls[data-processing="true"] :is(.schedule-fields,.schedule-preview-inline){opacity:.5}
 .schedule-title-toggle:has(input:disabled){opacity:.5;cursor:default}
+/* Cycle previews sit in narrow cards; skeleton columns must shrink with the card. */
+.schedule-preview-inline .admin-inline-skeleton{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.schedule-preview-inline .admin-inline-skeleton-row.preview{width:100%;max-width:100%;min-width:0;box-sizing:border-box;grid-template-columns:28px minmax(0,1.5fr) minmax(0,.75fr) minmax(0,1fr);overflow:hidden}
+.schedule-preview-inline .admin-inline-skeleton-line{min-width:0;max-width:100%}
+@media(max-width:900px){.schedule-preview-inline .admin-inline-skeleton-row.preview{grid-template-columns:minmax(0,1fr)}}
 .schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
 .schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 .schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
