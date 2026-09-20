@@ -2263,6 +2263,9 @@ input[type="file"]:focus-visible{
 .schedule-cycle-controls[data-processing="true"]{opacity:1}
 .schedule-cycle-controls[data-processing="true"] :is(.schedule-fields,.schedule-preview-inline){opacity:.5}
 .schedule-title-toggle:has(input:disabled){opacity:.5;cursor:default}
+/* Ver525: lock the scheduling page while keeping the active action and progress clear. */
+#documentSectionStatementScheduling[data-statement-processing="true"] .schedule-shared :is(.schedule-fields,.schedule-options){opacity:.5}
+#documentSectionStatementScheduling .schedule-active-action{opacity:1!important;cursor:progress!important}
 /* Cycle previews sit in narrow cards; skeleton columns must shrink with the card. */
 .schedule-preview-inline .admin-inline-skeleton{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .schedule-preview-inline .admin-inline-skeleton-row.preview{width:100%;max-width:100%;min-width:0;box-sizing:border-box;grid-template-columns:28px minmax(0,1.5fr) minmax(0,.75fr) minmax(0,1fr);overflow:hidden}
@@ -5593,8 +5596,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 .admin-user-permissions input{flex:0 0 18px}
 .admin-user-access-note{font-size:13px;line-height:1.5}
 </style>
-<link rel="stylesheet" href="assets/css/wooten-statement-progress.css?v=523">
-<script src="assets/js/wooten-statement-progress.js?v=524" defer></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-progress.css?v=526">
+<script src="assets/js/wooten-statement-progress.js?v=526" defer></script>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -11588,6 +11591,21 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   let statementActionBusy=false,activeStatementButton=null;
   let statementActionFinished=Promise.resolve(),resolveStatementAction=null;
   let processingStatementCycles=new Set();
+  let statementPageLocked=false,activeStatementLabel='';
+  const statementDisabledState=new Map();
+  const statementPageControls='button,input,select,textarea,fieldset';
+  const statementLockObserver=new MutationObserver(()=>applyStatementPageLock());
+  function applyStatementPageLock(){
+    if(!statementPageLocked)return;
+    statementLockObserver.disconnect();
+    panel.querySelectorAll(statementPageControls).forEach(control=>{
+      if(!statementDisabledState.has(control))statementDisabledState.set(control,control.disabled);
+      const exempt=control===activeStatementButton||(control.tagName==='FIELDSET'&&control.contains(activeStatementButton));
+      if(control.disabled===exempt)control.disabled=!exempt;
+    });
+    // Config refreshes and newly rendered customer controls must retain the lock.
+    statementLockObserver.observe(panel,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']});
+  }
   function beginStatementAction(buttonId,cycleTypes){
     if(statementActionBusy)return false;
     statementActionBusy=true;
@@ -11595,10 +11613,30 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     statementActionFinished=new Promise(resolve=>{resolveStatementAction=resolve;});
     activeStatementButton=get(buttonId);
     activeStatementButton?.setAttribute('aria-busy','true');
+    statementPageLocked=/^schedule(?:Run|Test)(?:Monthly|Weekly|All)$/.test(buttonId);
+    if(statementPageLocked){
+      panel.querySelectorAll(statementPageControls).forEach(control=>statementDisabledState.set(control,control.disabled));
+      panel.dataset.statementProcessing='true';
+      activeStatementLabel=activeStatementButton.textContent;
+      activeStatementButton.textContent=buttonId==='scheduleTestAll'?'Testing All Cycles…':(buttonId.startsWith('scheduleTest')?'Testing ':'Running ')+(buttonId.endsWith('Weekly')?'B':'A')+'…';
+      activeStatementButton.classList.add('schedule-active-action');
+      activeStatementButton.setAttribute('aria-disabled','true');
+    }
     syncCycleEnabledState();
     return true;
   }
   function endStatementAction(){
+    statementLockObserver.disconnect();
+    if(statementPageLocked){
+      statementPageLocked=false;
+      delete panel.dataset.statementProcessing;
+      statementDisabledState.forEach((disabled,control)=>{if(control.isConnected)control.disabled=disabled;});
+      statementDisabledState.clear();
+      activeStatementButton.textContent=activeStatementLabel;
+      activeStatementButton.classList.remove('schedule-active-action');
+      activeStatementButton.removeAttribute('aria-disabled');
+      activeStatementLabel='';
+    }
     activeStatementButton?.removeAttribute('aria-busy');
     activeStatementButton=null;
     statementActionBusy=false;
@@ -11609,6 +11647,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   // Native disabled fieldsets also cover customer controls rendered during refreshes.
   // Guard delegated handlers against synthetic events on the locked cycle as well.
   for(const name of ['click','input','change'])panel.addEventListener(name,event=>{
+    if(statementPageLocked){event.preventDefault();event.stopImmediatePropagation();return;}
     const cycle=event.target.closest?.('.schedule-card');
     const toggle=cycle?.querySelector('.schedule-title-toggle input');
     const type=toggle?.id==='scheduleMonthlyEnabled'?'monthly':toggle?.id==='scheduleWeeklyEnabled'?'weekly':null;
@@ -11664,9 +11703,9 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     [['Monthly',monthlyOn],['Weekly',weeklyOn]].forEach(([name,on])=>{
       const controls=get('schedule'+name+'Controls'),state=get('schedule'+name+'EnabledStatus'),toggle=get('schedule'+name+'Enabled');
       const processing=processingStatementCycles.has(name==='Monthly'?'monthly':'weekly');
-      if(controls){controls.disabled=!on||processing;controls.dataset.processing=String(processing);}
+      if(controls){controls.disabled=!on||processing;controls.dataset.processing=String(processing||statementPageLocked);}
       if(toggle)toggle.disabled=processing;
-      if(state)state.textContent=processing?'Processing…':on?'Enabled':'Disabled';
+      if(state)state.textContent=processing?'Processing…':statementPageLocked?'Temporarily disabled':on?'Enabled':'Disabled';
     });
     monthlyDay.disabled=!monthlyOn;monthlyHour.disabled=!monthlyOn;
     const monthlyPreview=get('schedulePreviewMonthly');if(monthlyPreview)monthlyPreview.disabled=statementActionBusy||!monthlyOn;
@@ -11674,6 +11713,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     syncRunSelectionState('monthly');syncRunSelectionState('weekly');
     syncWeeklyFrequency();
     syncTestAllSelectionState();
+    applyStatementPageLock();
   }
   function applyConfig(config){
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
@@ -12307,7 +12347,6 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       );
       let succeeded=0,failed=0;
       if(testAllButton){
-        testAllButton.disabled=true;
         testAllButton.classList.add('is-loading');
         testAllButton.setAttribute('aria-busy','true');
         testAllButton.textContent='Testing All Cycles…';

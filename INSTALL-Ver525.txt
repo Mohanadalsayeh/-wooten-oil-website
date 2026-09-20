@@ -1,0 +1,19 @@
+Wooten Oil Portal — Ver525
+Apply after Ver524.
+
+Replace this file in your portal project:
+- admin-customers.html
+
+Deploy the portal frontend and refresh the admin page.
+No Worker update is required.
+
+Changes:
+- Run A, Run B, Test A, Test B, and Test All temporarily lock every other control within the Statement Scheduling page.
+- Includes shared payment/delivery settings, the positive-balance filter, Save Schedule, help, both cycle switches, schedule fields, preview/test/run buttons, customer selections, searches, assignment controls, bulk moves, and pagination.
+- The clicked action retains its normal color and shows Running A/B or Testing A/B/All Cycles. Repeat clicks are blocked while it is busy.
+- Progress stays readable. The progress window remains usable.
+- The lock survives settings refreshes and newly rendered controls.
+- Controls restore their prior state and current cycle/selection eligibility when processing finishes or an error is handled.
+
+Verification:
+Browser checks with mocked endpoints covered all five actions, both cycles, shared controls, duplicate-click protection, dynamic controls, final refresh, cancellation, errors, disabled-cycle/empty-selection restoration, and desktop/mobile presentation. No live messages were sent during verification.

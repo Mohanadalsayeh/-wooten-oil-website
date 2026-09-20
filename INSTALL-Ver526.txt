@@ -1,0 +1,22 @@
+Wooten Oil Portal - Ver526
+
+Apply this incremental update after Ver525.
+
+Replace these files in your portal project, preserving their paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+- assets/css/wooten-statement-progress.css
+
+Publish the updated portal files using your usual deployment process.
+No Worker update is needed.
+
+Changes:
+- Removed the recent statement run dropdown from the progress window.
+- Removed the shared "Statement opened for customer" message.
+- Added an Open PDF text link beneath each customer name when their PDF is ready.
+- PDF links use underline-only hover styling and open the statement for that exact run and customer.
+- PDF loading and error messages appear beside the affected customer.
+- Export PDF remains aligned to the right.
+
+Verified with mocked statement runs and PDF responses, including loading, retry,
+popup blocking, cached links, history entry, and desktop/mobile layout.
