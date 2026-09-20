@@ -11598,6 +11598,30 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   const openPreviewTypes=new Set();
   let loaded=false,loading=false,reportLoading=false,reportRuns=[];
   const scheduleResultPageSize=20,previewPageSize=20;
+  // Keep action availability tied to the whole operation, including config refreshes.
+  let statementActionBusy=false,activeStatementButton=null;
+  let statementActionFinished=Promise.resolve(),resolveStatementAction=null;
+  function beginStatementAction(buttonId){
+    if(statementActionBusy)return false;
+    statementActionBusy=true;
+    statementActionFinished=new Promise(resolve=>{resolveStatementAction=resolve;});
+    activeStatementButton=get(buttonId);
+    activeStatementButton?.setAttribute('aria-busy','true');
+    syncCycleEnabledState();
+    return true;
+  }
+  function endStatementAction(){
+    activeStatementButton?.removeAttribute('aria-busy');
+    activeStatementButton=null;
+    statementActionBusy=false;
+    syncCycleEnabledState();
+    const resolve=resolveStatementAction;resolveStatementAction=null;resolve?.();
+  }
+  function syncTestAllSelectionState(){
+    const selected=(monthlyEnabled.checked?(bulkSelections.monthly?.size||0):0)+(weeklyEnabled.checked?(bulkSelections.weekly?.size||0):0);
+    const button=get('scheduleTestAll');
+    if(button)button.disabled=statementActionBusy||selected===0;
+  }
 
   document.querySelectorAll('[data-hour-select]').forEach(select=>{
     if(select.options.length)return;
@@ -11636,7 +11660,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     const count=bulkSelections[type]?.size||0;
     const cycleOn=type==='weekly'?weeklyEnabled.checked:monthlyEnabled.checked;
     const ids=type==='weekly'?['scheduleTestWeekly','scheduleRunWeekly']:['scheduleTestMonthly','scheduleRunMonthly'];
-    ids.forEach(id=>{const button=get(id);if(!button)return;button.disabled=!cycleOn||count===0;button.title=count?('Will process '+count.toLocaleString()+' selected customer'+(count===1?'':'s')+'.'):'Open Preview '+(type==='weekly'?'B':'A')+' Customers and select at least one customer first.';});
+    ids.forEach(id=>{const button=get(id);if(!button)return;button.disabled=statementActionBusy||!cycleOn||count===0;button.title=count?('Will process '+count.toLocaleString()+' selected customer'+(count===1?'':'s')+'.'):'Open Preview '+(type==='weekly'?'B':'A')+' Customers and select at least one customer first.';});
   }
   function syncCycleEnabledState(){
     const monthlyOn=monthlyEnabled.checked,weeklyOn=weeklyEnabled.checked;
@@ -11646,11 +11670,11 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       if(state)state.textContent=on?'Enabled':'Disabled';
     });
     monthlyDay.disabled=!monthlyOn;monthlyHour.disabled=!monthlyOn;
-    const monthlyPreview=get('schedulePreviewMonthly');if(monthlyPreview)monthlyPreview.disabled=!monthlyOn;
-    const weeklyPreview=get('schedulePreviewWeekly');if(weeklyPreview)weeklyPreview.disabled=!weeklyOn;
+    const monthlyPreview=get('schedulePreviewMonthly');if(monthlyPreview)monthlyPreview.disabled=statementActionBusy||!monthlyOn;
+    const weeklyPreview=get('schedulePreviewWeekly');if(weeklyPreview)weeklyPreview.disabled=statementActionBusy||!weeklyOn;
     syncRunSelectionState('monthly');syncRunSelectionState('weekly');
     syncWeeklyFrequency();
-    const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=((monthlyOn?(bulkSelections.monthly?.size||0):0)+(weeklyOn?(bulkSelections.weekly?.size||0):0)===0);
+    syncTestAllSelectionState();
   }
   function applyConfig(config){
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
@@ -11965,7 +11989,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     const account=String(row.account_number||'');
     return '<div class="schedule-preview-row" data-schedule-customer="'+esc(account)+'"><label class="schedule-bulk-check" title="Select for Test / Run or assignment move"><input type="checkbox" data-bulk-cycle-customer data-preview-type="'+type+'" value="'+esc(account)+'" '+(bulkSelections[type]?.has(account)?'checked':'')+' aria-label="Select '+esc(row.account_name||account)+' for Test, Run, or assignment move"></label><strong>'+esc(row.account_name||'Customer')+'<small style="display:block;color:#758596"># '+esc(account)+'</small></strong><span class="schedule-preview-balance">'+esc(money(row.total_balance))+'</span><div class="schedule-customer-cycle"><select aria-label="Statement assignment for '+esc(row.account_name||account||'customer')+'"><option value="A" '+(cycle==='A'?'selected':'')+'>A — Monthly</option><option value="B" '+(cycle==='B'?'selected':'')+'>B — Weekly / Biweekly</option><option value="E" '+(cycle==='E'?'selected':'')+'>Exceptional — No scheduled statements</option></select><button type="button" data-save-statement-cycle>Save Assignment</button></div></div>';
   }
-  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),moves=preview?[...preview.querySelectorAll('[data-bulk-move]')]:[],clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected for Test / Run';moves.forEach(move=>move.disabled=selected===0);if(clear)clear.disabled=selected===0;syncRunSelectionState(type);const testAll=get('scheduleTestAll');if(testAll)testAll.disabled=((monthlyEnabled.checked?(bulkSelections.monthly?.size||0):0)+(weeklyEnabled.checked?(bulkSelections.weekly?.size||0):0)===0);}
+  function updateBulkControls(type){const preview=previewTargets[type],selected=bulkSelections[type]?.size||0,count=preview?.querySelector('[data-bulk-selected-count]'),moves=preview?[...preview.querySelectorAll('[data-bulk-move]')]:[],clear=preview?.querySelector('[data-bulk-clear]');if(count)count.textContent=selected.toLocaleString()+' selected for Test / Run';moves.forEach(move=>move.disabled=selected===0);if(clear)clear.disabled=selected===0;syncRunSelectionState(type);syncTestAllSelectionState();}
   function setBulkProgress(type,processed,total,moved,failed,label='Moving customers…'){
     const host=previewTargets[type]?.querySelector('[data-bulk-progress]');if(!host)return;
     const percent=total?Math.min(100,Math.round(processed/total*100)):100;host.hidden=false;
@@ -12003,10 +12027,13 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   async function showPreview(type,saveFirst=true){
     const preview=previewTargets[type];
     if(!preview)return;
-    const previousSearch=String(preview.querySelector('[data-schedule-preview-search]')?.value||'');
-    openPreviewTypes.add(type);
-    preview.innerHTML='<div class="schedule-preview-summary" aria-hidden="true"><div class="admin-inline-skeleton">'+Array.from({length:6},(_,r)=>'<div class="admin-inline-skeleton-row preview"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div></div>';
+    // Assignment/filter refreshes must wait, so their updated customer lists are not lost.
+    while(statementActionBusy){if(saveFirst)return;await statementActionFinished;}
+    if(!beginStatementAction('schedulePreview'+(type==='weekly'?'Weekly':type==='midmonth'?'Midmonth':'Monthly')))return;
     try{
+      const previousSearch=String(preview.querySelector('[data-schedule-preview-search]')?.value||'');
+      openPreviewTypes.add(type);
+      preview.innerHTML='<div class="schedule-preview-summary" aria-hidden="true"><div class="admin-inline-skeleton">'+Array.from({length:6},(_,r)=>'<div class="admin-inline-skeleton-row preview"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div></div>';
       if(saveFirst)await saveSettings(false);setStatus('Loading scheduled customers…');
       const data=await request('/api/admin/statement-scheduling/preview?type='+encodeURIComponent(type));
       const title=type==='weekly'?'B — Weekly / Biweekly Customers':type==='midmonth'?'Legacy Mid-Month Customers':'A — Monthly Cycle Customers';
@@ -12022,6 +12049,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       renderPreviewMatches(type,previousSearch);
       setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'Cycle B':type==='midmonth'?'legacy mid-month':'monthly A')+' schedule.',true);
     }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
+    finally{endStatementAction();}
   }
   panel.addEventListener('input',event=>{
     const input=event.target.closest('[data-schedule-preview-search]');
@@ -12130,6 +12158,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   function showRunCompletion(){window.WootenStatementProgress?.finish();}
   function showRunFailure(isTest,label,error){window.WootenStatementProgress?.finish(String(error?.message||error||'Statement processing stopped.'));}
   async function runNow(type,isTest=false){
+    if(statementActionBusy)return;
     const cycleEnabled=type==='weekly'?weeklyEnabled.checked:type==='midmonth'?false:monthlyEnabled.checked;
     if(!cycleEnabled){setStatus((type==='weekly'?'Cycle B':'Cycle A')+' is disabled. Check its Enable box and Save Schedule first.',false);return;}
     const accounts=selectedAccounts(type);
@@ -12139,12 +12168,13 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       ?'TEST RUN: Generate and validate '+label+' statements for the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nNo SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'
       :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
-    showStatementProcessingOverlay(
-      (isTest?'Testing ':'Processing ')+label+' statements…',
-      'Please keep this page open while '+accounts.length.toLocaleString()+' selected customer statement'+(accounts.length===1?' is':'s are')+' processed. '+(isTest?'This is a dry test; nothing will be delivered. ':'')+'This may take a few minutes to complete.'
-    );
-    startTestProgress(type,(isTest?'Testing ':'Running ')+label+' statements…');
+    if(!beginStatementAction('schedule'+(isTest?'Test':'Run')+(type==='weekly'?'Weekly':'Monthly')))return;
     try{
+      showStatementProcessingOverlay(
+        (isTest?'Testing ':'Processing ')+label+' statements…',
+        'Please keep this page open while '+accounts.length.toLocaleString()+' selected customer statement'+(accounts.length===1?' is':'s are')+' processed. '+(isTest?'This is a dry test; nothing will be delivered. ':'')+'This may take a few minutes to complete.'
+      );
+      startTestProgress(type,(isTest?'Testing ':'Running ')+label+' statements…');
       setStatus('Verifying selected-customer safety before starting…');
       await requireSelectedRecipientServer();
       await saveSettings(false);setStatus((isTest?'Generating and validating test statements for ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
@@ -12164,7 +12194,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       setStatus(error.message||(isTest?'Statement dry test failed.':'Scheduled statement run failed.'),false);
       await load();
       showRunFailure(isTest,(isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),error);
-    }
+    }finally{endStatementAction();}
   }
   async function waitForScheduledRun(runId,type,dryRun,total,progressMap){
     if(!runId)return {success_count:0,failure_count:0};
@@ -12203,6 +12233,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     throw new Error('The statement run is still continuing in the background. Refresh the report to see its latest progress.');
   }
   async function testAllCycles(){
+    if(statementActionBusy)return;
     const selections={
       monthly:monthlyEnabled.checked?selectedAccounts('monthly'):[],
       weekly:weeklyEnabled.checked?selectedAccounts('weekly'):[]
@@ -12214,21 +12245,22 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(selections.monthly.length)breakdown.push('Cycle A: '+selections.monthly.length.toLocaleString()+' selected');
     if(selections.weekly.length)breakdown.push('Cycle B: '+selections.weekly.length.toLocaleString()+' selected');
     if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will be tested. No SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'))return;
-    showStatementProcessingOverlay(
-      'Testing selected statements…',
-      'Please keep this page open while '+totalSelected.toLocaleString()+' selected customer statement'+(totalSelected===1?' is':'s are')+' processed across all selected cycles. This may take a few minutes to complete.'
-    );
-    let succeeded=0,failed=0;
+    if(!beginStatementAction('scheduleTestAll'))return;
     const testAllButton=get('scheduleTestAll');
-    if(testAllButton){
-      testAllButton.disabled=true;
-      testAllButton.classList.add('is-loading');
-      testAllButton.setAttribute('aria-busy','true');
-      testAllButton.textContent='Testing All Cycles…';
-    }
-    setTestProgress('all',3,'Validating selected customers from all cycles…','Preparing');
-    updateStatementProcessingOverlay(0,'Validating selected customer lists…','Testing selected statements…');
     try{
+      showStatementProcessingOverlay(
+        'Testing selected statements…',
+        'Please keep this page open while '+totalSelected.toLocaleString()+' selected customer statement'+(totalSelected===1?' is':'s are')+' processed across all selected cycles. This may take a few minutes to complete.'
+      );
+      let succeeded=0,failed=0;
+      if(testAllButton){
+        testAllButton.disabled=true;
+        testAllButton.classList.add('is-loading');
+        testAllButton.setAttribute('aria-busy','true');
+        testAllButton.textContent='Testing All Cycles…';
+      }
+      setTestProgress('all',3,'Validating selected customers from all cycles…','Preparing');
+      updateStatementProcessingOverlay(0,'Validating selected customer lists…','Testing selected statements…');
       setStatus('Validating the selected Cycle A and Cycle B customer lists before the dry test begins…');
       await requireSelectedRecipientServer(true);
       await saveSettings(false);
@@ -12273,7 +12305,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
         testAllButton.removeAttribute('aria-busy');
         testAllButton.textContent='Test All Cycles';
       }
-      syncCycleEnabledState();
+      endStatementAction();
     }
   }
   exportBtn?.addEventListener('click',exportStatementRunReport);

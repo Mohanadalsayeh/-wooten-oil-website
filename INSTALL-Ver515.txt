@@ -1,0 +1,28 @@
+Wooten Oil Portal — Ver515
+Disable statement scheduling actions while processing
+
+Apply after Ver514. Replace admin-customers.html in GitHub with the file in this ZIP.
+Wait for Cloudflare Pages deployment to finish, then reload the admin page.
+No Worker update is required.
+
+Preview A/B, Test A/B, Run A/B, and Test All Cycles are disabled while any of
+these operations is processing. The lock stays active through settings saves,
+customer processing, progress updates, and the final report refresh.
+
+Repeated clicks cannot start another scheduling operation while one is active.
+When processing completes or fails, buttons return to their correct state based
+on enabled cycles and selected customers. Canceling confirmation leaves them usable.
+Customer-list refreshes requested during processing wait until it finishes.
+
+Verified in Chromium with local fixture data and mocked APIs:
+- Preview A/B, Test A/B, Run A/B, and Test All
+- Both cycles remain locked through processing and settings/report refreshes
+- Duplicate click handlers cannot start another request
+- Selection and cycle updates cannot re-enable actions during processing
+- Completion, cancellation, and error recovery
+- Empty selections and disabled cycles remain disabled afterward
+- Deferred customer-list refreshes are preserved
+- All 36 inline scripts parse successfully
+
+This package contains only the changed website file and these instructions.
+No live emails or SMS messages were sent during verification.
