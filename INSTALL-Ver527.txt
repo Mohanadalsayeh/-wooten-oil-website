@@ -1,0 +1,30 @@
+Wooten Oil Portal - Ver527
+
+Apply this incremental update after Ver526.
+
+Update these files in your project, preserving their paths:
+- admin-customers.html
+- worker.js
+- assets/js/wooten-statement-history-server.mjs (new)
+
+Deploy the Worker together with the new server module, then publish the updated
+admin page using your usual GitHub / Cloudflare deployment process.
+This update requires the included Worker change.
+No manual database migration is needed.
+
+Changes:
+- Statement Run Report can browse all saved scheduled, test, and manual runs.
+- Shows 20 runs per page with the existing Previous, Next, and numbered buttons.
+- Displays the total saved run count, current range, and page number.
+- Searches across saved history, including older customers and runs.
+- Uses skeleton loading and disables pagination/export while loading a page.
+- Keeps pages stable while browsing; Refresh includes new runs and returns to page 1.
+- Export selection applies to the current page and clears when changing pages.
+- Existing run titles open the matching statement progress window and PDFs.
+
+Verification:
+- 220 mixed saved runs over 11 pages, including oldest scheduled/manual records.
+- Correct counts, new-run refresh, filtered results, and unavailable-detail handling.
+- Desktop/mobile navigation, loading locks, stale-response protection, exact PDF
+  links, and selected-run export checked with local fixture data.
+- No production statements, email, or SMS were sent during verification.

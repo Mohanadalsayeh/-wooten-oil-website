@@ -6881,7 +6881,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     </div>
 
     <div id="documentSectionStatementRunReport" role="tabpanel" aria-labelledby="documentTabStatementRunReport" hidden>
-      <div class="documents-form-heading schedule-report-heading"><div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for the latest 20 manual sends, scheduled runs, and tests. Click a run title to open customer progress, PDF statements, and delivery details.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
+      <div class="documents-form-heading schedule-report-heading"><div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for all saved manual sends, scheduled runs, and tests. Browse 20 runs per page. Click a run title to open customer progress, PDF statements, and delivery details.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
       <div id="scheduleReportStatus" class="status" role="status" aria-live="polite"></div>
       <div class="schedule-report-search" id="scheduleReportSearchBar">
         <label for="scheduleReportSearch">Search Statement Run Report</label>
@@ -6892,6 +6892,11 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       </div>
       <div id="scheduleReportSearchEmpty" class="schedule-empty" hidden>No statement runs match this search.</div>
       <div id="scheduleReport" class="schedule-report"><div class="schedule-empty">Open Statement Run Report or click Refresh to load results.</div></div>
+      <div id="scheduleReportPagination" class="db-pagination" aria-label="Statement run history pagination" hidden>
+        <button id="scheduleReportPrev" class="secondary" type="button" disabled>Previous</button>
+        <div id="scheduleReportPageInfo" class="db-page-info" role="status" aria-live="polite">Page 1 of 1</div>
+        <button id="scheduleReportNext" class="secondary" type="button" disabled>Next</button>
+      </div>
       <div class="schedule-cleanup-backdrop" id="scheduleCleanupBackdrop" hidden>
         <section class="schedule-cleanup-dialog" role="dialog" aria-modal="true" aria-labelledby="scheduleCleanupTitle">
           <div class="schedule-cleanup-head"><div><h3 id="scheduleCleanupTitle">90-Day PDF Cleanup</h3><p>Only combined statement PDFs that are at least 90 days old are shown. Nothing is deleted automatically.</p></div><button class="schedule-cleanup-close" id="scheduleCleanupClose" type="button" aria-label="Close cleanup">&times;</button></div>
@@ -11585,7 +11590,9 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   const bulkSelections={monthly:new Set(),weekly:new Set()};
   const openPreviewTypes=new Set();
   let loaded=false,loading=false,reportLoading=false,reportRuns=[];
-  let manualReportRuns=[],manualReportAuth='';
+  let reportPage=1,reportPages=1,reportTotal=0,reportFilteredTotal=0,reportSnapshot='',reportQuery='',reportAuth='';
+  let reportRequestVersion=0,reportController=null,reportSearchTimer=0;
+  const reportPagination=get('scheduleReportPagination'),reportPrev=get('scheduleReportPrev'),reportNext=get('scheduleReportNext'),reportPageInfo=get('scheduleReportPageInfo');
   const scheduleResultPageSize=20,previewPageSize=20;
   // Keep action availability tied to the whole operation, including config refreshes.
   let statementActionBusy=false,activeStatementButton=null;
@@ -11800,19 +11807,10 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       return '<span class="schedule-run-metric">'+esc({portal:'Portal',email:'Email',sms:'SMS'}[name])+' '+esc(text||'0 selected')+'</span>';
     }).join('');
   }
-  function manualReportRun(job){
-    const rows=(job.rows||[]).map(row=>({...row,success:!!row.pdf_ready}));
-    return {id:job.id,progress_job_id:job.id,run_type:'manual',title:job.title||'Account Statements — Manual Send',started_at:job.created_at,statement_date:job.statement_date,status:job.complete?(job.failed?'Completed with errors':'Completed'):'In progress',customer_count:job.total,processed_count:job.processed,failure_count:job.failed,results:rows};
-  }
-  function mergeReportRuns(runs){
-    if(manualReportAuth!==key()){manualReportRuns=[];manualReportAuth=key();}
-    return [...(Array.isArray(runs)?runs:[]),...manualReportRuns].sort((a,b)=>String(b.started_at||'').localeCompare(String(a.started_at||''))).slice(0,20);
-  }
   function renderRuns(runs){
-    runs=mergeReportRuns(runs);
     reportRuns=runs;
     if(exportBtn)exportBtn.disabled=true;
-    if(!reportRuns.length){report.innerHTML='<div class="schedule-empty">No statement runs have been recorded yet.</div>';filterReportRuns();return;}
+    if(!reportRuns.length){report.innerHTML='<div class="schedule-empty">'+(reportQuery?'No statement runs match this search.':'No statement runs have been recorded yet.')+'</div>';filterReportRuns();return;}
     const shownCombinedGroups=new Set();
     report.innerHTML=runs.map((run,runIndex)=>{
       const rows=Array.isArray(run.results)?run.results:[];
@@ -11925,12 +11923,16 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     report.querySelectorAll('.schedule-run-record').forEach(record=>record.classList.toggle('is-selected',!!record.querySelector('[data-schedule-run-select]:checked')));
   }
   function filterReportRuns(){
-    const query=String(reportSearch?.value||'').trim().toLowerCase();
-    const records=[...report.querySelectorAll('.schedule-run-record')];
-    let shown=0;
-    records.forEach(record=>{const matches=!query||record.textContent.toLowerCase().includes(query);record.hidden=!matches;if(matches)shown++;});
-    if(reportSearchCount)reportSearchCount.textContent=query?(shown.toLocaleString()+' of '+records.length.toLocaleString()+' runs'):(records.length.toLocaleString()+' run'+(records.length===1?'':'s'));
-    if(reportSearchEmpty)reportSearchEmpty.hidden=records.length===0||shown>0;
+    const first=reportRuns.length?(reportPage-1)*20+1:0,last=reportRuns.length?first+reportRuns.length-1:0;
+    if(reportSearchCount)reportSearchCount.textContent=reportQuery
+      ?reportFilteredTotal.toLocaleString()+' matching of '+reportTotal.toLocaleString()+' total runs'
+      :reportTotal.toLocaleString()+' total run'+(reportTotal===1?'':'s');
+    if(reportSearchEmpty)reportSearchEmpty.hidden=true;
+    reportPagination.hidden=reportTotal===0;
+    reportPageInfo.textContent='Showing '+first.toLocaleString()+'–'+last.toLocaleString()+' of '+reportFilteredTotal.toLocaleString()+(reportQuery?' matching':'')+' runs • Page '+reportPage.toLocaleString()+' of '+reportPages.toLocaleString();
+    reportPrev.disabled=reportLoading||reportPage<=1;
+    reportNext.disabled=reportLoading||reportPage>=reportPages;
+    reportPagination.setAttribute('aria-busy',String(reportLoading));
   }
   function reportRunFileLabel(run){
     return reportRunName(run).replace(/[–—]/g,' ').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim()||'Statement Run';
@@ -12001,7 +12003,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     const message='Delete '+selected.length+' selected combined statement PDF'+(selected.length===1?'':'s')+' permanently from Cloudflare R2?\n\nThis cannot be undone.';
     if(!window.confirm(message))return;
     cleanupDelete.disabled=true;cleanupDelete.textContent='Deleting…';
-    try{const data=await request('/api/admin/statement-scheduling/pdf-cleanup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys:selected})});setReportStatus(Number(data.deleted_count||selected.length)+' old combined PDF file(s) deleted.',true);await loadPdfCleanup();await loadReport(false);}
+    try{const data=await request('/api/admin/statement-scheduling/pdf-cleanup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys:selected})});setReportStatus(Number(data.deleted_count||selected.length)+' old combined PDF file(s) deleted.',true);await loadPdfCleanup();await loadReport(false,reportPage,false);}
     catch(error){setReportStatus(error.message||'Selected PDFs could not be deleted.',false);window.alert(error.message||'Selected PDFs could not be deleted.');syncCleanupSelection();}
   }
   async function requireSelectedRecipientServer(requireTestAll=false){
@@ -12036,45 +12038,52 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   async function saveSettings(showMessage=true){
     if(weeklyEnabled.checked&&weeklyFrequency.value==='biweekly'&&!weeklyAnchor.value){weeklyAnchor.focus();throw new Error('Select the first biweekly Cycle B run date.');}
     const data=await request('/api/admin/statement-scheduling',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody())});
-    applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;if(showMessage)setStatus('Statement scheduling settings saved.',true);return data;
+    applyConfig(data.config||{});loaded=true;if(showMessage)setStatus('Statement scheduling settings saved.',true);return data;
   }
-  async function loadReport(showMessage=true){
-    if(reportLoading)return;reportLoading=true;
-    const auth=key();syncReportExportState();
+  function showReportLoading(){
+    reportLoading=true;syncReportExportState();filterReportRuns();
+    report.setAttribute('aria-busy','true');
+    report.innerHTML='<div class="admin-inline-skeleton" role="status" aria-label="Loading statement runs">'+Array.from({length:5},()=>'<div class="schedule-history-skeleton"><span class="admin-inline-skeleton-line lg"></span><span class="admin-inline-skeleton-line md"></span></div>').join('')+'</div>';
+  }
+  async function loadReport(showMessage=true,targetPage=1,reset=true){
+    clearTimeout(reportSearchTimer);reportController?.abort();
+    const version=++reportRequestVersion,auth=key(),query=String(reportSearch?.value||'').trim();
+    const controller=new AbortController();reportController=controller;
+    if(reset||reportAuth!==auth)reportSnapshot='';
+    showReportLoading();
     if(showMessage)setReportStatus('Loading statement run reports…');
     try{
-      const [scheduled,index]=await Promise.allSettled([request('/api/admin/statement-scheduling'),request('/api/admin/statements/progress')]);
-      if(auth!==key())return;
-      if(scheduled.status==='rejected')throw scheduled.reason;
-      const runs=scheduled.value.runs||[];
-      if(index.status==='rejected'){renderRuns(runs);setReportStatus('Scheduled runs loaded. Manual sending history could not be refreshed. '+index.reason.message,false);return;}
-      manualReportAuth=auth;
-      manualReportRuns=(index.value.jobs||[]).filter(job=>job.source==='manual').map(job=>({id:job.id,progress_job_id:job.id,run_type:'manual',title:job.title,started_at:job.created_at,statement_date:job.statement_date,status:'Details unavailable',details_unavailable:'Sending details could not be loaded. Click the run title or refresh to retry.'}));
-      const visibleManual=mergeReportRuns(runs).filter(run=>run.run_type==='manual');
-      let unavailable=0;
-      // Bound concurrent reads. Opening history never generates or sends a statement.
-      for(let start=0;start<visibleManual.length;start+=4){
-        const batch=visibleManual.slice(start,start+4);
-        const snapshots=await Promise.allSettled(batch.map(run=>request('/api/admin/statements/progress?job_id='+encodeURIComponent(run.progress_job_id))));
-        if(auth!==key())return;
-        snapshots.forEach((result,index)=>{
-          const current=batch[index];
-          if(result.status==='fulfilled'&&result.value.job?.id===current.progress_job_id){
-            const position=manualReportRuns.findIndex(run=>run.progress_job_id===current.progress_job_id);
-            manualReportRuns[position]=manualReportRun(result.value.job);
-          }else unavailable++;
-        });
-      }
-      renderRuns(runs);
-      if(unavailable)setReportStatus(reportRuns.length.toLocaleString()+' runs loaded. '+unavailable+' manual run(s) have unavailable details. Refresh to retry.',false);
-      else if(showMessage)setReportStatus(reportRuns.length.toLocaleString()+' statement run'+(reportRuns.length===1?'':'s')+' loaded.',true);
-    }catch(error){if(auth===key())setReportStatus(error.message||'Statement run reports could not be loaded.',false);}
-    finally{reportLoading=false;syncReportExportState();}
+      const params=new URLSearchParams({page:String(targetPage),search:query});
+      if(reportSnapshot)params.set('snapshot',reportSnapshot);
+      const data=await request('/api/admin/statement-scheduling/history?'+params,{signal:controller.signal});
+      if(version!==reportRequestVersion||auth!==key())return;
+      if(!data.pagination||!Array.isArray(data.runs))throw new Error('Deploy the Ver527 Worker and history module to enable all statement history pages.');
+      const p=data.pagination;
+      reportPage=p.page;reportPages=p.pages;reportTotal=p.total;reportFilteredTotal=p.filtered_total;reportSnapshot=p.snapshot;reportQuery=query;reportAuth=auth;
+      renderRuns(data.runs);
+      const first=reportRuns.length?(reportPage-1)*20+1:0,last=reportRuns.length?first+reportRuns.length-1:0;
+      const unavailable=reportRuns.filter(run=>run.details_unavailable).length;
+      const message=reportFilteredTotal?'Showing '+first.toLocaleString()+'–'+last.toLocaleString()+' of '+reportFilteredTotal.toLocaleString()+(query?' matching':'')+' statement runs.':query?'No statement runs match this search.':'No statement runs have been recorded yet.';
+      if(unavailable)setReportStatus(message+' '+unavailable+' run(s) have unavailable details. Refresh to retry.',false);
+      else if(showMessage)setReportStatus(message,true);
+    }catch(error){
+      if(version!==reportRequestVersion||auth!==key()||error.name==='AbortError')return;
+      if(reportQuery===query&&reportAuth===auth)renderRuns(reportRuns);
+      else{reportRuns=[];report.innerHTML='<div class="schedule-empty">History could not be loaded. Click Refresh to retry.</div>';reportTotal=0;reportFilteredTotal=0;reportPage=1;reportPages=1;}
+      setReportStatus(error.message||'Statement run reports could not be loaded.',false);
+    }finally{
+      if(version===reportRequestVersion){reportLoading=false;report.removeAttribute('aria-busy');syncReportExportState();filterReportRuns();}
+    }
+  }
+  async function goToReportPage(page){
+    if(reportLoading||page===reportPage||page<1||page>reportPages)return;
+    await loadReport(true,page,false);
+    report.scrollIntoView({behavior:'smooth',block:'start'});
   }
   async function load(){
     if(loading)return;loading=true;
     window.wootenAdminSkeleton?.cards(report,3,'statement report');
-    try{const data=await request('/api/admin/statement-scheduling');applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;setStatus('Scheduling settings and reports loaded.',true);}
+    try{const data=await request('/api/admin/statement-scheduling');applyConfig(data.config||{});loaded=true;setStatus('Scheduling settings and reports loaded.',true);}
     catch(error){setStatus(error.message||'Scheduling could not be loaded.',false);}finally{loading=false;}
   }
   function previewCustomerRow(row,type){
@@ -12422,7 +12431,14 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     const link=event.target.closest('.schedule-combined-pdf-link');if(!link)return;event.preventDefault();event.stopPropagation();openCombinedStatementPdf({runId:Number(link.dataset.scheduleCombinedRun||0),groupId:String(link.dataset.scheduleCombinedGroup||''),part:Number(link.dataset.scheduleCombinedPart||1)});
   });
   report.addEventListener('change',event=>{if(event.target.matches('[data-schedule-run-select]'))syncReportExportState();});
-  reportSearch?.addEventListener('input',filterReportRuns);
+  reportSearch?.addEventListener('input',()=>{
+    clearTimeout(reportSearchTimer);reportController?.abort();++reportRequestVersion;
+    showReportLoading();
+    reportSearchTimer=setTimeout(()=>loadReport(true,1,false),250);
+  });
+  reportPrev.wootenGoToPage=goToReportPage;
+  reportPrev.addEventListener('click',()=>goToReportPage(reportPage-1));
+  reportNext.addEventListener('click',()=>goToReportPage(reportPage+1));
   saveBtn.addEventListener('click',()=>saveSettings(true).catch(error=>setStatus(error.message,false)));
   monthlyEnabled.addEventListener('change',syncCycleEnabledState);
   weeklyEnabled.addEventListener('change',syncCycleEnabledState);
@@ -17585,3 +17601,10 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=499">
 <script src="assets/js/wooten-fleet.js?v=499"></script>
+
+<style id="wooten-statement-history-pages-ver527">
+#scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
+#scheduleReport .admin-inline-skeleton{min-width:0;max-width:100%;overflow:hidden}
+#scheduleReport .schedule-history-skeleton{display:flex;flex-direction:column;gap:12px;padding:22px;margin-bottom:12px;border:1px solid #d5e2ec;border-radius:12px;background:#f7fafc;box-sizing:border-box;min-width:0;max-width:100%;overflow:hidden}
+#scheduleReport .schedule-history-skeleton span{max-width:100%}
+</style>

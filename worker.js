@@ -1,3 +1,4 @@
+import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
@@ -10989,6 +10990,18 @@ async function adminStatementScheduling({request,env}){
 }
 __name(adminStatementScheduling,"adminStatementScheduling");
 
+async function adminStatementRunHistory({request,env}){
+  if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:'Unauthorized.'},401);
+  try{
+    await ensureStatementSchedulingSchema(env);
+    return notificationJson({success:true,...await statementRunHistory(env,new URL(request.url).searchParams)});
+  }catch(error){
+    console.error('Statement run history failed',error);
+    return notificationJson({success:false,error:'Statement run history could not be loaded. Please refresh to retry.'},500);
+  }
+}
+__name(adminStatementRunHistory,"adminStatementRunHistory");
+
 async function adminStatementSchedulingPreview({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   try{
@@ -12642,6 +12655,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-scheduling") {
       if (request.method === "GET" || request.method === "POST") return adminStatementScheduling({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (url.pathname === "/api/admin/statement-scheduling/history") {
+      if (request.method === "GET") return adminStatementRunHistory({ request, env });
       return methodNotAllowed();
     }
 
