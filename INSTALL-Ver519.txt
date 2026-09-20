@@ -1,0 +1,12 @@
+Wooten Oil Portal — Ver519
+
+Apply after Ver518.
+
+Upload/replace these files in the website repository, keeping the paths:
+- admin-customers.html
+- assets/js/wooten-statement-progress.js
+
+This update hides the overall progress heading and bar once all statements in the run finish processing, including runs completed with errors. The completion summary and each customer result remain visible. A new run shows overall progress again. Test All keeps it visible until both selected cycles finish.
+
+No Worker update is needed.
+After publishing the website changes, refresh the admin page.

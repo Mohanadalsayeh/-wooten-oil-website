@@ -1,4 +1,4 @@
-/* Ver516: overall progress and action locks while statement processing is active. */
+/* Ver519: hide overall progress when statement processing is complete. */
 (function(){
   'use strict';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -91,6 +91,7 @@
     if(indeterminate)track.removeAttribute('aria-valuenow');else track.setAttribute('aria-valuenow',String(percent));
     track.setAttribute('aria-valuetext',progressText);
     host.querySelector('#sp-overall-fill').style.width=(indeterminate?30:percent)+'%';
+    host.querySelector('.sp-overall').hidden=complete;
     host.querySelector('.sp-overall').dataset.state=processing?(progressUnavailable?'waiting':'running'):complete?(failed?'errors':'complete'):'idle';
     host.querySelector('[data-sp-export]').disabled=processing||exporting||!total;
     host.querySelector('#sp-notice').textContent=dry?'Test only — nothing is sent. Click a customer name to open their generated PDF.':complete?'Click a customer name to open their PDF. Email acceptance is not inbox confirmation; SMS delivery updates when reported.':'Keep this page open for manual runs and tests. You can close this window and reopen progress. Customer PDF links appear as files are generated.';
