@@ -1,0 +1,25 @@
+Wooten Oil Portal — Ver514
+Statement Run Report tab
+
+Apply after Ver513. Replace admin-customers.html in GitHub with the file in this ZIP.
+Wait for Cloudflare Pages deployment to finish, then reload the admin page.
+No Worker update is required.
+
+Location: Statements & Invoices > Statement Run Report
+The tab appears between Statement Scheduling and Exceptional Customers.
+The report has been removed from the bottom of Statement Scheduling.
+
+The new tab keeps the existing report history, search, selected-run PDF export,
+90-Day PDF Cleanup, combined PDFs, and customer progress/PDF links.
+Opening or refreshing reports does not overwrite unsaved scheduling settings.
+Report feedback and errors appear in the report tab.
+Phone layout retains stacked controls and customer details.
+
+Verified in Chromium at desktop and phone widths using local fixture data:
+- Tab navigation and report loading/refresh
+- Search, PDF export, cleanup dialog, combined PDF, and customer progress links
+- Report errors remain visible in the new tab
+- Unsaved scheduling changes survive report refresh
+- No generation, delivery, settings write, or deletion is triggered by navigation
+
+This package contains only the changed website file and these instructions.

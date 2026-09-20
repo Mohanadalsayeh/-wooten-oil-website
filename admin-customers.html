@@ -3038,6 +3038,7 @@ input[type="file"]:focus-visible{
 /* Keep both Statements & Invoices sub-page headers perfectly aligned. */
 #admin-tab-documents #documentSectionCustomerDocuments,
 #admin-tab-documents #documentSectionSendStatements,
+#admin-tab-documents #documentSectionStatementRunReport,
 #admin-tab-documents #documentSectionExceptionalCustomers{
   margin-top:0 !important;
   padding-top:0 !important;
@@ -6508,6 +6509,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-document-section="customer-documents">Customer Documents</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements">Send Account Statements</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling">Statement Scheduling</button>
+      <button class="admin-subtab" id="documentTabStatementRunReport" type="button" role="tab" aria-selected="false" aria-controls="documentSectionStatementRunReport" data-document-section="statement-run-report">Statement Run Report</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="exceptional-customers">Exceptional Customers</button>
     </nav>
     <div id="documentSectionCustomerDocuments">
@@ -6859,7 +6861,11 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         </section>
       </div>
 
-      <div class="statement-batch-head schedule-report-heading" style="margin-top:22px"><div><h3>Statement Run Report</h3><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs. Open a run to see per-customer delivery results and failure reasons.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
+    </div>
+
+    <div id="documentSectionStatementRunReport" role="tabpanel" aria-labelledby="documentTabStatementRunReport" hidden>
+      <div class="documents-form-heading schedule-report-heading"><div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for the latest 20 automatic or manual scheduled runs. Open a run to see per-customer delivery results and failure reasons.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
+      <div id="scheduleReportStatus" class="status" role="status" aria-live="polite"></div>
       <div class="schedule-report-search" id="scheduleReportSearchBar">
         <label for="scheduleReportSearch">Search Statement Run Report</label>
         <div class="schedule-report-search-row">
@@ -6868,7 +6874,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         </div>
       </div>
       <div id="scheduleReportSearchEmpty" class="schedule-empty" hidden>No statement runs match this search.</div>
-      <div id="scheduleReport" class="schedule-report"><div class="schedule-empty">Open this tab or click Refresh Report to load scheduling results.</div></div>
+      <div id="scheduleReport" class="schedule-report"><div class="schedule-empty">Open Statement Run Report or click Refresh to load results.</div></div>
       <div class="schedule-cleanup-backdrop" id="scheduleCleanupBackdrop" hidden>
         <section class="schedule-cleanup-dialog" role="dialog" aria-modal="true" aria-labelledby="scheduleCleanupTitle">
           <div class="schedule-cleanup-head"><div><h3 id="scheduleCleanupTitle">90-Day PDF Cleanup</h3><p>Only combined statement PDFs that are at least 90 days old are shown. Nothing is deleted automatically.</p></div><button class="schedule-cleanup-close" id="scheduleCleanupClose" type="button" aria-label="Close cleanup">&times;</button></div>
@@ -10941,15 +10947,18 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
   const customerDocumentsSection=document.getElementById('documentSectionCustomerDocuments');
   const sendStatementsSection=document.getElementById('documentSectionSendStatements');
   const statementSchedulingSection=document.getElementById('documentSectionStatementScheduling');
+  const statementRunReportSection=document.getElementById('documentSectionStatementRunReport');
   const exceptionalCustomersSection=document.getElementById('documentSectionExceptionalCustomers');
   sectionButtons.forEach(button=>button.addEventListener('click',function(){
     const section=button.dataset.documentSection;
     customerDocumentsSection.hidden=section!=='customer-documents';
     sendStatementsSection.hidden=section!=='send-statements';
     if(statementSchedulingSection)statementSchedulingSection.hidden=section!=='statement-scheduling';
+    if(statementRunReportSection)statementRunReportSection.hidden=section!=='statement-run-report';
     if(exceptionalCustomersSection)exceptionalCustomersSection.hidden=section!=='exceptional-customers';
     sectionButtons.forEach(item=>item.setAttribute('aria-selected',item===button?'true':'false'));
     if(section==='statement-scheduling'&&typeof window.loadStatementScheduling==='function')window.loadStatementScheduling();
+    if(section==='statement-run-report'&&typeof window.loadStatementRunReport==='function')window.loadStatementRunReport();
     if(section==='exceptional-customers'&&typeof window.loadExceptionalCustomers==='function')window.loadExceptionalCustomers();
   }));
   const account=document.getElementById('docAccount');
@@ -11587,7 +11596,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   const previewPages={monthly:1,midmonth:1,weekly:1};
   const bulkSelections={monthly:new Set(),weekly:new Set()};
   const openPreviewTypes=new Set();
-  let loaded=false,loading=false,reportRuns=[];
+  let loaded=false,loading=false,reportLoading=false,reportRuns=[];
   const scheduleResultPageSize=20,previewPageSize=20;
 
   document.querySelectorAll('[data-hour-select]').forEach(select=>{
@@ -11603,6 +11612,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   function money(value){return Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});}
   function displayDate(value){return value?WootenTime.dateTime(value):'';}
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
+  function setReportStatus(message,ok){const target=get('scheduleReportStatus');target.className='status show '+(ok===true?'ok':ok===false?'bad':'');target.textContent=message||'';}
   function key(){return (get('adminKey').value||'').trim();}
   function configBody(){return {
     weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),weekly_frequency:weeklyFrequency.value,weekly_anchor_date:weeklyAnchor.value,
@@ -11794,7 +11804,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       const blob=await response.blob(),url=URL.createObjectURL(blob);
       if(popup)popup.location.href=url;else{const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';document.body.appendChild(link);link.click();link.remove();}
       window.setTimeout(()=>URL.revokeObjectURL(url),120000);
-    }catch(error){if(popup)popup.close();setStatus(error.message||'Combined PDF could not be opened.',false);window.alert(error.message||'Combined PDF could not be opened.');}
+    }catch(error){if(popup)popup.close();setReportStatus(error.message||'Combined PDF could not be opened.',false);window.alert(error.message||'Combined PDF could not be opened.');}
   }
   function cleanupFormatBytes(bytes){const n=Math.max(0,Number(bytes)||0);if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
   function cleanupFormatDate(value){return WootenTime.dateTime(value);}
@@ -11838,7 +11848,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   async function exportStatementRunReport(){
     const selectedIndexes=selectedReportRunIndexes();
     if(!selectedIndexes.size){syncReportExportState();return;}
-    if(!window.WootenAdminTablePdf?.exportData){setStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}
+    if(!window.WootenAdminTablePdf?.exportData){setReportStatus('The PDF exporter is not available. Refresh the page and try again.',false);return;}
     const label=exportBtn?.querySelector('span');
     const rows=[];
     let pdfTitle='Statement Run Report - '+selectedIndexes.size.toLocaleString()+' Selected Runs';
@@ -11870,7 +11880,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
         rows,
         (done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');}
       );
-    }catch(error){setStatus(error.message||'The Statement Run Report could not be exported.',false);}
+    }catch(error){setReportStatus(error.message||'The Statement Run Report could not be exported.',false);}
     finally{syncReportExportState();if(label)label.textContent='Export PDF';}
   }
   function syncCleanupSelection(){
@@ -11897,8 +11907,8 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     const message='Delete '+selected.length+' selected combined statement PDF'+(selected.length===1?'':'s')+' permanently from Cloudflare R2?\n\nThis cannot be undone.';
     if(!window.confirm(message))return;
     cleanupDelete.disabled=true;cleanupDelete.textContent='Deleting…';
-    try{const data=await request('/api/admin/statement-scheduling/pdf-cleanup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys:selected})});setStatus(Number(data.deleted_count||selected.length)+' old combined PDF file(s) deleted.',true);await loadPdfCleanup();await load();}
-    catch(error){setStatus(error.message||'Selected PDFs could not be deleted.',false);window.alert(error.message||'Selected PDFs could not be deleted.');syncCleanupSelection();}
+    try{const data=await request('/api/admin/statement-scheduling/pdf-cleanup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys:selected})});setReportStatus(Number(data.deleted_count||selected.length)+' old combined PDF file(s) deleted.',true);await loadPdfCleanup();await loadReport(false);}
+    catch(error){setReportStatus(error.message||'Selected PDFs could not be deleted.',false);window.alert(error.message||'Selected PDFs could not be deleted.');syncCleanupSelection();}
   }
   async function requireSelectedRecipientServer(requireTestAll=false){
     const probe=await request('/api/admin/statement-scheduling?compact=1');
@@ -11933,6 +11943,16 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(weeklyEnabled.checked&&weeklyFrequency.value==='biweekly'&&!weeklyAnchor.value){weeklyAnchor.focus();throw new Error('Select the first biweekly Cycle B run date.');}
     const data=await request('/api/admin/statement-scheduling',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody())});
     applyConfig(data.config||{});renderRuns(data.runs||[]);loaded=true;if(showMessage)setStatus('Statement scheduling settings saved.',true);return data;
+  }
+  async function loadReport(showMessage=true){
+    if(reportLoading)return;reportLoading=true;
+    if(showMessage)setReportStatus('Loading statement run reports…');
+    try{
+      const data=await request('/api/admin/statement-scheduling');
+      renderRuns(data.runs||[]);
+      if(showMessage)setReportStatus(reportRuns.length.toLocaleString()+' statement run'+(reportRuns.length===1?'':'s')+' loaded.',true);
+    }catch(error){setReportStatus(error.message||'Statement run reports could not be loaded.',false);}
+    finally{reportLoading=false;}
   }
   async function load(){
     if(loading)return;loading=true;
@@ -12302,7 +12322,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   weeklyFrequency.addEventListener('change',syncWeeklyFrequency);
   weeklyAnchor.addEventListener('change',syncWeeklyFrequency);
   refreshBtn.addEventListener('click',()=>window.WootenRefreshUI.run(refreshBtn,async()=>{
-    await load();await new Promise(resolve=>window.requestAnimationFrame(resolve));(report.previousElementSibling||report).scrollIntoView({behavior:'smooth',block:'start'});
+    await loadReport();await new Promise(resolve=>window.requestAnimationFrame(resolve));report.scrollIntoView({behavior:'smooth',block:'start'});
   }));
   get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
   get('schedulePreviewMidmonth').addEventListener('click',()=>showPreview('midmonth'));
@@ -12329,6 +12349,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   get('scheduleRunMonthly').addEventListener('click',()=>runNow('monthly'));
   syncCycleEnabledState();
   window.loadStatementScheduling=function(){if(!loaded)load();};
+  window.loadStatementRunReport=loadReport;
   window.refreshStatementCyclePreviews=async function(){for(const type of ['monthly','weekly'])if(openPreviewTypes.has(type))await showPreview(type,false);};
 })();
 </script>
@@ -15064,7 +15085,8 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   #admin-tab-documents #documentSectionCustomerDocuments,
   #admin-tab-documents #documentSectionSendStatements,
   #admin-tab-documents #documentSectionStatementScheduling,
-  #admin-tab-documents #documentSectionExceptionalCustomers{
+  #admin-tab-documents #documentSectionStatementRunReport,
+#admin-tab-documents #documentSectionExceptionalCustomers{
     max-width:100% !important;
     min-width:0 !important;
     box-sizing:border-box !important;
@@ -15424,7 +15446,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <style id="wooten-statement-scheduling-mobile-width-ver320">
 /* Keep Statement Scheduling at the same phone width as the other document tabs. */
 @media(max-width:800px){
-  #documentSectionStatementScheduling{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport){
     display:block;
     width:100%!important;
     max-width:100%!important;
@@ -15432,60 +15454,60 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
     overflow-x:hidden!important;
     box-sizing:border-box!important;
   }
-  #documentSectionStatementScheduling[hidden]{display:none!important}
-  #documentSectionStatementScheduling > *,
-  #documentSectionStatementScheduling .schedule-card,
-  #documentSectionStatementScheduling .statement-scheduling-grid,
-  #documentSectionStatementScheduling .schedule-report-heading,
-  #documentSectionStatementScheduling .schedule-report-actions,
-  #documentSectionStatementScheduling .schedule-report-search,
-  #documentSectionStatementScheduling .schedule-report,
-  #documentSectionStatementScheduling .schedule-run-record,
-  #documentSectionStatementScheduling .schedule-run,
-  #documentSectionStatementScheduling .schedule-run summary,
-  #documentSectionStatementScheduling .schedule-run-title,
-  #documentSectionStatementScheduling .schedule-run-metrics,
-  #documentSectionStatementScheduling .schedule-run-detail,
-  #documentSectionStatementScheduling .schedule-result-pagination{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport)[hidden]{display:none!important}
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) > *,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-card,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .statement-scheduling-grid,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-report-heading,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-report-actions,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-report-search,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-report,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-record,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run summary,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-title,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-metrics,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-detail,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-result-pagination{
     min-width:0!important;
     max-width:100%!important;
     box-sizing:border-box!important;
   }
-  #documentSectionStatementScheduling .statement-scheduling-grid,
-  #documentSectionStatementScheduling .schedule-shared-fields,
-  #documentSectionStatementScheduling .schedule-report-search-row{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .statement-scheduling-grid,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-shared-fields,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-report-search-row{
     grid-template-columns:minmax(0,1fr)!important;
   }
-  #documentSectionStatementScheduling .schedule-fields:not(.schedule-shared-fields),
-  #documentSectionStatementScheduling .schedule-result-row{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-fields:not(.schedule-shared-fields),
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-result-row{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
-  #documentSectionStatementScheduling .schedule-run-title > *,
-  #documentSectionStatementScheduling .schedule-result-row > *{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-title > *,
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-result-row > *{
     min-width:0!important;
     overflow-wrap:anywhere;
   }
-  #documentSectionStatementScheduling .schedule-run-title span{text-align:right}
-  #documentSectionStatementScheduling .schedule-combined-pdf-link{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-title span{text-align:right}
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-combined-pdf-link{
     max-width:100%!important;
     white-space:normal!important;
     overflow-wrap:anywhere;
   }
-  #documentSectionStatementScheduling .schedule-preview-list{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-preview-list{
     max-width:100%!important;
     overflow-x:hidden!important;
   }
 }
 @media(max-width:430px){
-  #documentSectionStatementScheduling .schedule-result-row{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-result-row{
     grid-template-columns:minmax(0,1fr)!important;
   }
-  #documentSectionStatementScheduling .schedule-run-title{
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-title{
     align-items:flex-start;
     flex-direction:column;
     gap:5px;
   }
-  #documentSectionStatementScheduling .schedule-run-title span{text-align:left}
+  :is(#documentSectionStatementScheduling,#documentSectionStatementRunReport) .schedule-run-title span{text-align:left}
 }
 </style>
 
@@ -17156,7 +17178,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 .table-pdf-export-toolbar,
 #admin-tab-collections .collections-table-actions,
 #documentSectionExceptionalCustomers .exceptional-list-actions,
-#documentSectionStatementScheduling .schedule-report-actions,
+#documentSectionStatementRunReport .schedule-report-actions,
 .admin-audit-table-toolbar{
   display:flex!important;
   flex-wrap:wrap!important;
@@ -17191,7 +17213,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
   .table-pdf-export-toolbar,
   #admin-tab-collections .collections-table-actions,
   #documentSectionExceptionalCustomers .exceptional-list-actions,
-  #documentSectionStatementScheduling .schedule-report-actions,
+  #documentSectionStatementRunReport .schedule-report-actions,
   .admin-audit-table-toolbar{
     display:flex!important;
     justify-content:flex-end!important;
@@ -17199,7 +17221,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
   .table-pdf-export-toolbar .table-pdf-export-button,
   #admin-tab-collections .collections-table-actions button,
   #documentSectionExceptionalCustomers .exceptional-list-actions button,
-  #documentSectionStatementScheduling .schedule-report-actions button,
+  #documentSectionStatementRunReport .schedule-report-actions button,
   .admin-audit-table-toolbar>button,
   .admin-audit-table-toolbar .table-pdf-export-button{
     flex:0 1 auto!important;
@@ -17269,7 +17291,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 </style>
 <style id="wooten-table-action-vertical-spacing-ver371">
 /* Preserve breathing room between report text/status panels and table actions. */
-#documentSectionStatementScheduling .schedule-report-actions{
+#documentSectionStatementRunReport .schedule-report-actions{
   margin-top:16px!important;
 }
 #admin-tab-backup #portalBackupStatus.show + .table-pdf-export-toolbar{
@@ -17349,14 +17371,14 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <style id="wooten-statement-report-mobile-stacked-actions-ver387">
 /* Stack the Statement Run Report actions evenly on phones. */
 @media(max-width:800px){
-  #documentSectionStatementScheduling .schedule-report-actions{
+  #documentSectionStatementRunReport .schedule-report-actions{
     flex-direction:column!important;
     flex-wrap:nowrap!important;
     align-items:stretch!important;
     justify-content:flex-start!important;
     gap:10px!important;
   }
-  #documentSectionStatementScheduling .schedule-report-actions button{
+  #documentSectionStatementRunReport .schedule-report-actions button{
     flex:0 0 auto!important;
     width:100%!important;
     min-width:0!important;
