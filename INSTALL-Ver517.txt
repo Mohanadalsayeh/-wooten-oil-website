@@ -1,0 +1,35 @@
+Wooten Oil Portal — Ver517
+Lock the running cycle's checkbox, settings, and customer table
+
+Apply after Ver516. Replace admin-customers.html in GitHub with the file in this ZIP.
+Wait for Cloudflare Pages deployment to finish, then reload the admin page.
+No Worker update is required.
+
+While Preview, Test, or Run is processing, the participating cycle is temporarily locked:
+- Enable checkbox in the cycle title
+- Day, time, frequency, and biweekly date controls
+- Customer search, checkboxes, Select All Matching, and Clear Selection
+- Individual assignments, Save Assignment, and bulk moves
+- Customer pagination controls
+
+Test All locks both participating cycles until the complete operation finishes.
+The cycle heading shows "Processing..." and the locked controls are dimmed.
+The progress bar remains fully visible.
+Existing Preview/Test/Run action locks across both cycles are preserved.
+
+After completion or an error, controls return to their correct enabled state.
+Cycle checkbox values and selected customers are preserved. A cycle that was
+turned off remains off, and Test/Run stay disabled when no customers are selected.
+Background preview refreshes wait until processing has finished.
+
+Verified in Chromium using local fixture data and mocked APIs:
+- Preview A/B, Test A/B, Run A/B, and Test All
+- All participating cycle fields, checkboxes, and table controls disabled
+- Native clicks and synthetic events cannot edit a locked cycle
+- Locks survive settings saves, progress updates, and final report refresh
+- Completion, cancellation, startup errors, and deferred customer-list refreshes
+- Existing cycle settings and customer selections preserved
+- Desktop/phone control behavior and readable progress display
+- All 36 inline scripts parse successfully
+
+No live emails or SMS messages were sent during verification.

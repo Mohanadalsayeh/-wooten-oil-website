@@ -2260,6 +2260,9 @@ input[type="file"]:focus-visible{
 .schedule-cycle-enabled-status{font-size:12px;color:#68798a}
 .schedule-cycle-controls{border:0;padding:0;margin:0;min-width:0;width:100%}
 .schedule-cycle-controls:disabled{opacity:.48}
+.schedule-cycle-controls[data-processing="true"]{opacity:1}
+.schedule-cycle-controls[data-processing="true"] :is(.schedule-fields,.schedule-preview-inline){opacity:.5}
+.schedule-title-toggle:has(input:disabled){opacity:.5;cursor:default}
 .schedule-enabled{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-weight:900;color:#17324d}.schedule-enabled input{width:18px;height:18px}
 .schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.schedule-field label{display:block;margin:0 0 5px;color:#526477;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 .schedule-field input,.schedule-field select{width:100%;min-height:44px;border:1px solid #cad6e0;border-radius:9px;background:#fff;color:#17324d;padding:8px 10px;font:inherit;box-sizing:border-box}
@@ -11601,9 +11604,11 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   // Keep action availability tied to the whole operation, including config refreshes.
   let statementActionBusy=false,activeStatementButton=null;
   let statementActionFinished=Promise.resolve(),resolveStatementAction=null;
-  function beginStatementAction(buttonId){
+  let processingStatementCycles=new Set();
+  function beginStatementAction(buttonId,cycleTypes){
     if(statementActionBusy)return false;
     statementActionBusy=true;
+    processingStatementCycles=new Set(cycleTypes||[]);
     statementActionFinished=new Promise(resolve=>{resolveStatementAction=resolve;});
     activeStatementButton=get(buttonId);
     activeStatementButton?.setAttribute('aria-busy','true');
@@ -11614,9 +11619,18 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     activeStatementButton?.removeAttribute('aria-busy');
     activeStatementButton=null;
     statementActionBusy=false;
+    processingStatementCycles.clear();
     syncCycleEnabledState();
     const resolve=resolveStatementAction;resolveStatementAction=null;resolve?.();
   }
+  // Native disabled fieldsets also cover customer controls rendered during refreshes.
+  // Guard delegated handlers against synthetic events on the locked cycle as well.
+  for(const name of ['click','input','change'])panel.addEventListener(name,event=>{
+    const cycle=event.target.closest?.('.schedule-card');
+    const toggle=cycle?.querySelector('.schedule-title-toggle input');
+    const type=toggle?.id==='scheduleMonthlyEnabled'?'monthly':toggle?.id==='scheduleWeeklyEnabled'?'weekly':null;
+    if(type&&processingStatementCycles.has(type)){event.preventDefault();event.stopImmediatePropagation();}
+  },true);
   function syncTestAllSelectionState(){
     const selected=(monthlyEnabled.checked?(bulkSelections.monthly?.size||0):0)+(weeklyEnabled.checked?(bulkSelections.weekly?.size||0):0);
     const button=get('scheduleTestAll');
@@ -11665,9 +11679,11 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   function syncCycleEnabledState(){
     const monthlyOn=monthlyEnabled.checked,weeklyOn=weeklyEnabled.checked;
     [['Monthly',monthlyOn],['Weekly',weeklyOn]].forEach(([name,on])=>{
-      const controls=get('schedule'+name+'Controls'),state=get('schedule'+name+'EnabledStatus');
-      if(controls)controls.disabled=!on;
-      if(state)state.textContent=on?'Enabled':'Disabled';
+      const controls=get('schedule'+name+'Controls'),state=get('schedule'+name+'EnabledStatus'),toggle=get('schedule'+name+'Enabled');
+      const processing=processingStatementCycles.has(name==='Monthly'?'monthly':'weekly');
+      if(controls){controls.disabled=!on||processing;controls.dataset.processing=String(processing);}
+      if(toggle)toggle.disabled=processing;
+      if(state)state.textContent=processing?'Processing…':on?'Enabled':'Disabled';
     });
     monthlyDay.disabled=!monthlyOn;monthlyHour.disabled=!monthlyOn;
     const monthlyPreview=get('schedulePreviewMonthly');if(monthlyPreview)monthlyPreview.disabled=statementActionBusy||!monthlyOn;
@@ -12029,7 +12045,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(!preview)return;
     // Assignment/filter refreshes must wait, so their updated customer lists are not lost.
     while(statementActionBusy){if(saveFirst)return;await statementActionFinished;}
-    if(!beginStatementAction('schedulePreview'+(type==='weekly'?'Weekly':type==='midmonth'?'Midmonth':'Monthly')))return;
+    if(!beginStatementAction('schedulePreview'+(type==='weekly'?'Weekly':type==='midmonth'?'Midmonth':'Monthly'),[type]))return;
     try{
       const previousSearch=String(preview.querySelector('[data-schedule-preview-search]')?.value||'');
       openPreviewTypes.add(type);
@@ -12168,7 +12184,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       ?'TEST RUN: Generate and validate '+label+' statements for the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nNo SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'
       :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
-    if(!beginStatementAction('schedule'+(isTest?'Test':'Run')+(type==='weekly'?'Weekly':'Monthly')))return;
+    if(!beginStatementAction('schedule'+(isTest?'Test':'Run')+(type==='weekly'?'Weekly':'Monthly'),[type]))return;
     try{
       showStatementProcessingOverlay(
         (isTest?'Testing ':'Processing ')+label+' statements…',
@@ -12245,7 +12261,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(selections.monthly.length)breakdown.push('Cycle A: '+selections.monthly.length.toLocaleString()+' selected');
     if(selections.weekly.length)breakdown.push('Cycle B: '+selections.weekly.length.toLocaleString()+' selected');
     if(!window.confirm('TEST ALL CYCLES — SELECTED CUSTOMERS ONLY\n\n'+breakdown.join('\n')+'\n\nTotal: '+totalSelected.toLocaleString()+' selected customer'+(totalSelected===1?'':'s')+'.\n\nOnly these exact selected customers will be tested. No SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'))return;
-    if(!beginStatementAction('scheduleTestAll'))return;
+    if(!beginStatementAction('scheduleTestAll',types))return;
     const testAllButton=get('scheduleTestAll');
     try{
       showStatementProcessingOverlay(
