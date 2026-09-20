@@ -21,7 +21,7 @@
 @media(prefers-reduced-motion:reduce){.sp-overall[data-state="running"] #sp-overall-fill{animation:none}#sp-overall-fill{transition:none}}
 .sp-table-wrap{overflow:auto;min-height:150px;flex:1}.sp-table{border-collapse:collapse;width:100%;min-width:1000px;font-size:14px}.sp-table th{position:sticky;top:0;z-index:1;background:#edf3f7;color:#526b81;font-size:12px;text-transform:uppercase;text-align:left;padding:13px 16px;border-bottom:1px solid #cfdeea}.sp-table td{padding:15px 16px;vertical-align:top;border-bottom:1px solid #e3ebf2}.sp-table th:first-child{width:24%}.sp-table th:nth-child(2){width:11%}.sp-table th:nth-child(3){width:16%}.sp-table small{display:block;color:#637a90;font-size:12px;line-height:1.45;margin-top:5px}.sp-table .sp-balance{white-space:nowrap;font-weight:700}.sp-table progress{display:block;margin:8px 0 0;width:100%;height:8px;accent-color:#258050}.sp-table tr.sp-has-error progress{accent-color:#cc2937}.sp-badge{font-size:13px;font-weight:700}.sp-badge[data-state=failed],.sp-row-error{color:#b32436}.sp-badge[data-state=sent],.sp-badge[data-state=delivered]{color:#197342}.sp-badge[data-state=accepted],.sp-badge[data-state=sending],.sp-badge[data-state=test]{color:#1b5f9c}.sp-badge[data-state=not_selected],.sp-badge[data-state=not_sent],.sp-badge[data-state=queued]{color:#637a90}
 .sp-table tr.sp-partial-delivery-failure progress{accent-color:#d97706}
-/* Ver526: customer names and Open PDF actions use underline-only hover styling. */
+/* Ver529: customer names and Save PDF actions use underline-only hover styling. */
 .sp-overlay #sp-rows :is(button,a).sp-customer-link,
 .sp-overlay #sp-rows :is(button,a).sp-customer-link:is(:hover,:focus,:active){appearance:none!important;display:inline!important;width:auto!important;min-width:0!important;min-height:0!important;height:auto!important;background:transparent!important;border:0!important;padding:0!important;margin:0!important;border-radius:0!important;color:#19384f!important;box-shadow:none!important;transform:none!important;filter:none!important;font:inherit!important;font-size:14px!important;font-weight:700!important;line-height:1.4!important;text-align:left!important;text-decoration:none!important;transition:none!important;cursor:pointer!important}
 .sp-overlay #sp-rows :is(button,a).sp-customer-link span{font:inherit!important;text-decoration:none!important}
@@ -56,3 +56,20 @@
 .sp-reopen{margin:10px 0}.sp-empty{padding:28px!important;text-align:center;color:#637a90}body.sp-open{overflow:hidden!important}
 @media(max-width:650px){.sp-overlay{padding:10px}.sp-dialog{max-height:calc(100dvh - 20px);border-radius:8px}.sp-header{padding:16px;gap:12px}.sp-header h2{font-size:20px}.sp-toolbar{padding:12px 16px}.sp-actions{padding:12px 16px;gap:10px}.sp-dialog button.sp-export{min-width:0;padding:8px 10px!important}.sp-footer{padding:12px 16px}.sp-footer-actions{flex-wrap:wrap;gap:12px}.sp-pager{gap:7px}.sp-dialog button.sp-done{min-width:80px}.sp-table-wrap{min-height:100px}.sp-error{padding:10px 16px}}
 @media(max-width:650px){.sp-overall-heading{gap:8px}.sp-overall-heading strong{white-space:nowrap}}
+
+/* Ver529: search and status filtering share the Export PDF toolbar. */
+.sp-dialog .sp-actions{display:grid;grid-template-columns:minmax(180px,1fr) minmax(190px,240px) auto;align-items:end}
+.sp-dialog .sp-actions label{display:flex;flex-direction:column;gap:6px;margin:0;min-width:0;color:#526b81;font-size:12px;font-weight:600}
+.sp-dialog .sp-actions :is(input,select){display:block;width:100%!important;min-width:0;max-width:100%;height:44px!important;min-height:44px!important;box-sizing:border-box;margin:0!important;padding:9px 12px!important;border:1px solid #d5e1ec;border-radius:6px;background:#fff;color:#19384f;font:inherit;font-size:14px!important;line-height:1.4}
+.sp-dialog .sp-actions :is(input,select):focus-visible{outline:2px solid #2474bf;outline-offset:2px}
+.sp-dialog .sp-actions .sp-export{justify-self:end}
+.sp-dialog .sp-pager{flex-wrap:wrap;min-width:0}
+.sp-dialog #sp-page{font-size:12px}
+@media(max-width:650px){
+  .sp-dialog .sp-actions{grid-template-columns:minmax(0,1fr) auto;gap:10px}
+  .sp-dialog .sp-search-field{grid-column:1/-1}
+  .sp-dialog .sp-actions :is(input,select){font-size:16px!important}
+  .sp-dialog .sp-footer-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+  .sp-dialog .sp-pager{display:grid;grid-template-columns:max-content max-content;justify-content:start;gap:7px}
+  .sp-dialog #sp-page{grid-column:1/-1;grid-row:1;max-width:100%;overflow-wrap:anywhere}
+}

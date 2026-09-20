@@ -1,0 +1,32 @@
+Wooten Oil Portal - Ver529
+Apply after Ver528.
+
+Replace these files in the same locations in your portal project:
+  admin-customers.html
+  assets/js/wooten-statement-progress.js
+  assets/css/wooten-statement-progress.css
+
+Publish the updated portal files, then refresh the admin page. The updated
+HTML requests the Ver529 statement progress assets to avoid cached versions.
+No Worker update is required for this release.
+
+Changes
+- Customer name/ID search and status filtering share the Export PDF toolbar.
+- Search and filters cover all customers in the selected run, across pages.
+- Filters include in-progress customers, completed customers without errors,
+  any errors, email failures, SMS failures, both email and SMS failures,
+  portal failures, and PDFs that are not ready.
+- Pagination displays the matching count when search or a filter is active.
+- Export PDF includes all matching customers across pages. It remains disabled
+  while the run is processing, while data loads, or when no customers match.
+- Customer names open their statement PDF. Save PDF beneath each name downloads
+  the customer's PDF file, using the server-provided filename when available.
+- Save PDF keeps the underline-only hover style and shows preparation/errors
+  within the customer's row. It does not open a viewer tab.
+- The footer explains the separate open and save actions and fits mobile screens.
+
+Validation
+Browser checks passed for full-run search, status filters, pagination, filtered
+exports, actual PDF download events and file contents, customer-name PDF opening,
+failure/retry handling, processing locks, mobile layout, and authentication cleanup.
+Validation used mocked API responses; no customer emails or SMS were sent.
