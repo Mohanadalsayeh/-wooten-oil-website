@@ -6526,8 +6526,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   <div class="card admin-tab-panel" id="admin-tab-documents" role="tabpanel" aria-labelledby="admin-tab-btn-documents" data-admin-panel="documents">
     <nav class="admin-subtabs" role="tablist" aria-label="Statements and invoices sections">
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-document-section="customer-documents">Customer Documents</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements">Send Account Statements</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling">Statement Scheduling</button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Send Account Statements</span></button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Statement Scheduling</span></button>
       <button class="admin-subtab" id="documentTabStatementRunReport" type="button" role="tab" aria-selected="false" aria-controls="documentSectionStatementRunReport" data-document-section="statement-run-report">Statement Run Report</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="exceptional-customers">Exceptional Customers</button>
     </nav>
@@ -17608,3 +17608,42 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #scheduleReport .schedule-history-skeleton{display:flex;flex-direction:column;gap:12px;padding:22px;margin-bottom:12px;border:1px solid #d5e2ec;border-radius:12px;background:#f7fafc;box-sizing:border-box;min-width:0;max-width:100%;overflow:hidden}
 #scheduleReport .schedule-history-skeleton span{max-width:100%}
 </style>
+
+<style id="wooten-statement-tab-activity-ver528">
+body #admin-tab-documents > .admin-subtabs .admin-subtab:has(.statement-tab-spinner){display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important}
+body #admin-tab-documents > .admin-subtabs .admin-subtab:has(.statement-tab-spinner)>span:last-child{font:inherit!important;color:inherit!important}
+body #admin-tab-documents > .admin-subtabs .statement-tab-spinner{display:inline-block!important;flex:0 0 14px;width:14px!important;height:14px!important;box-sizing:border-box;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:statementTabSpin .8s linear infinite!important}
+body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{display:none!important}
+@keyframes statementTabSpin{to{rotate:1turn}}
+@media(prefers-reduced-motion:reduce){body #admin-tab-documents > .admin-subtabs .statement-tab-spinner{animation:none!important}}
+</style>
+<script id="wooten-statement-tab-activity-script">
+(function(){
+  // Follow the existing operation state so closing a modal or switching tabs
+  // does not hide an operation that is still running.
+  const scheduling=document.getElementById('documentSectionStatementScheduling');
+  const sending=document.getElementById('documentSectionSendStatements');
+  const tabs={
+    scheduling:document.querySelector('[data-document-section="statement-scheduling"]'),
+    sending:document.querySelector('[data-document-section="send-statements"]')
+  };
+  if(!scheduling||!sending||!tabs.scheduling||!tabs.sending)return;
+  const labels={scheduling:'Statement Scheduling',sending:'Send Account Statements'};
+  function setBusy(name,busy){
+    const tab=tabs[name],spinner=tab.querySelector('.statement-tab-spinner');
+    spinner.hidden=!busy;
+    tab.classList.toggle('statement-tab-busy',busy);
+    if(busy){tab.setAttribute('aria-busy','true');tab.setAttribute('aria-label',labels[name]+' — Processing');}
+    else{tab.removeAttribute('aria-busy');tab.removeAttribute('aria-label');}
+  }
+  function sync(){
+    const signedIn=!!document.getElementById('adminKey')?.value.trim();
+    setBusy('scheduling',signedIn&&(scheduling.dataset.statementProcessing==='true'||!!scheduling.querySelector('button[aria-busy="true"]')));
+    setBusy('sending',signedIn&&['statementGenerateSend','statementPreview'].some(id=>document.getElementById(id)?.dataset.requestPending==='true'));
+  }
+  const observer=new MutationObserver(sync);
+  for(const panel of [scheduling,sending])observer.observe(panel,{subtree:true,attributes:true,attributeFilter:['data-statement-processing','data-request-pending','aria-busy']});
+  window.addEventListener('wooten-admin-auth-changed',sync);
+  sync();
+})();
+</script>

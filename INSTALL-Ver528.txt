@@ -1,0 +1,19 @@
+Wooten Oil Portal - Ver528
+
+Apply after Ver527. Replace admin-customers.html and publish the updated admin
+page using your usual deployment process. No Worker update is needed.
+
+Changes:
+- A rotating processing icon appears to the left of Statement Scheduling during
+  Run A/B, Test A/B, Test All, and customer previews started from that page.
+- A rotating icon appears to the left of Send Account Statements during manual
+  statement generation/sending or PDF preview preparation.
+- Icons follow the existing operation state, remain visible when switching tabs
+  or closing the progress window, and disappear when the operation ends.
+- Existing tab text styling, navigation, and disabled-control behavior are kept.
+- Accessible processing labels are included. Reduced-motion users see a static
+  processing icon.
+
+Checked using the actual admin styles and operation state attributes: icon
+placement/rotation, completion/error cleanup signals, simultaneous activity,
+logout, hidden panels, and desktop/mobile layout.
