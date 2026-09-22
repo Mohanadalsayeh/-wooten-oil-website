@@ -178,3 +178,36 @@ body .wooten-fleet .fleet-table-wrap table th[data-fleet-align="right"] :is(.wo-
  padding-top:0!important;padding-bottom:0!important;
 }
 #customerFleetRoot .fleet-search input[type="search"]:focus-visible{outline-offset:-3px;box-shadow:none}
+
+/* Ver534: full-width phone search, then action buttons, then account review. */
+@media(max-width:700px){
+ #adminFleetRoot .fleet-toolbar>.fleet-check{
+  order:2;flex:0 0 100%;width:100%;min-width:0;
+ }
+ #adminFleetRoot .fleet-toolbar>.fleet-search{
+  order:0;flex:0 0 100%;width:100%;min-width:0;
+ }
+ #adminFleetRoot .fleet-toolbar>button{order:1}
+ #adminFleetRoot .fleet-toolbar>.fleet-search input[type="search"]{
+  width:100%;max-width:100%;min-width:0;
+ }
+}
+
+/* Ver537: full-width phone sync actions and labeled settings. */
+@media(max-width:700px){
+ #adminFleetRoot .fleet-sync-controls{
+  --wooten-action-button-height:48px;
+  display:grid;grid-template-columns:minmax(0,1fr);gap:18px;
+ }
+ #adminFleetRoot .fleet-sync-controls>label{
+  width:100%;min-width:0;
+ }
+ #adminFleetRoot .fleet-sync-controls>button,
+ #adminFleetRoot .fleet-sync-controls select{
+  width:100%;min-width:0;max-width:100%;
+  height:48px!important;min-height:48px!important;
+  font-size:16px!important;
+ }
+ #adminFleetRoot .fleet-sync-controls select{margin-top:7px}
+ #adminFleetRoot .fleet-sync-controls>p{min-width:0;margin:0}
+}

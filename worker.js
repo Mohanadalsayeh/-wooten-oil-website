@@ -1,3 +1,4 @@
+import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
@@ -1827,7 +1828,7 @@ async function adminMas90HealthGet({request,env}){
       env.DB.prepare(`SELECT * FROM mas90_automation_runs ORDER BY datetime(updated_at) DESC LIMIT 10`).all(),
       env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status IN ('queued','claimed','starting','running','cancel_requested') ORDER BY datetime(updated_at) DESC LIMIT 1`).first(),
       env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status IN ('completed','failed','cancelled','interrupted','missed') ORDER BY datetime(COALESCE(completed_at,updated_at)) DESC LIMIT 1`).first(),
-      env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status='completed' ORDER BY datetime(completed_at) DESC LIMIT 1`).first(),
+      env.DB.prepare(`SELECT * FROM mas90_automation_runs WHERE status='completed' AND run_type IN ('scheduled','portal_request','automatic') AND COALESCE(customers_failure_count,0)=0 AND COALESCE(payments_failure_count,0)=0 ORDER BY datetime(completed_at) DESC LIMIT 1`).first(),
       env.DB.prepare(`SELECT id,alert_type,severity,run_id,message,email_status,email_error,created_at,sent_at,resolved_at FROM mas90_health_alerts ORDER BY datetime(created_at) DESC,id DESC LIMIT 20`).all(),
       env.DB.prepare(`SELECT COUNT(*) AS total FROM mas90_health_alerts WHERE resolved_at IS NULL`).first()
     ]);
@@ -1835,6 +1836,24 @@ async function adminMas90HealthGet({request,env}){
     for(const row of importsResult?.results||[]){
       imports[row.import_type]={at:row.last_import_at||"",record_count:Number(row.last_record_count||0),by:row.last_import_by||"",mode:row.last_import_mode||"manual",status:row.last_import_status||"completed",batch_number:Number(row.last_import_batch_number||1),batch_count:Number(row.last_import_batch_count||1),run_id:row.last_import_run_id||""};
     }
+    // Some office agents upload complete batches but do not create health-run rows.
+    // Reconcile for display only; never write run history or alter the import process.
+    let importedRun=null;
+    const importId=imports.customers?.run_id;
+    if(importId && imports.payments?.run_id===importId && control?.active_run_id===importId){
+      const [batchRows,recordedRun]=await Promise.all([
+        env.DB.prepare(`SELECT run_id,import_type,batch_number,success_count,failure_count,inserted_count,duplicate_count FROM mas90_import_batch_progress WHERE run_id=?`).bind(importId).all(),
+        env.DB.prepare(`SELECT status,customers_failure_count,payments_failure_count FROM mas90_automation_runs WHERE run_id=?`).bind(importId).first()
+      ]);
+      importedRun=completedMas90ImportRun(imports,control,batchRows?.results||[],recordedRun,mas90Timestamp);
+    }
+    const runTime=run=>mas90Timestamp(run?.completed_at||run?.updated_at);
+    const newer=(candidate,existing)=>candidate&&(!existing||runTime(candidate)>runTime(existing))?candidate:existing;
+    const displayLatest=newer(importedRun,mas90HealthRunPublic(latestRun));
+    const displaySuccess=newer(importedRun?.status==="completed"?importedRun:null,mas90HealthRunPublic(lastSuccessfulRun));
+    const displayRecent=(recentRunsResult?.results||[]).map(mas90HealthRunPublic);
+    if(importedRun&&!displayRecent.some(run=>run.run_id===importedRun.run_id))displayRecent.push(importedRun);
+    displayRecent.sort((a,b)=>runTime(b)-runTime(a));
     const pollSeconds=Math.max(5,Number(health?.poll_seconds||15));
     const secondsSinceSeen=health?.last_seen_at?Math.max(0,Math.round((Date.now()-mas90Timestamp(health.last_seen_at))/1000)):null;
     const connectivityStatus=secondsSinceSeen===null||secondsSinceSeen>600?"offline":secondsSinceSeen>90?"delayed":"online";
@@ -1843,13 +1862,13 @@ async function adminMas90HealthGet({request,env}){
     const scheduleTime=mas90NormalizeScheduleTime(health?.schedule_local_time||"21:00");
     const timeZone=mas90NormalizeTimeZone(health?.schedule_timezone||"America/Chicago");
     const reportedNext=mas90Timestamp(health?.task_next_run)?new Date(mas90Timestamp(health.task_next_run)).toISOString():"";
-    const lastSuccessAt=lastSuccessfulRun?.completed_at||"";
+    const lastSuccessAt=displaySuccess?.completed_at||"";
     const ageMinutes=lastSuccessAt?Math.max(0,Math.round((Date.now()-mas90Timestamp(lastSuccessAt))/60000)):null;
     const freshnessStatus=ageMinutes===null?"unknown":ageMinutes<=26*60?"fresh":ageMinutes<=32*60?"due":"stale";
     let overall="healthy";
     if(currentRun)overall="running";
-    else if(["failed","interrupted","missed"].includes(String(latestRun?.status||"").toLowerCase()))overall="failed";
-    else if(Number(health?.health_reporting_enabled||0)!==1)overall="not_configured";
+    else if(["failed","interrupted","missed"].includes(String(displayLatest?.status||"").toLowerCase()))overall="failed";
+    else if(!health?.last_seen_at)overall="not_configured";
     else if(connectivityStatus==="offline"||taskEnabled==="0"||["disabled","missing","unavailable"].includes(String(health?.task_state||"").toLowerCase()))overall="offline";
     else if(connectivityStatus==="delayed"||freshnessStatus!=="fresh")overall="warning";
     return notificationJson({
@@ -1861,7 +1880,7 @@ async function adminMas90HealthGet({request,env}){
         poll_seconds:pollSeconds,max_retries:Number(health?.max_retries||6),customer_batch_size:Number(health?.customer_batch_size||400),payment_batch_size:Number(health?.payment_batch_size||200),payment_window_days:Number(health?.payment_window_days||30),last_error:String(health?.last_error||"")
       },
       schedule:{enabled:taskEnabled==="1"?true:taskEnabled==="0"?false:null,local_time:scheduleTime,timezone:timeZone,label:mas90ScheduleLabel(scheduleTime),next_run_at:reportedNext||mas90NextScheduleIso(scheduleTime,timeZone),grace_minutes:120},
-      current_run:mas90HealthRunPublic(currentRun),latest_run:mas90HealthRunPublic(latestRun),last_successful_run:mas90HealthRunPublic(lastSuccessfulRun),recent_runs:(recentRunsResult?.results||[]).map(mas90HealthRunPublic),
+      current_run:mas90HealthRunPublic(currentRun),latest_run:displayLatest,last_successful_run:displaySuccess,recent_runs:displayRecent.slice(0,10),
       latest_imports:imports,
       active_import:{run_id:String(control?.active_run_id||""),status:String(control?.status||"idle"),import_type:String(control?.active_import_type||""),cancel_requested:Number(control?.cancel_requested||0)===1,updated_at:control?.updated_at||"",completed_at:control?.completed_at||""},
       remote_sync_request:mas90SyncPublicStatus(remoteSync),
