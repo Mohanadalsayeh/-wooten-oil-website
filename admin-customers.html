@@ -5649,6 +5649,12 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 <script src="assets/js/wooten-statement-progress.js?v=549" defer></script>
 <style>@media(max-width:700px){#statementSchedulingPanel .schedule-cycle-actions .schedule-generate,.schedule-cycle-actions .schedule-generate{grid-column:1 / -1;width:100%;min-width:0}}</style>
 <style>.schedule-option-card.schedule-email-unavailable{opacity:.55;cursor:not-allowed}.schedule-option-card.schedule-email-unavailable .schedule-option-shell{cursor:not-allowed}</style>
+<style>
+.schedule-email-loading{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:12px;font-weight:600;text-transform:none;letter-spacing:normal;color:#173e5b}
+.schedule-email-loading[hidden]{display:none!important}
+.schedule-email-spinner{display:inline-block;width:14px;height:14px;box-sizing:border-box;border:2px solid #c7d7e4;border-top-color:#173e5b;border-radius:50%;animation:statement-processing-spin .8s linear infinite;flex:0 0 14px}
+@media(prefers-reduced-motion:reduce){.schedule-email-spinner{animation:none}}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6826,7 +6832,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         <p>These settings apply to Cycle A and Cycle B previews and automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
         <div class="schedule-fields schedule-shared-fields">
           <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
-          <div class="schedule-field"><label for="scheduleEmailFilter">Customer Email — Cycles A &amp; B</label><select id="scheduleEmailFilter"><option value="all">All customers</option><option value="with_email">With email</option><option value="without_email">Without email</option></select></div>
+          <div class="schedule-field"><label for="scheduleEmailFilter">Customer Email — Cycles A &amp; B <span id="scheduleEmailLoading" class="schedule-email-loading" role="status" hidden><span class="schedule-email-spinner" aria-hidden="true"></span><span>Updating…</span></span></label><select id="scheduleEmailFilter"><option value="all">All customers</option><option value="with_email">With email</option><option value="without_email">Without email</option></select></div>
           <label class="schedule-balance-toggle" for="schedulePositiveOnly">
             <input id="schedulePositiveOnly" type="checkbox" checked>
             <span class="schedule-toggle-ui" aria-hidden="true"></span>
@@ -12532,6 +12538,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   get('scheduleEmailFilter').addEventListener('change',async()=>{
     if(!beginStatementAction('scheduleEmailFilter',['monthly','weekly']))return;
     const control=get('scheduleEmailFilter');control.setAttribute('aria-busy','true');
+    get('scheduleEmailLoading').hidden=false;
     setStatus('Updating email filter and customer lists…');
     try{
       // Let the disabled controls paint before starting network work.
@@ -12545,6 +12552,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       setStatus('Email filter saved for Cycle A and Cycle B.',true);
     }catch(error){setStatus(error.message||'Customer lists could not be refreshed.',false);}
     finally{
+      get('scheduleEmailLoading').hidden=true;
       control.removeAttribute('aria-busy');endStatementAction();
       for(const type of ['monthly','weekly'])updateBulkControls(type);
     }
