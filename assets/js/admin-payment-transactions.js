@@ -35,7 +35,8 @@
   function message(text,tone='info'){const el=get('ptMessage');el.textContent=text;el.dataset.tone=tone;el.hidden=!text;}
   function controls(){
     const locked=busy||exporting||!permitted();
-    form.querySelectorAll('input,select,button').forEach(el=>el.disabled=locked);
+    // Keep typing and focus intact while a list request is in flight.
+    form.querySelectorAll('input,select,button').forEach(el=>el.disabled=el.id==='ptSearch'?(exporting||!permitted()):locked);
     get('ptRefresh').disabled=locked;get('ptExport').disabled=locked||!total;get('ptPrintReport').disabled=locked||!total;
     get('ptPrev').disabled=locked||page<=1;get('ptNext').disabled=locked||page>=pages;
   }
@@ -70,6 +71,7 @@
   }
   async function load(nextPage=1,filters=applied){
     if(!permitted()||exporting)return;
+    clearTimeout(searchTimer);
     const token=++sequence;busy=true;applied=new URLSearchParams(filters);controls();message('');skeleton();
     const params=new URLSearchParams(applied);params.set('page',String(nextPage));params.set('page_size','20');
     try{const data=await api(endpoint+'?'+params);if(token!==sequence)return;render(data);loaded=true;}

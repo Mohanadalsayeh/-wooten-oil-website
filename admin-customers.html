@@ -14434,7 +14434,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
       (row.application_type==='business'?info('Legal Business Name',row.business_name)+info('DBA / Trade Name',row.dba_name)+info('Tax ID Last 4',row.tax_id_last4)+info('Years in Business',row.years_in_business):'')+
       info('Applicant / Contact',row.full_name)+info('Job Title',row.job_title)+info('Preferred Contact',row.preferred_contact)+info('Email',row.email)+info('Phone',row.phone)+fleetCardInfo(row)+info('Last Reviewed By',row.reviewed_by?row.reviewed_by+(row.reviewed_at?' • '+WootenTime.dateTime(row.reviewed_at):''):'Not reviewed yet')+info('Support Notification Email',Number(row.support_email_sent)?'Sent':'Failed')+info('Applicant Confirmation Email',Number(row.applicant_email_sent)?'Sent':'Failed')+info('Applicant Confirmation SMS',Number(row.confirmation_sms_sent)?'Sent':'Failed')+info('Address',[row.address_1,row.city,row.state,row.zip_code].filter(Boolean).join(', '),true)+info('Fuel Needs / Applicant Notes',row.applicant_notes,true)+(row.notification_error?info('Notification Delivery Details',row.notification_error,true):'')+'</div>'+
       '<div class="application-documents">'+(row.has_tax_document?'<button class="secondary" type="button" data-application-file="tax">Open Tax ID Document</button>':'')+'<button class="secondary" type="button" data-application-file="identity">Open Driver’s License / State ID</button></div>'+
-      '<div class="application-review"><label class="application-review-notes">Admin Response / Notes<textarea data-application-notes maxlength="3000" placeholder="Optional response the customer should receive…">'+esc(row.admin_notes||'')+'</textarea></label><label class="application-review-status">Decision<select data-application-status><option value="pending"'+(row.status==='pending'||row.status==='new'||row.status==='under_review'?' selected':'')+'>Pending</option><option value="accepted"'+(row.status==='accepted'||row.status==='approved'?' selected':'')+'>Accepted</option><option value="denied"'+(row.status==='denied'||row.status==='declined'?' selected':'')+'>Denied</option></select><small class="application-review-meta">'+(row.reviewed_by?'Last saved by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(WootenTime.dateTime(row.reviewed_at)):''):'Not reviewed yet')+'</small></label><div class="request-delivery-options"><strong>Notify applicant by</strong><label><input type="checkbox" data-application-portal> Portal</label><label><input type="checkbox" data-application-email checked> Email</label><label><input type="checkbox" data-application-sms> SMS</label><small>Portal is available only if this applicant already has a matching customer portal account.</small></div><button class="primary application-review-save" type="button" data-application-save>Save &amp; Notify</button></div><div class="application-delete-row"><small>Permanently removes this application and all uploaded documents. Main Admin only.</small><button class="danger-db-btn application-delete-btn" type="button" data-application-delete data-application-number="'+esc(row.application_number)+'" data-application-name="'+esc(display)+'">Delete Application</button></div></div></article>';}).join('');
+      '<div class="application-review"><label class="application-review-notes">Admin Response / Notes<textarea data-application-notes maxlength="3000" placeholder="Optional response the customer should receive…">'+esc(row.admin_notes||'')+'</textarea></label><label class="application-review-status"><span class="application-review-decision">Decision<select data-application-status><option value="pending"'+(row.status==='pending'||row.status==='new'||row.status==='under_review'?' selected':'')+'>Pending</option><option value="accepted"'+(row.status==='accepted'||row.status==='approved'?' selected':'')+'>Accepted</option><option value="denied"'+(row.status==='denied'||row.status==='declined'?' selected':'')+'>Denied</option></select></span><small class="application-review-meta">'+(row.reviewed_by?'Last saved by '+esc(row.reviewed_by)+(row.reviewed_at?' • '+esc(WootenTime.dateTime(row.reviewed_at)):''):'Not reviewed yet')+'</small></label><div class="request-delivery-options"><strong>Notify applicant by</strong><label><input type="checkbox" data-application-portal> Portal</label><label><input type="checkbox" data-application-email checked> Email</label><label><input type="checkbox" data-application-sms> SMS</label><small>Portal is available only if this applicant already has a matching customer portal account.</small></div><button class="primary application-review-save" type="button" data-application-save>Save &amp; Notify</button></div><div class="application-delete-row"><small>Permanently removes this application and all uploaded documents. Main Admin only.</small><button class="danger-db-btn application-delete-btn" type="button" data-application-delete data-application-number="'+esc(row.application_number)+'" data-application-name="'+esc(display)+'">Delete Application</button></div></div></article>';}).join('');
   }
   async function load(){let value=6;const started=Date.now();progress.hidden=false;progressBar.style.width=value+'%';progressTrack.setAttribute('aria-valuenow',String(value));progressCount.textContent='Preparing';loadBtn.disabled=true;setStatus('');window.wootenAdminSkeleton?.cards(list,4,'application');const progressTimer=setInterval(()=>{value=Math.min(90,value+(value<55?9:value<78?4:2));progressBar.style.width=value+'%';progressTrack.setAttribute('aria-valuenow',String(value));progressCount.textContent='Loading… '+value+'%';},140);try{const params=new URLSearchParams({page:String(page),search:get('applicationSearch').value,status:get('applicationStatusFilter').value,type:get('applicationTypeFilter').value});const response=await fetch('/api/admin/account-applications?'+params,{headers:{'X-Admin-Key':adminKey()}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Applications could not be loaded.');render(data.applications||[]);totalPages=Number(data.total_pages||1);page=Number(data.page||1);pageInfo.textContent='Page '+page+' of '+totalPages+' • '+Number(data.total||0)+' applications';pagination.hidden=Number(data.total||0)===0;get('applicationPrev').disabled=page<=1;get('applicationNext').disabled=page>=totalPages;setStatus(Number(data.total||0)+' account application(s) found.',true);loaded=true;}catch(error){if(list.querySelector('.admin-skeleton-stack'))list.innerHTML='';setStatus(error.message||'Applications could not be loaded.',false);}finally{clearInterval(progressTimer);progressBar.style.width='100%';progressTrack.setAttribute('aria-valuenow','100');progressCount.textContent='100%';await new Promise(resolve=>setTimeout(resolve,Math.max(350,800-(Date.now()-started))));progress.hidden=true;progressBar.style.width='0%';progressTrack.setAttribute('aria-valuenow','0');progressCount.textContent='Preparing';loadBtn.disabled=false;}}
   async function openFile(card,kind,button){button.disabled=true;const original=button.textContent;button.textContent='Opening…';try{const id=card.dataset.applicationId;const response=await fetch('/api/admin/account-applications/'+encodeURIComponent(id)+'/'+kind,{headers:{'X-Admin-Key':adminKey()}});if(!response.ok)throw new Error(await response.text()||'Document could not be opened.');const url=URL.createObjectURL(await response.blob());const anchor=document.createElement('a');anchor.href=url;anchor.target='_blank';anchor.rel='noopener';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(error){setStatus(error.message||'Document could not be opened.',false);}finally{button.disabled=false;button.textContent=original;}}
@@ -15021,7 +15021,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=478"></script>
+<script src="assets/js/admin-payment-transactions.js?v=543"></script>
 <link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=447">
 
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=446">
@@ -17696,6 +17696,133 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
   }
 }
 </style>
+<style id="wooten-form-actions-mobile-ver541">
+@media(max-width:700px){
+  #admin-tab-gmail .gmail-sync-card>.actions,
+  .actions:has(>#requestCenterLoad),
+  .actions:has(>#applicationLoad),
+  .actions:has(>#adminUserSave),
+  #admin-tab-backup .portal-backup-actions,
+  #admin-tab-backup .portal-backup-create-group,
+  .admin-audit-table-toolbar{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:10px!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  #admin-tab-backup .table-pdf-export-toolbar,
+  .admin-audit-table-toolbar .table-pdf-export-toolbar{
+    width:100%!important;
+    min-width:0!important;
+    flex:0 0 100%!important;
+    margin-inline:0!important;
+  }
+  #gmailPortalSyncBtn,#gmailPortalSyncStatusBtn,
+  #requestCenterLoad,#applicationLoad,#adminUserSave,#adminUserCancel,
+  #admin-tab-users [data-edit-admin-user],
+  #admin-tab-backup #portalBackupCreate,
+  #admin-tab-backup .portal-backup-actions>button,
+  #admin-tab-backup .table-pdf-export-button,
+  .admin-audit-table-toolbar #adminAuditRefresh,
+  .admin-audit-table-toolbar .table-pdf-export-button{
+    --wooten-action-button-height:48px;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin-inline:0!important;
+    flex:0 0 100%!important;
+    min-height:48px!important;
+    height:auto!important;
+    max-height:none!important;
+    padding:10px 12px!important;
+    white-space:normal!important;
+    line-height:1.3!important;
+  }
+  #admin-tab-backup #portalBackupHelp{justify-self:end}
+  #adminUserCancel[hidden]{display:none!important}
+}
+</style>
+<style id="wooten-application-review-mobile-ver542">
+/* Keep the application review in one readable column on phones. */
+@media(max-width:700px){
+  #admin-tab-applications .application-documents{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:10px;
+  }
+  #admin-tab-applications .application-review{
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-areas:"notes" "status" "delivery" "save" "meta"!important;
+    align-items:stretch;
+    gap:18px;
+  }
+  #admin-tab-applications .application-review-status{display:contents!important}
+  #admin-tab-applications .application-review-decision{
+    display:block;
+    grid-area:status;
+    min-width:0;
+  }
+  #admin-tab-applications .application-review-meta{
+    grid-area:meta;
+    margin:0;
+    font-weight:400;
+    overflow-wrap:anywhere;
+  }
+  #admin-tab-applications .application-review-notes,
+  #admin-tab-applications .application-review select,
+  #admin-tab-applications .application-review textarea{
+    width:100%;
+    min-width:0;
+    max-width:100%;
+  }
+  #admin-tab-applications .application-review select,
+  #admin-tab-applications .application-review textarea{font-size:16px!important}
+  #admin-tab-applications .application-review textarea{min-height:112px}
+  #admin-tab-applications .application-review .request-delivery-options{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:8px;
+    min-width:0;
+    padding:14px;
+  }
+  #admin-tab-applications .application-review .request-delivery-options>label{
+    display:flex!important;
+    justify-content:space-between;
+    min-height:44px;
+    width:100%;
+    min-width:0;
+    gap:12px;
+  }
+  #admin-tab-applications .application-review .request-delivery-options input{
+    order:1;
+    flex-shrink:0;
+    margin:0!important;
+  }
+  #admin-tab-applications .application-documents>button,
+  #admin-tab-applications .application-review-save,
+  #admin-tab-applications .application-delete-btn{
+    --wooten-action-button-height:52px;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin-inline:0!important;
+    min-height:52px!important;
+    height:auto!important;
+    max-height:none!important;
+    padding:12px!important;
+    font-size:16px!important;
+    white-space:normal!important;
+    line-height:1.4!important;
+  }
+  #admin-tab-applications .application-delete-row{
+    margin-top:24px;
+    padding-top:18px;
+  }
+}
+</style>
+
+
 
 <script id="wooten-statement-tab-activity-script">
 (function(){
