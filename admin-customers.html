@@ -5647,7 +5647,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-statement-progress.css?v=529">
 <script src="assets/js/wooten-statement-progress.js?v=549" defer></script>
-<style>@media(max-width:700px){#statementSchedulingPanel .schedule-cycle-actions .schedule-generate,.schedule-cycle-actions .schedule-generate{grid-column:1 / -1;width:100%;min-width:0}}</style>
+
 <style>.schedule-option-card.schedule-email-unavailable{opacity:.55;cursor:not-allowed}.schedule-option-card.schedule-email-unavailable .schedule-option-shell{cursor:not-allowed}</style>
 <style>
 .schedule-email-loading{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:12px;font-weight:600;text-transform:none;letter-spacing:normal;color:#173e5b}
@@ -6884,8 +6884,18 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
           </div>
           <p>Manually process selected active customers assigned to Cycle A.</p>
           <fieldset id="scheduleMonthlyControls" class="schedule-cycle-controls" aria-label="A — Monthly Cycle settings and customers" disabled>
-          <div class="actions schedule-cycle-actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button><button class="schedule-test-btn" id="scheduleTestMonthly" type="button">Test A</button><button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button>
-            <button type="button" class="secondary schedule-generate" id="scheduleGenerateMonthly">Generate Statements</button></div>
+          <div class="actions schedule-cycle-actions">
+            <div class="schedule-action-lane" role="group" aria-labelledby="schedulePrepareMonthly">
+              <span class="schedule-action-label" id="schedulePrepareMonthly">Prepare</span>
+              <button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button>
+              <button type="button" class="secondary schedule-generate" id="scheduleGenerateMonthly">Generate Statements</button>
+            </div>
+            <div class="schedule-action-lane" role="group" aria-labelledby="scheduleProcessMonthly">
+              <span class="schedule-action-label" id="scheduleProcessMonthly">Process</span>
+              <button class="schedule-test-btn" id="scheduleTestMonthly" type="button">Test A</button>
+              <button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button>
+            </div>
+          </div>
           <div class="preview-progress" id="scheduleTestMonthlyProgress" hidden>
             <div class="preview-progress-head"><strong id="scheduleTestMonthlyProgressLabel">Testing A statements…</strong><span id="scheduleTestMonthlyProgressCount">Preparing</span></div>
             <div class="preview-progress-track" id="scheduleTestMonthlyProgressTrack" role="progressbar" aria-label="Cycle A dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestMonthlyProgressBar"></span></div>
@@ -6917,8 +6927,18 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
           </div>
           <p>Manually process selected active customers assigned to Cycle B.</p>
           <fieldset id="scheduleWeeklyControls" class="schedule-cycle-controls" aria-label="B — Weekly / Biweekly Cycle settings and customers" disabled>
-          <div class="actions schedule-cycle-actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview B Customers</button><button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test B</button><button class="primary" id="scheduleRunWeekly" type="button">Run B Now</button>
-            <button type="button" class="secondary schedule-generate" id="scheduleGenerateWeekly">Generate Statements</button></div>
+          <div class="actions schedule-cycle-actions">
+            <div class="schedule-action-lane" role="group" aria-labelledby="schedulePrepareWeekly">
+              <span class="schedule-action-label" id="schedulePrepareWeekly">Prepare</span>
+              <button class="secondary" id="schedulePreviewWeekly" type="button">Preview B Customers</button>
+              <button type="button" class="secondary schedule-generate" id="scheduleGenerateWeekly">Generate Statements</button>
+            </div>
+            <div class="schedule-action-lane" role="group" aria-labelledby="scheduleProcessWeekly">
+              <span class="schedule-action-label" id="scheduleProcessWeekly">Process</span>
+              <button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test B</button>
+              <button class="primary" id="scheduleRunWeekly" type="button">Run B Now</button>
+            </div>
+          </div>
           <div class="preview-progress" id="scheduleTestWeeklyProgress" hidden>
             <div class="preview-progress-head"><strong id="scheduleTestWeeklyProgressLabel">Testing B statements…</strong><span id="scheduleTestWeeklyProgressCount">Preparing</span></div>
             <div class="preview-progress-track" id="scheduleTestWeeklyProgressTrack" role="progressbar" aria-label="Cycle B dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestWeeklyProgressBar"></span></div>
@@ -17891,12 +17911,11 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 
 <link rel="stylesheet" href="assets/css/wooten-search-icons.css?v=531">
 
-<style id="wooten-cycle-actions-mobile-ver546">
-@media(max-width:700px){
- .schedule-cycle-actions.actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px!important;width:100%;min-width:0}
- .schedule-cycle-actions.actions>button{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;min-height:48px;white-space:normal}
- .schedule-cycle-actions.actions>button:first-child{grid-column:1 / -1}
-}
+<style id="wooten-cycle-actions-ver554">
+ .schedule-cycle-actions.actions{display:grid!important;grid-template-columns:minmax(0,1fr);gap:18px!important;width:100%;min-width:0}
+ .schedule-cycle-actions .schedule-action-lane{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;min-width:0;width:100%;align-items:stretch}
+ .schedule-cycle-actions .schedule-action-label{grid-column:1 / -1;color:var(--muted,#64748b);font-weight:600}
+ .schedule-cycle-actions .schedule-action-lane>button{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;min-height:54px;white-space:normal!important;overflow-wrap:anywhere;justify-content:center;align-self:stretch;box-sizing:border-box}
 </style>
 
 <style id="wooten-phone-actions-ver547">
