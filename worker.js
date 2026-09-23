@@ -10703,7 +10703,8 @@ __name(statementCentralParts,"statementCentralParts");
 
 async function statementScheduleConfig(env){
   await ensureStatementSchedulingSchema(env);
-  return env.DB.prepare(`SELECT * FROM statement_schedule_config WHERE id=1`).first();
+  const config=await env.DB.prepare(`SELECT * FROM statement_schedule_config WHERE id=1`).first();
+  return config?.email_filter==='without_email'?{...config,email_enabled:0}:config;
 }
 __name(statementScheduleConfig,"statementScheduleConfig");
 
@@ -11002,7 +11003,7 @@ async function adminStatementScheduling({request,env}){
         body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),String(body.weekly_frequency||"").toLowerCase()==="biweekly"?"biweekly":"weekly",/^\d{4}-\d{2}-\d{2}$/.test(String(body.weekly_anchor_date||""))?String(body.weekly_anchor_date):statementCentralParts().date,
         0,Math.max(1,Math.min(28,Number(body.midmonth_day)||15)),Math.max(0,Math.min(23,Number(body.midmonth_hour)||0)),
         body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),
-        ['all','with_email','without_email'].includes(body.email_filter)?body.email_filter:'all',body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_enabled?1:0,body.sms_enabled?1:0
+        ['all','with_email','without_email'].includes(body.email_filter)?body.email_filter:'all',body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_filter!=='without_email'&&body.email_enabled?1:0,body.sms_enabled?1:0
       ).run();
     }
     const config=await statementScheduleConfig(env);

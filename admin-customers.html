@@ -5648,6 +5648,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 <link rel="stylesheet" href="assets/css/wooten-statement-progress.css?v=529">
 <script src="assets/js/wooten-statement-progress.js?v=549" defer></script>
 <style>@media(max-width:700px){#statementSchedulingPanel .schedule-cycle-actions .schedule-generate,.schedule-cycle-actions .schedule-generate{grid-column:1 / -1;width:100%;min-width:0}}</style>
+<style>.schedule-option-card.schedule-email-unavailable{opacity:.55;cursor:not-allowed}.schedule-option-card.schedule-email-unavailable .schedule-option-shell{cursor:not-allowed}</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -11732,11 +11733,18 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   function setStatus(message,ok){status.className='status show '+(ok===true?'ok':ok===false?'bad':'');status.textContent=message||'';}
   function setReportStatus(message,ok){const target=get('scheduleReportStatus');target.className='status show '+(ok===true?'ok':ok===false?'bad':'');target.textContent=message||'';}
   function key(){return (get('adminKey').value||'').trim();}
+  function syncScheduleEmailAvailability(){
+    const unavailable=get('scheduleEmailFilter').value==='without_email';
+    if(unavailable)email.checked=false;
+    email.disabled=unavailable||statementActionBusy||statementPageLocked;
+    const card=email.closest('.schedule-option-card');
+    if(card){card.classList.toggle('schedule-email-unavailable',unavailable);card.title=unavailable?'Email PDF is unavailable for customers without an email address.':'';}
+  }
   function configBody(){return {
     weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),weekly_frequency:weeklyFrequency.value,weekly_anchor_date:weeklyAnchor.value,
     midmonth_enabled:false,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
     monthly_enabled:monthlyEnabled.checked,monthly_day:Number(monthlyDay.value),monthly_hour:Number(monthlyHour.value),
-    email_filter:get('scheduleEmailFilter').value,positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
+    email_filter:get('scheduleEmailFilter').value,positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:get('scheduleEmailFilter').value!=='without_email'&&email.checked,sms_enabled:sms.checked
   };}
   function syncWeeklyFrequency(){
     const enabled=weeklyEnabled.checked;
@@ -11771,6 +11779,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     syncRunSelectionState('monthly');syncRunSelectionState('weekly');
     syncWeeklyFrequency();
     syncTestAllSelectionState();
+    syncScheduleEmailAvailability();
     applyStatementPageLock();
   }
   function applyConfig(config){
@@ -12517,6 +12526,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   });
   get('scheduleEmailFilter').addEventListener('change',async()=>{
     const control=get('scheduleEmailFilter');control.disabled=true;
+    syncScheduleEmailAvailability();
     try{await saveSettings(false);for(const type of ['monthly','weekly']){
       bulkSelections[type]?.clear();
       if(type==='monthly'?monthlyEnabled.checked:weeklyEnabled.checked)await showPreview(type,false);
