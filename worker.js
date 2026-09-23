@@ -10602,6 +10602,7 @@ async function ensureStatementSchedulingSchema(env){
   `).run();
   const configInfo=await env.DB.prepare(`PRAGMA table_info(statement_schedule_config)`).all();
   const configColumns=new Set((configInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  if(!configColumns.has("statement_date"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN statement_date TEXT NOT NULL DEFAULT ''`).run();
   if(!configColumns.has("email_filter"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN email_filter TEXT NOT NULL DEFAULT 'all'`).run();
   if(!configColumns.has("midmonth_enabled"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_enabled INTEGER NOT NULL DEFAULT 0`).run();
   if(!configColumns.has("midmonth_day"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_day INTEGER NOT NULL DEFAULT 15`).run();
@@ -10730,7 +10731,9 @@ async function statementScheduleCustomers(env,type,config){
 }
 __name(statementScheduleCustomers,"statementScheduleCustomers");
 
-async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,pdfOnly=false,accountNumbers=null}={}){
+async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,pdfOnly=false,accountNumbers=null,statementDate=null}={}){
+  if(!force||!Array.isArray(accountNumbers))throw new Error("Automatic statement sending is disabled. Select customers and start a manual action.");
+  const selectedStatementDate=validateCycleStatementDate(statementDate);
   if(pdfOnly){dryRun=true;testSend=false;}
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
@@ -10781,7 +10784,7 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,
         customer_count=?,target_json=?,cursor_position=0,processed_count=0,detail_json='[]'
       WHERE id=?
     `).bind(customers.length,JSON.stringify(customers.map(c=>c.account_number)),runId).run();
-    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:central.date,options:{portal:!pdfOnly&&Number(config.portal_enabled)!==0,email:!pdfOnly&&Number(config.email_enabled)!==0,sms:!pdfOnly&&Number(config.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
+    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:selectedStatementDate,options:{portal:!pdfOnly&&Number(config.portal_enabled)!==0,email:!pdfOnly&&Number(config.email_enabled)!==0,sms:!pdfOnly&&Number(config.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
     if(!customers.length){
       await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_completed":"completed",runId).run();
     }
@@ -10807,6 +10810,7 @@ async function continueStatementSchedule(env,runId,origin){
   try{results=JSON.parse(run.detail_json||"[]");}catch{}
   if(!Array.isArray(targets))targets=[];if(!Array.isArray(results))results=[];
   const manualSelectedRun=String(run.run_key||'').startsWith('testdry:')||String(run.run_key||'').startsWith('testsend:')||String(run.run_key||'').includes(':manual:');
+  if(!manualSelectedRun)throw new Error("Automatic statement runs cannot be resumed. Start a new manual action.");
   if(manualSelectedRun){
     const normalizedTargets=[...new Set(targets.map(value=>{const digits=String(value||'').replace(/\D/g,'');return digits?digits.padStart(7,'0'):'';}).filter(Boolean))];
     if(!normalizedTargets.length||normalizedTargets.length!==Number(run.customer_count||0)){
@@ -10835,16 +10839,7 @@ async function continueStatementSchedule(env,runId,origin){
     return {success:failure===0,run_id:runId,complete:true,processed:results.length,total:targets.length,succeeded:results.length-failure,failed:failure};
   }
 
-  if(!await StatementProgress.job(env,'schedule-'+runId)){
-    const legacyConfig=await statementScheduleConfig(env);
-    const customers=[];
-    for(let i=0;i<targets.length;i+=80){
-      const chunk=targets.slice(i,i+80);
-      const found=(await env.DB.prepare(`SELECT account_number,account_name,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number IN (${chunk.map(()=>'?').join(',')})`).bind(...chunk).all()).results||[];
-      const mapped=new Map(found.map(c=>[c.account_number,c]));customers.push(...chunk.map(account=>mapped.get(account)||{account_number:account}));
-    }
-    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':preDryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':preDryRun?'Test — ':'')+'Cycle '+run.statement_cycle+' Account Statements',date:statementCentralParts().date,options:{portal:!pdfOnly&&Number(legacyConfig.portal_enabled)!==0,email:!pdfOnly&&Number(legacyConfig.email_enabled)!==0,sms:!pdfOnly&&Number(legacyConfig.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:preDryRun,payment_count:Number(legacyConfig.payment_count)||0},customers});
-  }
+  if(!await StatementProgress.job(env,'schedule-'+runId))throw new Error('Statement date and progress record are unavailable. Start a new manual action.');
   // Claim this exact batch BEFORE generating or sending anything. This prevents duplicate
   // SMS/email/portal delivery if two browser/network continuation requests overlap.
   const claimedThrough=cursor+accounts.length;
@@ -10909,47 +10904,15 @@ async function continueStatementSchedule(env,runId,origin){
 }
 __name(continueStatementSchedule,"continueStatementSchedule");
 
-async function processDueStatementSchedules(env){
-  if(!env.DB||!env.ADMIN_IMPORT_KEY||!env.NOTIFICATION_ATTACHMENTS)return;
-  await ensureStatementSchedulingSchema(env);
-  // Cron may continue automatic schedules only. Manual Test/Run batches are controlled by the admin browser
-  // so an abandoned or older full-cycle manual run can never restart in the background.
-  const activeRuns=await env.DB.prepare(`
-    SELECT id FROM statement_schedule_runs
-    WHERE status='running'
-      AND run_key NOT LIKE 'testdry:%'
-      AND run_key NOT LIKE 'testsend:%'
-      AND run_key NOT LIKE '%:manual:%'
-    ORDER BY id LIMIT 3
-  `).all();
-  for(const active of activeRuns?.results||[]){
-    await continueStatementSchedule(env,active.id,env.PUBLIC_SITE_URL||"https://wootenoil.com").catch(error=>console.error("Statement run continuation failed",active.id,error));
-  }
-  const config=await statementScheduleConfig(env);
-  const central=statementCentralParts();
-  const weeklyFrequency=String(config.weekly_frequency||"weekly").toLowerCase();
-  const anchorDate=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||""))?String(config.weekly_anchor_date):"";
-  const anchorTime=anchorDate?Date.parse(anchorDate+"T00:00:00Z"):NaN;
-  const currentTime=Date.parse(central.date+"T00:00:00Z");
-  const anchorDays=Number.isFinite(anchorTime)&&Number.isFinite(currentTime)?Math.floor((currentTime-anchorTime)/86400000):-1;
-  const weeklyDateDue=weeklyFrequency==="biweekly"?anchorDays>=0&&anchorDays%14===0:central.weekday===Number(config.weekly_weekday);
-  if(Number(config.weekly_enabled)!==0&&weeklyDateDue&&central.hour===Number(config.weekly_hour)){
-    await launchDueStatementSchedule(env,"weekly").catch(error=>console.error("Weekly statement schedule failed",error));
-  }
-  if(Number(config.monthly_enabled)!==0&&Number(central.day)===Number(config.monthly_day)&&central.hour===Number(config.monthly_hour)){
-    await launchDueStatementSchedule(env,"monthly").catch(error=>console.error("Monthly statement schedule failed",error));
-  }
-}
+async function processDueStatementSchedules(env){return;}
 __name(processDueStatementSchedules,"processDueStatementSchedules");
-
-async function launchDueStatementSchedule(env,type){
-  const origin=env.PUBLIC_SITE_URL||"https://wootenoil.com";
-  const started=await startStatementSchedule(env,type,origin);
-  if(started.run_id&&!started.complete)await continueStatementSchedule(env,started.run_id,origin);
-  return started;
-}
+async function launchDueStatementSchedule(){throw new Error("Automatic statement sending is disabled. Start a manual statement action in the portal.");}
 __name(launchDueStatementSchedule,"launchDueStatementSchedule");
-
+function validateCycleStatementDate(value){
+  const date=String(value||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw new Error('Choose a valid statement date.');
+  return date;
+}
 function statementScheduleAuthorized(request,env){return !!env.ADMIN_IMPORT_KEY&&(request.headers.get("X-Admin-Key")||"")===env.ADMIN_IMPORT_KEY;}
 __name(statementScheduleAuthorized,"statementScheduleAuthorized");
 
@@ -10997,20 +10960,20 @@ async function adminStatementScheduling({request,env}){
       await env.DB.prepare(`
         UPDATE statement_schedule_config SET
           weekly_enabled=?,weekly_weekday=?,weekly_hour=?,weekly_frequency=?,weekly_anchor_date=?,midmonth_enabled=?,midmonth_day=?,midmonth_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles='A',
-          email_filter=?,positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
+          statement_date=?,email_filter=?,positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
         WHERE id=1
       `).bind(
         body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),String(body.weekly_frequency||"").toLowerCase()==="biweekly"?"biweekly":"weekly",/^\d{4}-\d{2}-\d{2}$/.test(String(body.weekly_anchor_date||""))?String(body.weekly_anchor_date):statementCentralParts().date,
         0,Math.max(1,Math.min(28,Number(body.midmonth_day)||15)),Math.max(0,Math.min(23,Number(body.midmonth_hour)||0)),
         body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),
-        ['all','with_email','without_email'].includes(body.email_filter)?body.email_filter:'all',body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_filter!=='without_email'&&body.email_enabled?1:0,body.sms_enabled?1:0
+        validateCycleStatementDate(body.statement_date),['all','with_email','without_email'].includes(body.email_filter)?body.email_filter:'all',body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_filter!=='without_email'&&body.email_enabled?1:0,body.sms_enabled?1:0
       ).run();
     }
     const config=await statementScheduleConfig(env);
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})(),combined_pdf_parts:(()=>{try{return JSON.parse(row.combined_pdf_parts_json||"[]");}catch{return [];}})(),group_combined_pdf_parts:(()=>{try{return JSON.parse(row.group_combined_pdf_parts_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{statement_email_filter_v1:true,statement_pdf_only_v1:true,selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_progress_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true,exceptional_statement_customers_v1:true}});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{manual_statement_date_v1:true,automatic_statements:false,statement_email_filter_v1:true,statement_pdf_only_v1:true,selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_progress_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true,exceptional_statement_customers_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
@@ -11168,7 +11131,7 @@ async function adminStatementSchedulingRun({request,env}){
     if(normalized.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers can be selected for one statement run."},413);
     if(body.pdf_only===true&&!env.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Statement PDF storage is not configured."},503);
     const origin=new URL(request.url).origin;
-    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,pdfOnly:body.pdf_only===true,accountNumbers:normalized});
+    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,pdfOnly:body.pdf_only===true,accountNumbers:normalized,statementDate:body.statement_date});
     return notificationJson(started);
   }
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
@@ -11179,6 +11142,7 @@ async function adminStatementSchedulingTestAll({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   const body=await request.json().catch(()=>({}));
   try{
+    validateCycleStatementDate(body.statement_date);
     if(body.selected_only!==true){
       return notificationJson({success:false,error:"Selected-customer safety mode is required for Test All Cycles."},400);
     }
@@ -11216,7 +11180,7 @@ async function adminStatementSchedulingTestAll({request,env}){
     const combinedGroupId=`testall:${crypto.randomUUID()}`;
     try{
       for(const type of types){
-        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:true,testSend:false,accountNumbers:validated[type]});
+        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:true,testSend:false,accountNumbers:validated[type],statementDate:body.statement_date});
         const returned=[...new Set((Array.isArray(started?.target_accounts)?started.target_accounts:[]).map(item=>{const digits=String(item||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
         const requested=validated[type];
         const exact=started?.selection_enforced===true&&Number(started?.total)===requested.length&&returned.length===requested.length&&requested.every(account=>returned.includes(account))&&started?.resumed!==true;
@@ -13034,7 +12998,7 @@ return env.ASSETS.fetch(request);
     // The hourly maintenance trigger runs these jobs once and checks whether
     // the local Central-Time backup hour has arrived.
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
-    ctx.waitUntil(processDueStatementSchedules(env));
+    // Cycle statements are manual only; unrelated scheduled jobs continue below.
     ctx.waitUntil(checkMas90AutomationHealth(env));
     ctx.waitUntil(ensureDailyPortalDatabaseBackup(env));
   }
