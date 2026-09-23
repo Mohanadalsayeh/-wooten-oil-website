@@ -1,3 +1,4 @@
+import {ensureNoEmailSchema,noEmailImportStatements,noEmailAddedCount} from './assets/js/wooten-no-email-imports.mjs';
 import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
@@ -603,6 +604,12 @@ async function onRequestPost3({ request, env }) {
   const defaultAreaCode=String(areaSetting?.default_area_code||"").replace(/\D/g,"");
   const fixAreaCodeAutomatically=body?.fix_area_code_automatically===true;
 
+  await ensureNoEmailSchema(env);
+  if(!adminImportRunId(request)){
+    const headers=new Headers(request.headers);headers.set('X-Import-Run-Id','customers-'+crypto.randomUUID());
+    request=new Request(request.url,{method:request.method,headers});
+  }
+  const noEmailRunId=adminImportRunId(request);
   const parsed=[];
   let skipped=0;
   for(const row of customers){
@@ -620,6 +627,7 @@ async function onRequestPost3({ request, env }) {
       zip:text(row?.zip_code).slice(0,20),
       importedPhone:text(row?.phone).slice(0,60),
       importedEmail:text(row?.email).slice(0,254),
+      emailSupplied:Object.prototype.hasOwnProperty.call(row,"email"),
       currentBalance:numberValue(row?.current_balance),
       aging1:numberValue(row?.aging_category_1),
       aging2:numberValue(row?.aging_category_2),
@@ -665,9 +673,10 @@ async function onRequestPost3({ request, env }) {
 
   for(const row of parsed){
     const current=existingByAccount.get(row.acct);
+    if(!row.emailSupplied)row.importedEmail=String(current?.email||"");
     const incomingEmail=String(row.importedEmail||"").trim();
     const previousEmail=String(current?.email||"").trim();
-    if(current&&incomingEmail&&incomingEmail.toLowerCase()!==previousEmail.toLowerCase())changedEmailAccounts.push(row.acct);
+    if(current&&incomingEmail.toLowerCase()!==previousEmail.toLowerCase())changedEmailAccounts.push(row.acct);
 
     const incomingRaw=String(row.importedPhone||"").trim();
     const existingRaw=String(current?.phone||"").trim();
@@ -768,18 +777,13 @@ async function onRequestPost3({ request, env }) {
       state = excluded.state,
       zip_code = excluded.zip_code,
       phone = excluded.phone,
-      email = CASE
-        WHEN excluded.email IS NOT NULL AND excluded.email <> '' THEN excluded.email
-        ELSE customers.email
-      END,
+      email = excluded.email,
       password_hash = CASE
-        WHEN excluded.email IS NOT NULL AND trim(excluded.email) <> ''
-          AND lower(trim(excluded.email)) <> lower(trim(COALESCE(customers.email,''))) THEN NULL
+        WHEN lower(trim(COALESCE(excluded.email,''))) <> lower(trim(COALESCE(customers.email,''))) THEN NULL
         ELSE customers.password_hash
       END,
       must_change_password = CASE
-        WHEN excluded.email IS NOT NULL AND trim(excluded.email) <> ''
-          AND lower(trim(excluded.email)) <> lower(trim(COALESCE(customers.email,''))) THEN 0
+        WHEN lower(trim(COALESCE(excluded.email,''))) <> lower(trim(COALESCE(customers.email,''))) THEN 0
         ELSE customers.must_change_password
       END,
       current_balance = excluded.current_balance,
@@ -808,6 +812,7 @@ async function onRequestPost3({ request, env }) {
     batch.push(env.DB.prepare(`DELETE FROM twilio_sms_verification WHERE account_number IN (${placeholders})`).bind(...chunk));
   }
 
+  batch.push(...noEmailImportStatements(env,accounts,noEmailRunId));
   try{await env.DB.batch(batch);}catch(error){
     console.error("Customer import failed",error);
     return json3({success:false,error:"Database import failed."},500);
@@ -833,6 +838,7 @@ if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImport
   return json3({
     success:true,
     processed:customerRecordCount,
+    no_email_added_count:await noEmailAddedCount(env,noEmailRunId),
     skipped,
     email_changes_requiring_reactivation:changedEmailAccounts.length,
     phone_updates:phoneUpdated,
@@ -1091,6 +1097,9 @@ async function adminImportStatusGet({request,env}){
     `).all();
     const control=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
     const remoteSync=await mas90SyncStatusRow(env);
+    await ensureNoEmailSchema(env);
+    const noEmailCustomerRun=(result?.results||[]).find(row=>row.import_type==='customers')?.last_import_run_id||'';
+    const noEmailAdded=await noEmailAddedCount(env,noEmailCustomerRun);
 
     let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
@@ -1119,6 +1128,7 @@ async function adminImportStatusGet({request,env}){
 
     return json3({
       success:true,
+      customers_no_email_added_count:noEmailAdded,
       customers_last_import_at:customersLast,
       customers_last_record_count:customersCount,
       customers_last_import_by:customersBy,
@@ -1141,7 +1151,7 @@ async function adminImportStatusGet({request,env}){
       cancel_requested_by:control?.cancel_requested_by||"",
       import_control_updated_at:control?.updated_at||"",
       import_control_completed_at:control?.completed_at||"",
-      remote_sync_request:mas90SyncPublicStatus(remoteSync)
+      remote_sync_request:{...mas90SyncPublicStatus(remoteSync),no_email_added_count:await noEmailAddedCount(env,String(remoteSync?.request_id||""))}
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -10161,6 +10171,7 @@ async function adminPreviewStatementsPost({request,env}){
     for(const account of accounts){
       const customer=await statementLoadCustomer(env,account);
       if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
+      if(body.no_email_only===true&&String(customer.email||'').trim())return notificationJson({success:false,error:`Customer ${account} now has an email address. Refresh Customers Without Email and select again.`},409);
       const payments=await statementLoadPayments(env,account,paymentCount);
       pdfs.push(statementBuildPdf(customer,statementDate,payments));
     }
@@ -10279,6 +10290,9 @@ async function adminGenerateStatementsPost({request,env}){
 
         if(!customer){
           throw new Error("Customer not found.");
+        }
+        if(statementRunId&&!String(customer.email||'').trim()){
+          throw new Error('Excluded from scheduled statements: customer has no email. Generate a paper statement from Customers Without Email.');
         }
 
         const current=statementNumber(customer.current_balance);
@@ -10711,6 +10725,7 @@ async function statementScheduleCustomers(env,type,config){
   const placeholders=cycles.map(()=>"?").join(",");
   const balanceExpr=`COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)`;
   const clauses=[`upper(trim(COALESCE(statement_cycle,''))) IN (${placeholders})`];
+  if(!exceptional)clauses.push(`trim(COALESCE(email,''))<>''`);
   if(!exceptional)clauses.push(`(account_status IS NULL OR trim(account_status)='' OR lower(trim(account_status))='active')`);
   if(!exceptional&&Number(config.positive_balance_only)!==0)clauses.push(`${balanceExpr}>0.004`);
   const result=await env.DB.prepare(`
@@ -11025,6 +11040,12 @@ async function adminStatementSchedulingPreview({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   try{
     const requested=new URL(request.url).searchParams.get("type");
+  if(requested==='no-email'){
+    const rows=await env.DB.prepare(`SELECT account_number,account_name,address1,address2,city,state,zip_code,statement_cycle,
+     COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance
+     FROM customers WHERE trim(COALESCE(email,''))='' ORDER BY account_name COLLATE NOCASE,account_number`).all();
+    return notificationJson({success:true,type:"no-email",customers:rows?.results||[]});
+  }
     const type=requested==="weekly"?"weekly":requested==="midmonth"?"midmonth":requested==="exceptional"?"exceptional":"monthly";
     const config=await statementScheduleConfig(env);
     const customers=await statementScheduleCustomers(env,type,config);

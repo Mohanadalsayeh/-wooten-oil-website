@@ -211,3 +211,11 @@ body .wooten-fleet .fleet-table-wrap table th[data-fleet-align="right"] :is(.wo-
  #adminFleetRoot .fleet-sync-controls select{margin-top:7px}
  #adminFleetRoot .fleet-sync-controls>p{min-width:0;margin:0}
 }
+
+/* Ver545: equal-width Search and Refresh actions on phones. */
+@media(max-width:700px){
+ #adminFleetRoot .fleet-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ #adminFleetRoot .fleet-toolbar>.fleet-search,
+ #adminFleetRoot .fleet-toolbar>.fleet-check{grid-column:1 / -1}
+ #adminFleetRoot .fleet-toolbar>button{width:100%;min-width:0;max-width:none;justify-self:stretch}
+}
