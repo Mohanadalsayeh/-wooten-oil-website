@@ -11670,16 +11670,19 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     statementActionBusy=true;
     processingStatementCycles=new Set(cycleTypes||[]);
     statementActionFinished=new Promise(resolve=>{resolveStatementAction=resolve;});
-    activeStatementButton=get(buttonId);
+    const filterChange=buttonId==='scheduleEmailFilter';
+    activeStatementButton=filterChange?null:get(buttonId);
     activeStatementButton?.setAttribute('aria-busy','true');
-    statementPageLocked=/^schedule(?:Run|Test)(?:Monthly|Weekly|All)$/.test(buttonId);
+    statementPageLocked=filterChange||/^schedule(?:Run|Test)(?:Monthly|Weekly|All)$/.test(buttonId);
     if(statementPageLocked){
       panel.querySelectorAll(statementPageControls).forEach(control=>statementDisabledState.set(control,control.disabled));
       panel.dataset.statementProcessing='true';
+      if(activeStatementButton){
       activeStatementLabel=activeStatementButton.textContent;
       activeStatementButton.textContent=buttonId==='scheduleTestAll'?'Testing All Cycles…':(buttonId.startsWith('scheduleTest')?'Testing ':'Running ')+(buttonId.endsWith('Weekly')?'B':'A')+'…';
       activeStatementButton.classList.add('schedule-active-action');
       activeStatementButton.setAttribute('aria-disabled','true');
+      }
     }
     syncCycleEnabledState();
     return true;
@@ -11691,9 +11694,11 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       delete panel.dataset.statementProcessing;
       statementDisabledState.forEach((disabled,control)=>{if(control.isConnected)control.disabled=disabled;});
       statementDisabledState.clear();
+      if(activeStatementButton){
       activeStatementButton.textContent=activeStatementLabel;
       activeStatementButton.classList.remove('schedule-active-action');
       activeStatementButton.removeAttribute('aria-disabled');
+      }
       activeStatementLabel='';
     }
     activeStatementButton?.removeAttribute('aria-busy');
@@ -12190,12 +12195,12 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     }
     updateBulkControls(type);
   }
-  async function showPreview(type,saveFirst=true){
+  async function showPreview(type,saveFirst=true,filterRefresh=false){
     const preview=previewTargets[type];
     if(!preview)return;
     // Assignment/filter refreshes must wait, so their updated customer lists are not lost.
-    while(statementActionBusy){if(saveFirst)return;await statementActionFinished;}
-    if(!beginStatementAction('schedulePreview'+(type==='weekly'?'Weekly':type==='midmonth'?'Midmonth':'Monthly'),[type]))return;
+    while(statementActionBusy&&!filterRefresh){if(saveFirst)return;await statementActionFinished;}
+    if(!filterRefresh&&!beginStatementAction('schedulePreview'+(type==='weekly'?'Weekly':type==='midmonth'?'Midmonth':'Monthly'),[type]))return;
     try{
       const previousSearch=String(preview.querySelector('[data-schedule-preview-search]')?.value||'');
       openPreviewTypes.add(type);
@@ -12214,8 +12219,8 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       if(searchInput)searchInput.value=previousSearch;
       renderPreviewMatches(type,previousSearch);
       setStatus(Number(data.count||0)+' customers match the '+(type==='weekly'?'Cycle B':type==='midmonth'?'legacy mid-month':'monthly A')+' schedule.',true);
-    }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);}
-    finally{endStatementAction();}
+    }catch(error){preview.innerHTML='<div class="schedule-empty">'+esc(error.message||'Preview could not be loaded.')+'</div>';setStatus(error.message||'Preview could not be loaded.',false);if(filterRefresh)throw error;}
+    finally{if(!filterRefresh)endStatementAction();}
   }
   panel.addEventListener('input',event=>{
     const input=event.target.closest('[data-schedule-preview-search]');
@@ -12525,14 +12530,24 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     finally{positiveOnly.disabled=false;}
   });
   get('scheduleEmailFilter').addEventListener('change',async()=>{
-    const control=get('scheduleEmailFilter');control.disabled=true;
-    syncScheduleEmailAvailability();
-    try{await saveSettings(false);for(const type of ['monthly','weekly']){
-      bulkSelections[type]?.clear();
-      if(type==='monthly'?monthlyEnabled.checked:weeklyEnabled.checked)await showPreview(type,false);
-      syncRunSelectionState(type);
-    }setStatus('Email filter saved for Cycle A and Cycle B.',true);}
-    catch(error){setStatus(error.message,false);}finally{control.disabled=false;}
+    if(!beginStatementAction('scheduleEmailFilter',['monthly','weekly']))return;
+    const control=get('scheduleEmailFilter');control.setAttribute('aria-busy','true');
+    setStatus('Updating email filter and customer lists…');
+    try{
+      // Let the disabled controls paint before starting network work.
+      await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+      await saveSettings(false);
+      for(const type of ['monthly','weekly']){
+        bulkSelections[type]?.clear();
+        if(type==='monthly'?monthlyEnabled.checked:weeklyEnabled.checked)await showPreview(type,false,true);
+        syncRunSelectionState(type);
+      }
+      setStatus('Email filter saved for Cycle A and Cycle B.',true);
+    }catch(error){setStatus(error.message||'Customer lists could not be refreshed.',false);}
+    finally{
+      control.removeAttribute('aria-busy');endStatementAction();
+      for(const type of ['monthly','weekly'])updateBulkControls(type);
+    }
   });
   weeklyFrequency.addEventListener('change',syncWeeklyFrequency);
   weeklyAnchor.addEventListener('change',syncWeeklyFrequency);
