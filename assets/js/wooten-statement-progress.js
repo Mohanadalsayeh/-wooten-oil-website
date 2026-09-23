@@ -98,7 +98,7 @@
     const partialDeliveryFailure=channels.slice(1).filter(channel=>channel.status==='failed').length===1;
     const selected=channels.filter(c=>c.status!=='not_selected'),finished=selected.filter(c=>!['queued','sending'].includes(c.status)).length;
     const percent=isDone?100:Math.round(((row.pdf_ready?1:0)+finished)/(1+selected.length)*100);
-    const status=hasError?(isDone?'Completed with errors':'Sending — issue reported'):row.stage==='complete'?(job.options.dry_run?'Test complete':'Processing complete'):row.stage==='generating'?'Generating PDF':row.stage==='sending'?'Sending statements':row.stage==='stopped'?'Stopped':'Queued';
+    const status=hasError?(isDone?'Completed with errors':'Sending — issue reported'):row.stage==='complete'?(job.options.pdf_only?'PDF generated':job.options.dry_run?'Test complete':'Processing complete'):row.stage==='generating'?'Generating PDF':row.stage==='sending'?'Sending statements':row.stage==='stopped'?'Stopped':'Queued';
     const token=job.id+':'+row.account_number,state=pdfStates.get(token),pdfState=state?.auth===key()?state:null,opening=openingPdfs.has(token);
     const nameAttrs='class="sp-customer-link" data-sp-pdf-kind="name" data-sp-job="'+esc(job.id)+'" data-sp-pdf="'+esc(row.account_number)+'" aria-label="Open PDF statement for '+esc(row.account_name)+'"';
     const name=row.pdf_ready?(pdfState?.url
@@ -129,7 +129,7 @@
     host.querySelector('.sp-overall').dataset.state=processing?(progressUnavailable?'waiting':'running'):complete?(failed?'errors':'complete'):'idle';
     const matching=filteredRows(),filtered=searchQuery.trim()!==''||statusFilter!=='all';
     host.querySelector('[data-sp-export]').disabled=tableLoading||processing||exporting||!matching.length;
-    host.querySelector('#sp-notice').textContent=dry?'Test only — nothing is sent. Click a customer name to open their statement, or Save PDF to download it.':complete?'Click a customer name to open their statement, or Save PDF to download it. Email acceptance is not inbox confirmation; SMS delivery updates when reported.':'Keep this page open for manual runs and tests. You can close this window and reopen progress. Customer PDF links appear as files are generated.';
+    host.querySelector('#sp-notice').textContent=snapshots.length&&snapshots.every(j=>j.options.pdf_only)?'Click a customer name to open their statement, or Save PDF to download and print it.':dry?'Test only — nothing is sent. Click a customer name to open their statement, or Save PDF to download it.':complete?'Click a customer name to open their statement, or Save PDF to download it. Email acceptance is not inbox confirmation; SMS delivery updates when reported.':'Keep this page open for manual runs and tests. You can close this window and reopen progress. Customer PDF links appear as files are generated.';
     const pages=Math.max(1,Math.ceil(matching.length/pageSize));page=Math.max(1,Math.min(page,pages));
     const body=host.querySelector('#sp-rows'),html=tableLoading?skeletonHtml():matching.slice((page-1)*pageSize,page*pageSize).map(({row,job})=>rowHtml(row,job)).join('')||'<tr><td colspan="6" class="sp-empty">'+(snapshots.length?(filtered?'No customers match your search and filter.':'No customers in this run.'):progressUnavailable?'Statement progress could not be loaded. Retrying…':'Preparing statement progress…')+'</td></tr>';
     host.querySelector('.sp-table').setAttribute('aria-busy',String(tableLoading));
@@ -186,7 +186,7 @@
     try{
       const rows=filteredRows().map(({row,job})=>[
         row.account_name+'\nCustomer # '+row.account_number+(snapshots.length>1?'\n'+job.title:''),money(row.total_balance),
-        (row.stage==='complete'?(job.options.dry_run?'Test complete':Object.values(row.channels||{}).some(c=>c.status==='failed')?'Completed with errors':'Processing complete'):row.stage)+(row.error?'\n'+row.error:''),
+        (row.stage==='complete'?(job.options.pdf_only?'PDF generated':job.options.dry_run?'Test complete':Object.values(row.channels||{}).some(c=>c.status==='failed')?'Completed with errors':'Processing complete'):row.stage)+(row.error?'\n'+row.error:''),
         ...['portal','email','sms'].map(name=>{const c=row.channels?.[name]||{status:'queued'};return (labels[c.status]||c.status)+(c.reason?'\n'+c.reason:'');})
       ]);
       await window.WootenAdminTablePdf.exportData(host.querySelector('#sp-title').textContent+' — '+host.querySelector('#sp-date').textContent+(searchQuery.trim()||statusFilter!=='all'?' — Filtered customers':''),['Customer / ID','Total balance','Progress','Customer portal','Email PDF','SMS text'],rows);

@@ -26,7 +26,7 @@ export async function history(env,params){
     SELECT 'scheduled' AS source,CAST(r.id AS TEXT) AS id,r.id AS sort_id,
       julianday(r.started_at) AS sort_at,r.started_at,'' AS title,'' AS statement_date,
       CASE WHEN ?='' THEN 1 ELSE instr(lower(
-        CASE WHEN r.run_type LIKE 'test_%' THEN 'test run ' ELSE '' END ||
+        CASE WHEN r.run_type LIKE 'test_%' THEN 'test run ' WHEN r.run_type LIKE 'print_%' THEN 'generated pdf printable statements ' ELSE '' END ||
         CASE WHEN r.run_type LIKE '%weekly' THEN 'B Weekly Biweekly Cycle B' WHEN r.run_type LIKE '%midmonth' THEN 'Legacy Mid-Month' ELSE 'A Monthly Cycle A' END || ' ' ||
         COALESCE(r.started_at,'') || ' ' || COALESCE(r.status,'') || ' ' || replace(COALESCE(r.status,''),'_',' ') || ' ' || COALESCE(r.detail_json,'')),?)>0 END AS matches
     FROM statement_schedule_runs r WHERE r.id<=?

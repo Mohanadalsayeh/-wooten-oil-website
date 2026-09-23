@@ -1,4 +1,3 @@
-import {ensureNoEmailSchema,noEmailImportStatements,noEmailAddedCount} from './assets/js/wooten-no-email-imports.mjs';
 import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
@@ -604,12 +603,6 @@ async function onRequestPost3({ request, env }) {
   const defaultAreaCode=String(areaSetting?.default_area_code||"").replace(/\D/g,"");
   const fixAreaCodeAutomatically=body?.fix_area_code_automatically===true;
 
-  await ensureNoEmailSchema(env);
-  if(!adminImportRunId(request)){
-    const headers=new Headers(request.headers);headers.set('X-Import-Run-Id','customers-'+crypto.randomUUID());
-    request=new Request(request.url,{method:request.method,headers});
-  }
-  const noEmailRunId=adminImportRunId(request);
   const parsed=[];
   let skipped=0;
   for(const row of customers){
@@ -627,7 +620,6 @@ async function onRequestPost3({ request, env }) {
       zip:text(row?.zip_code).slice(0,20),
       importedPhone:text(row?.phone).slice(0,60),
       importedEmail:text(row?.email).slice(0,254),
-      emailSupplied:Object.prototype.hasOwnProperty.call(row,"email"),
       currentBalance:numberValue(row?.current_balance),
       aging1:numberValue(row?.aging_category_1),
       aging2:numberValue(row?.aging_category_2),
@@ -673,10 +665,9 @@ async function onRequestPost3({ request, env }) {
 
   for(const row of parsed){
     const current=existingByAccount.get(row.acct);
-    if(!row.emailSupplied)row.importedEmail=String(current?.email||"");
     const incomingEmail=String(row.importedEmail||"").trim();
     const previousEmail=String(current?.email||"").trim();
-    if(current&&incomingEmail.toLowerCase()!==previousEmail.toLowerCase())changedEmailAccounts.push(row.acct);
+    if(current&&incomingEmail&&incomingEmail.toLowerCase()!==previousEmail.toLowerCase())changedEmailAccounts.push(row.acct);
 
     const incomingRaw=String(row.importedPhone||"").trim();
     const existingRaw=String(current?.phone||"").trim();
@@ -777,13 +768,18 @@ async function onRequestPost3({ request, env }) {
       state = excluded.state,
       zip_code = excluded.zip_code,
       phone = excluded.phone,
-      email = excluded.email,
+      email = CASE
+        WHEN excluded.email IS NOT NULL AND excluded.email <> '' THEN excluded.email
+        ELSE customers.email
+      END,
       password_hash = CASE
-        WHEN lower(trim(COALESCE(excluded.email,''))) <> lower(trim(COALESCE(customers.email,''))) THEN NULL
+        WHEN excluded.email IS NOT NULL AND trim(excluded.email) <> ''
+          AND lower(trim(excluded.email)) <> lower(trim(COALESCE(customers.email,''))) THEN NULL
         ELSE customers.password_hash
       END,
       must_change_password = CASE
-        WHEN lower(trim(COALESCE(excluded.email,''))) <> lower(trim(COALESCE(customers.email,''))) THEN 0
+        WHEN excluded.email IS NOT NULL AND trim(excluded.email) <> ''
+          AND lower(trim(excluded.email)) <> lower(trim(COALESCE(customers.email,''))) THEN 0
         ELSE customers.must_change_password
       END,
       current_balance = excluded.current_balance,
@@ -812,7 +808,6 @@ async function onRequestPost3({ request, env }) {
     batch.push(env.DB.prepare(`DELETE FROM twilio_sms_verification WHERE account_number IN (${placeholders})`).bind(...chunk));
   }
 
-  batch.push(...noEmailImportStatements(env,accounts,noEmailRunId));
   try{await env.DB.batch(batch);}catch(error){
     console.error("Customer import failed",error);
     return json3({success:false,error:"Database import failed."},500);
@@ -838,7 +833,6 @@ if(importMeta?.last_import_status==="completed")await adminAudit(env,adminImport
   return json3({
     success:true,
     processed:customerRecordCount,
-    no_email_added_count:await noEmailAddedCount(env,noEmailRunId),
     skipped,
     email_changes_requiring_reactivation:changedEmailAccounts.length,
     phone_updates:phoneUpdated,
@@ -1097,9 +1091,6 @@ async function adminImportStatusGet({request,env}){
     `).all();
     const control=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
     const remoteSync=await mas90SyncStatusRow(env);
-    await ensureNoEmailSchema(env);
-    const noEmailCustomerRun=(result?.results||[]).find(row=>row.import_type==='customers')?.last_import_run_id||'';
-    const noEmailAdded=await noEmailAddedCount(env,noEmailCustomerRun);
 
     let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
@@ -1128,7 +1119,6 @@ async function adminImportStatusGet({request,env}){
 
     return json3({
       success:true,
-      customers_no_email_added_count:noEmailAdded,
       customers_last_import_at:customersLast,
       customers_last_record_count:customersCount,
       customers_last_import_by:customersBy,
@@ -1151,7 +1141,7 @@ async function adminImportStatusGet({request,env}){
       cancel_requested_by:control?.cancel_requested_by||"",
       import_control_updated_at:control?.updated_at||"",
       import_control_completed_at:control?.completed_at||"",
-      remote_sync_request:{...mas90SyncPublicStatus(remoteSync),no_email_added_count:await noEmailAddedCount(env,String(remoteSync?.request_id||""))}
+      remote_sync_request:mas90SyncPublicStatus(remoteSync)
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -10171,7 +10161,6 @@ async function adminPreviewStatementsPost({request,env}){
     for(const account of accounts){
       const customer=await statementLoadCustomer(env,account);
       if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
-      if(body.no_email_only===true&&String(customer.email||'').trim())return notificationJson({success:false,error:`Customer ${account} now has an email address. Refresh Customers Without Email and select again.`},409);
       const payments=await statementLoadPayments(env,account,paymentCount);
       pdfs.push(statementBuildPdf(customer,statementDate,payments));
     }
@@ -10241,10 +10230,11 @@ async function adminGenerateStatementsPost({request,env}){
     const progressJob=progressId?await StatementProgress.job(env,progressId):null;
     if(progressId&&!progressJob)return notificationJson({success:false,error:"Statement progress job not found. Start a new run."},409);
     if(progressJob){
-      body={...body,statement_date:progressJob.statement_date,payment_count:progressJob.options.payment_count,dry_run:progressJob.options.dry_run,portal_notification:progressJob.options.portal,email_pdf:progressJob.options.email,sms_link:progressJob.options.sms};
+      body={...body,statement_date:progressJob.statement_date,payment_count:progressJob.options.payment_count,pdf_only:progressJob.options.pdf_only===true,dry_run:progressJob.options.dry_run,portal_notification:progressJob.options.portal,email_pdf:progressJob.options.email,sms_link:progressJob.options.sms};
       if(Number(body.statement_run_id||body.run_id||0)!==Number(progressJob.run_id))return notificationJson({success:false,error:"Statement run does not match the progress job."},409);
     }
-    const dryRun=body.dry_run===true;
+    const pdfOnly=body.pdf_only===true;
+    const dryRun=pdfOnly||body.dry_run===true;
     const statementRunId=Math.max(0,Number(body.statement_run_id||body.run_id||0));
     if(statementRunId)await ensureStatementSchedulingSchema(env);
     if(!dryRun&&!env.NOTIFICATION_ATTACHMENTS){
@@ -10291,9 +10281,6 @@ async function adminGenerateStatementsPost({request,env}){
         if(!customer){
           throw new Error("Customer not found.");
         }
-        if(statementRunId&&!String(customer.email||'').trim()){
-          throw new Error('Excluded from scheduled statements: customer has no email. Generate a paper statement from Customers Without Email.');
-        }
 
         const current=statementNumber(customer.current_balance);
         const previous=
@@ -10314,7 +10301,7 @@ async function adminGenerateStatementsPost({request,env}){
         if(dryRun){
           if(progressRow){
             const key=`statement-progress/${progressId}/${account}.pdf`;
-            if(!env.NOTIFICATION_ATTACHMENTS)throw new Error('Statement storage is required to view test PDFs.');
+            if(!env.NOTIFICATION_ATTACHMENTS)throw new Error('Statement storage is required to view PDFs.');
             await env.NOTIFICATION_ATTACHMENTS.put(key,pdfBytes,{httpMetadata:{contentType:'application/pdf'}});
             Object.assign(progressRow,{pdf_key:key,filename,stage:'complete'});
             for(const channel of Object.values(progressRow.channels))if(channel.status!=='not_selected'){channel.status='test';channel.reason='PDF validated. Test only — not sent.';}
@@ -10323,7 +10310,8 @@ async function adminGenerateStatementsPost({request,env}){
             account_number:account,
             account_name:customer.account_name||"",
             success:true,
-            test_mode:true,
+            test_mode:!pdfOnly,
+            pdf_only:pdfOnly,
             filename,
             pdf_bytes:pdfBytes.byteLength,
             payment_count:recentPayments.length,
@@ -10614,6 +10602,7 @@ async function ensureStatementSchedulingSchema(env){
   `).run();
   const configInfo=await env.DB.prepare(`PRAGMA table_info(statement_schedule_config)`).all();
   const configColumns=new Set((configInfo?.results||[]).map(row=>String(row.name||"").toLowerCase()));
+  if(!configColumns.has("email_filter"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN email_filter TEXT NOT NULL DEFAULT 'all'`).run();
   if(!configColumns.has("midmonth_enabled"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_enabled INTEGER NOT NULL DEFAULT 0`).run();
   if(!configColumns.has("midmonth_day"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_day INTEGER NOT NULL DEFAULT 15`).run();
   if(!configColumns.has("midmonth_hour"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_hour INTEGER NOT NULL DEFAULT 8`).run();
@@ -10725,8 +10714,9 @@ async function statementScheduleCustomers(env,type,config){
   const placeholders=cycles.map(()=>"?").join(",");
   const balanceExpr=`COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)`;
   const clauses=[`upper(trim(COALESCE(statement_cycle,''))) IN (${placeholders})`];
-  if(!exceptional)clauses.push(`trim(COALESCE(email,''))<>''`);
   if(!exceptional)clauses.push(`(account_status IS NULL OR trim(account_status)='' OR lower(trim(account_status))='active')`);
+  if(!exceptional&&config.email_filter==='with_email')clauses.push(`trim(COALESCE(email,''))<>''`);
+  if(!exceptional&&config.email_filter==='without_email')clauses.push(`trim(COALESCE(email,''))=''`);
   if(!exceptional&&Number(config.positive_balance_only)!==0)clauses.push(`${balanceExpr}>0.004`);
   const result=await env.DB.prepare(`
     SELECT account_number,account_name,statement_cycle,${balanceExpr} AS total_balance,phone,email
@@ -10739,14 +10729,15 @@ async function statementScheduleCustomers(env,type,config){
 }
 __name(statementScheduleCustomers,"statementScheduleCustomers");
 
-async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,accountNumbers=null}={}){
+async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,pdfOnly=false,accountNumbers=null}={}){
+  if(pdfOnly){dryRun=true;testSend=false;}
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
   const cycleLabel=type==="weekly"?"B":type==="midmonth"?"LEGACY":"A";
   const baseKey=type==="weekly"?`weekly:${central.date}`:`${type}:${central.year}-${central.month}`;
-  const isTest=!!dryRun||!!testSend;
-  const runKey=dryRun?`testdry:${type}:${crypto.randomUUID()}`:testSend?`testsend:${type}:${crypto.randomUUID()}`:force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
-  const storedRunType=isTest?`test_${type}`:type;
+  const isTest=!pdfOnly&&(!!dryRun||!!testSend);
+  const runKey=pdfOnly?`print:${type}:manual:${crypto.randomUUID()}`:dryRun?`testdry:${type}:${crypto.randomUUID()}`:testSend?`testsend:${type}:${crypto.randomUUID()}`:force?`${baseKey}:manual:${crypto.randomUUID()}`:baseKey;
+  const storedRunType=pdfOnly?`print_${type}`:isTest?`test_${type}`:type;
   const allCustomers=await statementScheduleCustomers(env,type,config);
   let requestedAccounts=null;
   let customers=allCustomers;
@@ -10789,7 +10780,7 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,
         customer_count=?,target_json=?,cursor_position=0,processed_count=0,detail_json='[]'
       WHERE id=?
     `).bind(customers.length,JSON.stringify(customers.map(c=>c.account_number)),runId).run();
-    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:central.date,options:{portal:Number(config.portal_enabled)!==0,email:Number(config.email_enabled)!==0,sms:Number(config.sms_enabled)!==0,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
+    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:central.date,options:{portal:!pdfOnly&&Number(config.portal_enabled)!==0,email:!pdfOnly&&Number(config.email_enabled)!==0,sms:!pdfOnly&&Number(config.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
     if(!customers.length){
       await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_completed":"completed",runId).run();
     }
@@ -10825,7 +10816,8 @@ async function continueStatementSchedule(env,runId,origin){
   }
   const preIsTest=String(run.run_type||"").startsWith("test_");
   const preTestSend=preIsTest&&String(run.run_key||"").startsWith("testsend:");
-  const preDryRun=preIsTest&&!preTestSend;
+  const pdfOnly=String(run.run_type||"").startsWith("print_");
+  const preDryRun=pdfOnly||(preIsTest&&!preTestSend);
   const cursor=Math.max(0,Number(run.cursor_position||0));
   const processedBefore=Math.max(0,Number(run.processed_count||0));
   if(processedBefore<cursor){
@@ -10850,7 +10842,7 @@ async function continueStatementSchedule(env,runId,origin){
       const found=(await env.DB.prepare(`SELECT account_number,account_name,COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance FROM customers WHERE account_number IN (${chunk.map(()=>'?').join(',')})`).bind(...chunk).all()).results||[];
       const mapped=new Map(found.map(c=>[c.account_number,c]));customers.push(...chunk.map(account=>mapped.get(account)||{account_number:account}));
     }
-    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:preDryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(preDryRun?'Test — ':'')+'Cycle '+run.statement_cycle+' Account Statements',date:statementCentralParts().date,options:{portal:Number(legacyConfig.portal_enabled)!==0,email:Number(legacyConfig.email_enabled)!==0,sms:Number(legacyConfig.sms_enabled)!==0,dry_run:preDryRun,payment_count:Number(legacyConfig.payment_count)||0},customers});
+    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':preDryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':preDryRun?'Test — ':'')+'Cycle '+run.statement_cycle+' Account Statements',date:statementCentralParts().date,options:{portal:!pdfOnly&&Number(legacyConfig.portal_enabled)!==0,email:!pdfOnly&&Number(legacyConfig.email_enabled)!==0,sms:!pdfOnly&&Number(legacyConfig.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:preDryRun,payment_count:Number(legacyConfig.payment_count)||0},customers});
   }
   // Claim this exact batch BEFORE generating or sending anything. This prevents duplicate
   // SMS/email/portal delivery if two browser/network continuation requests overlap.
@@ -10883,7 +10875,7 @@ async function continueStatementSchedule(env,runId,origin){
   const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
   const generateRequest=new Request(`${siteOrigin}/api/admin/statements/generate`,{
     method:"POST",headers:{"X-Admin-Key":String(env.ADMIN_IMPORT_KEY||""),"Content-Type":"application/json","Accept":"application/json"},
-    body:JSON.stringify({accounts,statement_run_id:runId,statement_date:central.date,payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun})
+    body:JSON.stringify({accounts,statement_run_id:runId,statement_date:central.date,payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun,pdf_only:pdfOnly})
   });
   let batch=[];let batchCombinedKey="";let batchCombinedError="";
   try{
@@ -11000,23 +10992,24 @@ async function adminStatementScheduling({request,env}){
     await ensureStatementSchedulingSchema(env);
     if(request.method==="POST"){
       const body=await request.json().catch(()=>({}));
+      if(body.email_filter!=null&&!['all','with_email','without_email'].includes(body.email_filter))return notificationJson({success:false,error:"Choose All customers, With email, or Without email."},400);
       await env.DB.prepare(`
         UPDATE statement_schedule_config SET
           weekly_enabled=?,weekly_weekday=?,weekly_hour=?,weekly_frequency=?,weekly_anchor_date=?,midmonth_enabled=?,midmonth_day=?,midmonth_hour=?,monthly_enabled=?,monthly_day=?,monthly_hour=?,monthly_cycles='A',
-          positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
+          email_filter=?,positive_balance_only=?,payment_count=?,portal_enabled=?,email_enabled=?,sms_enabled=?,updated_at=CURRENT_TIMESTAMP
         WHERE id=1
       `).bind(
         body.weekly_enabled?1:0,Math.max(0,Math.min(6,Number(body.weekly_weekday)||0)),Math.max(0,Math.min(23,Number(body.weekly_hour)||0)),String(body.weekly_frequency||"").toLowerCase()==="biweekly"?"biweekly":"weekly",/^\d{4}-\d{2}-\d{2}$/.test(String(body.weekly_anchor_date||""))?String(body.weekly_anchor_date):statementCentralParts().date,
         0,Math.max(1,Math.min(28,Number(body.midmonth_day)||15)),Math.max(0,Math.min(23,Number(body.midmonth_hour)||0)),
         body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),
-        body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_enabled?1:0,body.sms_enabled?1:0
+        ['all','with_email','without_email'].includes(body.email_filter)?body.email_filter:'all',body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_enabled?1:0,body.sms_enabled?1:0
       ).run();
     }
     const config=await statementScheduleConfig(env);
     const compact=new URL(request.url).searchParams.get("compact")==="1";
     const runs=await env.DB.prepare(`SELECT * FROM statement_schedule_runs ORDER BY started_at DESC,id DESC LIMIT 20`).all();
     const parsed=(runs?.results||[]).map(row=>({...row,detail_json:compact?undefined:row.detail_json,results:compact?[]:(()=>{try{return JSON.parse(row.detail_json||"[]");}catch{return [];}})(),combined_pdf_parts:(()=>{try{return JSON.parse(row.combined_pdf_parts_json||"[]");}catch{return [];}})(),group_combined_pdf_parts:(()=>{try{return JSON.parse(row.group_combined_pdf_parts_json||"[]");}catch{return [];}})()}));
-    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_progress_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true,exceptional_statement_customers_v1:true}});
+    return notificationJson({success:true,config,runs:parsed,central_time:statementCentralParts(),capabilities:{statement_email_filter_v1:true,statement_pdf_only_v1:true,selected_statement_recipients_v2:true,selected_statement_test_all_v1:true,statement_batch_claim_v1:true,statement_channel_dedupe_v1:true,statement_delivery_reasons_v1:true,statement_progress_v1:true,statement_dry_test_v1:true,statement_combined_pdf_v1:true,statement_combined_pdf_parts_v1:true,exceptional_statement_customers_v1:true}});
   }catch(error){
     console.error("Statement scheduling settings failed",error);
     return notificationJson({success:false,error:"Statement scheduling settings could not be processed. "+String(error?.message||error)},500);
@@ -11040,12 +11033,6 @@ async function adminStatementSchedulingPreview({request,env}){
   if(!statementScheduleAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
   try{
     const requested=new URL(request.url).searchParams.get("type");
-  if(requested==='no-email'){
-    const rows=await env.DB.prepare(`SELECT account_number,account_name,address1,address2,city,state,zip_code,statement_cycle,
-     COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0) AS total_balance
-     FROM customers WHERE trim(COALESCE(email,''))='' ORDER BY account_name COLLATE NOCASE,account_number`).all();
-    return notificationJson({success:true,type:"no-email",customers:rows?.results||[]});
-  }
     const type=requested==="weekly"?"weekly":requested==="midmonth"?"midmonth":requested==="exceptional"?"exceptional":"monthly";
     const config=await statementScheduleConfig(env);
     const customers=await statementScheduleCustomers(env,type,config);
@@ -11178,8 +11165,9 @@ async function adminStatementSchedulingRun({request,env}){
     const normalized=[...new Set(body.account_numbers.map(value=>{const digits=String(value||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
     if(!normalized.length)return notificationJson({success:false,error:"Select at least one valid customer account."},400);
     if(normalized.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers can be selected for one statement run."},413);
+    if(body.pdf_only===true&&!env.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Statement PDF storage is not configured."},503);
     const origin=new URL(request.url).origin;
-    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,accountNumbers:normalized});
+    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,pdfOnly:body.pdf_only===true,accountNumbers:normalized});
     return notificationJson(started);
   }
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}

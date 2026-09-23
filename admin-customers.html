@@ -5646,7 +5646,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 .admin-user-access-note{font-size:13px;line-height:1.5}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-statement-progress.css?v=529">
-<script src="assets/js/wooten-statement-progress.js?v=529" defer></script>
+<script src="assets/js/wooten-statement-progress.js?v=549" defer></script>
+<style>@media(max-width:700px){#statementSchedulingPanel .schedule-cycle-actions .schedule-generate,.schedule-cycle-actions .schedule-generate{grid-column:1 / -1;width:100%;min-width:0}}</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -5942,7 +5943,6 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     </div>
 
     <div id="status" class="status"></div>
-    <div id="customerNoEmailImportNotice" class="status" role="status" aria-live="polite"></div>
     <div class="customer-phone-import-summary" id="customerPhoneImportSummary" hidden aria-live="polite">
       <span class="customer-phone-import-stat"><b id="customerPhoneNumbersFound">0</b> Phone Numbers in Import</span>
       <span class="customer-phone-import-stat"><b id="customerPhoneSevenDigitFound">0</b> 7-Digit Numbers</span>
@@ -6579,7 +6579,6 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Send Account Statements</span></button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Statement Scheduling</span></button>
       <button class="admin-subtab" id="documentTabStatementRunReport" type="button" role="tab" aria-selected="false" aria-controls="documentSectionStatementRunReport" data-document-section="statement-run-report">Statement Run Report</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="documentSectionNoEmailCustomers" data-document-section="no-email-customers">Customers Without Email</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="exceptional-customers">Exceptional Customers</button>
     </nav>
     <div id="documentSectionCustomerDocuments">
@@ -6823,9 +6822,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 
       <section class="schedule-card schedule-shared">
         <h3>Statement &amp; Delivery Settings</h3>
-        <p>These settings apply to monthly, mid-month, and weekly automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
+        <p>These settings apply to Cycle A and Cycle B previews and automatic statements. Each customer’s colored or gray communication icons are still respected.</p>
         <div class="schedule-fields schedule-shared-fields">
           <div class="schedule-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
+          <div class="schedule-field"><label for="scheduleEmailFilter">Customer Email — Cycles A &amp; B</label><select id="scheduleEmailFilter"><option value="all">All customers</option><option value="with_email">With email</option><option value="without_email">Without email</option></select></div>
           <label class="schedule-balance-toggle" for="schedulePositiveOnly">
             <input id="schedulePositiveOnly" type="checkbox" checked>
             <span class="schedule-toggle-ui" aria-hidden="true"></span>
@@ -6880,7 +6880,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <div class="schedule-field"><label for="scheduleMonthlyDay">Day of Month</label><input id="scheduleMonthlyDay" type="number" min="1" max="28" value="1"></div>
             <div class="schedule-field"><label for="scheduleMonthlyHour">Send Time</label><select id="scheduleMonthlyHour" data-hour-select></select></div>
           </div>
-          <div class="actions schedule-cycle-actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button><button class="schedule-test-btn" id="scheduleTestMonthly" type="button">Test A</button><button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button></div>
+          <div class="actions schedule-cycle-actions"><button class="secondary" id="schedulePreviewMonthly" type="button">Preview A Customers</button><button class="schedule-test-btn" id="scheduleTestMonthly" type="button">Test A</button><button class="primary" id="scheduleRunMonthly" type="button">Run A Now</button>
+            <button type="button" class="secondary schedule-generate" id="scheduleGenerateMonthly">Generate Statements</button></div>
           <div class="preview-progress" id="scheduleTestMonthlyProgress" hidden>
             <div class="preview-progress-head"><strong id="scheduleTestMonthlyProgressLabel">Testing A statements…</strong><span id="scheduleTestMonthlyProgressCount">Preparing</span></div>
             <div class="preview-progress-track" id="scheduleTestMonthlyProgressTrack" role="progressbar" aria-label="Cycle A dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestMonthlyProgressBar"></span></div>
@@ -6918,7 +6919,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
             <div class="schedule-field"><label for="scheduleWeeklyHour">Send Time</label><select id="scheduleWeeklyHour" data-hour-select></select></div>
             <div class="schedule-field" id="scheduleWeeklyAnchorField" hidden><label for="scheduleWeeklyAnchorDate">First Biweekly Run</label><input id="scheduleWeeklyAnchorDate" type="date"></div>
           </div>
-          <div class="actions schedule-cycle-actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview B Customers</button><button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test B</button><button class="primary" id="scheduleRunWeekly" type="button">Run B Now</button></div>
+          <div class="actions schedule-cycle-actions"><button class="secondary" id="schedulePreviewWeekly" type="button">Preview B Customers</button><button class="schedule-test-btn" id="scheduleTestWeekly" type="button">Test B</button><button class="primary" id="scheduleRunWeekly" type="button">Run B Now</button>
+            <button type="button" class="secondary schedule-generate" id="scheduleGenerateWeekly">Generate Statements</button></div>
           <div class="preview-progress" id="scheduleTestWeeklyProgress" hidden>
             <div class="preview-progress-head"><strong id="scheduleTestWeeklyProgressLabel">Testing B statements…</strong><span id="scheduleTestWeeklyProgressCount">Preparing</span></div>
             <div class="preview-progress-track" id="scheduleTestWeeklyProgressTrack" role="progressbar" aria-label="Cycle B dry test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="scheduleTestWeeklyProgressBar"></span></div>
@@ -6954,23 +6956,6 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
           <div class="schedule-cleanup-list" id="scheduleCleanupList"><div class="schedule-empty">Loading eligible PDF files…</div></div>
           <div class="schedule-cleanup-footer"><button class="secondary" id="scheduleCleanupCancel" type="button">Cancel</button><button class="schedule-cleanup-delete" id="scheduleCleanupDelete" type="button" disabled>Delete Selected</button></div>
         </section>
-      </div>
-    </div>
-
-    <div id="documentSectionNoEmailCustomers" hidden>
-      <div class="documents-form-heading"><div class="admin-page-label">Paper Statements</div><h2>Customers Without Email</h2>
-      <p>These customers are excluded from scheduled Cycle A and B statements. Select customers to generate a PDF for paper mailing. Their existing cycle assignment is preserved; customers assigned Exceptional remain Exceptional.</p></div>
-      <div class="schedule-card">
-        <div class="no-email-filters">
-          <label>Search customers<input id="noEmailSearch" type="search" placeholder="Customer number, name or mailing address"></label>
-          <label>Statement date<input id="noEmailDate" type="date"></label>
-          <label>Recent payments<select id="noEmailPayments"><option value="0">Do not include</option><option value="5">Last 5</option><option value="10">Last 10</option><option value="20">Last 20</option></select></label>
-        </div>
-        <div class="actions no-email-actions"><button id="noEmailRefresh" type="button" class="secondary">Refresh</button><button id="noEmailSelect" type="button" class="secondary">Select All Matching</button><button id="noEmailClear" type="button" class="secondary" disabled>Clear Selection</button></div>
-        <div class="actions no-email-pdf-actions"><button id="noEmailPreview" type="button" class="secondary" disabled>Preview PDF</button><button id="noEmailPrint" type="button" class="primary" disabled>Generate &amp; Print Statements</button></div>
-        <p id="noEmailSelection" aria-live="polite">0 selected</p><div id="noEmailStatus" class="status" role="status" aria-live="polite"></div>
-        <div class="no-email-table-wrap"><table><thead><tr><th>Select</th><th>Customer</th><th>Mailing address</th><th>Total balance</th><th>Cycle</th></tr></thead><tbody id="noEmailRows"></tbody></table></div>
-        <div class="actions no-email-pagination"><button id="noEmailPrev" type="button" class="secondary">Previous</button><span id="noEmailPage"></span><button id="noEmailNext" type="button" class="secondary">Next</button></div>
       </div>
     </div>
 
@@ -8335,7 +8320,7 @@ function renderMas90RemoteRequest(remote,importData){
       const failureControl=(kind,count)=>count>0
         ?`<button type="button" class="has-failures" data-mas90-failure-kind="${kind}" aria-label="Open ${count.toLocaleString()} failed ${kind} records">${count.toLocaleString()} failed</button>`
         :`<span>${count.toLocaleString()} failed</span>`;
-      summary.innerHTML=`<div><strong>Customers imported</strong><span>${customerSuccess.toLocaleString()} successful</span><span>${Number(remote?.no_email_added_count||0).toLocaleString()} added to Customers Without Email</span></div><div><strong>Customer failures</strong>${failureControl('customers',customerFailure)}</div><div><strong>Payment records</strong><span>${paymentSuccess.toLocaleString()} processed</span></div><div><strong>Payment result</strong><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div>`;
+      summary.innerHTML=`<div><strong>Customers imported</strong><span>${customerSuccess.toLocaleString()} successful</span></div><div><strong>Customer failures</strong>${failureControl('customers',customerFailure)}</div><div><strong>Payment records</strong><span>${paymentSuccess.toLocaleString()} processed</span></div><div><strong>Payment result</strong><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div>`;
     }else summary.textContent="";
   }
   const showProgress=["queued","claimed","running","cancel_requested"].includes(status);
@@ -8448,12 +8433,6 @@ async function loadImportLastUpdates(){
     if(!res.ok || data.success===false) return;
     setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"",data.customers_last_import_mode||"manual",data.customers_last_import_status||"completed",data.customers_last_record_count||0,data.customers_last_import_batch_number||1,data.customers_last_import_batch_count||1);
     setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
-    const paperNotice=document.getElementById('customerNoEmailImportNotice');
-    if(paperNotice&&data.customers_last_import_at){
-      const pending=data.customers_last_import_status!=='completed';
-      paperNotice.className='status show '+(pending?'no-email-import-pending':'ok');
-      paperNotice.textContent=Number(data.customers_no_email_added_count||0).toLocaleString()+' customers added to Customers Without Email in the latest customer import'+(pending?' so far':'')+'. Excluded from scheduled Cycle A/B statements. Last import: '+formatImportUpdateDate(data.customers_last_import_at)+'.';
-    }
     renderMas90LiveSync(data);
     renderMas90RemoteRequest(data.remote_sync_request||null,data);
     if(document.getElementById('admin-tab-automation')?.classList.contains('is-active')&&typeof window.loadMas90AutomationHealth==='function')window.loadMas90AutomationHealth({force:true});
@@ -8875,7 +8854,6 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
   const manualRunId=`manual-customers-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
   let processed=0;
   let imported=0;
-  let noEmailAdded=0;
   let reactivationRequired=0;
   let phoneUpdates=0;
   let phoneRejected=0;
@@ -8908,7 +8886,6 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
       if(!res.ok || data.success===false) throw new Error(data.error||`Customer import failed during batch ${currentBatch}.`);
       processed+=chunk.length;
       imported+=Number(data.processed||chunk.length);
-      noEmailAdded=Number(data.no_email_added_count||0);
       reactivationRequired+=Number(data.email_changes_requiring_reactivation||0);
       phoneUpdates+=Number(data.phone_updates||0);
       phoneRejected+=Number(data.phone_rejected||0);
@@ -8925,16 +8902,16 @@ document.getElementById("importBtn").addEventListener("click",async()=>{
       latestCustomerImportMeta=data;
       document.getElementById("mImported").textContent=imported;
       updateImportProgress("customers",{processed,total,imported,batch:currentBatch,batches,label:"Importing customers"});
-      setStatus(`Importing customers: ${noEmailAdded.toLocaleString()} added to Customers Without Email • ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches} • ${phoneNumbersFound.toLocaleString()} phone number${phoneNumbersFound===1?"":"s"} found • ${phoneAreaCodesFixed.toLocaleString()} area code${phoneAreaCodesFixed===1?"":"s"} fixed • ${phoneChangedVsServer.toLocaleString()} different vs server • phone updates ${phoneUpdates.toLocaleString()} • rejected format ${phoneRejected.toLocaleString()}${phoneLookupInvalid?` • Twilio invalid/non-US ${phoneLookupInvalid.toLocaleString()}`:""}${phoneLookupErrors?` • lookup errors ${phoneLookupErrors.toLocaleString()}`:""}${reactivationRequired?` • ${reactivationRequired.toLocaleString()} email change${reactivationRequired===1?"":"s"} require reactivation`:""}.`);
+      setStatus(`Importing customers: ${imported.toLocaleString()} imported • batch ${currentBatch} of ${batches} • ${phoneNumbersFound.toLocaleString()} phone number${phoneNumbersFound===1?"":"s"} found • ${phoneAreaCodesFixed.toLocaleString()} area code${phoneAreaCodesFixed===1?"":"s"} fixed • ${phoneChangedVsServer.toLocaleString()} different vs server • phone updates ${phoneUpdates.toLocaleString()} • rejected format ${phoneRejected.toLocaleString()}${phoneLookupInvalid?` • Twilio invalid/non-US ${phoneLookupInvalid.toLocaleString()}`:""}${phoneLookupErrors?` • lookup errors ${phoneLookupErrors.toLocaleString()}`:""}${reactivationRequired?` • ${reactivationRequired.toLocaleString()} email change${reactivationRequired===1?"":"s"} require reactivation`:""}.`);
     }
     if(latestCustomerImportAt)setImportLastUpdate("customers",latestCustomerImportAt,latestCustomerImportMeta?.imported_by||window.wootenAdminUser?.display_name||"Wooten Oil Admin",latestCustomerImportMeta?.import_mode||"manual",latestCustomerImportMeta?.import_status||"completed",latestCustomerImportMeta?.import_record_count||total,latestCustomerImportMeta?.import_batch_number||batches,latestCustomerImportMeta?.import_batch_count||batches);
     updateImportProgress("customers",{processed:total,total,imported,batch:batches,batches,state:"complete",label:"Customer import complete"});
     renderCustomerPhoneImportSummary({found:phoneNumbersFound,seven:phoneSevenDigitFound,fixed:phoneAreaCodesFixed,changed:phoneChangedVsServer,matches:phoneServerMatches});
-    setStatus(`Success: ${noEmailAdded.toLocaleString()} customers added to Customers Without Email and excluded from scheduled Cycle A/B statements. ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}. Phone comparison: ${phoneNumbersFound.toLocaleString()} number${phoneNumbersFound===1?"":"s"} found in the import, ${phoneSevenDigitFound.toLocaleString()} had 7 digits, ${phoneAreaCodesFixed.toLocaleString()} area code${phoneAreaCodesFixed===1?"":"s"} fixed${fixAreaCodeAutomatically&&selectedAreaCode?` with ${selectedAreaCode}`:""}, ${phoneChangedVsServer.toLocaleString()} differed from the server, and ${phoneServerMatches.toLocaleString()} already matched. Stored phone updates: ${phoneUpdates.toLocaleString()}. Twilio status: ${phoneLookupInvalid.toLocaleString()} invalid/unverifiable/non-US, ${phoneLookupErrors.toLocaleString()} lookup error${phoneLookupErrors===1?"":"s"}; these Twilio results control SMS eligibility only and never prevent the MDB phone value from being stored.${reactivationRequired?` ${reactivationRequired.toLocaleString()} account${reactivationRequired===1?"":"s"} had an email change and must reactivate online access.`:""}`);
+    setStatus(`Success: ${imported.toLocaleString()} customer records were added or updated in ${batches} batch${batches===1?"":"es"}. Phone comparison: ${phoneNumbersFound.toLocaleString()} number${phoneNumbersFound===1?"":"s"} found in the import, ${phoneSevenDigitFound.toLocaleString()} had 7 digits, ${phoneAreaCodesFixed.toLocaleString()} area code${phoneAreaCodesFixed===1?"":"s"} fixed${fixAreaCodeAutomatically&&selectedAreaCode?` with ${selectedAreaCode}`:""}, ${phoneChangedVsServer.toLocaleString()} differed from the server, and ${phoneServerMatches.toLocaleString()} already matched. Stored phone updates: ${phoneUpdates.toLocaleString()}. Twilio status: ${phoneLookupInvalid.toLocaleString()} invalid/unverifiable/non-US, ${phoneLookupErrors.toLocaleString()} lookup error${phoneLookupErrors===1?"":"s"}; these Twilio results control SMS eligibility only and never prevent the MDB phone value from being stored.${reactivationRequired?` ${reactivationRequired.toLocaleString()} account${reactivationRequired===1?"":"s"} had an email change and must reactivate online access.`:""}`);
   }catch(e){
     console.error(e);
     updateImportProgress("customers",{processed,total,imported,batch:currentBatch||1,batches,state:"failed",label:"Customer import stopped"});
-    setStatus((e.message||"Import failed.")+` ${imported.toLocaleString()} customer(s) completed before the error. ${noEmailAdded.toLocaleString()} added to Customers Without Email.`,false);
+    setStatus((e.message||"Import failed.")+` ${imported.toLocaleString()} customer(s) completed before the error.`,false);
   }finally{
     btn.disabled=false; btn.textContent="Upload / Update Customers";
     if(autoFixEl)autoFixEl.disabled=false;
@@ -11052,8 +11029,6 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
     if(statementSchedulingSection)statementSchedulingSection.hidden=section!=='statement-scheduling';
     if(statementRunReportSection)statementRunReportSection.hidden=section!=='statement-run-report';
     if(exceptionalCustomersSection)exceptionalCustomersSection.hidden=section!=='exceptional-customers';
-    document.getElementById('documentSectionNoEmailCustomers').hidden=section!=='no-email-customers';
-    if(section==='no-email-customers')window.loadNoEmailCustomers?.();
     sectionButtons.forEach(item=>item.setAttribute('aria-selected',item===button?'true':'false'));
     if(section==='statement-scheduling'&&typeof window.loadStatementScheduling==='function')window.loadStatementScheduling();
     if(section==='statement-run-report'&&typeof window.loadStatementRunReport==='function')window.loadStatementRunReport();
@@ -11761,7 +11736,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     weekly_enabled:weeklyEnabled.checked,weekly_weekday:Number(weeklyDay.value),weekly_hour:Number(weeklyHour.value),weekly_frequency:weeklyFrequency.value,weekly_anchor_date:weeklyAnchor.value,
     midmonth_enabled:false,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
     monthly_enabled:monthlyEnabled.checked,monthly_day:Number(monthlyDay.value),monthly_hour:Number(monthlyHour.value),
-    positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
+    email_filter:get('scheduleEmailFilter').value,positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:email.checked,sms_enabled:sms.checked
   };}
   function syncWeeklyFrequency(){
     const enabled=weeklyEnabled.checked;
@@ -11778,7 +11753,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   function syncRunSelectionState(type){
     const count=bulkSelections[type]?.size||0;
     const cycleOn=type==='weekly'?weeklyEnabled.checked:monthlyEnabled.checked;
-    const ids=type==='weekly'?['scheduleTestWeekly','scheduleRunWeekly']:['scheduleTestMonthly','scheduleRunMonthly'];
+    const ids=type==='weekly'?['scheduleTestWeekly','scheduleRunWeekly','scheduleGenerateWeekly']:['scheduleTestMonthly','scheduleRunMonthly','scheduleGenerateMonthly'];
     ids.forEach(id=>{const button=get(id);if(!button)return;button.disabled=statementActionBusy||!cycleOn||count===0;button.title=count?('Will process '+count.toLocaleString()+' selected customer'+(count===1?'':'s')+'.'):'Open Preview '+(type==='weekly'?'B':'A')+' Customers and select at least one customer first.';});
   }
   function syncCycleEnabledState(){
@@ -11802,6 +11777,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;weeklyDay.value=String(config.weekly_weekday??1);weeklyHour.value=String(config.weekly_hour??8);weeklyFrequency.value=String(config.weekly_frequency||'weekly')==='biweekly'?'biweekly':'weekly';weeklyAnchor.value=/^\d{4}-\d{2}-\d{2}$/.test(String(config.weekly_anchor_date||''))?String(config.weekly_anchor_date):'';syncWeeklyFrequency();
     midmonthEnabled.checked=false;midmonthDay.value=String(config.midmonth_day??15);midmonthHour.value=String(config.midmonth_hour??8);
     monthlyEnabled.checked=Number(config.monthly_enabled)!==0;monthlyDay.value=String(config.monthly_day??1);monthlyHour.value=String(config.monthly_hour??8);
+    get('scheduleEmailFilter').value=['all','with_email','without_email'].includes(config.email_filter)?config.email_filter:'all';
     positiveOnly.checked=Number(config.positive_balance_only)!==0;paymentCount.value=String(config.payment_count??1);portal.checked=Number(config.portal_enabled)!==0;email.checked=Number(config.email_enabled)!==0;sms.checked=Number(config.sms_enabled)!==0;
     syncCycleEnabledState();
   }
@@ -11892,15 +11868,15 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       const rows=Array.isArray(run.results)?run.results:[];
       const isTest=String(run.run_type||'').startsWith('test_');
       const isTestSend=isTest&&String(run.run_key||'').startsWith('testsend:');
-      const baseType=isTest?String(run.run_type).slice(5):run.run_type;
+      const baseType=String(run.run_type||'').replace(/^(test_|print_)/,'');
       const details=run.details_unavailable?'<div class="schedule-empty">'+esc(run.details_unavailable)+'</div>':rows.length?rows.map((row,rowIndex)=>row.channels
         ?'<div class="schedule-result-row"><div class="schedule-customer-cell"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><small>Balance: '+esc(money(row.total_balance))+' • PDF: '+(row.pdf_ready?'Generated':['failed','stopped','complete'].includes(row.stage)?'Unavailable':'Pending')+'</small>'+(row.error?'<small>'+esc(row.error)+'</small>':'')+'</div>'+['portal','email','sms'].map(name=>progressChannelCell(row,name)).join('')+'</div>'
-        :(isTest&&!isTestSend)
+        :((isTest&&!isTestSend)||String(run.run_type||'').startsWith('print_'))
         ?'<div class="schedule-result-row" data-schedule-result-index="'+rowIndex+'"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong><span>PDF: '+(row.success?'Generated':'Failed')+'</span><span>Payment records included: '+statementPaymentCountText(row)+'</span><span>Balance: '+esc(money(row.total_balance||0))+(row.error?' • '+esc(row.error):'')+'</span></div>'
         :(function(){const generationReason=!row.success&&row.error?('Statement generation failed: '+row.error):'';return '<div class="schedule-result-row"><div class="schedule-customer-cell"><strong>'+esc(row.account_name||row.account_number||'Customer')+'<small style="display:block;color:#758596"># '+esc(row.account_number||'')+'</small></strong>'+emailSmsWarningMarkup(row,isTest,isTestSend)+'</div>'+deliveryResultCell('Portal',!!row.portal_notified,row.portal_warning||generationReason)+deliveryResultCell('Email',!!row.email_sent,row.email_warning||generationReason)+deliveryResultCell('SMS',!!row.sms_sent,row.sms_warning||generationReason)+'</div>';}())).join(''):'<div class="schedule-empty">No customers matched this run.</div>';
       const resultPager=rows.length>scheduleResultPageSize?'<div class="schedule-result-pagination" data-schedule-result-pagination data-page="1"><span class="schedule-result-pagination-summary" data-schedule-result-summary></span><div class="schedule-result-pagination-controls"><button type="button" class="secondary" data-schedule-result-prev>Previous</button><strong data-schedule-result-page-info>Page 1 of 1</strong><button type="button" class="secondary" data-schedule-result-next>Next</button></div></div>':'';
       const type=baseType==='weekly'?'B — Weekly / Biweekly Cycle':baseType==='midmonth'?'Legacy Mid-Month Run':'A — Monthly Cycle';
-      const deliveryMetrics=run.run_type==='manual'?manualDeliveryMetrics(run):isTest&&!isTestSend
+      const deliveryMetrics=String(run.run_type||'').startsWith('print_')?'<span class="schedule-run-metric">Printable PDF</span>':run.run_type==='manual'?manualDeliveryMetrics(run):isTest&&!isTestSend
         ?'<span class="schedule-run-metric">Dry test — no delivery attempted</span>'
         :'<span class="schedule-run-metric">Portal '+Number(run.portal_success||0)+' / '+Number(run.portal_failure||0)+' not sent</span><span class="schedule-run-metric">Email '+Number(run.email_success||0)+' / '+Number(run.email_failure||0)+' not sent</span><span class="schedule-run-metric">SMS '+Number(run.sms_success||0)+' / '+Number(run.sms_failure||0)+' not sent</span>';
       const groupId=String(run.combined_group_id||'');
@@ -11917,7 +11893,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
         if(!runParts.length&&run.combined_pdf_key)runParts=[{part_number:1}];
         if(runParts.length)combinedLink=runParts.map((part,index)=>'<a href="#" class="schedule-combined-pdf-link" data-schedule-combined-run="'+Number(run.id||0)+'" data-schedule-combined-part="'+Number(part.part_number||index+1)+'">Combined PDF Part '+Number(part.part_number||index+1)+'</a>').join('');
       }
-      const runLabel=run.run_type==='manual'?(run.title||'Account Statements — Manual Send'):(isTest?(isTestSend?'TEST SEND (LEGACY) — ':'TEST RUN — '):'')+type;
+      const runLabel=run.run_type==='manual'?(run.title||'Account Statements — Manual Send'):(String(run.run_type||'').startsWith('print_')?'Generated PDF — ':isTest?(isTestSend?'TEST SEND (LEGACY) — ':'TEST RUN — '):'')+type;
       const progressAttribute=run.progress_job_id?'data-statement-progress-job="'+esc(run.progress_job_id)+'"':'data-statement-progress-run="'+Number(run.id)+'"';
       return '<div class="schedule-run-record"><label class="schedule-run-select"><input type="checkbox" data-schedule-run-select value="'+runIndex+'" '+(run.details_unavailable?'disabled ':'')+'aria-label="Select '+esc(runLabel)+' for PDF export"></label><details class="schedule-run"><summary><div class="schedule-run-title"><strong><a href="#" class="schedule-run-progress-title" '+progressAttribute+' aria-label="View statement progress for '+esc(runLabel)+' — '+esc(displayDate(run.started_at))+'">'+esc(runLabel)+'</a></strong><span>'+esc(displayDate(run.started_at))+' • '+esc(run.status||'')+'</span></div><div class="schedule-run-metrics">'+
         (isTest?'<span class="schedule-run-metric">'+(isTestSend?'TEST SEND (LEGACY)':'TEST RUN')+'</span>':run.run_type==='manual'?'<span class="schedule-run-metric">Manual send</span><span class="schedule-run-metric">Statement date: '+esc(run.statement_date)+'</span>':'')+(run.details_unavailable?'':'<span class="schedule-run-metric">'+Number(run.customer_count||0).toLocaleString()+' customers</span><span class="schedule-run-metric">'+Number(run.processed_count||0).toLocaleString()+' processed</span><span class="schedule-run-metric">'+Math.max(0,Number(run.customer_count||0)-Number(run.processed_count||0)).toLocaleString()+' remaining</span><span class="schedule-run-metric good">'+Number(rows.filter(row=>row.success).length).toLocaleString()+' generated</span>'+ 
@@ -11977,12 +11953,13 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(run.run_type==='manual')return run.title||'Account Statements — Manual Send';
     const isTest=String(run.run_type||'').startsWith('test_');
     const isTestSend=isTest&&String(run.run_key||'').startsWith('testsend:');
-    const baseType=isTest?String(run.run_type||'').slice(5):String(run.run_type||'');
+    const baseType=String(run.run_type||'').replace(/^(test_|print_)/,'');
     const cycle=baseType==='weekly'?'B — Weekly / Biweekly Cycle':baseType==='midmonth'?'Legacy Mid-Month Run':'A — Monthly Cycle';
-    return (isTest?(isTestSend?'TEST SEND (LEGACY) — ':'TEST RUN — '):'')+cycle;
+    return (String(run.run_type||'').startsWith('print_')?'Generated PDF — ':isTest?(isTestSend?'TEST SEND (LEGACY) — ':'TEST RUN — '):'')+cycle;
   }
   function reportChannelText(row,channel,isDryTest){
     if(row.channels){const value=row.channels[channel]||{status:'queued'};return (progressChannelLabels[value.status]||value.status)+(value.reason?' — '+value.reason:'');}
+    if(row.pdf_only)return 'Not selected — PDF only';
     if(isDryTest)return 'Not attempted — dry test';
     const sentField=channel==='portal'?'portal_notified':channel+'_sent';
     const warningField=channel+'_warning';
@@ -12112,6 +12089,8 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     }
   }
   async function saveSettings(showMessage=true){
+    const probe=await request('/api/admin/statement-scheduling?compact=1');
+    if(probe?.capabilities?.statement_email_filter_v1!==true)throw new Error('Deploy the Ver549 Worker before saving statement scheduling settings.');
     if(weeklyEnabled.checked&&weeklyFrequency.value==='biweekly'&&!weeklyAnchor.value){weeklyAnchor.focus();throw new Error('Select the first biweekly Cycle B run date.');}
     const data=await request('/api/admin/statement-scheduling',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody())});
     applyConfig(data.config||{});loaded=true;if(showMessage)setStatus('Statement scheduling settings saved.',true);return data;
@@ -12335,46 +12314,47 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   function hideStatementProcessingOverlay(){/* Keep the final customer results open for review. */}
   function showRunCompletion(){window.WootenStatementProgress?.finish();}
   function showRunFailure(isTest,label,error){window.WootenStatementProgress?.finish(String(error?.message||error||'Statement processing stopped.'));}
-  async function runNow(type,isTest=false){
+  async function runNow(type,isTest=false,pdfOnly=false){
     if(statementActionBusy)return;
     const cycleEnabled=type==='weekly'?weeklyEnabled.checked:type==='midmonth'?false:monthlyEnabled.checked;
     if(!cycleEnabled){setStatus((type==='weekly'?'Cycle B':'Cycle A')+' is disabled. Check its Enable box and Save Schedule first.',false);return;}
     const accounts=selectedAccounts(type);
     if(!accounts.length){setStatus('Select at least one customer in Preview '+(type==='weekly'?'B':'A')+' Customers first. Test and Run never process unselected customers.',false);return;}
     const label=type==='weekly'?'B '+(weeklyFrequency.value==='biweekly'?'biweekly':'weekly')+'-cycle':type==='midmonth'?'legacy mid-month':'A monthly-cycle';
-    const prompt=isTest
+    const prompt=pdfOnly?'Generate printable PDF statements for the '+accounts.length.toLocaleString()+' selected customers? No email, SMS, or portal delivery will be sent.':isTest
       ?'TEST RUN: Generate and validate '+label+' statements for the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?\n\nNo SMS, email, portal delivery, or customer document will be created. Results will appear in the Statement Run Report and Communication History as TEST — Not sent.'
       :'Generate and send '+label+' statements now to the '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' only?';
     if(!window.confirm(prompt))return;
-    if(!beginStatementAction('schedule'+(isTest?'Test':'Run')+(type==='weekly'?'Weekly':'Monthly'),[type]))return;
+    if(!beginStatementAction('schedule'+(pdfOnly?'Generate':isTest?'Test':'Run')+(type==='weekly'?'Weekly':'Monthly'),[type]))return;
     try{
       showStatementProcessingOverlay(
-        (isTest?'Testing ':'Processing ')+label+' statements…',
+        (pdfOnly?'Generating ':isTest?'Testing ':'Processing ')+label+' statements…',
         'Please keep this page open while '+accounts.length.toLocaleString()+' selected customer statement'+(accounts.length===1?' is':'s are')+' processed. '+(isTest?'This is a dry test; nothing will be delivered. ':'')+'This may take a few minutes to complete.'
       );
-      startTestProgress(type,(isTest?'Testing ':'Running ')+label+' statements…');
+      startTestProgress(type,(pdfOnly?'Generating ':isTest?'Testing ':'Running ')+label+' statements…');
       setStatus('Verifying selected-customer safety before starting…');
-      await requireSelectedRecipientServer();
-      await saveSettings(false);setStatus((isTest?'Generating and validating test statements for ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
-      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:isTest,test_send:false,account_numbers:accounts,selected_only:true})});
+      const capabilities=await requireSelectedRecipientServer();
+      if(pdfOnly&&capabilities?.capabilities?.statement_pdf_only_v1!==true)throw new Error('Deploy the Ver549 Worker before generating PDFs.');
+      await saveSettings(false);setStatus((pdfOnly?'Generating printable PDFs for ':isTest?'Generating and validating test statements for ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
+      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,dry_run:isTest||pdfOnly,pdf_only:pdfOnly,test_send:false,account_numbers:accounts,selected_only:true})});
       verifySelectedRunTargets(data,accounts);
       await window.WootenStatementProgress.watch(['schedule-'+data.run_id]);
-      const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length);
-      setStatus((isTest?'Test run':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
+      const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length,undefined,pdfOnly);
+      setStatus((pdfOnly?'PDF generation':isTest?'Test run':'Run')+' complete for selected customers: '+Number(final.success_count||0)+' succeeded and '+Number(final.failure_count||0)+' failed.',Number(final.failure_count||0)===0);
       updateStatementProcessingOverlay(100,'100% complete • Finalizing report…',(isTest?'Testing':'Processing')+' complete');
       await finishTestProgress(type,'100% complete • '+Number(final.success_count||0)+' succeeded • '+Number(final.failure_count||0)+' failed');
       await load();
-      if(!isTest&&sms?.checked) await refreshTwilioBalance();
+      if(!isTest&&!pdfOnly&&sms?.checked) await refreshTwilioBalance();
       hideStatementProcessingOverlay();
-      showRunCompletion(isTest,(isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
+      showRunCompletion(isTest,(pdfOnly?'GENERATED PDF ':isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),final.success_count,final.failure_count);
     }catch(error){
       hideStatementProcessingOverlay();hideTestProgress(type);
       setStatus(error.message||(isTest?'Statement dry test failed.':'Scheduled statement run failed.'),false);
       await load();
-      showRunFailure(isTest,(isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),error);
+      showRunFailure(isTest,(pdfOnly?'GENERATED PDF ':isTest?'TEST RUN ':'RUN ')+label.toUpperCase(),error);
     }finally{endStatementAction();}
   }
-  async function waitForScheduledRun(runId,type,dryRun,total,progressMap){
+  async function waitForScheduledRun(runId,type,dryRun,total,progressMap,pdfOnly=false){
     if(!runId)return {success_count:0,failure_count:0};
     for(let attempt=0;attempt<1200;attempt++){
       let continueError=null;
@@ -12397,7 +12377,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       const processed=Number(run.processed_count||0),count=Number(run.customer_count||total||0);
       const runPct=count?Math.min(99,Math.round(processed/count*100)):100;
       const pct=typeof progressMap==='function'?Math.max(0,Math.min(99,Math.round(progressMap(processed,count,runPct)))):runPct;
-      const actionLabel=dryRun?'Testing':'Running';
+      const actionLabel=pdfOnly?'Generating':dryRun?'Testing':'Running';
       const progressText=actionLabel+' statements: '+pct+'% complete. '+Number(run.success_count||0).toLocaleString()+' succeeded, '+Number(run.failure_count||0).toLocaleString()+' failed.';
       setStatus(progressText);
       setTestProgress(type,pct,actionLabel+' statements…',pct+'% complete');
@@ -12535,6 +12515,15 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     }catch(error){setStatus(error.message||'Cycle A and Cycle B customer lists could not be refreshed.',false);}
     finally{positiveOnly.disabled=false;}
   });
+  get('scheduleEmailFilter').addEventListener('change',async()=>{
+    const control=get('scheduleEmailFilter');control.disabled=true;
+    try{await saveSettings(false);for(const type of ['monthly','weekly']){
+      bulkSelections[type]?.clear();
+      if(type==='monthly'?monthlyEnabled.checked:weeklyEnabled.checked)await showPreview(type,false);
+      syncRunSelectionState(type);
+    }setStatus('Email filter saved for Cycle A and Cycle B.',true);}
+    catch(error){setStatus(error.message,false);}finally{control.disabled=false;}
+  });
   weeklyFrequency.addEventListener('change',syncWeeklyFrequency);
   weeklyAnchor.addEventListener('change',syncWeeklyFrequency);
   refreshBtn.addEventListener('click',()=>window.WootenRefreshUI.run(refreshBtn,async()=>{
@@ -12543,8 +12532,10 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
   get('schedulePreviewWeekly').addEventListener('click',()=>showPreview('weekly'));
   get('schedulePreviewMidmonth').addEventListener('click',()=>showPreview('midmonth'));
   get('schedulePreviewMonthly').addEventListener('click',()=>showPreview('monthly'));
+  get('scheduleGenerateWeekly').addEventListener('click',()=>runNow('weekly',false,true));
   get('scheduleTestWeekly').addEventListener('click',()=>runNow('weekly',true));
   get('scheduleTestMidmonth').addEventListener('click',()=>runNow('midmonth',true));
+  get('scheduleGenerateMonthly').addEventListener('click',()=>runNow('monthly',false,true));
   get('scheduleTestMonthly').addEventListener('click',()=>runNow('monthly',true));
   get('scheduleTestAll').addEventListener('click',testAllCycles);
   get('scheduleTestHelp').addEventListener('click',()=>window.alert([
@@ -17908,25 +17899,3 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
  .phone-notification-actions{display:grid!important;grid-template-columns:minmax(0,1fr);width:100%!important}
 }
 </style>
-
-<style id="wooten-no-email-ver548">
-#documentSectionNoEmailCustomers .no-email-filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px}
-#documentSectionNoEmailCustomers label{display:block;font-weight:600}
-#documentSectionNoEmailCustomers select{min-height:48px;padding:10px 12px;border:1px solid #c6d7e6;border-radius:12px;background:#fff;color:#193953;margin-top:6px}
-#documentSectionNoEmailCustomers .no-email-pagination>button{grid-column:auto!important}
-#documentSectionNoEmailCustomers input:not([type=checkbox]),#documentSectionNoEmailCustomers select{width:100%;min-width:0;font-size:16px}
-#documentSectionNoEmailCustomers .no-email-table-wrap{overflow-x:auto;margin-top:16px}
-#documentSectionNoEmailCustomers table{width:100%;border-collapse:collapse}
-#documentSectionNoEmailCustomers td,#documentSectionNoEmailCustomers th{padding:12px;text-align:left;border-bottom:1px solid #d8e3ed}
-#documentSectionNoEmailCustomers .no-email-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px}
-#documentSectionNoEmailCustomers .no-email-pagination span{text-align:center}
-.status.no-email-import-pending{background:#fff8e5;color:#775815;border-color:#e9c96c}
-@media(max-width:700px){
- #documentSectionNoEmailCustomers .no-email-filters{grid-template-columns:minmax(0,1fr)}
- #documentSectionNoEmailCustomers .no-email-actions,#documentSectionNoEmailCustomers .no-email-pdf-actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%}
- #documentSectionNoEmailCustomers .actions>button{min-width:0;width:100%;min-height:48px;white-space:normal}
- #documentSectionNoEmailCustomers .no-email-pagination{display:grid;grid-template-columns:1fr 1fr}
- #documentSectionNoEmailCustomers .no-email-pagination span{grid-column:1/-1;grid-row:1}
-}
-</style>
-<script type="module" src="assets/js/wooten-no-email-customers.mjs?v=548"></script>
