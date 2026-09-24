@@ -5920,7 +5920,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     </div>
 
     <div class="admin-page-label">Customers</div>
-    <h2>MAS 90 Database</h2>
+    <h2>Customers Info Import</h2>
     <p>Upload the original Microsoft Access <strong>.mdb</strong> customer database. Existing customers are updated by account number; new account numbers are added. Customer passwords are not overwritten.</p>
 
     <div class="grid" style="grid-template-columns:minmax(0,1fr)">
@@ -6115,14 +6115,47 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
  <div class="payments-import-heading"><div>
  <div class="admin-page-label payments-label">Invoices</div>
  <h3 id="invoiceImportTitle">Open Invoices Import</h3>
- <p>Import the original MAS 90 Open Invoices <strong>.mdb</strong> file. Click Preview Invoices to read the file and confirm the record count before uploading. A complete import replaces the invoice list; customer balances and statement settings stay unchanged.</p>
+ <p>Import the original MAS 90 Open Invoices <strong>.mdb</strong> file. Click Preview Invoices to review and search the file before uploading. A complete import replaces the invoice list; customer balances and statement settings stay unchanged.</p>
  </div></div>
  <label for="invoiceFile">Open Invoices File</label>
  <input type="file" id="invoiceFile" accept=".mdb">
  <div class="actions invoice-actions"><button type="button" id="invoicePreview" class="secondary">Preview Invoices</button><button type="button" id="invoiceUpload" class="primary" disabled>Upload / Update Invoices</button><button type="button" id="invoiceCancel" class="secondary" hidden>Cancel Import</button></div>
  <div id="invoiceStatus" class="status" role="status" aria-live="polite"></div>
- <progress id="invoiceProgress" max="100" value="0" hidden style="width:100%" aria-label="Invoice upload progress"></progress>
+ <div class="import-progress" id="invoiceImportProgress" hidden>
+  <div class="import-progress-head"><strong id="invoiceImportProgressTitle">Invoice import</strong><span id="invoiceImportProgressPercent">0%</span></div>
+  <div class="import-progress-track" id="invoiceImportProgressTrack" role="progressbar" aria-label="Invoice import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="invoiceImportProgressBar"></span></div>
+  <div class="import-progress-detail"><span id="invoiceImportProgressCount">Imported 0 of 0</span><span id="invoiceImportProgressBatch">Waiting to start</span></div>
+ </div>
  <p id="invoiceLastImport" class="note">No invoice import loaded yet.</p>
+ <div class="import-db-toolbar payment-db-toolbar" id="invoicePreviewTools" style="display:none">
+  <div class="import-db-field import-db-search">
+   <label for="invoicePreviewSearch">Search Invoice Database</label>
+   <input id="invoicePreviewSearch" type="search" placeholder="Customer #, customer name, invoice #…" autocomplete="off">
+  </div>
+  <div class="import-db-field">
+   <label for="invoicePreviewType">Invoice Type</label>
+   <select id="invoicePreviewType"><option value="all">All types</option></select>
+  </div>
+  <div class="import-db-field">
+   <label for="invoicePreviewBalance">Balance</label>
+   <select id="invoicePreviewBalance"><option value="all">All balances</option><option value="positive">Balance due</option><option value="zero">Zero balance</option><option value="credit">Credit balance</option></select>
+  </div>
+  <div class="import-db-field">
+   <label for="invoicePreviewSort">Sort</label>
+   <select id="invoicePreviewSort">
+    <option value="invoice_desc">Invoice date newest</option><option value="invoice_asc">Invoice date oldest</option>
+    <option value="customer_asc">Customer # low → high</option><option value="customer_desc">Customer # high → low</option>
+    <option value="balance_desc">Balance high → low</option><option value="balance_asc">Balance low → high</option>
+   </select>
+  </div>
+  <div class="import-db-count" id="invoicePreviewCount" aria-live="polite">0 shown</div>
+ </div>
+ <div class="tablewrap payments-preview-wrap" id="invoicePreviewWrap" style="display:none">
+  <table id="invoicePreviewTable" data-pdf-table-name="Open Invoices Import" data-pdf-empty="true">
+   <thead><tr><th>Customer No</th><th>Customer Name</th><th>Invoice No</th><th>Invoice Type</th><th>Invoice Date</th><th>Due Date</th><th>Balance</th></tr></thead>
+   <tbody id="invoicePreviewBody"></tbody>
+  </table>
+ </div>
 </section>
 <style>
 #invoiceImportPanel{margin-top:28px;padding-top:24px;border-top:1px solid #d6e1ec;min-width:0}
@@ -6130,7 +6163,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 #invoiceImportPanel .invoice-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;align-items:stretch;justify-content:flex-start}
 #invoiceImportPanel .invoice-actions>button{flex:0 0 auto;margin:0}
 #invoiceImportPanel button{min-height:48px;white-space:normal}
-#invoiceImportPanel progress[hidden],#invoiceImportPanel button[hidden]{display:none!important}
+#invoiceImportPanel button[hidden]{display:none!important}
 @media(max-width:700px){#invoiceImportPanel .invoice-actions>button{flex:1 1 40%;min-width:0;width:auto}}
 </style>
 
@@ -8609,7 +8642,7 @@ function setStatus(msg,good=true){
   el.textContent=msg;
 }
 function updateImportProgress(kind,{processed=0,total=0,imported=0,batch=0,batches=0,state="running",label=""}={}){
-  const prefix=kind==="payments"?"paymentImport":"customerImport";
+  const prefix=kind==="invoices"?"invoiceImport":kind==="payments"?"paymentImport":"customerImport";
   const box=document.getElementById(prefix+"Progress");
   const safeTotal=Math.max(0,Number(total)||0);
   const safeProcessed=Math.max(0,Math.min(safeTotal,Number(processed)||0));
@@ -8617,7 +8650,7 @@ function updateImportProgress(kind,{processed=0,total=0,imported=0,batch=0,batch
   box.hidden=false;
   box.classList.toggle("is-complete",state==="complete");
   box.classList.toggle("is-failed",state==="failed");
-  document.getElementById(prefix+"ProgressTitle").textContent=label||(kind==="payments"?"Importing customer payments":"Importing customers");
+  document.getElementById(prefix+"ProgressTitle").textContent=label||(kind==="invoices"?"Importing open invoices":kind==="payments"?"Importing customer payments":"Importing customers");
   document.getElementById(prefix+"ProgressPercent").textContent=percent+"%";
   document.getElementById(prefix+"ProgressBar").style.width=percent+"%";
   const track=document.getElementById(prefix+"ProgressTrack");
@@ -8840,10 +8873,16 @@ document.getElementById("paymentFile").addEventListener("change",event=>{
 });
 
 document.getElementById("previewBtn").addEventListener("click",async()=>{
-  const file=document.getElementById("customerFile").files[0];
+  const fileInput=document.getElementById("customerFile");
+  const file=fileInput.files[0];
   if(!file){setStatus("Choose a Microsoft Access *.mdb file first.",false);return;}
   if(!isMicrosoftAccessMdb(file)){setStatus("Only a Microsoft Access *.mdb file can be imported.",false);return;}
   const previewBtn=document.getElementById("previewBtn");
+  if(previewBtn.disabled)return;
+  const uploadBtn=document.getElementById("importBtn");
+  uploadBtn.disabled=true;
+  fileInput.disabled=true;
+  preparedRows=[];
   previewBtn.disabled=true;
   previewBtn.textContent="Loading Customers…";
   previewBtn.setAttribute("aria-busy","true");
@@ -8863,12 +8902,14 @@ document.getElementById("previewBtn").addEventListener("click",async()=>{
     preparedRows=mapped.filter(r=>r.account_number && r.account_name);
     updateCustomerPreviewFilters();
     render(preparedRows,raw.length,raw.length-preparedRows.length);
-    document.getElementById("importBtn").disabled=preparedRows.length===0;
     setStatus(`Preview ready: ${preparedRows.length} valid customer records.`);
   }catch(e){
+    preparedRows=[];
     console.error(e); setStatus("Could not read this file. Export it from Access as Excel or CSV and try again.",false);
   }finally{
     hidePreviewProgress("customers");
+    fileInput.disabled=false;
+    uploadBtn.disabled=preparedRows.length===0;
     previewBtn.disabled=false;
     previewBtn.textContent="Preview Customers";
     previewBtn.removeAttribute("aria-busy");
@@ -8939,6 +8980,7 @@ document.getElementById("customerAutoFixAreaCode")?.addEventListener("change",as
 });
 
 document.getElementById("importBtn").addEventListener("click",async()=>{
+  if(document.getElementById("previewBtn").getAttribute("aria-busy")==="true")return;
   const key=document.getElementById("adminKey").value.trim();
   if(!key){setStatus("Enter your Admin Import Key in the Admin Login window first.",false);return;}
   if(!preparedRows.length){setStatus("Preview a customer file first.",false);return;}
@@ -9157,7 +9199,8 @@ function renderPaymentPreview(rows,total,skipped){
   if(el) el.addEventListener(id==="paymentPreviewSearch"?"input":"change",()=>{if(preparedPaymentRows.length) renderPaymentPreview(preparedPaymentRows,Number(document.getElementById("pmRows").textContent||preparedPaymentRows.length),Number(document.getElementById("pmSkipped").textContent||0));});
 });
 document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
-  const file=document.getElementById("paymentFile").files[0];
+  const fileInput=document.getElementById("paymentFile");
+  const file=fileInput.files[0];
   if(!file){
     setPaymentStatus("Choose a Microsoft Access *.mdb customer payments file first.",false);
     return;
@@ -9167,6 +9210,11 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     return;
   }
   const previewBtn=document.getElementById("paymentPreviewBtn");
+  if(previewBtn.disabled)return;
+  const uploadBtn=document.getElementById("paymentImportBtn");
+  uploadBtn.disabled=true;
+  fileInput.disabled=true;
+  preparedPaymentRows=[];
   previewBtn.disabled=true;
   previewBtn.textContent="Loading Payments…";
   previewBtn.setAttribute("aria-busy","true");
@@ -9190,7 +9238,6 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
       raw.length,
       raw.length-preparedPaymentRows.length
     );
-    document.getElementById("paymentImportBtn").disabled=preparedPaymentRows.length===0;
 
     if(preparedPaymentRows.length){
       setPaymentStatus(`Preview ready: ${preparedPaymentRows.length} individual payment row(s) found.`);
@@ -9201,10 +9248,13 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
       );
     }
   }catch(e){
+    preparedPaymentRows=[];
     console.error(e);
     setPaymentStatus("Could not read the payments file. Please use MDB, ACCDB, Excel, or CSV format.",false);
   }finally{
     hidePreviewProgress("payments");
+    fileInput.disabled=false;
+    uploadBtn.disabled=preparedPaymentRows.length===0;
     previewBtn.disabled=false;
     previewBtn.textContent="Preview Payments";
     previewBtn.removeAttribute("aria-busy");
@@ -9212,6 +9262,7 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
 });
 
 document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
+  if(document.getElementById("paymentPreviewBtn").getAttribute("aria-busy")==="true")return;
   const key=document.getElementById("adminKey").value.trim();
   if(!key){
     window.ensureAdminLoginKey?.("Enter your Admin Import Key to import customer payments.");
@@ -15171,7 +15222,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
-<script src="assets/js/wooten-invoice-import.js?v=560"></script>
+<script src="assets/js/wooten-invoice-import.js?v=564"></script>
 <script src="assets/js/wooten-invoice-database.js?v=557"></script>
 </body>
 </html>
@@ -16713,6 +16764,13 @@ html,body{
       return normalizedData(
         ['Deposit Date','Deposit No','Deposit Type','Customer No','Check No','Posting Date','Customer Name','Invoice No','Cash Amount Applied','Discount Amount Applied'],
         rows.map(row=>[displayDate(row.deposit_date),row.deposit_no,row.deposit_type,row.account_number,row.check_no,displayDate(row.posting_date),row.customer_name,row.invoice_no,money(row.cash_amount_applied),money(row.discount_amount_applied)])
+      );
+    }
+    if(title==='Open Invoices Import'&&window.WootenInvoiceImport){
+      const rows=window.WootenInvoiceImport.filteredRows();
+      return normalizedData(
+        ['Customer No','Customer Name','Invoice No','Invoice Type','Invoice Date','Due Date','Balance'],
+        rows.map(row=>[row.account_number,row.customer_name,row.invoice_no,row.invoice_type,displayDate(row.invoice_date),displayDate(row.due_date),Number.isFinite(row.balance)?money(row.balance):'—'])
       );
     }
     if(title==='Live Customer Database'){
