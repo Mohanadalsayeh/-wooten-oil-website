@@ -7,9 +7,9 @@ const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 const text=value=>String(value??'').trim();
 const dateKey=value=>value instanceof Date?(Number.isFinite(value.getTime())?value.toISOString().slice(0,10):''):text(value).slice(0,10);
 const displayDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)?value.slice(5,7)+'-'+value.slice(8,10)+'-'+value.slice(0,4):value||'—';
-function preparePreview(source){
+async function preparePreview(source){
   // Keep display/search data separate from the complete, original upload rows.
-  previewRows=source.map(row=>{
+  previewRows=await mapPreviewRowsInBatches(source,row=>{
     const account=text(row.CustomerNo);
     const result={account_number:/^\d{1,7}$/.test(account)?account.padStart(7,'0'):account,
       customer_name:text(row.CustomerName),invoice_no:text(row.InvoiceNo),invoice_type:text(row.InvoiceType),
@@ -17,7 +17,7 @@ function preparePreview(source){
       balance:row.Balance===null||text(row.Balance)===''?NaN:Number(row.Balance)};
     result.searchText=[result.account_number,result.customer_name,result.invoice_no,result.invoice_type,result.invoice_date,result.due_date].join(' ').toLowerCase();
     return result;
-  });
+  },"invoices",500);
   const select=get('invoicePreviewType');
   select.replaceChildren();
   for(const [value,label] of [['all','All types'],...[...new Set(previewRows.map(row=>row.invoice_type).filter(Boolean))].sort().map(value=>[value,value])]){
@@ -88,6 +88,8 @@ function clearPreview(){
   get('invoicePreviewTools').style.display='none';get('invoicePreviewWrap').style.display='none';
   get('invoicePreviewBody').replaceChildren();get('invoicePreviewTable').dataset.pdfEmpty='true';
   get('invoicePreviewCount').textContent='0 shown';
+  get('invoiceImportSummary').style.display='none';
+  ['imRows','imValid','imSkipped','imImported'].forEach(id=>{get(id).textContent='0';});
   syncPagination();
 }
 window.WootenInvoiceImport={filteredRows,refreshLastUpload};
@@ -119,7 +121,37 @@ window.addEventListener('wooten-admin-auth-changed',()=>{
 });
 refreshLastUpload();
 get('invoiceFile').addEventListener('change',()=>{rows=[];previewFile=null;clearPreview();get('invoiceImportProgress').hidden=true;get('invoiceStatus').textContent='';get('invoiceStatus').style.display='none';lock(false)});
-get('invoicePreview').addEventListener('click',async()=>{if(busy)return;const file=get('invoiceFile').files[0];if(!file||!/\.mdb$/i.test(file.name)){status('Choose a Microsoft Access .mdb invoice file.',false);return}lock(true);rows=[];previewFile=null;clearPreview();get('invoiceImportProgress').hidden=true;const previewButton=get('invoicePreview');previewButton.setAttribute('aria-busy','true');previewButton.textContent='Loading Invoices…';try{await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));if(!window.wootenReadAccessFile)throw Error('The Access reader is still loading. Try again shortly.');const result=await window.wootenReadAccessFile(file,'invoices');if(!result.rows.length)throw Error('The invoice file is empty. The existing invoice list will not be cleared.');rows=result.rows;previewFile=file;preparePreview(rows);renderPreview();status(rows.length.toLocaleString()+' invoice records ready to import from '+result.tableName+'.');}catch(e){rows=[];previewFile=null;clearPreview();status(e.message,false)}finally{previewButton.removeAttribute('aria-busy');previewButton.textContent='Preview Invoices';lock(false)}});
+get('invoicePreview').addEventListener('click',async()=>{
+  if(busy)return;
+  const file=get('invoiceFile').files[0];
+  if(!file||!/\.mdb$/i.test(file.name)){status('Choose a Microsoft Access .mdb invoice file.',false);return;}
+  lock(true);rows=[];previewFile=null;clearPreview();
+  get('invoiceImportProgress').hidden=true;
+  const previewButton=get('invoicePreview');
+  previewButton.setAttribute('aria-busy','true');previewButton.textContent='Loading Invoices…';
+  try{
+    updatePreviewProgress('invoices',{phase:'reading'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    if(!window.wootenReadAccessFile)throw Error('The Access reader is still loading. Try again shortly.');
+    const result=await window.wootenReadAccessFile(file,'invoices');
+    if(!result.rows.length)throw Error('The invoice file is empty. The existing invoice list will not be cleared.');
+    rows=result.rows;previewFile=file;
+    await preparePreview(rows);
+    get('imRows').textContent=rows.length;
+    get('imValid').textContent=previewRows.length;
+    // Invoice snapshots keep every source row; no rows are silently skipped.
+    get('imSkipped').textContent='0';
+    get('invoiceImportSummary').style.display='grid';
+    renderPreview();
+    status(rows.length.toLocaleString()+' invoice records ready to import from '+result.tableName+'.');
+  }catch(e){
+    rows=[];previewFile=null;clearPreview();status(e.message,false);
+  }finally{
+    hidePreviewProgress('invoices');
+    previewButton.removeAttribute('aria-busy');previewButton.textContent='Preview Invoices';
+    lock(false);
+  }
+});
 get('invoiceUpload').addEventListener('click',async()=>{
   if(busy||!previewFile||!rows.length)return;
   const total=rows.length,batches=Math.ceil(total/200);
@@ -146,6 +178,7 @@ get('invoiceUpload').addEventListener('click',async()=>{
     status('Finalizing invoice import…');
     updateImportProgress('invoices',{processed,total,imported:0,batch:batches,batches,label:'Finalizing invoice import'});
     await api({action:'complete'},base);
+    get('imImported').textContent=total;
     updateImportProgress('invoices',{processed:total,total,imported:total,batch:batches,batches,state:'complete',label:'Invoice import complete'});
     get('invoiceImportProgress').hidden=true;
     await saved().catch(()=>{});

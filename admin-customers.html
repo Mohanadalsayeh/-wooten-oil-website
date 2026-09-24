@@ -303,7 +303,7 @@
   .admin-tab[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#fff}
   .admin-tab-panel{display:none;margin-top:0!important;border-top-left-radius:0;min-height:520px}
   .admin-tab-panel.is-active{display:block}
-  .admin-tab-panel>h2{margin:0 0 8px;color:var(--navy);font-size:24px}
+  .admin-tab-panel>h2,.live-payment-db-head h2{margin:0 0 8px;color:var(--navy);font-size:24px}
   .admin-tab-panel>p:first-of-type{margin-top:0}
   .admin-subtabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px;padding:7px;border:1px solid var(--line);border-radius:13px;background:#f2f6f9}
   .admin-subtab{min-height:40px;padding:8px 15px;border:1px solid transparent;border-radius:9px;background:transparent;color:#526477;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
@@ -3791,8 +3791,7 @@ input[type="file"]:focus-visible{
 </style>
 <style id="wooten-live-customer-payments-database-style">
 .live-payment-db-section{margin-top:32px;padding-top:26px;border-top:2px solid #e5ebf0}
-.live-payment-db-head h3{margin:3px 0 6px;color:#0b2239;font-size:23px;line-height:1.2}
-.live-payment-db-head p{max-width:980px;margin:0;color:#687787;line-height:1.55}
+.live-payment-db-head p{max-width:none;margin:0 0 1em;color:var(--muted);line-height:1.55}
 .live-payment-toolbar{display:grid;grid-template-columns:minmax(270px,1.6fr) repeat(5,minmax(145px,.78fr));gap:12px;align-items:end;margin:18px 0 14px}
 .live-payment-toolbar .db-field{min-width:0}
 .live-payment-toolbar .db-field label{display:block;margin:0 0 7px;color:#0f172a;font-size:13px;line-height:1.2;font-weight:600}
@@ -6121,6 +6120,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
  <input type="file" id="invoiceFile" accept=".mdb" aria-describedby="invoiceFileHint">
  <div class="access-import-hint" id="invoiceFileHint">Microsoft Access files only: <strong>*.mdb</strong>. Dates are read directly from Access.</div>
  <div class="actions invoice-actions"><button type="button" id="invoicePreview" class="secondary">Preview Invoices</button><button type="button" id="invoiceUpload" class="primary" disabled>Upload / Update Invoices</button><button type="button" id="invoiceCancel" class="secondary" hidden>Cancel Import</button></div>
+ <div class="preview-progress" id="invoicePreviewProgress" hidden>
+  <div class="preview-progress-head"><strong id="invoicePreviewProgressLabel">Reading invoice file…</strong><span id="invoicePreviewProgressCount">Preparing</span></div>
+  <div class="preview-progress-track" id="invoicePreviewProgressTrack" role="progressbar" aria-label="Invoice preview loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="invoicePreviewProgressBar"></span></div>
+ </div>
  <div class="import-last-update" id="invoiceImportLastUpdate">
   <span class="import-last-update-label">Last Invoices upload</span>
   <strong id="invoiceImportLastUpdateValue">Not imported yet</strong>
@@ -6131,6 +6134,12 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   <div class="import-progress-head"><strong id="invoiceImportProgressTitle">Invoice import</strong><span id="invoiceImportProgressPercent">0%</span></div>
   <div class="import-progress-track" id="invoiceImportProgressTrack" role="progressbar" aria-label="Invoice import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="invoiceImportProgressBar"></span></div>
   <div class="import-progress-detail"><span id="invoiceImportProgressCount">Imported 0 of 0</span><span id="invoiceImportProgressBatch">Waiting to start</span></div>
+ </div>
+ <div class="summary payments-import-summary" id="invoiceImportSummary" style="display:none">
+  <div class="metric"><b id="imRows">0</b><span>Rows Found</span></div>
+  <div class="metric"><b id="imValid">0</b><span>Valid Invoices</span></div>
+  <div class="metric"><b id="imSkipped">0</b><span>Skipped Rows</span></div>
+  <div class="metric"><b id="imImported">0</b><span>Last Import</span></div>
  </div>
  <div class="import-db-toolbar payment-db-toolbar" id="invoicePreviewTools" style="display:none">
   <div class="import-db-field import-db-search">
@@ -8669,13 +8678,13 @@ function updateImportProgress(kind,{processed=0,total=0,imported=0,batch=0,batch
   document.getElementById(prefix+"ProgressBatch").textContent=batches?`Batch ${Math.min(batch,batches)} of ${batches}`:"Preparing batches";
 }
 function updatePreviewProgress(kind,{processed=0,total=0,phase="reading"}={}){
-  const prefix=kind==="payments"?"paymentPreview":"customerPreview";
+  const prefix=kind==="invoices"?"invoicePreview":kind==="payments"?"paymentPreview":"customerPreview";
   const box=document.getElementById(prefix+"Progress");
   const track=document.getElementById(prefix+"ProgressTrack");
   box.hidden=false;
   if(phase==="reading"){
     box.classList.add("is-indeterminate");
-    document.getElementById(prefix+"ProgressLabel").textContent=kind==="payments"?"Reading payment file…":"Reading customer file…";
+    document.getElementById(prefix+"ProgressLabel").textContent=kind==="invoices"?"Reading invoice file…":kind==="payments"?"Reading payment file…":"Reading customer file…";
     document.getElementById(prefix+"ProgressCount").textContent="Preparing rows";
     track.removeAttribute("aria-valuenow");
     return;
@@ -8684,13 +8693,13 @@ function updatePreviewProgress(kind,{processed=0,total=0,phase="reading"}={}){
   const safeTotal=Math.max(0,Number(total)||0);
   const safeProcessed=Math.max(0,Math.min(safeTotal,Number(processed)||0));
   const percent=safeTotal?Math.round((safeProcessed/safeTotal)*100):100;
-  document.getElementById(prefix+"ProgressLabel").textContent=kind==="payments"?"Preparing payment preview…":"Preparing customer preview…";
+  document.getElementById(prefix+"ProgressLabel").textContent=kind==="invoices"?"Preparing invoice preview…":kind==="payments"?"Preparing payment preview…":"Preparing customer preview…";
   document.getElementById(prefix+"ProgressCount").textContent=`${safeProcessed.toLocaleString()} of ${safeTotal.toLocaleString()} • ${percent}%`;
   document.getElementById(prefix+"ProgressBar").style.width=percent+"%";
   track.setAttribute("aria-valuenow",String(percent));
 }
 function hidePreviewProgress(kind){
-  const prefix=kind==="payments"?"paymentPreview":"customerPreview";
+  const prefix=kind==="invoices"?"invoicePreview":kind==="payments"?"paymentPreview":"customerPreview";
   const box=document.getElementById(prefix+"Progress");
   box.classList.remove("is-indeterminate");
   box.hidden=true;
@@ -15232,7 +15241,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
-<script src="assets/js/wooten-invoice-import.js?v=568"></script>
+<script src="assets/js/wooten-invoice-import.js?v=570"></script>
 <script src="assets/js/wooten-invoice-database.js?v=557"></script>
 </body>
 </html>
@@ -17825,6 +17834,27 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 }
 </style>
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-9">
+<style id="wooten-customer-preview-headers-ver571">
+/* Include the full label, gap, and sort arrows in each column's minimum width. */
+#admin-tab-customers #tablewrap table{table-layout:auto}
+#admin-tab-customers #tablewrap thead th{white-space:nowrap;vertical-align:middle}
+#admin-tab-customers #tablewrap thead th:first-child{min-width:120px}
+#admin-tab-customers #tablewrap thead th:nth-child(6),
+#admin-tab-customers #tablewrap thead th:nth-child(7){min-width:90px}
+#admin-tab-customers #tablewrap .wo-table-sort-button{
+  grid-template-columns:minmax(max-content,1fr) 12px!important;
+  gap:8px!important;
+  min-width:max-content!important;
+  padding-left:12px!important;
+  padding-right:12px!important;
+}
+#admin-tab-customers #tablewrap .wo-table-sort-label{
+  min-width:max-content!important;
+  width:auto!important;
+  white-space:nowrap!important;
+  overflow-wrap:normal!important;
+}
+</style>
 <script src="assets/js/wooten-sortable-tables.js?v=20260914-3"></script>
 <link rel="stylesheet" href="assets/css/wooten-communication-tree-arrow.css?v=20260914-1">
 <link rel="stylesheet" href="assets/css/wooten-application-tree-arrow.css?v=20260914-2">
