@@ -6111,29 +6111,27 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         <strong>MAS 90 payment fields used:</strong> CustomerNo, PostingDate / DepositDate, CheckNo, CashAmountApplied, DepositNo, DepositDesc, Comment, and InvoiceNo for duplicate protection. DepositType, ARDivisionNo, TransactionType, and InvoiceType are ignored. Every valid payment row is imported separately; payments are not combined.
       </p>
     </div>
-<section id="invoiceImportPanel" class="customer-payments-section" aria-labelledby="invoiceImportTitle">
- <h2 id="invoiceImportTitle">Open Invoices Import</h2>
- <p>Import the original MAS 90 Open Invoices <strong>.mdb</strong> file. Preview the records before uploading. A complete import replaces the invoice list; customer balances and statement settings stay unchanged.</p>
+<section id="invoiceImportPanel" class="payments-import-section" aria-labelledby="invoiceImportTitle">
+ <div class="payments-import-heading"><div>
+ <div class="admin-page-label payments-label">Invoices</div>
+ <h3 id="invoiceImportTitle">Open Invoices Import</h3>
+ <p>Import the original MAS 90 Open Invoices <strong>.mdb</strong> file. Click Preview Invoices to read the file and confirm the record count before uploading. A complete import replaces the invoice list; customer balances and statement settings stay unchanged.</p>
+ </div></div>
  <label for="invoiceFile">Open Invoices File</label>
  <input type="file" id="invoiceFile" accept=".mdb">
  <div class="actions invoice-actions"><button type="button" id="invoicePreview" class="secondary">Preview Invoices</button><button type="button" id="invoiceUpload" class="primary" disabled>Upload / Update Invoices</button><button type="button" id="invoiceCancel" class="secondary" hidden>Cancel Import</button></div>
  <div id="invoiceStatus" class="status" role="status" aria-live="polite"></div>
  <progress id="invoiceProgress" max="100" value="0" hidden style="width:100%" aria-label="Invoice upload progress"></progress>
  <p id="invoiceLastImport" class="note">No invoice import loaded yet.</p>
- <div class="invoice-actions"><button type="button" class="secondary" id="invoiceShowSaved">View Live Open Invoices</button></div>
- <label for="invoiceSearch">Search invoice file preview</label><input id="invoiceSearch" type="search" placeholder="Customer number, customer name, or invoice number" autocomplete="off">
- <div class="actions"><button type="button" id="invoiceSearchBtn" class="secondary">Search</button></div>
- <p id="invoiceListLabel" class="note">Choose a file and click Preview Invoices to review records before uploading.</p>
- <div style="overflow-x:auto"><table data-pdf-table-name="Open Invoices File Preview"><thead><tr><th>Customer No</th><th>Customer Name</th><th>Invoice No</th><th>Type</th><th>Invoice Date</th><th>Due Date</th><th>Balance</th></tr></thead><tbody id="invoiceRows"></tbody></table></div>
- <div class="invoice-actions"><button type="button" id="invoicePrev" class="secondary" disabled>Previous</button><span id="invoicePage" aria-live="polite"></span><button type="button" id="invoiceNext" class="secondary" disabled>Next</button></div>
 </section>
 <style>
 #invoiceImportPanel{margin-top:28px;padding-top:24px;border-top:1px solid #d6e1ec;min-width:0}
 #invoiceImportPanel input{width:100%;min-width:0;box-sizing:border-box}
-#invoiceImportPanel .invoice-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;align-items:center;justify-content:space-between}
+#invoiceImportPanel .invoice-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;align-items:stretch;justify-content:flex-start}
+#invoiceImportPanel .invoice-actions>button{flex:0 0 auto;margin:0}
 #invoiceImportPanel button{min-height:48px;white-space:normal}
 #invoiceImportPanel progress[hidden],#invoiceImportPanel button[hidden]{display:none!important}
-@media(max-width:700px){#invoiceImportPanel .invoice-actions>button{flex:1 1 40%;min-width:0}#invoiceImportPanel .invoice-actions>button.primary{flex-basis:100%}#invoiceImportPanel th,#invoiceImportPanel td{min-width:95px}}
+@media(max-width:700px){#invoiceImportPanel .invoice-actions>button{flex:1 1 40%;min-width:0;width:auto}}
 </style>
 
   </div>
@@ -15166,10 +15164,10 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script src="assets/js/admin-payment-transactions.js?v=543"></script>
 <link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=447">
 
-<link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=446">
+<link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
-<script src="assets/js/wooten-invoice-import.js?v=557"></script>
+<script src="assets/js/wooten-invoice-import.js?v=558"></script>
 <script src="assets/js/wooten-invoice-database.js?v=557"></script>
 </body>
 </html>
