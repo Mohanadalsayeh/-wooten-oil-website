@@ -1,3 +1,4 @@
+import * as OpenInvoices from './assets/js/wooten-invoices-server.mjs';
 import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
@@ -12536,6 +12537,12 @@ var worker_default = {
       return methodNotAllowed();
     }
 
+    if(url.pathname==="/api/admin/open-invoices-import")return OpenInvoices.handle({request,env,cancellation:()=>adminAutomaticImportCancellation(env,request),progress:async(completed)=>{
+      if(request.headers.get('X-Import-Mode')!=='automatic')return;
+      const bn=adminImportPositiveInteger(request.headers.get('X-Import-Batch-Number'),1),bc=adminImportPositiveInteger(request.headers.get('X-Import-Batch-Count'),1);
+      await recordAutomaticImportControl(env,request,'invoices',bn,bc);
+      if(completed)await env.DB.prepare("UPDATE admin_import_control SET status='completed',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=1 AND active_run_id=? AND cancel_requested=0").bind(adminImportRunId(request)).run();
+    },audit:async(run)=>{await adminAudit(env,request,"invoice_import_completed","invoices",run.run_id,`${run.expected} invoices imported (${run.mode})`);}});
     if (url.pathname === "/api/admin/customer-payments-import") {
       if (request.method === "POST") {
         return adminCustomerPaymentsImport({ request, env });
