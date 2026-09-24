@@ -6039,7 +6039,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 
       <div class="actions payments-import-actions">
         <button class="secondary" id="paymentPreviewBtn" type="button">Preview Payments</button>
-        <button class="primary" id="paymentImportBtn" type="button" disabled>Import Payments</button>
+        <button class="primary" id="paymentImportBtn" type="button" disabled>Upload / Update Payments</button>
       </div>
 
       <div class="preview-progress" id="paymentPreviewProgress" hidden>
@@ -8846,12 +8846,13 @@ document.getElementById("previewBtn").addEventListener("click",async()=>{
   const previewBtn=document.getElementById("previewBtn");
   previewBtn.disabled=true;
   previewBtn.textContent="Loading Customers…";
+  previewBtn.setAttribute("aria-busy","true");
   document.getElementById("customerImportProgress").hidden=true;
   const phoneImportSummary=document.getElementById("customerPhoneImportSummary");
   if(phoneImportSummary)phoneImportSummary.hidden=true;
   document.getElementById("mImported").textContent="0";
   updatePreviewProgress("customers",{phase:"reading"});
-  await new Promise(resolve=>requestAnimationFrame(resolve));
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   try{
     const parsed=await parseFile(file,"customers");
     const raw=parsed.rows;
@@ -8870,6 +8871,7 @@ document.getElementById("previewBtn").addEventListener("click",async()=>{
     hidePreviewProgress("customers");
     previewBtn.disabled=false;
     previewBtn.textContent="Preview Customers";
+    previewBtn.removeAttribute("aria-busy");
   }
 });
 
@@ -9167,10 +9169,11 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
   const previewBtn=document.getElementById("paymentPreviewBtn");
   previewBtn.disabled=true;
   previewBtn.textContent="Loading Payments…";
+  previewBtn.setAttribute("aria-busy","true");
   document.getElementById("paymentImportProgress").hidden=true;
   document.getElementById("pmImported").textContent="0";
   updatePreviewProgress("payments",{phase:"reading"});
-  await new Promise(resolve=>requestAnimationFrame(resolve));
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 
   try{
     const parsed=await parseFile(file,"payments");
@@ -9204,6 +9207,7 @@ document.getElementById("paymentPreviewBtn").addEventListener("click",async()=>{
     hidePreviewProgress("payments");
     previewBtn.disabled=false;
     previewBtn.textContent="Preview Payments";
+    previewBtn.removeAttribute("aria-busy");
   }
 });
 
@@ -9287,7 +9291,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     }
   }finally{
     btn.disabled=false;
-    btn.textContent="Import Payments";
+    btn.textContent="Upload / Update Payments";
   }
 });
 
@@ -15167,7 +15171,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
-<script src="assets/js/wooten-invoice-import.js?v=558"></script>
+<script src="assets/js/wooten-invoice-import.js?v=560"></script>
 <script src="assets/js/wooten-invoice-database.js?v=557"></script>
 </body>
 </html>
@@ -18036,7 +18040,12 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 .invoice-db-toolbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:end}
 .invoice-db-toolbar>*{min-width:0;max-width:100%}
 .invoice-db-search,.invoice-db-actions{grid-column:1/-1}
-.invoice-db-toolbar input,.invoice-db-toolbar select{width:100%;max-width:100%;min-width:0;height:58px;box-sizing:border-box}
+.invoice-db-toolbar .db-field label{display:block;margin:0 0 7px;color:#0f172a;font-size:13px;line-height:1.2;font-weight:600}
+.invoice-db-toolbar input,.invoice-db-toolbar select{width:100%;max-width:100%;min-width:0;height:58px;box-sizing:border-box;margin:0;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;background-color:#fff;color:#0f172a;font:inherit;font-size:14px;line-height:1.2}
+.invoice-db-toolbar input:focus,.invoice-db-toolbar select:focus{outline:none;border-color:#94a3b8;box-shadow:0 0 0 3px rgba(31,78,121,.10)}
+.invoice-db-toolbar input[type="search"]{padding-left:42px}
+.invoice-db-toolbar input[type="date"]{padding-left:14px;padding-right:12px}
+@media(max-width:700px){.invoice-db-toolbar input,.invoice-db-toolbar select{font-size:16px!important}}
 .invoice-db-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:14px;margin-top:6px}
 .invoice-db-actions button{min-height:58px;min-width:145px}
 #admin-tab-invoice-database [hidden]{display:none!important}
@@ -18055,4 +18064,26 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 @media(max-width:850px){.invoice-db-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-db-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-db-actions button{min-width:0;width:100%}}
 @media(max-width:620px){.invoice-db-toolbar{grid-template-columns:1fr}.invoice-db-actions{grid-template-columns:1fr}.invoice-db-toolbar input,.invoice-db-toolbar select,.invoice-db-actions button{height:52px;min-height:52px}.database-subtabs .admin-subtab{font-size:13px!important;padding:10px 8px!important}#invoiceDbPagination button{min-width:0;padding:10px 14px}#invoiceDbPage{font-size:12px}}
 
+</style>
+
+<style id="wooten-preview-button-spinners-ver560">
+/* Animate only while the corresponding preview operation is running. */
+body :is(#previewBtn,#paymentPreviewBtn,#invoicePreview)[aria-busy="true"]{
+  cursor:wait!important;
+}
+body :is(#previewBtn,#paymentPreviewBtn,#invoicePreview)[aria-busy="true"]::before{
+  content:"";display:inline-block!important;
+  width:15px;height:15px;box-sizing:border-box;
+  margin:0 .55em 0 0;vertical-align:-2px;
+  border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+  background:none!important;box-shadow:none!important;
+  animation:wooten-preview-button-spin .75s linear infinite!important;
+  will-change:transform;pointer-events:none;
+}
+@keyframes wooten-preview-button-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  body :is(#previewBtn,#paymentPreviewBtn,#invoicePreview)[aria-busy="true"]::before{
+    animation:none!important;
+  }
+}
 </style>
