@@ -1,7 +1,8 @@
 (()=>{
 const get=id=>document.getElementById(id),panel=get('invoiceImportPanel');if(!panel)return;
 let rows=[],previewFile=null,busy=false,cancel=false,runId='';
-let previewRows=[],searchTimer;
+let previewRows=[],previewMatches=[],previewPage=1,previewPages=1,searchTimer;
+const previewPageSize=20;
 const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 const text=value=>String(value??'').trim();
 const dateKey=value=>value instanceof Date?(Number.isFinite(value.getTime())?value.toISOString().slice(0,10):''):text(value).slice(0,10);
@@ -43,14 +44,24 @@ function filteredRows(){
     return b.invoice_date.localeCompare(a.invoice_date);
   });
 }
-function renderPreview(){
-  const filtered=filteredRows(),body=get('invoicePreviewBody');
+function syncPagination(){
+  get('invoicePreviewPagination').hidden=!previewFile||previewMatches.length<=previewPageSize;
+  get('invoicePreviewPage').textContent='Page '+previewPage+' of '+previewPages+' • '+previewMatches.length.toLocaleString()+' records';
+  get('invoicePreviewPrev').disabled=busy||previewPage<=1;
+  get('invoicePreviewNext').disabled=busy||previewPage>=previewPages;
+}
+function renderPreview(reset=true){
+  if(reset){previewPage=1;previewMatches=filteredRows();}
+  const filtered=previewMatches,body=get('invoicePreviewBody');
+  previewPages=Math.max(1,Math.ceil(filtered.length/previewPageSize));
+  previewPage=Math.max(1,Math.min(previewPage,previewPages));
+  const start=(previewPage-1)*previewPageSize,end=Math.min(start+previewPageSize,filtered.length);
   body.replaceChildren();
   get('invoicePreviewTools').style.display='grid';
   get('invoicePreviewWrap').style.display='block';
   get('invoicePreviewTable').dataset.pdfEmpty=filtered.length?'false':'true';
-  get('invoicePreviewCount').textContent=filtered.length.toLocaleString()+' matching invoice row(s) • showing first '+Math.min(filtered.length,200).toLocaleString();
-  for(const row of filtered.slice(0,200)){
+  get('invoicePreviewCount').textContent=filtered.length.toLocaleString()+' matching invoice row(s) • showing '+(filtered.length?start+1:0).toLocaleString()+'–'+end.toLocaleString();
+  for(const row of filtered.slice(start,end)){
     const tr=document.createElement('tr');
     for(const value of [row.account_number,row.customer_name,row.invoice_no,row.invoice_type,displayDate(row.invoice_date),displayDate(row.due_date),Number.isFinite(row.balance)?money.format(row.balance):'—']){
       const td=document.createElement('td');td.textContent=value;tr.append(td);
@@ -58,24 +69,55 @@ function renderPreview(){
     body.append(tr);
   }
   if(!filtered.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='No invoices match the current search and filters.';tr.append(td);body.append(tr);}
+  syncPagination();
 }
+function goToPreviewPage(target){
+  if(busy||!previewFile||!Number.isFinite(Number(target)))return;
+  // Resolve a pending search before moving through the matching results.
+  if(searchTimer){clearTimeout(searchTimer);searchTimer=null;renderPreview();return;}
+  previewPage=Math.max(1,Math.min(previewPages,Math.trunc(Number(target))));
+  renderPreview(false);
+}
+get('invoicePreviewPrev').addEventListener('click',()=>goToPreviewPage(previewPage-1));
+get('invoicePreviewNext').addEventListener('click',()=>goToPreviewPage(previewPage+1));
+get('invoicePreviewPrev').wootenGoToPage=goToPreviewPage;
 function clearPreview(){
-  clearTimeout(searchTimer);previewRows=[];
+  clearTimeout(searchTimer);searchTimer=null;previewRows=[];previewMatches=[];previewPage=1;previewPages=1;
   get('invoicePreviewSearch').value='';get('invoicePreviewType').value='all';
   get('invoicePreviewBalance').value='all';get('invoicePreviewSort').value='invoice_desc';
   get('invoicePreviewTools').style.display='none';get('invoicePreviewWrap').style.display='none';
   get('invoicePreviewBody').replaceChildren();get('invoicePreviewTable').dataset.pdfEmpty='true';
   get('invoicePreviewCount').textContent='0 shown';
+  syncPagination();
 }
-window.WootenInvoiceImport={filteredRows};
-get('invoicePreviewSearch').addEventListener('input',()=>{clearTimeout(searchTimer);if(!busy&&previewFile)searchTimer=setTimeout(()=>{if(!busy&&previewFile)renderPreview()},200)});
-get('invoicePreviewSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();clearTimeout(searchTimer);if(!busy&&previewFile)renderPreview()}});
-['invoicePreviewType','invoicePreviewBalance','invoicePreviewSort'].forEach(id=>get(id).addEventListener('change',()=>{clearTimeout(searchTimer);if(!busy&&previewFile)renderPreview()}));
+window.WootenInvoiceImport={filteredRows,refreshLastUpload};
+get('invoicePreviewSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=null;if(!busy&&previewFile)searchTimer=setTimeout(()=>{searchTimer=null;if(!busy&&previewFile)renderPreview()},200)});
+get('invoicePreviewSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();clearTimeout(searchTimer);searchTimer=null;if(!busy&&previewFile)renderPreview()}});
+['invoicePreviewType','invoicePreviewBalance','invoicePreviewSort'].forEach(id=>get(id).addEventListener('change',()=>{clearTimeout(searchTimer);searchTimer=null;if(!busy&&previewFile)renderPreview()}));
 const key=()=>get('adminKey')?.value.trim()||'';
 const status=(s,ok=true)=>{get('invoiceStatus').textContent=s;get('invoiceStatus').className='status show '+(ok?'ok':'bad');get('invoiceStatus').style.display='block';};
-function lock(value){busy=value;panel.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='invoiceCancel')e.disabled=value});get('invoiceCancel').hidden=!value||!runId;get('invoiceUpload').disabled=value||!rows.length||!previewFile;}
+function lock(value){busy=value;panel.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='invoiceCancel')e.disabled=value});get('invoiceCancel').hidden=!value||!runId;get('invoiceUpload').disabled=value||!rows.length||!previewFile;syncPagination();}
 async function api(body,headers={}){if(!key())throw Error('Sign in as an administrator first.');const response=await fetch('/api/admin/open-invoices-import',{method:body?'POST':'GET',headers:{'X-Admin-Key':key(),...(body?{'Content-Type':'application/json'}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok||!data.success)throw Error(data.error||'Invoice request failed');return data;}
-async function saved(){const d=await api();if(d.active)get('invoiceLastImport').textContent='Last completed import: '+new Date(d.active.completed_at.replace(' ','T')+'Z').toLocaleString('en-US',{timeZone:'America/Chicago'})+' CT';}
+let savedSerial=0,lastSavedFetch=0,savedRequestPending=false;
+async function saved(){
+  const requestKey=key(),serial=++savedSerial;
+  if(!requestKey)return;
+  const data=await api();
+  if(serial!==savedSerial||requestKey!==key())return;
+  const active=data.active;
+  setImportLastUpdate('invoices',active?.completed_at||'',active?.actor||'',String(active?.mode||'').startsWith('automatic')?'automatic':'manual','completed',active?.expected||0,active?.batches||1,active?.batches||1);
+}
+function refreshLastUpload(){
+  if(!key()||!WootenAdminAccess.has(window.wootenAdminUser,'database')||busy||savedRequestPending||Date.now()-lastSavedFetch<30000)return;
+  savedRequestPending=true;lastSavedFetch=Date.now();
+  saved().catch(()=>{}).finally(()=>{savedRequestPending=false;});
+}
+window.addEventListener('wooten-admin-auth-changed',()=>{
+  savedSerial++;lastSavedFetch=0;
+  setImportLastUpdate('invoices','');
+  refreshLastUpload();
+});
+refreshLastUpload();
 get('invoiceFile').addEventListener('change',()=>{rows=[];previewFile=null;clearPreview();get('invoiceImportProgress').hidden=true;get('invoiceStatus').textContent='';get('invoiceStatus').style.display='none';lock(false)});
 get('invoicePreview').addEventListener('click',async()=>{if(busy)return;const file=get('invoiceFile').files[0];if(!file||!/\.mdb$/i.test(file.name)){status('Choose a Microsoft Access .mdb invoice file.',false);return}lock(true);rows=[];previewFile=null;clearPreview();get('invoiceImportProgress').hidden=true;const previewButton=get('invoicePreview');previewButton.setAttribute('aria-busy','true');previewButton.textContent='Loading Invoices…';try{await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));if(!window.wootenReadAccessFile)throw Error('The Access reader is still loading. Try again shortly.');const result=await window.wootenReadAccessFile(file,'invoices');if(!result.rows.length)throw Error('The invoice file is empty. The existing invoice list will not be cleared.');rows=result.rows;previewFile=file;preparePreview(rows);renderPreview();status(rows.length.toLocaleString()+' invoice records ready to import from '+result.tableName+'.');}catch(e){rows=[];previewFile=null;clearPreview();status(e.message,false)}finally{previewButton.removeAttribute('aria-busy');previewButton.textContent='Preview Invoices';lock(false)}});
 get('invoiceUpload').addEventListener('click',async()=>{
@@ -105,6 +147,7 @@ get('invoiceUpload').addEventListener('click',async()=>{
     updateImportProgress('invoices',{processed,total,imported:0,batch:batches,batches,label:'Finalizing invoice import'});
     await api({action:'complete'},base);
     updateImportProgress('invoices',{processed:total,total,imported:total,batch:batches,batches,state:'complete',label:'Invoice import complete'});
+    get('invoiceImportProgress').hidden=true;
     await saved().catch(()=>{});
     window.dispatchEvent(new Event('wooten-invoices-imported'));
     status(total.toLocaleString()+' invoices imported successfully. 0 failed.');

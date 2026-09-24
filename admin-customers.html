@@ -6118,15 +6118,20 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
  <p>Import the original MAS 90 Open Invoices <strong>.mdb</strong> file. Click Preview Invoices to review and search the file before uploading. A complete import replaces the invoice list; customer balances and statement settings stay unchanged.</p>
  </div></div>
  <label for="invoiceFile">Open Invoices File</label>
- <input type="file" id="invoiceFile" accept=".mdb">
+ <input type="file" id="invoiceFile" accept=".mdb" aria-describedby="invoiceFileHint">
+ <div class="access-import-hint" id="invoiceFileHint">Microsoft Access files only: <strong>*.mdb</strong>. Dates are read directly from Access.</div>
  <div class="actions invoice-actions"><button type="button" id="invoicePreview" class="secondary">Preview Invoices</button><button type="button" id="invoiceUpload" class="primary" disabled>Upload / Update Invoices</button><button type="button" id="invoiceCancel" class="secondary" hidden>Cancel Import</button></div>
+ <div class="import-last-update" id="invoiceImportLastUpdate">
+  <span class="import-last-update-label">Last Invoices upload</span>
+  <strong id="invoiceImportLastUpdateValue">Not imported yet</strong>
+  <small id="invoiceImportLastUpdateBy">Waiting for the first completed upload</small>
+ </div>
  <div id="invoiceStatus" class="status" role="status" aria-live="polite"></div>
  <div class="import-progress" id="invoiceImportProgress" hidden>
   <div class="import-progress-head"><strong id="invoiceImportProgressTitle">Invoice import</strong><span id="invoiceImportProgressPercent">0%</span></div>
   <div class="import-progress-track" id="invoiceImportProgressTrack" role="progressbar" aria-label="Invoice import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="invoiceImportProgressBar"></span></div>
   <div class="import-progress-detail"><span id="invoiceImportProgressCount">Imported 0 of 0</span><span id="invoiceImportProgressBatch">Waiting to start</span></div>
  </div>
- <p id="invoiceLastImport" class="note">No invoice import loaded yet.</p>
  <div class="import-db-toolbar payment-db-toolbar" id="invoicePreviewTools" style="display:none">
   <div class="import-db-field import-db-search">
    <label for="invoicePreviewSearch">Search Invoice Database</label>
@@ -6155,6 +6160,11 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
    <thead><tr><th>Customer No</th><th>Customer Name</th><th>Invoice No</th><th>Invoice Type</th><th>Invoice Date</th><th>Due Date</th><th>Balance</th></tr></thead>
    <tbody id="invoicePreviewBody"></tbody>
   </table>
+ </div>
+ <div class="db-pagination" id="invoicePreviewPagination" hidden aria-label="Invoice preview pages">
+  <button class="secondary" id="invoicePreviewPrev" type="button" disabled>Previous 20</button>
+  <div class="db-page-info" id="invoicePreviewPage" aria-live="polite">Page 1 of 1</div>
+  <button class="secondary" id="invoicePreviewNext" type="button" disabled>Next 20</button>
  </div>
 </section>
 <style>
@@ -8298,11 +8308,10 @@ function importUpdateTimestamp(value){
 }
 
 function setImportLastUpdate(kind,value,by,mode,status,count,batchNumber,batchCount){
-  const el=document.getElementById(
-    kind==="payments" ? "paymentImportLastUpdateValue" : "customerImportLastUpdateValue"
-  );
+  const prefix=kind==="invoices"?"invoiceImport":kind==="payments"?"paymentImport":"customerImport";
+  const el=document.getElementById(prefix+"LastUpdateValue");
   if(el) el.textContent=formatImportUpdateDate(value);
-  const byEl=document.getElementById(kind==="payments"?"paymentImportLastUpdateBy":"customerImportLastUpdateBy");
+  const byEl=document.getElementById(prefix+"LastUpdateBy");
   if(byEl){
     if(!value){
       byEl.textContent="Waiting for the first completed upload";
@@ -8568,6 +8577,7 @@ async function loadImportLastUpdates(){
     if(!res.ok || data.success===false) return;
     setImportLastUpdate("customers",data.customers_last_import_at||"",data.customers_last_import_by||"",data.customers_last_import_mode||"manual",data.customers_last_import_status||"completed",data.customers_last_record_count||0,data.customers_last_import_batch_number||1,data.customers_last_import_batch_count||1);
     setImportLastUpdate("payments",data.payments_last_import_at||"",data.payments_last_import_by||"",data.payments_last_import_mode||"manual",data.payments_last_import_status||"completed",data.payments_last_record_count||0,data.payments_last_import_batch_number||1,data.payments_last_import_batch_count||1);
+    window.WootenInvoiceImport?.refreshLastUpload?.();
     renderMas90LiveSync(data);
     renderMas90RemoteRequest(data.remote_sync_request||null,data);
     if(document.getElementById('admin-tab-automation')?.classList.contains('is-active')&&typeof window.loadMas90AutomationHealth==='function')window.loadMas90AutomationHealth({force:true});
@@ -15222,7 +15232,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
-<script src="assets/js/wooten-invoice-import.js?v=564"></script>
+<script src="assets/js/wooten-invoice-import.js?v=568"></script>
 <script src="assets/js/wooten-invoice-database.js?v=557"></script>
 </body>
 </html>
