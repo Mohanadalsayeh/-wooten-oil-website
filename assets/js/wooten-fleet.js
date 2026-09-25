@@ -62,6 +62,7 @@ function fleetSkeleton(kind,admin){
  const row=(heading,index)=>'<div class="fleet-skeleton-row">'+headers.map((label,column)=>heading?'<div class="fleet-skeleton-heading">'+esc(label)+'</div>':'<div class="fleet-skeleton-cell"><span class="fleet-skeleton-bar" style="width:'+([72,85,60][(column+index)%3])+'%"></span></div>').join('')+'</div>';
  return '<div class="fleet-skeleton" aria-hidden="true" style="--fleet-skeleton-columns:'+headers.length+'">'+row(true,0)+Array.from({length:5},(_,i)=>row(false,i)).join('')+'</div>';
 }
+function retryLabel(data){return data.retry?.continuous?'Automatic retry '+Number(data.retry.failures||1):'Automatic retry '+Math.min(data.retry?.failures||1,3)+' of 3';}
 function pullTimingMarkup(data){
  const h=data.latest,active=['collecting','uploading'].includes(h?.state);
  const start=Date.parse(h?.started_at),end=active?Date.now():Date.parse(h?.updated_at);
@@ -73,7 +74,7 @@ function pullTimingMarkup(data){
  const control=data.control||{},running=active||(control.lease_until&&Date.parse(control.lease_until)>Date.now());
  const retryAt=!running&&!data.retry?.paused?data.retry?.retry_at:null;
  const next=data.retry?.paused?'Paused — action required':retryAt?central(retryAt):control.next_due?central(control.next_due):'Not scheduled yet';
- const note=data.retry?.paused?'Automatic pulls are paused.':running?'A pull is currently in progress.':retryAt?'Automatic retry '+Math.min(data.retry.failures,3)+' of 3':control.requested_at?'Manual sync queued — waiting for the sync service.':control.next_due&&Date.parse(control.next_due)<=Date.now()?'Scheduled time has passed — waiting for the sync service.':'';
+ const note=data.retry?.paused?'Automatic pulls are paused.':running?'A pull is currently in progress.':retryAt?retryLabel(data):control.requested_at?'Manual sync queued — waiting for the sync service.':control.next_due&&Date.parse(control.next_due)<=Date.now()?'Scheduled time has passed — waiting for the sync service.':'';
  return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>'+(retryAt?'Next retry':'Next scheduled pull')+'</span><strong>'+esc(next)+'</strong>'+(note?'<span class="fleet-next-pull-note">'+esc(note)+'</span>':'')+'</div></div>';
 }
 function syncButtonState(control={},dirty=false,pending=false){
@@ -93,10 +94,10 @@ function healthMarkup(data){
  const overdue=time&&Date.now()-Date.parse(time)>((data.control?.hours||2)+2)*60*60*1000;
  if(overdue){title='No recent sync report';state='overdue';detail='No update has been received within the expected sync interval. Check the selected sync service and its connection. No recent completion has been reported.'+(h.state==='failed'?' Last reported failure: '+(h.error||'Unknown'):'');}
  if(!h&&success){state='complete';title='Data pulled successfully';}
- if(data.retry?.paused){state='failed';title='Action required — automatic pulls paused';detail=(data.retry.reason||'Pull could not complete.')+' '+(data.retry.failures>3?'The three automatic retries have been used. ':'')+'Fix the issue, then click Sync now to resume.';}
- else if(data.retry?.retry_at&&state!=='collecting'&&state!=='uploading'){title='Automatic retry scheduled';detail=(data.retry.reason||'Pull was interrupted.')+' Retry '+Math.min(data.retry.failures,3)+' of 3 is scheduled for '+central(data.retry.retry_at)+'.';}
+ if(data.retry?.paused){state='failed';title='Action required — automatic pulls paused';detail=(data.retry.reason||'Pull could not complete.')+' '+(!data.retry.continuous&&data.control?.runner!=='cloud'&&data.retry.failures>3?'The three automatic retries have been used. ':'')+'Fix the issue, then click Sync now to resume.';}
+ else if(data.retry?.retry_at&&state!=='collecting'&&state!=='uploading'){state='overdue';title='Automatic retry scheduled';detail=(data.retry.reason||'Pull was interrupted.')+' '+retryLabel(data)+' is scheduled for '+central(data.retry.retry_at)+'.';}
  const active=state==='collecting'||state==='uploading';
- const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
+ const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?(data.retry?.retry_at?'Automatic retry scheduled':'Waiting for a new sync report'):'Waiting for first sync';
  const bar=`<div class="fleet-sync-progress" data-progress-state="${state}"><span class="fleet-sync-progress-label">${esc(label)}</span><div class="fleet-sync-track" ${active?'role="progressbar" aria-label="'+esc(label)+'"':state==='complete'?'role="progressbar" aria-label="Sync complete" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"':'aria-hidden="true"'}><span class="fleet-sync-fill"></span></div></div>`;
  return `<div class="fleet-health-heading"><span class="fleet-health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7.5" ry="3"></ellipse><path d="M4.5 5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V5M4.5 11v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path d="M15.5 8.5h5m-2.2-2.2 2.2 2.2-2.2 2.2"></path></svg></span><strong>${esc(title)}</strong></div>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}${pullTimingMarkup(data)}${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
@@ -227,17 +228,17 @@ function mount(root,admin){
   const ticket=serial;
   try{const data=await api('/api/admin/fleet/status');if(ticket!==serial)return;
    const control=data.control;
+   const running=control?.lease_until&&Date.parse(control.lease_until)>Date.now();
    if(control){
     if(!controlDirty){get('[data-sync-hours]').value=String(control.hours);get('[data-sync-days]').value=String(control.window_days||30);}
-    const running=control.lease_until&&Date.parse(control.lease_until)>Date.now();
     lastControl=control;updateSyncButton();
     const cloud=control.runner==='cloud';
     const connected=control.poll_at&&Date.now()-Date.parse(control.poll_at)<3*60000;
-    get('[data-control-status]').textContent=data.retry?.paused?'Automatic pulls paused. '+(data.retry.reason||'')+' Fix the issue, then click Sync now to resume.':data.retry?.retry_at&&!running?'Automatic retry '+Math.min(data.retry.failures,3)+' of 3: '+central(data.retry.retry_at)+'. '+(connected?(cloud?'Cloud is checking for requests.':'Sync PC is checking for requests.'):'Waiting for the sync service to reconnect.'):(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(cloud?(running?'Cloud is processing the sync.':connected?'Cloud is checking for requests. The office PC is not required.':'Waiting for the cloud Cron Trigger. Check the sync Worker.'):(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Run Enable-Schedule.cmd and keep Windows signed in.'));
+    get('[data-control-status]').textContent=data.retry?.paused?'Automatic pulls paused. '+(data.retry.reason||'')+' Fix the issue, then click Sync now to resume.':data.retry?.retry_at&&!running?retryLabel(data)+': '+central(data.retry.retry_at)+'. '+(connected?(cloud?'Cloud is checking for requests.':'Sync PC is checking for requests.'):'Waiting for the sync service to reconnect.'):(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(cloud?(running?'Cloud is processing the sync.':connected?'Cloud is checking for requests. The office PC is not required.':'Waiting for the cloud Cron Trigger. Check the sync Worker.'):(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Run Enable-Schedule.cmd and keep Windows signed in.'));
    }
    get('[data-owner]').hidden=!window.wootenAdminUser?.owner;
    const health=get('[data-health]');health.innerHTML=healthMarkup(data);
-   health.dataset.state=data.retry?.paused?'failed':data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>((data.control?.hours||2)+2)*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
+   health.dataset.state=data.retry?.paused?'failed':data.retry?.retry_at&&!running?'overdue':data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>((data.control?.hours||2)+2)*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
    get('[data-sync-status]').innerHTML='<p class="fleet-note">'+(data.runs[0]?`Latest run: ${esc(data.runs[0].state)} · ${esc(central(data.runs[0].started_at))}${data.runs[0].error?' · '+esc(data.runs[0].error):''}`:'No sync runs yet.')+'</p>'+data.devices.map(d=>`<div class="fleet-device-row"><span><strong>${esc(d.name)}</strong><small class="fleet-note"> · ${d.active?'Active':'Revoked'} · ${esc(central(d.last_seen))}${d.last_error?' · '+esc(d.last_error):''}</small></span>${d.active&&window.wootenAdminUser?.owner?`<button type="button" data-revoke="${esc(d.id)}">Revoke</button>`:''}</div>`).join('');
    if(data.last_success?.completed_at&&data.last_success.completed_at!==lastSync)await refreshAfterSync();
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
