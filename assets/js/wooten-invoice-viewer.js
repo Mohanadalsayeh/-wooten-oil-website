@@ -17,7 +17,7 @@ document.body.append(list,detail);
 const q=(root,selector)=>root.querySelector(selector);
 const form=q(list,'form'),search=form.elements.search,sort=form.elements.sort,body=q(list,'tbody');
 let page=1,pages=1,selected='',customerName='',listSerial=0,detailSerial=0,listAbort,detailAbort,listBusy=false,searchTimer,listAction='load';
-let invoicePrintFrame=null;
+let invoicePdfUrls=[];
 let listTrigger=null,detailTrigger=null,exporting=false,exportAbort,matchedTotal=0;
 const headerSort=WootenTableDataSort.register(body.closest('table'),['number','type','division','invoice','due','balance'],()=>{page=1;return load('sort');},sort);
 function message(root,text,error=false){const el=q(root,'[data-status]');el.textContent=text;el.classList.toggle('iv-error',error);}
@@ -150,37 +150,15 @@ async function openInvoice(row,trigger){
 }
 q(detail,'[data-print]').addEventListener('click',()=>{
  if(!detail.open||q(detail,'[data-print]').disabled||detail.getAttribute('aria-busy')==='true')return;
- invoicePrintFrame?.remove();
- const frame=document.createElement('iframe');invoicePrintFrame=frame;
- frame.setAttribute('title','Invoice print document');frame.setAttribute('aria-hidden','true');frame.setAttribute('tabindex','-1');
- frame.style.cssText='position:fixed;left:-10000px;top:0;width:816px;height:1056px;border:0;pointer-events:none';
- document.body.append(frame);
- const printWindow=frame.contentWindow;
- if(!printWindow){frame.remove();invoicePrintFrame=null;message(detail,'The print document could not be opened. Please try again.',true);return;}
-
- const snapshot=q(detail,'[data-detail-content]').cloneNode(true);
- snapshot.querySelectorAll('.iv-classic-office').forEach(el=>el.remove());
- const safe=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const number=q(detail,'#ivDetailTitle').textContent;
- printWindow.document.open();
- printWindow.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Invoice ${safe(number)}</title><style>
- @page{size:letter;margin:0}*{box-sizing:border-box}html{margin:0;padding:0}body{margin:0;padding:0.55in;min-height:10.99in;display:flex;flex-direction:column;color:#17324d;background:white;font:12px Arial,sans-serif;print-color-adjust:exact;-webkit-print-color-adjust:exact}body>header,body>main,body>footer{flex:0 0 auto}main{margin-bottom:24px}header{display:flex;justify-content:space-between;gap:24px;border-bottom:3px solid #cf282d;padding-bottom:16px;margin-bottom:20px}header strong{font-size:15px}h1{font-size:24px;margin:0 0 6px}h3{font-size:13px;margin:0 0 10px}p{margin:6px 0;color:#52677d}.heading{text-align:right}.iv-classic-summary{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #ccd8e4;padding-bottom:18px;margin-bottom:18px}.iv-classic-label{font-size:11px;color:#52677d;margin-bottom:5px}.iv-classic-name{font-size:19px;font-weight:bold}.iv-classic-balance{text-align:right}.iv-classic-amount{font-size:28px;font-weight:bold}.iv-classic-columns{display:grid;grid-template-columns:1fr 1fr;gap:26px}section{padding:0;margin:0;break-inside:avoid}dl{margin:0}dl>div{display:flex;justify-content:space-between;gap:15px;padding:9px 0;border-bottom:1px solid #e1e7ee}dt{color:#52677d}dd{margin:0;text-align:right;max-width:60%;white-space:pre-wrap;overflow-wrap:anywhere}.iv-classic-totals{width:290px;max-width:100%;margin:24px 0 0 auto}.iv-classic-totals dl>div:last-child{border-top:2px solid #ccd8e4;font-weight:bold}.iv-amount-unavailable{color:#52677d}footer{margin-top:auto;padding-top:12px;border-top:1px solid #ccd8e4;color:#52677d;font-size:10px}button{display:none}
- </style></head><body><header><div><strong>WOOTEN OIL CO INC.</strong><p>Invoice details</p></div><div class="heading"><h1>${safe(number)}</h1><p>${safe(q(detail,'[data-invoice-meta]').textContent)}</p></div></header><main>${snapshot.innerHTML}</main><footer>${safe(q(detail,'[data-updated]').textContent)}</footer></body></html>`);
- printWindow.document.close();
- const restorePrintFocus=()=>{
-  syncListControls();
-  if(detail.open)q(detail,'[data-print]').focus({preventScroll:true});
-  else if(list.open)search.focus({preventScroll:true});
- };
- printWindow.addEventListener('afterprint',()=>{
-  restorePrintFocus();
-  setTimeout(()=>{frame.remove();if(invoicePrintFrame===frame)invoicePrintFrame=null;},0);
- },{once:true});
- setTimeout(()=>{
-  if(invoicePrintFrame!==frame||!frame.isConnected)return;
-  try{printWindow.print();restorePrintFocus();}
-  catch(e){frame.remove();invoicePrintFrame=null;restorePrintFocus();if(detail.open)message(detail,'Printing could not start. Please try again.',true);}
- },150);
+ try{
+  const content=q(detail,'[data-detail-content]');
+  const sections=[...q(content,'.iv-classic-columns').children,q(content,'.iv-classic-totals')];
+  const data={number:q(detail,'#ivDetailTitle').textContent,meta:q(detail,'[data-invoice-meta]').textContent,customer:q(content,'.iv-classic-name').textContent,account:q(q(content,'.iv-classic-summary'),'p').textContent,balance:q(content,'.iv-classic-amount').textContent,updated:q(detail,'[data-updated]').textContent,groups:sections.map(section=>({title:q(section,'h3').textContent,rows:Array.from(q(section,'dl').children).map(row=>[q(row,'dt').textContent,q(row,'dd').textContent])}))};
+  const blob=window.WootenInvoicePdf.buildDetail(data),url=URL.createObjectURL(blob);
+  const pdfTab=window.open(url,'_blank');
+  if(!pdfTab){URL.revokeObjectURL(url);message(detail,'Please allow pop-ups to open the invoice PDF.',true);return;}
+  pdfTab.opener=null;invoicePdfUrls.push(url);
+ }catch(e){message(detail,'The invoice PDF could not be created. Please try again.',true);}
 });
 for(const dialog of [list,detail])dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
 list.addEventListener('close',()=>{++listSerial;exportAbort?.abort();exporting=false;matchedTotal=0;q(q(list,'[data-export]'),'span').textContent='Export PDF';listAbort?.abort();clearTimeout(searchTimer);body.replaceChildren();message(list,'');q(list,'[data-account]').textContent='';q(list,'[data-updated]').textContent='';listBusy=false;body.setAttribute('aria-busy','false');syncListControls();if(detail.open)detail.close();if(listTrigger?.isConnected)listTrigger.focus({preventScroll:true});});
@@ -190,7 +168,7 @@ sort.addEventListener('change',()=>{headerSort.clear();page=1;load('sort');});
 q(list,'[data-refresh]').addEventListener('click',()=>load('refresh'));
 q(list,'[data-prev]').addEventListener('click',()=>{if(!listBusy&&page>1){page--;load();}});
 q(list,'[data-next]').addEventListener('click',()=>{if(!listBusy&&page<pages){page++;load();}});
-function clear(){invoicePrintFrame?.remove();invoicePrintFrame=null;++listSerial;++detailSerial;listAbort?.abort();detailAbort?.abort();if(detail.open)detail.close();if(list.open)list.close();body.replaceChildren();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';selected='';customerName='';}
+function clear(){invoicePdfUrls.forEach(url=>URL.revokeObjectURL(url));invoicePdfUrls=[];++listSerial;++detailSerial;listAbort?.abort();detailAbort?.abort();if(detail.open)detail.close();if(list.open)list.close();body.replaceChildren();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';selected='';customerName='';}
 window.WootenInvoiceViewer={openCustomer,openInvoice,clear};
 if(customerButton){
  customerButton.addEventListener('click',()=>openCustomer({},customerButton));

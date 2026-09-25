@@ -187,5 +187,30 @@
   }
 
 
-window.WootenInvoicePdf={build:(title,headers,rows,customerName='')=>buildPdf(title,{headers,rows,customerName,fullCells:true})};
+function buildDetail(data){
+ const pages=[];let ops='',y=742;
+ const text=(value,x,top,size=10,bold=false)=>{ops+='BT /'+(bold?'F2':'F1')+' '+size+' Tf 0.09 0.20 0.30 rg 1 0 0 1 '+x+' '+top+' Tm ('+pdfEscape(value)+') Tj ET\n';};
+ const line=(top,x=40,end=572,red=false)=>{ops+=(red?'0.81 0.16 0.18':'0.80 0.85 0.90')+' RG '+(red?2:0.6)+' w '+x+' '+top+' m '+end+' '+top+' l S\n';};
+ const footer=()=>{line(48);text(data.updated,40,33,8);pages.push(ops);ops='';};
+ const header=()=>{text('WOOTEN OIL CO INC.',40,752,13,true);text('Invoice details',40,734,9);text(data.number,390,752,20,true);text(String(data.meta).replace(/·/g,'-'),390,734,8);line(719,40,572,true);y=695;};
+ const ensure=h=>{if(y-h<72){footer();header();}};
+ header();text('Customer',40,y,9);text('Invoice Remaining balance',390,y,9);y-=20;
+ const names=wrapText(data.customer,42,Infinity);for(let i=0;i<names.length;i++){ensure(22);text(names[i],40,y,15,true);if(i===0)text(data.balance,440,y,22,true);y-=20;}
+ text(data.account,40,y,9);y-=20;line(y);y-=24;
+ function group(g,x,width){
+  ensure(30);text(g.title,x,y,11,true);y-=14;
+  for(const row of g.rows){const labels=wrapText(row[0],24,Infinity),values=wrapText(row[1],25,Infinity);const h=Math.max(labels.length,values.length)*12+14;ensure(h);const top=y-12;
+   labels.forEach((v,i)=>text(v,x,top-i*12,9));values.forEach((v,i)=>text(v,x+width*.50,top-i*12,9,true));y-=h;line(y,x,x+width);
+  }
+ }
+ const top=y;group(data.groups[0],40,250);const leftBottom=y;y=top;group(data.groups[1],322,250);y=Math.min(leftBottom,y)-24;
+ group(data.groups[2],322,250);footer();
+ const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'];const ids=[];
+ for(const content of pages){const cid=objects.length;objects.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');ids.push(objects.length);objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+cid+' 0 R >>');}
+ objects[2]='<< /Type /Pages /Count '+ids.length+' /Kids ['+ids.map(id=>id+' 0 R').join(' ')+'] >>';let pdf='%PDF-1.4\n';const offsets=[0];
+ for(let i=1;i<objects.length;i++){offsets[i]=pdf.length;pdf+=i+' 0 obj\n'+objects[i]+'\nendobj\n';}
+ const xref=pdf.length;pdf+='xref\n0 '+objects.length+'\n0000000000 65535 f \n';for(let i=1;i<objects.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';pdf+='trailer\n<< /Size '+objects.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';return new Blob([pdf],{type:'application/pdf'});
+}
+
+window.WootenInvoicePdf={buildDetail,build:(title,headers,rows,customerName='')=>buildPdf(title,{headers,rows,customerName,fullCells:true})};
 })();
