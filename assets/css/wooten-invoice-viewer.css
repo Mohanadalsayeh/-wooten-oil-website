@@ -141,3 +141,9 @@ body .iv-classic-dialog .iv-classic-totals .iv-amount-unavailable dd{color:#6474
 body .iv-classic-dialog .iv-note{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 body .iv-classic-dialog .iv-note[hidden]{display:none}
 body .iv-classic-dialog .iv-original{font-size:12px;min-height:40px;padding:9px 12px}
+
+/* Ver586: invoice print action, with compact responsive footer controls. */
+body .iv-classic-dialog .iv-detail-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;flex:0 0 auto}
+body .iv-classic-dialog button.iv-print{background:#1d659e!important;border-color:#1d659e!important;color:#fff!important}
+body .iv-classic-dialog button.iv-print:not(:disabled):hover{background:#174f7c!important;border-color:#174f7c!important}
+@media(max-width:600px){body .iv-classic-dialog .iv-foot{flex-wrap:wrap}body .iv-classic-dialog .iv-foot .iv-updated{max-width:100%}body .iv-classic-dialog .iv-detail-actions{margin-left:auto}}
