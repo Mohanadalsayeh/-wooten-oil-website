@@ -17,7 +17,7 @@ document.body.append(list,detail);
 const q=(root,selector)=>root.querySelector(selector);
 const form=q(list,'form'),search=form.elements.search,sort=form.elements.sort,body=q(list,'tbody');
 let page=1,pages=1,selected='',customerName='',listSerial=0,detailSerial=0,listAbort,detailAbort,listBusy=false,searchTimer,listAction='load';
-let invoicePdfUrls=[];
+let invoicePdfUrls=[],appliedSearch=null;
 let listTrigger=null,detailTrigger=null,exporting=false,exportAbort,matchedTotal=0;
 const headerSort=WootenTableDataSort.register(body.closest('table'),['number','type','division','invoice','due','balance'],()=>{page=1;return load('sort');},sort);
 function message(root,text,error=false){const el=q(root,'[data-status]');el.textContent=text;el.classList.toggle('iv-error',error);}
@@ -54,11 +54,12 @@ function showListSkeleton(){
 }
 async function load(action='load'){
  if(exporting)return;
+ const requestedSearch=search.value.trim();
  clearTimeout(searchTimer);listAbort?.abort();listAbort=new AbortController();const ticket=++listSerial;
  listAction=action;listBusy=true;syncListControls();showListSkeleton();message(list,action==='search'?'Searching invoices…':action==='sort'?'Sorting invoices…':action==='refresh'?'Refreshing invoices…':'Loading invoices…');
  const requestController=listAbort;let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;requestController.abort();},30000);
  try{
-  const data=await api({...(admin?{account_number:selected}:{}),search:search.value.trim(),sort:headerSort.key()||sort.value,page,page_size:20},listAbort.signal);
+  const data=await api({...(admin?{account_number:selected}:{}),search:requestedSearch,sort:headerSort.key()||sort.value,page,page_size:20},listAbort.signal);
   if(ticket!==listSerial||!list.open)return;
   body.replaceChildren();
   matchedTotal=data.total;page=data.page;pages=data.pages;selected=data.account_number;
@@ -71,7 +72,8 @@ async function load(action='load'){
   if(!data.rows.length){const td=body.insertRow().insertCell();td.colSpan=6;td.textContent='No invoices match this account and search.';}
   message(list,data.total.toLocaleString()+' matching invoice(s).');
   q(list,'[data-page]').textContent='Page '+page+' of '+pages+' · '+data.total.toLocaleString()+' records';
- }catch(e){if(ticket!==listSerial||(e.name==='AbortError'&&!timedOut))return;matchedTotal=0;body.replaceChildren();q(list,'[data-page]').textContent='';message(list,timedOut?'The invoice request timed out. Please try again.':e.message,true);pages=1;page=1;}
+  appliedSearch=requestedSearch;
+ }catch(e){if(ticket!==listSerial||(e.name==='AbortError'&&!timedOut))return;appliedSearch=null;matchedTotal=0;body.replaceChildren();q(list,'[data-page]').textContent='';message(list,timedOut?'The invoice request timed out. Please try again.':e.message,true);pages=1;page=1;}
  finally{clearTimeout(timeout);if(ticket===listSerial){listBusy=false;body.setAttribute('aria-busy','false');syncListControls();}}
 }
 async function exportPdf(){
@@ -109,7 +111,7 @@ function openCustomer(row={},trigger){
  if(!admin&& !customerButton)return;
  selected=admin?String(row.account_number||''):'';customerName=admin?String(row.customer_name||''):'';
  if(admin&&!selected)return;
- matchedTotal=0;headerSort.clear();search.value='';sort.value='invoice_desc';page=1;pages=1;
+ appliedSearch=null;matchedTotal=0;headerSort.clear();search.value='';sort.value='invoice_desc';page=1;pages=1;
  q(list,'[data-account]').textContent=admin?[customerName,'Customer # '+selected].filter(Boolean).join(' · '):'Loading your account…';
  q(list,'#ivListTitle').textContent=admin?'Customer Invoices':'Open Invoices';
  listTrigger=trigger||document.activeElement;openDialog(list,listTrigger);load();
@@ -161,9 +163,9 @@ q(detail,'[data-print]').addEventListener('click',()=>{
  }catch(e){message(detail,'The invoice PDF could not be created. Please try again.',true);}
 });
 for(const dialog of [list,detail])dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
-list.addEventListener('close',()=>{++listSerial;exportAbort?.abort();exporting=false;matchedTotal=0;q(q(list,'[data-export]'),'span').textContent='Export PDF';listAbort?.abort();clearTimeout(searchTimer);body.replaceChildren();message(list,'');q(list,'[data-account]').textContent='';q(list,'[data-updated]').textContent='';listBusy=false;body.setAttribute('aria-busy','false');syncListControls();if(detail.open)detail.close();if(listTrigger?.isConnected)listTrigger.focus({preventScroll:true});});
+list.addEventListener('close',()=>{appliedSearch=null;++listSerial;exportAbort?.abort();exporting=false;matchedTotal=0;q(q(list,'[data-export]'),'span').textContent='Export PDF';listAbort?.abort();clearTimeout(searchTimer);body.replaceChildren();message(list,'');q(list,'[data-account]').textContent='';q(list,'[data-updated]').textContent='';listBusy=false;body.setAttribute('aria-busy','false');syncListControls();if(detail.open)detail.close();if(listTrigger?.isConnected)listTrigger.focus({preventScroll:true});});
 detail.addEventListener('close',()=>{q(detail,'[data-print]').disabled=true;++detailSerial;detailAbort?.abort();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';message(detail,'');q(detail,'[data-updated]').textContent='';q(detail,'#ivDetailTitle').textContent='Invoice';syncListControls();if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
-form.addEventListener('submit',e=>{e.preventDefault();page=1;load('search');});
+form.addEventListener('submit',e=>{e.preventDefault();if(listBusy||exporting||search.value.trim()===appliedSearch)return;page=1;load('search');});
 sort.addEventListener('change',()=>{headerSort.clear();page=1;load('sort');});
 q(list,'[data-refresh]').addEventListener('click',()=>load('refresh'));
 q(list,'[data-prev]').addEventListener('click',()=>{if(!listBusy&&page>1){page--;load();}});
