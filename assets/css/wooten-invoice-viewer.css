@@ -126,3 +126,18 @@ body .iv-classic-dialog section.iv-classic-office{
 body .iv-classic-dialog .iv-classic-columns>section{margin:0!important}
 body .iv-classic-dialog .iv-classic-summary{margin-bottom:16px}
 body .iv-classic-dialog .iv-note{margin-top:16px}
+
+/* Ver585: itemized layout with honest unavailable states for unimported data. */
+body .iv-classic-dialog .iv-itemized{margin-top:22px}
+body .iv-classic-dialog .iv-item-table-wrap{overflow-x:auto;border:1px solid #d5e2ec;border-radius:10px}
+body .iv-classic-dialog .iv-itemized table{min-width:420px;font-size:13px}
+body .iv-classic-dialog .iv-itemized th{font-size:11px;padding:12px 10px}
+body .iv-classic-dialog .iv-itemized th:not(:first-child){text-align:right}
+body .iv-classic-dialog .iv-itemized .iv-items-unavailable{padding:18px 14px;text-align:left;white-space:normal;color:#64748b;line-height:1.5}
+body .iv-classic-dialog section.iv-classic-totals{padding:0!important;min-height:0!important;height:auto!important;width:300px;max-width:100%;margin:18px 0 0 auto!important}
+body .iv-classic-dialog .iv-classic-totals .iv-classic-fields>div{padding:8px 0}
+body .iv-classic-dialog .iv-classic-totals .iv-classic-fields>div:last-child{border-top:2px solid #d5e2ec;font-weight:600}
+body .iv-classic-dialog .iv-classic-totals .iv-amount-unavailable dd{color:#64748b;font-size:12px;font-weight:400}
+body .iv-classic-dialog .iv-note{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+body .iv-classic-dialog .iv-note[hidden]{display:none}
+body .iv-classic-dialog .iv-original{font-size:12px;min-height:40px;padding:9px 12px}
