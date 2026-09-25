@@ -75,7 +75,9 @@
     }
     const headerLines=data.headers.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.56))),4));
     const headerHeight=Math.max(24,Math.max(...headerLines.map(lines=>lines.length))*9+8);
-    const tableTop=pageHeight-(data.statementLetterhead?142:72);
+    const customerLines=data.customerName?wrapText('Customer: '+data.customerName,100,Infinity):[];
+    const customerHeight=customerLines.length*14;
+    const tableTop=pageHeight-(data.statementLetterhead?142:72)-customerHeight;
     const printableHeight=tableTop-headerHeight-42;
     const pages=[[]];
     let used=0;
@@ -99,7 +101,7 @@
       if(index%250===0){onProgress?.(index,data.rows.length,'Preparing pages');await new Promise(resolve=>setTimeout(resolve,0));}
     }
     onProgress?.(data.rows.length,data.rows.length,'Preparing pages');
-    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,tableTop,statementLetterhead:data.statementLetterhead,statementRoundedPath:data.statementRoundedPath,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
+    return {pageWidth,pageHeight,margin,available,widths,headerLines,headerHeight,pages,tableTop,customerLines,customerHeight,statementLetterhead:data.statementLetterhead,statementRoundedPath:data.statementRoundedPath,boldColumns:data.headers.map(h=>/^card number$/i.test(cleanText(h)))};
   }
 
   function textCommand(text,x,y,font,size,color){
@@ -115,8 +117,9 @@
       out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-126,'F1',8,'0.38 0.46 0.55');
     }else{
       out+=textCommand(title,margin,pageHeight-34,'F2',15,'0.04 0.14 0.25');
-      out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-51,'F1',8,'0.38 0.46 0.55');
-      out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59)+' m '+(pageWidth-margin)+' '+(pageHeight-59)+' l S\n';
+      layout.customerLines.forEach((line,i)=>{out+=textCommand(line,margin,pageHeight-51-i*14,'F2',10,'0.08 0.19 0.30');});
+      out+=textCommand('Total records: '+Number(totalRecords).toLocaleString('en-US')+'  -  Generated '+generated+' Central Time',margin,pageHeight-51-layout.customerHeight,'F1',8,'0.38 0.46 0.55');
+      out+='0.81 0.16 0.18 RG 1.5 w '+margin+' '+(pageHeight-59-layout.customerHeight)+' m '+(pageWidth-margin)+' '+(pageHeight-59-layout.customerHeight)+' l S\n';
     }
     let top=layout.tableTop;
     let tablePath='';
@@ -184,5 +187,5 @@
   }
 
 
-window.WootenInvoicePdf={build:(title,headers,rows)=>buildPdf(title,{headers,rows,fullCells:true})};
+window.WootenInvoicePdf={build:(title,headers,rows,customerName='')=>buildPdf(title,{headers,rows,customerName,fullCells:true})};
 })();

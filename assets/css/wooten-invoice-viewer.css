@@ -82,3 +82,10 @@ body .iv-dialog .iv-refresh:is(:hover,:focus,:focus-visible,:active){background:
 .iv-dialog .iv-export{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;min-height:42px;border:1px solid #c8d7e4;border-radius:9px;background:#fff;color:#17324d;font-size:13px;font-weight:400;box-shadow:none}
 .iv-dialog .iv-export:not(:disabled):is(:hover,:focus-visible,:active){background:#eef4f8;color:#17324d;transform:none}
 .iv-dialog .iv-export svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* Ver580: import information and export share a row; footer gains breathing room. */
+.iv-list-dialog .iv-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px 0 12px}
+.iv-list-dialog .iv-table-toolbar .iv-updated{flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
+.iv-list-dialog .iv-table-toolbar .iv-export-actions{flex:0 0 auto;margin:0}
+.iv-list-dialog .iv-foot{padding-bottom:24px}
+@media(max-width:700px){.iv-list-dialog .iv-foot{padding-bottom:22px}.iv-list-dialog .iv-table-toolbar{gap:10px}.iv-list-dialog .iv-table-toolbar .iv-updated{font-size:12px}}
