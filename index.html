@@ -3989,32 +3989,25 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       <div class="payment-receipt-header">
         <div class="payment-receipt-brand">
           <div class="payment-receipt-brand-mark" aria-hidden="true">WO</div>
-          <div><div class="payment-receipt-brand-name">WOOTEN OIL CO., INC.</div><div class="payment-receipt-brand-place">Covington, Tennessee</div></div>
+          <div><div class="payment-receipt-brand-name">WOOTEN OIL CO INC.</div><div class="payment-receipt-brand-place">Covington, Tennessee</div></div>
         </div>
         <div class="payment-receipt-heading"><h3 id="paymentReceiptTitle">Payment Record</h3><span class="payment-receipt-posted" id="paymentReceiptStatus">Status unavailable</span></div>
       </div>
-      <div class="payment-receipt-meta">
-        <div><span class="payment-receipt-label">Customer</span><div class="payment-receipt-value" id="paymentReceiptCustomer">—</div></div>
-        <div><span class="payment-receipt-label">Customer number</span><div class="payment-receipt-value" id="paymentReceiptCustomerNumber">—</div></div>
-        <div><span class="payment-receipt-label" id="paymentReceiptDateLabel">Record date</span><div class="payment-receipt-value" id="paymentReceiptDate">—</div></div>
-      </div>
-      <div class="payment-receipt-amount"><span id="paymentReceiptAmountLabel">Amount</span><strong id="paymentReceiptAmount">$0.00</strong></div>
-      <div class="payment-receipt-detail-title">Payment details</div>
-      <table class="payment-receipt-table" data-no-column-sort>
-        <thead><tr><th>Applied invoice</th><th id="paymentReceiptReferenceLabel">Reference</th><th>Deposit no.</th><th>Deposit date</th><th id="paymentReceiptPostingLabel">Posting date</th></tr></thead>
-        <tbody><tr>
-          <td id="paymentReceiptInvoice" data-label="Applied invoice">—</td>
-          <td id="paymentReceiptCheck" data-label="Check no.">—</td>
-          <td id="paymentReceiptDeposit" data-label="Deposit no.">—</td>
-          <td id="paymentReceiptDepositDate" data-label="Deposit date">—</td>
-          <td id="paymentReceiptPostingDate" data-label="Posting date">—</td>
-        </tr></tbody>
-      </table>
+      <div class="receipt-classic-summary"><div><span class="payment-receipt-label">Customer</span><div class="payment-receipt-value" id="paymentReceiptCustomer">—</div><div class="receipt-account" id="paymentReceiptCustomerNumber">—</div></div><div class="receipt-balance"><span id="paymentReceiptAmountLabel">Amount</span><strong id="paymentReceiptAmount">$0.00</strong></div></div>
+      <div class="receipt-classic-columns"><div><h4>Payment references</h4><dl>
+      <div><dt>Applied invoice</dt><dd id="paymentReceiptInvoice">—</dd></div>
+      <div><dt id="paymentReceiptReferenceLabel">Reference</dt><dd id="paymentReceiptCheck">—</dd></div>
+      <div><dt>Deposit no.</dt><dd id="paymentReceiptDeposit">—</dd></div>
+      </dl></div><div><h4>Payment dates</h4><dl>
+      <div><dt id="paymentReceiptDateLabel">Payment date</dt><dd id="paymentReceiptDate">—</dd></div>
+      <div><dt>Deposit date</dt><dd id="paymentReceiptDepositDate">—</dd></div>
+      <div><dt id="paymentReceiptPostingLabel">Posting date</dt><dd id="paymentReceiptPostingDate">—</dd></div>
+      </dl></div></div>
       <div id="paymentReceiptPostingDetails" class="payment-receipt-note"></div><p class="payment-receipt-note" id="paymentReceiptNote">This record does not confirm a successful payment.</p>
     </div>
     <div class="payment-receipt-actions">
       <button type="button" id="paymentReceiptClose">Close</button>
-      <button type="button" class="payment-receipt-print" id="paymentReceiptPrint">Print</button>
+      <button type="button" class="payment-receipt-print" id="paymentReceiptPrint">Open PDF</button>
     </div>
   </div>
 </div>
@@ -4157,50 +4150,14 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     modal.hidden=true;
     document.body.style.overflow='';
   }
-  function printValue(id){var element=document.getElementById(id);return escapeHtml(element&&element.textContent);}
-  function buildPrintableReceipt(){
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8">'+
-      '<meta name="viewport" content="width=device-width,initial-scale=1">'+
-      '<title>Wooten Oil '+printValue('paymentReceiptTitle')+'</title><style>'+
-      '@page{size:letter portrait;margin:0}*{box-sizing:border-box}html,body{width:100%;min-height:11in;margin:0;background:#fff;color:#172d44;font-family:Arial,Helvetica,sans-serif;font-size:12px}body{padding:.5in}'+
-      '.receipt{width:100%;max-width:7.5in;min-height:10in;margin:0 auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:2px solid #d3262e}'+
-      '.brand{display:flex;align-items:center;gap:12px}.mark{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;min-width:42px;height:42px;aspect-ratio:1;border-radius:10px;background:#d3262e;color:#fff;font-size:15px;font-weight:700}'+
-      '.company{font-size:14px;font-weight:700;letter-spacing:.08em}.place{margin-top:4px;color:#66798c}.title{text-align:right}.title h1{margin:0;font-size:23px}.posted{display:block;margin-top:6px;color:#173650;font-weight:700}'+
-      '.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0}.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}'+
-      '.amount{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-radius:12px;background:#f0f4f8}.amount span{color:#496479}.amount strong{color:#173650;font-size:25px}'+
-      '.details{margin:23px 0 8px;font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:11px 4px;border-bottom:1px solid #dfe7ed;text-align:left;overflow-wrap:anywhere}th{color:#718196;font-size:9px;letter-spacing:.05em;text-transform:uppercase}td{font-weight:700}'+
-      '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:34px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
-      '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}'+
-      '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
-      '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
-      '</style></head><body><main class="receipt">'+
-      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>'+printValue('paymentReceiptTitle')+'</h1><span class="posted">'+printValue('paymentReceiptStatus')+'</span></div></header>'+
-      '<section class="meta"><div><span class="label">Customer</span><div class="value">'+printValue('paymentReceiptCustomer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+printValue('paymentReceiptCustomerNumber')+'</div></div><div><span class="label">'+printValue('paymentReceiptDateLabel')+'</span><div class="value">'+printValue('paymentReceiptDate')+'</div></div></section>'+
-      '<section class="amount"><span>'+printValue('paymentReceiptAmountLabel')+'</span><strong>'+printValue('paymentReceiptAmount')+'</strong></section>'+
-      '<div class="details">Payment details</div><table><thead><tr><th>Applied invoice</th><th>'+printValue('paymentReceiptReferenceLabel')+'</th><th>Deposit no.</th><th>Deposit date</th><th>'+printValue('paymentReceiptPostingLabel')+'</th></tr></thead><tbody><tr><td data-label="Applied invoice">'+printValue('paymentReceiptInvoice')+'</td><td data-label="'+printValue('paymentReceiptReferenceLabel')+'">'+printValue('paymentReceiptCheck')+'</td><td data-label="Deposit no.">'+printValue('paymentReceiptDeposit')+'</td><td data-label="Deposit date">'+printValue('paymentReceiptDepositDate')+'</td><td data-label="'+printValue('paymentReceiptPostingLabel')+'">'+printValue('paymentReceiptPostingDate')+'</td></tr></tbody></table>'+
-      '<div class="note">'+document.getElementById('paymentReceiptPostingDetails').innerHTML+'</div><p class="note">'+printValue('paymentReceiptNote')+'</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Payment History</div>'+
-      '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()">Print</button></div>'+
-      '</main></body></html>';
-  }
   function printReceipt(){
-    var receiptWindow=window.open('','_blank');
-    if(!receiptWindow){
-      window.alert('Please allow pop-ups for wootenoil.com so the receipt can open for printing.');
-      return;
-    }
+    function value(id){return clean(document.getElementById(id)?.textContent);}
     try{
-      receiptWindow.document.open();
-      receiptWindow.document.write(buildPrintableReceipt());
-      receiptWindow.document.close();
-      receiptWindow.focus();
-      window.setTimeout(function(){
-        try{if(!receiptWindow.closed){receiptWindow.focus();receiptWindow.print();}}
-        catch(error){/* The receipt page keeps its visible Print Receipt button as a fallback. */}
-      },500);
-    }catch(error){
-      try{receiptWindow.close();}catch(ignore){}
-      window.alert('The receipt could not be opened for printing. Please try again.');
-    }
+      var columns=modal.querySelectorAll('.receipt-classic-columns>div');
+      var data={title:value('paymentReceiptTitle'),number:'',meta:value('paymentReceiptStatus'),customer:value('paymentReceiptCustomer'),account:value('paymentReceiptCustomerNumber'),balanceLabel:value('paymentReceiptAmountLabel'),balance:value('paymentReceiptAmount'),updated:'Wooten Oil Co Inc. · Customer Payment History',groups:Array.from(columns).map(function(col){return {title:col.querySelector('h4').textContent,rows:Array.from(col.querySelectorAll('dl>div')).map(function(row){return [row.querySelector('dt').textContent,row.querySelector('dd').textContent];})};}),notes:[Array.from(document.getElementById('paymentReceiptPostingDetails').children).map(function(el){return el.textContent;}).join(' · '),value('paymentReceiptNote')].filter(function(v){return v!=='—';})};
+      var blob=window.WootenInvoicePdf.buildDetail(data),url=URL.createObjectURL(blob),tab=window.open(url,'_blank');
+      if(!tab){URL.revokeObjectURL(url);window.alert('Please allow pop-ups to open the payment PDF.');return;}tab.opener=null;
+    }catch(error){window.alert('The payment PDF could not be created. Please try again.');}
   }
   list.addEventListener('click',function(event){
     var button=event.target.closest('.payment-history-print-receipt');
@@ -4295,7 +4252,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
       '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
       '</style></head><body><main class="summary">'+
-      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Account Summary</h1><span class="updated">Updated '+safeValue('statementUpdated')+'</span></div></header>'+
+      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Account Summary</h1><span class="updated">Updated '+safeValue('statementUpdated')+'</span></div></header>'+
       '<section class="customer"><div><span class="label">Customer</span><div class="value">'+safeValue('acctName')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safeValue('acctNumber')+'</div></div></section>'+
       '<section class="balances"><div class="balance total"><span class="label">Total balance</span><strong>'+safeValue('statementTotalBalance')+'</strong></div><div class="balance"><span class="label">Current · 0–30 days</span><strong>'+safeValue('statementCurrentBalance')+'</strong></div><div class="balance"><span class="label">Past due · 31+ days</span><strong>'+safeValue('statementPastDue')+'</strong></div></section>'+
       '<div class="section-title">Aging breakdown</div><table><thead><tr><th>Period</th><th>Status</th><th>Balance</th></tr></thead><tbody>'+
@@ -4401,7 +4358,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
       '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
       '</style></head><body><main class="request">'+
-      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO., INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Fuel Request</h1><span class="status">'+safe(data,'status')+'</span></div></header>'+
+      '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Fuel Request</h1><span class="status">'+safe(data,'status')+'</span></div></header>'+
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+safe(data,'customer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safe(data,'customerNumber')+'</div></div><div><span class="label">Request number</span><div class="value">'+safe(data,'number')+'</div></div><div><span class="label">Submitted</span><div class="value">'+safe(data,'submitted')+'</div></div></section>'+
       '<div class="section-title">Request details</div><section class="details"><div class="detail"><span class="label">Fuel type</span><div class="value">'+safe(data,'fuelType')+'</div></div><div class="detail"><span class="label">Estimated gallons</span><div class="value">'+safe(data,'gallons')+'</div></div><div class="detail"><span class="label">Preferred delivery date</span><div class="value">'+safe(data,'deliveryDate')+'</div></div><div class="detail wide"><span class="label">Delivery address</span><div class="value">'+safe(data,'address')+'</div></div><div class="detail wide notes"><span class="label">Notes</span><div class="value">'+safe(data,'notes')+'</div></div></section>'+
       '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
@@ -5210,5 +5167,6 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-password-visibility.css?v=544">
 <script src="assets/js/wooten-password-visibility.js?v=544"></script>
 <link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=586">
-<script src="assets/js/wooten-invoice-pdf.js?v=591"></script>
-<script src="assets/js/wooten-invoice-viewer.js?v=592"></script>
+<link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
+<script src="assets/js/wooten-invoice-pdf.js?v=593"></script>
+<script src="assets/js/wooten-invoice-viewer.js?v=593"></script>

@@ -192,9 +192,9 @@ function buildDetail(data){
  const text=(value,x,top,size=10,bold=false)=>{ops+='BT /'+(bold?'F2':'F1')+' '+size+' Tf 0.09 0.20 0.30 rg 1 0 0 1 '+x+' '+top+' Tm ('+pdfEscape(value)+') Tj ET\n';};
  const line=(top,x=40,end=572,red=false)=>{ops+=(red?'0.81 0.16 0.18':'0.80 0.85 0.90')+' RG '+(red?2:0.6)+' w '+x+' '+top+' m '+end+' '+top+' l S\n';};
  const footer=()=>{line(48);text(data.updated,40,33,8);pages.push(ops);ops='';};
- const header=()=>{text('WOOTEN OIL CO INC.',40,752,13,true);text('Invoice details',40,734,9);text(data.number,390,752,20,true);text(String(data.meta).replace(/·/g,'-'),390,734,8);line(719,40,572,true);y=695;};
+ const header=()=>{ops+='0.83 0.15 0.19 rg 40 727 30 30 re f\n';ops+='BT /F2 11 Tf 1 1 1 rg 1 0 0 1 45 738 Tm (WO) Tj ET\n';text('WOOTEN OIL CO INC.',80,752,12,true);text('Covington, Tennessee',80,734,8);wrapText(data.title||'Invoice',28,Infinity).forEach((part,i)=>text(part,370,752-i*13,12,true));if(data.number)text(data.number,390,733,16,true);text(String(data.meta).replace(/·/g,'-'),370,716,8);line(703,40,572,true);y=679;};
  const ensure=h=>{if(y-h<72){footer();header();}};
- header();text('Customer',40,y,9);text('Invoice Remaining balance',390,y,9);y-=20;
+ header();text('Customer',40,y,9);text(data.balanceLabel||'Invoice Remaining balance',390,y,9);y-=20;
  const names=wrapText(data.customer,42,Infinity);for(let i=0;i<names.length;i++){ensure(22);text(names[i],40,y,15,true);if(i===0)text(data.balance,440,y,22,true);y-=20;}
  text(data.account,40,y,9);y-=20;line(y);y-=24;
  function group(g,x,width){
@@ -204,7 +204,8 @@ function buildDetail(data){
   }
  }
  const top=y;group(data.groups[0],40,250);const leftBottom=y;y=top;group(data.groups[1],322,250);y=Math.min(leftBottom,y)-24;
- group(data.groups[2],322,250);footer();
+ if(data.groups[2])group(data.groups[2],322,250);
+ for(const note of data.notes||[]){y-=20;for(const part of wrapText(note,105,Infinity)){ensure(14);text(part,40,y,9);y-=13;}}footer();
  const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'];const ids=[];
  for(const content of pages){const cid=objects.length;objects.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');ids.push(objects.length);objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+cid+' 0 R >>');}
  objects[2]='<< /Type /Pages /Count '+ids.length+' /Kids ['+ids.map(id=>id+' 0 R').join(' ')+'] >>';let pdf='%PDF-1.4\n';const offsets=[0];

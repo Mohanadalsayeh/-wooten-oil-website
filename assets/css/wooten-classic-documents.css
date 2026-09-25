@@ -1,0 +1,35 @@
+/* Ver593: shared classic letterhead for invoices and customer payment records. */
+body .iv-classic-dialog .iv-company{display:flex;align-items:center;gap:10px;padding-top:0}
+body .iv-classic-dialog .iv-brand-mark{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;background:#d72731;color:#fff;border-radius:9px;font-size:13px;font-weight:800;letter-spacing:-1px}
+body .iv-classic-dialog .iv-company strong{font-size:13px;letter-spacing:.035em}
+body .iv-classic-dialog .iv-company p{font-size:11px;margin:5px 0 0}
+body .iv-classic-dialog .iv-document-title{font-size:22px;line-height:1.2;font-weight:700;margin-bottom:5px}
+body .iv-classic-dialog .iv-document-heading h2{font-size:16px}
+body .iv-classic-dialog .iv-document-heading p{font-size:12px}
+body #paymentReceiptModal .payment-receipt-dialog{width:min(900px,100%);max-width:900px;border-radius:18px}
+body #paymentReceiptModal .payment-receipt-content{padding:24px 26px}
+body #paymentReceiptModal .payment-receipt-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:20px;border-bottom:3px solid #cf282d;margin-bottom:22px}
+body #paymentReceiptModal .payment-receipt-brand{display:flex;align-items:center;gap:10px}
+body #paymentReceiptModal .payment-receipt-brand-mark{width:36px;min-width:36px;height:36px;flex:0 0 36px;border-radius:9px;font-size:13px;background:#d72731}
+body #paymentReceiptModal .payment-receipt-brand-name{font-size:13px;letter-spacing:.035em}
+body #paymentReceiptModal .payment-receipt-brand-place{font-size:11px;margin-top:5px}
+body #paymentReceiptModal .payment-receipt-heading h3{font-size:22px;margin:0 0 6px;line-height:1.2}
+body #paymentReceiptModal .receipt-classic-summary{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:22px;margin-bottom:18px;border-bottom:1px solid #d5e2ec}
+body #paymentReceiptModal .payment-receipt-label{font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:#64748b}
+body #paymentReceiptModal #paymentReceiptCustomer{font-size:21px;font-weight:600;margin:5px 0}
+body #paymentReceiptModal .receipt-account{font-size:14px;color:#64748b;margin-top:5px}
+body #paymentReceiptModal .receipt-balance{text-align:right}
+body #paymentReceiptModal .receipt-balance span{display:block;color:#64748b;font-size:13px}
+body #paymentReceiptModal .receipt-balance strong{display:block;font-size:32px;font-weight:600;margin-top:5px;color:#10283e;font-variant-numeric:tabular-nums}
+body #paymentReceiptModal .receipt-classic-columns{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+body #paymentReceiptModal .receipt-classic-columns h4{font-size:15px;color:#10283e;margin:0 0 10px;font-weight:600}
+body #paymentReceiptModal dl{margin:0}
+body #paymentReceiptModal dl>div{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:11px 0;border-bottom:1px solid #e8eef4}
+body #paymentReceiptModal dt{font-size:13px;color:#64748b;min-width:0;flex:1}
+body #paymentReceiptModal dd{margin:0;text-align:right;font-size:14px;font-weight:500;color:#10283e;max-width:60%;overflow-wrap:anywhere}
+body #paymentReceiptModal .payment-receipt-note{font-size:12px;line-height:1.5;margin-top:18px}
+body #paymentReceiptModal .payment-receipt-note:empty{display:none}
+body #paymentReceiptModal .payment-receipt-actions{padding:16px 26px 24px;display:flex;justify-content:flex-end;gap:10px}
+body #paymentReceiptModal .payment-receipt-actions button{font-weight:400;min-height:44px;padding:10px 16px}
+body #paymentReceiptModal .payment-receipt-print{background:#1d659e;color:#fff;border-color:#1d659e}
+@media(max-width:600px){body #paymentReceiptModal .payment-receipt-header{flex-wrap:wrap}body #paymentReceiptModal .payment-receipt-heading{text-align:left}body #paymentReceiptModal .payment-receipt-content{padding:18px 16px}body #paymentReceiptModal .receipt-classic-summary{flex-wrap:wrap}body #paymentReceiptModal .receipt-balance{text-align:left}body #paymentReceiptModal .receipt-classic-columns{grid-template-columns:1fr;gap:22px}body #paymentReceiptModal .payment-receipt-actions{padding:14px 16px 22px}body #paymentReceiptModal .payment-receipt-actions button{width:auto}}
