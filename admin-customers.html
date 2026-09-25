@@ -6471,6 +6471,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div class="invoice-db-actions"><button class="primary" id="invoiceDbLoad" type="button">Load Invoices</button><button class="secondary" id="invoiceDbRefresh" type="button" disabled>Refresh</button><button class="secondary" id="invoiceDbClear" type="button">Clear Filters</button></div>
     </div>
     <div class="status" id="invoiceDbStatus" role="status" aria-live="polite"></div>
+    <div class="preview-progress is-indeterminate" id="invoiceDbLoadProgress" hidden><div class="preview-progress-head"><strong>Loading invoices…</strong><span>Please wait</span></div><div class="preview-progress-track" role="progressbar" aria-label="Live invoice database loading progress"><span></span></div></div>
     <p class="note" id="invoiceDbLastImport">Load invoices to see the latest completed import.</p>
     <div class="db-meta" id="invoiceDbMeta" hidden><div><span class="db-live-dot"></span><strong id="invoiceDbTotal">0</strong> matching invoice(s)</div><div id="invoiceDbRange">Showing 0–0</div></div>
     <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
@@ -15264,7 +15265,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
 <script src="assets/js/wooten-invoice-pdf.js?v=597"></script>
 <script src="assets/js/wooten-invoice-viewer.js?v=600"></script>
-<script src="assets/js/wooten-invoice-database.js?v=575"></script>
+<script src="assets/js/wooten-invoice-database.js?v=604"></script>
 </body>
 </html>
 
@@ -18172,9 +18173,6 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 #admin-tab-invoice-database [hidden]{display:none!important}
 #invoiceDbTable{min-width:860px}
 #invoiceDbTableWrap{max-width:100%;overflow-x:auto}
-#invoiceDbTable th button{border:0;background:transparent;color:inherit;font:inherit;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0;text-align:inherit;cursor:pointer}
-#invoiceDbTable th button span{flex:0 0 12px;width:12px;font-size:12px}
-#invoiceDbTable th:hover{background:#193d5d;color:white}
 #invoiceDbTable[aria-busy="true"] th button{cursor:wait}
 #invoiceDbPagination{display:flex;justify-content:space-between;gap:10px;min-width:0}
 #invoiceDbPage{min-width:0;text-align:center}

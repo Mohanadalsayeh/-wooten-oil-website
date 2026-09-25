@@ -12,6 +12,7 @@
   function status(message,good=true){get('invoiceDbStatus').textContent=message;get('invoiceDbStatus').className=message?'status show '+(good?'ok':'bad'):'status';}
   function lock(value){
     busy=value;
+    get('invoiceDbLoadProgress').hidden=!value;
     [...filterIds,'invoiceDbLoad','invoiceDbClear'].forEach(id=>get(id).disabled=value);
     get('invoiceDbRefresh').disabled=value||!loaded;
     get('invoiceDbLoad').textContent=value?'Loading Invoices…':'Load Invoices';
@@ -49,7 +50,6 @@
     table.querySelectorAll('th[data-invoice-sort]').forEach(th=>{
       const active=selected.startsWith(th.dataset.invoiceSort+'_'),desc=selected.endsWith('_desc');
       th.setAttribute('aria-sort',active?(desc?'descending':'ascending'):'none');
-      const icon=th.querySelector('[data-invoice-arrow]');if(icon)icon.textContent=active?(desc?'↓':'↑'):'↕';
     });
   }
   async function load(){
@@ -98,8 +98,8 @@
   get('invoiceDbNext').addEventListener('click',()=>{if(!busy&&page<pages){page++;load();}});
   get('invoiceDbPrev').wootenGoToPage=target=>{if(!busy){page=Math.max(1,Math.min(pages,target));return load();}};
   table.querySelectorAll('th[data-invoice-sort]').forEach(th=>{
-    const button=document.createElement('button'),label=th.textContent,arrow=document.createElement('span');
-    button.type='button';button.textContent=label;button.setAttribute('aria-label','Sort by '+label);arrow.dataset.invoiceArrow='';arrow.setAttribute('aria-hidden','true');button.append(arrow);th.replaceChildren(button);
+    const button=document.createElement('button'),label=th.textContent;
+    button.type='button';button.textContent=label;button.setAttribute('aria-label','Sort by '+label);th.replaceChildren(button);
   });
   // Keep header sorting on the server so it covers every matching invoice.
   table.addEventListener('click',event=>{
