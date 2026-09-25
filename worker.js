@@ -1097,6 +1097,7 @@ async function adminImportStatusGet({request,env}){
     `).all();
     const control=await env.DB.prepare(`SELECT active_run_id,status,active_import_type,cancel_requested,cancel_requested_at,cancel_requested_by,updated_at,completed_at FROM admin_import_control WHERE id=1`).first();
     const remoteSync=await mas90SyncStatusRow(env);
+    const invoiceStatus=await OpenInvoices.adminStatus(env.DB,remoteSync?.request_id||'');
 
     let customersLast="",paymentsLast="",customersBy="",paymentsBy="";
     let customersCount=0,paymentsCount=0;
@@ -1147,7 +1148,8 @@ async function adminImportStatusGet({request,env}){
       cancel_requested_by:control?.cancel_requested_by||"",
       import_control_updated_at:control?.updated_at||"",
       import_control_completed_at:control?.completed_at||"",
-      remote_sync_request:mas90SyncPublicStatus(remoteSync)
+      remote_sync_request:mas90SyncPublicStatus(remoteSync),
+      ...invoiceStatus
     });
   }catch(error){
     console.error("adminImportStatusGet failed",error);
@@ -9040,12 +9042,16 @@ async function adminClearDatabasePost({request,env}){
   catch{return json3({success:false,error:"Invalid request."},400);}
 
   const database=String(body?.database||"").trim().toLowerCase();
-  if(database!=="customers"&&database!=="payments"){
+  if(database!=="customers"&&database!=="payments"&&database!=="invoices"){
     return json3({success:false,error:"Unknown database selection."},400);
   }
 
   try{
     await ensureAdminImportMetadataSchema(env);
+
+    if(database==="invoices"){
+      return json3(await OpenInvoices.clearDatabase(env.DB));
+    }
 
     if(database==="payments"){
       await ensureCustomerPaymentsSchema(env);
@@ -11394,7 +11400,7 @@ function adminGeneralAuditDescriptor(request){
     "/api/admin/customer-payments-database":["payment_database_viewed","database","Live Customer Payments loaded or searched"],
     "/api/admin/customer-contact-preferences":[method==="GET"?"contact_preferences_viewed":"contact_preferences_changed","customer",method==="GET"?"Customer contact preferences viewed":"Customer contact preferences changed"],
     "/api/admin/customer-online-deactivate":["online_account_deactivated","customer","Customer online account deactivated"],
-    "/api/admin/clear-database":["database_cleared","database","Customer or payment database cleared"],
+    "/api/admin/clear-database":["database_cleared","database","Customer, payment, or invoice database cleared"],
     "/api/admin/import-status":["import_status_viewed","database","Import status viewed"],
     "/api/admin/gmail-inbox":["customer_messages_viewed","communication","Customer message history viewed"],
     "/api/admin/gmail-portal-sync":["gmail_portal_sync_run","communication","Gmail portal synchronization run"],

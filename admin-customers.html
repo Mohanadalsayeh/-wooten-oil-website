@@ -5906,7 +5906,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         <div class="mas90-remote-request-copy">
           <span class="mas90-remote-request-kicker">Secure remote retrieval</span>
           <h3 id="mas90RemoteRequestTitle">Retrieve Current MAS 90 Data</h3>
-          <p>Queue the office computer to export and upload current customer and payment data. The office computer must be powered on and connected.</p>
+          <p>Queue the office computer to export and upload current customer, payment, and invoice data. The office computer must be powered on and connected.</p>
           <div class="mas90-remote-request-status" id="mas90RemoteRequestStatus" aria-live="polite">
             <strong id="mas90RemoteRequestStatusTitle">Ready to request</strong>
             <span id="mas90RemoteRequestStatusDetail">Master Admin confirmation is required.</span>
@@ -6276,6 +6276,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div class="db-actions">
         <button class="primary" id="dbLoadBtn" type="button">Load Customers Database</button>
         <button class="secondary" id="dbRefreshBtn" type="button" disabled>Refresh</button>
+        <button class="secondary" id="dbClearFiltersBtn" type="button">Clear Filters</button>
         <button class="danger-db-btn" id="clearCustomerDatabaseBtn" type="button">Clear Customer Database</button>
       </div>
     </div>
@@ -6468,7 +6469,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div class="db-field"><label for="invoiceDbTo">Invoice Date To</label><input id="invoiceDbTo" type="date"></div>
       <div class="db-field"><label for="invoiceDbBalance">Balance</label><select id="invoiceDbBalance"><option value="all">All balances</option><option value="positive">Balance due</option><option value="zero">Zero balance</option><option value="credit">Credit balance</option></select></div>
       <div class="db-field"><label for="invoiceDbSort">Sort</label><select id="invoiceDbSort"><option value="invoice_desc">Invoice date newest</option><option value="invoice_asc">Invoice date oldest</option><option value="due_asc">Due date oldest</option><option value="due_desc">Due date newest</option><option value="customer_asc">Customer # low → high</option><option value="customer_desc">Customer # high → low</option><option value="name_asc">Name A → Z</option><option value="name_desc">Name Z → A</option><option value="number_asc">Invoice # low → high</option><option value="number_desc">Invoice # high → low</option><option value="type_asc">Type A → Z</option><option value="type_desc">Type Z → A</option><option value="balance_desc">Balance high → low</option><option value="balance_asc">Balance low → high</option></select></div>
-      <div class="invoice-db-actions"><button class="primary" id="invoiceDbLoad" type="button">Load Invoices</button><button class="secondary" id="invoiceDbRefresh" type="button" disabled>Refresh</button><button class="secondary" id="invoiceDbClear" type="button">Clear Filters</button></div>
+      <div class="invoice-db-actions"><button class="primary" id="invoiceDbLoad" type="button">Load Invoices</button><button class="secondary" id="invoiceDbRefresh" type="button" disabled>Refresh</button><button class="secondary" id="invoiceDbClear" type="button">Clear Filters</button><button class="danger-db-btn" id="clearInvoiceDatabaseBtn" type="button">Clear Invoices Database</button></div>
     </div>
     <div class="status" id="invoiceDbStatus" role="status" aria-live="polite"></div>
     <div class="preview-progress is-indeterminate" id="invoiceDbLoadProgress" hidden><div class="preview-progress-head"><strong>Loading invoices…</strong><span>Please wait</span></div><div class="preview-progress-track" role="progressbar" aria-label="Live invoice database loading progress"><span></span></div></div>
@@ -8481,7 +8482,17 @@ function renderMas90RemoteRequest(remote,importData){
       const failureControl=(kind,count)=>count>0
         ?`<button type="button" class="has-failures" data-mas90-failure-kind="${kind}" aria-label="Open ${count.toLocaleString()} failed ${kind} records">${count.toLocaleString()} failed</button>`
         :`<span>${count.toLocaleString()} failed</span>`;
-      summary.innerHTML=`<div><strong>Customers imported</strong><span>${customerSuccess.toLocaleString()} successful</span></div><div><strong>Customer failures</strong>${failureControl('customers',customerFailure)}</div><div><strong>Payment records</strong><span>${paymentSuccess.toLocaleString()} processed</span></div><div><strong>Payment result</strong><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div>`;
+      const invoiceResult=importData?.invoice_result;
+      const invoiceVerified=invoiceResult?.run_id===remote?.request_id&&invoiceResult?.status==="completed";
+      const invoiceOutcome=invoiceVerified
+        ?`${Math.max(0,Number(invoiceResult.imported||0)).toLocaleString()} successful`
+        :invoiceResult?.status==="cleared"?"Cleared after retrieval":"Not reported for this run";
+      const invoiceSaved=importData?.invoice_database;
+      summary.innerHTML=`<div><strong>Customers imported</strong><span>${customerSuccess.toLocaleString()} successful</span></div><div><strong>Customer failures</strong>${failureControl('customers',customerFailure)}</div><div><strong>Payment records</strong><span>${paymentSuccess.toLocaleString()} processed</span></div><div><strong>Payment result</strong><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div><div><strong>Invoices imported</strong><span>${invoiceOutcome}</span>${invoiceVerified?'<span>0 failed</span>':''}</div><div><strong>Invoice database</strong><button type="button" class="mas90-view-invoices">${invoiceSaved?'View '+Math.max(0,Number(invoiceSaved.total||0)).toLocaleString()+' saved invoices':'View invoices'}</button></div>`;
+      summary.querySelector('.mas90-view-invoices')?.addEventListener('click',()=>{
+        document.querySelector('[data-admin-subtab="invoice-database"]')?.click();
+        window.WootenInvoiceDatabase?.showAll?.();
+      });
     }else summary.textContent="";
   }
   const showProgress=["queued","claimed","running","cancel_requested"].includes(status);
@@ -8597,6 +8608,7 @@ async function loadImportLastUpdates(){
     window.WootenInvoiceImport?.refreshLastUpload?.();
     renderMas90LiveSync(data);
     renderMas90RemoteRequest(data.remote_sync_request||null,data);
+    window.WootenInvoiceDatabase?.syncStatus?.(data.invoice_database);
     if(document.getElementById('admin-tab-automation')?.classList.contains('is-active')&&typeof window.loadMas90AutomationHealth==='function')window.loadMas90AutomationHealth({force:true});
   }catch(e){
     console.warn("Could not load import update times",e);
@@ -9580,10 +9592,12 @@ function initDatabaseClearControls(){
   const confirmBtn=document.getElementById("databaseClearConfirmBtn");
   const clearCustomersBtn=document.getElementById("clearCustomerDatabaseBtn");
   const clearPaymentsBtn=document.getElementById("clearPaymentDatabaseBtn");
+  const clearInvoicesBtn=document.getElementById("clearInvoiceDatabaseBtn");
 
   if(!modal||!confirmBtn||!clearCustomersBtn||!clearPaymentsBtn) return;
 
   let target="";
+  let clearing=false;
 
   function setClearStatus(text,good=false){
     if(!text){status.className="status";status.textContent="";return;}
@@ -9592,6 +9606,7 @@ function initDatabaseClearControls(){
   }
 
   function openClearModal(kind){
+    if(clearing)return;
     target=kind;
     keyInput.value="";
     setClearStatus("");
@@ -9604,6 +9619,12 @@ function initDatabaseClearControls(){
       const keepRadio=passwordChoice?.querySelector('input[value="keep"]');
       if(keepRadio) keepRadio.checked=true;
       confirmBtn.textContent="OK — Clear Customer Database";
+    }else if(kind==="invoices"){
+      title.textContent="Clear Invoices Database";
+      message.textContent="This will permanently delete every imported invoice record stored on the server, including records hidden by filters.";
+      warning.innerHTML="<strong>This cannot be undone.</strong> Customer and payment records will be kept. Keep the complete Open Invoices MDB/Access file to restore older invoices; automatic sync only uploads recent invoices.";
+      if(passwordChoice) passwordChoice.style.display="none";
+      confirmBtn.textContent="OK — Clear Invoices Database";
     }else{
       title.textContent="Clear Customer Payments Database";
       message.textContent="This will permanently delete every customer payment record stored on the server.";
@@ -9618,6 +9639,7 @@ function initDatabaseClearControls(){
   }
 
   function closeClearModal(){
+    if(clearing)return;
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden","true");
     keyInput.value="";
@@ -9628,6 +9650,7 @@ function initDatabaseClearControls(){
 
   clearCustomersBtn?.addEventListener("click",()=>openClearModal("customers"));
   clearPaymentsBtn?.addEventListener("click",()=>openClearModal("payments"));
+  clearInvoicesBtn?.addEventListener("click",()=>openClearModal("invoices"));
   cancelBtn.addEventListener("click",closeClearModal);
   modal.querySelectorAll("[data-clear-close]").forEach(el=>el.addEventListener("click",closeClearModal));
   document.addEventListener("keydown",e=>{
@@ -9635,6 +9658,7 @@ function initDatabaseClearControls(){
   });
 
   confirmBtn.addEventListener("click",async()=>{
+    if(clearing)return;
     const key=keyInput.value.trim();
     if(!key){
       setClearStatus("Enter the Admin Import Key before continuing.");
@@ -9643,7 +9667,7 @@ function initDatabaseClearControls(){
     }
     if(!target) return;
 
-    const label=target==="customers"?"Customer Database":"Customer Payments Database";
+    const label=target==="customers"?"Customer Database":target==="invoices"?"Invoices Database":"Customer Payments Database";
     const passwordAction=target==="customers"
       ? (document.querySelector('input[name="customerPasswordAction"]:checked')?.value||"keep")
       : "";
@@ -9657,6 +9681,10 @@ function initDatabaseClearControls(){
     );
     if(!ok) return;
 
+    clearing=true;
+    const confirmLabel=confirmBtn.textContent;
+    confirmBtn.textContent="Clearing…";
+    keyInput.disabled=true;
     confirmBtn.disabled=true;
     cancelBtn.disabled=true;
     setClearStatus("Verifying Admin Import Key and clearing the database…",true);
@@ -9686,6 +9714,11 @@ function initDatabaseClearControls(){
           const el=document.getElementById(id);if(el) el.style.display="none";
         });
         if(typeof setImportLastUpdate==="function") setImportLastUpdate("customers","");
+      }else if(target==="invoices"){
+        window.WootenInvoiceViewer?.clear?.();
+        window.dispatchEvent(new Event("wooten-invoices-cleared"));
+        if(typeof setImportLastUpdate==="function") setImportLastUpdate("invoices","");
+        loadImportLastUpdates();
       }else{
         const body=document.getElementById("livePaymentBody");
         if(body) body.innerHTML="";
@@ -9700,6 +9733,9 @@ function initDatabaseClearControls(){
       console.error(error);
       setClearStatus(error.message||"Database could not be cleared.");
     }finally{
+      clearing=false;
+      keyInput.disabled=false;
+      confirmBtn.textContent=confirmLabel;
       confirmBtn.disabled=false;
       cancelBtn.disabled=false;
     }
@@ -11079,6 +11115,15 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
 
   loadBtn.addEventListener("click",()=>{page=1;loadDatabase();});
   refreshBtn.addEventListener("click",()=>window.WootenRefreshUI.run(refreshBtn,()=>loadDatabase()));
+  document.getElementById("dbClearFiltersBtn").addEventListener("click",()=>{
+    clearTimeout(debounceTimer);
+    search.value="";
+    [emailFilter,phoneFilter,onlineFilter,statusFilter].forEach(filter=>{filter.value="all";});
+    sort.value="account_asc";
+    headerSort.clear();
+    page=1;
+    if(loaded) loadDatabase();
+  });
   emailFilter.addEventListener("change",filtersChanged);
   phoneFilter.addEventListener("change",filtersChanged);
   onlineFilter.addEventListener("change",filtersChanged);
@@ -14961,7 +15006,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .mas90-remote-request-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#eaf2fb;color:#1f63a8;flex:0 0 auto}.mas90-remote-request-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .mas90-remote-request-copy{min-width:0}.mas90-remote-request-kicker{display:block;margin-bottom:3px;color:#657a8e;font-size:11px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}.mas90-remote-request h3{margin:0;color:#17324d;font-size:17px}.mas90-remote-request p{margin:5px 0 0;color:#687b8e;font-size:13px;line-height:1.45}
 .mas90-remote-request-status{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 9px;margin-top:10px}.mas90-remote-request-status strong{color:#17324d;font-size:13px}.mas90-remote-request-status span{color:#687b8e;font-size:12px}
-.mas90-remote-request-summary{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.mas90-remote-request-summary[hidden]{display:none!important}.mas90-remote-request-summary>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 10px;border:1px solid #cfe5d8;border-radius:9px;background:#fff}.mas90-remote-request-summary strong{margin-right:auto}.mas90-remote-request-summary span,.mas90-remote-request-summary button{padding:3px 7px;border:0;border-radius:999px;background:#e8f6ee;color:#216b47!important;font:inherit;font-weight:800}.mas90-remote-request-summary button.has-failures{background:#fde8e8;color:#a52b31!important;cursor:pointer;text-decoration:underline;text-underline-offset:2px}.mas90-remote-request-summary button.has-failures:hover,.mas90-remote-request-summary button.has-failures:focus{background:#f9cccc;color:#861d23!important}.mas90-remote-request-summary button.has-failures:focus-visible{outline:3px solid rgba(165,43,49,.2);outline-offset:2px}
+.mas90-remote-request-summary{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.mas90-remote-request-summary[hidden]{display:none!important}.mas90-remote-request-summary>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 10px;border:1px solid #cfe5d8;border-radius:9px;background:#fff}.mas90-remote-request-summary strong{margin-right:auto}.mas90-remote-request-summary span,.mas90-remote-request-summary button{padding:3px 7px;border:0;border-radius:999px;background:#e8f6ee;color:#216b47!important;font:inherit;font-weight:800}.mas90-remote-request-summary .mas90-view-invoices{cursor:pointer;text-decoration:underline;text-underline-offset:2px}.mas90-remote-request-summary .mas90-view-invoices:hover,.mas90-remote-request-summary .mas90-view-invoices:focus-visible{background:#cfeadb;outline:2px solid #22734a;outline-offset:2px}.mas90-remote-request-summary button.has-failures{background:#fde8e8;color:#a52b31!important;cursor:pointer;text-decoration:underline;text-underline-offset:2px}.mas90-remote-request-summary button.has-failures:hover,.mas90-remote-request-summary button.has-failures:focus{background:#f9cccc;color:#861d23!important}.mas90-remote-request-summary button.has-failures:focus-visible{outline:3px solid rgba(165,43,49,.2);outline-offset:2px}
 .mas90-remote-request-progress{height:6px;margin-top:10px;overflow:hidden;border-radius:999px;background:#dce6ee}.mas90-remote-request-progress[hidden]{display:none!important}.mas90-remote-request-progress span{display:block;width:0;height:100%;border-radius:inherit;background:#2e79c7;transition:width .25s ease}
 .mas90-remote-request[data-status="queued"],.mas90-remote-request[data-status="claimed"],.mas90-remote-request[data-status="running"],.mas90-remote-request[data-status="cancel_requested"]{border-color:#e6c36b;background:#fff9e9}.mas90-remote-request[data-status="queued"] .mas90-remote-request-icon,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-icon,.mas90-remote-request[data-status="running"] .mas90-remote-request-icon{background:#f6c654;color:#674808}.mas90-remote-request[data-status="queued"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="claimed"] .mas90-remote-request-progress span,.mas90-remote-request[data-status="running"] .mas90-remote-request-progress span{background:#d99a13}
 .mas90-remote-request[data-status="cancel_requested"] .mas90-remote-request-icon{background:#f4dada;color:#a52b31}.mas90-remote-request[data-status="cancel_requested"] .mas90-remote-request-progress span{background:#c13b42}
@@ -15011,7 +15056,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
     min-width:238px;
   }
   :is(#admin-tab-customers,#admin-tab-database,#admin-tab-payment-database,#admin-tab-invoice-database) .mas90-remote-request-actions button{width:238px;min-width:238px;max-width:238px}
-  :is(#admin-tab-customers,#admin-tab-database,#admin-tab-payment-database,#admin-tab-invoice-database) .mas90-remote-request-summary{grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+  :is(#admin-tab-customers,#admin-tab-database,#admin-tab-payment-database,#admin-tab-invoice-database) .mas90-remote-request-summary{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
   :is(#admin-tab-customers,#admin-tab-database,#admin-tab-payment-database,#admin-tab-invoice-database) .mas90-remote-request-summary>div{align-content:flex-start}
   :is(#admin-tab-customers,#admin-tab-database,#admin-tab-payment-database,#admin-tab-invoice-database) .mas90-live-sync{
     display:grid;
@@ -15037,7 +15082,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   <div class="mas90-request-modal-backdrop" data-mas90-request-close></div>
   <form class="mas90-request-dialog" id="mas90RequestForm" role="dialog" aria-modal="true" aria-labelledby="mas90RequestDialogTitle" autocomplete="off">
     <header class="mas90-request-head">
-      <div><h3 id="mas90RequestDialogTitle">Confirm MAS 90 Retrieval</h3><p>This will ask the office computer to export and upload current customer and payment data.</p></div>
+      <div><h3 id="mas90RequestDialogTitle">Confirm MAS 90 Retrieval</h3><p>This will ask the office computer to export and upload current customer, payment, and invoice data.</p></div>
       <button class="mas90-request-close" type="button" data-mas90-request-close aria-label="Close">&times;</button>
     </header>
     <div class="mas90-request-body">
@@ -15265,7 +15310,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
 <script src="assets/js/wooten-invoice-pdf.js?v=597"></script>
 <script src="assets/js/wooten-invoice-viewer.js?v=600"></script>
-<script src="assets/js/wooten-invoice-database.js?v=604"></script>
+<script src="assets/js/wooten-invoice-database.js?v=606"></script>
 </body>
 </html>
 

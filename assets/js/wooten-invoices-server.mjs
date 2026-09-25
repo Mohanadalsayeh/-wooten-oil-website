@@ -19,6 +19,31 @@ export async function schema(db){
  db.prepare(`CREATE TABLE IF NOT EXISTS invoice_import_active (id INTEGER PRIMARY KEY CHECK(id=1), run_id TEXT NOT NULL, seq INTEGER NOT NULL)`)
  ]);
 }
+// Read committed invoice results directly so existing office exporters also report counts.
+export async function adminStatus(db,requestId=''){
+ await schema(db);
+ const results=await db.batch([
+  db.prepare(`SELECT r.run_id,r.expected,r.completed_at,r.mode,(SELECT COUNT(*) FROM mas90_invoices i WHERE i.run_id=r.run_id) AS total FROM invoice_import_active a JOIN invoice_import_runs r ON r.run_id=a.run_id WHERE a.id=1 AND r.status='completed'`),
+  db.prepare(`SELECT run_id,status,expected FROM invoice_import_runs WHERE run_id=?`).bind(requestId)
+ ]);
+ const active=results[0].results?.[0],run=results[1].results?.[0];
+ return {
+  invoice_database:{run_id:active?.run_id||'',last_import_at:active?.completed_at||'',mode:active?.mode||'',total:Number(active?.total||0)},
+  invoice_result:run?{run_id:run.run_id,status:run.status,imported:Number(run.expected||0)}:null
+ };
+}
+export async function clearDatabase(db){
+ await schema(db);
+ // Retain run tombstones: a retry of an old batch or completion cannot restore cleared data.
+ const results=await db.batch([
+  db.prepare(`SELECT COUNT(*) AS total FROM mas90_invoices WHERE run_id=(SELECT run_id FROM invoice_import_active WHERE id=1)`),
+  db.prepare(`UPDATE invoice_import_runs SET status='cleared'`),
+  db.prepare(`DELETE FROM invoice_import_active`),
+  db.prepare(`DELETE FROM mas90_invoices`),
+  db.prepare(`DELETE FROM invoice_import_batches`)
+ ]);
+ return {success:true,database:'invoices',deleted:Number(results[0].results?.[0]?.total||0)};
+}
 export async function handle({request,env,cancellation,audit,progress}){
  try{
  if(!env.DB)throw fail('Database is not configured',503);

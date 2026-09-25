@@ -1,4 +1,4 @@
-/* Ver575: live invoice lookup with customer and invoice drill-down. */
+/* Ver606: load saved invoices when opened and refresh after office imports. */
 (()=>{
   const get=id=>document.getElementById(id), panel=get('admin-tab-invoice-database');
   if(!panel)return;
@@ -6,14 +6,15 @@
   const filterIds=['invoiceDbSearch','invoiceDbType','invoiceDbFrom','invoiceDbTo','invoiceDbBalance','invoiceDbSort'];
   const key=()=>get('adminKey')?.value.trim()||'';
   let page=1,pages=1,loaded=false,busy=false,total=0,timer,controller,serial=0;
+  let dirty=true,snapshotKey;
   const filters=()=>({search:get('invoiceDbSearch').value.trim(),invoice_type:get('invoiceDbType').value,date_from:get('invoiceDbFrom').value,date_to:get('invoiceDbTo').value,balance:get('invoiceDbBalance').value,sort:get('invoiceDbSort').value});
-  window.WootenInvoiceDatabase={filters};
+  window.WootenInvoiceDatabase={filters,syncStatus,showAll};
   const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
   function status(message,good=true){get('invoiceDbStatus').textContent=message;get('invoiceDbStatus').className=message?'status show '+(good?'ok':'bad'):'status';}
   function lock(value){
     busy=value;
     get('invoiceDbLoadProgress').hidden=!value;
-    [...filterIds,'invoiceDbLoad','invoiceDbClear'].forEach(id=>get(id).disabled=value);
+    [...filterIds,'invoiceDbLoad','invoiceDbClear','clearInvoiceDatabaseBtn'].forEach(id=>get(id).disabled=value);
     get('invoiceDbRefresh').disabled=value||!loaded;
     get('invoiceDbLoad').textContent=value?'Loading Invoices…':'Load Invoices';
     get('invoiceDbRefresh').textContent=value&&loaded?'Refreshing…':'Refresh';
@@ -58,6 +59,7 @@
     const current=filters();
     if(current.date_from&&current.date_to&&current.date_from>current.date_to){status('Invoice Date From must be on or before Invoice Date To.',false);return;}
     controller?.abort();controller=new AbortController();const requestSerial=++serial;
+    dirty=false;
     lock(true);skeleton();get('invoiceDbMeta').hidden=true;get('invoiceDbPagination').hidden=true;
     status('Loading saved invoices…');
     try{
@@ -79,21 +81,35 @@
       if(data.active){
         const stamp=new Date(String(data.active.completed_at).replace(' ','T')+'Z');
         get('invoiceDbLastImport').textContent='Last completed import: '+stamp.toLocaleString('en-US',{timeZone:'America/Chicago'})+' CT · '+data.active.mode;
-      }else get('invoiceDbLastImport').textContent='No completed invoice import yet. Import the Open Invoices file under MAS 90 Database.';
+      }else get('invoiceDbLastImport').textContent='No saved invoice import is available. Request MAS 90 Sync or import the Open Invoices file under MAS 90 Database.';
       status(data.latest?.status==='uploading'?'An invoice import is in progress. The previous completed list is shown.':'Live invoice database loaded • '+total.toLocaleString()+' matching invoice(s).');
       sortIndicators();
     }catch(error){
       if(requestSerial!==serial||error.name==='AbortError')return;
       tbody.replaceChildren();get('invoiceDbTableWrap').hidden=true;status(error.message||'Invoices could not be loaded.',false);
-    }finally{if(requestSerial===serial)lock(false);}
+    }finally{if(requestSerial===serial){lock(false);if(dirty)ensureVisible();}}
   }
+  function ensureVisible(){
+    if(key()&&!document.hidden&&panel.getClientRects().length&&!busy&&(!loaded||dirty))load();
+  }
+  function syncStatus(snapshot){
+    if(!snapshot)return;
+    const next=String(snapshot.run_id||'');
+    if(next!==snapshotKey){snapshotKey=next;dirty=true;ensureVisible();}
+  }
+  function clearFilters(){
+    clearTimeout(timer);page=1;
+    get('invoiceDbSearch').value='';get('invoiceDbType').value='all';get('invoiceDbFrom').value='';get('invoiceDbTo').value='';get('invoiceDbBalance').value='all';get('invoiceDbSort').value='invoice_desc';
+    sortIndicators();
+  }
+  function showAll(){clearFilters();load();}
   function resetAndLoad(){page=1;sortIndicators();if(loaded)load();}
   get('invoiceDbLoad').addEventListener('click',()=>{page=1;load();});
   get('invoiceDbRefresh').addEventListener('click',load);
   get('invoiceDbSearch').addEventListener('input',()=>{clearTimeout(timer);if(loaded)timer=setTimeout(resetAndLoad,350);});
   get('invoiceDbSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();page=1;load();}});
   filterIds.slice(1).forEach(id=>get(id).addEventListener('change',resetAndLoad));
-  get('invoiceDbClear').addEventListener('click',()=>{get('invoiceDbSearch').value='';get('invoiceDbType').value='all';get('invoiceDbFrom').value='';get('invoiceDbTo').value='';get('invoiceDbBalance').value='all';get('invoiceDbSort').value='invoice_desc';resetAndLoad();});
+  get('invoiceDbClear').addEventListener('click',()=>{clearFilters();if(loaded)load();});
   get('invoiceDbPrev').addEventListener('click',()=>{if(!busy&&page>1){page--;load();}});
   get('invoiceDbNext').addEventListener('click',()=>{if(!busy&&page<pages){page++;load();}});
   get('invoiceDbPrev').wootenGoToPage=target=>{if(!busy){page=Math.max(1,Math.min(pages,target));return load();}};
@@ -108,11 +124,21 @@
     const name=th.dataset.invoiceSort,current=get('invoiceDbSort').value;
     get('invoiceDbSort').value=name+(current===name+'_asc'?'_desc':'_asc');resetAndLoad();
   },true);
-  window.addEventListener('wooten-invoices-imported',()=>{page=1;if(loaded&&panel.getClientRects().length)load();});
+  window.addEventListener('wooten-invoices-imported',()=>{page=1;dirty=true;ensureVisible();});
+  window.addEventListener('wooten-invoices-cleared',()=>{
+    controller?.abort();serial++;clearTimeout(timer);clearFilters();loaded=true;dirty=true;total=0;pages=1;
+    render([]);table.dataset.pdfEmpty='true';get('invoiceDbTotal').textContent='0';get('invoiceDbRange').textContent='Showing 0–0';get('invoiceDbPage').textContent='Page 1 of 1';
+    get('invoiceDbLastImport').textContent='The invoices database was cleared.';get('invoiceDbPagination').hidden=true;lock(false);ensureVisible();
+  });
   window.addEventListener('wooten-admin-auth-changed',()=>{
     controller?.abort();serial++;clearTimeout(timer);loaded=false;page=1;pages=1;total=0;tbody.replaceChildren();
+    dirty=true;snapshotKey=undefined;get('invoiceDbLastImport').textContent='Open this tab to load the latest saved invoices.';
     ['invoiceDbMeta','invoiceDbPagination','invoiceDbTableWrap'].forEach(id=>get(id).hidden=true);table.dataset.pdfEmpty='true';status('');lock(false);
+    queueMicrotask(ensureVisible);
   });
+  new MutationObserver(ensureVisible).observe(panel,{attributes:true,attributeFilter:['class','hidden']});
+  document.addEventListener('visibilitychange',ensureVisible);
   setInterval(()=>{if(loaded&&!busy&&key()&&!document.hidden&&panel.getClientRects().length)load();},30000);
   sortIndicators();table.dataset.pdfEmpty='true';lock(false);
+  ensureVisible();
 })();
