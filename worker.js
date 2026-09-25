@@ -1862,6 +1862,10 @@ async function adminMas90HealthGet({request,env}){
     const displayRecent=(recentRunsResult?.results||[]).map(mas90HealthRunPublic);
     if(importedRun&&!displayRecent.some(run=>run.run_id===importedRun.run_id))displayRecent.push(importedRun);
     displayRecent.sort((a,b)=>runTime(b)-runTime(a));
+    const invoiceStatus=await OpenInvoices.healthStatus(env.DB,
+      [currentRun,displayLatest,displaySuccess,...displayRecent,remoteSync].filter(Boolean)
+        .flatMap(run=>[run.run_id,run.request_id]));
+    const withInvoices=run=>run?{...run,invoice_result:invoiceStatus.invoice_results[run.run_id]||invoiceStatus.invoice_results[run.request_id]||null}:null;
     const pollSeconds=Math.max(5,Number(health?.poll_seconds||15));
     const secondsSinceSeen=health?.last_seen_at?Math.max(0,Math.round((Date.now()-mas90Timestamp(health.last_seen_at))/1000)):null;
     const connectivityStatus=secondsSinceSeen===null||secondsSinceSeen>600?"offline":secondsSinceSeen>90?"delayed":"online";
@@ -1888,7 +1892,8 @@ async function adminMas90HealthGet({request,env}){
         poll_seconds:pollSeconds,max_retries:Number(health?.max_retries||6),customer_batch_size:Number(health?.customer_batch_size||400),payment_batch_size:Number(health?.payment_batch_size||200),payment_window_days:Number(health?.payment_window_days||30),last_error:String(health?.last_error||"")
       },
       schedule:{enabled:taskEnabled==="1"?true:taskEnabled==="0"?false:null,local_time:scheduleTime,timezone:timeZone,label:mas90ScheduleLabel(scheduleTime),next_run_at:reportedNext||mas90NextScheduleIso(scheduleTime,timeZone),grace_minutes:120},
-      current_run:mas90HealthRunPublic(currentRun),latest_run:displayLatest,last_successful_run:displaySuccess,recent_runs:displayRecent.slice(0,10),
+      current_run:withInvoices(mas90HealthRunPublic(currentRun)),latest_run:withInvoices(displayLatest),last_successful_run:withInvoices(displaySuccess),recent_runs:displayRecent.slice(0,10).map(withInvoices),
+      invoice_result:invoiceStatus.invoice_results[remoteSync?.request_id]||null,invoice_database:invoiceStatus.invoice_database,
       latest_imports:imports,
       active_import:{run_id:String(control?.active_run_id||""),status:String(control?.status||"idle"),import_type:String(control?.active_import_type||""),cancel_requested:Number(control?.cancel_requested||0)===1,updated_at:control?.updated_at||"",completed_at:control?.completed_at||""},
       remote_sync_request:mas90SyncPublicStatus(remoteSync),

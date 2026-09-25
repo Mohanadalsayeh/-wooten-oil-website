@@ -5806,7 +5806,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div>
         <div class="admin-page-label">Automation Monitor</div>
         <h2>MAS 90 Automation Health Center</h2>
-        <p>Monitor the office computer, the nightly 9:00 PM Central Time synchronization, and the latest customer and payment results.</p>
+        <p>Monitor the office computer, the nightly 9:00 PM Central Time synchronization, and the latest customer, payment, and invoice results.</p>
       </div>
       <div class="mas90-health-toolbar" aria-label="MAS 90 health actions">
         <button class="secondary" id="mas90HealthRefresh" type="button">Refresh</button>
@@ -7765,7 +7765,7 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
     const minutes=Math.floor(seconds/60),remaining=seconds%60;return minutes+' min'+(remaining?' '+remaining+' sec':'');
   }
   function words(value,fallback){const text=String(value||'').trim();return text?text.replace(/[_-]+/g,' ').replace(/\b\w/g,char=>char.toUpperCase()):(fallback||'Not reported');}
-  function sourceLabel(run){const source=String(run?.run_type||run?.source||'').toLowerCase(),stage=String(run?.stage||'').toLowerCase();if(source==='scheduled')return 'Nightly scheduled sync';if(source==='automatic')return 'Automatic MAS 90 sync';if(source==='portal_request'||source==='requested'||source==='remote')return 'Portal-requested sync';if(source==='manual')return stage.includes('payment')?'Manual payment import':'Manual customer import';return words(source,'MAS 90 sync');}
+  function sourceLabel(run){const source=String(run?.run_type||run?.source||'').toLowerCase(),stage=String(run?.stage||'').toLowerCase();if(source==='scheduled')return 'Nightly scheduled sync';if(source==='automatic')return 'Automatic MAS 90 sync';if(source==='portal_request'||source==='requested'||source==='remote')return 'Portal-requested sync';if(source==='manual')return stage.includes('invoice')?'Manual invoice import':stage.includes('payment')?'Manual payment import':'Manual customer import';return words(source,'MAS 90 sync');}
   function statusTone(value){const status=String(value||'').toLowerCase();if(terminalGood.has(status)||status==='healthy'||status==='fresh'||status==='online'||status==='enabled')return 'good';if(terminalBad.has(status)||status==='offline'||status==='stale')return 'bad';if(activeStatuses.has(status)||status==='warning'||status==='due'||status==='delayed')return 'warn';return 'unknown';}
   function setText(id,value){const node=get(id);if(node)node.textContent=String(value??'—');}
   function setCard(cardId,tone,valueId,value,detailId,detail){const card=get(cardId);if(card)card.dataset.tone=tone||'unknown';setText(valueId,value);setText(detailId,detail);}
@@ -7775,19 +7775,39 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
     const clickable=tone==='failed'&&recordType&&runId;
     const node=document.createElement(clickable?'button':'span');
     if(clickable){node.type='button';node.dataset.mas90FailureKind=recordType;node.dataset.mas90RequestId=String(runId);node.setAttribute('aria-label','Open '+label+' '+recordType+' records');}
-    node.className='mas90-health-result-chip'+(tone==='failed'?' is-failed':'');node.textContent=label;parent.appendChild(node);
+    node.className='mas90-health-result-chip'+(tone==='failed'?' is-failed':tone==='unknown'?' is-neutral':tone==='warn'?' is-warning':'');node.textContent=label;parent.appendChild(node);
+  }
+  function appendInvoiceChips(parent,run,compact=false){
+    const result=run?.invoice_result,status=String(result?.status||'').toLowerCase();
+    if(status==='completed'&&result.imported!==null&&result.imported!==undefined&&Number.isInteger(Number(result.imported))&&Number(result.imported)>=0){
+      appendChip(parent,number(result.imported).toLocaleString()+(compact?' invoices':' successful'),'good');
+      appendChip(parent,compact?'0 invoice failures':'0 failed','good');
+      return;
+    }
+    const active=runIsActive(run);
+    let label,tone='unknown';
+    if(status==='uploading'){
+      label=active?'Receiving invoices':'Invoice import incomplete';tone=active?'warn':'failed';
+    }else if(status==='cancelled'||status==='canceled'){label='Invoices cancelled';tone='warn';}
+    else if(status==='cleared'){label='Invoice database cleared';}
+    else if(status==='failed'){label='Invoice import failed';tone='failed';}
+    else if(status){label='Invoice import not completed';tone='warn';}
+    else label=active?'Waiting for invoices':compact?'Invoices not reported':'Not reported for this run';
+    appendChip(parent,label,tone);
+    if(!compact&&status==='uploading')appendChip(parent,number(result.received).toLocaleString()+' of '+number(result.expected).toLocaleString()+' received',tone);
   }
   function appendResultCard(parent,label,run,runId){
-    const customers=label==='Customers',success=number(run?.[customers?'customers_success_count':'payments_success_count']),failed=number(run?.[customers?'customers_failure_count':'payments_failure_count']);
     const card=document.createElement('div');card.className='mas90-health-result-card';const title=document.createElement('strong');title.textContent=label;card.appendChild(title);
+    if(label==='Invoices'){appendInvoiceChips(card,run);parent.appendChild(card);return;}
+    const customers=label==='Customers',success=number(run?.[customers?'customers_success_count':'payments_success_count']),failed=number(run?.[customers?'customers_failure_count':'payments_failure_count']);
     appendChip(card,success.toLocaleString()+' successful','good');
     if(!customers){appendChip(card,number(run?.payments_inserted_count).toLocaleString()+' new','good');appendChip(card,number(run?.payments_duplicate_count).toLocaleString()+' already saved','good');}
     appendChip(card,failed.toLocaleString()+' failed',failed?'failed':'good',customers?'customers':'payments',runId);parent.appendChild(card);
   }
   function appendRunResultCards(parent,run,runId){
     const manual=String(run?.run_type||'').toLowerCase()==='manual',stage=String(run?.stage||'').toLowerCase();
-    if(!manual||!stage.includes('payment'))appendResultCard(parent,'Customers',run,runId);
-    if(!manual||stage.includes('payment'))appendResultCard(parent,'Payments',run,runId);
+    if(manual){appendResultCard(parent,stage.includes('invoice')?'Invoices':stage.includes('payment')?'Payments':'Customers',run,runId);return;}
+    for(const label of ['Customers','Payments','Invoices'])appendResultCard(parent,label,run,runId);
   }
   function renderOffice(data){
     const office=data?.office_computer||{};
@@ -7838,10 +7858,11 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
     const box=document.createElement('div');box.className='mas90-health-run-counts';
     const customerFailure=number(run?.customers_failure_count),paymentFailure=number(run?.payments_failure_count);
     const manual=String(run?.run_type||'').toLowerCase()==='manual',paymentManual=manual&&String(run?.stage||'').toLowerCase().includes('payment');
+    if(manual&&String(run?.stage||'').toLowerCase().includes('invoice')){appendInvoiceChips(box,run,true);return box;}
     if(manual&&!paymentManual){appendChip(box,number(run?.customers_success_count).toLocaleString()+' customers','good');appendChip(box,customerFailure.toLocaleString()+' failed',customerFailure?'failed':'good','customers',runId);return box;}
     if(paymentManual){appendChip(box,number(run?.payments_success_count).toLocaleString()+' processed','good');appendChip(box,number(run?.payments_inserted_count).toLocaleString()+' new','good');appendChip(box,number(run?.payments_duplicate_count).toLocaleString()+' already saved','good');appendChip(box,paymentFailure.toLocaleString()+' failed',paymentFailure?'failed':'good','payments',runId);return box;}
     appendChip(box,number(run?.customers_success_count).toLocaleString()+' customers','good');appendChip(box,customerFailure.toLocaleString()+' failed',customerFailure?'failed':'good','customers',runId);
-    appendChip(box,number(run?.payments_inserted_count).toLocaleString()+' new payments','good');appendChip(box,paymentFailure.toLocaleString()+' failed',paymentFailure?'failed':'good','payments',runId);return box;
+    appendChip(box,number(run?.payments_inserted_count).toLocaleString()+' new payments','good');appendChip(box,paymentFailure.toLocaleString()+' failed',paymentFailure?'failed':'good','payments',runId);appendInvoiceChips(box,run,true);return box;
   }
   function renderRecent(data){
     const list=get('mas90HealthRecentRuns');if(!list)return;const runs=(Array.isArray(data?.recent_runs)?data.recent_runs:[]).slice(0,10);list.replaceChildren();
@@ -7866,7 +7887,9 @@ button.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31;text-
         import_control_status:activeImport.status||'idle',
         cancel_requested:activeImport.cancel_requested===true,
         import_control_updated_at:activeImport.updated_at||'',
-        import_control_completed_at:activeImport.completed_at||''
+        import_control_completed_at:activeImport.completed_at||'',
+        invoice_result:healthData.invoice_result||null,
+        invoice_database:healthData.invoice_database
       });
     }
     const busy=runIsActive(healthData.current_run)||activeStatuses.has(String(healthData.remote_sync_request?.status||'').toLowerCase())||String(healthData.active_import?.status||'').toLowerCase()==='in_progress';const request=get('mas90HealthRequestSync');if(request){request.disabled=busy;request.textContent=busy?'Sync in Progress':'Request MAS 90 Sync';}
@@ -18323,4 +18346,14 @@ body #admin-tab-database :is(#dbLoadBtn,#dbRefreshBtn,#dbClearFiltersBtn,#clearC
 @media(max-width:360px){
   body #admin-tab-database .db-actions{--wooten-action-button-height:76px}
 }
+</style>
+
+<style id="wooten-mas90-health-invoice-results-ver609">
+body #admin-tab-automation .mas90-health-results{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));
+}
+body #admin-tab-automation .mas90-health-result-card{min-width:0}
+body #admin-tab-automation .mas90-health-result-chip.is-neutral{background:#eaf0f5;color:#5b6f82}
+body #admin-tab-automation .mas90-health-result-chip.is-warning{background:#fff0c9;color:#815905}
+body #admin-tab-automation span.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31}
 </style>

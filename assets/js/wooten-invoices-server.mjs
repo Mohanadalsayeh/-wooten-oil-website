@@ -20,17 +20,29 @@ export async function schema(db){
  ]);
 }
 // Read committed invoice results directly so existing office exporters also report counts.
-export async function adminStatus(db,requestId=''){
+export async function healthStatus(db,runIds=[]){
  await schema(db);
+ const ids=[...new Set(runIds.map(id=>String(id||'')).filter(id=>id&&id.length<=100))].slice(0,50);
  const results=await db.batch([
   db.prepare(`SELECT r.run_id,r.expected,r.completed_at,r.mode,(SELECT COUNT(*) FROM mas90_invoices i WHERE i.run_id=r.run_id) AS total FROM invoice_import_active a JOIN invoice_import_runs r ON r.run_id=a.run_id WHERE a.id=1 AND r.status='completed'`),
-  db.prepare(`SELECT run_id,status,expected FROM invoice_import_runs WHERE run_id=?`).bind(requestId)
+  ...(ids.length?[db.prepare(`SELECT r.run_id,r.status,r.expected,r.completed_at,
+    COALESCE((SELECT SUM(b.row_count) FROM invoice_import_batches b WHERE b.run_id=r.run_id),0) AS received
+    FROM invoice_import_runs r WHERE r.run_id IN (${ids.map(()=>'?').join(',')})`).bind(...ids)]:[])
  ]);
- const active=results[0].results?.[0],run=results[1].results?.[0];
+ const active=results[0].results?.[0];
+ const invoiceResults=Object.assign(Object.create(null),Object.fromEntries((results[1]?.results||[]).map(run=>[run.run_id,{
+  run_id:run.run_id,status:run.status,expected:Number(run.expected||0),received:Number(run.received||0),
+  imported:run.status==='completed'?Number(run.expected||0):null,
+  failed:run.status==='completed'?0:null,completed_at:run.completed_at||''
+ }])));
  return {
   invoice_database:{run_id:active?.run_id||'',last_import_at:active?.completed_at||'',mode:active?.mode||'',total:Number(active?.total||0)},
-  invoice_result:run?{run_id:run.run_id,status:run.status,imported:Number(run.expected||0)}:null
+  invoice_results:invoiceResults
  };
+}
+export async function adminStatus(db,requestId=''){
+ const status=await healthStatus(db,[requestId]);
+ return {invoice_database:status.invoice_database,invoice_result:status.invoice_results[requestId]||null};
 }
 export async function clearDatabase(db){
  await schema(db);
