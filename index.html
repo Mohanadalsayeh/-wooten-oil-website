@@ -4250,7 +4250,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '.account{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;padding:14px;border-radius:11px;background:#f7f9fb}.address{grid-column:1/-1}.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:28px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
       '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}.screen-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}'+
       '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
-      '@media print{.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
+      '@media print{.summary{display:flex;flex-direction:column;min-height:10in}.summary> *{flex-shrink:0}.summary-bottom{margin-top:auto;padding-top:20px;break-inside:avoid}.summary-bottom .note{margin-top:0}.mark{print-color-adjust:exact;-webkit-print-color-adjust:exact}.screen-actions{display:none!important}}'+
       '</style></head><body><main class="summary">'+
       '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Account Summary</h1><span class="updated">Updated '+safeValue('statementUpdated')+'</span></div></header>'+
       '<section class="customer"><div><span class="label">Customer</span><div class="value">'+safeValue('acctName')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safeValue('acctNumber')+'</div></div></section>'+
@@ -4258,7 +4258,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<div class="section-title">Aging breakdown</div><table><thead><tr><th>Period</th><th>Status</th><th>Balance</th></tr></thead><tbody>'+
       '<tr><td>Current</td><td>0–30 days</td><td>'+safeValue('statementAgingCurrent')+'</td></tr><tr><td>31–60 days</td><td>Past due</td><td>'+safeValue('statementAging1')+'</td></tr><tr><td>61–90 days</td><td>Past due</td><td>'+safeValue('statementAging2')+'</td></tr><tr><td>91–120 days</td><td>Past due</td><td>'+safeValue('statementAging3')+'</td></tr><tr><td>120+ days</td><td>Past due</td><td>'+safeValue('statementAging4')+'</td></tr><tr><td><strong>Total balance</strong></td><td>All periods</td><td><strong>'+safeValue('statementAgingTotal')+'</strong></td></tr></tbody></table>'+
       '<div class="section-title">Account information</div><section class="account"><div><span class="label">Terms</span><div class="value">'+safeValue('acctTerms')+'</div></div><div><span class="label">Credit hold</span><div class="value">'+safeValue('acctCreditHold')+'</div></div><div><span class="label">Credit limit</span><div class="value">'+safeValue('acctCreditLimit')+'</div></div><div><span class="label">Phone</span><div class="value">'+safeValue('acctPhone')+'</div></div><div><span class="label">Email</span><div class="value">'+safeValue('acctEmail')+'</div></div><div class="address"><span class="label">Billing address</span><div class="value">'+safeValue('acctAddress')+'</div></div></section>'+
-      '<p class="note">Balances reflect the latest information available in the Wooten Oil customer portal. Payments may take up to 24 business hours to appear.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Account Summary</div>'+
+      '<div class="summary-bottom"><p class="note">Balances reflect the latest information available in the Wooten Oil customer portal. Payments may take up to 24 business hours to appear.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Account Summary</div></div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Account Summary</span></button></div>'+
       '</main></body></html>';
   }
@@ -5159,7 +5159,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-contact-layout.css?v=448">
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=491">
-<link rel="stylesheet" href="assets/css/wooten-customer-fleet-compact.css?v=583">
+<link rel="stylesheet" href="assets/css/wooten-customer-fleet-compact.css?v=602">
 <script src="assets/js/wooten-fleet.js?v=576"></script>
 
 <link rel="stylesheet" href="assets/css/wooten-search-icons.css?v=531">
@@ -5169,4 +5169,4 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=586">
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
 <script src="assets/js/wooten-invoice-pdf.js?v=597"></script>
-<script src="assets/js/wooten-invoice-viewer.js?v=593"></script>
+<script src="assets/js/wooten-invoice-viewer.js?v=600"></script>

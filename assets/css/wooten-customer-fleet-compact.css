@@ -1,6 +1,7 @@
 /* Customer Fleet dialog follows its content instead of reserving empty space. */
+/* fit-content prevents the fixed inset:0 dialog from stretching to viewport height. */
 body dialog.fleet-modal.wooten-fleet{
- height:auto!important;min-height:0!important;
+ height:fit-content!important;min-height:0!important;
  max-height:calc(100dvh - 32px)!important;
  padding:0!important;overflow:hidden!important;
 }
