@@ -11,16 +11,29 @@ const stamp=v=>{if(!v)return 'Not imported yet';const d=new Date(/(?:Z|[+-]\d\d:
 const list=document.createElement('dialog'),detail=document.createElement('dialog');
 list.className='iv-dialog iv-list-dialog';detail.className='iv-dialog iv-classic-dialog';
 list.setAttribute('aria-labelledby','ivListTitle');detail.setAttribute('aria-labelledby','ivDetailTitle');
-list.innerHTML=`<header class="iv-head"><div><div class="iv-eyebrow">Invoices</div><h2 id="ivListTitle">Open Invoices</h2><p data-account></p></div><button type="button" class="iv-close" data-close aria-label="Close invoices">×</button></header><div class="iv-body"><form class="iv-tools"><label>Search invoices<input type="search" name="search" placeholder="Invoice number…" autocomplete="off"></label><label>Sort<select name="sort"><option value="invoice_desc">Invoice date newest</option><option value="invoice_asc">Invoice date oldest</option><option value="due_asc">Due date earliest</option><option value="balance_desc">Balance highest</option><option value="number_asc">Invoice number A–Z</option></select></label><button type="submit">Search</button><button type="button" class="iv-refresh" data-refresh>Refresh</button></form><p class="iv-status" data-status role="status" aria-live="polite"></p><div class="iv-table-toolbar"><p class="iv-updated" data-updated></p><div class="iv-export-actions"><button type="button" class="iv-export" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div><div class="iv-table-wrap"><table data-auto-pdf="false"><thead><tr><th>Invoice No</th><th>Type</th><th>Division</th><th>Invoice Date</th><th>Due Date</th><th>Balance</th></tr></thead><tbody></tbody></table></div><div class="iv-pages"><button type="button" data-prev>Previous 20</button><span data-page aria-live="polite"></span><button type="button" data-next>Next 20</button></div></div><footer class="iv-foot"><span>Choose an invoice number to view its details.</span><button type="button" data-close>${admin?'Done':'Back to Dashboard'}</button></footer>`;
+list.innerHTML=`<header class="iv-head"><div><div class="iv-eyebrow">Invoices</div><h2 id="ivListTitle">Open Invoices</h2><p data-account></p></div><button type="button" class="iv-close" data-close aria-label="Close invoices">×</button></header><div class="iv-body"><form class="iv-tools"><label>Search invoices<input type="search" name="search" placeholder="Invoice number…" autocomplete="off"></label><label>Sort<select name="sort"><option value="invoice_desc">Invoice date newest</option><option value="invoice_asc">Invoice date oldest</option><option value="due_asc">Due date earliest</option><option value="balance_desc">Balance highest</option><option value="number_asc">Invoice number A–Z</option></select></label><button type="submit" data-search>Search</button><button type="button" class="iv-refresh" data-refresh>Refresh</button></form><p class="iv-status" data-status role="status" aria-live="polite"></p><div class="iv-table-toolbar"><p class="iv-updated" data-updated></p><div class="iv-export-actions"><button type="button" class="iv-export" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div><div class="iv-table-wrap"><table data-auto-pdf="false"><thead><tr><th>Invoice No</th><th>Type</th><th>Division</th><th>Invoice Date</th><th>Due Date</th><th>Balance</th></tr></thead><tbody></tbody></table></div><div class="iv-pages"><button type="button" data-prev>Previous 20</button><span data-page aria-live="polite"></span><button type="button" data-next>Next 20</button></div></div><footer class="iv-foot"><span>Choose an invoice number to view its details.</span><button type="button" data-close>${admin?'Done':'Back to Dashboard'}</button></footer>`;
 detail.innerHTML=`<header class="iv-head iv-classic-head"><div class="iv-company"><strong>WOOTEN OIL CO INC.</strong><p>Invoice details</p></div><div class="iv-document-heading"><h2 id="ivDetailTitle">Invoice</h2><p data-invoice-meta></p></div><button type="button" class="iv-close" data-close aria-label="Close invoice details">×</button></header><div class="iv-body"><p class="iv-status" data-status role="status" aria-live="polite"></p><div data-detail-content></div></div><footer class="iv-foot"><span class="iv-updated" data-updated></span><div class="iv-detail-actions"><button type="button" class="iv-print" data-print disabled>Print Invoice</button><button type="button" data-close>Back</button></div></footer>`;
 document.body.append(list,detail);
 const q=(root,selector)=>root.querySelector(selector);
 const form=q(list,'form'),search=form.elements.search,sort=form.elements.sort,body=q(list,'tbody');
-let page=1,pages=1,selected='',customerName='',listSerial=0,detailSerial=0,listAbort,detailAbort,listBusy=false,searchTimer;
+let page=1,pages=1,selected='',customerName='',listSerial=0,detailSerial=0,listAbort,detailAbort,listBusy=false,searchTimer,listAction='load';
 let listTrigger=null,detailTrigger=null,exporting=false,exportAbort,matchedTotal=0;
-const headerSort=WootenTableDataSort.register(body.closest('table'),['number','type','division','invoice','due','balance'],()=>{page=1;return load();},sort);
+const headerSort=WootenTableDataSort.register(body.closest('table'),['number','type','division','invoice','due','balance'],()=>{page=1;return load('sort');},sort);
 function message(root,text,error=false){const el=q(root,'[data-status]');el.textContent=text;el.classList.toggle('iv-error',error);}
-function syncListControls(){body.closest('table').setAttribute('aria-busy',String(listBusy||exporting));const refresh=q(list,'[data-refresh]');refresh.textContent=listBusy?'Refreshing...':'Refresh';refresh.setAttribute('aria-busy',String(listBusy));q(list,'[data-export]').disabled=listBusy||exporting||!matchedTotal;form.querySelectorAll('button,input,select').forEach(e=>e.disabled=listBusy||exporting);q(list,'[data-prev]').disabled=listBusy||exporting||page<=1;q(list,'[data-next]').disabled=listBusy||exporting||page>=pages;list.setAttribute('aria-busy',String(listBusy));}
+function syncListControls(){
+ body.closest('table').setAttribute('aria-busy',String(listBusy||exporting));
+ const refresh=q(list,'[data-refresh]'),searchButton=q(list,'[data-search]');
+ refresh.textContent=listBusy&&listAction==='refresh'?'Refreshing...':'Refresh';
+ refresh.setAttribute('aria-busy',String(listBusy&&listAction==='refresh'));
+ searchButton.textContent=listBusy&&listAction==='search'?'Searching...':'Search';
+ searchButton.setAttribute('aria-busy',String(listBusy&&listAction==='search'));
+ q(list,'[data-export]').disabled=listBusy||exporting||!matchedTotal;
+ form.querySelectorAll('button').forEach(e=>e.disabled=listBusy||exporting);
+ search.disabled=exporting;sort.disabled=exporting;
+ q(list,'[data-prev]').disabled=listBusy||exporting||page<=1;
+ q(list,'[data-next]').disabled=listBusy||exporting||page>=pages;
+ list.setAttribute('aria-busy',String(listBusy));
+}
 async function api(params,signal){
  const headers={Accept:'application/json'};
  if(admin){headers['X-Admin-Key']=document.getElementById('adminKey')?.value.trim()||'';if(!headers['X-Admin-Key'])throw Error('Sign in as an administrator first.');}
@@ -38,10 +51,11 @@ function showListSkeleton(){
   for(let c=0;c<6;c++){const bar=document.createElement('span');bar.className='iv-skeleton-bar';tr.insertCell().append(bar);}
  }
 }
-async function load(){
+async function load(action='load'){
  if(exporting)return;
  clearTimeout(searchTimer);listAbort?.abort();listAbort=new AbortController();const ticket=++listSerial;
- listBusy=true;syncListControls();showListSkeleton();message(list,'Loading invoices…');
+ listAction=action;listBusy=true;syncListControls();showListSkeleton();message(list,action==='search'?'Searching invoices…':action==='sort'?'Sorting invoices…':action==='refresh'?'Refreshing invoices…':'Loading invoices…');
+ const requestController=listAbort;let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;requestController.abort();},30000);
  try{
   const data=await api({...(admin?{account_number:selected}:{}),search:search.value.trim(),sort:headerSort.key()||sort.value,page,page_size:20},listAbort.signal);
   if(ticket!==listSerial||!list.open)return;
@@ -56,8 +70,8 @@ async function load(){
   if(!data.rows.length){const td=body.insertRow().insertCell();td.colSpan=6;td.textContent='No invoices match this account and search.';}
   message(list,data.total.toLocaleString()+' matching invoice(s).');
   q(list,'[data-page]').textContent='Page '+page+' of '+pages+' · '+data.total.toLocaleString()+' records';
- }catch(e){if(ticket!==listSerial||e.name==='AbortError')return;matchedTotal=0;body.replaceChildren();q(list,'[data-page]').textContent='';message(list,e.message,true);pages=1;page=1;}
- finally{if(ticket===listSerial){listBusy=false;body.setAttribute('aria-busy','false');syncListControls();}}
+ }catch(e){if(ticket!==listSerial||(e.name==='AbortError'&&!timedOut))return;matchedTotal=0;body.replaceChildren();q(list,'[data-page]').textContent='';message(list,timedOut?'The invoice request timed out. Please try again.':e.message,true);pages=1;page=1;}
+ finally{clearTimeout(timeout);if(ticket===listSerial){listBusy=false;body.setAttribute('aria-busy','false');syncListControls();}}
 }
 async function exportPdf(){
  if(listBusy||exporting||!matchedTotal)return;
@@ -114,7 +128,7 @@ async function openInvoice(row,trigger){
   const summary=document.createElement('div');summary.className='iv-classic-summary';
   const customer=document.createElement('div'),label=document.createElement('div'),name=document.createElement('div'),account=document.createElement('p');
   label.className='iv-classic-label';label.textContent='Customer';name.className='iv-classic-name';name.textContent=value('CustomerName');account.textContent='Account # '+value('CustomerNo');customer.append(label,name,account);
-  const balance=document.createElement('div'),balanceLabel=document.createElement('div'),balanceValue=document.createElement('div');balance.className='iv-classic-balance';balanceLabel.className='iv-classic-label';balanceLabel.textContent='Remaining balance';balanceValue.className='iv-classic-amount';balanceValue.textContent=amount(invoice.Balance);balance.append(balanceLabel,balanceValue);summary.append(customer,balance);content.append(summary);
+  const balance=document.createElement('div'),balanceLabel=document.createElement('div'),balanceValue=document.createElement('div');balance.className='iv-classic-balance';balanceLabel.className='iv-classic-label';balanceLabel.textContent='Invoice Remaining balance';balanceValue.className='iv-classic-amount';balanceValue.textContent=amount(invoice.Balance);balance.append(balanceLabel,balanceValue);summary.append(customer,balance);content.append(summary);
   const columns=document.createElement('div');columns.className='iv-classic-columns';
   function section(title,fields){
    const section=document.createElement('section'),heading=document.createElement('h3'),dl=document.createElement('dl');heading.textContent=title;dl.className='iv-classic-fields';
@@ -122,7 +136,7 @@ async function openInvoice(row,trigger){
    section.append(heading,dl);return section;
   }
   columns.append(section('Dates & terms',[['InvoiceDate','Invoice date',date],['InvoiceDueDate','Due date',date],['TermsCode','Terms code'],['InvoiceDiscountDate','Discount date',date]]),section('References',[['CustomerPONo','Purchase order'],['InvoiceType','Invoice type'],['ARDivisionNo','Division'],['DiscountAmt','Discount amount',amount]]));content.append(columns);
-  const totals=section('Invoice amounts',[['SalesTaxAmt','Sales tax',amount],['FreightAmt','Freight',amount],['Balance','Remaining balance',amount]]);totals.className='iv-classic-totals';
+  const totals=section('Invoice amounts',[['SalesTaxAmt','Sales tax',amount],['FreightAmt','Freight',amount],['Balance','Invoice Remaining balance',amount]]);totals.className='iv-classic-totals';
   const totalsList=q(totals,'dl');
   for(const [label,before] of [['Subtotal',totalsList.firstElementChild],['Invoice total',totalsList.lastElementChild]]){
    const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent='Not available';row.className='iv-amount-unavailable';row.append(dt,dd);totalsList.insertBefore(row,before);
@@ -147,14 +161,15 @@ q(detail,'[data-print]').addEventListener('click',()=>{
  @page{size:letter;margin:0}*{box-sizing:border-box}html{margin:0;padding:0}body{margin:0;padding:0.55in;min-height:10.99in;display:flex;flex-direction:column;color:#17324d;background:white;font:12px Arial,sans-serif;print-color-adjust:exact;-webkit-print-color-adjust:exact}body>header,body>main,body>footer{flex:0 0 auto}main{margin-bottom:24px}header{display:flex;justify-content:space-between;gap:24px;border-bottom:3px solid #cf282d;padding-bottom:16px;margin-bottom:20px}header strong{font-size:15px}h1{font-size:24px;margin:0 0 6px}h3{font-size:13px;margin:0 0 10px}p{margin:6px 0;color:#52677d}.heading{text-align:right}.iv-classic-summary{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #ccd8e4;padding-bottom:18px;margin-bottom:18px}.iv-classic-label{font-size:11px;color:#52677d;margin-bottom:5px}.iv-classic-name{font-size:19px;font-weight:bold}.iv-classic-balance{text-align:right}.iv-classic-amount{font-size:28px;font-weight:bold}.iv-classic-columns{display:grid;grid-template-columns:1fr 1fr;gap:26px}section{padding:0;margin:0;break-inside:avoid}dl{margin:0}dl>div{display:flex;justify-content:space-between;gap:15px;padding:9px 0;border-bottom:1px solid #e1e7ee}dt{color:#52677d}dd{margin:0;text-align:right;max-width:60%;white-space:pre-wrap;overflow-wrap:anywhere}.iv-classic-totals{width:290px;max-width:100%;margin:24px 0 0 auto}.iv-classic-totals dl>div:last-child{border-top:2px solid #ccd8e4;font-weight:bold}.iv-amount-unavailable{color:#52677d}footer{margin-top:auto;padding-top:12px;border-top:1px solid #ccd8e4;color:#52677d;font-size:10px}button{display:none}
  </style></head><body><header><div><strong>WOOTEN OIL CO INC.</strong><p>Invoice details</p></div><div class="heading"><h1>${safe(number)}</h1><p>${safe(q(detail,'[data-invoice-meta]').textContent)}</p></div></header><main>${snapshot.innerHTML}</main><footer>${safe(q(detail,'[data-updated]').textContent)}</footer></body></html>`);
  printWindow.document.close();
+ printWindow.addEventListener('afterprint',()=>{printWindow.close();window.focus();syncListControls();if(detail.open)q(detail,'[data-print]').focus({preventScroll:true});},{once:true});
  setTimeout(()=>{if(!printWindow.closed){printWindow.focus();printWindow.print();}},150);
 });
 for(const dialog of [list,detail])dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
 list.addEventListener('close',()=>{++listSerial;exportAbort?.abort();exporting=false;matchedTotal=0;q(q(list,'[data-export]'),'span').textContent='Export PDF';listAbort?.abort();clearTimeout(searchTimer);body.replaceChildren();message(list,'');q(list,'[data-account]').textContent='';q(list,'[data-updated]').textContent='';listBusy=false;body.setAttribute('aria-busy','false');syncListControls();if(detail.open)detail.close();if(listTrigger?.isConnected)listTrigger.focus({preventScroll:true});});
-detail.addEventListener('close',()=>{q(detail,'[data-print]').disabled=true;++detailSerial;detailAbort?.abort();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';message(detail,'');q(detail,'[data-updated]').textContent='';q(detail,'#ivDetailTitle').textContent='Invoice';if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
-form.addEventListener('submit',e=>{e.preventDefault();page=1;load();});
-sort.addEventListener('change',()=>{page=1;load();});
-q(list,'[data-refresh]').addEventListener('click',load);
+detail.addEventListener('close',()=>{q(detail,'[data-print]').disabled=true;++detailSerial;detailAbort?.abort();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';message(detail,'');q(detail,'[data-updated]').textContent='';q(detail,'#ivDetailTitle').textContent='Invoice';syncListControls();if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
+form.addEventListener('submit',e=>{e.preventDefault();page=1;load('search');});
+sort.addEventListener('change',()=>{headerSort.clear();page=1;load('sort');});
+q(list,'[data-refresh]').addEventListener('click',()=>load('refresh'));
 q(list,'[data-prev]').addEventListener('click',()=>{if(!listBusy&&page>1){page--;load();}});
 q(list,'[data-next]').addEventListener('click',()=>{if(!listBusy&&page<pages){page++;load();}});
 function clear(){++listSerial;++detailSerial;listAbort?.abort();detailAbort?.abort();if(detail.open)detail.close();if(list.open)list.close();body.replaceChildren();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';selected='';customerName='';}
