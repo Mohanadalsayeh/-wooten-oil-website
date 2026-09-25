@@ -18251,3 +18251,49 @@ body :is(#previewBtn,#paymentPreviewBtn,#invoicePreview)[aria-busy="true"]::befo
   }
 }
 </style>
+
+<style id="wooten-admin-page-spacing-ver607">
+/* A single desktop gutter for every page, including all subtab panels.
+   Percentage positioning shares the content viewport with .wrap; 100vw
+   includes a classic scrollbar and makes the fixed sidebar drift inward. */
+:root{
+  --admin-layout-max:1560px;
+  --admin-layout-gutter:24px;
+  --admin-sidebar-width:250px;
+  --admin-page-gap:28px;
+}
+body .admin-workspace > .admin-content{
+  min-width:0!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  padding-left:0!important;
+  padding-right:0!important;
+}
+body .admin-content > [data-admin-panel]{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+}
+@media(min-width:801px){
+  html{scrollbar-gutter:stable}
+  body > .wrap{
+    max-width:var(--admin-layout-max)!important;
+    padding-left:var(--admin-layout-gutter)!important;
+    padding-right:var(--admin-layout-gutter)!important;
+  }
+  body .admin-workspace{
+    grid-template-columns:var(--admin-sidebar-width) minmax(0,1fr)!important;
+    column-gap:var(--admin-page-gap)!important;
+  }
+  body .admin-header{
+    margin-left:calc(var(--admin-sidebar-width) + var(--admin-page-gap))!important;
+  }
+  body #adminSidebar.admin-tabs-shell{
+    left:max(var(--admin-layout-gutter),calc((100% - var(--admin-layout-max)) / 2 + var(--admin-layout-gutter)))!important;
+    width:var(--admin-sidebar-width)!important;
+  }
+}
+</style>
