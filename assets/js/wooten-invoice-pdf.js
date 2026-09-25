@@ -196,8 +196,8 @@ function buildDetail(data){
  const footer=()=>{line(48);text(data.updated,40,33,8);pages.push(ops);ops='';};
  const header=()=>{ops+='0.83 0.15 0.19 rg 40 727 30 30 re f\n';ops+='BT /F2 11 Tf 1 1 1 rg 1 0 0 1 45 738 Tm (WO) Tj ET\n';text('WOOTEN OIL CO INC.',80,752,12,true);text('Covington, Tennessee',80,734,8);wrapText(data.title||'Invoice',28,Infinity).forEach((part,i)=>rightText(part,752-i*13,12,true));if(data.number)rightText(data.number,733,16,true);rightText(String(data.meta).replace(/·/g,'-'),data.number?716:730,8);line(703,40,572,true);y=679;};
  const ensure=h=>{if(y-h<72){footer();header();}};
- header();text('Customer',40,y,9);text(data.balanceLabel||'Invoice Remaining balance',390,y,9);y-=20;
- const names=wrapText(data.customer,42,Infinity);for(let i=0;i<names.length;i++){ensure(22);text(names[i],40,y,15,true);if(i===0)text(data.balance,440,y,22,true);y-=20;}
+ header();text('Customer',40,y,9);rightText(data.balanceLabel||'Invoice Remaining balance',y,9);y-=20;
+ const names=wrapText(data.customer,42,Infinity);for(let i=0;i<names.length;i++){ensure(22);text(names[i],40,y,15,true);if(i===0)rightText(data.balance,y,22,true);y-=20;}
  text(data.account,40,y,9);y-=20;line(y);y-=24;
  function group(g,x,width){
   ensure(30);text(g.title,x,y,11,true);y-=14;
