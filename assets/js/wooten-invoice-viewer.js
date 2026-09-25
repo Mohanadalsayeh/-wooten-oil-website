@@ -82,7 +82,9 @@ async function exportPdf(){
    rows.map(r=>[r.invoice_no,r.invoice_type,r.division,date(r.invoice_date),date(r.due_date),amount(r.balance_cents/100)]),customerName||first.customer_name||rows[0]?.customer_name||'');
   if(ticket!==listSerial||!list.open||exportAbort.signal.aborted)return;
   const url=URL.createObjectURL(blob),link=document.createElement('a');
-  link.href=url;link.download='Wooten-Oil-Invoices-'+account+'.pdf';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  const dateParts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'2-digit',day:'2-digit',year:'numeric'}).formatToParts(new Date());
+  const exportDate=['month','day','year'].map(type=>dateParts.find(part=>part.type===type).value).join('');
+  link.href=url;link.download='Open-Invoices-'+account+'-'+exportDate+'.pdf';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
   message(list,'Exported '+rows.length.toLocaleString()+' invoice(s) to PDF.');
  }catch(e){if(ticket===listSerial&&e.name!=='AbortError')message(list,e.message||'Invoice PDF export failed.',true);}
  finally{if(ticket===listSerial){exporting=false;label.textContent='Export PDF';syncListControls();}}

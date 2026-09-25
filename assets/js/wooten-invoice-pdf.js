@@ -75,7 +75,7 @@
     }
     const headerLines=data.headers.map((text,index)=>wrapText(text,Math.max(3,Math.floor((widths[index]-6)/(7.5*.56))),4));
     const headerHeight=Math.max(24,Math.max(...headerLines.map(lines=>lines.length))*9+8);
-    const customerLines=data.customerName?wrapText('Customer: '+data.customerName,100,Infinity):[];
+    const customerLines=data.customerName?wrapText(data.customerName,100,Infinity):[];
     const customerHeight=customerLines.length*14;
     const tableTop=pageHeight-(data.statementLetterhead?142:72)-customerHeight;
     const printableHeight=tableTop-headerHeight-42;
