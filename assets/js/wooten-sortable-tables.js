@@ -51,6 +51,7 @@
   }
 
   function sortRows(table, columnIndex, direction) {
+    if(table.wootenSortAll)return;
     Array.from(table.tBodies).forEach(function (tbody) {
       var rows = Array.from(tbody.rows);
       if (rows.length < 2) return;
@@ -106,6 +107,11 @@
   }
 
   function applyState(table) {
+    if(table.wootenSortAll){
+      if(table.dataset.fullSortColumn!==undefined)updateHeaderState(table,Number(table.dataset.fullSortColumn),table.dataset.fullSortDirection);
+      else {tableState.delete(table);Array.from(table.querySelectorAll('th[aria-sort]')).forEach(function(th){th.setAttribute('aria-sort','none');});}
+      return;
+    }
     var state = tableState.get(table);
     if (!state || !table.isConnected) return;
     updateHeaderState(table, state.columnIndex, state.direction);
@@ -181,12 +187,16 @@
       icon.setAttribute('aria-hidden', 'true');
       button.append(labelSpan, icon);
 
-      button.addEventListener('click', function () {
-        var previous = tableState.get(table);
+      button.addEventListener('click', async function () {
+        if(table.dataset.fullSortBusy==='true'||table.getAttribute('aria-busy')==='true'||table.querySelector('tbody[aria-busy="true"]'))return;
+        var previous = table.dataset.fullSortColumn!==undefined?{columnIndex:Number(table.dataset.fullSortColumn),direction:table.dataset.fullSortDirection}:(table.wootenSortAll?undefined:tableState.get(table));
         var direction = previous && previous.columnIndex === index && previous.direction === 'ascending' ? 'descending' : 'ascending';
         tableState.set(table, { columnIndex: index, direction: direction });
         updateHeaderState(table, index, direction);
-        sortRows(table, index, direction);
+        if(table.wootenSortAll){
+          table.dataset.fullSortBusy='true';
+          try{await table.wootenSortAll(index,direction);}finally{delete table.dataset.fullSortBusy;}
+        }else sortRows(table, index, direction);
       });
       header.appendChild(button);
     });

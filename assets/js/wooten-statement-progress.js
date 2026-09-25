@@ -6,6 +6,7 @@
   const day=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')?new Date(value+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):String(value||'');
   const key=()=>document.getElementById('adminKey')?.value.trim()||'';
   let host,ids=[],snapshots=[],page=1,serial=0,busy=false,timer=0,lastFocus=null,recent=[],pendingTitle='',pendingDate='',localMessage='',sessionUser=null,exporting=false;
+  let progressSort=null;
   let preparing=false,progressUnavailable=false,tableLoading=false,skeletonRowCount=5;
   const pageSize=40,seenAuto=new Set(),openedAt=Date.now();
   const labels={queued:'Queued',sending:'Sending…',sent:'Sent successfully',accepted:'Sent to provider',delivered:'Delivered',failed:'Failed',not_selected:'Not selected',not_sent:'Not sent',test:'Test — not sent'};
@@ -30,6 +31,7 @@
       <footer class="sp-footer"><p id="sp-notice"></p><div class="sp-footer-actions"><div class="sp-pager"><button type="button" class="sp-button" data-sp-prev>Previous</button><span id="sp-page"></span><button type="button" class="sp-button" data-sp-next>Next</button></div><button type="button" class="sp-button sp-done" data-sp-close>Done</button></div></footer>
     </section>`;
     document.body.appendChild(host);
+    progressSort=WootenTableDataSort.register(host.querySelector('.sp-table'),[r=>r.row.account_name,r=>Number(r.row.total_balance)||0,r=>r.row.stage,r=>r.row.channels?.portal?.status,r=>r.row.channels?.email?.status,r=>r.row.channels?.sms?.status],()=>{page=1;render();});
     host.addEventListener('click',event=>{
       const target=event.target.closest?.('button,[data-sp-pdf]');if(!target||target.disabled)return;
       if(target.matches('[data-sp-close]')){event.preventDefault();close();return;}
@@ -74,7 +76,7 @@
   }
   function filteredRows(){
     const query=searchQuery.trim().toLowerCase();
-    return snapshots.flatMap(job=>job.rows.map(row=>({row,job}))).filter(({row})=>{
+    return progressSort.apply(snapshots.flatMap(job=>job.rows.map(row=>({row,job}))).filter(({row})=>{
       if(query&&!(String(row.account_name||'')+' Customer # '+String(row.account_number||'')).toLowerCase().includes(query))return false;
       const failed=name=>row.channels?.[name]?.status==='failed';
       const done=['complete','failed','stopped'].includes(row.stage);
@@ -90,7 +92,7 @@
         case 'pdf_pending':return !row.pdf_ready;
         default:return true;
       }
-    });
+    }));
   }
   function rowHtml(row,job){
     const channels=['portal','email','sms'].map(name=>row.channels?.[name]||{status:'queued'});

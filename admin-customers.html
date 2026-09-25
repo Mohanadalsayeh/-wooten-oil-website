@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
 <script src="/assets/js/wooten-admin-access.js?v=449"></script>
 <meta charset="utf-8">
@@ -5645,7 +5646,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 .admin-user-access-note{font-size:13px;line-height:1.5}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-statement-progress.css?v=529">
-<script src="assets/js/wooten-statement-progress.js?v=549" defer></script>
+<script src="assets/js/wooten-statement-progress.js?v=576" defer></script>
 
 <style>.schedule-option-card.schedule-email-unavailable{opacity:.55;cursor:not-allowed}.schedule-option-card.schedule-email-unavailable .schedule-option-shell{cursor:not-allowed}</style>
 <style>
@@ -6175,6 +6176,9 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   <div class="db-page-info" id="invoicePreviewPage" aria-live="polite">Page 1 of 1</div>
   <button class="secondary" id="invoicePreviewNext" type="button" disabled>Next 20</button>
  </div>
+ <p class="note payments-import-note" id="invoiceAcceptedFields">
+  <strong>Accepted MAS 90 / Access fields:</strong> ARDivisionNo, CustomerNo, InvoiceNo, InvoiceType, InvoiceDate, InvoiceDueDate, InvoiceDiscountDate, CustomerName, Balance, DiscountAmt, SalesTaxAmt, FreightAmt, CustomerPONo, SalespersonName, TermsCode, Comment.
+ </p>
 </section>
 <style>
 #invoiceImportPanel{margin-top:28px;padding-top:24px;border-top:1px solid #d6e1ec;min-width:0}
@@ -6454,7 +6458,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <div class="mas90-remote-request-mount" data-mas90-remote-request-mount="invoice-database"></div>
     <div class="admin-page-label">Invoices</div>
     <h2>Live Open Invoices Database</h2>
-    <p>View the MAS 90 invoice records currently stored in the portal. Search, filter, sort, and page through the saved invoices.</p>
+    <p>Search the saved MAS 90 invoices by customer name, customer number, or invoice number. Click a customer name or number to see all their invoices, or click an invoice number to view its details.</p>
     <div class="invoice-db-toolbar">
       <div class="db-field invoice-db-search"><label for="invoiceDbSearch">Search</label><input id="invoiceDbSearch" type="search" placeholder="Customer #, customer name, or invoice #…" autocomplete="off"></div>
       <div class="db-field"><label for="invoiceDbType">Invoice Type</label><select id="invoiceDbType"><option value="all">All types</option></select></div>
@@ -7619,7 +7623,8 @@ body #collectionsActionMenu button{pointer-events:auto!important}
   const label=value=>String(value||'unassigned').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
   const key=()=>String(get('adminKey')?.value||'').trim();
   function message(text,ok){statusBox.className=text?'status show '+(ok?'ok':'bad'):'status';statusBox.textContent=text||'';}
-  function params(){const query=new URLSearchParams({page:String(page),search:get('collectionsSearch').value.trim(),view:get('collectionsView').value,collection_status:get('collectionsStatusFilter').value,minimum:get('collectionsMinimum').value||'0',sort:get('collectionsSort').value});return query.toString();}
+  const collectionHeaderSort=WootenTableDataSort.register(body.closest('table'),['name','balance','credit','payment','plan',null],()=>load(true),get('collectionsSort'));
+  function params(){const query=new URLSearchParams({page:String(page),search:get('collectionsSearch').value.trim(),view:get('collectionsView').value,collection_status:get('collectionsStatusFilter').value,minimum:get('collectionsMinimum').value||'0',sort:collectionHeaderSort.key()||get('collectionsSort').value});return query.toString();}
   function setSummary(summary={}){get('collectionsTotalAr').textContent=money(summary.total_ar);get('collectionsPastDue').textContent=money(summary.past_due);get('collectionsOlder90').textContent=money(summary.older_90);get('collectionsCreditHolds').textContent=Number(summary.credit_holds||0).toLocaleString();get('collectionsOverLimit').textContent=Number(summary.over_limit||0).toLocaleString();get('collectionsFollowUps').textContent=Number(summary.follow_up_due||0).toLocaleString();}
   function hold(row){return ['Y','YES','TRUE','1','HOLD','ON'].includes(String(row.credit_hold||'').trim().toUpperCase());}
   function actionMenuIsOpen(){return Boolean(actionMenu&&!actionMenu.hidden);}
@@ -8780,6 +8785,7 @@ function hideAdminActionProgress(prefix){
   box.classList.remove("is-indeterminate");
   box.hidden=true;
 }
+const customerHeaderSort=WootenTableDataSort.register(document.getElementById("previewBody").closest("table"),["account_number", "account_name", "address1", "address2", "city", "state", "zip_code", "phone", "email", "statement_cycle", "current_balance", "aging_category_1", "aging_category_2", "aging_category_3", "aging_category_4"],()=>render(preparedRows,Number(document.getElementById("mRows").textContent),Number(document.getElementById("mSkipped").textContent)),document.getElementById("customerPreviewSort"));
 function customerPreviewFilteredRows(){
   const q=(document.getElementById("customerPreviewSearch")?.value||"").trim().toLowerCase();
   const state=document.getElementById("customerStateFilter")?.value||"all";
@@ -8805,7 +8811,7 @@ function customerPreviewFilteredRows(){
     if(sort==="balance_asc") return Number(a.current_balance||0)-Number(b.current_balance||0);
     return String(a.account_number).localeCompare(String(b.account_number));
   });
-  return rows;
+  return customerHeaderSort.apply(rows);
 }
 function updateCustomerPreviewFilters(){
   const sel=document.getElementById("customerStateFilter");
@@ -9165,6 +9171,7 @@ function paymentDisplayDate(value){
   return WootenTime.dateKey(d).replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$2-$3-$1');
 }
 
+const paymentHeaderSort=WootenTableDataSort.register(document.getElementById("paymentPreviewBody").closest("table"),["deposit_date", "deposit_no", "deposit_type", "account_number", "check_no", "posting_date", "customer_name", "invoice_no", "cash_amount_applied", "discount_amount_applied"],()=>renderPaymentPreview(preparedPaymentRows,Number(document.getElementById("pmRows").textContent),Number(document.getElementById("pmSkipped").textContent)),document.getElementById("paymentPreviewSort"));
 function paymentPreviewFilteredRows(){
   const q=(document.getElementById("paymentPreviewSearch")?.value||"").trim().toLowerCase();
   const depType=document.getElementById("paymentDepositTypeFilter")?.value||"all";
@@ -9187,7 +9194,7 @@ function paymentPreviewFilteredRows(){
     if(sort==="amount_asc") return Number(a.cash_amount_applied||0)-Number(b.cash_amount_applied||0);
     return String(b.posting_date||b.deposit_date).localeCompare(String(a.posting_date||a.deposit_date));
   });
-  return rows;
+  return paymentHeaderSort.apply(rows);
 }
 function updatePaymentPreviewFilters(){
   const sel=document.getElementById("paymentDepositTypeFilter");if(!sel)return;
@@ -9426,6 +9433,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     status.className="status show "+(good?"ok":"bad");
     status.textContent=message;
   }
+  const headerSort=WootenTableDataSort.register(tbody.closest('table'),['deposit_date','deposit_no','deposit_type','customer','check','posting','customer_name','invoice_no','amount','discount_amount'],()=>{page=1;return loadPayments();},sort);
   function buildUrl(){
     const params=new URLSearchParams({
       page:String(page),
@@ -9435,7 +9443,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       date_from:fromDate.value,
       date_to:toDate.value,
       amount:amountFilter.value,
-      sort:sort.value
+      sort:headerSort.key()||sort.value
     });
     return "/api/admin/customer-payments-database?"+params.toString();
   }
@@ -9706,6 +9714,7 @@ let inboxMessages=[];
 let inboxPage=1;
 const inboxPageSize=20;
 
+const inboxHeaderSort=WootenTableDataSort.register(document.getElementById('inboxBody').closest('table'),['customer_name','account_number','type',r=>Date.parse(r.date)||0,'subject','from','customer_email','snippet'],()=>{inboxPage=1;renderInboxMessages();},document.getElementById('inboxSort'));
 function renderInboxMessages(){
   const body=document.getElementById("inboxBody");
   const wrap=document.getElementById("inboxTableWrap");
@@ -9720,7 +9729,7 @@ function renderInboxMessages(){
 
   const sortBy=document.getElementById("inboxSort")?.value||"newest";
 
-  const filtered=inboxMessages.filter(message=>{
+  let filtered=inboxMessages.filter(message=>{
     if(typeFilter && message.type!==typeFilter) return false;
     if(!search) return true;
 
@@ -9769,6 +9778,7 @@ function renderInboxMessages(){
     }
   });
 
+  filtered=inboxHeaderSort.apply(filtered);
   const pageCount=Math.max(1,Math.ceil(filtered.length/inboxPageSize));
   inboxPage=Math.min(inboxPage,pageCount);
   const pageStart=(inboxPage-1)*inboxPageSize;
@@ -10238,12 +10248,18 @@ function renderTwilioResults(data){
   if(!twilioPhoneTools.results)return;
   if(!rows.length){twilioPhoneTools.results.innerHTML='<div class="schedule-empty">No matching phone records.</div>';return;}
   twilioPhoneTools.results.innerHTML='<table class="twilio-lookup-table" data-pdf-table-name="Twilio Phone Validation"><thead><tr><th>Customer</th><th>Phone</th><th>Status</th><th>SMS Capability</th><th>Checked</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+twilioEsc(r.account_number||'')+'</b><br><span class="twilio-muted">'+twilioEsc(r.account_name||'')+'</span></td><td>'+twilioEsc(r.national_format||r.customer_phone||r.normalized_phone||r.raw_phone||'—')+'</td><td>'+twilioResultStatusMarkup(r.valid,r.error_code)+'</td><td>'+twilioSmsCapabilityMarkup(r)+'</td><td>'+twilioEsc(r.checked_at||'—')+'</td><td>'+twilioSmsVerifyActionMarkup(r)+'</td></tr>').join('')+'</tbody></table>';
+  const table=twilioPhoneTools.results.querySelector('table');
+  const adapter=WootenTableDataSort.register(table,['customer','phone','status','capability','checked',null],()=>{
+    twilioResultsState.sort=adapter.key();twilioResultsState.sortColumn=adapter.column();twilioResultsState.sortDirection=adapter.direction();twilioResultsState.page=1;return loadTwilioResults();
+  });
+  if(twilioResultsState.sort)adapter.restore(twilioResultsState.sortColumn,twilioResultsState.sortDirection);
+
 }
 async function loadTwilioResults(){
   if(!twilioResultsState.group||!twilioPhoneTools.panel)return;
   twilioPhoneTools.panel.hidden=false;
   if(twilioPhoneTools.results)twilioPhoneTools.results.innerHTML='<div class="schedule-empty">Loading phone records…</div>';
-  const params=new URLSearchParams({group:twilioResultsState.group,page:String(twilioResultsState.page),q:twilioResultsState.search});
+  const params=new URLSearchParams({group:twilioResultsState.group,page:String(twilioResultsState.page),q:twilioResultsState.search,sort:twilioResultsState.sort||''});
   try{
     const res=await fetch('/api/admin/twilio/phone-tools/results?'+params.toString(),{headers:twilioAdminHeaders(),cache:'no-store'});
     const data=await res.json().catch(()=>({}));
@@ -10703,6 +10719,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     status.textContent=message;
   }
 
+  const headerSort=WootenTableDataSort.register(tbody.closest('table'),['account',null,'name','email','phone','balance','status','online'],()=>{page=1;return loadDatabase();},sort);
   function buildUrl(){
     const params=new URLSearchParams({
       page:String(page),
@@ -10712,7 +10729,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
       phone:phoneFilter.value,
       online:onlineFilter.value,
       status:statusFilter.value,
-      sort:sort.value
+      sort:headerSort.key()||sort.value
     });
     return "/api/admin/customers-database?"+params.toString();
   }
@@ -13524,7 +13541,8 @@ g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPag
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
   function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';if(!q)return auditEntries;return auditEntries.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=String(row.action_type||'').replaceAll('_',' '),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
-  function renderAuditPage(){const filtered=filteredAuditEntries(),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
+  function renderAuditPage(){const filtered=auditHeaderSort.apply(filteredAuditEntries()),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
+  const auditHeaderSort=WootenTableDataSort.register(auditBody.closest('table'),[r=>Date.parse(r.created_at)||0,'actor_name',r=>String(r.action_type||'').replaceAll('_',' '),r=>r.detail||r.target_id||''],()=>{auditPage=1;renderAuditPage();});
   function renderAudit(entries){auditEntries=Array.isArray(entries)?entries:[];auditPage=1;renderAuditPage();}
   auditPrev.wootenGoToPage = target => { auditPage=target;renderAuditPage(); };
 auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAuditPage();}});
@@ -15233,14 +15251,16 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=543"></script>
+<script src="assets/js/admin-payment-transactions.js?v=576"></script>
 <link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=447">
 
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
-<script src="assets/js/wooten-invoice-import.js?v=570"></script>
-<script src="assets/js/wooten-invoice-database.js?v=557"></script>
+<script src="assets/js/wooten-invoice-import.js?v=576"></script>
+<link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=575">
+<script src="assets/js/wooten-invoice-viewer.js?v=576"></script>
+<script src="assets/js/wooten-invoice-database.js?v=575"></script>
 </body>
 </html>
 
@@ -16764,7 +16784,7 @@ html,body{
       if(sortBy==='subject')return textValue(a.subject).localeCompare(textValue(b.subject));
       return dateValue(b)-dateValue(a);
     });
-    return rows;
+    return inboxHeaderSort.apply(rows);
   }
 
   async function allTableData(table,onProgress){
@@ -16792,7 +16812,7 @@ html,body{
     }
     if(title==='Live Customer Database'){
       const rows=await fetchEveryPage('/api/admin/customers-database',{
-        search:value('dbSearch').trim(),email:value('dbEmailFilter','all'),phone:value('dbPhoneFilter','all'),online:value('dbOnlineFilter','all'),status:value('dbStatusFilter','all'),sort:value('dbSort','account_asc')
+        search:value('dbSearch').trim(),email:value('dbEmailFilter','all'),phone:value('dbPhoneFilter','all'),online:value('dbOnlineFilter','all'),status:value('dbStatusFilter','all'),sort:WootenTableDataSort.get(table)?.key()||value('dbSort','account_asc')
       },'customers',onProgress);
       return normalizedData(
         ['Customer #','Contact','Customer / Company','Email','Phone','Total Balance','Status','Online Account'],
@@ -16808,7 +16828,7 @@ html,body{
     }
     if(title==='Live Customer Payments Database'){
       const rows=await fetchEveryPage('/api/admin/customer-payments-database',{
-        search:value('livePaymentSearch').trim(),deposit_type:value('livePaymentDepositType','all'),date_from:value('livePaymentFromDate'),date_to:value('livePaymentToDate'),amount:value('livePaymentAmountFilter','all'),sort:value('livePaymentSort','posting_desc')
+        search:value('livePaymentSearch').trim(),deposit_type:value('livePaymentDepositType','all'),date_from:value('livePaymentFromDate'),date_to:value('livePaymentToDate'),amount:value('livePaymentAmountFilter','all'),sort:WootenTableDataSort.get(table)?.key()||value('livePaymentSort','posting_desc')
       },'payments',onProgress);
       return normalizedData(
         ['Deposit Date','Deposit No','Deposit Type','Customer No','Check No','Posting Date','Customer Name','Invoice No','Cash Amount Applied','Discount Amount Applied'],
@@ -16840,10 +16860,10 @@ html,body{
         fields.all=[...fields.date,...fields.admin,...fields.action,...fields.details];
         return (fields[filter]||fields.all).some(item=>String(item||'').toLowerCase().includes(query));
       });
-      return normalizedData(['Date','Admin','Action','Details'],rows.map(row=>[WootenTime.dateTime(row.created_at||''),row.actor_name,String(row.action_type||'').replaceAll('_',' '),row.detail||row.target_id||'-']));
+      return normalizedData(['Date','Admin','Action','Details'],(WootenTableDataSort.get(table)?.apply(rows)||rows).map(row=>[WootenTime.dateTime(row.created_at||''),row.actor_name,String(row.action_type||'').replaceAll('_',' '),row.detail||row.target_id||'-']));
     }
     if(title==='Twilio Phone Validation'&&typeof twilioResultsState!=='undefined'){
-      const rows=await fetchEveryPage('/api/admin/twilio/phone-tools/results',{group:twilioResultsState.group||'all',q:twilioResultsState.search||''},'results',onProgress);
+      const rows=await fetchEveryPage('/api/admin/twilio/phone-tools/results',{group:twilioResultsState.group||'all',q:twilioResultsState.search||'',sort:twilioResultsState.sort||''},'results',onProgress);
       return normalizedData(
         ['Customer','Phone','Status','SMS Capability','Checked'],
         rows.map(row=>{
@@ -17520,8 +17540,9 @@ table tbody tr.admin-audit-skeleton:focus-within>td{
     return new Promise(resolve=>{authorizationResolve=resolve;});
   }
   async function api(url,options={}){const response=await fetch(url,{...options,headers:{...(options.headers||{}),'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store'});if(options.download)return response;const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}if(!response.ok||data.success===false){let detail=data.error||'';if(!detail&&raw&&!/^\s*</.test(raw))detail=raw.slice(0,240);if(!detail&&response.status>=500)detail='Cloudflare stopped the backup before it completed. Deploy the latest worker.js and try again.';throw new Error(detail||'The database backup request failed.');}return data;}
+  const backupHeaderSort=WootenTableDataSort.register(rowsEl.closest('table'),['created_at',r=>r.source==='automatic'?'Automatic':'Manual','created_by','table_count','total_rows','stored_bytes',null],()=>{if(!busy){page=1;render();}});
   function render(){
-    const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backups.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+    const pages=Math.max(1,Math.ceil(backups.length/PAGE_SIZE));page=Math.min(page,pages);const shown=backupHeaderSort.apply(backups).slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
     const table=rowsEl.closest('table');if(table){table.dataset.pdfEmpty=shown.length?'false':'true';table.setAttribute('aria-busy','false');}
     rowsEl.innerHTML=shown.length?shown.map(item=>'<tr><td data-label="Date">'+esc(formatDate(item.created_at))+'</td><td data-label="Type">'+esc(item.source==='automatic'?'Automatic':'Manual')+'</td><td data-label="Created By">'+esc(item.created_by||'Wooten Oil Admin')+'</td><td data-label="Tables">'+Number(item.table_count||0).toLocaleString()+'</td><td data-label="Rows">'+Number(item.total_rows||0).toLocaleString()+'</td><td data-label="File Size">'+esc(formatBytes(item.stored_bytes))+'</td><td data-label="Action"><div class="portal-backup-row-actions"><button class="secondary portal-backup-download" type="button" data-backup-key="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Download</button><button class="portal-backup-restore" type="button" data-backup-restore="'+esc(item.key)+'" data-backup-filename="'+esc(item.filename)+'">Restore</button></div></td></tr>').join(''):'<tr><td colspan="7" class="portal-backup-empty">No portal database backups are available yet.</td></tr>';
     pagination.hidden=backups.length<=PAGE_SIZE;prev.disabled=page<=1;next.disabled=page>=pages;pageInfo.textContent='Page '+page+' of '+pages+' • '+backups.length+' backup'+(backups.length===1?'':'s');latestBtn.disabled=busy||!backups.length;
@@ -17853,7 +17874,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
   overflow-wrap:normal!important;
 }
 </style>
-<script src="assets/js/wooten-sortable-tables.js?v=20260914-3"></script>
+<script src="assets/js/wooten-sortable-tables.js?v=576"></script>
 <link rel="stylesheet" href="assets/css/wooten-communication-tree-arrow.css?v=20260914-1">
 <link rel="stylesheet" href="assets/css/wooten-application-tree-arrow.css?v=20260914-2">
 <style id="wooten-customer-activity-pagination-range-fix-ver445">
@@ -17896,7 +17917,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 </style>
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
-<script src="assets/js/wooten-fleet.js?v=533"></script>
+<script src="assets/js/wooten-fleet.js?v=576"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}

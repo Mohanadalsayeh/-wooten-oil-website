@@ -114,6 +114,13 @@ export async function handle({request,env,ensureSchema,ensureImportedSchema,ensu
     const q=String(params.get('q')||'').trim();if(q.length>160)invalid('Keep searches under 160 characters.');
     if(q){predicates.push("(account_number LIKE ? ESCAPE '\\' OR account_name LIKE ? ESCAPE '\\' OR provider_reference LIKE ? ESCAPE '\\' OR provider_transaction_id LIKE ? ESCAPE '\\' OR id LIKE ? ESCAPE '\\' OR card_last4 LIKE ? ESCAPE '\\')");const pattern='%'+q.replace(/[\\%_]/g,'\\$&')+'%';args.push(...Array(6).fill(pattern));}
     const orders={newest:'julianday(created_at) DESC,ledger_row DESC',oldest:'julianday(created_at) ASC,ledger_row ASC',amount_high:'amount_cents DESC,ledger_row DESC',amount_low:'amount_cents ASC,ledger_row ASC'};
+    // Only fixed SQL expressions are accepted; sort the complete filtered ledger before pagination.
+    const headerFields={created:'julianday(created_at)',customer:'account_name COLLATE NOCASE',amount:'amount_cents',
+      status:"CASE status WHEN 'canceled' THEN 'Cancel' WHEN 'review' THEN 'Review needed' ELSE status END COLLATE NOCASE",
+      environment:"CASE environment WHEN 'production' THEN 'Live' WHEN 'sandbox' THEN 'Sandbox test' ELSE 'Unknown' END COLLATE NOCASE",
+      provider:"CASE provider WHEN 'globalpayments' THEN 'Global Payments' WHEN 'heartland' THEN 'Heartland' ELSE 'Unknown' END COLLATE NOCASE",
+      reference:"COALESCE(NULLIF(provider_reference,''),id) COLLATE NOCASE"};
+    for(const [field,expression] of Object.entries(headerFields))for(const direction of ['asc','desc'])orders[field+'_'+direction]=expression+' '+direction.toUpperCase()+',ledger_row '+direction.toUpperCase();
     const sort=params.get('sort')||'newest';if(!Object.hasOwn(orders,sort))invalid('Invalid sorting option.');
     let snapshot=params.get('snapshot');
     if(snapshot!==null&&(!/^\d+$/.test(snapshot)||!Number.isSafeInteger(Number(snapshot))))invalid('Invalid export snapshot.');

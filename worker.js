@@ -1,4 +1,9 @@
+function tableColumnOrder(value,fields,fallback,tie){
+  const m=String(value||'').match(/^(.*)_(asc|desc)$/);
+  return m&&Object.hasOwn(fields,m[1])?fields[m[1]]+' '+m[2].toUpperCase()+(tie?', '+tie:''):(typeof fallback==='string'?fallback:tie||'1');
+}
 import * as OpenInvoices from './assets/js/wooten-invoices-server.mjs';
+import {readInvoices} from './assets/js/wooten-invoice-view-server.mjs';
 import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
@@ -7021,7 +7026,11 @@ async function adminTwilioPhoneResultsGet({request,env}){
     const pages=Math.max(1,Math.ceil(total/pageSize));
     const safePage=Math.min(page,pages);
     const offset=(safePage-1)*pageSize;
-    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at,v.phone_e164 AS sms_verification_phone,v.sms_sid AS sms_verification_sid,v.status AS sms_verification_status,v.error_code AS sms_verification_error_code,v.error_message AS sms_verification_error_message,v.sent_at AS sms_verification_sent_at,v.delivered_at AS sms_verification_delivered_at,v.updated_at AS sms_verification_updated_at FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) LEFT JOIN twilio_sms_verification v ON v.account_number=c.account_number WHERE ${where.join(" AND ")} ORDER BY CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number LIMIT ? OFFSET ?`;
+    const digits=column=>{const d="replace(replace(replace(replace(replace(replace(trim(COALESCE("+column+",'')),'(',''),')',''),'-',''),' ',''),'.',''),'+','')";return "(CASE WHEN length("+d+")=11 AND substr("+d+",1,1)='1' THEN substr("+d+",2) ELSE "+d+" END)";};
+    const currentPhone=digits('c.phone'),lookupPhone=digits('l.normalized_phone'),verifiedPhone=digits('v.phone_e164');
+    const capability="CASE WHEN "+currentPhone+"='' OR "+lookupPhone+"='' OR "+currentPhone+"<>"+lookupPhone+" THEN 'Phone changed — recheck' WHEN COALESCE(l.valid,0)<>1 THEN 'Not SMS verified' WHEN "+currentPhone+"="+verifiedPhone+" AND lower(trim(v.status))='delivered' THEN 'SMS verified — delivered' WHEN lower(trim(l.line_type))='mobile' THEN 'SMS ready — saved mobile classification' WHEN "+currentPhone+"="+verifiedPhone+" AND lower(trim(v.status))='pending' THEN 'Verification pending' WHEN "+currentPhone+"="+verifiedPhone+" AND lower(trim(v.status)) IN ('failed','opted_out') THEN 'SMS verification failed' ELSE 'Valid number — SMS not verified' END";
+    const orderSql=tableColumnOrder(url.searchParams.get('sort'),{customer:'c.account_number',phone:currentPhone,status:"CASE WHEN l.valid IS NULL THEN 'Not checked' WHEN l.valid=1 THEN 'Valid' WHEN l.valid=0 THEN 'Invalid' ELSE 'Lookup Error' END",capability,checked:'datetime(l.checked_at)'},'CASE WHEN l.checked_at IS NULL THEN 1 ELSE 0 END,datetime(l.checked_at) DESC,c.account_number','c.account_number ASC');
+    const listSql=`SELECT c.account_number,c.account_name,c.phone AS customer_phone,l.raw_phone,l.normalized_phone,l.national_format,l.valid,l.line_type,l.carrier_name,l.error_code,l.checked_at,v.phone_e164 AS sms_verification_phone,v.sms_sid AS sms_verification_sid,v.status AS sms_verification_status,v.error_code AS sms_verification_error_code,v.error_message AS sms_verification_error_message,v.sent_at AS sms_verification_sent_at,v.delivered_at AS sms_verification_delivered_at,v.updated_at AS sms_verification_updated_at FROM customers c LEFT JOIN twilio_phone_lookup_cache l ON l.account_number=c.account_number AND trim(COALESCE(l.raw_phone,''))=trim(COALESCE(c.phone,'')) LEFT JOIN twilio_sms_verification v ON v.account_number=c.account_number WHERE ${where.join(" AND ")} ORDER BY ${orderSql} LIMIT ? OFFSET ?`;
     const listParams=[...params,pageSize,offset];
     const rows=await env.DB.prepare(listSql).bind(...listParams).all();
     return notificationJson({success:true,group,q,page:safePage,page_size:pageSize,pages,total,results:rows?.results||[]});
@@ -8829,7 +8838,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
       where.push(`account_status IS NOT NULL AND trim(account_status) <> '' AND lower(trim(account_status)) <> 'active'`);
     }
 
-    const sortSql = {
+    const sortSql = tableColumnOrder(sort,{email:"email COLLATE NOCASE",phone:"phone COLLATE NOCASE",status:"COALESCE(NULLIF(account_status,''),'active') COLLATE NOCASE",online:"online_activated"},{
       account_asc: "account_number ASC",
       account_desc: "account_number DESC",
       name_asc: "account_name COLLATE NOCASE ASC, account_number ASC",
@@ -8837,7 +8846,7 @@ async function adminCustomersDatabaseGet({ request, env }) {
       balance_desc: "(COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)) DESC, account_number ASC",
       balance_asc: "(COALESCE(current_balance,0)+COALESCE(aging_category_1,0)+COALESCE(aging_category_2,0)+COALESCE(aging_category_3,0)+COALESCE(aging_category_4,0)) ASC, account_number ASC",
       updated_desc: "datetime(updated_at) DESC, account_number ASC"
-    }[sort] || "account_number ASC";
+    }[sort] || "account_number ASC","account_number ASC");
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -8958,7 +8967,7 @@ async function adminCustomerPaymentsDatabaseGet({request,env}){
     else if(amount==="zero") where.push(`ABS(COALESCE(amount,0))<0.005`);
     else if(amount==="negative") where.push(`COALESCE(amount,0)<0`);
 
-    const sortSql={
+    const sortSql=tableColumnOrder(sort,{deposit_date:"deposit_date",deposit_no:"deposit_no COLLATE NOCASE",deposit_type:"deposit_type COLLATE NOCASE",check:"reference COLLATE NOCASE",customer_name:"customer_name COLLATE NOCASE",invoice_no:"source_invoice_no COLLATE NOCASE",discount_amount:"COALESCE(discount_amount,0)"},{
       posting_desc:`COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`,
       posting_asc:`COALESCE(NULLIF(posting_date,''),payment_date) ASC,id ASC`,
       customer_asc:`account_number ASC,COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`,
@@ -8966,7 +8975,7 @@ async function adminCustomerPaymentsDatabaseGet({request,env}){
       amount_desc:`COALESCE(amount,0) DESC,id DESC`,
       amount_asc:`COALESCE(amount,0) ASC,id ASC`,
       check_asc:`reference COLLATE NOCASE ASC,id ASC`
-    }[sort]||`COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`;
+    }[sort]||`COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC`,"id ASC");
 
     const whereSql=where.length?`WHERE ${where.join(" AND ")}`:"";
 
@@ -11294,14 +11303,14 @@ async function adminCreditCollections({request,env}){
       if(collectionStatus==="unassigned")where.push("(cc.collection_status IS NULL OR trim(cc.collection_status)='' OR cc.collection_status='unassigned')");
       else{where.push("cc.collection_status=?");args.push(collectionStatus);}
     }
-    const orderSql={
+    const orderSql=tableColumnOrder(sort,{name:"c.account_name COLLATE NOCASE",balance:totalExpr,credit:"COALESCE(c.credit_limit,0)",payment:"last_payment_amount",plan:"COALESCE(NULLIF(cc.collection_status,''),'unassigned') COLLATE NOCASE"},{
       balance_desc:totalExpr+" DESC,c.account_number",
       past_due_desc:pastDueExpr+" DESC,"+totalExpr+" DESC,c.account_number",
       oldest_desc:"COALESCE(c.aging_category_4,0) DESC,"+older90Expr+" DESC,"+totalExpr+" DESC,c.account_number",
       name_asc:"c.account_name COLLATE NOCASE,c.account_number",
       follow_up_asc:"CASE WHEN trim(COALESCE(cc.follow_up_date,''))='' THEN 1 ELSE 0 END,date(cc.follow_up_date),"+totalExpr+" DESC",
       risk_desc:"CASE WHEN "+holdExpr+" THEN 1 ELSE 0 END DESC,CASE WHEN COALESCE(c.credit_limit,0)>0 AND "+totalExpr+">COALESCE(c.credit_limit,0) THEN 1 ELSE 0 END DESC,COALESCE(c.aging_category_4,0) DESC,"+older90Expr+" DESC,"+totalExpr+" DESC"
-    }[sort]||totalExpr+" DESC,c.account_number";
+    }[sort]||totalExpr+" DESC,c.account_number","c.account_number ASC");
     const joins=" LEFT JOIN admin_collection_accounts cc ON cc.account_number=c.account_number ";
     const whereSql=" WHERE "+where.join(" AND ");
     const count=await env.DB.prepare("SELECT COUNT(*) AS total FROM customers c"+joins+whereSql).bind(...args).first();
@@ -11417,6 +11426,7 @@ function adminGeneralAuditDescriptor(request){
 }
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
+  if(path==="/api/admin/open-invoices")return "database";
   if(path.startsWith("/api/admin/fleet/"))return "fleet_cards";
   if(path.startsWith("/api/admin/payment-transactions"))return "payment_transactions";
   if(path.startsWith("/api/admin/audit"))return "admin_activity";
@@ -12397,6 +12407,7 @@ var worker_default = {
     }
     if(url.pathname.startsWith("/api/intevacon-agent/"))return IntevaconFleet.handle({request,env});
     if(url.pathname==="/api/customer/fleet")return IntevaconFleet.handle({request,env,customer:await getCustomerFromSession(request,env)});
+    if(url.pathname==="/api/customer/open-invoices")return readInvoices({request,env,customer:await getCustomerFromSession(request,env)});
     let adminActor=null;
     if(url.pathname.startsWith("/api/admin/")){
       const authorization=await adminAuthorizeRequest(request,env,url.pathname);
@@ -12405,6 +12416,7 @@ var worker_default = {
       adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
+    if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/"))return IntevaconFleet.handle({request,env,actor:adminActor,audit:(action,id)=>adminAudit(env,request,action,"fleet_device",id,"Intevacon sync credential")});
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});

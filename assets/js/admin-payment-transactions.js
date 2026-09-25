@@ -10,6 +10,7 @@
   const filterIds={posting:'ptPosting',q:'ptSearch',status:'ptStatus',environment:'ptEnvironment',provider:'ptProvider',from:'ptFrom',to:'ptTo',min_amount:'ptMinAmount',max_amount:'ptMaxAmount',sort:'ptSort'};
   let page=1,pages=1,total=0,applied=new URLSearchParams(),loaded=false,busy=false,exporting=false;
   let sequence=0,detailSequence=0,activeId='',current=null,detailLoading=false,opener=null,oldOverflow='',searchTimer;
+  const headerSort=window.WootenTableDataSort.register(body.closest('table'),['created','customer','amount','status','environment','provider','reference'],()=>load(1,applied),get('ptSort'));
   const controllers=new Set();
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const credential=()=>String(get('adminKey')?.value||'').trim();
@@ -31,7 +32,7 @@
     return note;
   }
   function title(row){if(row.source==='mas90')return 'Payment Receipt';return row.status==='approved'?(row.environment==='sandbox'?'Sandbox Payment Confirmation':row.environment==='production'?'Payment Receipt':'Payment Transaction'):'Payment Status Record';}
-  function filterParams(){const p=new URLSearchParams();for(const [key,id] of Object.entries(filterIds)){const value=get(id).value.trim();if(value)p.set(key,value);}return p;}
+  function filterParams(){const p=new URLSearchParams();for(const [key,id] of Object.entries(filterIds)){const value=get(id).value.trim();if(value)p.set(key,value);}if(headerSort.active())p.set('sort',headerSort.key());return p;}
   function message(text,tone='info'){const el=get('ptMessage');el.textContent=text;el.dataset.tone=tone;el.hidden=!text;}
   function controls(){
     const locked=busy||exporting||!permitted();
@@ -72,7 +73,7 @@
   async function load(nextPage=1,filters=applied){
     if(!permitted()||exporting)return;
     clearTimeout(searchTimer);
-    const token=++sequence;busy=true;applied=new URLSearchParams(filters);controls();message('');skeleton();
+    const token=++sequence;busy=true;applied=new URLSearchParams(filters);if(headerSort.active())applied.set('sort',headerSort.key());controls();message('');skeleton();
     const params=new URLSearchParams(applied);params.set('page',String(nextPage));params.set('page_size','20');
     try{const data=await api(endpoint+'?'+params);if(token!==sequence)return;render(data);loaded=true;}
     catch(error){if(token!==sequence)return;total=0;loaded=false;body.removeAttribute('aria-busy');body.innerHTML='<tr><td colspan="7" class="pt-empty">Transactions could not be loaded.</td></tr>';get('ptCount').textContent='Unable to load transactions';get('ptSummary').innerHTML='';message(error.message,'bad');}
@@ -232,7 +233,7 @@
   form.addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchTimer);load(1,filterParams());});
   get('ptSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>load(1,filterParams()),450);});
   form.addEventListener('change',event=>{if(event.target.id!=='ptSearch')load(1,filterParams());});
-  get('ptReset').addEventListener('click',()=>{clearTimeout(searchTimer);form.reset();load(1,filterParams());});
+  get('ptReset').addEventListener('click',()=>{clearTimeout(searchTimer);headerSort.clear();form.reset();load(1,filterParams());});
   get('ptRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('ptRefresh'),()=>load(1,filterParams())).finally(controls));
   get('ptPrev').wootenGoToPage=target=>load(target);
   get('ptPrev').addEventListener('click',()=>load(page-1));get('ptNext').addEventListener('click',()=>load(page+1));
@@ -287,7 +288,7 @@
   function show(){if(!panel.hidden&&!loaded&&!busy&&permitted())load(1,filterParams());}
   new MutationObserver(show).observe(panel,{attributes:true,attributeFilter:['hidden']});
   window.addEventListener('wooten-admin-auth-changed',()=>{
-    sequence++;detailSequence++;controllers.forEach(c=>c.abort());clearTimeout(searchTimer);closeDetail();loaded=false;busy=false;exporting=false;total=0;page=1;pages=1;form.reset();applied=new URLSearchParams();
+    sequence++;detailSequence++;controllers.forEach(c=>c.abort());clearTimeout(searchTimer);closeDetail();loaded=false;busy=false;exporting=false;total=0;page=1;pages=1;headerSort.clear();form.reset();applied=new URLSearchParams();
     body.innerHTML='<tr><td colspan="7" class="pt-empty">Open Payment Transactions to load records.</td></tr>';get('ptSummary').innerHTML='';get('ptCount').textContent='Transactions have not been loaded.';get('ptPage').textContent='Page 1 of 1';get('ptExportProgress').hidden=true;message('');controls();show();
   });
   controls();show();

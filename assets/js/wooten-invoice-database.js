@@ -1,4 +1,4 @@
-/* Ver557: independent, read-only live invoice database. */
+/* Ver575: live invoice lookup with customer and invoice drill-down. */
 (()=>{
   const get=id=>document.getElementById(id), panel=get('admin-tab-invoice-database');
   if(!panel)return;
@@ -28,7 +28,14 @@
     for(const row of rows){
       const tr=tbody.insertRow();
       [row.account_number,row.customer_name||'—',row.invoice_no,row.invoice_type,date(row.invoice_date),date(row.due_date),money.format(row.balance_cents/100)].forEach((value,index)=>{
-        const td=tr.insertCell();td.textContent=value??'';if(index===6)td.className='money';
+        const td=tr.insertCell();
+        if(index<3){
+          const link=document.createElement('button');link.type='button';link.className='iv-link';link.textContent=value??'';
+          link.setAttribute('aria-label',index===2?'View invoice '+row.invoice_no:'View all invoices for '+(row.customer_name||row.account_number));
+          link.addEventListener('click',()=>{if(index===2)window.WootenInvoiceViewer.openInvoice(row,link);else window.WootenInvoiceViewer.openCustomer(row,link);});
+          td.append(link);
+        }else td.textContent=value??'';
+        if(index===6)td.className='money';
       });
     }
   }
@@ -54,7 +61,7 @@
     lock(true);skeleton();get('invoiceDbMeta').hidden=true;get('invoiceDbPagination').hidden=true;
     status('Loading saved invoices…');
     try{
-      const response=await fetch('/api/admin/open-invoices-import?'+new URLSearchParams({...current,page,page_size:20}),{headers:{'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store',signal:controller.signal});
+      const response=await fetch('/api/admin/open-invoices?'+new URLSearchParams({...current,page,page_size:20}),{headers:{'X-Admin-Key':key(),'Accept':'application/json'},cache:'no-store',signal:controller.signal});
       const data=await response.json();
       if(requestSerial!==serial)return;
       if(!response.ok||!data.success)throw Error(data.error||'Invoices could not be loaded.');

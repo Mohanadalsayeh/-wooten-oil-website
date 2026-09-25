@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
   <!-- Wooten Oil modular build: CSS/JS moved into /assets.
        Emergency rollback file: index-stage1-backup.html -->
@@ -620,6 +621,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           <span><strong>Payment History</strong><small>View your recent customer payments</small></span>
         </button>
         <button type="button" class="dashboard-action dashboard-action-fleet" id="dashboardFleet"><span class="dashboard-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span><span><strong>Fleet Cards &amp; Transactions</strong><small>View your cards and fuel activity</small></span></button>
+        <button type="button" class="dashboard-action dashboard-action-payments" id="dashboardInvoices">
+          <span class="dashboard-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></span>
+          <span><strong>Open Invoices</strong><small>View invoice balances, dates, and details</small></span>
+        </button>
         <button type="button" class="dashboard-action dashboard-action-documents" id="dashboardDocuments">
           <span class="dashboard-action-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>
@@ -3995,7 +4000,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       </div>
       <div class="payment-receipt-amount"><span id="paymentReceiptAmountLabel">Amount</span><strong id="paymentReceiptAmount">$0.00</strong></div>
       <div class="payment-receipt-detail-title">Payment details</div>
-      <table class="payment-receipt-table">
+      <table class="payment-receipt-table" data-no-column-sort>
         <thead><tr><th>Applied invoice</th><th id="paymentReceiptReferenceLabel">Reference</th><th>Deposit no.</th><th>Deposit date</th><th id="paymentReceiptPostingLabel">Posting date</th></tr></thead>
         <tbody><tr>
           <td id="paymentReceiptInvoice" data-label="Applied invoice">—</td>
@@ -5190,16 +5195,18 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 }
 </style>
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-5">
-<script src="assets/js/wooten-sortable-tables.js?v=20260914-3"></script>
+<script src="assets/js/wooten-sortable-tables.js?v=576"></script>
 </html>
 
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-contact-layout.css?v=448">
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=491">
-<script src="assets/js/wooten-fleet.js?v=488"></script>
+<script src="assets/js/wooten-fleet.js?v=576"></script>
 
 <link rel="stylesheet" href="assets/css/wooten-search-icons.css?v=531">
 
 <link rel="stylesheet" href="assets/css/wooten-password-visibility.css?v=544">
 <script src="assets/js/wooten-password-visibility.js?v=544"></script>
+<link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=575">
+<script src="assets/js/wooten-invoice-viewer.js?v=576"></script>

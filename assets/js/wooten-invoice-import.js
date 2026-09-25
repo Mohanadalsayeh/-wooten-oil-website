@@ -3,6 +3,7 @@ const get=id=>document.getElementById(id),panel=get('invoiceImportPanel');if(!pa
 let rows=[],previewFile=null,busy=false,cancel=false,runId='';
 let previewRows=[],previewMatches=[],previewPage=1,previewPages=1,searchTimer;
 const previewPageSize=20;
+const headerSort=WootenTableDataSort.register(get('invoicePreviewTable'),['account_number','customer_name','invoice_no','invoice_type','invoice_date','due_date','balance'],()=>{if(!busy&&previewFile)renderPreview();},get('invoicePreviewSort'));
 const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 const text=value=>String(value??'').trim();
 const dateKey=value=>value instanceof Date?(Number.isFinite(value.getTime())?value.toISOString().slice(0,10):''):text(value).slice(0,10);
@@ -28,7 +29,7 @@ async function preparePreview(source){
 function filteredRows(){
   const query=get('invoicePreviewSearch').value.trim().toLowerCase(),type=get('invoicePreviewType').value;
   const balance=get('invoicePreviewBalance').value,sort=get('invoicePreviewSort').value;
-  return previewRows.filter(row=>{
+  return headerSort.apply(previewRows.filter(row=>{
     if(query&&!row.searchText.includes(query))return false;
     if(type!=='all'&&row.invoice_type!==type)return false;
     if(balance==='positive'&&!(row.balance>0))return false;
@@ -42,7 +43,7 @@ function filteredRows(){
     if(sort==='balance_asc')return (Number.isFinite(a.balance)?a.balance:0)-(Number.isFinite(b.balance)?b.balance:0);
     if(sort==='invoice_asc')return a.invoice_date.localeCompare(b.invoice_date);
     return b.invoice_date.localeCompare(a.invoice_date);
-  });
+  }));
 }
 function syncPagination(){
   get('invoicePreviewPagination').hidden=!previewFile||previewMatches.length<=previewPageSize;
