@@ -25,3 +25,8 @@ body dialog.fleet-modal.wooten-fleet .fleet-modal-footer{
  body dialog.fleet-modal.wooten-fleet .fleet-modal-body{padding-bottom:14px!important}
  body dialog.fleet-modal.wooten-fleet .fleet-modal-footer{padding:12px 15px 16px!important}
 }
+
+/* Preserve the compact opening size once the customer switches tabs. */
+body dialog.fleet-modal.wooten-fleet[data-size-locked]{height:var(--fleet-locked-height)!important}
+body dialog.fleet-modal.wooten-fleet[data-size-locked]>.fleet-modal-inner{height:100%!important}
+body dialog.fleet-modal.wooten-fleet[data-size-locked] .fleet-modal-body{flex:1 1 auto!important}
