@@ -4007,7 +4007,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
     </div>
     <div class="payment-receipt-actions">
       <button type="button" id="paymentReceiptClose">Close</button>
-      <button type="button" class="payment-receipt-print" id="paymentReceiptPrint">Open PDF</button>
+      <button type="button" class="payment-receipt-print" id="paymentReceiptPrint">Print Payment</button>
     </div>
   </div>
 </div>
@@ -4138,7 +4138,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       var allocations=[];try{allocations=JSON.parse(card.dataset.allocations||'[]');}catch(e){}
       postingBlock.innerHTML='<p><strong>Online confirmation:</strong> '+escapeHtml(card.dataset.confirmation||'—')+'</p>'+
         (postingLabels[card.dataset.postingStatus]?'<p><strong>Account posting:</strong> '+escapeHtml(postingLabels[card.dataset.postingStatus])+'</p>':'')+
-        '<p><strong>MAS 90 Check No.:</strong> '+escapeHtml(card.dataset.checkNo||'—')+'</p><p><strong>MAS 90 posting date:</strong> '+escapeHtml(card.dataset.postingDate||'—')+'</p>'+
+        '<p><strong>Wooten Oil Inc. Office Check No.:</strong> '+escapeHtml(card.dataset.checkNo||'—')+'</p><p><strong>Wooten Oil Inc. Office posting date:</strong> '+escapeHtml(card.dataset.postingDate||'—')+'</p>'+
         (allocations.length?'<p><strong>Invoice allocations:</strong></p>'+allocations.map(function(a){return '<p>'+escapeHtml(a.invoice_no||'On account')+' — $'+escapeHtml(Number(a.amount).toFixed(2))+'</p>';}).join(''):'');
     }
     if(card.dataset.paymentMethod==='ach')postingBlock.innerHTML+='<p><strong>Bank payment authorization and status</strong></p><p>'+escapeHtml(cardField(card,'Description / Memo'))+'</p>';
