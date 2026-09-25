@@ -117,3 +117,12 @@ body .iv-dialog .iv-refresh:is(:hover,:focus,:focus-visible,:active){background:
 .iv-classic-dialog .iv-foot{padding-bottom:24px}
 .iv-classic-dialog .iv-foot .iv-updated{margin:0;font-size:12px}
 @media(max-width:600px){.iv-classic-dialog{width:calc(100% - 16px)}.iv-classic-dialog .iv-classic-head{flex-wrap:wrap;gap:14px}.iv-classic-dialog .iv-company{order:0}.iv-classic-dialog .iv-close{order:1}.iv-classic-dialog .iv-document-heading{order:2;max-width:100%;width:100%;text-align:left}.iv-classic-dialog .iv-classic-columns{grid-template-columns:1fr;gap:24px}.iv-classic-dialog .iv-classic-summary{flex-wrap:wrap;gap:18px}.iv-classic-dialog .iv-classic-balance{text-align:left}.iv-classic-dialog .iv-classic-amount{font-size:28px}}
+
+/* Ver584: prevent general page-section spacing inside invoice details. */
+body .iv-classic-dialog .iv-classic-columns>section,
+body .iv-classic-dialog section.iv-classic-office{
+ padding:0!important;min-height:0!important;height:auto!important;
+}
+body .iv-classic-dialog .iv-classic-columns>section{margin:0!important}
+body .iv-classic-dialog .iv-classic-summary{margin-bottom:16px}
+body .iv-classic-dialog .iv-note{margin-top:16px}
