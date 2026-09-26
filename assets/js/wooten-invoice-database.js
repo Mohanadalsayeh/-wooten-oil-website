@@ -1,4 +1,4 @@
-/* Ver606: load saved invoices when opened and refresh after office imports. */
+/* Ver611: refresh on demand or completed import; Ver610: matching refresh states; Ver606: load saved invoices when opened and refresh after office imports. */
 (()=>{
   const get=id=>document.getElementById(id), panel=get('admin-tab-invoice-database');
   if(!panel)return;
@@ -17,7 +17,9 @@
     [...filterIds,'invoiceDbLoad','invoiceDbClear','clearInvoiceDatabaseBtn'].forEach(id=>get(id).disabled=value);
     get('invoiceDbRefresh').disabled=value||!loaded;
     get('invoiceDbLoad').textContent=value?'Loading Invoices…':'Load Invoices';
-    get('invoiceDbRefresh').textContent=value&&loaded?'Refreshing…':'Refresh';
+    get('invoiceDbRefresh').textContent=value&&loaded?'Refreshing...':'Refresh';
+    if(value&&loaded)get('invoiceDbRefresh').setAttribute('aria-busy','true');
+    else get('invoiceDbRefresh').removeAttribute('aria-busy');
     get('invoiceDbPrev').disabled=value||page<=1;
     get('invoiceDbNext').disabled=value||page>=pages;
     table.setAttribute('aria-busy',String(value));
@@ -138,7 +140,6 @@
   });
   new MutationObserver(ensureVisible).observe(panel,{attributes:true,attributeFilter:['class','hidden']});
   document.addEventListener('visibilitychange',ensureVisible);
-  setInterval(()=>{if(loaded&&!busy&&key()&&!document.hidden&&panel.getClientRects().length)load();},30000);
   sortIndicators();table.dataset.pdfEmpty='true';lock(false);
   ensureVisible();
 })();

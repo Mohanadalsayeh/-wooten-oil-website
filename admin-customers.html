@@ -17759,6 +17759,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #portalBackupRefresh,
 #dbRefreshBtn,
 #livePaymentRefreshBtn,
+#invoiceDbRefresh,
 #refreshInboxBtn,
 #twilioRefreshLookupResults,
 #mas90HealthRefresh,
@@ -17776,6 +17777,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #portalBackupRefresh:not(:disabled):is(:hover,:focus-visible,:active),
 #dbRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
 #livePaymentRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
+#invoiceDbRefresh:not(:disabled):is(:hover,:focus-visible,:active),
 #refreshInboxBtn:not(:disabled):is(:hover,:focus-visible,:active),
 #twilioRefreshLookupResults:not(:disabled):is(:hover,:focus-visible,:active),
 #mas90HealthRefresh:not(:disabled):is(:hover,:focus-visible,:active),
@@ -17792,6 +17794,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #portalBackupRefresh:disabled,
 #dbRefreshBtn:disabled,
 #livePaymentRefreshBtn:disabled,
+#invoiceDbRefresh:disabled,
 #refreshInboxBtn:disabled,
 #twilioRefreshLookupResults:disabled,
 #mas90HealthRefresh:disabled,
@@ -18244,9 +18247,6 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 #invoiceDbTable[aria-busy="true"] th button{cursor:wait}
 #invoiceDbPagination{display:flex;justify-content:space-between;gap:10px;min-width:0}
 #invoiceDbPage{min-width:0;text-align:center}
-#invoiceDbRefresh{background:#eaf7ef!important;border:1px solid #a9d8bb!important;color:#17633b!important}
-#invoiceDbRefresh:hover:not(:disabled){background:#d8efdf!important}
-#invoiceDbRefresh:disabled{opacity:.55}
 @media(max-width:1180px){.invoice-db-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}.database-subtabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:850px){.invoice-db-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-db-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-db-actions button{min-width:0;width:100%}}
 @media(max-width:620px){.invoice-db-toolbar{grid-template-columns:1fr}.invoice-db-actions{grid-template-columns:1fr}.invoice-db-toolbar input,.invoice-db-toolbar select,.invoice-db-actions button{height:52px;min-height:52px}.database-subtabs .admin-subtab{font-size:13px!important;padding:10px 8px!important}#invoiceDbPagination button{min-width:0;padding:10px 14px}#invoiceDbPage{font-size:12px}}
