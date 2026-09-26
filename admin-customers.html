@@ -6476,7 +6476,15 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <div class="preview-progress is-indeterminate" id="invoiceDbLoadProgress" hidden><div class="preview-progress-head"><strong>Loading invoices…</strong><span>Please wait</span></div><div class="preview-progress-track" role="progressbar" aria-label="Live invoice database loading progress"><span></span></div></div>
     <p class="note" id="invoiceDbLastImport">Load invoices to see the latest completed import.</p>
     <div class="db-meta" id="invoiceDbMeta" hidden><div><span class="db-live-dot"></span><strong id="invoiceDbTotal">0</strong> matching invoice(s)</div><div id="invoiceDbRange">Showing 0–0</div></div>
-    <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-pdf-keep-visible="true" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
+    <div class="table-pdf-export-toolbar" id="invoiceExportActions" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px">
+      <button type="button" class="secondary table-pdf-export-button" id="invoiceExportPdf" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
+      <button type="button" class="secondary table-pdf-export-button" id="invoiceExportExcel" disabled>Export Full Database — Excel</button>
+      <button type="button" class="secondary" id="invoiceExportCancel" hidden>Cancel Export</button>
+    </div>
+    <p class="note">PDF uses your search and filters. Excel includes all invoices, regardless of filters.</p>
+    <p class="note" id="invoiceExportStatus" role="status" aria-live="polite"></p>
+    <style>@media(max-width:620px){#invoiceExportActions{flex-direction:column}#invoiceExportActions button{width:100%;min-height:48px}}</style>
+    <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-auto-pdf="false" data-pdf-keep-visible="true" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
     <div class="db-pagination" id="invoiceDbPagination" hidden><button class="secondary" id="invoiceDbPrev" type="button" disabled>Previous</button><div class="db-page-info" id="invoiceDbPage">Page 1 of 1</div><button class="secondary" id="invoiceDbNext" type="button" disabled>Next</button></div>
 
   </div>
@@ -9486,12 +9494,47 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
     });
     return "/api/admin/customer-payments-database?"+params.toString();
   }
+  let livePaymentDetailRows=[],paymentDetailData=null,paymentDetailOpener=null;
+  const paymentDetailDialog=document.createElement('dialog');
+  paymentDetailDialog.className='iv-dialog iv-classic-dialog';
+  paymentDetailDialog.setAttribute('aria-label','Customer payment details');
+  document.body.append(paymentDetailDialog);
+  const paymentDetailPdfUrls=[];
+  function openLivePaymentDetail(row,opener){
+    paymentDetailOpener=opener;
+    const groups=[{title:'Dates & deposit',rows:[['Deposit date',dateDisplay(row.deposit_date)],['Posting date',dateDisplay(row.posting_date||row.payment_date)],['Deposit No',row.deposit_no||'—'],['Deposit type',row.deposit_type||'—']]},{title:'Payment references',rows:[['Invoice No',row.invoice_no||'—'],['Check No',row.reference||'—'],['Cash amount applied',money(row.amount)],['Discount amount applied',money(row.discount_amount)]]}];
+    paymentDetailData={title:'Payment Record',number:String(row.invoice_no||''),meta:'MAS 90 payment · Invoice reference',customer:row.customer_name||'—',account:'Account # '+(row.account_number||'—'),balanceLabel:'Cash amount applied',balance:money(row.amount),updated:'MAS 90 imported payment record',groups};
+    paymentDetailDialog.innerHTML='<header class="iv-head iv-classic-head"><div class="iv-company" style="display:flex;gap:12px"><span style="display:grid;place-items:center;flex:0 0 38px;height:38px;background:#d9222e;color:white;border-radius:9px;font-weight:700">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p style="font-size:12px;line-height:1.6">513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div>Payment Record</div><h2>'+esc(row.invoice_no||'—')+'</h2><p>MAS 90 · Invoice reference</p></div><button type="button" class="iv-close" data-payment-close aria-label="Close payment details">×</button></header><div class="iv-body"><div class="iv-classic-summary"><div><div class="iv-classic-label">Customer</div><div class="iv-classic-name">'+esc(row.customer_name||'—')+'</div><p>Account # '+esc(row.account_number||'—')+'</p></div><div class="iv-classic-balance"><div class="iv-classic-label">Cash amount applied</div><div class="iv-classic-amount">'+esc(money(row.amount))+'</div></div></div><div class="iv-classic-columns">'+groups.map(g=>'<section><h3>'+esc(g.title)+'</h3><dl class="iv-classic-fields">'+g.rows.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl></section>').join('')+'</div><p data-payment-print-status role="status" style="color:#9c2525"></p></div><footer class="iv-foot"><span class="iv-updated">MAS 90 imported payment record</span><div class="iv-detail-actions"><button type="button" class="iv-print" data-payment-print>Print Payment</button><button type="button" data-payment-close>Back</button></div></footer>';
+    paymentDetailDialog.showModal();paymentDetailDialog.querySelector('[data-payment-close]').focus({preventScroll:true});
+  }
+  tbody.addEventListener('click',event=>{
+    const button=event.target.closest('[data-payment-invoice]');
+    if(!button||!tbody.contains(button)||tbody.closest('table')?.getAttribute('aria-busy')==='true')return;
+    const row=livePaymentDetailRows[Number(button.dataset.paymentInvoice)];
+    if(row)openLivePaymentDetail(row,button);
+  });
+  paymentDetailDialog.addEventListener('click',event=>{
+    if(event.target.closest('[data-payment-close]'))paymentDetailDialog.close();
+    if(event.target.closest('[data-payment-print]')&&paymentDetailData&&paymentDetailDialog.open){
+      const output=paymentDetailDialog.querySelector('[data-payment-print-status]');output.textContent='';
+      try{
+        if(!window.WootenInvoicePdf?.buildDetail)throw Error('The PDF exporter is unavailable. Refresh the page.');
+        const blob=window.WootenInvoicePdf.buildDetail(paymentDetailData),url=URL.createObjectURL(blob),tab=window.open(url,'_blank');
+        if(!tab){URL.revokeObjectURL(url);throw Error('Please allow pop-ups to open the payment PDF.');}
+        tab.opener=null;paymentDetailPdfUrls.push(url);
+      }catch(error){output.textContent=error.message||'The payment PDF could not be created.';}
+    }
+  });
+  paymentDetailDialog.addEventListener('close',()=>{paymentDetailData=null;paymentDetailDialog.replaceChildren();if(paymentDetailOpener?.isConnected)paymentDetailOpener.focus({preventScroll:true});paymentDetailOpener=null;});
+  window.addEventListener('wooten-admin-auth-changed',()=>{livePaymentDetailRows=[];paymentDetailData=null;if(paymentDetailDialog.open)paymentDetailDialog.close();paymentDetailDialog.replaceChildren();paymentDetailPdfUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));});
+  window.addEventListener('pagehide',()=>paymentDetailPdfUrls.splice(0).forEach(url=>URL.revokeObjectURL(url)));
   function renderRows(rows){
+    livePaymentDetailRows=rows;
     if(!rows.length){
       tbody.innerHTML='<tr><td colspan="10"><div class="db-empty">No payment records match the current search and filters.</div></td></tr>';
       return;
     }
-    tbody.innerHTML=rows.map(row=>`<tr>
+    tbody.innerHTML=rows.map((row,index)=>`<tr>
       <td>${esc(dateDisplay(row.deposit_date))}</td>
       <td>${esc(row.deposit_no||"—")}</td>
       <td>${esc(row.deposit_type||"—")}</td>
@@ -9499,7 +9542,7 @@ document.getElementById("paymentImportBtn").addEventListener("click",async()=>{
       <td>${esc(row.reference||"—")}</td>
       <td>${esc(dateDisplay(row.posting_date||row.payment_date))}</td>
       <td>${esc(row.customer_name||"—")}</td>
-      <td>${esc(row.invoice_no||"—")}</td>
+      <td>${row.invoice_no?`<button type="button" class="iv-link" data-payment-invoice="${index}" aria-label="View payment details for invoice ${esc(row.invoice_no)}">${esc(row.invoice_no)}</button>`:"—"}</td>
       <td class="money">${money(row.amount)}</td>
       <td class="money">${money(row.discount_amount)}</td>
     </tr>`).join("");
@@ -15332,6 +15375,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script src="assets/js/wooten-invoice-pdf.js?v=621"></script>
 <script src="assets/js/wooten-invoice-viewer.js?v=621"></script>
 <script src="assets/js/wooten-invoice-database.js?v=606"></script>
+<script src="assets/js/wooten-invoice-export.js?v=627" defer></script>
 </body>
 </html>
 
