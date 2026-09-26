@@ -12,7 +12,7 @@ const list=document.createElement('dialog'),detail=document.createElement('dialo
 list.className='iv-dialog iv-list-dialog';detail.className='iv-dialog iv-classic-dialog';
 list.setAttribute('aria-labelledby','ivListTitle');detail.setAttribute('aria-labelledby','ivDetailTitle');
 list.innerHTML=`<header class="iv-head"><div><div class="iv-eyebrow">Invoices</div><h2 id="ivListTitle">Open Invoices</h2><p data-account></p></div><button type="button" class="iv-close" data-close aria-label="Close invoices">×</button></header><div class="iv-body"><form class="iv-tools"><label>Search invoices<input type="search" name="search" placeholder="Invoice number…" autocomplete="off"></label><label>Sort<select name="sort"><option value="invoice_desc">Invoice date newest</option><option value="invoice_asc">Invoice date oldest</option><option value="due_asc">Due date earliest</option><option value="balance_desc">Balance highest</option><option value="number_asc">Invoice number A–Z</option></select></label><button type="submit" data-search>Search</button><button type="button" class="iv-refresh" data-refresh>Refresh</button></form><p class="iv-status" data-status role="status" aria-live="polite"></p><div class="iv-table-toolbar"><p class="iv-updated" data-updated></p><div class="iv-export-actions"><button type="button" class="iv-export" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div><div class="iv-table-wrap"><table data-auto-pdf="false"><thead><tr><th>Invoice No</th><th>Type</th><th>Division</th><th>Invoice Date</th><th>Due Date</th><th>Balance</th></tr></thead><tbody></tbody></table></div><div class="iv-pages"><button type="button" data-prev>Previous 20</button><span data-page aria-live="polite"></span><button type="button" data-next>Next 20</button></div></div><footer class="iv-foot"><span>Choose an invoice number to view its details.</span><button type="button" data-close>${admin?'Done':'Back to Dashboard'}</button></footer>`;
-detail.innerHTML=`<header class="iv-head iv-classic-head"><div class="iv-company"><span class="iv-brand-mark" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p style="line-height:1.6">513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div class="iv-document-title">Invoice</div><h2 id="ivDetailTitle">Invoice</h2><p data-invoice-meta></p></div><button type="button" class="iv-close" data-close aria-label="Close invoice details">×</button></header><div class="iv-body"><p class="iv-status" data-status role="status" aria-live="polite"></p><div data-detail-content></div></div><footer class="iv-foot"><span class="iv-updated" data-updated></span><div class="iv-detail-actions"><button type="button" class="iv-print" data-print disabled>Print Invoice</button><button type="button" data-close>Back</button></div></footer>`;
+detail.innerHTML=`<header class="iv-head iv-classic-head"><div class="iv-company"><span class="iv-brand-mark" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p style="line-height:1.6">513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div class="iv-document-title">Invoice</div><h2 id="ivDetailTitle">Invoice</h2><p data-invoice-meta></p></div><button type="button" class="iv-close" data-close aria-label="Close invoice details">×</button></header><div class="iv-body"><p class="iv-status" data-status role="status" aria-live="polite"></p><div data-detail-content></div></div><footer class="iv-foot"><span class="iv-updated" data-updated></span><div class="iv-detail-actions">${admin?'<button type="button" data-original disabled>Show Original</button>':''}<button type="button" class="iv-print" data-print disabled>Print Invoice</button><button type="button" data-close>Back</button></div></footer>`;
 // Customer navigation matches the other dashboard forms.
 if(!admin){
  list.classList.add('iv-customer-list');
@@ -31,7 +31,8 @@ document.body.append(list,detail);
 const q=(root,selector)=>root.querySelector(selector);
 const form=q(list,'form'),search=form.elements.search,sort=form.elements.sort,body=q(list,'tbody');
 let page=1,pages=1,selected='',customerName='',listSerial=0,detailSerial=0,listAbort,detailAbort,listBusy=false,searchTimer,listAction='load';
-let invoicePdfUrls=[],appliedSearch=null;
+let invoicePdfUrls=[],appliedSearch=null,originalInvoice=null;
+if(admin)q(detail,'[data-original]').addEventListener('click',event=>{if(originalInvoice&&!event.currentTarget.disabled)window.WootenOriginalInvoice?.open(originalInvoice,event.currentTarget);});
 let listTrigger=null,detailTrigger=null,exporting=false,exportAbort,matchedTotal=0;
 const headerSort=WootenTableDataSort.register(body.closest('table'),['number','type','division','invoice','due','balance'],()=>{page=1;return load('sort');},sort);
 function message(root,text,error=false){const el=q(root,'[data-status]');el.textContent=text;el.classList.toggle('iv-error',error);}
@@ -131,6 +132,7 @@ function openCustomer(row={},trigger){
  listTrigger=trigger||document.activeElement;openDialog(list,listTrigger);load();
 }
 async function openInvoice(row,trigger){
+ originalInvoice=null;if(admin)q(detail,'[data-original]').disabled=true;window.WootenOriginalInvoice?.close();
  detailAbort?.abort();detailAbort=new AbortController();const ticket=++detailSerial;
  const content=q(detail,'[data-detail-content]');content.replaceChildren();q(detail,'[data-invoice-meta]').textContent='';q(detail,'[data-updated]').textContent='';q(detail,'[data-print]').disabled=true;
  q(detail,'#ivDetailTitle').textContent=row.invoice_no||'Invoice';
@@ -160,6 +162,7 @@ async function openInvoice(row,trigger){
   }
   content.append(totals);
   if(admin){const internal=section('Office information',[['SalespersonName','Salesperson'],['Comment','Internal comment']]);internal.className='iv-classic-office';content.append(internal);}
+  originalInvoice={...invoice};if(admin)q(detail,'[data-original]').disabled=!window.WootenOriginalInvoice;
   updated(detail,data);message(detail,'');q(detail,'[data-print]').disabled=false;
  }catch(e){if(ticket===detailSerial&&e.name!=='AbortError')message(detail,e.message,true);}
  finally{if(ticket===detailSerial)detail.setAttribute('aria-busy','false');}
@@ -178,7 +181,7 @@ q(detail,'[data-print]').addEventListener('click',()=>{
 });
 for(const dialog of [list,detail])dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
 list.addEventListener('close',()=>{appliedSearch=null;++listSerial;exportAbort?.abort();exporting=false;matchedTotal=0;q(q(list,'[data-export]'),'span').textContent='Export PDF';listAbort?.abort();clearTimeout(searchTimer);body.replaceChildren();message(list,'');q(list,'[data-account]').textContent='';q(list,'[data-updated]').textContent='';listBusy=false;body.setAttribute('aria-busy','false');syncListControls();if(detail.open)detail.close();if(listTrigger?.isConnected)listTrigger.focus({preventScroll:true});});
-detail.addEventListener('close',()=>{q(detail,'[data-print]').disabled=true;++detailSerial;detailAbort?.abort();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';message(detail,'');q(detail,'[data-updated]').textContent='';q(detail,'#ivDetailTitle').textContent='Invoice';syncListControls();if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
+detail.addEventListener('close',()=>{originalInvoice=null;window.WootenOriginalInvoice?.close();if(admin)q(detail,'[data-original]').disabled=true;q(detail,'[data-print]').disabled=true;++detailSerial;detailAbort?.abort();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';message(detail,'');q(detail,'[data-updated]').textContent='';q(detail,'#ivDetailTitle').textContent='Invoice';syncListControls();if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
 form.addEventListener('submit',e=>{e.preventDefault();if(listBusy||exporting||search.value.trim()===appliedSearch)return;page=1;load('search');});
 sort.addEventListener('change',()=>{headerSort.clear();page=1;load('sort');});
 q(list,'[data-refresh]').addEventListener('click',()=>load('refresh'));
