@@ -99,6 +99,7 @@
     }finally{if(requestSerial===serial){lock(false);if(dirty)ensureVisible();}}
   }
   function ensureVisible(){
+    if(['invoiceDbFrom','invoiceDbTo'].includes(document.activeElement?.id))return;
     if(key()&&!document.hidden&&panel.getClientRects().length&&!busy&&(!loaded||dirty))load();
   }
   function syncStatus(snapshot){
@@ -117,7 +118,32 @@
   get('invoiceDbRefresh').addEventListener('click',load);
   get('invoiceDbSearch').addEventListener('input',()=>{clearTimeout(timer);if(loaded)timer=setTimeout(resetAndLoad,1000);});
   get('invoiceDbSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();page=1;load();}});
-  filterIds.slice(1).forEach(id=>get(id).addEventListener('change',resetAndLoad));
+  // Native date inputs emit change for each typed year digit. Commit after editing.
+  const dateIds=['invoiceDbFrom','invoiceDbTo'];
+  let dateEditStart=null;
+  const dateValues=()=>dateIds.map(id=>get(id).value).join('|');
+  dateIds.forEach(id=>{
+    const input=get(id);
+    input.addEventListener('focus',()=>{
+      clearTimeout(timer);
+      if(dateEditStart===null)dateEditStart=dateValues();
+    });
+    input.addEventListener('keydown',event=>{
+      if(event.key!=='Enter')return;
+      event.preventDefault();dateEditStart=dateValues();page=1;load();
+    });
+    input.addEventListener('blur',()=>{
+      queueMicrotask(()=>{
+        if(dateIds.includes(document.activeElement?.id))return;
+        const changed=dateEditStart!==null&&dateEditStart!==dateValues();
+        dateEditStart=null;
+        // These buttons already apply or clear the filters in their click handlers.
+        if(['invoiceDbLoad','invoiceDbRefresh','invoiceDbClear','clearInvoiceDatabaseBtn'].includes(document.activeElement?.id))return;
+        if(changed)resetAndLoad();
+      });
+    });
+  });
+  ['invoiceDbType','invoiceDbBalance','invoiceDbSort'].forEach(id=>get(id).addEventListener('change',resetAndLoad));
   get('invoiceDbClear').addEventListener('click',()=>{clearFilters();if(loaded)load();});
   get('invoiceDbPrev').addEventListener('click',()=>{if(!busy&&page>1){page--;load();}});
   get('invoiceDbNext').addEventListener('click',()=>{if(!busy&&page<pages){page++;load();}});
