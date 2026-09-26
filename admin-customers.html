@@ -6483,7 +6483,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     </div>
     <p class="note">PDF uses your search and filters. Excel includes all invoices, regardless of filters.</p>
     <p class="note" id="invoiceExportStatus" role="status" aria-live="polite"></p>
-    <style>@media(max-width:620px){#invoiceExportActions{flex-direction:column}#invoiceExportActions button{width:100%;min-height:48px}}</style>
+    <style>
+#invoiceExportExcel.invoice-excel-exporting::before{content:"";display:inline-block;flex:0 0 18px;width:18px;height:18px;box-sizing:border-box;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:invoiceExcelSpin .8s linear infinite}
+@keyframes invoiceExcelSpin{to{transform:rotate(360deg)}}
+@media(max-width:620px){#invoiceExportActions{flex-direction:column}#invoiceExportActions button{width:100%;min-height:48px}}</style>
     <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-auto-pdf="false" data-pdf-keep-visible="true" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
     <div class="db-pagination" id="invoiceDbPagination" hidden><button class="secondary" id="invoiceDbPrev" type="button" disabled>Previous</button><div class="db-page-info" id="invoiceDbPage">Page 1 of 1</div><button class="secondary" id="invoiceDbNext" type="button" disabled>Next</button></div>
 
@@ -15375,7 +15378,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script src="assets/js/wooten-invoice-pdf.js?v=621"></script>
 <script src="assets/js/wooten-invoice-viewer.js?v=621"></script>
 <script src="assets/js/wooten-invoice-database.js?v=629"></script>
-<script src="assets/js/wooten-invoice-export.js?v=627" defer></script>
+<script src="assets/js/wooten-invoice-export.js?v=630" defer></script>
 </body>
 </html>
 

@@ -1,9 +1,18 @@
-/* Ver627: filtered PDF and complete Excel invoice exports. */
+/* Ver630: timestamped Excel filename and busy spinner. Ver627: filtered PDF and complete Excel invoice exports. */
 (()=>{
   const get=id=>document.getElementById(id),table=get('invoiceDbTable');
   if(!table)return;
   const pdf=get('invoiceExportPdf'),excel=get('invoiceExportExcel'),cancel=get('invoiceExportCancel'),message=get('invoiceExportStatus');
   const headers=['Customer No','Customer Name','Invoice No','Type','Division','Invoice Date','Due Date','Balance'];
+  function excelFilename(now=new Date()){
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'2-digit',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(now);
+    const part=type=>parts.find(item=>item.type===type).value;
+    return 'Live-Open-Invoices-Database-'+part('month')+part('day')+part('year')+'-'+part('hour')+part('minute')+part('second')+'-CT.xlsx';
+  }
+  function excelBusy(value){
+    excel.classList.toggle('invoice-excel-exporting',value);
+    excel.setAttribute('aria-busy',String(value));
+  }
   let operation=null;
   const key=()=>get('adminKey')?.value.trim()||'';
   function sync(){
@@ -47,7 +56,7 @@
     if(kind==='pdf'&&!window.WootenAdminTablePdf?.exportData){say('PDF export is unavailable. Refresh the page and try again.');return;}
     if(kind==='excel'&&!window.XLSX){say('Excel export is unavailable. Refresh the page and try again.');return;}
     const abort=new AbortController(),op={key:key(),signal:abort.signal,abort:()=>abort.abort()};
-    operation=op;sync();say('Checking invoice count…');
+    operation=op;excelBusy(kind==='excel');sync();say('Checking invoice count…');
     try{
       const rows=await collect(op,filters,kind);check(op);
       say('Preparing '+(kind==='pdf'?'PDF':'Excel')+'…');
@@ -62,11 +71,11 @@
         sheet['!autofilter']={ref:sheet['!ref']};
         for(let r=2;r<=rows.length+1;r++)sheet['H'+r].z='$#,##0.00;[Red]($#,##0.00)';
         const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,'Open Invoices');
-        check(op);XLSX.writeFile(book,'Wooten-Oil-Full-Invoice-Database.xlsx',{compression:true});
+        check(op);XLSX.writeFile(book,excelFilename(),{compression:true});
       }
       say('Exported '+rows.length.toLocaleString()+' invoices to '+(kind==='pdf'?'PDF':'Excel')+'.');
     }catch(error){say(error.name==='AbortError'?'Export cancelled.':error.message||'Export failed. Please try again.');}
-    finally{operation=null;sync();}
+    finally{operation=null;excelBusy(false);sync();}
   }
   pdf.addEventListener('click',()=>start('pdf'));excel.addEventListener('click',()=>start('excel'));
   cancel.addEventListener('click',()=>operation?.abort());
