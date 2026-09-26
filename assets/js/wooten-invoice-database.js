@@ -115,7 +115,7 @@
   function resetAndLoad(){page=1;sortIndicators();if(loaded)load();}
   get('invoiceDbLoad').addEventListener('click',()=>{page=1;load();});
   get('invoiceDbRefresh').addEventListener('click',load);
-  get('invoiceDbSearch').addEventListener('input',()=>{clearTimeout(timer);if(loaded)timer=setTimeout(resetAndLoad,350);});
+  get('invoiceDbSearch').addEventListener('input',()=>{clearTimeout(timer);if(loaded)timer=setTimeout(resetAndLoad,1000);});
   get('invoiceDbSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();page=1;load();}});
   filterIds.slice(1).forEach(id=>get(id).addEventListener('change',resetAndLoad));
   get('invoiceDbClear').addEventListener('click',()=>{clearFilters();if(loaded)load();});
