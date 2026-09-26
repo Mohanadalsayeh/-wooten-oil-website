@@ -6294,8 +6294,15 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <div id="dbRange">Showing 0–0</div>
     </div>
 
+    <div class="table-pdf-export-toolbar database-export-actions" id="customerExportActions">
+      <button type="button" class="secondary table-pdf-export-button" id="customerExportPdf" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
+      <button type="button" class="secondary table-pdf-export-button" id="customerExportExcel" disabled>Export Full Database — Excel</button>
+      <button type="button" class="secondary" id="customerExportCancel" hidden>Cancel Export</button>
+    </div>
+    <p class="note">PDF uses your search and filters. Excel includes all customers, regardless of filters.</p>
+    <p class="note" id="customerExportStatus" role="status" aria-live="polite"></p>
     <div class="db-tablewrap" id="dbTableWrap" style="display:none">
-      <table class="db-table" data-pdf-table-name="Live Customer Database">
+      <table class="db-table" data-auto-pdf="false" data-pdf-table-name="Live Customer Database">
         <thead>
           <tr>
             <th>Customer #</th>
@@ -6414,8 +6421,15 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
         <div id="livePaymentRange">Showing 0–0</div>
       </div>
 
+    <div class="table-pdf-export-toolbar database-export-actions" id="paymentExportActions">
+      <button type="button" class="secondary table-pdf-export-button" id="paymentExportPdf" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
+      <button type="button" class="secondary table-pdf-export-button" id="paymentExportExcel" disabled>Export Full Database — Excel</button>
+      <button type="button" class="secondary" id="paymentExportCancel" hidden>Cancel Export</button>
+    </div>
+    <p class="note">PDF uses your search and filters. Excel includes all payments, regardless of filters.</p>
+    <p class="note" id="paymentExportStatus" role="status" aria-live="polite"></p>
       <div class="db-tablewrap live-payment-tablewrap" id="livePaymentTableWrap" style="display:none">
-        <table class="db-table live-payment-table" data-pdf-table-name="Live Customer Payments Database">
+        <table class="db-table live-payment-table" data-auto-pdf="false" data-pdf-table-name="Live Customer Payments Database">
           <thead>
             <tr>
               <th>Deposit Date</th>
@@ -15379,6 +15393,12 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script src="assets/js/wooten-invoice-viewer.js?v=621"></script>
 <script src="assets/js/wooten-invoice-database.js?v=629"></script>
 <script src="assets/js/wooten-invoice-export.js?v=630" defer></script>
+<script src="assets/js/wooten-database-exports.js?v=631" defer></script>
+<style>
+.database-export-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
+.database-excel-exporting::before{content:"";display:inline-block;flex:0 0 18px;width:18px;height:18px;box-sizing:border-box;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:invoiceExcelSpin .8s linear infinite}
+@media(max-width:620px){.database-export-actions{flex-direction:column}.database-export-actions button{width:100%;min-height:48px}}
+</style>
 </body>
 </html>
 
