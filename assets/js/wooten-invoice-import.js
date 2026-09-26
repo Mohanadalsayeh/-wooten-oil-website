@@ -136,7 +136,17 @@ get('invoicePreview').addEventListener('click',async()=>{
     if(!window.wootenReadAccessFile)throw Error('The Access reader is still loading. Try again shortly.');
     const result=await window.wootenReadAccessFile(file,'invoices');
     if(!result.rows.length)throw Error('The invoice file is empty. The existing invoice list will not be cleared.');
-    rows=result.rows;previewFile=file;
+    // Ver612: use the payment importer calendar-date rules before preview/upload.
+    rows=result.rows.map(source=>{
+      const row={...source};
+      for(const field of ['InvoiceDate','InvoiceDueDate','InvoiceDiscountDate']){
+        const value=source[field];
+        const normalized=normalizePaymentDate(value);
+        if(value!==undefined&&value!==null&&value!==''&&!normalized)throw Error('Invalid '+field+' in invoice '+String(source.InvoiceNo||''));
+        row[field]=normalized||null;
+      }
+      return row;
+    });previewFile=file;
     await preparePreview(rows);
     get('imRows').textContent=rows.length;
     get('imValid').textContent=previewRows.length;
