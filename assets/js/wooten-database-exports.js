@@ -26,6 +26,8 @@
     let operation=null;
     const key=()=>val('adminKey'),say=message=>output.textContent=message;
     function sync(){
+      // Show the export controls with their table, below the matching-record count.
+      get(config.prefix+'ExportTableTools').hidden=wrap.hidden||wrap.style.display==='none';
       const busy=get(config.load)?.disabled||table.getAttribute('aria-busy')==='true';
       const empty=wrap.style.display==='none'||!Number(get(config.total)?.textContent.replace(/,/g,''));
       pdf.disabled=!!operation||!key()||busy||empty;excel.disabled=!!operation||!key()||busy;
@@ -78,7 +80,7 @@
     }
     pdf.addEventListener('click',()=>start('pdf'));excel.addEventListener('click',()=>start('excel'));cancel.addEventListener('click',()=>operation?.abort());
     window.addEventListener('wooten-admin-auth-changed',()=>{operation?.abort();say('');sync();});window.addEventListener('pagehide',()=>operation?.abort());
-    new MutationObserver(sync).observe(wrap,{attributes:true,childList:true,subtree:true,attributeFilter:['style','aria-busy']});
+    new MutationObserver(sync).observe(wrap,{attributes:true,childList:true,subtree:true,attributeFilter:['style','hidden','aria-busy']});
     if(get(config.load))new MutationObserver(sync).observe(get(config.load),{attributes:true,attributeFilter:['disabled']});
     sync();
   });
