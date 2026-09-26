@@ -6475,7 +6475,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <div class="preview-progress is-indeterminate" id="invoiceDbLoadProgress" hidden><div class="preview-progress-head"><strong>Loading invoices…</strong><span>Please wait</span></div><div class="preview-progress-track" role="progressbar" aria-label="Live invoice database loading progress"><span></span></div></div>
     <p class="note" id="invoiceDbLastImport">Load invoices to see the latest completed import.</p>
     <div class="db-meta" id="invoiceDbMeta" hidden><div><span class="db-live-dot"></span><strong id="invoiceDbTotal">0</strong> matching invoice(s)</div><div id="invoiceDbRange">Showing 0–0</div></div>
-    <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
+    <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-pdf-keep-visible="true" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
     <div class="db-pagination" id="invoiceDbPagination" hidden><button class="secondary" id="invoiceDbPrev" type="button" disabled>Previous</button><div class="db-page-info" id="invoiceDbPage">Page 1 of 1</div><button class="secondary" id="invoiceDbNext" type="button" disabled>Next</button></div>
 
   </div>
@@ -11081,10 +11081,7 @@ document.getElementById("copyResetAssistCode").addEventListener("click",async()=
     beginDatabaseLoadProgress("customers");
     showCustomerSkeleton(10);
     await new Promise(resolve=>requestAnimationFrame(resolve));
-    if(!silent){
-      status.className="status show";
-      status.textContent="Loading live customer database…";
-    }
+    setDbStatus("");
 
     try{
       const response=await fetch(buildUrl(),{
@@ -17160,7 +17157,7 @@ html,body{
     const shouldHide=unavailable||(!keepVisible&&empty);
     if(toolbar.hidden!==shouldHide)toolbar.hidden=shouldHide;
     const button=toolbar.querySelector('button');
-    if(button&&keepVisible)button.disabled=empty||button.dataset.exporting==='true';
+    if(button&&keepVisible)button.disabled=empty||table?.getAttribute('aria-busy')==='true'||button.dataset.exporting==='true';
   }
 
   function attachTable(table){
@@ -18356,4 +18353,11 @@ body #admin-tab-automation .mas90-health-result-card{min-width:0}
 body #admin-tab-automation .mas90-health-result-chip.is-neutral{background:#eaf0f5;color:#5b6f82}
 body #admin-tab-automation .mas90-health-result-chip.is-warning{background:#fff0c9;color:#815905}
 body #admin-tab-automation span.mas90-health-result-chip.is-failed{background:#fde7e8;color:#a12b31}
+</style>
+
+<style id="wooten-database-progress-spacing-ver616">
+#customerDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar,
+#paymentDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar {
+  margin-top:14px!important;
+}
 </style>
