@@ -1,4 +1,4 @@
-/* Ver636: original Wooten Oil stationery, populated from imported invoice data. */
+/* Ver638: single inner scroll region. Ver636: original Wooten Oil stationery, populated from imported invoice data. */
 (()=>{
 'use strict';
 const asset=new URL('../images/wooten-original-invoice.png',document.currentScript.src).href;
@@ -29,10 +29,12 @@ function svg(invoice,customer,parsed){
 }
 const style=document.createElement('style');style.textContent=`
 .wo-original-dialog{width:min(1100px,96vw);max-width:96vw;padding:0;border:1px solid #cad9e5;border-radius:18px;color:#102b45;background:#fff;max-height:94dvh}
+.wo-original-dialog[open]{display:flex;flex-direction:column;height:94dvh;max-height:94dvh;box-sizing:border-box;overflow:hidden}
+.wo-original-head,.wo-original-foot,.wo-original-note{flex:0 0 auto}
 .wo-original-dialog::backdrop{background:rgba(16,43,69,.55)}
 .wo-original-head,.wo-original-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 20px}
 .wo-original-head h2{margin:0;font-size:23px}.wo-original-note{margin:0;padding:0 20px 12px;color:#61758a;font-size:13px}
-.wo-original-paper{overflow:auto;max-height:65dvh;border-block:1px solid #d7e1ea;background:#edf3f7;padding:12px}
+.wo-original-paper{overflow:auto;flex:1 1 auto;min-height:0;max-height:none;overscroll-behavior:contain;border-block:1px solid #d7e1ea;background:#edf3f7;padding:12px}
 .wo-original-paper svg{display:block;width:100%;min-width:760px;background:#fff}
 .wo-original-foot{justify-content:flex-end}.wo-original-dialog button{min-height:44px;padding:10px 18px;border:1px solid #c8d8e5;border-radius:12px;background:#e8eff4;color:#17324d;font:inherit;cursor:pointer}
 .wo-original-dialog .wo-original-print{background:#195680;color:#fff}.wo-original-head button{font-size:24px}

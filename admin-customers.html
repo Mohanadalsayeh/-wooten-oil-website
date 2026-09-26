@@ -6482,7 +6482,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <h2>Live Open Invoices Database</h2>
     <p>Search the saved MAS 90 invoices by customer name, customer number, or invoice number. Click a customer name or number to see all their invoices, or click an invoice number to view its details.</p>
     <div class="invoice-db-toolbar">
-      <div class="db-field invoice-db-search"><label for="invoiceDbSearch">Search</label><input id="invoiceDbSearch" type="search" placeholder="Customer #, customer name, or invoice #…" autocomplete="off"></div>
+      <div class="db-field invoice-db-search"><label for="invoiceDbSearch">Search</label><input id="invoiceDbSearch" type="search" placeholder="Customer #, customer name, invoice #, or comments…" autocomplete="off"></div>
+      <div class="db-field"><label for="invoiceDbComment">Search Comments</label><input id="invoiceDbComment" type="search" placeholder="Fuel code or comment text…" autocomplete="off"></div>
       <div class="db-field"><label for="invoiceDbType">Invoice Type</label><select id="invoiceDbType"><option value="all">All types</option></select></div>
       <div class="db-field"><label for="invoiceDbFrom">Invoice Date From</label><input id="invoiceDbFrom" type="date"></div>
       <div class="db-field"><label for="invoiceDbTo">Invoice Date To</label><input id="invoiceDbTo" type="date"></div>
@@ -6505,7 +6506,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 #invoiceExportExcel.invoice-excel-exporting::before{content:"";display:inline-block;flex:0 0 18px;width:18px;height:18px;box-sizing:border-box;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:invoiceExcelSpin .8s linear infinite}
 @keyframes invoiceExcelSpin{to{transform:rotate(360deg)}}
 @media(max-width:620px){#invoiceExportActions{flex-direction:column}#invoiceExportActions button{width:100%;min-height:48px}}</style>
-    <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-auto-pdf="false" data-pdf-keep-visible="true" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
+    <div class="db-tablewrap" id="invoiceDbTableWrap" hidden><table class="db-table" id="invoiceDbTable" data-auto-pdf="false" data-pdf-keep-visible="true" data-pdf-table-name="Live Open Invoices Database"><thead><tr><th data-invoice-sort="customer">Customer No</th><th data-invoice-sort="name">Customer Name</th><th data-invoice-sort="number">Invoice No</th><th data-invoice-sort="type">Type</th><th data-invoice-sort="invoice">Invoice Date</th><th data-invoice-sort="due">Due Date</th><th class="money" data-invoice-sort="balance">Balance</th><th>Comments</th></tr></thead><tbody id="invoiceDbRows"></tbody></table></div>
     <div class="db-pagination" id="invoiceDbPagination" hidden><button class="secondary" id="invoiceDbPrev" type="button" disabled>Previous</button><div class="db-page-info" id="invoiceDbPage">Page 1 of 1</div><button class="secondary" id="invoiceDbNext" type="button" disabled>Next</button></div>
 
   </div>
@@ -15395,10 +15396,10 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
 <script src="assets/js/wooten-invoice-pdf.js?v=621"></script>
 <script src="assets/js/wooten-invoice-comment-parser.js?v=635"></script>
-<script src="assets/js/wooten-original-invoice.js?v=636"></script>
+<script src="assets/js/wooten-original-invoice.js?v=638"></script>
 <script src="assets/js/wooten-invoice-viewer.js?v=636"></script>
-<script src="assets/js/wooten-invoice-database.js?v=629"></script>
-<script src="assets/js/wooten-invoice-export.js?v=630" defer></script>
+<script src="assets/js/wooten-invoice-database.js?v=637"></script>
+<script src="assets/js/wooten-invoice-export.js?v=637" defer></script>
 <script src="assets/js/wooten-database-exports.js?v=632" defer></script>
 <style>
 .database-export-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
@@ -15414,6 +15415,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #customerExportActions button,#paymentExportActions button{width:100%!important;flex:0 0 auto!important}
 }
 </style>
+<style>#invoiceDbTable{min-width:1120px}#invoiceDbTable .invoice-comment-cell{min-width:220px;max-width:360px;white-space:normal;overflow-wrap:anywhere}</style>
 </body>
 </html>
 
