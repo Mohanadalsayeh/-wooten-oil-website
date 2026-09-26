@@ -295,3 +295,20 @@ body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table
     transition: none !important;
   }
 }
+
+/* Ver614: bold admin invoice headings, including sortable button labels. */
+body #invoiceDbTable thead th,
+body #invoiceDbTable thead th .wo-table-sort-button,
+body #invoiceDbTable thead th .wo-table-sort-label,
+body:has(#admin-tab-invoice-database) .iv-list-dialog table thead th,
+body:has(#admin-tab-invoice-database) .iv-list-dialog table thead th .wo-table-sort-button,
+body:has(#admin-tab-invoice-database) .iv-list-dialog table thead th .wo-table-sort-label {
+  font-weight:700!important;
+}
+
+/* Ver615: future invoice dates are highlighted across the admin row. */
+body #invoiceDbTable tbody tr.invoice-future-date,
+body #invoiceDbTable tbody tr.invoice-future-date td,
+body #invoiceDbTable tbody tr.invoice-future-date td .iv-link {
+  color:#c62828!important;
+}

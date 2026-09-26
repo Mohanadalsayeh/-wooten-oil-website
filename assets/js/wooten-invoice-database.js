@@ -26,11 +26,18 @@
     table.querySelectorAll('thead button').forEach(button=>button.disabled=value);
   }
   function date(value){return value?String(value).slice(5,7)+'-'+String(value).slice(8,10)+'-'+String(value).slice(0,4):'—';}
+  function centralToday(now=new Date()){
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+    const part=type=>parts.find(item=>item.type===type).value;
+    return part('year')+'-'+part('month')+'-'+part('day');
+  }
   function render(rows){
+    const today=centralToday();
     tbody.replaceChildren();
     if(!rows.length){const tr=tbody.insertRow(),td=tr.insertCell();td.colSpan=7;td.className='db-empty';td.textContent='No invoices match the current search and filters.';return;}
     for(const row of rows){
       const tr=tbody.insertRow();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(row.invoice_date||'')&&row.invoice_date>today)tr.classList.add('invoice-future-date');
       [row.account_number,row.customer_name||'—',row.invoice_no,row.invoice_type,date(row.invoice_date),date(row.due_date),money.format(row.balance_cents/100)].forEach((value,index)=>{
         const td=tr.insertCell();
         if(index<3){
