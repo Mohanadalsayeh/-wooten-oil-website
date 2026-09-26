@@ -128,13 +128,15 @@ body table thead th.wo-column-align-right .wo-table-sort-button {
  * changing the header's vertical geometry.
  */
 body table[data-pdf-table-name="Live Customer Database"] thead th.wo-sortable-heading,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th.wo-sortable-heading {
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th.wo-sortable-heading,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th.wo-sortable-heading {
   padding: 0 !important;
   vertical-align: middle !important;
 }
 
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button {
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button {
   position: relative !important;
   display: block !important;
   width: 100% !important;
@@ -149,7 +151,8 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
 }
 
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-label,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-label {
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-label,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-label {
   display: block !important;
   width: 100% !important;
   min-width: 0 !important;
@@ -160,7 +163,8 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
 }
 
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-icon,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-icon {
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-icon,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-icon {
   position: absolute !important;
   top: calc(50% - 8px) !important;
   right: 10px !important;
@@ -175,9 +179,13 @@ body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:focus-visible,
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:active,
 body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:hover,
 body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:focus,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:focus,
 body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:focus-visible,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:active {
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:focus-visible,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:active,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:active {
   min-height: 40px !important;
   margin: 0 !important;
   padding: 9px 32px 9px 10px !important;
@@ -196,8 +204,11 @@ body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:focus .wo-table-sort-label,
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:active .wo-table-sort-label,
 body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
 body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:focus .wo-table-sort-label,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:active .wo-table-sort-label {
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:focus .wo-table-sort-label,
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:active .wo-table-sort-label,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:active .wo-table-sort-label {
   font-weight: inherit !important;
   transform: none !important;
   transition: none !important;
@@ -205,7 +216,8 @@ body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-t
 }
 
 body table[data-pdf-table-name="Live Customer Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
-body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label {
+body table[data-pdf-table-name="Live Customer Payments Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label,
+body table[data-pdf-table-name="Live Open Invoices Database"] thead th .wo-table-sort-button:hover .wo-table-sort-label {
   color: var(--wo-table-sort-hover) !important;
 }
 

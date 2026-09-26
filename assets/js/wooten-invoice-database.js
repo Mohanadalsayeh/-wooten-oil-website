@@ -117,7 +117,11 @@
   get('invoiceDbPrev').wootenGoToPage=target=>{if(!busy){page=Math.max(1,Math.min(pages,target));return load();}};
   table.querySelectorAll('th[data-invoice-sort]').forEach(th=>{
     const button=document.createElement('button'),label=th.textContent;
-    button.type='button';button.textContent=label;button.setAttribute('aria-label','Sort by '+label);th.replaceChildren(button);
+    th.classList.add('wo-sortable-heading');
+    button.type='button';button.className='wo-table-sort-button';button.setAttribute('aria-label','Sort by '+label);
+    const labelSpan=document.createElement('span');labelSpan.className='wo-table-sort-label';labelSpan.textContent=label;
+    const icon=document.createElement('span');icon.className='wo-table-sort-icon';icon.setAttribute('aria-hidden','true');
+    button.append(labelSpan,icon);th.replaceChildren(button);
   });
   // Keep header sorting on the server so it covers every matching invoice.
   table.addEventListener('click',event=>{
