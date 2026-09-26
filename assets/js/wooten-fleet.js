@@ -26,7 +26,7 @@ function driverVehicleDetails(r){
 // The source transaction export's 18 checked columns, in source order.
 const adminTransactionColumns=[
  ['Received On',r=>r.received_at?central(r.received_at):'—'],
- ['Tran #',r=>r.transaction_id],['Local Date/Time',r=>r.local_date_time],
+ ['Trans #',r=>r.transaction_id,'transaction'],['Local Date/Time',r=>r.local_date_time],
  ['Entry Method',r=>r.entry_method],['Decline Reason',r=>r.decline_reason],
  ['Merchant',r=>r.merchant],['Auth Ref',r=>r.auth_ref],['Card Number',r=>r.card_number,'card'],
  ['Total Sale',r=>dollars(r.total_sale),'money'],['Billable Amount',r=>dollars(r.billable_amount),'money'],
@@ -38,13 +38,13 @@ const customerTransactionColumns=[1,0,3,5,6,7,8,10,11,12,13,14,17].map((index)=>
  const [label,value,type]=adminTransactionColumns[index];
  return [index===1?'Transaction Number':index===6?'Authorization Reference':label,value,type];
 });
-function customerTransactionCells(r){return customerTransactionColumns.map(([,value,type])=>{
+function customerTransactionCells(r,index){return customerTransactionColumns.map(([,value,type])=>{
  const text=esc(value(r)??'—')||'—';
- return type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
+ return type==='transaction'&&r.transaction_id?'<button type="button" class="iv-link fleet-transaction-link" data-fleet-transaction="'+index+'">'+text+'</button>':type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
 });}
-function adminTransactionCells(r){return adminTransactionColumns.map(([,value,type])=>{
+function adminTransactionCells(r,index){return adminTransactionColumns.map(([,value,type])=>{
  const text=esc(value(r)??'—')||'—';
- return type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
+ return type==='transaction'&&r.transaction_id?'<button type="button" class="iv-link fleet-transaction-link" data-fleet-transaction="'+index+'">'+text+'</button>':type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
 });}
 function fleetPdfData(kind,items){
  const account=r=>(r.account_number||'Unmatched')+(r.needs_review?' (Needs account review)':'');
@@ -107,8 +107,23 @@ function mount(root,admin){
  let sortKey='',sortDirection='asc';
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div></div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div>${admin?'<div class="fleet-stat" style="grid-column:1/-1"><strong data-pulled-count>—</strong><span data-pulled-label>Transactions in latest successful pull</span><small data-pulled-window></small></div>':''}</div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
+ let transactionRows=[],transactionOpener=null,transactionAccount='';
+ const transactionDialog=document.createElement('dialog');
+ transactionDialog.className='iv-dialog iv-classic-dialog fleet-transaction-dialog';
+ transactionDialog.setAttribute('aria-label','Fleet transaction details');
+ document.body.append(transactionDialog);
+ transactionDialog.addEventListener('click',e=>{if(e.target.closest('[data-transaction-close]'))transactionDialog.close();});
+ transactionDialog.addEventListener('close',()=>{transactionDialog.replaceChildren();if(transactionOpener?.isConnected)transactionOpener.focus({preventScroll:true});transactionOpener=null;});
+ function openTransaction(row,opener){
+  transactionOpener=opener;
+  const fields=(admin?adminTransactionColumns:customerTransactionColumns).filter(([, ,type])=>type!=='transaction'&&type!=='money');
+  const fieldRows=fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value(row)??'—')+'</dd></div>').join('');
+  transactionDialog.innerHTML='<header class="iv-head iv-classic-head"><div class="iv-company"><span class="fleet-detail-brand" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p>513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div>Fleet Transaction</div><h2>'+esc(row.transaction_id)+'</h2><p>Intevacon</p></div><button type="button" class="iv-close" data-transaction-close aria-label="Close transaction details">×</button></header><div class="iv-body"><div class="iv-classic-summary"><div><div class="iv-classic-label">Cardholder</div><div class="iv-classic-name">'+esc(row.cardholder||'—')+'</div><p>Card # '+esc(row.card_number||'—')+'</p><p>Account # '+esc(row.account_number||transactionAccount||'Unmatched')+'</p></div><div class="iv-classic-balance"><div class="iv-classic-label">Total Sale</div><div class="iv-classic-amount">'+esc(dollars(row.total_sale))+'</div>'+(admin?'<p>Billable amount: '+esc(dollars(row.billable_amount))+'</p>':'')+'</div></div><h3>Transaction details</h3><dl class="iv-classic-fields fleet-detail-fields">'+fieldRows+'</dl></div><footer class="iv-foot"><span class="iv-updated">Last sync: '+esc(central(lastSync))+'</span><button type="button" data-transaction-close>Back</button></footer>';
+  transactionDialog.showModal();transactionDialog.querySelector('[data-transaction-close]').focus({preventScroll:true});
+ }
+
  function updateSyncButton(){
   if(!admin)return;
   const state=syncButtonState(lastControl,controlDirty,syncRequestPending),button=get('[data-sync-now]');
@@ -136,6 +151,7 @@ function mount(root,admin){
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw Error(data.error||'Fleet records could not be loaded.');return data;
  }
  function display(data){
+  transactionRows=kind==='transactions'?data.items:[];transactionAccount=data.account_number||'';
   lastSync=data.last_sync;
   get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
   const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
@@ -146,8 +162,8 @@ function mount(root,admin){
   for(const r of data.items){
    let cells=[];if(admin)cells.push(esc(r.account_number||'Unmatched')+(r.needs_review?'<small>Needs account review</small>':''));
    if(kind==='cards')cells.push('<strong class="fleet-card-number">'+esc(r.card_number)+'</strong>',badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
-   else if(admin)cells.push(...adminTransactionCells(r));
-   else cells.push(...customerTransactionCells(r));
+   else if(admin)cells.push(...adminTransactionCells(r,data.items.indexOf(r)));
+   else cells.push(...customerTransactionCells(r,data.items.indexOf(r)));
    html+='<tr>'+cells.map((c,i)=>'<td data-fleet-align="'+(['total_sale','billable_amount'].includes(fleetSortKeys(kind,admin)[i])?'right':'left')+'">'+c+'</td>').join('')+'</tr>';
   }
   if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.'}</td></tr>`;
@@ -215,8 +231,8 @@ function mount(root,admin){
    // Keep the last successfully loaded rows; the next poll retries.
   }finally{refreshing=false;}
  }
- function clear(){controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
- root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
+ function clear(){transactionRows=[];if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
  if(btn.disabled)return;
  btn.disabled=true;btn.textContent='Refreshing…';btn.setAttribute('aria-busy','true');
  Promise.all([load(),...(admin?[status()]:[])]).finally(()=>{
@@ -227,6 +243,13 @@ function mount(root,admin){
  async function status(){
   const ticket=serial;
   try{const data=await api('/api/admin/fleet/status');if(ticket!==serial)return;
+   const completed=data.last_success;
+   const count=completed?.transactions_expected;
+   get('[data-pulled-count]').textContent=count!=null&&Number.isFinite(Number(count))?Number(count).toLocaleString():'—';
+   const from=Date.parse(completed?.window_from),to=Date.parse(completed?.window_to);
+   const days=Number.isFinite(from)&&Number.isFinite(to)&&to>=from?Math.round((to-from)/86400000):0;
+   get('[data-pulled-label]').textContent='Transactions in latest successful pull'+(days?' · '+periodLabel(days):'');
+   get('[data-pulled-window]').textContent=completed?(days?central(completed.window_from)+' – '+central(completed.window_to):'Completed '+central(completed.completed_at)):'No successful pull yet';
    const control=data.control;
    const running=control?.lease_until&&Date.parse(control.lease_until)>Date.now();
    if(control){

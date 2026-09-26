@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="format-detection" content="telephone=no">
 <script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
 <script src="/assets/js/wooten-admin-access.js?v=449"></script>
@@ -7247,7 +7248,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <section class="pt-dialog collections-modal-card" role="dialog" aria-modal="true" aria-labelledby="ptDetailTitle" tabindex="-1">
       <header class="pt-detail-header">
         <button class="collections-modal-close" id="ptClose" type="button" aria-label="Close transaction details">&times;</button>
-        <div class="admin-page-label">Payment Transactions</div><h2 id="ptDetailTitle">Transaction details</h2>
+        <div style="display:flex;gap:12px;align-items:flex-start;padding-right:44px;margin-bottom:16px"><span style="display:grid;place-items:center;flex:0 0 38px;height:38px;background:#d9222e;color:#fff;border-radius:9px;font-weight:700">WO</span><div><strong>WOOTEN OIL CO INC.</strong><div style="font-size:13px;line-height:1.6;color:#64748b;margin-top:6px">513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</div></div></div><h2 id="ptDetailTitle">Transaction details</h2>
         <div id="ptDetailSummary" class="pt-record-head" aria-live="polite" hidden></div>
       </header>
       <div class="pt-detail-scroll" id="ptDetailScroll" tabindex="0" role="region" aria-label="Transaction details"><div id="ptDetail" aria-live="polite"></div></div>
@@ -15319,17 +15320,17 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   display:none !important;
 }
 </style>
-<script src="assets/js/admin-payment-transactions.js?v=576"></script>
+<script src="assets/js/admin-payment-transactions.js?v=621"></script>
 <link rel="stylesheet" href="assets/css/wooten-pagination-layout.css?v=447">
 
 <link rel="stylesheet" href="assets/css/wooten-clean-tabs.css?v=559">
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
 <link rel="stylesheet" href="assets/css/wooten-bold-table-headers.css?v=470">
 <script src="assets/js/wooten-invoice-import.js?v=576"></script>
-<link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=586">
+<link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=624">
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
-<script src="assets/js/wooten-invoice-pdf.js?v=597"></script>
-<script src="assets/js/wooten-invoice-viewer.js?v=600"></script>
+<script src="assets/js/wooten-invoice-pdf.js?v=621"></script>
+<script src="assets/js/wooten-invoice-viewer.js?v=621"></script>
 <script src="assets/js/wooten-invoice-database.js?v=606"></script>
 </body>
 </html>
@@ -17990,7 +17991,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 </style>
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
-<script src="assets/js/wooten-fleet.js?v=605"></script>
+<script src="assets/js/wooten-fleet.js?v=624"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
@@ -18359,5 +18360,29 @@ body #admin-tab-automation span.mas90-health-result-chip.is-failed{background:#f
 #customerDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar,
 #paymentDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar {
   margin-top:14px!important;
+}
+</style>
+
+<style id="wooten-invoice-mobile-actions-ver618">
+@media(max-width:760px){
+  .actions.invoice-actions{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:12px!important;grid-template-columns:minmax(0,1fr)!important}
+  .actions.invoice-actions>button{width:100%!important;max-width:none!important;min-width:0!important;flex:none!important}
+  .actions.invoice-actions>button[hidden]{display:none!important}
+}
+</style>
+
+<style id="wooten-customer-mobile-actions-ver619">
+@media(max-width:760px){
+  body #admin-tab-database .db-actions{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:12px!important;
+  }
+  body #admin-tab-database .db-actions>button{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    grid-column:1!important;
+  }
 }
 </style>

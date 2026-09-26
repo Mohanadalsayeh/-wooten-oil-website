@@ -147,3 +147,45 @@ body .iv-classic-dialog .iv-detail-actions{display:flex;align-items:center;justi
 body .iv-classic-dialog button.iv-print{background:#1d659e!important;border-color:#1d659e!important;color:#fff!important}
 body .iv-classic-dialog button.iv-print:not(:disabled):hover{background:#174f7c!important;border-color:#174f7c!important}
 @media(max-width:600px){body .iv-classic-dialog .iv-foot{flex-wrap:wrap}body .iv-classic-dialog .iv-foot .iv-updated{max-width:100%}body .iv-classic-dialog .iv-detail-actions{margin-left:auto}}
+
+/* Ver620: reserve room for complete header labels and their sort arrows. */
+.iv-list-dialog table{min-width:900px}
+.iv-list-dialog th:nth-child(2){width:10%}
+.iv-list-dialog th:nth-child(3){width:16%}
+.iv-list-dialog th:nth-child(4),.iv-list-dialog th:nth-child(5){width:19%}
+
+/* Ver623: customer invoice navigation matches the customer dashboard forms. */
+body .iv-customer-list .iv-head{display:block;position:relative;padding:24px 26px 18px}
+body .iv-customer-list .iv-portal-name{padding-right:56px;color:#6b7887;font-size:12px;font-weight:700;letter-spacing:.12em;line-height:1.5;margin-bottom:16px}
+body .iv-customer-list .iv-head>.iv-close{position:absolute;right:26px;top:24px}
+body .iv-customer-list .iv-dashboard-nav{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-right:54px;padding-bottom:14px;margin-bottom:16px;border-bottom:1px solid #e1e8ef}
+body .iv-customer-list .iv-dashboard-back{display:inline-flex;align-items:center;gap:9px;flex:0 0 auto;background:#edf3f7!important;color:#20394f!important;border:0!important;border-radius:10px!important;padding:10px 14px!important;min-height:44px;font-size:14px;font-weight:400;white-space:nowrap}
+body .iv-customer-list .iv-dashboard-back:hover{background:#e2ebf2!important}
+body .iv-customer-list .iv-dashboard-back svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;flex:none}
+body .iv-customer-list .iv-breadcrumb{color:#64748b;font-size:13px;font-weight:700;line-height:1.5}
+body .iv-customer-list .iv-breadcrumb>span{color:#9aa9b8;margin-right:8px}
+body .iv-customer-list .iv-customer-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+body .iv-customer-list .iv-customer-heading>div{min-width:0;flex:1}
+body .iv-customer-list .iv-customer-heading .iv-refresh{min-width:0;flex:none}
+body .iv-customer-list .iv-tools{grid-template-columns:minmax(160px,1fr) minmax(160px,.7fr) auto}
+body .iv-customer-list .iv-foot{justify-content:center;text-align:center;color:#7b8b9c;font-size:13px}
+@media(max-width:700px){
+ body .iv-customer-list .iv-head{padding:20px 16px 16px}
+ body .iv-customer-list .iv-head>.iv-close{right:16px;top:20px}
+ body .iv-customer-list .iv-dashboard-nav{padding-right:0}
+ body .iv-customer-list .iv-tools{grid-template-columns:1fr}
+ body .iv-customer-list .iv-customer-heading{gap:10px}
+ body .iv-customer-list .iv-customer-heading h2{font-size:21px}
+ body .iv-customer-list .iv-customer-heading .iv-refresh{padding:10px 12px}
+}
+
+/* Ver624: fleet transaction details share the invoice document layout. */
+body .fleet-transaction-dialog .iv-company{display:flex;gap:12px;align-items:flex-start}
+body .fleet-transaction-dialog .fleet-detail-brand{display:grid;place-items:center;flex:0 0 38px;height:38px;background:#d9222e;color:white;border-radius:9px;font-weight:700}
+body .fleet-transaction-dialog .iv-company p{font-size:12px;line-height:1.6}
+body .fleet-transaction-dialog .fleet-detail-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
+body .fleet-transaction-dialog .fleet-detail-fields>div{min-width:0}
+body .wooten-fleet button.fleet-transaction-link{display:inline!important;min-height:0!important;height:auto!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;font:inherit!important;color:#17466b!important;text-decoration:none!important}
+body .wooten-fleet button.fleet-transaction-link:hover{text-decoration:underline!important;text-underline-offset:3px}
+body .wooten-fleet a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;pointer-events:none!important;cursor:default!important}
+@media(max-width:600px){body .fleet-transaction-dialog .fleet-detail-fields{grid-template-columns:1fr}}
