@@ -1,4 +1,4 @@
-// Ver658: fresh, customer-scoped date selection; no historical backfill on open.
+// Ver661: saved website cards; fresh customer-scoped API transactions.
 /* Ver656 — customer-initiated API refresh with session-scoped cards and transactions. */
 (function(){
 'use strict';
@@ -50,9 +50,10 @@ const customerTransactionColumns=[
  ['Auth Ref',r=>r.auth_ref,'','auth_ref'],['Entry Method',r=>r.entry_method,'','entry_method'],['Processed On',r=>sourceDate(r.processed_on),'','processed_on']
 ];
 const customerCardColumns=[
- ['Card Number',r=>r.card_number,'card','card_number'],['Card Type',r=>r.card_type,'','card_type'],['Cardholder',r=>r.cardholder,'','cardholder'],
- ['Transactions',r=>quantity(r.transaction_count),'quantity','transaction_count'],['Fuel Quantity',r=>quantity(r.fuel_quantity),'quantity','fuel_quantity'],
- ['Total Sale',r=>dollars(r.total_sale),'money','total_sale'],['Last Transaction',r=>sourceDate(r.last_used_on),'','last_used_on']
+ ['Card Number',r=>r.card_number,'card','card_number'],['Status',r=>r.status,'','status'],
+ ['Cardholder',r=>r.cardholder,'','cardholder'],['Card Type',r=>r.card_type,'','card_type'],
+ ['Assigned To',r=>r.assigned_to,'','assigned_to'],['Driver #',r=>r.driver_no,'','driver_no'],
+ ['Vehicle #',r=>r.vehicle_no,'','vehicle_no'],['Last Used On',r=>sourceDate(r.last_used_on),'','last_used_on']
 ];
 function customerCardCells(r,index){return customerCardColumns.map(([,value,type])=>{
  const text=esc(value(r)??'—')||'—';
@@ -148,7 +149,7 @@ function mount(root,admin){
  document.body.append(transactionDialog);
  transactionDialog.addEventListener('click',e=>{
   const card=e.target.closest('[data-view-card-transactions]');
-  if(card){get('[name=search]').value=card.dataset.viewCardTransactions;kind='transactions';page=1;sortKey='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===kind)));transactionDialog.close();load();return;}
+  if(card){get('[name=search]').value=card.dataset.viewCardTransactions;kind='transactions';page=1;sortKey='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===kind)));transactionDialog.close();load({refresh:!customerRequest||customerRequestPending});return;}
   if(e.target.closest('[data-transaction-close]'))transactionDialog.close();
   if(e.target.closest('[data-transaction-print]')&&transactionDialog.open&&transactionPrintData){
    const output=transactionDialog.querySelector('[data-transaction-print-status]');output.textContent='';
@@ -181,9 +182,9 @@ function mount(root,admin){
 
  function openCard(row,opener){
   transactionOpener=opener;
-  const fields=[['Card number',row.card_number],['Card type',row.card_type],['Cardholder',row.cardholder],['Account',transactionAccount],['Transactions in selected dates',quantity(row.transaction_count)],['Reported fuel quantity',quantity(row.fuel_quantity)],['Transactions reporting fuel quantity',quantity(row.quantity_reported_count)],['Total reported sale',dollars(row.total_sale)],['Last transaction',sourceDate(row.last_used_on)],['Last transaction status',row.last_transaction_status],['Drivers in selected dates',row.driver_names],['Driver numbers',row.driver_numbers],['Vehicles in selected dates',row.vehicle_numbers],['Vehicle descriptions',row.vehicle_descriptions],['Networks',row.networks],['Card activation status','Not supplied']].map(([label,value])=>[label,value==null||value===''?'—':String(value)]);
-  transactionPrintData={title:'Fleet Card',stackedGroups:true,number:row.card_number,meta:'Activity in the selected dates',customerLabel:'Cardholder',customer:row.cardholder||'—',account:'Account # '+transactionAccount,balanceLabel:'Total reported sale',balance:dollars(row.total_sale),updated:'Last sync: '+central(lastSync),groups:[{title:'Card activity',rows:fields}]};
-  transactionDialog.innerHTML='<header class="iv-head iv-classic-head"><div class="iv-company"><span class="fleet-detail-brand" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p>513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div>Fleet Card</div><h2>'+esc(row.card_number)+'</h2></div><button type="button" class="iv-close" data-transaction-close aria-label="Close card details">×</button></header><div class="iv-body"><p>Activity in the selected dates. Card activation status is not supplied.</p><dl class="iv-classic-fields fleet-detail-fields">'+fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl><button type="button" data-view-card-transactions="'+esc(row.card_number)+'">View card transactions</button></div><footer class="iv-foot"><span class="iv-updated">Last sync: '+esc(central(lastSync))+'</span><div class="iv-detail-actions"><button type="button" class="iv-print" data-transaction-print>Print Card</button><button type="button" data-transaction-close>Back</button></div></footer><p data-transaction-print-status role="status"></p>';
+  const fields=[['Card number',row.card_number],['Card status',row.status],['Card type',row.card_type],['Cardholder',row.cardholder],['Account',transactionAccount],['Customer ID',row.customer_id],['Assigned to',row.assigned_to],['Driver ID',row.driver_id],['Driver number',row.driver_no],['Vehicle ID',row.vehicle_id],['Vehicle number',row.vehicle_no],['Last used on',sourceDate(row.last_used_on)]].map(([label,value])=>[label,value==null||value===''?'—':String(value)]);
+  transactionPrintData={title:'Fleet Card',stackedGroups:true,number:row.card_number,meta:'Intevacon card details',customerLabel:'Cardholder',customer:row.cardholder||'—',account:'Account # '+transactionAccount,balanceLabel:'Card status',balance:row.status||'Unknown',updated:'Cards last updated: '+central(lastSync),groups:[{title:'Card details',rows:fields}]};
+  transactionDialog.innerHTML='<header class="iv-head iv-classic-head"><div class="iv-company"><span class="fleet-detail-brand" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p>513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div>Fleet Card</div><h2>'+esc(row.card_number)+'</h2></div><button type="button" class="iv-close" data-transaction-close aria-label="Close card details">×</button></header><div class="iv-body"><p>Card details from the latest complete Intevacon website export.</p><dl class="iv-classic-fields fleet-detail-fields">'+fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl><button type="button" data-view-card-transactions="'+esc(row.card_number)+'">View card transactions</button></div><footer class="iv-foot"><span class="iv-updated">Cards last updated: '+esc(central(lastSync))+'</span><div class="iv-detail-actions"><button type="button" class="iv-print" data-transaction-print>Print Card</button><button type="button" data-transaction-close>Back</button></div></footer><p data-transaction-print-status role="status"></p>';
   transactionDialog.showModal();transactionDialog.querySelector('[data-transaction-close]').focus({preventScroll:true});
  }
 
@@ -217,7 +218,8 @@ function mount(root,admin){
   const resizePager=()=>pager.classList.toggle('wooten-pager-compact',pager.getBoundingClientRect().width<620);
   new ResizeObserver(resizePager).observe(pager);resizePager();
  }
- const message=(value,error=false)=>{const el=get('[data-message]');el.textContent=value;el.hidden=!value;el.classList.toggle('error',error);};
+ // Customer progress/errors and the retrieved timestamp share one visible status area.
+ const message=(value,error=false)=>{const el=get('[data-message]');el.textContent=value;el.hidden=!value;el.classList.toggle('error',error);if(!admin){const live=get('[data-live-status]');live.hidden=!!value||lastLiveState!=='success'||!live.textContent;}};
  async function api(path,options={}){
   const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})};
   if(admin){const key=document.getElementById('adminKey')?.value?.trim();if(!key)throw Error('Sign in as an administrator.');headers['X-Admin-Key']=key;}
@@ -227,17 +229,19 @@ function mount(root,admin){
  function display(data){
   transactionRows=kind==='transactions'?data.items:[];cardRows=kind==='cards'?data.items:[];transactionAccount=data.account_number||'';
   lastSync=data.last_sync;page=data.page||page;
-  lastLiveState=data.live?.state??null;
+  const websiteCards=!admin&&data.card_source==='website';
+  lastLiveState=websiteCards?(data.last_sync?'success':'not_loaded'):data.live?.state??null;
   if(data.live?.state==='success')customerRequestPending=false;
-  get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=(admin?data.summary.active:data.summary.transactions).toLocaleString();
+  get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=(admin||websiteCards?data.summary.active:data.summary.transactions).toLocaleString();
   const window=data.window_from?` · Transactions received ${(admin?central:sourceDate)(data.window_from)} – ${(admin?central:sourceDate)(data.window_to)}`:'';
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
   if(!admin){
-   const live=get('[data-live-status]');live.hidden=!data.live;
-   live.textContent=data.live?.state==='success'?'Fresh from Intevacon · Retrieved '+central(data.live.fetchedAt):data.live?.state==='error'?'Fresh results could not be retrieved.':'Waiting for fresh Intevacon results…';
-   live.dataset.state=data.live?.state||'not_loaded';
+   const live=get('[data-live-status]');live.hidden=lastLiveState!=='success'||!get('[data-message]').hidden;
+   live.textContent=websiteCards?(data.last_sync?'Cards last updated: '+central(data.last_sync):''):data.live?.state==='success'?'Fresh from Intevacon · Retrieved '+central(data.live.fetchedAt):'';
+   live.dataset.state=lastLiveState||'not_loaded';
   }
-  if(!admin){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-sales]').textContent=dollars(data.summary.total_sale);get('[data-meta]').textContent+=' · '+data.notice+' '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Transaction dates are shown as supplied by Intevacon.';}
+  if(websiteCards)get('[data-meta]').textContent=data.notice;
+  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-sales]').textContent=dollars(data.summary.total_sale);get('[data-meta]').textContent+=' · '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Transaction dates are shown as supplied by Intevacon.';}
   const headers=!admin?(kind==='cards'?customerCardColumns:customerTransactionColumns).map(([label])=>label):kind==='transactions'?adminTransactionColumns.map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
@@ -249,7 +253,7 @@ function mount(root,admin){
    else cells.push(...customerTransactionCells(r,data.items.indexOf(r)));
    html+='<tr>'+cells.map((c,i)=>'<td data-fleet-align="'+(['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(fleetSortKeys(kind,admin)[i])?'right':'left')+'">'+c+'</td>').join('')+'</tr>';
   }
-  if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${!admin?(data.last_sync?'No matching fleet records in the selected dates.':'No fresh results loaded for these dates yet.'):(data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.')}</td></tr>`;
+  if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${!admin?(websiteCards?(data.last_sync?'No matching cards in your account.':'Your cards will appear after the first complete card sync.'):(data.last_sync?'No matching fleet records in the selected dates.':'No fresh results loaded for these dates yet.')):(data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.')}</td></tr>`;
   get('[data-table]').innerHTML=html+'</tbody></table>';
   get('[data-pages]').innerHTML=fleetPager(page,data.pages,data.total);
   if(admin)get('[data-export]').disabled=exporting||!data.items.length;
@@ -301,7 +305,7 @@ function mount(root,admin){
  function customerRefreshState(refresh){
   if(admin)return;
   clearTimeout(customerRetry);customerRetry=null;
-  customerNotice=refresh?.message||'';customerNoticeError=refresh?.state==='error';
+  customerNotice=refresh?.state==='success'?'':refresh?.message||'';customerNoticeError=refresh?.state==='error';
   if(['error','success','expired'].includes(refresh?.state))customerRequestPending=false;
   const button=get('[data-refresh]'),waiting=refresh?.state==='waiting';
   button.disabled=waiting;button.textContent=waiting?'Waiting…':'Refresh';button.toggleAttribute('aria-busy',waiting);
@@ -313,31 +317,54 @@ function mount(root,admin){
    customerRetry=setTimeout(retry,Math.max(1000,Math.min(1800000,Number(refresh.retryAfterSeconds||5)*1000)));
   }
  }
- async function load({refresh=false,background=false}={}){
-  if(refresh&&!admin&&!background&&!startCustomerRequest()){const button=get('[data-refresh]');button.disabled=false;button.textContent='Refresh';button.removeAttribute('aria-busy');return;}
-  if(admin)get('[data-export]').disabled=true;
-  if(!admin&&!refresh&&!customerRetry){const button=get('[data-refresh]');button.disabled=false;button.textContent='Refresh';button.removeAttribute('aria-busy');}
-  if(refresh&&!admin){clearTimeout(customerRetry);customerRetry=null;const button=get('[data-refresh]');button.disabled=true;button.textContent='Refreshing…';button.setAttribute('aria-busy','true');}
-  controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
-  if(!background){get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';}message(refresh&&!admin?'Checking your fleet activity with Intevacon…':'Loading fleet records…');root.setAttribute('aria-busy','true');
-  const query=background&&loadedQuery?new URLSearchParams(loadedQuery):new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});if(admin&&get('[name=review]').checked)query.set('review','1');
-  if(sortKey){query.set('sort',sortKey);query.set('direction',sortDirection);}
-  if(!admin&&customerRequest)query.set('view',customerRequest.view);
-  // A failed new request must never let polling restore the previous view's results.
-  if(!admin)loadedQuery=query.toString();
-  try{const data=await api((admin?'/api/admin/fleet/data':'/api/customer/fleet')+'?'+query,{signal:controller.signal,...(refresh&&!admin?{method:'POST',body:JSON.stringify(customerRequest)}:{})});if(ticket!==serial)return;loadedQuery=query.toString();display(data);if(!admin&&(refresh||data.refresh||data.live?.state==='success')){const waiting=customerRequestPending&&!refresh&&data.live?.state==='not_loaded';customerRefreshState(waiting?{state:'waiting',retryAfterSeconds:5,message:'Waiting for your fresh API request…'}:data.refresh||(data.live?.state==='success'?{state:'success',message:'Fresh Intevacon results loaded for the selected dates.'}:null));}message(admin?'':customerNotice,customerNoticeError);}
-  catch(e){if(ticket===serial&&e.name!=='AbortError'){if(!background)get('[data-table]').innerHTML='';if(refresh&&!admin)customerRefreshState({state:'error',message:e.message});message(e.message,true);}}
-  finally{if(ticket===serial)root.removeAttribute('aria-busy');}
+ function customerView(){
+  if(admin)return;
+  const cards=kind==='cards';root.dataset.kind=kind;
+  get('.fleet-live-dates').hidden=cards;
+  get('[data-count]').nextElementSibling.textContent=cards?'Cards in your account':'Cards with activity';
+  get('[data-active]').nextElementSibling.textContent=cards?'Active cards':'Transactions in selected dates';
+  for(const key of ['quantity','sales'])get('[data-'+key+']').parentElement.hidden=cards;
+  get('[data-refresh]').title=cards?'Reload the saved card list. Card collection runs separately.':'Retrieve fresh transactions from Intevacon.';
  }
+ async function load({refresh=false,background=false}={}){
+  const cardsView=!admin&&kind==='cards',apiRefresh=refresh&&!admin&&!cardsView;
+  customerView();
+  if(cardsView)customerRefreshState(null);
+  if(apiRefresh&&!background&&!startCustomerRequest()){const button=get('[data-refresh]');button.disabled=false;button.textContent='Refresh';button.removeAttribute('aria-busy');return;}
+  if(admin)get('[data-export]').disabled=true;
+  if(!admin&&!apiRefresh&&!customerRetry){const button=get('[data-refresh]');button.disabled=false;button.textContent='Refresh';button.removeAttribute('aria-busy');}
+  if(apiRefresh){clearTimeout(customerRetry);customerRetry=null;const button=get('[data-refresh]');button.disabled=true;button.textContent='Refreshing…';button.setAttribute('aria-busy','true');}
+  controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
+  if(!background){get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';}
+  message(cardsView?'Loading your fleet cards…':apiRefresh?'Checking your fleet activity with Intevacon…':'Loading fleet records…');root.setAttribute('aria-busy','true');
+  const query=background&&loadedQuery?new URLSearchParams(loadedQuery):new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});
+  if(admin&&get('[name=review]').checked)query.set('review','1');
+  if(sortKey){query.set('sort',sortKey);query.set('direction',sortDirection);}
+  if(!admin&&!cardsView&&customerRequest)query.set('view',customerRequest.view);
+  if(!admin)loadedQuery=query.toString();
+  try{
+   const path=admin?'/api/admin/fleet/data':cardsView?'/api/customer/fleet/cards':'/api/customer/fleet';
+   const data=await api(path+'?'+query,{signal:controller.signal,...(apiRefresh?{method:'POST',body:JSON.stringify(customerRequest)}:{})});
+   if(ticket!==serial)return;loadedQuery=query.toString();display(data);
+   if(cardsView){message(data.last_sync?'':data.notice);return;}
+   if(!admin&&(apiRefresh||data.refresh||data.live?.state==='success')){
+    const waiting=customerRequestPending&&!apiRefresh&&data.live?.state==='not_loaded';
+    customerRefreshState(waiting?{state:'waiting',retryAfterSeconds:5,message:'Waiting for your fresh API request…'}:data.refresh||(data.live?.state==='success'?{state:'success'}:null));
+   }
+   message(admin?'':customerNotice,customerNoticeError);
+  }catch(e){if(ticket===serial&&e.name!=='AbortError'){if(!background)get('[data-table]').innerHTML='';if(apiRefresh)customerRefreshState({state:'error',message:e.message});message(e.message,true);}}
+  finally{if(ticket===serial){root.removeAttribute('aria-busy');if(cardsView){const button=get('[data-refresh]');button.disabled=false;button.textContent='Refresh';button.removeAttribute('aria-busy');}}}
+ }
+
  // Only replace visible rows when a newly committed sync is available.
  async function refreshAfterSync(){
   if(!loadedQuery||refreshing||exporting||root.hasAttribute('aria-busy'))return;
   refreshing=true;
   const ticket=serial,query=new URLSearchParams(loadedQuery),signal=controller?.signal;
   try{
-   const path=admin?'/api/admin/fleet/data':'/api/customer/fleet';
+   const path=admin?'/api/admin/fleet/data':kind==='cards'?'/api/customer/fleet/cards':'/api/customer/fleet';
    let data=await api(path+'?'+query,{signal});
-   if(ticket!==serial||exporting||(data.last_sync===lastSync&&(data.live?.state??null)===lastLiveState))return;
+   if(ticket!==serial||exporting||(data.last_sync===lastSync&&(data.card_source==='website'?(data.last_sync?'success':'not_loaded'):data.live?.state??null)===lastLiveState))return;
    if(Number(query.get('page'))>data.pages){
     query.set('page',String(data.pages));
     data=await api(path+'?'+query,{signal});
@@ -346,14 +373,15 @@ function mount(root,admin){
    const table=get('[data-table]'),left=table.scrollLeft,top=table.scrollTop;
    page=Number(query.get('page'));loadedQuery=query.toString();display(data);
    table.scrollLeft=left;table.scrollTop=top;
+   if(!admin&&kind==='cards'){message(data.last_sync?'':data.notice);return;}
    if(!admin&&(data.live?.state==='success'||data.live?.state==='error'||!customerRetry))customerRefreshState(data.refresh||{state:'success',message:'Fresh Intevacon results loaded for the selected dates.'});
    message(admin?'Fleet records refreshed after a successful sync.':customerNotice,customerNoticeError);
   }catch(e){
    // Keep the last successfully loaded rows; the next poll retries.
   }finally{refreshing=false;}
  }
- function clear(){lastLiveState=null;customerRequest=null;customerRequestPending=false;if(!admin){customerRefreshState(null);resetCustomerDates();get('[data-live-status]').hidden=true;get('[data-live-status]').textContent='';}transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';get('[data-sales]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
- root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-card')){const row=cardRows[Number(btn.dataset.fleetCard)];if(row)openCard(row,btn);}else if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
+ function clear(){if(!admin){kind='cards';sortKey='';sortDirection='asc';get('[name=search]').value='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind==='cards')));customerView();}lastLiveState=null;customerRequest=null;customerRequestPending=false;if(!admin){customerRefreshState(null);resetCustomerDates();get('[data-live-status]').hidden=true;get('[data-live-status]').textContent='';}transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';get('[data-sales]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-card')){const row=cardRows[Number(btn.dataset.fleetCard)];if(row)openCard(row,btn);}else if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load({refresh:!admin&&kind==='transactions'&&(!customerRequest||customerRequestPending)});}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
  if(btn.disabled)return;
  btn.disabled=true;btn.textContent='Refreshing…';btn.setAttribute('aria-busy','true');
  Promise.all([load({refresh:!admin}),...(admin?[status()]:[])]).finally(()=>{

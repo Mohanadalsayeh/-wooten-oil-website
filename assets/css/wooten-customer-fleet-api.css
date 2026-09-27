@@ -1,7 +1,8 @@
-/* Ver658: fresh customer API results with responsive date controls. */
+/* Ver659: portal-styled date fields for fresh customer API results. */
 body #customerFleetRoot .fleet-live-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0 20px;padding:16px;border:1px solid #d9e4ed;border-radius:12px;background:#f6f9fb;min-width:0}
 body #customerFleetRoot .fleet-live-dates label{display:flex;flex-direction:column;gap:8px;min-width:0;font-weight:700}
-body #customerFleetRoot .fleet-live-dates input{display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;padding:10px 8px}
+body #customerFleetRoot .fleet-live-dates input{display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;min-height:var(--wooten-action-button-height,44px);margin:0;padding:10px 13px;border:1px solid #bccddd;border-radius:10px;background:#fff;color:#193953;font:inherit;font-size:16px;font-weight:400;line-height:1.4;color-scheme:light}
+body #customerFleetRoot .fleet-live-dates input:focus-visible{outline:3px solid #66a6d8;outline-offset:-3px;box-shadow:none}
 body #customerFleetRoot .fleet-live-dates input::-webkit-date-and-time-value{min-width:0;text-align:left}
 body #customerFleetRoot .fleet-live-date-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;grid-column:1/-1}
 body #customerFleetRoot .fleet-live-date-actions button{width:100%;min-width:0}
@@ -39,3 +40,7 @@ body .fleet-transaction-dialog dd{overflow-wrap:anywhere}
  body #customerFleetRoot .fleet-stat strong{font-size:21px}
  body #customerFleetRoot .fleet-meta{font-size:12px}
 }
+
+/* Ver661: saved card lists have no transaction date or quantity controls. */
+body #customerFleetRoot .fleet-live-dates[hidden],body #customerFleetRoot .fleet-stat[hidden]{display:none!important}
+body #customerFleetRoot[data-kind="cards"] .fleet-summary{grid-template-columns:repeat(2,minmax(0,1fr))}

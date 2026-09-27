@@ -16,6 +16,7 @@ import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-state
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconApiSchedule from './fleet/intevacon-api-schedule.mjs';
 import {handleCustomer as customerApiFleet} from './fleet/intevacon-customer-api.mjs';
+import * as IntevaconCards from './fleet/intevacon-cards.mjs';
 export {IntevaconApiScheduler} from './fleet/intevacon-api-schedule.mjs';
 import './assets/js/wooten-admin-access.js';
 const adminAccess=globalThis.WootenAdminAccess;
@@ -4700,7 +4701,7 @@ async function customerActivationSetPassword({
   const identifier = clean2(body?.identifier || body?.email || body?.account_number);
   if (!identifier || !code || !password) return json5({ success: false, error: "Verification code and password are required." }, 400);
   if (confirmPassword && password !== confirmPassword) return json5({ success: false, error: "The passwords do not match." }, 400);
-  if (password.length < 8 || !/[A-Za-z]/.test(password)) return json5({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
+  if (password.length < 10 || !/[A-Za-z]/.test(password)) return json5({ success: false, error: "Your password must be at least 10 characters and contain at least one letter." }, 400);
   if (password.length > 128) return json5({ success: false, error: "Your password is too long." }, 400);
 
   if (activationScope === "shared_email") {
@@ -5209,7 +5210,7 @@ async function customerPasswordResetComplete({ request, env }) {
       return json6({ success: false, error: "Enter your Customer Number or email, the 6-digit code, and a new password." }, 400);
     }
     if (confirm && password !== confirm) return json6({ success: false, error: "The passwords do not match." }, 400);
-    if (password.length < 8 || !/[A-Za-z]/.test(password)) return json6({ success: false, error: "Your password must be at least 8 characters and contain at least one letter." }, 400);
+    if (password.length < 10 || !/[A-Za-z]/.test(password)) return json6({ success: false, error: "Your password must be at least 10 characters and contain at least one letter." }, 400);
     if (password.length > 128) return json6({ success: false, error: "Your password is too long." }, 400);
 
     // For an email identifier, first check for a valid Shared Email Login reset token.
@@ -5303,7 +5304,7 @@ async function customerChangePassword({ request, env }) {
     const newPassword = String(body?.new_password ?? body?.newPassword ?? "");
     const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
     if (!currentPassword) return json6({ success: false, error: "Enter your current password." }, 400);
-    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword)) return json6({ success: false, error: "Your new password must be at least 8 characters and contain at least one letter." }, 400);
+    if (newPassword.length < 10 || !/[A-Za-z]/.test(newPassword)) return json6({ success: false, error: "Your new password must be at least 10 characters and contain at least one letter." }, 400);
     if (newPassword.length > 128) return json6({ success: false, error: "Your new password is too long." }, 400);
     if (newPassword !== confirmPassword) return json6({ success: false, error: "The new passwords do not match." }, 400);
     if (newPassword === currentPassword) return json6({ success: false, error: "Choose a new password that is different from your current password." }, 400);
@@ -5339,7 +5340,7 @@ async function customerChangeSharedEmailPassword({ request, env }) {
     const newPassword = String(body?.new_password ?? body?.newPassword ?? "");
     const confirmPassword = String(body?.confirm_password ?? body?.confirmPassword ?? "");
     if (!currentPassword) return json6({ success: false, error: "Enter your current shared-email password." }, 400);
-    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword)) return json6({ success: false, error: "Your new password must be at least 8 characters and contain at least one letter." }, 400);
+    if (newPassword.length < 10 || !/[A-Za-z]/.test(newPassword)) return json6({ success: false, error: "Your new password must be at least 10 characters and contain at least one letter." }, 400);
     if (newPassword.length > 128) return json6({ success: false, error: "Your new password is too long." }, 400);
     if (newPassword !== confirmPassword) return json6({ success: false, error: "The new passwords do not match." }, 400);
     if (newPassword === currentPassword) return json6({ success: false, error: "Choose a new password that is different from your current password." }, 400);
@@ -12423,6 +12424,8 @@ var worker_default = {
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname.startsWith("/api/intevacon-cards-agent/"))return IntevaconCards.agent({request,env});
+    if(url.pathname==="/api/customer/fleet/cards")return IntevaconCards.customerCards({request,env,customer:await getCustomerFromSession(request,env)});
     if(url.pathname.startsWith("/api/intevacon-agent/"))return notificationJson({success:false,error:"Legacy Intevacon synchronization has been retired. Use the admin Intevacon API page."},410);
     if(url.pathname==="/api/customer/fleet")return customerApiFleet({request,env,customer:await getCustomerFromSession(request,env)});
     if(url.pathname==="/api/customer/open-invoices")return readInvoices({request,env,customer:await getCustomerFromSession(request,env)});
@@ -12435,6 +12438,7 @@ var worker_default = {
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
+    if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
     if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
     if(url.pathname.startsWith("/api/admin/fleet/"))return notificationJson({success:false,error:"Legacy fleet synchronization has been retired. Use Intevacon API."},410);
     if(url.pathname==="/api/admin/users"){

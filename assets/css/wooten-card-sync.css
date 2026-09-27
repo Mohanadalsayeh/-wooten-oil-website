@@ -1,0 +1,24 @@
+.fleet-card-sync{margin:20px 0 32px;padding:22px;border:1px solid #d8e3ed;border-radius:16px;background:#f6f9fb;color:#193953}
+.fleet-card-sync [hidden]{display:none!important}
+.fleet-card-sync h3{margin:0 0 10px;color:#193953;font-weight:800}
+.fleet-card-sync p{line-height:1.5}
+.fleet-card-sync form{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end;margin:20px 0}
+.fleet-card-sync label{display:flex;flex-direction:column;gap:8px;font-weight:700;min-width:0}
+.fleet-card-sync .cards-enable{flex-direction:row;align-items:center;align-self:center}
+.fleet-card-sync input[type=checkbox]{width:20px;height:20px}
+.fleet-card-sync select,.fleet-card-sync input[data-card-secret]{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font:inherit;color:#193953;background:#fff;border:1px solid #bccddd;border-radius:10px;padding:11px 13px;min-height:44px}
+.fleet-card-sync .cards-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+.fleet-card-sync button{min-height:44px;border-radius:10px;padding:11px 16px;font:inherit;cursor:pointer}
+.fleet-card-sync button:disabled{opacity:.55;cursor:default}
+.fleet-card-sync [data-card-sync]{border:1px solid #d51e28;background:#d51e28;color:white}
+.fleet-card-sync [data-card-refresh]{border:1px solid #2ca371;background:#2ca371;color:white}
+.fleet-card-sync dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
+.fleet-card-sync dl div{padding:14px;border:1px solid #d8e3ed;border-radius:12px;background:white;min-width:0}
+.fleet-card-sync dt{font-size:13px;color:#62798e}.fleet-card-sync dd{margin:6px 0 0;font-weight:700;overflow-wrap:anywhere}
+.fleet-card-sync [data-card-status]{padding:14px;border-radius:10px;background:#edf3f8}
+.fleet-card-sync [data-card-status][data-state=complete]{background:#e9f7ef;color:#176d3e}
+.fleet-card-sync [data-card-status][data-state=failed],.fleet-card-sync [data-card-message][data-error=true]{background:#fff0f1;color:#9c2542}
+.fleet-card-sync [data-card-message]{padding:12px;border-radius:10px;background:#edf3f8}
+.fleet-card-sync details{border-top:1px solid #d8e3ed;padding-top:16px}.fleet-card-sync summary{font-weight:700;cursor:pointer}
+.fleet-card-sync [data-card-secret-area]{margin:14px 0}.fleet-card-sync [data-card-secret-area] button{margin-top:10px}
+@media(max-width:640px){.fleet-card-sync{padding:16px}.fleet-card-sync form,.fleet-card-sync dl{grid-template-columns:minmax(0,1fr)}.fleet-card-sync .cards-actions{display:grid;grid-template-columns:1fr}.fleet-card-sync button{width:100%}}

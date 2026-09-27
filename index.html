@@ -486,12 +486,12 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       </div>
       <div class="portal-field">
         <label for="activation-password">Create Password</label>
-        <input id="activation-password" type="password" minlength="8" maxlength="128" placeholder="At least 8 characters" autocomplete="new-password" />
-        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
+        <input id="activation-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
+        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 10 characters and contain at least one letter.</span></div>
       </div>
       <div class="portal-field">
         <label for="activation-confirm">Confirm Password</label>
-        <input id="activation-confirm" type="password" minlength="8" maxlength="128" placeholder="Re-enter password" autocomplete="new-password" />
+        <input id="activation-confirm" type="password" minlength="10" maxlength="128" placeholder="Re-enter password" autocomplete="new-password" />
       </div>
       <div class="portal-action-row">
         <button class="portal-primary-btn" id="activationComplete" type="button">Activate Account</button>
@@ -530,8 +530,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       </div>
       <div class="portal-field">
         <label for="reset-password">New Password</label>
-        <input id="reset-password" type="password" minlength="8" maxlength="128" placeholder="At least 8 characters" autocomplete="new-password" />
-        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 8 characters and contain at least one letter.</span></div>
+        <input id="reset-password" type="password" minlength="10" maxlength="128" placeholder="At least 10 characters" autocomplete="new-password" />
+        <div class="portal-preview-note" style="margin-top:8px"><span>Password must be at least 10 characters and contain at least one letter.</span></div>
       </div>
       <div class="portal-field">
         <label for="reset-confirm">Confirm New Password</label>
@@ -1372,6 +1372,26 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script src="assets/js/script-01.js"></script>
 
 
+<!-- Ver659: validate reset passwords before legacy reset handlers run. -->
+<script id="customer-reset-password-policy">
+(function(){
+  document.addEventListener('click',function(event){
+    if(!event.target.closest || !event.target.closest('#resetComplete')) return;
+    var input=document.getElementById('reset-password');
+    if(!input || !input.value) return;
+    var password=input.value;
+    var message=password.length<10 || !/[A-Za-z]/.test(password)
+      ? 'Your password must be at least 10 characters and contain at least one letter.'
+      : password.length>128 ? 'Your password is too long.' : '';
+    if(!message) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    var status=document.getElementById('resetStatus');
+    if(status){status.className='portal-status show error';status.textContent=message;}
+    input.focus();
+  },true);
+})();
+</script>
 <script src="assets/js/script-02.js?v=20260911ct1"></script>
 
 <script src="assets/js/script-03.js?v=20260911ct1"></script>
@@ -1524,13 +1544,13 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <div class="portal-action-modal-body">
       <div class="profile-change-grid password-change-grid">
         <label>Current Password<input id="changeCurrentPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter current password"></label>
-        <label>New Password<input id="changeNewPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"></label>
-        <label>Confirm New Password<input id="changeConfirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password"></label>
+        <label>New Password<input id="changeNewPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="At least 10 characters"></label>
+        <label>Confirm New Password<input id="changeConfirmPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password"></label>
         <div class="profile-change-full portal-password-rule" role="note">
           <span class="portal-password-rule-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg>
           </span>
-          <span>Password must be at least 8 characters and contain at least one letter.</span>
+          <span>Password must be at least 10 characters and contain at least one letter.</span>
         </div>
       </div>
       <div class="portal-action-modal-actions password-change-actions">
@@ -1564,11 +1584,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <div class="portal-action-modal-body">
       <div class="profile-change-grid password-change-grid">
         <label>Current Shared Email Password<input id="sharedEmailCurrentPassword" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter current shared email password"></label>
-        <label>New Shared Email Password<input id="sharedEmailNewPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"></label>
-        <label>Confirm New Password<input id="sharedEmailConfirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password"></label>
+        <label>New Shared Email Password<input id="sharedEmailNewPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="At least 10 characters"></label>
+        <label>Confirm New Password<input id="sharedEmailConfirmPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password"></label>
         <div class="profile-change-full portal-password-rule" role="note">
           <span class="portal-password-rule-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path></svg></span>
-          <span>Password must be at least 8 characters and contain at least one letter.</span>
+          <span>Password must be at least 10 characters and contain at least one letter.</span>
         </div>
       </div>
       <div class="portal-action-modal-actions password-change-actions">
@@ -1722,7 +1742,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     var confirm=document.getElementById('activation-confirm').value;
     if(!identifier||!code||!password||!confirm){setStatus('Enter the verification code and both password fields.',false);return;}
     if(!/^\d{6}$/.test(code)){setStatus('Enter the 6-digit verification code.',false);return;}
-    if(password.length<8||!/[A-Za-z]/.test(password)){setStatus('Your password must be at least 8 characters and contain at least one letter.',false);return;}
+    if(password.length<10||!/[A-Za-z]/.test(password)){setStatus('Your password must be at least 10 characters and contain at least one letter.',false);return;}
     if(password!==confirm){setStatus('The passwords do not match.',false);return;}
     clearStatus();complete.disabled=true;complete.textContent=activationMode==='shared_email'?'Creating…':'Activating…';
     try{
@@ -1948,7 +1968,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     const newPassword=g('changeNewPassword').value;
     const confirmPassword=g('changeConfirmPassword').value;
     if(!current){setStatus(passwordStatus,'Enter your current password.','bad');return}
-    if(newPassword.length<8||!/[A-Za-z]/.test(newPassword)){setStatus(passwordStatus,'Your new password must be at least 8 characters and contain at least one letter.','bad');return}
+    if(newPassword.length<10||!/[A-Za-z]/.test(newPassword)){setStatus(passwordStatus,'Your new password must be at least 10 characters and contain at least one letter.','bad');return}
     if(newPassword!==confirmPassword){setStatus(passwordStatus,'The new passwords do not match.','bad');return}
     if(newPassword===current){setStatus(passwordStatus,'Choose a new password that is different from your current password.','info');return}
     if(!confirm('Change your password now? You will be signed out and asked to sign in again with the new password.')) return;
@@ -2046,7 +2066,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   submit.addEventListener('click',async()=>{
     const current=g('sharedEmailCurrentPassword').value,newPassword=g('sharedEmailNewPassword').value,confirmPassword=g('sharedEmailConfirmPassword').value;
     if(!current){setStatus('Enter your current shared-email password.','bad');return}
-    if(newPassword.length<8||!/[A-Za-z]/.test(newPassword)){setStatus('Your new password must be at least 8 characters and contain at least one letter.','bad');return}
+    if(newPassword.length<10||!/[A-Za-z]/.test(newPassword)){setStatus('Your new password must be at least 10 characters and contain at least one letter.','bad');return}
     if(newPassword!==confirmPassword){setStatus('The new passwords do not match.','bad');return}
     if(newPassword===current){setStatus('Choose a new password that is different from your current password.','info');return}
     if(!confirm('Change the password for this shared email login? You will be signed out of linked-email sessions and asked to sign in again.'))return;
@@ -5161,8 +5181,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=491">
 <link rel="stylesheet" href="assets/css/wooten-customer-fleet-compact.css?v=603">
-<link rel="stylesheet" href="assets/css/wooten-customer-fleet-api.css?v=658">
-<script src="assets/js/wooten-fleet.js?v=658"></script>
+<link rel="stylesheet" href="assets/css/wooten-customer-fleet-api.css?v=661">
+<script src="assets/js/wooten-fleet.js?v=661"></script>
 <script src="assets/js/wooten-customer-fleet-layout.js?v=603"></script>
 
 <link rel="stylesheet" href="assets/css/wooten-search-icons.css?v=531">

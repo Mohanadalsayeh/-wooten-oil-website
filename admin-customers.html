@@ -7229,17 +7229,38 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 
 <section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-label="Intevacon API" data-admin-panel="intevacon-api-test" hidden>
 
-  <h2>Intevacon API</h2>
+  <h2>Fleet Cards &amp; Transactions</h2>
+  <section class="fleet-card-sync" id="websiteCardSync" aria-labelledby="websiteCardSyncTitle">
+    <h3 id="websiteCardSyncTitle">Fleet Cards — Website Sync</h3>
+    <p>Retrieve the complete Intevacon card list, including cards without recent transactions. Customers see their saved cards immediately. Transactions use the API independently.</p>
+    <form>
+      <label class="cards-enable"><input name="cardsEnabled" type="checkbox" checked> Automatic card sync</label>
+      <label>Card sync interval<select name="cardsInterval"><option value="7200">Every 2 hours</option><option value="14400">Every 4 hours</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Every 24 hours</option></select></label>
+      <button class="secondary" data-card-save type="submit">Save card schedule</button>
+    </form>
+    <div class="cards-actions"><button type="button" data-card-sync disabled>Sync Cards Now</button><button type="button" data-card-refresh>Refresh status</button></div>
+    <p data-card-status role="status" aria-live="polite">Loading card service status…</p>
+    <dl><div><dt>Cards in latest complete export</dt><dd data-card-count>—</dd></div><div><dt>Cards last updated</dt><dd data-card-success>—</dd></div><div><dt>Next card pull</dt><dd data-card-next>—</dd></div><div><dt>Card service last check-in</dt><dd data-card-checkin>—</dd></div></dl>
+    <p data-card-unmatched hidden></p>
+    <p>Failed pulls keep the previous complete card list. Cards and transactions have separate update times.</p>
+    <details data-card-setup hidden><summary>Card service setup</summary>
+      <p>Create a credential for the separate <strong>wooten-intevacon-cards</strong> cloud Worker. Use the installation instructions supplied with this update.</p>
+      <button class="secondary" type="button" data-card-credential>Create card sync credential</button>
+      <div data-card-secret-area hidden><label>Card service credential<input data-card-secret type="password" readonly autocomplete="off" spellcheck="false"></label><button class="secondary" type="button" data-card-copy>Copy credential</button></div>
+    </details>
+    <p data-card-message role="status" hidden></p>
+  </section>
+  <h3>Transactions — Intevacon API</h3>
   <p>Retrieve transactions from Intevacon manually or on an automatic schedule.</p>
-  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync Now. Successful all-card results are shown in the matching customer accounts, including quantities and transaction details. Single-card lookups keep the customer results unchanged. Transactions are not marked as exported.</div>
+  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync Now. These results are for the admin transaction view. Customers request fresh API transactions for their own account, including quantities and details. Card lists are updated separately above. Transactions are not marked as exported.</div>
   <form id="apiScheduleForm" class="api-schedule">
-    <h3>Automatic sync</h3>
-    <label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox"> Enable automatic sync</label>
+    <h3>Automatic transaction sync</h3>
+    <label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox"> Enable automatic transaction sync</label>
     <div class="api-schedule-fields">
       <label>Interval (seconds)<input id="apiScheduleInterval" type="number" min="30" max="86400" step="1" value="300" required></label>
       <label>Retrieve the last (days)<input id="apiScheduleDays" type="number" min="1" max="92" step="1" value="1" required></label>
     </div>
-    <p class="api-test-help">Automatic sync retrieves all cards. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
+    <p class="api-test-help">Automatic transaction sync retrieves activity for all cards. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
     <button id="apiScheduleSave" class="secondary" type="submit">Save schedule</button>
     <p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
@@ -18096,6 +18117,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=651">
 <script src="assets/js/wooten-intevacon-api-test.js?v=654"></script>
+<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=661">
+<script src="assets/js/wooten-card-sync.js?v=661"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
