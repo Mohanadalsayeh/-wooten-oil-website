@@ -1,3 +1,4 @@
+// Ver646: retire legacy Intevacon agent/write routes; preserve API retrieval and customer database reads.
 // Ver645: Fleet manual/API tabs; fleet agent claims require a manual request.
 // Ver644 deployment: manual Intevacon API test. Existing fleet synchronization is unchanged.
 // Ver641 deployment: server-side comment sorting; admin invoice lists/search return the stored MAS 90 Comment via the accompanying invoice server modules.
@@ -12420,7 +12421,7 @@ var worker_default = {
       if(request.method==="GET"||request.method==="POST")return customerProfileChangeRequests({request,env});
       return methodNotAllowed();
     }
-    if(url.pathname.startsWith("/api/intevacon-agent/"))return IntevaconFleet.handle({request,env});
+    if(url.pathname.startsWith("/api/intevacon-agent/"))return notificationJson({success:false,error:"Legacy Intevacon synchronization has been retired. Use the admin Intevacon API page."},410);
     if(url.pathname==="/api/customer/fleet")return IntevaconFleet.handle({request,env,customer:await getCustomerFromSession(request,env)});
     if(url.pathname==="/api/customer/open-invoices")return readInvoices({request,env,customer:await getCustomerFromSession(request,env)});
     let adminActor=null;
@@ -12433,7 +12434,7 @@ var worker_default = {
     }
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname==="/api/admin/fleet/api-test")return IntevaconApiTest.handle({request,env,actor:adminActor});
-    if(url.pathname.startsWith("/api/admin/fleet/"))return IntevaconFleet.handle({request,env,actor:adminActor,audit:(action,id)=>adminAudit(env,request,action,"fleet_device",id,"Intevacon sync credential")});
+    if(url.pathname.startsWith("/api/admin/fleet/"))return notificationJson({success:false,error:"Legacy fleet synchronization has been retired. Use Intevacon API."},410);
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});
       return methodNotAllowed();

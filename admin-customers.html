@@ -5658,13 +5658,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 .schedule-email-spinner{display:inline-block;width:14px;height:14px;box-sizing:border-box;border:2px solid #c7d7e4;border-top-color:#173e5b;border-radius:50%;animation:statement-processing-spin .8s linear infinite;flex:0 0 14px}
 @media(prefers-reduced-motion:reduce){.schedule-email-spinner{animation:none}}
 </style>
-<style id="fleet-method-tabs-ver645">
-.fleet-method-tabs{display:flex;gap:12px;border-bottom:1px solid #d3e1ec;padding-bottom:16px;margin-bottom:24px;flex-wrap:wrap}
-.fleet-method-tabs button{flex:1;padding:14px 18px;border:1px solid #cbddea;border-radius:10px;background:#f1f6fa;color:#24465f;font:inherit;font-weight:700;min-height:48px;cursor:pointer}
-.fleet-method-tabs button[aria-selected="true"]{background:#193e5b;color:white;border-color:#193e5b}
-.fleet-method-tabs button:focus-visible{outline:3px solid #98bcdd;outline-offset:2px}
-@media(max-width:620px){.fleet-method-tabs{flex-direction:column}.fleet-method-tabs button{width:100%}}
-</style></head>
+</head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
   <div class="admin-login-site-preview" aria-hidden="true"></div>
@@ -5767,7 +5761,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <button class="admin-tab" id="admin-tab-btn-automation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-automation" data-admin-tab="automation" data-admin-label="MAS 90 Health"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/><circle cx="12" cy="12" r="9"/></svg></span>MAS 90 Health</button>
       <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity" data-admin-label="Customer Activity"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Customer Activity</button>
       <button class="admin-tab" id="admin-tab-btn-payment-transactions" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-transactions" data-admin-tab="payment-transactions" data-admin-label="Online Payment Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Online Payment Transactions</button>
-      <button class="admin-tab" id="admin-tab-btn-fleet" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-fleet" data-admin-tab="fleet" data-admin-label="Fleet Cards &amp; Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Fleet Cards &amp; Transactions</button>
+      <button class="admin-tab" id="admin-tab-btn-fleet" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-intevacon-api-test" data-admin-tab="fleet" data-admin-label="Fleet Cards &amp; Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Fleet Cards &amp; Transactions</button>
 
       <button class="admin-tab" id="admin-tab-btn-collections" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-collections" data-admin-tab="collections" data-admin-label="Credit &amp; Collections"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 9h10M7 13h6M16 13l2 2-2 2M8 3v4M16 3v4"/></svg></span>Credit &amp; Collections</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation" data-admin-label="Account Activation"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2 0 3.7.7 5 2M19 14v7M15.5 17.5h7"/></svg></span>Account Activation</button>
@@ -7255,9 +7249,9 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <div id="activityStatus" class="status"></div><div id="activitySearchResults" class="activity-search-results"></div><div id="activityDashboard" class="activity-dashboard" hidden></div>
   </div>
 
-<section class="card admin-tab-panel" id="admin-tab-fleet" role="tabpanel" aria-labelledby="admin-tab-btn-fleet" data-admin-panel="fleet" hidden><div class="fleet-method-tabs" role="tablist" aria-label="Intevacon retrieval methods"><button type="button" role="tab" data-admin-parent="fleet" data-admin-subtab="fleet" aria-controls="admin-tab-fleet" aria-selected="true">Intevacon Data Manual pull</button><button type="button" role="tab" data-admin-parent="fleet" data-admin-subtab="intevacon-api-test" aria-controls="admin-tab-intevacon-api-test" aria-selected="false">Intevacon API</button></div><h2>Intevacon Data Manual pull</h2><p>Review your existing fleet cards and transactions. Click Sync Now to retrieve data. Automatic pulls and scheduled retries are off.</p><div id="adminFleetRoot"></div></section>
+
 <section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-label="Intevacon API" data-admin-panel="intevacon-api-test" hidden>
-<div class="fleet-method-tabs" role="tablist" aria-label="Intevacon retrieval methods"><button type="button" role="tab" data-admin-parent="fleet" data-admin-subtab="fleet" aria-controls="admin-tab-fleet" aria-selected="true">Intevacon Data Manual pull</button><button type="button" role="tab" data-admin-parent="fleet" data-admin-subtab="intevacon-api-test" aria-controls="admin-tab-intevacon-api-test" aria-selected="false">Intevacon API</button></div>
+
   <h2>Intevacon API</h2>
   <p>Retrieve a sample of transactions directly from Intevacon and review the results.</p>
   <div class="api-test-note"><strong>Read-only test.</strong> Runs only when you click Sync Now. Results are shown here for review. Automatic retrieval is off. Transactions are not marked as exported.</div>
@@ -11274,12 +11268,12 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
   const drawerClose=document.getElementById("adminDrawerClose");
   const drawerBackdrop=document.getElementById("adminDrawerBackdrop");
   const groups={
-    fleet:["fleet","intevacon-api-test"],
+    fleet:["intevacon-api-test"],
     customers:["customers","database","payment-database","invoice-database"],
     communication:["communication","messages"],
     settings:["settings","gmail"]
   };
-  const selectedChild={fleet:"fleet",customers:"customers",communication:"communication",settings:"settings"};
+  const selectedChild={fleet:"intevacon-api-test",customers:"customers",communication:"communication",settings:"settings"};
 
   function parentFor(name){
     return Object.keys(groups).find(parent=>groups[parent].includes(name))||name;
@@ -18108,7 +18102,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 </style>
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
-<script src="assets/js/wooten-fleet.js?v=645"></script>
+
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=644">
 <script src="assets/js/wooten-intevacon-api-test.js?v=645"></script>
 
