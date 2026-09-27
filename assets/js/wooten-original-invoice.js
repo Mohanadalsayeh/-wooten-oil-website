@@ -15,7 +15,7 @@ function fields(invoice,customer={},parsed){
  add(invoice.CustomerPONo,360,125,114,9);
  add(date(invoice.InvoiceDate),483,125,105,10);
  if(parsed.status==='complete')for(const total of parsed.totals){
-  const y={premium_93:169,regular_87:203.5,road_diesel_low_sulfur:221,farm_diesel_off_road:248}[total.fuelId];
+  const y={premium_93:165.913,regular_87:200.348,road_diesel_low_sulfur:222.261,farm_diesel_off_road:249.261}[total.fuelId];
   if(y)add(new Intl.NumberFormat('en-US',{maximumFractionDigits:6}).format(total.gallons),425, y,53,11,'middle');
  }
  return out;
@@ -23,7 +23,7 @@ function fields(invoice,customer={},parsed){
 function svg(invoice,customer,parsed){
  const overlay=fields(invoice,customer,parsed).map(f=>{
   const size=Math.min(f.size,f.width/Math.max(1,f.text.length*.57));
-  return `<text x="${f.x}" y="${f.y}" font-family="Arial, sans-serif" font-size="${size}" font-weight="600" text-anchor="${f.anchor}" fill="#102b45">${esc(f.text)}</text>`;
+  return `<text x="${f.x}" y="${f.y}" font-family="Arial, sans-serif" font-size="${size}" font-weight="600" text-anchor="${f.anchor}"${f.anchor==='middle'?' dominant-baseline="central"':''} fill="#102b45">${esc(f.text)}</text>`;
  }).join('');
  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 612 504" role="img" aria-label="Wooten Oil invoice ${esc(invoice.InvoiceNo)}"><image href="${esc(asset)}" x="0" y="0" width="612" height="504"/>${overlay}</svg>`;
 }
