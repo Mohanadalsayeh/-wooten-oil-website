@@ -58,3 +58,23 @@
   #admin-tab-intevacon-api-test .api-test-stat strong{font-size:23px}
 }
 @media(prefers-reduced-motion:reduce){.api-test-spinner{animation-duration:2s}}
+
+/* Ver648: intrinsic widths reserve room for each label and its sort arrows. */
+#admin-tab-intevacon-api-test .api-test-table-wrap table{table-layout:auto!important;min-width:1450px}
+#admin-tab-intevacon-api-test th,#apiTestDetail th{font-weight:700!important}
+#admin-tab-intevacon-api-test th .wo-table-sort-button,#apiTestDetail th .wo-table-sort-button{
+ display:inline-flex!important;align-items:center;justify-content:flex-start;gap:12px;
+ width:auto!important;min-width:max-content;position:static;padding:0!important;
+ font-family:inherit;font-size:inherit;font-weight:700!important;text-transform:inherit;letter-spacing:inherit}
+#admin-tab-intevacon-api-test th .wo-table-sort-label,#apiTestDetail th .wo-table-sort-label{
+ white-space:nowrap;overflow:visible;max-width:none;font-weight:700!important}
+#admin-tab-intevacon-api-test th .wo-table-sort-icon,#apiTestDetail th .wo-table-sort-icon{
+ position:relative!important;inset:auto!important;flex:0 0 12px;margin:0!important;transform:none!important}
+#admin-tab-intevacon-api-test .api-test-pager{justify-content:flex-end;gap:10px;margin-top:12px}
+#admin-tab-intevacon-api-test #apiTestRange{text-align:left;margin-top:12px}
+#admin-tab-intevacon-api-test #apiTestPage{order:0;flex:0 0 auto;min-width:120px}
+#admin-tab-intevacon-api-test .api-test-pager button{flex:0 0 auto}
+@media(max-width:620px){
+ #admin-tab-intevacon-api-test .api-test-pager{justify-content:space-between}
+ #admin-tab-intevacon-api-test .api-test-pager button{min-width:0;padding-left:12px;padding-right:12px}
+}

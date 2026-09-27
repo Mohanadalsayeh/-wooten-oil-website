@@ -1,4 +1,4 @@
-/* Ver647: manually requested API previews; no import, polling, or local storage. */
+/* Ver648: manually requested API previews; no import, polling, or local storage. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -46,6 +46,25 @@
     return fuel.every(d => typeof d.Quantity === 'number' && Number.isFinite(d.Quantity))
       ? fuel.reduce((sum, d) => sum + d.Quantity, 0) : null;
   }
+  const table = rowsBody.closest('table');
+  const collator = new Intl.Collator('en-US', {numeric: true, sensitivity: 'base'});
+  const sortFields = ['ID', 'ReceivedDateTime', 'CustomerID', 'CardHolderName',
+    'CardNumber', 'MerchantName', null, 'TotalAmountOfSale', 'Status'];
+  // Shared header controls delegate here instead of sorting only visible DOM rows.
+  table.wootenSortAll = (column, direction) => {
+    const value = row => column === 6 ? fuelQuantity(row) : row[sortFields[column]];
+    const missing = v => v == null || v === '' || (typeof v === 'number' && !Number.isFinite(v));
+    rows.sort((a, b) => {
+      const av = value(a), bv = value(b);
+      if (missing(av) || missing(bv)) return missing(av) === missing(bv) ? 0 : missing(av) ? 1 : -1;
+      const result = column === 6 || column === 7 ? av - bv : collator.compare(String(av), String(bv));
+      return direction === 'descending' ? -result : result;
+    });
+    table.dataset.fullSortColumn = String(column);
+    table.dataset.fullSortDirection = direction;
+    page = 1;
+    renderPage();
+  };
   function refreshControls() {
     const wait = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
     $('apiTestFields').disabled = !!controller;
@@ -59,6 +78,7 @@
   }
   function clearResults() {
     rows = []; page = 1;
+    delete table.dataset.fullSortColumn; delete table.dataset.fullSortDirection;
     rowsBody.replaceChildren();
     $('apiTestSummary').replaceChildren();
     $('apiTestResultMeta').textContent = '';
@@ -87,8 +107,9 @@
       const tr = element('tr'), td = element('td', 'No transactions were returned for this date range and card filter.');
       td.colSpan = 9; tr.append(td); rowsBody.append(tr);
     }
-    $('apiTestPage').textContent = rows.length
+    $('apiTestRange').textContent = rows.length
       ? `Showing ${number(start + 1)}–${number(Math.min(start + 20, rows.length))} of ${number(rows.length)}` : '0 transactions';
+    $('apiTestPage').textContent = `Page ${number(page)} of ${number(Math.max(1, Math.ceil(rows.length / 20)))}`;
     $('apiTestPrev').disabled = page <= 1;
     $('apiTestNext').disabled = page * 20 >= rows.length;
   }

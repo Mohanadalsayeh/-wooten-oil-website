@@ -7270,7 +7270,8 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <p id="apiTestResultMeta"></p>
     <p class="api-test-help">Dates are displayed as returned by the API. Quantities use Intevacon’s units. Totals reflect reported values across all returned statuses, including declined or cancelled records if present. Choose a transaction number to inspect its products and quantities.</p>
     <div class="api-test-table-wrap"><table data-auto-pdf="false" aria-label="Intevacon API test transactions"><thead><tr><th scope="col">Trans #</th><th scope="col">Received (API)</th><th scope="col">API Customer ID</th><th scope="col">Cardholder</th><th scope="col">Card number</th><th scope="col">Merchant</th><th scope="col">Fuel quantity</th><th scope="col">Sale amount</th><th scope="col">Status</th></tr></thead><tbody id="apiTestRows"></tbody></table></div>
-    <div class="api-test-pager"><button class="secondary" id="apiTestPrev" type="button" disabled>Previous</button><span id="apiTestPage">0 transactions</span><button class="secondary" id="apiTestNext" type="button" disabled>Next</button></div>
+    <p id="apiTestRange" class="db-page-info" aria-live="polite"></p>
+        <div class="db-pagination api-test-pager"><button class="secondary" id="apiTestPrev" type="button" disabled>Previous</button><div class="db-page-info" id="apiTestPage">Page 1 of 1</div><button class="secondary" id="apiTestNext" type="button" disabled>Next</button></div>
   </section>
 </section>
 <dialog id="apiTestDetail" aria-labelledby="apiTestDetailTitle"><div class="api-test-detail-shell"><header class="api-test-detail-head"><div><div class="api-test-kicker">WOOTEN OIL · API TEST PREVIEW</div><h2 id="apiTestDetailTitle">Transaction</h2><div id="apiTestDetailSubtitle"></div></div><button id="apiTestDetailClose" type="button" aria-label="Close transaction details">×</button></header><div id="apiTestDetailBody"></div><footer class="api-test-detail-foot">Retrieved from Intevacon for this test. No portal records were updated.</footer></div></dialog>
@@ -18103,8 +18104,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
-<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=644">
-<script src="assets/js/wooten-intevacon-api-test.js?v=647"></script>
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=648">
+<script src="assets/js/wooten-intevacon-api-test.js?v=648"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
