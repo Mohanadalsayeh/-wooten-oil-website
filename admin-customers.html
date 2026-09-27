@@ -4,7 +4,7 @@
 <meta name="format-detection" content="telephone=no">
 <script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
-<script src="/assets/js/wooten-admin-access.js?v=449"></script>
+<script src="/assets/js/wooten-admin-access.js?v=644"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wooten Oil Admin</title>
@@ -5762,6 +5762,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity" data-admin-label="Customer Activity"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Customer Activity</button>
       <button class="admin-tab" id="admin-tab-btn-payment-transactions" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-transactions" data-admin-tab="payment-transactions" data-admin-label="Online Payment Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Online Payment Transactions</button>
       <button class="admin-tab" id="admin-tab-btn-fleet" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-fleet" data-admin-tab="fleet" data-admin-label="Fleet Cards &amp; Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Fleet Cards &amp; Transactions</button>
+      <button class="admin-tab" id="admin-tab-btn-intevacon-api-test" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-intevacon-api-test" data-admin-tab="intevacon-api-test" data-admin-label="Intevacon API Test"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3h8M10 3v6L4 19a1.3 1.3 0 0 0 1.1 2h13.8A1.3 1.3 0 0 0 20 19L14 9V3M7 15h10"/></svg></span>Intevacon API Test</button>
       <button class="admin-tab" id="admin-tab-btn-collections" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-collections" data-admin-tab="collections" data-admin-label="Credit &amp; Collections"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 9h10M7 13h6M16 13l2 2-2 2M8 3v4M16 3v4"/></svg></span>Credit &amp; Collections</button>
       <button class="admin-tab" id="admin-tab-btn-activation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activation" data-admin-tab="activation" data-admin-label="Account Activation"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7 2 0 3.7.7 5 2M19 14v7M15.5 17.5h7"/></svg></span>Account Activation</button>
       <div class="admin-nav-group">Documents</div>
@@ -7249,6 +7250,29 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   </div>
 
 <section class="card admin-tab-panel" id="admin-tab-fleet" role="tabpanel" aria-labelledby="admin-tab-btn-fleet" data-admin-panel="fleet" hidden><h2>Fleet Cards &amp; Transactions</h2><p>Review customer fleet activity and Intevacon synchronization.</p><div id="adminFleetRoot"></div></section>
+<section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-labelledby="admin-tab-btn-intevacon-api-test" data-admin-panel="intevacon-api-test" hidden>
+  <h2>Intevacon API Test</h2>
+  <p>Retrieve a sample of transactions directly from Intevacon and review the results.</p>
+  <div class="api-test-note"><strong>Read-only test.</strong> Runs only when you click Test API Retrieval. Results are shown here for review. Current automatic synchronization continues, and transactions are not marked as exported.</div>
+  <form id="apiTestForm">
+    <fieldset id="apiTestFields"><div class="api-test-fields">
+      <label for="apiTestFrom">From<input id="apiTestFrom" type="datetime-local" step="60" min="2010-01-01T00:00" required></label>
+      <label for="apiTestTo">To<input id="apiTestTo" type="datetime-local" step="60" min="2010-01-01T00:00" required></label>
+      <label for="apiTestCard">Card number (optional)<input id="apiTestCard" type="text" inputmode="numeric" pattern="[0-9]{1,32}" maxlength="32" autocomplete="off" placeholder="All cards"></label>
+    </div></fieldset>
+    <p class="api-test-help">Start with the last 24 hours. Maximum range: 92 days. The initial dates use Central time; values are sent as entered. Intevacon’s guide does not specify its date-filter timezone.</p>
+    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Test API Retrieval</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button></div>
+  </form>
+  <div id="apiTestMessage" role="status" aria-live="polite" hidden></div>
+  <section id="apiTestResults" aria-label="API test results" hidden>
+    <div class="api-test-summary" id="apiTestSummary"></div>
+    <p id="apiTestResultMeta"></p>
+    <p class="api-test-help">Dates are displayed as returned by the API. Quantities use Intevacon’s units. Totals reflect reported values across all returned statuses, including declined or cancelled records if present. Choose a transaction number to inspect its products and quantities.</p>
+    <div class="api-test-table-wrap"><table data-auto-pdf="false" aria-label="Intevacon API test transactions"><thead><tr><th scope="col">Trans #</th><th scope="col">Received (API)</th><th scope="col">API Customer ID</th><th scope="col">Cardholder</th><th scope="col">Card number</th><th scope="col">Merchant</th><th scope="col">Fuel quantity</th><th scope="col">Sale amount</th><th scope="col">Status</th></tr></thead><tbody id="apiTestRows"></tbody></table></div>
+    <div class="api-test-pager"><button class="secondary" id="apiTestPrev" type="button" disabled>Previous</button><span id="apiTestPage">0 transactions</span><button class="secondary" id="apiTestNext" type="button" disabled>Next</button></div>
+  </section>
+</section>
+<dialog id="apiTestDetail" aria-labelledby="apiTestDetailTitle"><div class="api-test-detail-shell"><header class="api-test-detail-head"><div><div class="api-test-kicker">WOOTEN OIL · API TEST PREVIEW</div><h2 id="apiTestDetailTitle">Transaction</h2><div id="apiTestDetailSubtitle"></div></div><button id="apiTestDetailClose" type="button" aria-label="Close transaction details">×</button></header><div id="apiTestDetailBody"></div><footer class="api-test-detail-foot">Retrieved from Intevacon for this test. No portal records were updated.</footer></div></dialog>
   <section class="card admin-tab-panel" id="admin-tab-payment-transactions" role="tabpanel" aria-labelledby="admin-tab-btn-payment-transactions" data-admin-panel="payment-transactions" hidden>
     <div class="admin-page-label">Online Payments</div>
     <h2>Online Payment Transactions</h2>
@@ -18077,6 +18101,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 <script src="assets/js/wooten-fleet.js?v=624"></script>
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=644">
+<script src="assets/js/wooten-intevacon-api-test.js?v=644"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
@@ -18469,5 +18495,12 @@ body #admin-tab-automation span.mas90-health-result-chip.is-failed{background:#f
     min-width:0!important;
     grid-column:1!important;
   }
+}
+</style>
+
+<style id="wooten-invoice-export-mobile-ver643">
+@media(max-width:620px){
+  #invoiceExportActions{width:100%!important;flex-direction:column!important;align-items:stretch!important}
+  #invoiceExportActions > button{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box;flex:0 0 auto!important;margin-inline:0!important;min-height:48px;white-space:normal;justify-content:center}
 }
 </style>

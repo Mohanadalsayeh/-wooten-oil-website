@@ -1,3 +1,4 @@
+// Ver644 deployment: manual Intevacon API test. Existing fleet synchronization is unchanged.
 // Ver641 deployment: server-side comment sorting; admin invoice lists/search return the stored MAS 90 Comment via the accompanying invoice server modules.
 function tableColumnOrder(value,fields,fallback,tie){
   const m=String(value||'').match(/^(.*)_(asc|desc)$/);
@@ -11,6 +12,7 @@ import * as StatementProgress from './assets/js/wooten-statement-progress-server
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconFleet from './fleet/intevacon.mjs';
+import * as IntevaconApiTest from './fleet/intevacon-api-test.mjs';
 import './assets/js/wooten-admin-access.js';
 const adminAccess=globalThis.WootenAdminAccess;
 import './assets/js/wooten-central-time.js';
@@ -12429,6 +12431,7 @@ var worker_default = {
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
+    if(url.pathname==="/api/admin/fleet/api-test")return IntevaconApiTest.handle({request,env,actor:adminActor});
     if(url.pathname.startsWith("/api/admin/fleet/"))return IntevaconFleet.handle({request,env,actor:adminActor,audit:(action,id)=>adminAudit(env,request,action,"fleet_device",id,"Intevacon sync credential")});
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});

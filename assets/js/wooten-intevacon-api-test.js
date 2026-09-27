@@ -1,0 +1,214 @@
+/* Ver644: manually requested API previews; no import, polling, or local storage. */
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const form = $('apiTestForm');
+  if (!form) return;
+  const rowsBody = $('apiTestRows'), dialog = $('apiTestDetail');
+  let rows = [], page = 1, controller = null, generation = 0, cooldownTimer = null, cooldownUntil = 0;
+  const key = () => $('adminKey')?.value.trim() || '';
+  const allowed = () => !!key() && window.WootenAdminAccess?.has(window.wootenAdminUser, 'fleet_cards');
+  const number = (value, digits = 3) => typeof value === 'number' && Number.isFinite(value)
+    ? value.toLocaleString('en-US', {maximumFractionDigits: digits}) : '—';
+  const money = value => typeof value === 'number' && Number.isFinite(value)
+    ? value.toLocaleString('en-US', {style: 'currency', currency: 'USD'}) : '—';
+  const sourceDate = value => value ? String(value).replace('T', ' ') : '—';
+  function element(tag, value, className) {
+    const el = document.createElement(tag);
+    if (value != null) el.textContent = String(value);
+    if (className) el.className = className;
+    return el;
+  }
+  function message(value, tone = '') {
+    $('apiTestMessage').textContent = value;
+    $('apiTestMessage').dataset.tone = tone;
+    $('apiTestMessage').hidden = !value;
+  }
+  function centralMinute(date) {
+    const parts = new Intl.DateTimeFormat('en-US', {timeZone: 'America/Chicago',
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(date);
+    const v = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}`;
+  }
+  function defaults() {
+    const now = new Date();
+    $('apiTestTo').value = centralMinute(now);
+    $('apiTestFrom').value = centralMinute(new Date(now.getTime() - 86400000));
+    $('apiTestCard').value = '';
+  }
+  function fuelQuantity(row) {
+    const fuel = (row.Details || []).filter(d => d.IsFuel === true && d.IsTaxProduct !== true);
+    if (!fuel.length) return null;
+    return fuel.every(d => typeof d.Quantity === 'number' && Number.isFinite(d.Quantity))
+      ? fuel.reduce((sum, d) => sum + d.Quantity, 0) : null;
+  }
+  function refreshControls() {
+    const wait = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+    $('apiTestFields').disabled = !!controller;
+    $('apiTestRun').disabled = !!controller || wait > 0 || !allowed();
+    $('apiTestRunLabel').textContent = controller ? 'Retrieving from Intevacon…'
+      : wait > 0 ? `Test again in ${wait}s` : 'Test API Retrieval';
+    $('apiTestSpinner').hidden = !controller;
+    $('apiTestRun').setAttribute('aria-busy', String(!!controller));
+    $('apiTestDefaults').disabled = !!controller;
+    if (!wait && cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+  }
+  function clearResults() {
+    rows = []; page = 1;
+    rowsBody.replaceChildren();
+    $('apiTestSummary').replaceChildren();
+    $('apiTestResultMeta').textContent = '';
+    $('apiTestResults').hidden = true;
+    if (dialog.open) dialog.close();
+    $('apiTestDetailBody').replaceChildren();
+    $('apiTestDetailTitle').textContent = 'Transaction';
+    $('apiTestDetailSubtitle').textContent = '';
+  }
+  function cell(tr, value) { tr.append(element('td', value == null || value === '' ? '—' : value)); }
+  function renderPage() {
+    rowsBody.replaceChildren();
+    const start = (page - 1) * 20;
+    rows.slice(start, start + 20).forEach((row, offset) => {
+      const tr = element('tr'), td = element('td');
+      const link = element('button', row.ID, 'api-test-trans-link');
+      link.type = 'button'; link.dataset.apiTestRow = String(start + offset);
+      link.setAttribute('aria-label', `View transaction ${row.ID}`);
+      td.append(link); tr.append(td);
+      cell(tr, sourceDate(row.ReceivedDateTime)); cell(tr, row.CustomerID);
+      cell(tr, row.CardHolderName); cell(tr, row.CardNumber); cell(tr, row.MerchantName);
+      cell(tr, number(fuelQuantity(row))); cell(tr, money(row.TotalAmountOfSale)); cell(tr, row.Status);
+      rowsBody.append(tr);
+    });
+    if (!rows.length) {
+      const tr = element('tr'), td = element('td', 'No transactions were returned for this date range and card filter.');
+      td.colSpan = 9; tr.append(td); rowsBody.append(tr);
+    }
+    $('apiTestPage').textContent = rows.length
+      ? `Showing ${number(start + 1)}–${number(Math.min(start + 20, rows.length))} of ${number(rows.length)}` : '0 transactions';
+    $('apiTestPrev').disabled = page <= 1;
+    $('apiTestNext').disabled = page * 20 >= rows.length;
+  }
+  function showResults(data) {
+    rows = data.rows; page = 1;
+    const quantities = rows.map(fuelQuantity).filter(v => v != null);
+    const saleAmounts = rows.map(r => r.TotalAmountOfSale).filter(v => typeof v === 'number' && Number.isFinite(v));
+    const stats = [
+      [number(rows.length), 'Transactions returned'],
+      [number(new Set(rows.map(r => r.CardNumber).filter(Boolean)).size), 'Distinct cards in results'],
+      [number(quantities.length ? quantities.reduce((s, n) => s + n, 0) : null), 'Reported fuel quantity'],
+      [money(saleAmounts.length ? saleAmounts.reduce((s, n) => s + n, 0) : null), 'Reported sale amounts']
+    ];
+    const summary = $('apiTestSummary'); summary.replaceChildren();
+    stats.forEach(([value, label]) => {
+      const box = element('div', null, 'api-test-stat');
+      box.append(element('strong', value), element('span', label)); summary.append(box);
+    });
+    const missing = rows.filter(r => !String(r.CustomerID || '').trim()).length;
+    $('apiTestResultMeta').textContent = `Requested: ${sourceDate(data.from)} to ${sourceDate(data.to)}`
+      + (data.cardNumber ? ` · Card ${data.cardNumber}` : ' · All cards')
+      + ` · Completed in ${number(data.durationMs / 1000, 1)} seconds.`
+      + (missing ? ` ${number(missing)} transaction(s) have no API Customer ID.` : '')
+      + ' Customer IDs are shown exactly as received; portal account matching has not been applied.';
+    $('apiTestResults').hidden = false;
+    renderPage();
+  }
+  function showDetail(index) {
+    const row = rows[index]; if (!row || !allowed()) return;
+    $('apiTestDetailTitle').textContent = `Transaction ${row.ID}`;
+    $('apiTestDetailSubtitle').textContent = row.CardHolderName || 'Intevacon API result';
+    const body = $('apiTestDetailBody'); body.replaceChildren();
+    const fields = element('dl', null, 'api-test-detail-fields');
+    [
+      ['API Customer ID', row.CustomerID], ['Cardholder organization ID', row.CardHolderOrgID],
+      ['Card number', row.CardNumber], ['Status', row.Status],
+      ['Merchant', row.MerchantName], ['Sale amount', money(row.TotalAmountOfSale)],
+      ['Resolved total amount', money(row.ResolvedTotalAmount)], ['Transaction type', row.TranType],
+      ['Received date/time (API)', sourceDate(row.ReceivedDateTime)], ['Local date/time (API)', sourceDate(row.LocalDateTime)],
+      ['Processed date/time (API)', sourceDate(row.ProcessedDateTime)], ['Posted date/time (API)', sourceDate(row.PostedDateTime)],
+      ['Auth ref', row.AuthRef], ['Intevacon invoice ID', row.InvoiceID],
+      ['Driver', [row.DriverNumber, row.DriverName].filter(Boolean).join(' · ')],
+      ['Vehicle', [row.VehicleNumber, row.VehicleDescription].filter(Boolean).join(' · ')],
+      ['Odometer', row.Odometer], ['Decline reason', row.DeclineReason]
+    ].forEach(([label, value]) => {
+      const group = element('div');
+      group.append(element('dt', label), element('dd', value == null || value === '' ? '—' : value)); fields.append(group);
+    });
+    body.append(fields, element('h3', 'Products and quantities'));
+    const wrap = element('div', null, 'api-test-table-wrap'), table = element('table');
+    table.dataset.autoPdf = 'false'; table.setAttribute('aria-label', 'Transaction products from Intevacon');
+    const head = element('thead'), headers = element('tr');
+    ['Product', 'Code', 'Fuel', 'Quantity', 'Unit price', 'Amount'].forEach(s => headers.append(element('th', s)));
+    head.append(headers); table.append(head);
+    const tbody = element('tbody');
+    (row.Details || []).forEach(d => {
+      const tr = element('tr'); cell(tr, d.ProductName); cell(tr, d.ProductCode);
+      cell(tr, d.IsFuel === true ? 'Yes' : d.IsFuel === false ? 'No' : '—'); cell(tr, number(d.Quantity));
+      cell(tr, number(d.ResolvedUnitPrice ?? d.RawUnitPrice, 4)); cell(tr, money(d.ResolvedAmount ?? d.RawAmount));
+      tbody.append(tr);
+    });
+    if (!tbody.children.length) { const tr = element('tr'), td = element('td', 'No product details returned.'); td.colSpan = 6; tr.append(td); tbody.append(tr); }
+    table.append(tbody); wrap.append(table); body.append(wrap);
+    dialog.showModal(); $('apiTestDetailClose').focus();
+  }
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (controller || cooldownUntil > Date.now()) return;
+    if (!allowed()) { message('Sign in with access to Fleet Cards & Transactions to run this test.', 'error'); return; }
+    if (!form.reportValidity()) return;
+    const from = $('apiTestFrom').value, to = $('apiTestTo').value;
+    const fromMs = Date.parse(from + ':00Z'), toMs = Date.parse(to + ':00Z');
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs || toMs - fromMs > 92 * 86400000) {
+      message('Choose complete dates with To after From, no more than 92 days apart.', 'error'); return;
+    }
+    const body = {from, to, cardNumber: $('apiTestCard').value.trim()};
+    const requestGeneration = ++generation;
+    const credential = key();
+    controller = new AbortController(); const thisController = controller;
+    clearResults(); message('Retrieving transactions from Intevacon. Please wait…', 'busy'); refreshControls();
+    const timeout = setTimeout(() => thisController.abort(), 70000);
+    try {
+      const response = await fetch('/api/admin/fleet/api-test', {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-Admin-Key': credential},
+        credentials: 'same-origin', cache: 'no-store', signal: thisController.signal, body: JSON.stringify(body)
+      });
+      const data = await response.json().catch(() => null);
+      if (requestGeneration !== generation || credential !== key()) return;
+      if (response.status === 429) {
+        const retry = Number(response.headers.get('Retry-After'));
+        cooldownUntil = Date.now() + Math.min(3600, Math.max(30, Number.isFinite(retry) ? retry : 60)) * 1000;
+      }
+      if (!response.ok || !data?.success) {
+        // Do not echo unknown gateway/HTML responses into the admin page.
+        throw new Error(typeof data?.error === 'string' ? data.error : 'The API test could not be completed. Check that the Version 644 main portal Worker has been deployed.');
+      }
+      if (data.readOnly !== true || !Array.isArray(data.rows) || data.rows.length !== data.count)
+        throw new Error('The test returned an unexpected result. Check the Version 644 portal Worker update.');
+      showResults(data);
+      message(`API retrieval succeeded — ${number(data.count)} transaction(s) returned. Test results only; no data was imported.`, 'success');
+    } catch (error) {
+      if (requestGeneration !== generation || credential !== key()) return;
+      message(thisController.signal.aborted ? 'The API test timed out. Try a shorter date range.' : error.message || 'The API test could not be completed.', 'error');
+    } finally {
+      clearTimeout(timeout);
+      if (requestGeneration === generation) {
+        controller = null; cooldownUntil = Math.max(cooldownUntil, Date.now() + 30000);
+        clearInterval(cooldownTimer); cooldownTimer = setInterval(refreshControls, 1000); refreshControls();
+      }
+    }
+  });
+  $('apiTestDefaults').addEventListener('click', defaults);
+  $('apiTestPrev').addEventListener('click', () => { if (page > 1) { page--; renderPage(); } });
+  $('apiTestNext').addEventListener('click', () => { if (page * 20 < rows.length) { page++; renderPage(); } });
+  rowsBody.addEventListener('click', event => {
+    const button = event.target.closest('[data-api-test-row]');
+    if (button) showDetail(Number(button.dataset.apiTestRow));
+  });
+  $('apiTestDetailClose').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  window.addEventListener('wooten-admin-auth-changed', () => {
+    generation++; controller?.abort(); controller = null;
+    clearResults(); message(''); defaults(); refreshControls();
+  });
+  defaults(); refreshControls();
+})();
