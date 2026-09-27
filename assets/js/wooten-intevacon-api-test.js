@@ -1,11 +1,11 @@
-/* Ver648: manually requested API previews; no import, polling, or local storage. */
+/* Ver650: durable cloud API scheduling; client polls only cached portal status. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
   const form = $('apiTestForm');
   if (!form) return;
   const rowsBody = $('apiTestRows'), dialog = $('apiTestDetail');
-  let rows = [], page = 1, controller = null, generation = 0, cooldownTimer = null, cooldownUntil = 0;
+  let filtered = [], rows = [], page = 1, controller = null, generation = 0, cooldownTimer = null, cooldownUntil = 0;
   const key = () => $('adminKey')?.value.trim() || '';
   const allowed = () => !!key() && window.WootenAdminAccess?.has(window.wootenAdminUser, 'fleet_cards');
   const number = (value, digits = 3) => typeof value === 'number' && Number.isFinite(value)
@@ -91,11 +91,14 @@
   function cell(tr, value) { tr.append(element('td', value == null || value === '' ? '—' : value)); }
   function renderPage() {
     rowsBody.replaceChildren();
-    const start = (page - 1) * 20;
-    rows.slice(start, start + 20).forEach((row, offset) => {
+    const query = $('apiTestSearch').value.trim().toLowerCase();
+    filtered = rows.map((row, index) => ({row, index})).filter(({row}) => !query || [...Object.values(row).filter(v => typeof v === 'string' || typeof v === 'number'), ...(row.Details || []).flatMap(d => Object.values(d).filter(v => typeof v === 'string' || typeof v === 'number'))].join(' ').toLowerCase().includes(query));
+    page = Math.min(page, Math.max(1, Math.ceil(filtered.length / 20)));
+    const offsetStart = (page - 1) * 20;
+    filtered.slice(offsetStart, offsetStart + 20).forEach(({row, index}) => {
       const tr = element('tr'), td = element('td');
       const link = element('button', row.ID, 'api-test-trans-link');
-      link.type = 'button'; link.dataset.apiTestRow = String(start + offset);
+      link.type = 'button'; link.dataset.apiTestRow = String(index);
       link.setAttribute('aria-label', `View transaction ${row.ID}`);
       td.append(link); tr.append(td);
       cell(tr, sourceDate(row.ReceivedDateTime)); cell(tr, row.CustomerID);
@@ -103,15 +106,15 @@
       cell(tr, number(fuelQuantity(row))); cell(tr, money(row.TotalAmountOfSale)); cell(tr, row.Status);
       rowsBody.append(tr);
     });
-    if (!rows.length) {
-      const tr = element('tr'), td = element('td', 'No transactions were returned for this date range and card filter.');
+    if (!filtered.length) {
+      const tr = element('tr'), td = element('td', 'No transactions match the current search or date range.');
       td.colSpan = 9; tr.append(td); rowsBody.append(tr);
     }
-    $('apiTestRange').textContent = rows.length
-      ? `Showing ${number(start + 1)}–${number(Math.min(start + 20, rows.length))} of ${number(rows.length)}` : '0 transactions';
-    $('apiTestPage').textContent = `Page ${number(page)} of ${number(Math.max(1, Math.ceil(rows.length / 20)))}`;
+    $('apiTestRange').textContent = filtered.length
+      ? `Showing ${number(offsetStart + 1)}–${number(Math.min(offsetStart + 20, filtered.length))} of ${number(filtered.length)} matching transactions (${number(rows.length)} retrieved)` : '0 matching transactions';
+    $('apiTestPage').textContent = `Page ${number(page)} of ${number(Math.max(1, Math.ceil(filtered.length / 20)))}`;
     $('apiTestPrev').disabled = page <= 1;
-    $('apiTestNext').disabled = page * 20 >= rows.length;
+    $('apiTestNext').disabled = page * 20 >= filtered.length;
   }
   function showResults(data) {
     rows = data.rows; page = 1;
@@ -135,7 +138,8 @@
       + (missing ? ` ${number(missing)} transaction(s) have no API Customer ID.` : '')
       + ' Customer IDs are shown exactly as received; portal account matching has not been applied.';
     $('apiTestResults').hidden = false;
-    renderPage();
+    if (table.dataset.fullSortColumn !== undefined) table.wootenSortAll(Number(table.dataset.fullSortColumn), table.dataset.fullSortDirection);
+    else renderPage();
   }
   function showDetail(index) {
     const row = rows[index]; if (!row || !allowed()) return;
@@ -189,10 +193,10 @@
     const requestGeneration = ++generation;
     const credential = key();
     controller = new AbortController(); const thisController = controller;
-    clearResults(); message('Retrieving transactions from Intevacon. Please wait…', 'busy'); refreshControls();
+    message('Retrieving transactions from Intevacon. Please wait…', 'busy'); refreshControls();
     const timeout = setTimeout(() => thisController.abort(), 70000);
     try {
-      const response = await fetch('/api/admin/fleet/api-test', {
+      const response = await fetch('/api/admin/fleet/sync', {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-Admin-Key': credential},
         credentials: 'same-origin', cache: 'no-store', signal: thisController.signal, body: JSON.stringify(body)
       });
@@ -204,12 +208,13 @@
       }
       if (!response.ok || !data?.success) {
         // Do not echo unknown gateway/HTML responses into the admin page.
-        throw new Error(typeof data?.error === 'string' ? data.error : 'The API test could not be completed. Check that the Version 644 main portal Worker has been deployed.');
+        throw new Error(typeof data?.error === 'string' ? data.error : 'The API test could not be completed. Check that the Version 650 Worker and scheduler binding have been deployed.');
       }
       if (data.readOnly !== true || !Array.isArray(data.rows) || data.rows.length !== data.count)
-        throw new Error('The test returned an unexpected result. Check the Version 644 portal Worker update.');
+        throw new Error('The test returned an unexpected result. Check the Version 650 portal Worker update.');
+      lastCompleted = data.completedAt;
       showResults(data);
-      message(`API retrieval succeeded — ${number(data.count)} transaction(s) returned. Test results only; no data was imported.`, 'success');
+      message(`API sync succeeded — ${number(data.count)} transaction(s) returned. Results saved for admin review.`, 'success');
     } catch (error) {
       if (requestGeneration !== generation || credential !== key()) return;
       message(thisController.signal.aborted ? 'The API test timed out. Try a shorter date range.' : error.message || 'The API test could not be completed.', 'error');
@@ -221,9 +226,10 @@
       }
     }
   });
+  $('apiTestSearch').addEventListener('input', () => { page = 1; renderPage(); });
   $('apiTestDefaults').addEventListener('click', defaults);
   $('apiTestPrev').addEventListener('click', () => { if (page > 1) { page--; renderPage(); } });
-  $('apiTestNext').addEventListener('click', () => { if (page * 20 < rows.length) { page++; renderPage(); } });
+  $('apiTestNext').addEventListener('click', () => { if (page * 20 < filtered.length) { page++; renderPage(); } });
   rowsBody.addEventListener('click', event => {
     const button = event.target.closest('[data-api-test-row]');
     if (button) showDetail(Number(button.dataset.apiTestRow));
@@ -232,7 +238,67 @@
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   window.addEventListener('wooten-admin-auth-changed', () => {
     generation++; controller?.abort(); controller = null;
-    clearResults(); message(''); defaults(); refreshControls();
+    clearResults(); lastCompleted = null; scheduleLoaded = false; $('apiTestSearch').value = '';
+    message(''); defaults(); refreshControls(); pollSchedule();
   });
-  defaults(); refreshControls();
+  let lastCompleted = null, scheduleLoaded = false, pollBusy = false;
+  const stamp = value => value ? new Date(value).toLocaleString('en-US', {timeZone:'America/Chicago',timeZoneName:'short'}) : '—';
+  async function portalRequest(path, options = {}) {
+    const credential = key(), epoch = generation;
+    const response = await fetch('/api/admin/fleet/' + path, {...options, credentials:'same-origin',cache:'no-store',
+      headers:{'Content-Type':'application/json','X-Admin-Key':credential}});
+    const data = await response.json();
+    if (credential !== key() || epoch !== generation || !allowed()) throw new Error('Admin session changed.');
+    if (!response.ok || !data.success) throw new Error(data.error || 'Could not load API sync status.');
+    return data;
+  }
+  async function pollSchedule() {
+    if (!allowed() || pollBusy || document.hidden) return;
+    pollBusy = true;
+    try {
+      const data = await portalRequest('schedule');
+      if (!scheduleLoaded) {
+        $('apiScheduleEnabled').checked = data.config.enabled;
+        $('apiScheduleInterval').value = data.config.intervalSeconds;
+        $('apiScheduleDays').value = data.config.days;
+        $('apiScheduleCard').value = data.config.cardNumber;
+        scheduleLoaded = true;
+      }
+      const status = data.status;
+      $('apiScheduleStatus').textContent = (data.config.enabled ? `Automatic sync on · Every ${data.config.intervalSeconds} seconds after completion.` : 'Automatic sync off.')
+        + (data.running ? ' Pulling transactions…' : '')
+        + ` Last successful pull: ${stamp(status.completedAt)}.`
+        + (status.count != null ? ` ${number(status.count)} transactions.` : '')
+        + (data.nextRun ? ` Next pull: ${stamp(data.nextRun)}.` : '')
+        + (status.error ? ` ${status.error}` : '');
+      if (!controller && status.completedAt && status.completedAt !== lastCompleted) {
+        const cached = await portalRequest('results');
+        if (controller || !cached.result) return;
+        const oldPage = page, col = table.dataset.fullSortColumn, direction = table.dataset.fullSortDirection;
+        showResults(cached.result);
+        if (col !== undefined) table.wootenSortAll(Number(col), direction);
+        page = oldPage; renderPage();
+        lastCompleted = cached.result.completedAt;
+      }
+    } catch (error) { if (allowed()) $('apiScheduleStatus').textContent = error.message; }
+    finally { pollBusy = false; }
+  }
+  $('apiScheduleForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!allowed() || !$('apiScheduleForm').reportValidity()) return;
+    $('apiScheduleSave').disabled = true;
+    try {
+      await portalRequest('schedule', {method:'POST',body:JSON.stringify({
+        enabled:$('apiScheduleEnabled').checked,intervalSeconds:Number($('apiScheduleInterval').value),
+        days:Number($('apiScheduleDays').value),cardNumber:$('apiScheduleCard').value.trim()
+      })});
+      $('apiScheduleMessage').textContent = 'Schedule saved.';
+      await pollSchedule();
+    } catch (error) { $('apiScheduleMessage').textContent = error.message; }
+    finally { $('apiScheduleSave').disabled = false; }
+  });
+  // These requests read portal status/cache; only the cloud scheduler and Sync Now contact Intevacon.
+  setInterval(pollSchedule, 5000);
+  document.addEventListener('visibilitychange', pollSchedule);
+  defaults(); refreshControls(); pollSchedule();
 })();
