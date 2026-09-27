@@ -3,11 +3,11 @@
   const get=id=>document.getElementById(id), panel=get('admin-tab-invoice-database');
   if(!panel)return;
   const table=get('invoiceDbTable'), tbody=get('invoiceDbRows');
-  const filterIds=['invoiceDbSearch','invoiceDbType','invoiceDbFrom','invoiceDbTo','invoiceDbBalance','invoiceDbSort'];
+  const filterIds=['invoiceDbSearch','invoiceDbComment','invoiceDbType','invoiceDbFrom','invoiceDbTo','invoiceDbBalance','invoiceDbSort'];
   const key=()=>get('adminKey')?.value.trim()||'';
   let page=1,pages=1,loaded=false,busy=false,total=0,timer,controller,serial=0;
   let dirty=true,snapshotKey;
-  const filters=()=>({search:get('invoiceDbSearch').value.trim(),invoice_type:get('invoiceDbType').value,date_from:get('invoiceDbFrom').value,date_to:get('invoiceDbTo').value,balance:get('invoiceDbBalance').value,sort:get('invoiceDbSort').value});
+  const filters=()=>({search:get('invoiceDbSearch').value.trim(),comment:get('invoiceDbComment').value.trim(),invoice_type:get('invoiceDbType').value,date_from:get('invoiceDbFrom').value,date_to:get('invoiceDbTo').value,balance:get('invoiceDbBalance').value,sort:get('invoiceDbSort').value});
   window.WootenInvoiceDatabase={filters,syncStatus,showAll};
   const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
   function status(message,good=true){get('invoiceDbStatus').textContent=message;get('invoiceDbStatus').className=message?'status show '+(good?'ok':'bad'):'status';}
@@ -34,11 +34,11 @@
   function render(rows){
     const today=centralToday();
     tbody.replaceChildren();
-    if(!rows.length){const tr=tbody.insertRow(),td=tr.insertCell();td.colSpan=7;td.className='db-empty';td.textContent='No invoices match the current search and filters.';return;}
+    if(!rows.length){const tr=tbody.insertRow(),td=tr.insertCell();td.colSpan=8;td.className='db-empty';td.textContent='No invoices match the current search and filters.';return;}
     for(const row of rows){
       const tr=tbody.insertRow();
       if(/^\d{4}-\d{2}-\d{2}$/.test(row.invoice_date||'')&&row.invoice_date>today)tr.classList.add('invoice-future-date');
-      [row.account_number,row.customer_name||'—',row.invoice_no,row.invoice_type,date(row.invoice_date),date(row.due_date),money.format(row.balance_cents/100)].forEach((value,index)=>{
+      [row.account_number,row.customer_name||'—',row.invoice_no,row.invoice_type,date(row.invoice_date),date(row.due_date),money.format(row.balance_cents/100),row.comment??row.Comment??''].forEach((value,index)=>{
         const td=tr.insertCell();
         if(index<3){
           const link=document.createElement('button');link.type='button';link.className='iv-link';link.textContent=value??'';
@@ -46,13 +46,13 @@
           link.addEventListener('click',()=>{if(index===2)window.WootenInvoiceViewer.openInvoice(row,link);else window.WootenInvoiceViewer.openCustomer(row,link);});
           td.append(link);
         }else td.textContent=value??'';
-        if(index===6)td.className='money';
+        if(index===6)td.className='money';if(index===7)td.className='invoice-comment-cell';
       });
     }
   }
   function skeleton(){
     tbody.replaceChildren();
-    for(let i=0;i<8;i++){const tr=tbody.insertRow();tr.className='db-skeleton-row';tr.setAttribute('aria-hidden','true');for(let j=0;j<7;j++){const td=tr.insertCell(),span=document.createElement('span');span.className='db-skeleton-cell '+(j===6?'money':'medium');td.append(span);}}
+    for(let i=0;i<8;i++){const tr=tbody.insertRow();tr.className='db-skeleton-row';tr.setAttribute('aria-hidden','true');for(let j=0;j<8;j++){const td=tr.insertCell(),span=document.createElement('span');span.className='db-skeleton-cell '+(j===6?'money':'medium');td.append(span);}}
     table.dataset.pdfEmpty='true';get('invoiceDbTableWrap').hidden=false;
   }
   function sortIndicators(){
@@ -76,6 +76,7 @@
       const data=await response.json();
       if(requestSerial!==serial)return;
       if(!response.ok||!data.success)throw Error(data.error||'Invoices could not be loaded.');
+      if((data.rows||[]).some(row=>!Object.hasOwn(row,'comment')&&!Object.hasOwn(row,'Comment')))throw Error('The server did not return invoice comments. Deploy the Version 640 main portal Worker and its invoice server modules, then click Refresh.');
       loaded=true;page=data.page||1;total=data.total||0;pages=data.pages||Math.max(1,Math.ceil(total/20));
       render(data.rows||[]);table.dataset.pdfEmpty=String(!total);
       const type=get('invoiceDbType'),selected=type.value;
@@ -109,13 +110,15 @@
   }
   function clearFilters(){
     clearTimeout(timer);page=1;
-    get('invoiceDbSearch').value='';get('invoiceDbType').value='all';get('invoiceDbFrom').value='';get('invoiceDbTo').value='';get('invoiceDbBalance').value='all';get('invoiceDbSort').value='invoice_desc';
+    get('invoiceDbSearch').value='';get('invoiceDbComment').value='';get('invoiceDbType').value='all';get('invoiceDbFrom').value='';get('invoiceDbTo').value='';get('invoiceDbBalance').value='all';get('invoiceDbSort').value='invoice_desc';
     sortIndicators();
   }
   function showAll(){clearFilters();load();}
   function resetAndLoad(){page=1;sortIndicators();if(loaded)load();}
   get('invoiceDbLoad').addEventListener('click',()=>{page=1;load();});
   get('invoiceDbRefresh').addEventListener('click',load);
+  get('invoiceDbComment').addEventListener('input',()=>{clearTimeout(timer);if(loaded)timer=setTimeout(resetAndLoad,1000);});
+  get('invoiceDbComment').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();page=1;load();}});
   get('invoiceDbSearch').addEventListener('input',()=>{clearTimeout(timer);if(loaded)timer=setTimeout(resetAndLoad,1000);});
   get('invoiceDbSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();page=1;load();}});
   // Native date inputs emit change for each typed year digit. Commit after editing.

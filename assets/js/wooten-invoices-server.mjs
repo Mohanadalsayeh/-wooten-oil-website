@@ -72,7 +72,9 @@ export async function handle({request,env,cancellation,audit,progress}){
  if(from&&to&&from>to)throw fail('Invoice Date From must be on or before Invoice Date To.');
  if(!active)return reply({success:true,capabilities:{invoice_incremental_v1:true},total:0,rows:[],active:null,latest,page:1,pages:1,page_size:pageSize,invoice_types:[]});
  const clauses=['run_id=?'],bind=[active.run_id];
- if(q){const pattern='%'+q.replace(/[\\%_]/g,'\\$&')+'%';clauses.push(`(account_number LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR invoice_no LIKE ? ESCAPE '\\')`);bind.push(pattern,pattern,pattern);}
+ if(q){const pattern='%'+q.replace(/[\\%_]/g,'\\$&')+'%';clauses.push(`(account_number LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR invoice_no LIKE ? ESCAPE '\\' OR COALESCE(json_extract(source_json,'$.Comment'),'') LIKE ? ESCAPE '\\')`);bind.push(pattern,pattern,pattern,pattern);}
+ const comment=(params.get('comment')||'').trim().slice(0,120);
+ if(comment){clauses.push("COALESCE(json_extract(source_json,'$.Comment'),'') LIKE ? ESCAPE '\\'");bind.push('%'+comment.replace(/[\\%_]/g,'\\$&')+'%');}
  const type=params.get('invoice_type')||'all';
  if(type!=='all'){clauses.push('invoice_type=?');bind.push(type.slice(0,40));}
  if(from){clauses.push('invoice_date>=?');bind.push(from);}
@@ -83,7 +85,7 @@ export async function handle({request,env,cancellation,audit,progress}){
  const order=Object.hasOwn(orders,params.get('sort'))?orders[params.get('sort')]:orders.invoice_desc,filter=clauses.join(' AND ');
  const count=await db.prepare(`SELECT COUNT(*) total FROM mas90_invoices WHERE ${filter}`).bind(...bind).first();
  const pages=Math.max(1,Math.ceil(count.total/pageSize)),page=Math.min(requestedPage,pages);
- const rows=await db.prepare(`SELECT division,account_number,invoice_no,invoice_type,invoice_date,due_date,customer_name,balance_cents FROM mas90_invoices WHERE ${filter} ORDER BY ${order},account_number,invoice_no,invoice_type,division LIMIT ? OFFSET ?`).bind(...bind,pageSize,(page-1)*pageSize).all();
+ const rows=await db.prepare(`SELECT division,account_number,invoice_no,invoice_type,invoice_date,due_date,customer_name,balance_cents,COALESCE(json_extract(source_json,'$.Comment'),'') AS comment FROM mas90_invoices WHERE ${filter} ORDER BY ${order},account_number,invoice_no,invoice_type,division LIMIT ? OFFSET ?`).bind(...bind,pageSize,(page-1)*pageSize).all();
  const types=await db.prepare(`SELECT DISTINCT invoice_type FROM mas90_invoices WHERE run_id=? ORDER BY invoice_type`).bind(active.run_id).all();
  return reply({success:true,capabilities:{invoice_incremental_v1:true},active,latest,total:count.total,page,pages,page_size:pageSize,invoice_types:(types.results||[]).map(r=>r.invoice_type),rows:rows.results||[]});
  }

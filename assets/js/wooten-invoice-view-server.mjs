@@ -36,7 +36,9 @@ export async function readInvoices({request,env,customer=null,admin=false}){
   if(selected){where.push('account_number=?');args.push(selected);}
   const scope=where.join(' AND '),scopeArgs=[...args];
   const search=(p.get('search')||'').trim().slice(0,120);
-  if(search){const pattern='%'+search.replace(/[\\%_]/g,'\\$&')+'%';where.push("(account_number LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR invoice_no LIKE ? ESCAPE '\\')");args.push(pattern,pattern,pattern);}
+  if(search){const pattern='%'+search.replace(/[\\%_]/g,'\\$&')+'%';where.push("(account_number LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR invoice_no LIKE ? ESCAPE '\\')");if(admin){where[where.length-1]=where[where.length-1].slice(0,-1)+" OR COALESCE(json_extract(source_json,'$.Comment'),'') LIKE ? ESCAPE '\\')";}args.push(pattern,pattern,pattern,...(admin?[pattern]:[]));}
+  const comment=admin?(p.get('comment')||'').trim().slice(0,120):'';
+  if(comment){where.push("COALESCE(json_extract(source_json,'$.Comment'),'') LIKE ? ESCAPE '\\'");args.push('%'+comment.replace(/[\\%_]/g,'\\$&')+'%');}
   const type=p.get('invoice_type')||'all';if(type!=='all'){where.push('invoice_type=?');args.push(type.slice(0,40));}
   const from=p.get('date_from')||'',to=p.get('date_to')||'';
   for(const value of [from,to])if(value&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value))throw fail('Choose a valid invoice date.');
@@ -48,7 +50,7 @@ export async function readInvoices({request,env,customer=null,admin=false}){
   const order=Object.hasOwn(orders,p.get('sort'))?orders[p.get('sort')]:orders.invoice_desc,filter=where.join(' AND ');
   const count=await db.prepare(`SELECT COUNT(*) total FROM mas90_invoices WHERE ${filter}`).bind(...args).first();
   const total=count.total,pages=Math.max(1,Math.ceil(total/size)),page=Math.min(requestedPage,pages);
-  const rows=await db.prepare(`SELECT ${columns} FROM mas90_invoices WHERE ${filter} ORDER BY ${order},account_number,invoice_no,invoice_type,division LIMIT ? OFFSET ?`).bind(...args,size,(page-1)*size).all();
+  const rows=await db.prepare(`SELECT ${columns}${admin?",COALESCE(json_extract(source_json,'$.Comment'),'') AS comment":''} FROM mas90_invoices WHERE ${filter} ORDER BY ${order},account_number,invoice_no,invoice_type,division LIMIT ? OFFSET ?`).bind(...args,size,(page-1)*size).all();
   const types=await db.prepare(`SELECT DISTINCT invoice_type FROM mas90_invoices WHERE ${scope} ORDER BY invoice_type`).bind(...scopeArgs).all();
   return reply({...base,total,page,pages,page_size:size,rows:rows.results||[],invoice_types:(types.results||[]).map(r=>r.invoice_type)});
  }catch(e){return reply({success:false,error:e.status?e.message:'Invoices could not be loaded. Please try again.'},e.status||500);}

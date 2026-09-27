@@ -1,3 +1,4 @@
+// Ver640 deployment: admin invoice lists/search return the stored MAS 90 Comment via the accompanying invoice server modules.
 function tableColumnOrder(value,fields,fallback,tie){
   const m=String(value||'').match(/^(.*)_(asc|desc)$/);
   return m&&Object.hasOwn(fields,m[1])?fields[m[1]]+' '+m[2].toUpperCase()+(tie?', '+tie:''):(typeof fallback==='string'?fallback:tie||'1');
