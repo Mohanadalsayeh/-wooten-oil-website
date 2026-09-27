@@ -39,5 +39,21 @@
       "binding": "NOTIFICATION_ATTACHMENTS",
       "bucket_name": "wooten-notification-attachments"
     }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "INTEVACON_SCHEDULER",
+        "class_name": "IntevaconApiScheduler"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "intevacon-api-scheduler-v650",
+      "new_sqlite_classes": ["IntevaconApiScheduler"]
+    }
   ]
 }
