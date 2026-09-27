@@ -1,4 +1,4 @@
-/* Ver654 — customer cards and transaction details from account-scoped API snapshots. */
+/* Ver656 — customer-initiated API refresh with session-scoped cards and transactions. */
 (function(){
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -134,6 +134,7 @@ function mount(root,admin){
  let lastControl={},syncRequestPending=false;
  let sortKey='',sortDirection='asc';
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
+ let customerRetry=null,customerNotice='',customerNoticeError=false;
  root.classList.add('wooten-fleet');
  root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync Now</button><label>Automatic interval (off) <select data-sync-hours disabled title="Automatic pulls are disabled">'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div>${admin?'<div class="fleet-stat" style="grid-column:1/-1"><strong data-pulled-count>—</strong><span data-pulled-label>Transactions in latest successful pull</span><small data-pulled-window></small></div>':''}</div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
@@ -263,14 +264,30 @@ function mount(root,admin){
   finally{exporting=false;buttonLabel.textContent='Export PDF';button.disabled=!get('[data-table] tbody tr strong.fleet-card-number');}
  }
  if(admin)get('[data-export]').addEventListener('click',exportPdf);
- async function load(){
+ function customerRefreshState(refresh){
+  if(admin)return;
+  clearTimeout(customerRetry);customerRetry=null;
+  customerNotice=refresh?.message||'';customerNoticeError=refresh?.state==='error';
+  const button=get('[data-refresh]'),waiting=refresh?.state==='waiting';
+  button.disabled=waiting;button.textContent=waiting?'Waiting…':'Refresh';button.toggleAttribute('aria-busy',waiting);
+  if(waiting){
+   const retry=()=>{
+    if(document.hidden||root.hasAttribute('aria-busy')){customerRetry=setTimeout(retry,5000);return;}
+    customerRetry=null;load({refresh:true});
+   };
+   customerRetry=setTimeout(retry,Math.max(1000,Math.min(1800000,Number(refresh.retryAfterSeconds||5)*1000)));
+  }
+ }
+ async function load({refresh=false}={}){
   if(admin)get('[data-export]').disabled=true;
+  if(!admin&&!refresh&&!customerRetry){const button=get('[data-refresh]');button.disabled=false;button.textContent='Refresh';button.removeAttribute('aria-busy');}
+  if(refresh&&!admin){clearTimeout(customerRetry);customerRetry=null;const button=get('[data-refresh]');button.disabled=true;button.textContent='Refreshing…';button.setAttribute('aria-busy','true');}
   controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
-  get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';message('Loading fleet records…');root.setAttribute('aria-busy','true');
+  get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';message(refresh&&!admin?'Checking your fleet activity with Intevacon…':'Loading fleet records…');root.setAttribute('aria-busy','true');
   const query=new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});if(admin&&get('[name=review]').checked)query.set('review','1');
   if(sortKey){query.set('sort',sortKey);query.set('direction',sortDirection);}
-  try{const data=await api((admin?'/api/admin/fleet/data':'/api/customer/fleet')+'?'+query,{signal:controller.signal});if(ticket!==serial)return;loadedQuery=query.toString();display(data);message('');}
-  catch(e){if(ticket===serial&&e.name!=='AbortError'){get('[data-table]').innerHTML='';message(e.message,true);}}
+  try{const data=await api((admin?'/api/admin/fleet/data':'/api/customer/fleet')+'?'+query,{signal:controller.signal,...(refresh&&!admin?{method:'POST',body:'{}'}:{})});if(ticket!==serial)return;loadedQuery=query.toString();display(data);if(refresh&&!admin)customerRefreshState(data.refresh);message(admin?'':customerNotice,customerNoticeError);}
+  catch(e){if(ticket===serial&&e.name!=='AbortError'){get('[data-table]').innerHTML='';if(refresh&&!admin)customerRefreshState({state:'error',message:e.message});message(e.message,true);}}
   finally{if(ticket===serial)root.removeAttribute('aria-busy');}
  }
  // Only replace visible rows when a newly committed sync is available.
@@ -290,17 +307,18 @@ function mount(root,admin){
    const table=get('[data-table]'),left=table.scrollLeft,top=table.scrollTop;
    page=Number(query.get('page'));loadedQuery=query.toString();display(data);
    table.scrollLeft=left;table.scrollTop=top;
+   if(!admin&&!customerRetry)customerRefreshState({state:'cached',message:'Fleet records refreshed after a successful sync.'});
    message('Fleet records refreshed after a successful sync.');
   }catch(e){
    // Keep the last successfully loaded rows; the next poll retries.
   }finally{refreshing=false;}
  }
- function clear(){transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';get('[data-sales]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ function clear(){if(!admin)customerRefreshState(null);transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';get('[data-sales]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
  root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-card')){const row=cardRows[Number(btn.dataset.fleetCard)];if(row)openCard(row,btn);}else if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
  if(btn.disabled)return;
  btn.disabled=true;btn.textContent='Refreshing…';btn.setAttribute('aria-busy','true');
- Promise.all([load(),...(admin?[status()]:[])]).finally(()=>{
-  btn.disabled=false;btn.textContent='Refresh';btn.removeAttribute('aria-busy');
+ Promise.all([load({refresh:!admin}),...(admin?[status()]:[])]).finally(()=>{
+  if(admin){btn.disabled=false;btn.textContent='Refresh';btn.removeAttribute('aria-busy');}
  });
 }});
  get('form').addEventListener('submit',e=>{e.preventDefault();page=1;load();});get('[name=review]')?.addEventListener('change',()=>{page=1;load();});
@@ -370,7 +388,7 @@ if(open){
  document.body.appendChild(dialog);const view=mount(dialog.querySelector('#customerFleetRoot'),false);
  const searchField=dialog.querySelector('input[name="search"]');
  searchField.autofocus=true;
- open.addEventListener('click',()=>{view.clear();dialog.showModal();searchField.focus({preventScroll:true});view.load();});
+ open.addEventListener('click',()=>{view.clear();dialog.showModal();searchField.focus({preventScroll:true});view.load({refresh:true});});
  const poll=()=>{if(dialog.open&&!document.hidden)view.refreshAfterSync();};
  setInterval(poll,30000);document.addEventListener('visibilitychange',poll);
  dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));

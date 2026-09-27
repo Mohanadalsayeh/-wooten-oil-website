@@ -1,9 +1,10 @@
-// Ver654: session-scoped views of saved Intevacon API transactions. No upstream calls.
+// Ver656: session-scoped reads plus explicit on-open/on-refresh API retrieval.
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const text=v=>typeof v==='string'?v:typeof v==='number'&&Number.isSafeInteger(v)?String(v):'';
 const money=v=>finite(v)?v.toFixed(2):null;
 const accountValid=v=>typeof v==='string'&&/^000\d{1,20}$/.test(v);
+export const customerIDForAccount=account=>accountValid(account)?account.slice(3):null;
 export function matchesAccount(customerID,account){
  const id=text(customerID).trim();
  // Existing Wooten mapping: add exactly three zeros, preserving source leading zeros.
@@ -37,7 +38,8 @@ function compare(a,b,key,direction){
 export function customerData(snapshot,account,query=new URLSearchParams()){
  if(!accountValid(account))return json({success:false,error:'Fleet account matching is unavailable for this account.'},403);
  // Never turn a single-card test into a customer-wide snapshot.
- if(!snapshot||snapshot.readOnly!==true||snapshot.cardNumber||!Array.isArray(snapshot.rows))snapshot=null;
+ if(!snapshot||snapshot.readOnly!==true||snapshot.cardNumber||!Array.isArray(snapshot.rows)||
+    (snapshot.customerAccount&&snapshot.customerAccount!==account))snapshot=null;
  const transactions=(snapshot?.rows||[]).filter(r=>matchesAccount(r.CustomerID,account)).map(project);
  const byCard=new Map();
  for(const row of transactions){if(!row.card_number)continue;const list=byCard.get(row.card_number)||[];list.push(row);byCard.set(row.card_number,list);}
@@ -57,17 +59,28 @@ export function customerData(snapshot,account,query=new URLSearchParams()){
  return json({success:true,source:'intevacon_api',kind,account_number:account,items:items.slice((page-1)*20,page*20),total,page,pages,
   summary:{cards:cards.length,transactions:transactions.length,fuel_quantity:sum(transactions,'fuel_quantity'),quantity_reported_count:transactions.filter(r=>finite(r.fuel_quantity)).length,total_sale:money(sum(transactions.map(r=>({value:r.source.TotalAmountOfSale})),'value'))},
   last_sync:snapshot?.completedAt||null,window_from:snapshot?.from||null,window_to:snapshot?.to||null,card_scope:'transactions',
-  notice:snapshot?'Cards shown had transactions in this period. Card activation status is not supplied.':'Fleet activity will appear after an administrator completes an all-card API sync.'});
+  notice:snapshot?'Cards shown had transactions in this period. Card activation status is not supplied.':'No fleet activity has been retrieved for this account yet. Click Refresh to check Intevacon.'});
 }
 export async function handleCustomer({request,env,customer}){
  if(!customer)return json({success:false,error:'Please sign in to your Wooten Oil account.'},401);
- if(request.method!=='GET')return json({success:false,error:'Method not allowed.'},405);
+ if(!['GET','POST'].includes(request.method))return json({success:false,error:'Method not allowed.'},405);
  if(!accountValid(customer.account_number))return json({success:false,error:'Fleet account matching is unavailable for this account.'},403);
  if(!env.INTEVACON_SCHEDULER)return json({success:false,error:'Fleet activity is temporarily unavailable.'},503);
- const supplied=new URL(request.url).searchParams,internal=new URL('https://scheduler/customer-data');
+ if(request.method==='POST'){
+  if(request.headers.get('Origin')!==new URL(request.url).origin||!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''))
+   return json({success:false,error:'Refresh fleet activity from your customer portal.'},403);
+  try{
+   // The browser may request a refresh, but never selects an account, date range or API filter.
+   const reader=request.body?.getReader();let size=0,body='';const decoder=new TextDecoder();
+   if(reader)while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>128){await reader.cancel();return json({success:false,error:'Invalid refresh request.'},400);}body+=decoder.decode(part.value,{stream:true});}
+   const input=JSON.parse(body||'{}');
+   if(!input||Array.isArray(input)||typeof input!=='object'||Object.keys(input).length)return json({success:false,error:'Invalid refresh request.'},400);
+  }catch{return json({success:false,error:'Invalid refresh request.'},400);}
+ }
+ const supplied=new URL(request.url).searchParams,internal=new URL('https://scheduler/'+(request.method==='POST'?'customer-refresh':'customer-data'));
  for(const key of ['kind','search','sort','direction','page'])if(supplied.has(key))internal.searchParams.set(key,supplied.get(key));
  // Only the authenticated server session chooses the account, never a browser parameter.
  internal.searchParams.set('account',customer.account_number);
- try{return await env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request(internal));}
+ try{return await env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request(internal,{method:request.method}));}
  catch{return json({success:false,error:'Fleet activity could not be loaded. Please try Refresh.'},503);}
 }

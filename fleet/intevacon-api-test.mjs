@@ -1,4 +1,4 @@
-// Ver654: read-only retrieval includes product/tax and transaction detail fields.
+// Ver656: read-only retrieval supports server-resolved customer organization filters.
 const API_URL = 'https://api.intevacon.com/Transaction';
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_RECORDS = 10000;
@@ -138,7 +138,9 @@ function upstreamError(status) {
   return new TestError(messages[status] || `Intevacon could not complete the test (HTTP ${status}). Try again later.`,
     status === 429 ? 429 : 502, status === 429 ? 'upstream_rate_limit' : 'upstream_error');
 }
-export async function handle({request, env, actor}) {
+// cardHolderOrgID is resolved by the scheduler from trusted saved CustomerID data.
+// Public request bodies still accept only from, to and cardNumber.
+export async function handle({request, env, actor, cardHolderOrgID = null}) {
   if (!actor || !(actor.owner === true || actor.permissions?.includes('fleet_cards')))
     return json({success: false, error: 'Administrator access to Fleet Cards & Transactions is required.'}, 403);
   if (request.method !== 'POST')
@@ -158,6 +160,11 @@ export async function handle({request, env, actor}) {
     let input;
     try { input = JSON.parse(text); } catch { throw new TestError('Enter a valid date range for this test.'); }
     const parameters = parametersFor(input);
+    if (cardHolderOrgID !== null) {
+      if (!Number.isSafeInteger(cardHolderOrgID) || cardHolderOrgID <= 0 || parameters.CardNumber)
+        throw new TestError('A valid customer mapping is required.');
+      parameters.CardholderOrgID = cardHolderOrgID;
+    }
     const now = Date.now(), last = lastCalls.get(secret);
     if (last != null && now - last < 30000)
       return json({success: false, error: 'Please wait 30 seconds between API tests.'}, 429, {'Retry-After': String(Math.ceil((30000 - (now - last)) / 1000))});
@@ -184,7 +191,7 @@ export async function handle({request, env, actor}) {
     }
     const rows = previewRows(data, secret);
     return json({
-      success: true, readOnly: true, version: 654, completedAt: new Date().toISOString(),
+      success: true, readOnly: true, version: 656, completedAt: new Date(Date.now()).toISOString(),
       durationMs: Date.now() - now, from: input.from, to: input.to,
       cardNumber: parameters.CardNumber || '', count: rows.length,
       endpoint: 'GET /Transaction', flags: {FlagAsExported: false, NewRecordsOnly: false, InvoicedOnly: false}, rows
