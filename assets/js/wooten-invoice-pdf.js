@@ -1,4 +1,4 @@
-/* Invoice exports use the portal's existing landscape table PDF layout. */
+/* Ver654: fleet detail PDFs support all product/tax groups across pages. */
 (()=>{
 'use strict';
   function cleanText(value){
@@ -201,12 +201,15 @@ function buildDetail(data){
  text(data.account,40,y,9);y-=20;line(y);y-=24;
  function group(g,x,width){
   ensure(30);text(g.title,x,y,11,true);y-=14;
-  for(const row of g.rows){const labels=wrapText(row[0],24,Infinity),values=wrapText(row[1],25,Infinity);const h=Math.max(labels.length,values.length)*12+14;ensure(h);const top=y-12;
+  for(const row of g.rows){const labels=wrapText(row[0],width>=500?50:24,Infinity),values=wrapText(row[1],width>=500?55:25,Infinity);const h=Math.max(labels.length,values.length)*12+14;ensure(h);const top=y-12;
    labels.forEach((v,i)=>text(v,x,top-i*12,9));values.forEach((v,i)=>text(v,x+width*.50,top-i*12,9,true));y-=h;line(y,x,x+width);
   }
  }
- const top=y;group(data.groups[0],40,250);const leftBottom=y;y=top;group(data.groups[1],322,250);y=Math.min(leftBottom,y)-24;
- if(data.groups[2])group(data.groups[2],322,250);
+ if(data.stackedGroups){for(const g of data.groups){group(g,40,532);y-=24;}}
+ else{
+  const top=y;group(data.groups[0],40,250);const leftBottom=y;y=top;group(data.groups[1],322,250);y=Math.min(leftBottom,y)-24;
+  if(data.groups[2])group(data.groups[2],322,250);
+ }
  for(const note of data.notes||[]){if(!cleanText(note)||/^[-—–]$/.test(cleanText(note)))continue;y-=20;for(const part of wrapText(note,105,Infinity)){ensure(14);text(part,40,y,9);y-=13;}}footer();
  const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>','', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'];const ids=[];
  for(const content of pages){const cid=objects.length;objects.push('<< /Length '+content.length+' >>\nstream\n'+content+'endstream');ids.push(objects.length);objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+cid+' 0 R >>');}

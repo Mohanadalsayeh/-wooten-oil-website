@@ -1,4 +1,4 @@
-// Ver644: an admin-only, read-only Intevacon API probe. No sync/import code is used.
+// Ver654: read-only retrieval includes product/tax and transaction detail fields.
 const API_URL = 'https://api.intevacon.com/Transaction';
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_RECORDS = 10000;
@@ -87,11 +87,16 @@ const TRANSACTION_FIELDS = [
   'DeclineReason', 'AuthRef', 'InvoiceID', 'ReceivedDateTime', 'LocalDateTime',
   'ProcessedDateTime', 'PostedDateTime', 'Odometer', 'DriverNumber', 'DriverName',
   'VehicleNumber', 'VehicleDescription', 'TotalAmountOfSale', 'ResolvedTotalAmount'
+  ,'IssuerOrgID','CardHolderStreet','CardHolderStreet2','CardHolderCity','CardHolderStateProvince','CardHolderPostalCode',
+  'MerchantStreet','MerchantPostalCode','CardTypeID','TranTypeID','EntryMethodID','CardTranSourceID','CardTranSource',
+  'NetworkID','DeclineReasonID','ShiftNumber','RawVehicleID','RawDriverID','MiscData','DriverID','VehicleID'
 ];
 const DETAIL_FIELDS = [
   'RowNumber', 'ProductName', 'ProductCode', 'ProductCategory', 'IsFuel',
   'IsTaxProduct', 'Quantity', 'RawUnitPrice', 'RawAmount', 'ResolvedUnitPrice', 'ResolvedAmount'
+  ,'RawProductCode','ResolvedProductID','ProductCategoryID'
 ];
+const TAX_FIELDS=['TaxRowNumber','TaxAuthority','GovtLevel','TaxType','TaxRate','FederalTax','FederalTaxExempt','StateTax','StateTaxExempt','OtherTax','OtherTaxExempt','BaseAmount','BasePrice'];
 function pick(source, fields, secret) {
   const result = {};
   for (const field of fields) result[field] = scalar(source[field], secret);
@@ -112,7 +117,10 @@ export function previewRows(data, secret) {
     row.Details = details.map(detail => {
       if (!detail || typeof detail !== 'object' || Array.isArray(detail))
         throw new TestError('The API returned an unexpected product row.', 502, 'invalid_response');
-      return pick(detail, DETAIL_FIELDS, secret);
+      const taxes=detail.Taxes==null?[]:detail.Taxes;
+      if(!Array.isArray(taxes)||taxes.length>100||taxes.some(t=>!t||typeof t!=='object'||Array.isArray(t)))
+        throw new TestError('The API returned an unexpected tax list.',502,'invalid_response');
+      return {...pick(detail, DETAIL_FIELDS, secret),Taxes:taxes.map(t=>pick(t,TAX_FIELDS,secret))};
     });
     // Card numbers and customer IDs remain strings, including any leading zeros.
     for (const field of ['ID', 'CardNumber', 'CustomerID', 'AuthRef', 'InvoiceID'])
@@ -176,7 +184,7 @@ export async function handle({request, env, actor}) {
     }
     const rows = previewRows(data, secret);
     return json({
-      success: true, readOnly: true, version: 644, completedAt: new Date().toISOString(),
+      success: true, readOnly: true, version: 654, completedAt: new Date().toISOString(),
       durationMs: Date.now() - now, from: input.from, to: input.to,
       cardNumber: parameters.CardNumber || '', count: rows.length,
       endpoint: 'GET /Transaction', flags: {FlagAsExported: false, NewRecordsOnly: false, InvoicedOnly: false}, rows

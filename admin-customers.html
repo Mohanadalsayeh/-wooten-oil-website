@@ -4,7 +4,7 @@
 <meta name="format-detection" content="telephone=no">
 <script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
-<script src="/assets/js/wooten-admin-access.js?v=644"></script>
+<script src="/assets/js/wooten-admin-access.js?v=655"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wooten Oil Admin</title>
@@ -5760,6 +5760,9 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-tab="customers" data-admin-label="Customer Database"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></span>Database</button>
       <button class="admin-tab" id="admin-tab-btn-automation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-automation" data-admin-tab="automation" data-admin-label="MAS 90 Health"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/><circle cx="12" cy="12" r="9"/></svg></span>MAS 90 Health</button>
       <button class="admin-tab" id="admin-tab-btn-activity" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-activity" data-admin-tab="activity" data-admin-label="Customer Activity"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Customer Activity</button>
+      <button class="admin-tab" id="admin-tab-btn-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-database" data-admin-tab="database" data-admin-label="Live Customer Database"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></span>Live Customer Database</button>
+      <button class="admin-tab" id="admin-tab-btn-payment-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-database" data-admin-tab="payment-database" data-admin-label="Live Customer Payments"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Live Customer Payments</button>
+      <button class="admin-tab" id="admin-tab-btn-invoice-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-invoice-database" data-admin-tab="invoice-database" data-admin-label="Live Open Invoices"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6zM14 2v5h5M9 12h7M9 16h7"/></svg></span>Live Open Invoices</button>
       <button class="admin-tab" id="admin-tab-btn-payment-transactions" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-transactions" data-admin-tab="payment-transactions" data-admin-label="Online Payment Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Online Payment Transactions</button>
       <button class="admin-tab" id="admin-tab-btn-fleet" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-intevacon-api-test" data-admin-tab="fleet" data-admin-label="Fleet Cards &amp; Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4M14 15h4"/></svg></span>Fleet Cards &amp; Transactions</button>
 
@@ -5792,7 +5795,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   <div class="card admin-tab-panel admin-dashboard-panel is-active" id="admin-tab-dashboard" role="tabpanel" aria-labelledby="admin-tab-btn-dashboard" data-admin-panel="dashboard">
     <div class="admin-dashboard-grid">
       <section class="admin-dashboard-welcome"><div><h2>Wooten Oil Administration</h2><p>Choose a section to manage customer accounts and portal operations.</p></div><div class="admin-dashboard-date" id="adminDashboardDate"></div></section>
-      <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">C</div><h3>Customer Center</h3><p>Import customer data, review live accounts, and open a complete customer activity record.</p><button class="admin-dashboard-link" type="button" data-admin-open="customers">Open customer database →</button></section>
+      <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">C</div><h3>Customer Center</h3><p>Import customer data, review live accounts, and open a complete customer activity record.</p><button class="admin-dashboard-link" type="button" data-admin-open="database">Open customer database →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">$</div><h3>Credit &amp; Collections</h3><p>Prioritize past-due accounts, review aging and recent payments, and manage collection follow-ups.</p><button class="admin-dashboard-link" type="button" data-admin-open="collections">Open Collections Center →</button></section>
       <section class="admin-dashboard-card" id="mas90HealthDashboardCard"><div class="admin-dashboard-card-icon">90</div><h3>MAS 90 Automation Health</h3><p>Monitor the office computer, nightly 9:00 PM synchronization, data freshness, and import results.</p><span class="mas90-health-dashboard-state" id="mas90HealthDashboardState">Open Health Center for current status</span><button class="admin-dashboard-link" type="button" data-admin-open="automation">Open Health Center →</button></section>
       <section class="admin-dashboard-card"><div class="admin-dashboard-card-icon">D</div><h3>Documents</h3><p>Manage statements and invoices, send documents, and monitor scheduled statement runs.</p><button class="admin-dashboard-link" type="button" data-admin-open="documents">Open documents →</button></section>
@@ -5883,13 +5886,6 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-customers" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="customers">
-    <nav class="admin-subtabs database-subtabs" role="tablist" aria-label="Database sections">
-      <button class="admin-subtab" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-customers" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-database" data-admin-subtab="database" data-admin-parent="customers">Live Customer Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-database" data-admin-subtab="payment-database" data-admin-parent="customers">Live Customer Payments</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-invoice-database" data-admin-subtab="invoice-database" data-admin-parent="customers">Live Open Invoices</button>
-    </nav>
-
     <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
       <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
       <div class="mas90-live-sync-copy">
@@ -6196,14 +6192,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 
   </div>
 
-  <div class="card admin-tab-panel" id="admin-tab-database" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="database">
-    <nav class="admin-subtabs database-subtabs" role="tablist" aria-label="Database sections">
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-database" data-admin-subtab="database" data-admin-parent="customers">Live Customer Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-database" data-admin-subtab="payment-database" data-admin-parent="customers">Live Customer Payments</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-invoice-database" data-admin-subtab="invoice-database" data-admin-parent="customers">Live Open Invoices</button>
-    </nav>
-
+  <div class="card admin-tab-panel" id="admin-tab-database" role="tabpanel" aria-labelledby="admin-tab-btn-database" data-admin-panel="database">
     <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
       <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
       <div class="mas90-live-sync-copy">
@@ -6333,13 +6322,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   </div>
 
 
-  <div class="card admin-tab-panel" id="admin-tab-payment-database" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="payment-database" hidden>
-    <nav class="admin-subtabs database-subtabs" role="tablist" aria-label="Database sections">
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-database" data-admin-subtab="database" data-admin-parent="customers">Live Customer Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-payment-database" data-admin-subtab="payment-database" data-admin-parent="customers">Live Customer Payments</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-invoice-database" data-admin-subtab="invoice-database" data-admin-parent="customers">Live Open Invoices</button>
-    </nav>
+  <div class="card admin-tab-panel" id="admin-tab-payment-database" role="tabpanel" aria-labelledby="admin-tab-btn-payment-database" data-admin-panel="payment-database" hidden>
     <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
       <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
       <div class="mas90-live-sync-copy">
@@ -6461,13 +6444,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     </section>
   </div>
 
-  <div class="card admin-tab-panel" id="admin-tab-invoice-database" role="tabpanel" aria-labelledby="admin-tab-btn-customers" data-admin-panel="invoice-database" hidden>
-    <nav class="admin-subtabs database-subtabs" role="tablist" aria-label="Database sections">
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-subtab="customers" data-admin-parent="customers">MAS 90 Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-database" data-admin-subtab="database" data-admin-parent="customers">Live Customer Database</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-database" data-admin-subtab="payment-database" data-admin-parent="customers">Live Customer Payments</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-invoice-database" data-admin-subtab="invoice-database" data-admin-parent="customers">Live Open Invoices</button>
-    </nav>
+  <div class="card admin-tab-panel" id="admin-tab-invoice-database" role="tabpanel" aria-labelledby="admin-tab-btn-invoice-database" data-admin-panel="invoice-database" hidden>
     <div class="mas90-live-sync" data-mas90-live-sync hidden aria-live="polite">
       <span class="mas90-live-sync-icon" aria-hidden="true"><span class="mas90-live-sync-spinner"></span></span>
       <div class="mas90-live-sync-copy">
@@ -7254,16 +7231,15 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 
   <h2>Intevacon API</h2>
   <p>Retrieve transactions from Intevacon manually or on an automatic schedule.</p>
-  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync Now. Successful results are saved for admin review. Transactions are not marked as exported or assigned to customer accounts.</div>
+  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync Now. Successful all-card results are shown in the matching customer accounts, including quantities and transaction details. Single-card lookups keep the customer results unchanged. Transactions are not marked as exported.</div>
   <form id="apiScheduleForm" class="api-schedule">
     <h3>Automatic sync</h3>
     <label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox"> Enable automatic sync</label>
     <div class="api-schedule-fields">
       <label>Interval (seconds)<input id="apiScheduleInterval" type="number" min="30" max="86400" step="1" value="300" required></label>
       <label>Retrieve the last (days)<input id="apiScheduleDays" type="number" min="1" max="92" step="1" value="1" required></label>
-      <label>Card number (optional)<input id="apiScheduleCard" inputmode="numeric" pattern="[0-9]{1,32}" maxlength="32" placeholder="All cards"></label>
     </div>
-    <p class="api-test-help">Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
+    <p class="api-test-help">Automatic sync retrieves all cards. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
     <button id="apiScheduleSave" class="secondary" type="submit">Save schedule</button>
     <p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
@@ -8585,7 +8561,7 @@ function renderMas90RemoteRequest(remote,importData){
       const invoiceSaved=importData?.invoice_database;
       summary.innerHTML=`<div><strong>Customers imported</strong><span>${customerSuccess.toLocaleString()} successful</span></div><div><strong>Customer failures</strong>${failureControl('customers',customerFailure)}</div><div><strong>Payment records</strong><span>${paymentSuccess.toLocaleString()} processed</span></div><div><strong>Payment result</strong><span>${paymentInserted.toLocaleString()} new</span><span>${paymentDuplicates.toLocaleString()} already saved</span>${failureControl('payments',paymentFailure)}</div><div><strong>Invoices imported</strong><span>${invoiceOutcome}</span>${invoiceVerified?'<span>0 failed</span>':''}</div><div><strong>Invoice database</strong><button type="button" class="mas90-view-invoices">${invoiceSaved?'View '+Math.max(0,Number(invoiceSaved.total||0)).toLocaleString()+' saved invoices':'View invoices'}</button></div>`;
       summary.querySelector('.mas90-view-invoices')?.addEventListener('click',()=>{
-        document.querySelector('[data-admin-subtab="invoice-database"]')?.click();
+        document.querySelector('[data-admin-tab="invoice-database"]')?.click();
         window.WootenInvoiceDatabase?.showAll?.();
       });
     }else summary.textContent="";
@@ -11285,11 +11261,10 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
   const drawerBackdrop=document.getElementById("adminDrawerBackdrop");
   const groups={
     fleet:["intevacon-api-test"],
-    customers:["customers","database","payment-database","invoice-database"],
     communication:["communication","messages"],
     settings:["settings","gmail"]
   };
-  const selectedChild={fleet:"intevacon-api-test",customers:"customers",communication:"communication",settings:"settings"};
+  const selectedChild={fleet:"intevacon-api-test",communication:"communication",settings:"settings"};
 
   function parentFor(name){
     return Object.keys(groups).find(parent=>groups[parent].includes(name))||name;
@@ -15394,7 +15369,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   const observer=new MutationObserver(syncPlacement);
   views.forEach(view=>observer.observe(view,{attributes:true,attributeFilter:['class','hidden']}));
   document.addEventListener('click',event=>{
-    if(event.target.closest('[data-admin-subtab]'))requestAnimationFrame(syncPlacement);
+    if(event.target.closest('[data-admin-tab], [data-admin-open], [data-admin-subtab]'))requestAnimationFrame(syncPlacement);
   });
   window.syncMas90RemoteRequestPlacement=syncPlacement;
   syncPlacement();
@@ -15436,10 +15411,10 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script src="assets/js/wooten-invoice-import.js?v=576"></script>
 <link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=624">
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
-<script src="assets/js/wooten-invoice-pdf.js?v=621"></script>
+<script src="assets/js/wooten-invoice-pdf.js?v=654"></script>
 <script src="assets/js/wooten-invoice-comment-parser.js?v=635"></script>
 <script src="assets/js/wooten-original-invoice.js?v=642"></script>
-<script src="assets/js/wooten-invoice-viewer.js?v=636"></script>
+<script src="assets/js/wooten-invoice-viewer.js?v=653"></script>
 <script src="assets/js/wooten-invoice-database.js?v=640"></script>
 <script src="assets/js/wooten-invoice-export.js?v=637" defer></script>
 <script src="assets/js/wooten-database-exports.js?v=632" defer></script>
@@ -18119,8 +18094,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
-<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=650">
-<script src="assets/js/wooten-intevacon-api-test.js?v=650"></script>
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=651">
+<script src="assets/js/wooten-intevacon-api-test.js?v=654"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
@@ -18353,8 +18328,6 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 </style>
 
 <style id="wooten-database-tabs-ver557">
-.database-subtabs{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;box-sizing:border-box}
-.database-subtabs .admin-subtab{min-width:0;white-space:normal!important;line-height:1.35;min-height:50px;text-align:center}
 #admin-tab-payment-database,#admin-tab-invoice-database{min-width:0;overflow:hidden}
 #admin-tab-payment-database #livePaymentDatabaseSection{margin-top:0;padding-top:0;border-top:0}
 .invoice-db-toolbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:end}
@@ -18374,9 +18347,9 @@ body #admin-tab-documents > .admin-subtabs .statement-tab-spinner[hidden]{displa
 #invoiceDbTable[aria-busy="true"] th button{cursor:wait}
 #invoiceDbPagination{display:flex;justify-content:space-between;gap:10px;min-width:0}
 #invoiceDbPage{min-width:0;text-align:center}
-@media(max-width:1180px){.invoice-db-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}.database-subtabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1180px){.invoice-db-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.invoice-db-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-db-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-db-actions button{min-width:0;width:100%}}
-@media(max-width:620px){.invoice-db-toolbar{grid-template-columns:1fr}.invoice-db-actions{grid-template-columns:1fr}.invoice-db-toolbar input,.invoice-db-toolbar select,.invoice-db-actions button{height:52px;min-height:52px}.database-subtabs .admin-subtab{font-size:13px!important;padding:10px 8px!important}#invoiceDbPagination button{min-width:0;padding:10px 14px}#invoiceDbPage{font-size:12px}}
+@media(max-width:620px){.invoice-db-toolbar{grid-template-columns:1fr}.invoice-db-actions{grid-template-columns:1fr}.invoice-db-toolbar input,.invoice-db-toolbar select,.invoice-db-actions button{height:52px;min-height:52px}#invoiceDbPagination button{min-width:0;padding:10px 14px}#invoiceDbPage{font-size:12px}}
 
 </style>
 

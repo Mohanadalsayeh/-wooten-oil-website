@@ -1,4 +1,4 @@
-/* Ver575: shared invoice lists and details; all dynamic values use textContent. */
+/* Ver653: focus the customer invoice heading on open, leaving Dashboard unfocused. */
 (()=>{
 'use strict';
 const admin=!!document.getElementById('admin-tab-invoice-database');
@@ -17,6 +17,8 @@ detail.innerHTML=`<header class="iv-head iv-classic-head"><div class="iv-company
 if(!admin){
  list.classList.add('iv-customer-list');
  const head=list.querySelector('.iv-head'),title=head.querySelector('h2'),account=head.querySelector('[data-account]'),close=head.querySelector('[data-close]');
+ // Start on static content without opening the phone keyboard or highlighting Dashboard.
+ title.tabIndex=-1;title.setAttribute('autofocus','');title.style.outline='none';
  head.replaceChildren();
  const brand=document.createElement('div');brand.className='iv-portal-name';brand.textContent='WOOTEN OIL CUSTOMER PORTAL';
  const nav=document.createElement('div');nav.className='iv-dashboard-nav';
@@ -58,7 +60,7 @@ async function api(params,signal){
 }
 function updated(root,data){q(root,'[data-updated]').textContent='Last completed import: '+stamp(data.active?.completed_at);}
 function link(label,action){const b=document.createElement('button');b.type='button';b.className='iv-link';b.textContent=label||'—';b.addEventListener('click',()=>action(b));return b;}
-function openDialog(dialog,trigger){if(!dialog.open)dialog.showModal();q(dialog,'[data-close]').focus({preventScroll:true});return trigger||document.activeElement;}
+function openDialog(dialog,trigger){const previous=trigger||document.activeElement;if(!dialog.open)dialog.showModal();q(dialog,dialog===list&&!admin?'#ivListTitle':'[data-close]').focus({preventScroll:true});return previous;}
 function showListSkeleton(){
  const count=Math.max(1,Math.min(20,body.children.length||8));
  body.replaceChildren();body.setAttribute('aria-busy','true');

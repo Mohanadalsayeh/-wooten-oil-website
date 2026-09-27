@@ -1,9 +1,13 @@
-/* Ver645 — scheduled retrieval and retries disabled; manual Sync Now remains available. */
+/* Ver654 — customer cards and transaction details from account-scoped API snapshots. */
 (function(){
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const periodLabel=days=>({30:'Last 30 days',21:'Last 3 weeks',14:'Last 2 weeks',7:'Last 1 week'}[days]||'Last 30 days');
 const central=v=>v?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',dateStyle:'medium',timeStyle:'short'}).format(new Date(v))+' CT':'Not synced yet';
+const quantity=v=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-US',{maximumFractionDigits:6}):'—';
+const sourceDate=v=>v?String(v).replace('T',' '):'—';
+const fieldLabel=k=>({ID:'Transaction number',CustomerID:'Customer ID',AuthRef:'Authorization reference',InvoiceID:'Intevacon invoice ID',CardHolderOrgID:'Cardholder organization ID',MerchantOrgID:'Merchant organization ID',RawVehicleID:'Raw vehicle ID',RawDriverID:'Raw driver ID'}[k]||k.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z])ID$/,'$1 ID'));
+const fieldValue=(key,value)=>value==null||value===''?'—':typeof value==='boolean'?(value?'Yes':'No'):/DateTime$/.test(key)?sourceDate(value):typeof value==='number'?(/Amount|TotalAmountOfSale/.test(key)?dollars(value.toFixed(2)):quantity(value)):String(value);
 function dollars(value){
  if(typeof value!=='string'||!/^(-?)(\d{1,12})\.(\d{2})$/.test(value))return '—';
  const [,sign,whole,cents]=value.match(/^(-?)(\d{1,12})\.(\d{2})$/);
@@ -35,10 +39,34 @@ const adminTransactionColumns=[
  ['Vehicle#',r=>r.vehicle_number],['Vehicle Desc',r=>r.vehicle_description||r.vehicle],
  ['Raw VehicleID',r=>r.raw_vehicle_id],['Odometer',r=>r.odometer],['Processed On',r=>r.processed_on]
 ];
-const customerTransactionColumns=[1,0,3,5,6,7,8,10,11,12,13,14,17].map((index)=>{
- const [label,value,type]=adminTransactionColumns[index];
- return [index===1?'Transaction Number':index===6?'Authorization Reference':label,value,type];
-});
+const customerTransactionColumns=[
+ ['Trans #',r=>r.transaction_id,'transaction','transaction_id'],['Received On',r=>sourceDate(r.received_at),'','received_at'],
+ ['Card Number',r=>r.card_number,'card','card_number'],['Fuel Quantity',r=>quantity(r.fuel_quantity),'quantity','fuel_quantity'],
+ ['Total Sale',r=>dollars(r.total_sale),'money','total_sale'],['Status',r=>r.status,'','status'],['Merchant',r=>r.merchant,'','merchant'],
+ ['Cardholder',r=>r.cardholder,'','cardholder'],['Invoice #',r=>r.invoice_number,'','invoice_number'],
+ ['Driver #',r=>r.driver_number,'','driver_number'],['Driver Name',r=>r.driver_name,'','driver_name'],
+ ['Vehicle #',r=>r.vehicle_number,'','vehicle_number'],['Vehicle Description',r=>r.vehicle_description,'','vehicle_description'],
+ ['Auth Ref',r=>r.auth_ref,'','auth_ref'],['Entry Method',r=>r.entry_method,'','entry_method'],['Processed On',r=>sourceDate(r.processed_on),'','processed_on']
+];
+const customerCardColumns=[
+ ['Card Number',r=>r.card_number,'card','card_number'],['Card Type',r=>r.card_type,'','card_type'],['Cardholder',r=>r.cardholder,'','cardholder'],
+ ['Transactions',r=>quantity(r.transaction_count),'quantity','transaction_count'],['Fuel Quantity',r=>quantity(r.fuel_quantity),'quantity','fuel_quantity'],
+ ['Total Sale',r=>dollars(r.total_sale),'money','total_sale'],['Last Transaction',r=>sourceDate(r.last_used_on),'','last_used_on']
+];
+function customerCardCells(r,index){return customerCardColumns.map(([,value,type])=>{
+ const text=esc(value(r)??'—')||'—';
+ return type==='card'?'<button type="button" class="iv-link fleet-card-link" data-fleet-card="'+index+'">'+text+'</button>':text;
+});}
+function sourceFields(row){return Object.entries(row.source||{}).filter(([key,value])=>key!=='Details'&&value!=null&&value!=='').map(([key,value])=>[fieldLabel(key),fieldValue(key,value)]);}
+function productGroups(row){return (row.source?.Details||[]).flatMap((product,index)=>[
+ {title:'Product '+(index+1)+' - '+(product.ProductName||'Details'),rows:Object.entries(product).filter(([key,value])=>key!=='Taxes'&&value!=null&&value!=='').map(([key,value])=>[fieldLabel(key),fieldValue(key,value)])},
+ ...(product.Taxes||[]).map((tax,n)=>({title:'Product '+(index+1)+' - Tax '+(n+1),rows:Object.entries(tax).filter(([,value])=>value!=null&&value!=='').map(([key,value])=>[fieldLabel(key),fieldValue(key,value)])}))
+]);}
+function productsMarkup(row){
+ const products=row.source?.Details||[];if(!products.length)return '<p>No product details were supplied for this transaction.</p>';
+ const rows=products.map(p=>'<tr>'+[p.ProductName,p.ProductCode,quantity(p.Quantity),quantity(p.ResolvedUnitPrice??p.RawUnitPrice),fieldValue('Amount',p.ResolvedAmount??p.RawAmount),p.ProductCategory].map(v=>'<td>'+esc(v??'—')+'</td>').join('')+'</tr>').join('');
+ return '<h3>Products and quantities</h3><div class="iv-table-wrap fleet-product-table"><table data-auto-pdf="false"><thead><tr>'+['Product','Code','Quantity','Unit price','Amount','Category'].map(label=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div><details class="fleet-product-info"><summary>All product details and taxes</summary>'+productGroups(row).map(group=>'<h4>'+esc(group.title)+'</h4><dl class="iv-classic-fields fleet-detail-fields">'+group.rows.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl>').join('')+'</details>';
+}
 function customerTransactionCells(r,index){return customerTransactionColumns.map(([,value,type])=>{
  const text=esc(value(r)??'—')||'—';
  return type==='transaction'&&r.transaction_id?'<button type="button" class="iv-link fleet-transaction-link" data-fleet-transaction="'+index+'">'+text+'</button>':type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
@@ -53,12 +81,13 @@ function fleetPdfData(kind,items){
  return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Entry / Auth Ref','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+(r.local_date_time||'—'),'Received: '+central(r.received_at),r.processed_on?'Processed: '+r.processed_on:'',r.posted_on?'Posted: '+r.posted_on:'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Entry method: '+(r.entry_method||'—')+' / Auth Ref: '+(r.auth_ref||'—'),driverVehicleDetails(r).join('; ')])};
 }
 function fleetSortKeys(kind,admin){
+ if(!admin)return (kind==='cards'?customerCardColumns:customerTransactionColumns).map(column=>column[3]);
  const all=['received_at','transaction_id','local_date_time','entry_method','decline_reason','merchant','auth_ref','card_number','total_sale','billable_amount','cardholder','driver_number','driver_name','vehicle_number','vehicle_description','raw_vehicle_id','odometer','processed_on'];
  const keys=kind==='cards'?['card_number','status','cardholder','assigned_to','driver_no']:admin?all:[1,0,3,5,6,7,8,10,11,12,13,14,17].map(i=>all[i]);
  return admin?['account_number',...keys]:keys;
 }
 function fleetSkeleton(kind,admin){
- const headers=kind==='transactions'?(admin?adminTransactionColumns:customerTransactionColumns).map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
+ const headers=!admin?(kind==='cards'?customerCardColumns:customerTransactionColumns).map(([label])=>label):kind==='transactions'?adminTransactionColumns.map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
  if(admin)headers.unshift('Portal account');
  const row=(heading,index)=>'<div class="fleet-skeleton-row">'+headers.map((label,column)=>heading?'<div class="fleet-skeleton-heading">'+esc(label)+'</div>':'<div class="fleet-skeleton-cell"><span class="fleet-skeleton-bar" style="width:'+([72,85,60][(column+index)%3])+'%"></span></div>').join('')+'</div>';
  return '<div class="fleet-skeleton" aria-hidden="true" style="--fleet-skeleton-columns:'+headers.length+'">'+row(true,0)+Array.from({length:5},(_,i)=>row(false,i)).join('')+'</div>';
@@ -108,7 +137,7 @@ function mount(root,admin){
  root.classList.add('wooten-fleet');
  root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync Now</button><label>Automatic interval (off) <select data-sync-hours disabled title="Automatic pulls are disabled">'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div>${admin?'<div class="fleet-stat" style="grid-column:1/-1"><strong data-pulled-count>—</strong><span data-pulled-label>Transactions in latest successful pull</span><small data-pulled-window></small></div>':''}</div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
- let transactionRows=[],transactionOpener=null,transactionAccount='',transactionPrintData=null;
+ let transactionRows=[],cardRows=[],transactionOpener=null,transactionAccount='',transactionPrintData=null;
  const transactionPdfUrls=[];
  window.addEventListener('pagehide',()=>{transactionPdfUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));});
  const transactionDialog=document.createElement('dialog');
@@ -116,6 +145,8 @@ function mount(root,admin){
  transactionDialog.setAttribute('aria-label','Fleet transaction details');
  document.body.append(transactionDialog);
  transactionDialog.addEventListener('click',e=>{
+  const card=e.target.closest('[data-view-card-transactions]');
+  if(card){get('[name=search]').value=card.dataset.viewCardTransactions;kind='transactions';page=1;sortKey='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===kind)));transactionDialog.close();load();return;}
   if(e.target.closest('[data-transaction-close]'))transactionDialog.close();
   if(e.target.closest('[data-transaction-print]')&&transactionDialog.open&&transactionPrintData){
    const output=transactionDialog.querySelector('[data-transaction-print-status]');output.textContent='';
@@ -131,12 +162,26 @@ function mount(root,admin){
  transactionDialog.addEventListener('close',()=>{transactionPrintData=null;transactionDialog.replaceChildren();if(transactionOpener?.isConnected)transactionOpener.focus({preventScroll:true});transactionOpener=null;});
  function openTransaction(row,opener){
   transactionOpener=opener;
-  const pdfFields=(admin?adminTransactionColumns:customerTransactionColumns).filter(([, ,type])=>type!=='transaction').map(([label,value])=>[label,String(value(row)??'—')]);
+  const pdfFields=admin?adminTransactionColumns.filter(([, ,type])=>type!=='transaction').map(([label,value])=>[label,String(value(row)??'—')]):[['Fuel quantity',quantity(row.fuel_quantity)],...sourceFields(row)];
   const split=Math.ceil(pdfFields.length/2);
   transactionPrintData={title:'Fleet Transaction',number:String(row.transaction_id||''),meta:'Intevacon',customerLabel:'Cardholder',customer:row.cardholder||'—',account:'Account # '+(row.account_number||transactionAccount||'Unmatched'),balanceLabel:'Total Sale',balance:dollars(row.total_sale),updated:'Last sync: '+central(lastSync),groups:[{title:'Transaction details',rows:pdfFields.slice(0,split)},{title:'Additional details',rows:pdfFields.slice(split)}]};
   const fields=(admin?adminTransactionColumns:customerTransactionColumns).filter(([, ,type])=>type!=='transaction'&&type!=='money');
   const fieldRows=fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value(row)??'—')+'</dd></div>').join('');
   transactionDialog.innerHTML='<header class="iv-head iv-classic-head"><div class="iv-company"><span class="fleet-detail-brand" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p>513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div>Fleet Transaction</div><h2>'+esc(row.transaction_id)+'</h2><p>Intevacon</p></div><button type="button" class="iv-close" data-transaction-close aria-label="Close transaction details">×</button></header><div class="iv-body"><div class="iv-classic-summary"><div><div class="iv-classic-label">Cardholder</div><div class="iv-classic-name">'+esc(row.cardholder||'—')+'</div><p>Card # '+esc(row.card_number||'—')+'</p><p>Account # '+esc(row.account_number||transactionAccount||'Unmatched')+'</p></div><div class="iv-classic-balance"><div class="iv-classic-label">Total Sale</div><div class="iv-classic-amount">'+esc(dollars(row.total_sale))+'</div>'+(admin?'<p>Billable amount: '+esc(dollars(row.billable_amount))+'</p>':'')+'</div></div><h3>Transaction details</h3><dl class="iv-classic-fields fleet-detail-fields">'+fieldRows+'</dl></div><footer class="iv-foot"><span class="iv-updated">Last sync: '+esc(central(lastSync))+'</span><div class="iv-detail-actions"><button type="button" class="iv-print" data-transaction-print>Print Transaction</button><button type="button" data-transaction-close>Back</button></div></footer><p data-transaction-print-status role="status" style="margin:0;padding:0 24px;color:#9c2525"></p>';
+  transactionDialog.showModal();transactionDialog.querySelector('[data-transaction-close]').focus({preventScroll:true});
+  if(!admin){
+   transactionPrintData.stackedGroups=true;transactionPrintData.groups.push(...productGroups(row));
+   const fields=transactionDialog.querySelector('.fleet-detail-fields');
+   fields.innerHTML=pdfFields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('');
+   fields.insertAdjacentHTML('afterend',productsMarkup(row));
+  }
+ }
+
+ function openCard(row,opener){
+  transactionOpener=opener;
+  const fields=[['Card number',row.card_number],['Card type',row.card_type],['Cardholder',row.cardholder],['Account',transactionAccount],['Transactions in period',quantity(row.transaction_count)],['Reported fuel quantity',quantity(row.fuel_quantity)],['Transactions reporting fuel quantity',quantity(row.quantity_reported_count)],['Total reported sale',dollars(row.total_sale)],['Last transaction',sourceDate(row.last_used_on)],['Last transaction status',row.last_transaction_status],['Drivers in period',row.driver_names],['Driver numbers',row.driver_numbers],['Vehicles in period',row.vehicle_numbers],['Vehicle descriptions',row.vehicle_descriptions],['Networks',row.networks],['Card activation status','Not supplied']].map(([label,value])=>[label,value==null||value===''?'—':String(value)]);
+  transactionPrintData={title:'Fleet Card',stackedGroups:true,number:row.card_number,meta:'Activity in the selected sync period',customerLabel:'Cardholder',customer:row.cardholder||'—',account:'Account # '+transactionAccount,balanceLabel:'Total reported sale',balance:dollars(row.total_sale),updated:'Last sync: '+central(lastSync),groups:[{title:'Card activity',rows:fields}]};
+  transactionDialog.innerHTML='<header class="iv-head iv-classic-head"><div class="iv-company"><span class="fleet-detail-brand" aria-hidden="true">WO</span><div><strong>WOOTEN OIL CO INC.</strong><p>513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</p></div></div><div class="iv-document-heading"><div>Fleet Card</div><h2>'+esc(row.card_number)+'</h2></div><button type="button" class="iv-close" data-transaction-close aria-label="Close card details">×</button></header><div class="iv-body"><p>Activity in the saved transaction period. Card activation status is not supplied.</p><dl class="iv-classic-fields fleet-detail-fields">'+fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl><button type="button" data-view-card-transactions="'+esc(row.card_number)+'">View card transactions</button></div><footer class="iv-foot"><span class="iv-updated">Last sync: '+esc(central(lastSync))+'</span><div class="iv-detail-actions"><button type="button" class="iv-print" data-transaction-print>Print Card</button><button type="button" data-transaction-close>Back</button></div></footer><p data-transaction-print-status role="status"></p>';
   transactionDialog.showModal();transactionDialog.querySelector('[data-transaction-close]').focus({preventScroll:true});
  }
 
@@ -146,6 +191,7 @@ function mount(root,admin){
   button.disabled=state.disabled;button.textContent=state.label;button.title=state.detail;
  }
  if(!admin){
+  get('.fleet-summary').innerHTML='<div class="fleet-stat"><strong data-count>—</strong><span>Cards with activity</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Transactions in period</span></div><div class="fleet-stat"><strong data-quantity>—</strong><span>Reported fuel quantity</span></div><div class="fleet-stat"><strong data-sales>—</strong><span>Reported sale amounts</span></div>';
   const toolbar=document.createElement('div');toolbar.className='fleet-customer-toolbar';
   root.prepend(toolbar);toolbar.append(get('.fleet-tabs'),get('.fleet-toolbar'));
   const search=get('.fleet-search'),input=search.querySelector('input');
@@ -167,20 +213,22 @@ function mount(root,admin){
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw Error(data.error||'Fleet records could not be loaded.');return data;
  }
  function display(data){
-  transactionRows=kind==='transactions'?data.items:[];transactionAccount=data.account_number||'';
+  transactionRows=kind==='transactions'?data.items:[];cardRows=kind==='cards'?data.items:[];transactionAccount=data.account_number||'';
   lastSync=data.last_sync;
-  get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=data.summary.active.toLocaleString();
-  const window=data.window_from?` · Transactions received ${central(data.window_from)} – ${central(data.window_to)}`:'';
+  get('[data-count]').textContent=data.summary.cards.toLocaleString();get('[data-active]').textContent=(admin?data.summary.active:data.summary.transactions).toLocaleString();
+  const window=data.window_from?` · Transactions received ${(admin?central:sourceDate)(data.window_from)} – ${(admin?central:sourceDate)(data.window_to)}`:'';
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
-  const headers=kind==='transactions'?(admin?adminTransactionColumns:customerTransactionColumns).map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
+  if(!admin){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-sales]').textContent=dollars(data.summary.total_sale);get('[data-meta]').textContent+=' · '+data.notice+' '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Transaction dates are shown as supplied by Intevacon.';}
+  const headers=!admin?(kind==='cards'?customerCardColumns:customerTransactionColumns).map(([label])=>label):kind==='transactions'?adminTransactionColumns.map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
-  let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
+  let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
   for(const r of data.items){
    let cells=[];if(admin)cells.push(esc(r.account_number||'Unmatched')+(r.needs_review?'<small>Needs account review</small>':''));
-   if(kind==='cards')cells.push('<strong class="fleet-card-number">'+esc(r.card_number)+'</strong>',badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
+   if(kind==='cards'&&!admin)cells.push(...customerCardCells(r,data.items.indexOf(r)));
+   else if(kind==='cards')cells.push('<strong class="fleet-card-number">'+esc(r.card_number)+'</strong>',badge(r.status),esc(r.cardholder),esc(r.assigned_to||'—'),`${esc(r.driver_no||'—')} / ${esc(r.vehicle_no||'—')}`);
    else if(admin)cells.push(...adminTransactionCells(r,data.items.indexOf(r)));
    else cells.push(...customerTransactionCells(r,data.items.indexOf(r)));
-   html+='<tr>'+cells.map((c,i)=>'<td data-fleet-align="'+(['total_sale','billable_amount'].includes(fleetSortKeys(kind,admin)[i])?'right':'left')+'">'+c+'</td>').join('')+'</tr>';
+   html+='<tr>'+cells.map((c,i)=>'<td data-fleet-align="'+(['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(fleetSortKeys(kind,admin)[i])?'right':'left')+'">'+c+'</td>').join('')+'</tr>';
   }
   if(!data.items.length)html+=`<tr><td colspan="${headers.length}" class="fleet-empty">${data.last_sync?'No matching fleet records.':'Your fleet information will appear after the first successful sync.'}</td></tr>`;
   get('[data-table]').innerHTML=html+'</tbody></table>';
@@ -247,8 +295,8 @@ function mount(root,admin){
    // Keep the last successfully loaded rows; the next poll retries.
   }finally{refreshing=false;}
  }
- function clear(){transactionPrintData=null;transactionRows=[];if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
- root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
+ function clear(){transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';get('[data-sales]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-card')){const row=cardRows[Number(btn.dataset.fleetCard)];if(row)openCard(row,btn);}else if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load();}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
  if(btn.disabled)return;
  btn.disabled=true;btn.textContent='Refreshing…';btn.setAttribute('aria-busy','true');
  Promise.all([load(),...(admin?[status()]:[])]).finally(()=>{
@@ -328,5 +376,6 @@ if(open){
  dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
  dialog.addEventListener('close',()=>view.clear());
  window.addEventListener('wooten:payment-account',()=>{view.clear();if(dialog.open)dialog.close();});
+ document.addEventListener('click',event=>{if(event.target.closest('#dashboardLogout,#portalLogout,#desktopCustomerLogout,#mobileCustomerLogout')){view.clear();if(dialog.open)dialog.close();}},true);
 }
 })();

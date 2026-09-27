@@ -1,4 +1,4 @@
-// Ver650: durable API scheduling and shared cached results.
+// Ver654: authenticated customer fleet views use account-scoped API snapshots.
 // Ver646: retire legacy Intevacon agent/write routes; preserve API retrieval and customer database reads.
 // Ver645: Fleet manual/API tabs; fleet agent claims require a manual request.
 // Ver644 deployment: manual Intevacon API test. Existing fleet synchronization is unchanged.
@@ -14,8 +14,8 @@ import {history as statementRunHistory} from './assets/js/wooten-statement-histo
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
-import * as IntevaconFleet from './fleet/intevacon.mjs';
 import * as IntevaconApiSchedule from './fleet/intevacon-api-schedule.mjs';
+import {handleCustomer as customerApiFleet} from './fleet/intevacon-customer-api.mjs';
 export {IntevaconApiScheduler} from './fleet/intevacon-api-schedule.mjs';
 import './assets/js/wooten-admin-access.js';
 const adminAccess=globalThis.WootenAdminAccess;
@@ -12424,7 +12424,7 @@ var worker_default = {
       return methodNotAllowed();
     }
     if(url.pathname.startsWith("/api/intevacon-agent/"))return notificationJson({success:false,error:"Legacy Intevacon synchronization has been retired. Use the admin Intevacon API page."},410);
-    if(url.pathname==="/api/customer/fleet")return IntevaconFleet.handle({request,env,customer:await getCustomerFromSession(request,env)});
+    if(url.pathname==="/api/customer/fleet")return customerApiFleet({request,env,customer:await getCustomerFromSession(request,env)});
     if(url.pathname==="/api/customer/open-invoices")return readInvoices({request,env,customer:await getCustomerFromSession(request,env)});
     let adminActor=null;
     if(url.pathname.startsWith("/api/admin/")){

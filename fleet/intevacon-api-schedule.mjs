@@ -1,7 +1,24 @@
+// Ver654: publish all-card snapshots for account-scoped customer reads.
+// Ver651: automatic runs always retrieve all cards.
 // Ver650: one durable scheduler for the issuer; cached admin results only.
 import {handle as retrieve} from './intevacon-api-test.mjs';
-const response = (data, status = 200) => Response.json(data, {status, headers:{'Cache-Control':'no-store, private'}});
+import {customerData} from './intevacon-customer-api.mjs';
+const response = (data, status = 200, headers = {}) => Response.json(data, {status, headers:{'Cache-Control':'no-store, private',...headers}});
 const defaults = {enabled:false, intervalSeconds:300, days:1, cardNumber:''};
+async function readSnapshot(storage,prefix=''){
+ const count=await storage.get(prefix+'chunks')||0;if(!count)return null;
+ let text='';for(let i=0;i<count;i++)text+=await storage.get(prefix+'result:'+i);
+ return JSON.parse(text);
+}
+async function writeSnapshot(storage,data,prefix=''){
+ const text=JSON.stringify(data),chunks=[];
+ // At most 96KB UTF-8 per value, even for non-ASCII text.
+ for(let i=0;i<text.length;i+=24000)chunks.push(text.slice(i,i+24000));
+ const oldCount=await storage.get(prefix+'chunks')||0;
+ for(let i=0;i<chunks.length;i++)await storage.put(prefix+'result:'+i,chunks[i]);
+ for(let i=chunks.length;i<oldCount;i++)await storage.delete(prefix+'result:'+i);
+ await storage.put(prefix+'chunks',chunks.length);
+}
 function central(date) {
  const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value]));
  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
@@ -26,21 +43,29 @@ export class IntevaconApiScheduler {
  exclusive(fn){const p=this.queue.then(fn);this.queue=p.catch(()=>{});return p;}
  async fetch(request){
   const route=new URL(request.url).pathname;
+  if(route==='/customer-data'&&request.method==='GET'){
+   // Read the last committed snapshot while another pull is in progress.
+   const snapshot=await this.ctx.storage.transaction(async storage=>
+    await readSnapshot(storage,'customer:')||await readSnapshot(storage));
+   const query=new URL(request.url).searchParams;
+   return customerData(snapshot,query.get('account'),query);
+  }
   if(route==='/schedule' && request.method==='GET'){
    const c=await this.ctx.storage.get('config')||defaults;
-   return response({success:true,config:c,status:await this.ctx.storage.get('status')||{},nextRun:await this.ctx.storage.getAlarm(),running:!!this.running});
+   const status=await this.ctx.storage.get('status')||{}, nextRun=await this.ctx.storage.getAlarm();
+   const nextAllowed=Number(await this.ctx.storage.get('nextAllowed')||0);
+   return response({success:true,config:{...c,cardNumber:''},status,nextRun,running:!!this.running,
+    retryAfterSeconds:Math.max(0,Math.ceil((nextAllowed-Date.now())/1000))});
   }
-  if(route==='/sync' && this.running)return response({success:false,error:'An API sync is already running.'},409);
+  if(route==='/sync' && this.running)return response({success:false,code:'sync_in_progress',error:'An API sync is already running.'},409);
   return this.exclusive(async()=>{
    if(route==='/results'){
-    const count=await this.ctx.storage.get('chunks')||0;
-    if(!count)return response({success:true,result:null});
-    let text='';for(let i=0;i<count;i++)text+=await this.ctx.storage.get('result:'+i);
-    return response({success:true,result:JSON.parse(text)});
+    return response({success:true,result:await readSnapshot(this.ctx.storage)});
    }
    if(route==='/schedule' && request.method==='POST'){
     let c;try{c=await request.json();}catch{return response({success:false,error:'Invalid settings.'},400);}
     if(typeof c.enabled!=='boolean'|| !Number.isInteger(c.intervalSeconds)||c.intervalSeconds<30||c.intervalSeconds>86400||!Number.isInteger(c.days)||c.days<1||c.days>92||typeof c.cardNumber!=='string'||(c.cardNumber && !/^\d{1,32}$/.test(c.cardNumber)))return response({success:false,error:'Choose an interval from 30 to 86,400 seconds and a history window from 1 to 92 days.'},400);
+    c={enabled:c.enabled,intervalSeconds:c.intervalSeconds,days:c.days,cardNumber:''};
     await this.ctx.storage.put('config',c);
     if(c.enabled)await this.ctx.storage.setAlarm(Math.max(Date.now()+1000,Number(await this.ctx.storage.get('nextAllowed')||0)));
     else await this.ctx.storage.deleteAlarm();
@@ -60,11 +85,14 @@ export class IntevaconApiScheduler {
   if(next>now){await this.ctx.storage.setAlarm(next);return;}
   const to=central(new Date(now));
   const from=new Date(Date.parse(to+':00Z')-c.days*86400000).toISOString().slice(0,16);
-  await this.pull({from,to,cardNumber:c.cardNumber});
+  await this.pull({from,to,cardNumber:''});
  });}
  async pull(input){
   const now=Date.now(), next=Number(await this.ctx.storage.get('nextAllowed')||0);
-  if(next>now)return response({success:false,error:'Please wait before the next API sync.'},429);
+  if(next>now){
+   const retryAfterSeconds=Math.ceil((next-now)/1000);
+   return response({success:false,code:'sync_cooldown',error:'Please wait before the next API sync.',retryAfterSeconds},429,{'Retry-After':String(retryAfterSeconds)});
+  }
   this.running=true;
   let delay=30000;
   try{
@@ -77,14 +105,14 @@ export class IntevaconApiScheduler {
    const r=await retrieve({request:new Request('https://scheduler/api',{method:'POST',headers:{Origin:'https://scheduler','Content-Type':'application/json'},body:JSON.stringify(input)}),env:this.env,actor:{owner:true}});
    const data=await r.json();
    if(r.ok && data.success){
-    const text=JSON.stringify(data), chunks=[];
-    // At most 96KB UTF-8 per value, below the KV value limit even for non-ASCII.
-    for(let i=0;i<text.length;i+=24000)chunks.push(text.slice(i,i+24000));
     await this.ctx.storage.transaction(async storage=>{
-     const n=await storage.get('chunks')||0;
-     for(let i=0;i<chunks.length;i++)await storage.put('result:'+i,chunks[i]);
-     for(let i=chunks.length;i<n;i++)await storage.delete('result:'+i);
-     await storage.put('chunks',chunks.length);
+     // A manual single-card lookup must not replace everybody's customer data.
+     if(data.cardNumber && !(await storage.get('customer:chunks'))){
+      const previous=await readSnapshot(storage);
+      if(previous?.readOnly===true&&!previous.cardNumber)await writeSnapshot(storage,previous,'customer:');
+     }
+     await writeSnapshot(storage,data);
+     if(!data.cardNumber)await writeSnapshot(storage,data,'customer:');
      await storage.put('status',{state:'success',lastAttempt:new Date(now).toISOString(),completedAt:data.completedAt,count:data.count,error:null});
     });
    }else{
@@ -92,12 +120,13 @@ export class IntevaconApiScheduler {
     delay=Math.max(60000,Math.min(1800000,30000*2**Math.min(failures,6)),Number(r.headers.get('Retry-After')||0)*1000);
     await this.ctx.storage.put('status',{...old,state:'error',lastAttempt:new Date(now).toISOString(),error:data.error||'API sync failed.',failures});
    }
-   return response(data,r.status);
+   const retryAfterSeconds=Math.ceil(delay/1000);
+   return response({...data,retryAfterSeconds},r.status,r.status===429?{'Retry-After':String(retryAfterSeconds)}:{});
   }catch{
    delay=60000;
    const old=await this.ctx.storage.get('status')||{};
    await this.ctx.storage.put('status',{...old,state:'error',error:'Sync was interrupted. The last successful results were kept.'});
-   return response({success:false,error:'Sync was interrupted. The last successful results were kept.'},502);
+   return response({success:false,error:'Sync was interrupted. The last successful results were kept.',retryAfterSeconds:60},502);
   }finally{
    const c=await this.ctx.storage.get('config')||defaults;
    const due=Date.now()+Math.max(c.intervalSeconds*1000,delay);

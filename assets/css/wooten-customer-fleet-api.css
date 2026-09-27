@@ -1,0 +1,29 @@
+/* Ver654: customer API activity summaries and product details. */
+body #customerFleetRoot .fleet-summary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+body #customerFleetRoot .fleet-summary .fleet-stat{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:12px}
+body #customerFleetRoot .fleet-stat strong{font-size:24px;overflow-wrap:anywhere}
+body #customerFleetRoot .fleet-stat span{font-size:13px;line-height:1.4}
+body #customerFleetRoot .fleet-table-wrap table{min-width:1100px}
+body #customerFleetRoot .fleet-table-wrap th{font-weight:700!important;white-space:nowrap}
+body #customerFleetRoot .fleet-table-wrap th button{font-weight:700!important;display:flex;align-items:center;gap:12px;white-space:nowrap;width:100%;min-width:max-content}
+body #customerFleetRoot [data-fleet-align="right"]{text-align:right!important;font-variant-numeric:tabular-nums}
+body #customerFleetRoot th[data-fleet-align="right"] button{justify-content:flex-end!important}
+body #customerFleetRoot [data-fleet-align="left"]{text-align:left!important}
+body #customerFleetRoot th[data-fleet-align="left"] button{justify-content:flex-start!important}
+body #customerFleetRoot .fleet-card-link{font-weight:700;background:transparent;border:0;color:inherit;padding:0;text-decoration:none}
+body #customerFleetRoot .fleet-card-link:hover{ text-decoration:underline }
+body #customerFleetRoot .fleet-meta{white-space:normal;line-height:1.6}
+body .fleet-transaction-dialog .fleet-product-table{overflow-x:auto;margin:16px 0}
+body .fleet-transaction-dialog .fleet-product-table table{width:100%;min-width:650px;border-collapse:collapse}
+body .fleet-transaction-dialog .fleet-product-table th{font-weight:700;text-align:left;white-space:nowrap}
+body .fleet-transaction-dialog .fleet-product-table :is(th,td){padding:12px;border-bottom:1px solid #dde6ee}
+body .fleet-transaction-dialog .fleet-product-table :is(th,td):nth-child(n+3):nth-child(-n+5){text-align:right;font-variant-numeric:tabular-nums}
+body .fleet-transaction-dialog .fleet-product-info{margin:16px 0;padding:14px;background:#f6f9fb;border:1px solid #d9e4ed;border-radius:12px}
+body .fleet-transaction-dialog .fleet-product-info summary{cursor:pointer;font-weight:700}
+body .fleet-transaction-dialog dd{overflow-wrap:anywhere}
+@media(max-width:760px){
+ body #customerFleetRoot .fleet-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ body #customerFleetRoot .fleet-summary .fleet-stat{padding:8px}
+ body #customerFleetRoot .fleet-stat strong{font-size:21px}
+ body #customerFleetRoot .fleet-meta{font-size:12px}
+}

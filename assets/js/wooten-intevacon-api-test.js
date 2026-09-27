@@ -1,4 +1,4 @@
-/* Ver650: durable cloud API scheduling; client polls only cached portal status. */
+/* Ver654: all-card snapshots are shared with matching customer accounts. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -6,6 +6,7 @@
   if (!form) return;
   const rowsBody = $('apiTestRows'), dialog = $('apiTestDetail');
   let filtered = [], rows = [], page = 1, controller = null, generation = 0, cooldownTimer = null, cooldownUntil = 0;
+  let serverRunning = false, syncNotice = '';
   const key = () => $('adminKey')?.value.trim() || '';
   const allowed = () => !!key() && window.WootenAdminAccess?.has(window.wootenAdminUser, 'fleet_cards');
   const number = (value, digits = 3) => typeof value === 'number' && Number.isFinite(value)
@@ -19,7 +20,8 @@
     if (className) el.className = className;
     return el;
   }
-  function message(value, tone = '') {
+  function message(value, tone = '', kind = '') {
+    syncNotice = kind;
     $('apiTestMessage').textContent = value;
     $('apiTestMessage').dataset.tone = tone;
     $('apiTestMessage').hidden = !value;
@@ -67,13 +69,20 @@
   };
   function refreshControls() {
     const wait = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+    const busy = !!controller || serverRunning;
     $('apiTestFields').disabled = !!controller;
-    $('apiTestRun').disabled = !!controller || wait > 0 || !allowed();
-    $('apiTestRunLabel').textContent = controller ? 'Retrieving from Intevacon…'
-      : wait > 0 ? `Test again in ${wait}s` : 'Sync Now';
-    $('apiTestSpinner').hidden = !controller;
-    $('apiTestRun').setAttribute('aria-busy', String(!!controller));
+    $('apiTestRun').disabled = busy || wait > 0 || !allowed();
+    $('apiTestRunLabel').textContent = busy ? 'Sync in progress…'
+      : wait > 0 ? `Sync available in ${wait}s` : 'Sync Now';
+    $('apiTestSpinner').hidden = !busy;
+    $('apiTestRun').setAttribute('aria-busy', String(busy));
     $('apiTestDefaults').disabled = !!controller;
+    if (syncNotice === 'waiting') {
+      if (serverRunning) message('An API sync is already running. Waiting for it to finish.', '', 'waiting');
+      else if (wait) message(`Next API sync is available in ${wait}s.`, '', 'waiting');
+      else message('');
+    }
+    if (wait && !cooldownTimer) cooldownTimer = setInterval(refreshControls, 1000);
     if (!wait && cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
   }
   function clearResults() {
@@ -136,7 +145,7 @@
       + (data.cardNumber ? ` · Card ${data.cardNumber}` : ' · All cards')
       + ` · Completed in ${number(data.durationMs / 1000, 1)} seconds.`
       + (missing ? ` ${number(missing)} transaction(s) have no API Customer ID.` : '')
-      + ' Customer IDs are shown exactly as received; portal account matching has not been applied.';
+      + (data.cardNumber ? ' Single-card lookup; customer account results were kept.' : ' All-card results are available to matched customer accounts.');
     $('apiTestResults').hidden = false;
     if (table.dataset.fullSortColumn !== undefined) table.wootenSortAll(Number(table.dataset.fullSortColumn), table.dataset.fullSortDirection);
     else renderPage();
@@ -181,7 +190,7 @@
   }
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (controller || cooldownUntil > Date.now()) return;
+    if (controller || serverRunning || cooldownUntil > Date.now()) return;
     if (!allowed()) { message('Sign in with access to Fleet Cards & Transactions to run this test.', 'error'); return; }
     if (!form.reportValidity()) return;
     const from = $('apiTestFrom').value, to = $('apiTestTo').value;
@@ -193,6 +202,7 @@
     const requestGeneration = ++generation;
     const credential = key();
     controller = new AbortController(); const thisController = controller;
+    let receivedTiming = false;
     message('Retrieving transactions from Intevacon. Please wait…', 'busy'); refreshControls();
     const timeout = setTimeout(() => thisController.abort(), 70000);
     try {
@@ -202,9 +212,23 @@
       });
       const data = await response.json().catch(() => null);
       if (requestGeneration !== generation || credential !== key()) return;
-      if (response.status === 429) {
-        const retry = Number(response.headers.get('Retry-After'));
-        cooldownUntil = Date.now() + Math.min(3600, Math.max(30, Number.isFinite(retry) ? retry : 60)) * 1000;
+      let retry = data?.retryAfterSeconds;
+      if (response.status === 429 && !(typeof retry === 'number' && Number.isFinite(retry) && retry >= 0)) {
+        const header = Number(response.headers.get('Retry-After'));
+        retry = Number.isFinite(header) && header > 0 ? header : 60;
+      }
+      if (typeof retry === 'number' && Number.isFinite(retry) && retry >= 0) {
+        cooldownUntil = Date.now() + retry * 1000;
+        receivedTiming = true;
+      }
+      if (response.status === 429 && (data?.code === 'sync_cooldown' || data?.error === 'Please wait before the next API sync.')) {
+        message('Waiting for the next API sync.', '', 'waiting');
+        return;
+      }
+      if (response.status === 409 && (data?.code === 'sync_in_progress' || data?.error === 'An API sync is already running.')) {
+        serverRunning = true;
+        message('An API sync is already running. Waiting for it to finish.', '', 'waiting');
+        return;
       }
       if (!response.ok || !data?.success) {
         // Do not echo unknown gateway/HTML responses into the admin page.
@@ -214,15 +238,16 @@
         throw new Error('The test returned an unexpected result. Check the Version 650 portal Worker update.');
       lastCompleted = data.completedAt;
       showResults(data);
-      message(`API sync succeeded — ${number(data.count)} transaction(s) returned. Results saved for admin review.`, 'success');
+      message(`API sync succeeded — ${number(data.count)} transaction(s) returned. ${data.cardNumber ? 'Single-card results saved for admin review.' : 'Results updated for matched customer accounts.'}`, 'success');
     } catch (error) {
       if (requestGeneration !== generation || credential !== key()) return;
       message(thisController.signal.aborted ? 'The API test timed out. Try a shorter date range.' : error.message || 'The API test could not be completed.', 'error');
     } finally {
       clearTimeout(timeout);
       if (requestGeneration === generation) {
-        controller = null; cooldownUntil = Math.max(cooldownUntil, Date.now() + 30000);
-        clearInterval(cooldownTimer); cooldownTimer = setInterval(refreshControls, 1000); refreshControls();
+        controller = null;
+        if (!receivedTiming && !serverRunning) cooldownUntil = Math.max(cooldownUntil, Date.now() + 30000);
+        refreshControls(); pollSchedule();
       }
     }
   });
@@ -238,6 +263,8 @@
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   window.addEventListener('wooten-admin-auth-changed', () => {
     generation++; controller?.abort(); controller = null;
+    serverRunning = false; cooldownUntil = 0;
+    clearInterval(cooldownTimer); cooldownTimer = null;
     clearResults(); lastCompleted = null; scheduleLoaded = false; $('apiTestSearch').value = '';
     message(''); defaults(); refreshControls(); pollSchedule();
   });
@@ -255,16 +282,23 @@
   async function pollSchedule() {
     if (!allowed() || pollBusy || document.hidden) return;
     pollBusy = true;
+    const epoch = generation;
     try {
       const data = await portalRequest('schedule');
       if (!scheduleLoaded) {
         $('apiScheduleEnabled').checked = data.config.enabled;
         $('apiScheduleInterval').value = data.config.intervalSeconds;
         $('apiScheduleDays').value = data.config.days;
-        $('apiScheduleCard').value = data.config.cardNumber;
         scheduleLoaded = true;
       }
       const status = data.status;
+      if (!controller) {
+        serverRunning = data.running === true;
+        // Use a duration from the server so a phone's clock cannot extend the wait.
+        if (!serverRunning && typeof data.retryAfterSeconds === 'number' && Number.isFinite(data.retryAfterSeconds) && data.retryAfterSeconds >= 0)
+          cooldownUntil = Date.now() + data.retryAfterSeconds * 1000;
+        refreshControls();
+      }
       $('apiScheduleStatus').textContent = (data.config.enabled ? `Automatic sync on · Every ${data.config.intervalSeconds} seconds after completion.` : 'Automatic sync off.')
         + (data.running ? ' Pulling transactions…' : '')
         + ` Last successful pull: ${stamp(status.completedAt)}.`
@@ -280,7 +314,7 @@
         page = oldPage; renderPage();
         lastCompleted = cached.result.completedAt;
       }
-    } catch (error) { if (allowed()) $('apiScheduleStatus').textContent = error.message; }
+    } catch (error) { if (allowed() && epoch === generation) $('apiScheduleStatus').textContent = error.message; }
     finally { pollBusy = false; }
   }
   $('apiScheduleForm').addEventListener('submit', async event => {
@@ -290,7 +324,7 @@
     try {
       await portalRequest('schedule', {method:'POST',body:JSON.stringify({
         enabled:$('apiScheduleEnabled').checked,intervalSeconds:Number($('apiScheduleInterval').value),
-        days:Number($('apiScheduleDays').value),cardNumber:$('apiScheduleCard').value.trim()
+        days:Number($('apiScheduleDays').value),cardNumber:''
       })});
       $('apiScheduleMessage').textContent = 'Schedule saved.';
       await pollSchedule();
