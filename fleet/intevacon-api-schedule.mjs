@@ -1,9 +1,9 @@
-// Ver657: customer lookup searches a persistent archive across the API's full history.
+// Ver658: fresh customer-scoped requests; admin scheduling remains independent.
 // Ver651: automatic runs always retrieve all cards.
 // Ver650: one durable scheduler for the issuer; cached admin results only.
 import {handle as retrieve} from './intevacon-api-test.mjs';
 import {customerData,customerIDForAccount} from './intevacon-customer-api.mjs';
-import {ensureHistory,saveHistory,newHistory,historyRange,splitHistory,commitHistory,historyData} from './intevacon-api-history.mjs';
+import {FreshCustomerFleet} from './intevacon-customer-live.mjs';
 const response = (data, status = 200, headers = {}) => Response.json(data, {status, headers:{'Cache-Control':'no-store, private',...headers}});
 const defaults = {enabled:false, intervalSeconds:300, days:1, cardNumber:''};
 async function readSnapshot(storage,prefix=''){
@@ -41,7 +41,7 @@ export async function handle({request,env,actor}) {
  return stub.fetch(new Request(`https://scheduler/${route}`,{method:request.method,headers:{'Content-Type':'application/json'},body}));
 }
 export class IntevaconApiScheduler {
- constructor(ctx,env){this.ctx=ctx;this.env=env;this.running=null;this.queue=Promise.resolve();}
+ constructor(ctx,env){this.ctx=ctx;this.env=env;this.running=null;this.queue=Promise.resolve();this.customerLive=new FreshCustomerFleet(this);}
  // Serialize control operations and snapshot reads with a pull; never overlap pulls.
  exclusive(fn){const p=this.queue.then(fn);this.queue=p.catch(()=>{});return p;}
  async fetch(request){
@@ -53,7 +53,10 @@ export class IntevaconApiScheduler {
   if(route==='/customer-refresh'&&request.method==='POST'){
    const query=new URL(request.url).searchParams;
    if(customerIDForAccount(query.get('account'))===null)return customerData(null,query.get('account'),query);
-   if(this.running)return this.customerReply(query,{state:'waiting',retryAfterSeconds:5,message:'Fleet activity is being updated. We will check again shortly.'});
+   if(this.running){
+    await this.ctx.storage.put('live:priorityUntil',Date.now()+120000);
+    return this.customerReply(query,{state:'waiting',retryAfterSeconds:5,message:'Waiting for the current API request to finish…'});
+   }
    return this.exclusive(()=>this.pullCustomer(query));
   }
   if(route==='/schedule' && request.method==='GET'){
@@ -93,79 +96,17 @@ export class IntevaconApiScheduler {
     .sort((a,b)=>completed(b)-completed(a))[0]||null;
   });
  }
- async customerReply(query,refresh=null,snapshot=undefined){
-  const account=query.get('account');
-  const state=await this.ctx.storage.get('history:state');
-  const r=state?await historyData(this.env.DB,state,account,query):
-   customerData(snapshot===undefined?await this.customerSnapshot(account):snapshot,account,query);
-  if(!refresh&&state&&!state.error&&(!state.complete||state.pending.length)){
-   const next=Number(await this.ctx.storage.get('nextAllowed')||0);
-   refresh={state:'waiting',retryAfterSeconds:Math.max(5,Math.ceil((next-Date.now())/1000)),message:'Loading your available fleet history. You can search the records already retrieved.'};
-  }
-  if(!refresh||!r.ok)return r;
-  return response({...await r.json(),refresh});
- }
- async pullCustomer(query){
-  const account=query.get('account');
-  if(customerIDForAccount(account)===null)return customerData(null,account,query);
-  const now=Date.now(),through=central(new Date(now));
-  let state=await this.ctx.storage.get('history:state');
-  if(state?.complete&&!state.pending.length&&state.latestTo>=through)
-   return this.customerReply(query,{state:'cached',message:'Your available fleet history is up to date.'});
-  const next=Number(await this.ctx.storage.get('nextAllowed')||0);
-  if(next>now)return this.customerReply(query,{state:'waiting',retryAfterSeconds:Math.ceil((next-now)/1000),message:'We will continue checking your fleet history as soon as the service is ready.'});
-  this.running='customer';let delay=30000;
-  try{
-   await ensureHistory(this.env.DB);
-   if(!state){
-    // Existing results are useful immediately, but do not establish historical coverage.
-    const snapshot=await this.customerSnapshot(account);
-    if(snapshot&&completed(snapshot))await saveHistory(this.env.DB,snapshot.rows,snapshot.completedAt);
-    state=newHistory(through);
-    if(snapshot&&completed(snapshot))state.latestAt=snapshot.completedAt;
-    await this.ctx.storage.put('history:state',state);
-   }
-   await this.ctx.storage.put('nextAllowed',now+90000);
-   const range=historyRange(state,through),input={from:range.from,to:range.to,cardNumber:''};
-   // Search all issuer data by exact CustomerID on the server. Never infer a
-   // customer's complete card list from only the most recent admin sync.
-   const r=await retrieve({request:new Request('https://scheduler/api',{method:'POST',headers:{Origin:'https://scheduler','Content-Type':'application/json'},body:JSON.stringify(input)}),env:this.env,actor:{owner:true}});
-   const data=await r.json();
-   if(!r.ok||!data.success){
-    if(r.status===413){
-     const smaller=splitHistory(state,range);
-     if(smaller){
-      await this.ctx.storage.put('history:state',smaller);
-      return this.customerReply(query,{state:'waiting',retryAfterSeconds:30,message:'There is more history in this period. Loading it in smaller batches…'});
-     }
-    }
-    delay=Math.max(60000,Number(r.headers.get('Retry-After')||0)*1000);
-    const limited=r.status===429;
-    await this.ctx.storage.put('history:state',{...state,error:true,revision:state.revision+1});
-    return this.customerReply(query,{state:limited?'waiting':'error',retryAfterSeconds:limited?Math.ceil(delay/1000):0,message:limited?'Intevacon is busy. History retrieval will resume shortly.':'History retrieval could not finish. Saved records were kept. Click Refresh to resume.'});
-   }
-   await saveHistory(this.env.DB,data.rows,data.completedAt);
-   state=commitHistory(state,range,data.completedAt);
-   await this.ctx.storage.put('history:state',state);
-   const more=!state.complete||state.pending.length||state.latestTo<through;
-   return this.customerReply(query,{state:more?'waiting':'success',retryAfterSeconds:more?30:0,
-    message:more?'Loading your available fleet history. You can search the records already retrieved.':'All available fleet history has been checked.'});
-  }catch{
-   delay=60000;
-   if(state)await this.ctx.storage.put('history:state',{...state,error:true,revision:state.revision+1});
-   try{return await this.customerReply(query,{state:'error',message:'History retrieval could not finish. Saved records were kept. Click Refresh to resume.'});}
-   catch{return response({success:false,error:'Fleet history is temporarily unavailable. Please try Refresh later.'},503);}
-  }finally{
-   try{await this.ctx.storage.put('nextAllowed',Date.now()+delay);}finally{this.running=null;}
-   // The open customer form continues one batch at a time. Closing it pauses
-   // backfill; durable checkpoints resume it on the next visit. Admin alarms stay intact.
-  }
- }
+ async customerReply(query,refresh=null){return this.customerLive.reply(query,refresh);}
+ async pullCustomer(query){return this.customerLive.pull(query);}
  async alarm(){return this.exclusive(async()=>{
   const c=await this.ctx.storage.get('config')||defaults;
   if(!c.enabled)return;
   const now=Date.now(), next=Number(await this.ctx.storage.get('nextAllowed')||0);
   if(next>now){await this.ctx.storage.setAlarm(next);return;}
+  // Give an already-waiting customer one opportunity before a frequent admin
+  // schedule starts another pull. The short reservation expires if they leave.
+  const priority=Number(await this.ctx.storage.get('live:priorityUntil')||0);
+  if(priority>now){await this.ctx.storage.setAlarm(Math.min(priority,now+15000));return;}
   const to=central(new Date(now));
   const from=new Date(Date.parse(to+':00Z')-c.days*86400000).toISOString().slice(0,16);
   await this.pull({from,to,cardNumber:''});
@@ -188,13 +129,6 @@ export class IntevaconApiScheduler {
    const r=await retrieve({request:new Request('https://scheduler/api',{method:'POST',headers:{Origin:'https://scheduler','Content-Type':'application/json'},body:JSON.stringify(input)}),env:this.env,actor:{owner:true}});
    const data=await r.json();
    if(r.ok && data.success){
-    if(await this.ctx.storage.get('history:state')){
-     // Recent admin pulls update the archive without replacing its older records
-     // or advancing the independently verified historical coverage checkpoint.
-     await saveHistory(this.env.DB,data.rows,data.completedAt);
-     const history=await this.ctx.storage.get('history:state');
-     await this.ctx.storage.put('history:state',{...history,latestAt:data.completedAt,revision:history.revision+1});
-    }
     await this.ctx.storage.transaction(async storage=>{
      // A manual single-card lookup must not replace everybody's customer data.
      if(data.cardNumber && !(await storage.get('customer:chunks'))){

@@ -1,10 +1,17 @@
-// Ver657: session-scoped fleet access; complete-history queries live in the history module.
+// Ver658: fresh customer API results; browser selects dates, never the customer identity.
+import {parametersFor} from './intevacon-api-test.mjs';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const text=v=>typeof v==='string'?v:typeof v==='number'&&Number.isSafeInteger(v)?String(v):'';
 const money=v=>finite(v)?v.toFixed(2):null;
 const accountValid=v=>typeof v==='string'&&/^000\d{1,20}$/.test(v);
 export const customerIDForAccount=account=>accountValid(account)?account.slice(3):null;
+export const validLiveView=view=>typeof view==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(view);
+export function defaultCustomerRange(now=Date.now()){
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));
+ const to=`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+ return {from:new Date(Date.parse(to+':00Z')-30*86400000).toISOString().slice(0,16),to};
+}
 export function matchesAccount(customerID,account){
  const id=text(customerID).trim();
  // Existing Wooten mapping: add exactly three zeros, preserving source leading zeros.
@@ -66,19 +73,24 @@ export async function handleCustomer({request,env,customer}){
  if(!['GET','POST'].includes(request.method))return json({success:false,error:'Method not allowed.'},405);
  if(!accountValid(customer.account_number))return json({success:false,error:'Fleet account matching is unavailable for this account.'},403);
  if(!env.INTEVACON_SCHEDULER)return json({success:false,error:'Fleet activity is temporarily unavailable.'},503);
+ let input=null;
  if(request.method==='POST'){
   if(request.headers.get('Origin')!==new URL(request.url).origin||!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''))
    return json({success:false,error:'Refresh fleet activity from your customer portal.'},403);
   try{
-   // The browser may request a refresh, but never selects an account, date range or API filter.
+   // Date selection is allowed. CustomerID and organization filters always come from the server.
    const reader=request.body?.getReader();let size=0,body='';const decoder=new TextDecoder();
-   if(reader)while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>128){await reader.cancel();return json({success:false,error:'Invalid refresh request.'},400);}body+=decoder.decode(part.value,{stream:true});}
-   const input=JSON.parse(body||'{}');
-   if(!input||Array.isArray(input)||typeof input!=='object'||Object.keys(input).length)return json({success:false,error:'Invalid refresh request.'},400);
+   if(reader)while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>256){await reader.cancel();return json({success:false,error:'Invalid refresh request.'},400);}body+=decoder.decode(part.value,{stream:true});}
+   input=JSON.parse(body||'{}');
+   if(!input||Array.isArray(input)||typeof input!=='object'||Object.keys(input).some(k=>!['from','to','view'].includes(k)))return json({success:false,error:'Invalid refresh request.'},400);
+   if(!Object.keys(input).length)input={...defaultCustomerRange(),view:crypto.randomUUID()};
+   if(!validLiveView(input.view))return json({success:false,error:'Reload the customer portal and try Refresh.'},400);
+   try{parametersFor({from:input.from,to:input.to,cardNumber:''});}catch{return json({success:false,error:'Choose valid From and To dates covering up to 92 days, starting on or after January 1, 2010.'},400);}
   }catch{return json({success:false,error:'Invalid refresh request.'},400);}
  }
  const supplied=new URL(request.url).searchParams,internal=new URL('https://scheduler/'+(request.method==='POST'?'customer-refresh':'customer-data'));
- for(const key of ['kind','search','sort','direction','page'])if(supplied.has(key))internal.searchParams.set(key,supplied.get(key));
+ for(const key of ['kind','search','sort','direction','page','view'])if(supplied.has(key))internal.searchParams.set(key,supplied.get(key));
+ if(input)for(const key of ['from','to','view'])internal.searchParams.set(key,input[key]);
  // Only the authenticated server session chooses the account, never a browser parameter.
  internal.searchParams.set('account',customer.account_number);
  try{return await env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request(internal,{method:request.method}));}
