@@ -1,4 +1,4 @@
-/* Ver645: manually requested API previews; no import, polling, or local storage. */
+/* Ver647: manually requested API previews; no import, polling, or local storage. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -38,7 +38,10 @@
     $('apiTestCard').value = '';
   }
   function fuelQuantity(row) {
-    const fuel = (row.Details || []).filter(d => d.IsFuel === true && d.IsTaxProduct !== true);
+    // Intevacon may mark actual fuel as IsTaxProduct as well. The observed
+    // Fuel Products category identifies these as fuel, not separate tax rows.
+    const fuel = (row.Details || []).filter(d => d.IsFuel === true &&
+      (d.IsTaxProduct !== true || String(d.ProductCategory || '').trim().toLowerCase() === 'fuel products'));
     if (!fuel.length) return null;
     return fuel.every(d => typeof d.Quantity === 'number' && Number.isFinite(d.Quantity))
       ? fuel.reduce((sum, d) => sum + d.Quantity, 0) : null;
