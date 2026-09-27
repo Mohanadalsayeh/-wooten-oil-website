@@ -1,4 +1,4 @@
-// Ver656: session-scoped reads plus explicit on-open/on-refresh API retrieval.
+// Ver657: session-scoped fleet access; complete-history queries live in the history module.
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const text=v=>typeof v==='string'?v:typeof v==='number'&&Number.isSafeInteger(v)?String(v):'';
@@ -20,7 +20,7 @@ const FIELDS=['ID','IssuerOrgID','CardHolderOrgID','CardHolderName','CardHolderS
 const PRODUCT_FIELDS=['RowNumber','RawProductCode','ProductName','ProductCode','ResolvedProductID','ProductCategoryID','ProductCategory','IsFuel','IsTaxProduct','Quantity','RawUnitPrice','RawAmount','ResolvedUnitPrice','ResolvedAmount'];
 const TAX_FIELDS=['TaxRowNumber','TaxAuthority','GovtLevel','TaxType','TaxRate','FederalTax','FederalTaxExempt','StateTax','StateTaxExempt','OtherTax','OtherTaxExempt','BaseAmount','BasePrice'];
 const pick=(value,fields)=>Object.fromEntries(fields.map(k=>[k,typeof value?.[k]==='string'||typeof value?.[k]==='boolean'||finite(value?.[k])?value[k]:null]));
-function project(row){
+export function projectTransaction(row){
  const source=pick(row,FIELDS);
  source.Details=(Array.isArray(row.Details)?row.Details:[]).map(d=>({...pick(d,PRODUCT_FIELDS),Taxes:(Array.isArray(d.Taxes)?d.Taxes:[]).map(t=>pick(t,TAX_FIELDS))}));
  return {transaction_id:text(row.ID),card_number:text(row.CardNumber),customer_id:text(row.CustomerID),cardholder:text(row.CardHolderName),card_type:text(row.CardType),received_at:row.ReceivedDateTime,local_date_time:row.LocalDateTime,processed_on:row.ProcessedDateTime,posted_on:row.PostedDateTime,merchant:text(row.MerchantName),merchant_city:text(row.MerchantCity),status:text(row.Status),entry_method:text(row.EntryMethod),auth_ref:text(row.AuthRef),invoice_number:text(row.InvoiceID),total_sale:money(row.TotalAmountOfSale),billable_amount:money(row.ResolvedTotalAmount),driver_number:text(row.DriverNumber),driver_name:text(row.DriverName),vehicle_number:text(row.VehicleNumber),vehicle_description:text(row.VehicleDescription),raw_vehicle_id:text(row.RawVehicleID),odometer:row.Odometer,decline_reason:text(row.DeclineReason),transaction_type:text(row.TranType),fuel_quantity:fuelQuantity(source),source};
@@ -40,7 +40,7 @@ export function customerData(snapshot,account,query=new URLSearchParams()){
  // Never turn a single-card test into a customer-wide snapshot.
  if(!snapshot||snapshot.readOnly!==true||snapshot.cardNumber||!Array.isArray(snapshot.rows)||
     (snapshot.customerAccount&&snapshot.customerAccount!==account))snapshot=null;
- const transactions=(snapshot?.rows||[]).filter(r=>matchesAccount(r.CustomerID,account)).map(project);
+ const transactions=(snapshot?.rows||[]).filter(r=>matchesAccount(r.CustomerID,account)).map(projectTransaction);
  const byCard=new Map();
  for(const row of transactions){if(!row.card_number)continue;const list=byCard.get(row.card_number)||[];list.push(row);byCard.set(row.card_number,list);}
  const cards=[...byCard].map(([card_number,items])=>{

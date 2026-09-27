@@ -1,4 +1,10 @@
-/* Ver654: customer API activity summaries and product details. */
+/* Ver657: customer API activity and full-history progress. */
+body #customerFleetRoot .fleet-history-progress{padding:14px 16px;margin:12px 0 18px;border:1px solid #d9e4ed;border-radius:12px;background:#f6f9fb;color:#244660}
+body #customerFleetRoot .fleet-history-progress[hidden]{display:none!important}
+body #customerFleetRoot .fleet-history-progress p{margin:0 0 8px;font-weight:700}
+body #customerFleetRoot .fleet-history-progress progress{display:block;width:100%;height:8px;accent-color:#246f9d;margin-bottom:10px}
+body #customerFleetRoot .fleet-history-progress progress[hidden]{display:none}
+body #customerFleetRoot .fleet-history-progress small{display:block;line-height:1.5;font-size:13px}
 body #customerFleetRoot .fleet-summary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 body #customerFleetRoot .fleet-summary .fleet-stat{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:12px}
 body #customerFleetRoot .fleet-stat strong{font-size:24px;overflow-wrap:anywhere}
