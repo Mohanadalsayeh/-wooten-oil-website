@@ -78,3 +78,21 @@
  #admin-tab-intevacon-api-test .api-test-pager{justify-content:space-between}
  #admin-tab-intevacon-api-test .api-test-pager button{min-width:0;padding-left:12px;padding-right:12px}
 }
+
+/* Ver649: identical cell insets keep labels directly above column values.
+   Override the shared sortable-heading padding reset, scoped to API tables. */
+#admin-tab-intevacon-api-test .api-test-table-wrap table th,
+#admin-tab-intevacon-api-test .api-test-table-wrap table td,
+#apiTestDetail .api-test-table-wrap table th,
+#apiTestDetail .api-test-table-wrap table td{
+ padding-left:20px!important;padding-right:20px!important;text-align:left!important;
+}
+#admin-tab-intevacon-api-test .api-test-table-wrap table th .wo-table-sort-button,
+#apiTestDetail .api-test-table-wrap table th .wo-table-sort-button{
+ margin:0!important;padding-left:0!important;padding-right:0!important;
+ text-align:left!important;justify-content:flex-start!important;
+}
+#admin-tab-intevacon-api-test .api-test-table-wrap table th .wo-table-sort-label,
+#apiTestDetail .api-test-table-wrap table th .wo-table-sort-label{
+ text-align:left!important;flex:0 0 auto!important;
+}
