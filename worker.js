@@ -1,3 +1,4 @@
+// Ver645: Fleet manual/API tabs; fleet agent claims require a manual request.
 // Ver644 deployment: manual Intevacon API test. Existing fleet synchronization is unchanged.
 // Ver641 deployment: server-side comment sorting; admin invoice lists/search return the stored MAS 90 Comment via the accompanying invoice server modules.
 function tableColumnOrder(value,fields,fallback,tie){

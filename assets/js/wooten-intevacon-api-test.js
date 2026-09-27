@@ -1,4 +1,4 @@
-/* Ver644: manually requested API previews; no import, polling, or local storage. */
+/* Ver645: manually requested API previews; no import, polling, or local storage. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -48,7 +48,7 @@
     $('apiTestFields').disabled = !!controller;
     $('apiTestRun').disabled = !!controller || wait > 0 || !allowed();
     $('apiTestRunLabel').textContent = controller ? 'Retrieving from Intevacon…'
-      : wait > 0 ? `Test again in ${wait}s` : 'Test API Retrieval';
+      : wait > 0 ? `Test again in ${wait}s` : 'Sync Now';
     $('apiTestSpinner').hidden = !controller;
     $('apiTestRun').setAttribute('aria-busy', String(!!controller));
     $('apiTestDefaults').disabled = !!controller;

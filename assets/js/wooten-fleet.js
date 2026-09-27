@@ -1,3 +1,4 @@
+/* Ver645 — scheduled retrieval and retries disabled; manual Sync Now remains available. */
 (function(){
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -62,7 +63,7 @@ function fleetSkeleton(kind,admin){
  const row=(heading,index)=>'<div class="fleet-skeleton-row">'+headers.map((label,column)=>heading?'<div class="fleet-skeleton-heading">'+esc(label)+'</div>':'<div class="fleet-skeleton-cell"><span class="fleet-skeleton-bar" style="width:'+([72,85,60][(column+index)%3])+'%"></span></div>').join('')+'</div>';
  return '<div class="fleet-skeleton" aria-hidden="true" style="--fleet-skeleton-columns:'+headers.length+'">'+row(true,0)+Array.from({length:5},(_,i)=>row(false,i)).join('')+'</div>';
 }
-function retryLabel(data){return data.retry?.continuous?'Automatic retry '+Number(data.retry.failures||1):'Automatic retry '+Math.min(data.retry?.failures||1,3)+' of 3';}
+
 function pullTimingMarkup(data){
  const h=data.latest,active=['collecting','uploading'].includes(h?.state);
  const start=Date.parse(h?.started_at),end=active?Date.now():Date.parse(h?.updated_at);
@@ -72,15 +73,14 @@ function pullTimingMarkup(data){
   duration=(hours?hours+'h ':'')+minutes+'m '+seconds%60+'s'+(active?' elapsed':'');
  }
  const control=data.control||{},running=active||(control.lease_until&&Date.parse(control.lease_until)>Date.now());
- const retryAt=!running&&!data.retry?.paused?data.retry?.retry_at:null;
- const next=data.retry?.paused?'Paused — action required':retryAt?central(retryAt):control.next_due?central(control.next_due):'Not scheduled yet';
- const note=data.retry?.paused?'Automatic pulls are paused.':running?'A pull is currently in progress.':retryAt?retryLabel(data):control.requested_at?'Manual sync queued — waiting for the sync service.':control.next_due&&Date.parse(control.next_due)<=Date.now()?'Scheduled time has passed — waiting for the sync service.':'';
- return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>'+(retryAt?'Next retry':'Next scheduled pull')+'</span><strong>'+esc(next)+'</strong>'+(note?'<span class="fleet-next-pull-note">'+esc(note)+'</span>':'')+'</div></div>';
+ const next='Off — manual only';
+ const note=running?'A requested pull is currently in progress.':control.requested_at?'Manual sync queued — waiting for the sync service.':'Click Sync Now when you want to retrieve data.';
+ return '<div class="fleet-pull-timings"><div><span>'+(active?'Current pull duration':'Last pull duration')+'</span><strong>'+esc(duration)+'</strong></div><div><span>Last successful pull</span><strong>'+esc(central(data.last_success?.completed_at))+'</strong></div><div><span>'+'Automatic pulls'+'</span><strong>'+esc(next)+'</strong>'+(note?'<span class="fleet-next-pull-note">'+esc(note)+'</span>':'')+'</div></div>';
 }
 function syncButtonState(control={},dirty=false,pending=false){
  const running=!!(control.lease_until&&Date.parse(control.lease_until)>Date.now());
  return {disabled:dirty||pending||!!control.requested_at||running,
-  label:pending?'Queuing…':running?'Syncing…':control.requested_at?'Sync queued':'Sync now',
+  label:pending?'Queuing…':running?'Syncing…':control.requested_at?'Sync queued':'Sync Now',
   detail:dirty?'Save settings before requesting a sync.':pending?'The sync request is being submitted.':running?'A sync is already running.':control.requested_at?'A manual sync is already queued. It will start when the sync service checks in.':''};
 }
 function healthMarkup(data){
@@ -91,13 +91,12 @@ function healthMarkup(data){
  if(state==='uploading')title='Publishing collected data…';
  if(state==='failed'){title='Data pull failed';detail=h.error||'The sync service did not provide a reason. Check its status and logs.';}
  const time=h?.updated_at;
- const overdue=time&&Date.now()-Date.parse(time)>((data.control?.hours||2)+2)*60*60*1000;
+ const overdue=false;
  if(overdue){title='No recent sync report';state='overdue';detail='No update has been received within the expected sync interval. Check the selected sync service and its connection. No recent completion has been reported.'+(h.state==='failed'?' Last reported failure: '+(h.error||'Unknown'):'');}
  if(!h&&success){state='complete';title='Data pulled successfully';}
- if(data.retry?.paused){state='failed';title='Action required — automatic pulls paused';detail=(data.retry.reason||'Pull could not complete.')+' '+(!data.retry.continuous&&data.control?.runner!=='cloud'&&data.retry.failures>3?'The three automatic retries have been used. ':'')+'Fix the issue, then click Sync now to resume.';}
- else if(data.retry?.retry_at&&state!=='collecting'&&state!=='uploading'){state='overdue';title='Automatic retry scheduled';detail=(data.retry.reason||'Pull was interrupted.')+' '+retryLabel(data)+' is scheduled for '+central(data.retry.retry_at)+'.';}
+ if(state==='failed')detail=(h.error||'The pull did not complete.')+' Automatic retries are off. Click Sync Now to try again.';
  const active=state==='collecting'||state==='uploading';
- const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?(data.retry?.retry_at?'Automatic retry scheduled':'Waiting for a new sync report'):'Waiting for first sync';
+ const label=state==='collecting'?'Step 1 of 2 · Pulling data':state==='uploading'?'Step 2 of 2 · Publishing data':state==='complete'?'Sync complete':state==='failed'?'Sync failed':state==='overdue'?'Waiting for a new sync report':'Waiting for first sync';
  const bar=`<div class="fleet-sync-progress" data-progress-state="${state}"><span class="fleet-sync-progress-label">${esc(label)}</span><div class="fleet-sync-track" ${active?'role="progressbar" aria-label="'+esc(label)+'"':state==='complete'?'role="progressbar" aria-label="Sync complete" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"':'aria-hidden="true"'}><span class="fleet-sync-fill"></span></div></div>`;
  return `<div class="fleet-health-heading"><span class="fleet-health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7.5" ry="3"></ellipse><path d="M4.5 5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V5M4.5 11v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path d="M15.5 8.5h5m-2.2-2.2 2.2 2.2-2.2 2.2"></path></svg></span><strong>${esc(title)}</strong></div>${bar}${time?`<span>Last report: ${esc(central(time))}</span>`:''}${detail?`<p>${esc(detail)}</p>`:''}${pullTimingMarkup(data)}${success?`<span>${Number(success.cards_expected).toLocaleString()} cards · ${Number(success.transactions_expected).toLocaleString()} transactions</span>`:''}`;
 }
@@ -107,7 +106,7 @@ function mount(root,admin){
  let sortKey='',sortDirection='asc';
  let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
  root.classList.add('wooten-fleet');
- root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync now</button><label>Pull data every <select data-sync-hours>'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div>${admin?'<div class="fleet-stat" style="grid-column:1/-1"><strong data-pulled-count>—</strong><span data-pulled-label>Transactions in latest successful pull</span><small data-pulled-window></small></div>':''}</div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
+ root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync Now</button><label>Automatic interval (off) <select data-sync-hours disabled title="Automatic pulls are disabled">'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div>${admin?'<div class="fleet-stat" style="grid-column:1/-1"><strong data-pulled-count>—</strong><span data-pulled-label>Transactions in latest successful pull</span><small data-pulled-window></small></div>':''}</div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
  const get=s=>root.querySelector(s);
  let transactionRows=[],transactionOpener=null,transactionAccount='',transactionPrintData=null;
  const transactionPdfUrls=[];
@@ -274,29 +273,29 @@ function mount(root,admin){
     lastControl=control;updateSyncButton();
     const cloud=control.runner==='cloud';
     const connected=control.poll_at&&Date.now()-Date.parse(control.poll_at)<3*60000;
-    get('[data-control-status]').textContent=data.retry?.paused?'Automatic pulls paused. '+(data.retry.reason||'')+' Fix the issue, then click Sync now to resume.':data.retry?.retry_at&&!running?retryLabel(data)+': '+central(data.retry.retry_at)+'. '+(connected?(cloud?'Cloud is checking for requests.':'Sync PC is checking for requests.'):'Waiting for the sync service to reconnect.'):(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Schedule: every '+control.hours+' hours. Transaction history: '+periodLabel(control.window_days)+'. Cards: current list. '+(control.next_due?'Next scheduled pull: '+central(control.next_due)+'. ':'')+(cloud?(running?'Cloud is processing the sync.':connected?'Cloud is checking for requests. The office PC is not required.':'Waiting for the cloud Cron Trigger. Check the sync Worker.'):(running?'The PC is processing the sync.':connected?'Sync PC is checking for requests.':'Waiting for the sync PC. Run Enable-Schedule.cmd and keep Windows signed in.'));
+    get('[data-control-status]').textContent=(control.requested_at?'Manual sync queued. ':running?'Sync is running. ':'')+'Automatic pulls and scheduled retries are off. Transaction history: '+periodLabel(control.window_days)+'. '+(connected?'The sync service is ready for Sync Now requests.':'Waiting for the sync service to check in.');
    }
    get('[data-owner]').hidden=!window.wootenAdminUser?.owner;
    const health=get('[data-health]');health.innerHTML=healthMarkup(data);
-   health.dataset.state=data.retry?.paused?'failed':data.retry?.retry_at&&!running?'overdue':data.latest?.updated_at&&Date.now()-Date.parse(data.latest.updated_at)>((data.control?.hours||2)+2)*60*60*1000?'overdue':data.latest?.state||(data.last_success?'complete':'unknown');
+   health.dataset.state=data.latest?.state||(data.last_success?'complete':'unknown');
    get('[data-sync-status]').innerHTML='<p class="fleet-note">'+(data.runs[0]?`Latest run: ${esc(data.runs[0].state)} · ${esc(central(data.runs[0].started_at))}${data.runs[0].error?' · '+esc(data.runs[0].error):''}`:'No sync runs yet.')+'</p>'+data.devices.map(d=>`<div class="fleet-device-row"><span><strong>${esc(d.name)}</strong><small class="fleet-note"> · ${d.active?'Active':'Revoked'} · ${esc(central(d.last_seen))}${d.last_error?' · '+esc(d.last_error):''}</small></span>${d.active&&window.wootenAdminUser?.owner?`<button type="button" data-revoke="${esc(d.id)}">Revoke</button>`:''}</div>`).join('');
    if(data.last_success?.completed_at&&data.last_success.completed_at!==lastSync)await refreshAfterSync();
   }catch(e){if(ticket===serial){get('[data-sync-status]').textContent=e.message;get('[data-health]').textContent='Could not refresh sync status. '+e.message;get('[data-health]').dataset.state='overdue';}}
  }
  if(admin){
-  const settingsChanged=()=>{controlDirty=true;updateSyncButton();message('Save settings to apply this schedule and history period. Then use Sync now to pull immediately.');};
+  const settingsChanged=()=>{controlDirty=true;updateSyncButton();message('Save settings to apply this history period. Then use Sync Now to pull immediately.');};
   get('[data-sync-hours]').addEventListener('change',settingsChanged);
   get('[data-sync-days]').addEventListener('change',settingsChanged);
   get('[data-save-schedule]').addEventListener('click',async()=>{
    const btn=get('[data-save-schedule]');btn.disabled=true;
-   try{await api('/api/admin/fleet/schedule',{method:'POST',body:JSON.stringify({hours:Number(get('[data-sync-hours]').value),window_days:Number(get('[data-sync-days]').value)})});controlDirty=false;message('Settings saved. The selected history will appear after the next successful pull. Use Sync now to pull immediately.');await status();}
+   try{await api('/api/admin/fleet/schedule',{method:'POST',body:JSON.stringify({hours:Number(get('[data-sync-hours]').value),window_days:Number(get('[data-sync-days]').value)})});controlDirty=false;message('Settings saved. The selected history will appear after the next successful pull. Use Sync Now to pull immediately.');await status();}
    catch(e){message(e.message,true);}finally{btn.disabled=false;}
   });
   get('[data-sync-now]').addEventListener('click',async()=>{
    const btn=get('[data-sync-now]');
    if(btn.disabled||controlDirty)return;
    const days=Number(get('[data-sync-days]').value);
-   if(!window.confirm('Start a fleet cards and transactions sync?\n\nPull the latest cards and the last '+days+' days of transactions. '+(lastControl.runner==='cloud'?'Cloud will start on its next check, normally within one minute. You may close this page.':'Keep the sync PC powered on and signed in.')+'\n\nThis manual request will not move the next automatic pull.'))return;
+   if(!window.confirm('Start a fleet cards and transactions sync?\n\nPull the latest cards and the last '+days+' days of transactions. '+(lastControl.runner==='cloud'?'Cloud will start on its next check, normally within one minute. You may close this page.':'Keep the sync PC powered on and signed in.')+'\n\nAutomatic pulls and scheduled retries are off. This request starts one pull.'))return;
    syncRequestPending=true;updateSyncButton();
    try{await api('/api/admin/fleet/request-sync',{method:'POST',body:'{}'});lastControl={...lastControl,requested_at:lastControl.requested_at||new Date().toISOString()};message('Sync requested. '+(lastControl.runner==='cloud'?'Cloud':'The PC')+' will start when it next checks in.');await status();}
    catch(e){message(e.message,true);}

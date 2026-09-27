@@ -1,4 +1,4 @@
-/* Wooten Oil fleet sync v1. Isolated from MAS 90 and payment processing. */
+/* Ver645: manual-only fleet retrieval. Every new pull requires a portal Sync Now request. */
 const DAY = 86400000;
 const schemas = [
  `CREATE TABLE IF NOT EXISTS fleet_cloud_attempts(lease TEXT PRIMARY KEY,device_id TEXT NOT NULL,started_at TEXT NOT NULL,run_id TEXT)`,
@@ -19,7 +19,11 @@ const schemas = [
  `CREATE INDEX IF NOT EXISTS fleet_cards_account ON fleet_cards(account_number)`,
  `CREATE TABLE IF NOT EXISTS fleet_transactions(record_id TEXT PRIMARY KEY,account_number TEXT NOT NULL,payload TEXT NOT NULL,received_at TEXT NOT NULL,run_id TEXT NOT NULL,hold INTEGER NOT NULL DEFAULT 0)`,
  `CREATE INDEX IF NOT EXISTS fleet_transactions_account_date ON fleet_transactions(account_number,received_at)`,
- `CREATE TABLE IF NOT EXISTS fleet_meta(id INTEGER PRIMARY KEY CHECK(id=1),run_id TEXT NOT NULL)`
+ `CREATE TABLE IF NOT EXISTS fleet_meta(id INTEGER PRIMARY KEY CHECK(id=1),run_id TEXT NOT NULL)`,
+ `CREATE TABLE IF NOT EXISTS fleet_manual_policy(id INTEGER PRIMARY KEY CHECK(id=1),version INTEGER NOT NULL)`,
+ `UPDATE fleet_control SET requested_at=NULL,next_due=NULL WHERE id=1 AND NOT EXISTS(SELECT 1 FROM fleet_manual_policy WHERE id=1 AND version>=645)`,
+ `UPDATE fleet_retry SET retry_at=NULL,paused=0 WHERE id=1 AND NOT EXISTS(SELECT 1 FROM fleet_manual_policy WHERE id=1 AND version>=645)`,
+ `INSERT OR IGNORE INTO fleet_manual_policy(id,version) VALUES(1,645)`
 ];
 const ready = new WeakMap();
 export async function ensureSchema(db) {
@@ -92,7 +96,7 @@ async function getRun(db,device,runId){
  need(run,'Run not found.',404);return run;
 }
 const failureReasons = {
- cloud_temporary:'The cloud pull was interrupted by a temporary connection or service problem. Automatic recovery is enabled; the previous successful data was kept.',
+ cloud_temporary:'The cloud pull was interrupted by a temporary connection or service problem. The previous successful data was kept. Click Sync Now to try again.',
  cloud_login_required:'Cloud sign-in needs attention. Check the saved Intevacon username/password or complete the required verification.',
  cloud_setup_required:'The cloud sync requires a valid portal credential, service binding, browser binding and Intevacon secrets.',
  cloud_validation_failed:'The source data or page could not be verified. The previous successful data was kept. Check the cloud sync configuration and Intevacon page format.',
@@ -117,18 +121,15 @@ function healthWrite(db,device,state,error=null){
 }
 async function finishPull(db,deviceId,lease,failed,code='interrupted'){
  const time=now();
- const cloud=await db.prepare('SELECT lease FROM fleet_cloud_attempts WHERE lease=? AND device_id=?').bind(lease,deviceId).first();
- const continuous=!!cloud&&code==='cloud_temporary';
- const transient=continuous||['browser_navigation','upload_failed','temporary_error','interrupted'].includes(code);
  const reason=failureReasons[code]||failureReasons.collection_failed;
  const gate='EXISTS(SELECT 1 FROM fleet_control WHERE id=1 AND lease=? AND lease_device=?)';
  await db.batch([
   db.prepare(`UPDATE fleet_retry SET
    failures=CASE WHEN ?=1 THEN failures+1 ELSE 0 END,
-   paused=CASE WHEN ?=1 AND (?=0 OR (failures>=3 AND ?=0)) THEN 1 ELSE 0 END,
-   retry_at=CASE WHEN ?=1 AND ?=1 AND (failures<3 OR ?=1) THEN strftime('%Y-%m-%dT%H:%M:%fZ',?, CASE failures WHEN 0 THEN '+1 minutes' WHEN 1 THEN '+5 minutes' WHEN 2 THEN '+15 minutes' ELSE '+30 minutes' END) ELSE NULL END,
+   paused=0,
+   retry_at=NULL,
    reason=CASE WHEN ?=1 THEN ? ELSE NULL END
-   WHERE id=1 AND ${gate}`).bind(failed?1:0,failed?1:0,transient?1:0,continuous?1:0,failed?1:0,transient?1:0,continuous?1:0,time,failed?1:0,reason,lease,deviceId),
+   WHERE id=1 AND ${gate}`).bind(failed?1:0,failed?1:0,reason,lease,deviceId),
   db.prepare(`UPDATE fleet_runs SET state='failed',error=? WHERE state='uploading' AND device_id=? AND ?=1 AND ${gate}`).bind(reason,deviceId,failed?1:0,lease,deviceId),
   db.prepare(`UPDATE fleet_health SET state='failed',error=?,updated_at=? WHERE device_id=? AND ?=1 AND ${gate}`).bind(reason,time,deviceId,failed?1:0,lease,deviceId),
   db.prepare(`UPDATE fleet_health SET state='complete',error=NULL,updated_at=? WHERE device_id=? AND ?=0 AND ${gate}`).bind(time,deviceId,failed?1:0,lease,deviceId),
@@ -152,7 +153,7 @@ async function agent(request,db,path){
    const settings=await db.prepare('SELECT days FROM fleet_pull_settings WHERE id=1').first();
    const runner=await db.prepare('SELECT * FROM fleet_runner WHERE id=1').first();
    // Keep the legacy window field so an installed v2.0 agent can still connect.
-   return json({success:true,cloud_enabled:runner.device_id===device.id,runner:runner.device_id?'cloud':'pc',cloud_poll_at:runner.cloud_poll_at,version:1,window_days:30,selected_window_days:settings.days,capabilities:['cloud_recovery_v2','cloud_schedule_v1','transaction_table_v2','sync_health_v1','window_selection_v1','selected_columns_v1']});
+   return json({success:true,cloud_enabled:runner.device_id===device.id,runner:runner.device_id?'cloud':'pc',cloud_poll_at:runner.cloud_poll_at,version:1,window_days:30,selected_window_days:settings.days,manual_only:true,capabilities:['fleet_manual_only_v1','cloud_recovery_v2','cloud_schedule_v1','transaction_table_v2','sync_health_v1','window_selection_v1','selected_columns_v1']});
  }
  need(request.method==='POST','Method not allowed.',405);
  const b=await body(request);
@@ -191,22 +192,15 @@ async function agent(request,db,path){
     if(runner.device_id===expired.lease_device)await reconcileCloudPull(db,expired.lease_device,expired.lease);
     else await finishPull(db,expired.lease_device,expired.lease,true,'interrupted');
    }
-   if(recoverable){
-    // Upgrade the old generic pre-publication pause once. v10 will classify
-    // the next failure precisely, so genuine sign-in errors still pause.
-    await db.prepare(`UPDATE fleet_retry SET paused=0,failures=0,retry_at=?,reason=? WHERE id=1 AND paused=1 AND reason=?
-     AND EXISTS(SELECT 1 FROM fleet_control WHERE lease IS NULL)
-     AND NOT EXISTS(SELECT 1 FROM fleet_runs WHERE state IN ('uploading','publishing'))`).bind(time,failureReasons.cloud_temporary,failureReasons.cloud_failed).run();
-   }
    await db.prepare('UPDATE fleet_control SET poll_at=? WHERE id=1').bind(time).run();
-   const claimStatement=db.prepare(`UPDATE fleet_control SET lease=?,lease_device=?,lease_until=?,requested_at=NULL,next_due=CASE WHEN next_due IS NULL OR (next_due<=? AND requested_at IS NULL AND ?=0 AND (SELECT retry_at FROM fleet_retry WHERE id=1) IS NULL) THEN strftime('%Y-%m-%dT%H:%M:%fZ',?, '+' || hours || ' hours') ELSE next_due END
-    WHERE id=1 AND (lease_until IS NULL OR lease_until<?)
-    AND EXISTS(SELECT 1 FROM fleet_retry WHERE id=1 AND paused=0 AND
-      ((retry_at IS NOT NULL AND retry_at<=?) OR (retry_at IS NULL AND (?=1 OR requested_at IS NOT NULL OR next_due IS NULL OR next_due<=?))))
+   // run_now from an agent, overdue schedules, and retry timestamps do not authorize a pull.
+   // Consuming requested_at atomically means concurrent polls can claim only once per click.
+   const claimStatement=db.prepare(`UPDATE fleet_control SET lease=?,lease_device=?,lease_until=?,requested_at=NULL,next_due=NULL
+    WHERE id=1 AND requested_at IS NOT NULL AND (lease_until IS NULL OR lease_until<?)
     AND NOT EXISTS(SELECT 1 FROM fleet_runs WHERE state IN ('uploading','publishing'))
     AND (?=1 OR (SELECT days FROM fleet_pull_settings WHERE id=1)=30)
     AND EXISTS(SELECT 1 FROM fleet_runner WHERE id=1 AND ((?=1 AND device_id=?) OR (?=0 AND device_id IS NULL)))
-    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+(recoverable?20*60000:2*3600000)).toISOString(),time,b.run_now===true?1:0,time,time,time,b.run_now===true?1:0,time,supportsWindow?1:0,b.cloud_runner_v1===true?1:0,device.id,b.cloud_runner_v1===true?1:0);
+    RETURNING hours,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days`).bind(lease,device.id,new Date(Date.now()+(recoverable?20*60000:2*3600000)).toISOString(),time,supportsWindow?1:0,b.cloud_runner_v1===true?1:0,device.id,b.cloud_runner_v1===true?1:0);
    let claimed;
    if(recoverable){
     const result=await db.batch([
@@ -235,6 +229,8 @@ async function agent(request,db,path){
    need(await db.prepare('SELECT id FROM fleet_control WHERE lease=? AND lease_device=? AND lease_until>=?').bind(b.lease,device.id,now()).first(),'The cloud pull lease expired.',409);
  }
 
+ // Legacy direct-upload paths may not bypass the manual request/lease gate.
+ if(path==='/progress'||path==='/begin')need(await db.prepare('SELECT id FROM fleet_control WHERE id=1 AND lease IS NOT NULL AND lease_device=? AND lease_until>=?').bind(device.id,now()).first(),'Click Sync Now in the portal before starting a pull.',409);
  if(path==='/progress'){
    need(b.state==='collecting','Invalid sync state.');
    await healthWrite(db,device,'collecting').run();return json({success:true});
@@ -378,11 +374,12 @@ async function administration(request,db,path,actor,audit){
    const devices=await rows(db.prepare('SELECT id,name,active,created_at,last_seen,last_error FROM fleet_devices ORDER BY created_at DESC'));
    const runs=await rows(db.prepare('SELECT id,state,started_at,completed_at,cards_expected,transactions_expected,error FROM fleet_runs ORDER BY started_at DESC LIMIT 10'));
    const latest=await db.prepare('SELECT h.* FROM fleet_health h JOIN fleet_devices d ON d.id=h.device_id WHERE d.active=1 ORDER BY h.updated_at DESC LIMIT 1').first();
-   const last_success=await db.prepare('SELECT r.completed_at,r.cards_expected,r.transactions_expected FROM fleet_meta m JOIN fleet_runs r ON r.id=m.run_id WHERE m.id=1').first();
+   const last_success=await db.prepare('SELECT r.completed_at,r.window_from,r.window_to,r.cards_expected,r.transactions_expected FROM fleet_meta m JOIN fleet_runs r ON r.id=m.run_id WHERE m.id=1').first();
    const control=await db.prepare('SELECT hours,requested_at,next_due,lease_until,poll_at,(SELECT days FROM fleet_pull_settings WHERE id=1) AS window_days FROM fleet_control WHERE id=1').first();
    control.runner=(await db.prepare('SELECT device_id FROM fleet_runner WHERE id=1').first()).device_id?'cloud':'pc';
    const retry=await db.prepare('SELECT failures,retry_at,paused,reason FROM fleet_retry WHERE id=1').first();
-   retry.continuous=control.runner==='cloud'&&retry.reason===failureReasons.cloud_temporary;
+   control.manual_only=true;control.next_due=null;
+   retry.continuous=false;retry.retry_at=null;retry.paused=0;
    return json({success:true,devices,runs,latest,last_success,control,retry});
  }
  if(path==='/request-sync'||path==='/schedule'){
@@ -391,7 +388,7 @@ async function administration(request,db,path,actor,audit){
    if(path==='/schedule'){
     need(Number.isInteger(b.hours)&&b.hours>=2&&b.hours<=24&&b.hours%2===0,'Choose 2 through 24 hours in increments of 2.');
     if(Object.hasOwn(b,'window_days'))need([7,14,21,30].includes(b.window_days),'Choose 30 days, 3 weeks, 2 weeks or 1 week.');
-    const updates=[db.prepare('UPDATE fleet_control SET hours=?,next_due=? WHERE id=1').bind(b.hours,new Date(Date.now()+b.hours*3600000).toISOString())];
+    const updates=[db.prepare('UPDATE fleet_control SET hours=?,next_due=NULL WHERE id=1').bind(b.hours)];
     if(Object.hasOwn(b,'window_days'))updates.push(db.prepare('UPDATE fleet_pull_settings SET days=? WHERE id=1').bind(b.window_days));
     await db.batch(updates);
     if(audit)await audit('fleet_schedule_changed',String(b.hours)+(Object.hasOwn(b,'window_days')?'h / '+b.window_days+'d':''));
