@@ -73,41 +73,25 @@
   }
   async function play(options){
     options=options||{};
-    if(!interacted||document.hidden)return {played:false,reason:'Tap Test Sound to enable audio on this device.'};
+    if(!interacted||document.hidden)return {played:false,reason:'Tap inside the portal to enable audio on this device.'};
     var now=Date.now();
     if(!options.test&&now-lastRequestedAt<1700)return {played:false,reason:'Another alert sound just played.'};
     var c=getContext(false);if(!c)return {played:false,reason:'Audio is not available in this browser.'};
     lastRequestedAt=now;
     try{
       var result=await Promise.all([load(c),resume(c)]);
-      if(!result[1]||c.state!=='running')return {played:false,reason:'Audio was paused by your device. Tap Test Sound again.'};
-      if(document.hidden||Date.now()-now>3000)return {played:false,reason:'Tap Test Sound while the portal is open.'};
+      if(!result[1]||c.state!=='running')return {played:false,reason:'Audio was paused by your device. Tap inside the portal again.'};
+      if(document.hidden||Date.now()-now>3000)return {played:false,reason:'Keep the portal open for notification sounds.'};
       if(result[0]){
         var source=c.createBufferSource();source.buffer=result[0];source.connect(c.destination);
         source.onended=function(){source.disconnect();};source.start();
       }else{fallback(c);}
       return {played:true};
-    }catch(_error){return {played:false,reason:'Audio could not start. Tap Test Sound again.'};}
+    }catch(_error){return {played:false,reason:'Audio could not start. Tap inside the portal again.'};}
   }
   // touchend/click cover completed taps on iPhone; keydown covers keyboards.
   ['pointerdown','touchend','click','keydown'].forEach(function(type){
     window.addEventListener(type,unlock,{capture:true,passive:true});
   });
   window.WootenNotificationSound={play:play,unlock:unlock};
-  function addTests(){
-    ['adminNotificationMenu','headerNotificationMenu','dashboardNotificationPanel'].forEach(function(id){
-      var menu=document.getElementById(id);if(!menu||menu.querySelector('[data-wooten-sound-test]'))return;
-      var area=document.createElement('div');area.style.cssText='padding:10px 14px;border-top:1px solid #dce5ed';
-      var button=document.createElement('button');button.type='button';button.dataset.wootenSoundTest='1';button.textContent='Test Sound';
-      button.style.cssText='width:100%;min-height:40px;border:1px solid #cbdce9;border-radius:10px;background:#edf4f8;color:#173650;font:inherit;cursor:pointer';
-      var result=document.createElement('div');result.setAttribute('role','status');result.style.cssText='margin-top:6px;color:#587083;font-size:13px';result.hidden=true;
-      button.addEventListener('click',async function(event){
-        event.preventDefault();event.stopPropagation();button.disabled=true;result.hidden=false;result.textContent='Playing Rising Trio…';
-        unlock();var state=await play({test:true});button.disabled=false;
-        result.textContent=state.played?'Rising Trio played. If you did not hear it, check your device volume.':state.reason;
-      });
-      area.appendChild(button);area.appendChild(result);menu.appendChild(area);
-    });
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addTests,{once:true});else addTests();
 })();

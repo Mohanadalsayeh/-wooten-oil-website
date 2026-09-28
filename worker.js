@@ -62,7 +62,10 @@ async function dispatchPaymentNotices(env){
   }catch(error){console.error('Payment notification processing failed',error);}
 }
 async function paymentReplyWithNotices(reply,env,ctx){
-  try{return await reply;}finally{ctx.waitUntil(dispatchPaymentNotices(env));}
+  try{return await reply;}finally{
+    ctx.waitUntil(runPortalPush(env,true));
+    ctx.waitUntil(dispatchPaymentNotices(env).finally(()=>runPortalPush(env,true)));
+  }
 }
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
@@ -80,7 +83,7 @@ function validRequestNumber(value) {
   return /^WO-\d{6}-\d{4}$/.test(String(value || ""));
 }
 __name(validRequestNumber, "validRequestNumber");
-async function onRequestPost({request,env}) {
+async function onRequestPost({request,env,waitUntil}) {
   let body;
   try { body=await request.json(); } catch { return json({success:false,error:"Invalid request data."},400); }
   if(!body || typeof body!=="object" || Array.isArray(body)) return json({success:false,error:"Invalid request data."},400);
@@ -135,6 +138,9 @@ async function onRequestPost({request,env}) {
   }
   const receiptMessage=`Your fuel request ${requestNumber} has been sent and is being reviewed by the Wooten Oil team. Delivery is subject to confirmation by our office.`;
   const receipt=await fuelRequestCreateReceipt(env,values.customer_account_number,Number(inserted.id),requestNumber,receiptMessage);
+  // The request and portal receipt are saved. Device delivery can start while
+  // independent email/SMS providers finish, without delaying the response.
+  if(waitUntil)waitUntil(runPortalPush(env,true));
   const fromAddress=String(env.FUEL_FROM_EMAIL||'Wooten Oil <support@wootenoil.com>').trim()||'Wooten Oil <support@wootenoil.com>';
   const toAddress=String(env.FUEL_TO_EMAIL||'support@wootenoil.com').trim()||'support@wootenoil.com';
   const rows=[
@@ -7741,7 +7747,7 @@ async function adminSendCustomerNotification({ request, env }) {
 }
 __name(adminSendCustomerNotification, "adminSendCustomerNotification");
 
-async function customerNotificationsGet({ request, env }) {
+async function customerNotificationsGet({ request, env, waitUntil }) {
   try {
     if (!env.DB) {
       return notificationJson({ success: false, error: "Customer database is not configured." }, 503);
@@ -7760,11 +7766,13 @@ async function customerNotificationsGet({ request, env }) {
     await ensureCustomerNotificationsTable(env);
     await ensureCustomerDocumentsTable(env);
 
-    try {
-      await syncGmailSentToPortal(env, { force: false, maxMessages: 50 });
-    } catch (syncError) {
-      console.error("Customer notification Gmail sync skipped", syncError);
-    }
+    // Return saved bell items immediately. Gmail imports are independent and
+    // dispatch their newly saved notifications after the import finishes.
+    if(waitUntil)waitUntil((async()=>{
+      try { await syncGmailSentToPortal(env, { force: false, maxMessages: 50 }); }
+      catch(syncError){ console.error("Customer notification Gmail sync skipped",syncError); }
+      finally { await runPortalPush(env,true); }
+    })());
 
     const account = normalizeNotificationAccount(customer.account_number);
 
@@ -12468,8 +12476,8 @@ async function initializePush(env){
   await PortalPush.ensure(env,true);
   })();pushInitialized.set(env.DB,task);try{await task;}catch(error){pushInitialized.delete(env.DB);throw error;}
 }
-async function runPortalPush(env){
-  try{await PortalPush.pump(env,s=>pushRecipient(env,s));}catch{console.error('Device notification delivery will retry on the next scheduled run.');}
+async function runPortalPush(env,immediate=false){
+  try{await PortalPush.pump(env,s=>pushRecipient(env,s),undefined,immediate?{maxRunMs:12000,refreshSchema:false}:undefined);}catch{console.error('Device notification delivery will retry on the next scheduled run.');}
 }
 
 var worker_default = {
@@ -12943,7 +12951,7 @@ var worker_default = {
 
     if (url.pathname === "/api/customer/notifications") {
       if (request.method === "GET") {
-        return customerNotificationsGet({ request, env });
+        return customerNotificationsGet({ request, env, waitUntil:ctx.waitUntil.bind(ctx) });
       }
       return methodNotAllowed();
     }
@@ -13137,12 +13145,37 @@ return env.ASSETS.fetch(request);
     ctx.waitUntil(runPortalPush(env));
     // The hourly maintenance trigger runs these jobs once and checks whether
     // the local Central-Time backup hour has arrived.
-    ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));
+    ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}).finally(()=>runPortalPush(env)));
     // Cycle statements are manual only; unrelated scheduled jobs continue below.
-    ctx.waitUntil(checkMas90AutomationHealth(env));
+    ctx.waitUntil(checkMas90AutomationHealth(env).finally(()=>runPortalPush(env)));
     ctx.waitUntil(ensureDailyPortalDatabaseBackup(env));
   }
 
+};
+// Start durable queued delivery on the same request that saves or reveals a
+// bell event. Authentication and writes still run in the original handler.
+// No device delivery is awaited by the response; cron remains the retry path.
+function shouldDispatchPortalPush(request){
+  const path=new URL(request.url).pathname;
+  if(request.method==='GET')return path==='/api/admin/notification-bell'||path==='/api/customer/notifications';
+  if(request.method!=='POST')return false;
+  return [
+    '/api/fuel-request','/api/account-applications',
+    '/api/customer/profile-change-requests','/api/customer/payment/sandbox-authorize',
+    '/api/admin/request-center','/api/admin/account-applications',
+    '/api/admin/customer-notifications','/api/admin/customer-documents/upload',
+    '/api/admin/gmail-portal-sync','/api/admin/statements/generate',
+    '/api/admin/statement-scheduling/run','/api/admin/statement-scheduling/test-all',
+    '/api/admin/statement-scheduling/continue','/api/admin/customer-statement-cycle',
+    '/api/mas90-agent/sync/status','/api/mas90-agent/sync/failures',
+    '/api/mas90-agent/health/status','/api/admin/fleet/sync'
+  ].includes(path)||path.startsWith('/api/intevacon-cards-agent/');
+}
+const portalRequestHandler=worker_default.fetch;
+worker_default.fetch=async function(request,env,ctx){
+  const response=await portalRequestHandler.call(this,request,env,ctx);
+  if(response.ok&&shouldDispatchPortalPush(request))ctx.waitUntil(runPortalPush(env,true));
+  return response;
 };
 export {
   worker_default as default

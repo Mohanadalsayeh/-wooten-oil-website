@@ -97,13 +97,14 @@ export async function handle({request,env,role,actor,transport=send}){
  }catch{return json({success:false,error:'Notification settings could not be saved. Please try again.'},400);}
 }
 const titles={requests:'Request update',applications:'New account application',payments:'Payment update',documents:'New statement or document',messages:'New portal message',fleet:'Fleet sync needs attention',mas90:'MAS 90 sync needs attention'};
-export async function pump(env,resolveRecipient,transport=send){
+export async function pump(env,resolveRecipient,transport=send,{maxRunMs=45000,refreshSchema=true}={}){
  if(!configuration(env)||!env.DB)return;
- await ensure(env,true);const db=env.DB,start=Date.now(),cfg=configuration(env);
+ const start=Date.now();await ensure(env,refreshSchema);const db=env.DB,cfg=configuration(env);
  await db.prepare('UPDATE web_push_health SET last_run=? WHERE id=1').bind(start).run();
  const rows=(await db.prepare('SELECT d.id FROM web_push_devices d WHERE d.enabled=1 AND d.retry_at<=? AND (d.lease_until IS NULL OR d.lease_until<?) AND EXISTS (SELECT 1 FROM web_push_events e WHERE e.role=d.role AND e.account=d.account AND e.id>d.cursor) ORDER BY d.last_scan LIMIT 100').bind(start,start).all()).results;
- // Five at a time keeps each scheduled invocation bounded and respects provider latency.
- for(let i=0;i<rows.length&&Date.now()-start<45000;i+=5)await Promise.all(rows.slice(i,i+5).map(async item=>{
+ // Request-triggered delivery uses a shorter budget; cron drains remaining work.
+ // Device leases and cursors also protect overlapping request/cron attempts.
+ for(let i=0;i<rows.length&&Date.now()-start<maxRunMs;i+=5)await Promise.all(rows.slice(i,i+5).map(async item=>{
   const lease=crypto.randomUUID(),now=Date.now();
   const sub=await db.prepare('UPDATE web_push_devices SET lease=?,lease_until=?,last_scan=? WHERE id=? AND enabled=1 AND (lease_until IS NULL OR lease_until<?) RETURNING *').bind(lease,now+60000,now,item.id,now).first();if(!sub)return;
   try{

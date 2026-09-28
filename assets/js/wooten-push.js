@@ -125,6 +125,12 @@
  function addControls(container){if(!container||container.querySelector('.wooten-push-menu-controls'))return;const area=document.createElement('div');area.className='wooten-push-menu-controls';const button=document.createElement('button');button.type='button';button.className='wooten-push-settings-button';button.textContent='Device Notifications';button.addEventListener('click',e=>{e.stopPropagation();open(button);});area.append(button);container.append(area);}
  addControls(document.getElementById(role==='admin'?'adminNotificationMenu':'headerNotificationMenu'));
  if(role==='customer')addControls(document.getElementById('dashboardNotificationPanel'));
+ function refreshBell(){
+  if(role==='admin'){
+   if(typeof window.wootenRefreshAdminNotifications==='function')window.wootenRefreshAdminNotifications();
+   else document.getElementById('adminNotificationRefresh')?.click();
+  }else window.wootenRenderCustomerNotifications?.({supersede:true});
+ }
  function openPending(){
   if(!pendingOpen||!signedIn())return;
   const target=pendingOpen;pendingOpen=null;
@@ -132,8 +138,9 @@
   if(role==='admin'){
    if(target==='fleet'){document.getElementById('admin-tab-btn-fleet')?.click();return;}
    if(target==='mas90'){document.getElementById('admin-tab-btn-automation')?.click();return;}
-   const bell=document.getElementById('adminNotificationBell');if(bell?.getAttribute('aria-expanded')!=='true')bell?.click();document.getElementById('adminNotificationRefresh')?.click();
-  }else{window.wootenRenderCustomerNotifications?.();document.getElementById('mobileHeaderNotifications')?.click();}
+   const bell=document.getElementById('adminNotificationBell');if(bell?.getAttribute('aria-expanded')!=='true')bell?.click();
+  }else{const bell=document.getElementById('mobileHeaderNotifications');if(bell?.getAttribute('aria-expanded')!=='true')bell?.click();}
+  refreshBell();
  }
  async function changed(){
   const next=identity();if(next===currentIdentity){openPending();return;}
@@ -150,7 +157,7 @@
  if('serviceWorker'in navigator)navigator.serviceWorker.addEventListener('message',e=>{
   if(e.data?.role!==role||e.data.device!==read()?.id||!signedIn())return;
   if(e.data.type==='wooten-push-open'){pendingOpen=e.data.target||'notifications';openPending();}
-  if(e.data.type==='wooten-push-refresh'){if(role==='admin')document.getElementById('adminNotificationRefresh')?.click();else window.wootenRenderCustomerNotifications?.();}
+  if(e.data.type==='wooten-push-refresh')refreshBell();
  });
  window.addEventListener('storage',event=>{if(event.key===storageKey&&dialog.open)refresh();});
  window.addEventListener('online',()=>{const s=read();if(s&&!signedIn())remove(s).catch(()=>{});else if(dialog.open)refresh();});
