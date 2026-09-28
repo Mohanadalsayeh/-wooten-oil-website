@@ -1,29 +1,36 @@
-/* Ver662 — scoped so the existing bell, menus and unread counts retain their styles. */
+/* Ver663 — fixed dialog header/footer; only the notification settings body scrolls. */
 .wooten-push-settings-button{font:inherit!important;color:#193953!important;background:#edf3f7!important;border:1px solid #c9dbea!important;border-radius:10px!important;padding:10px 14px!important;min-height:44px!important;cursor:pointer!important;text-align:center!important;line-height:1.35!important}
 .wooten-push-menu-controls{padding:10px 14px;flex-shrink:0;border-top:1px solid #d7e3ec;background:#fff}
 .wooten-push-menu-controls .wooten-push-settings-button{width:100%!important}
-#wootenPushDialog{box-sizing:border-box;width:min(520px,calc(100% - 24px));max-height:calc(100dvh - 32px);padding:0;border:1px solid #cbdbe7;border-radius:20px;color:#173650;background:#fff;box-shadow:0 20px 80px #102e4b44;overflow:auto;margin:auto;font:inherit}
+#wootenPushDialog{box-sizing:border-box;width:min(520px,calc(100% - 24px));max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);padding:0;border:1px solid #cbdbe7;border-radius:20px;color:#173650;background:#fff;box-shadow:0 20px 80px #102e4b44;overflow:hidden;margin:auto;font:inherit}
+#wootenPushDialog[open]{display:flex;flex-direction:column}
+#wootenPushDialog:not([open]){display:none}
 #wootenPushDialog::backdrop{background:#102b43a6}
 #wootenPushDialog *{box-sizing:border-box}
 #wootenPushDialog [hidden]{display:none!important}
-#wootenPushDialog .push-head{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:22px;border-bottom:1px solid #d7e3ec}
-#wootenPushDialog h2{font-size:1.3rem;font-weight:700;margin:0;color:#102d45}
-#wootenPushDialog .push-close{width:44px;height:44px;min-width:44px;border-radius:12px;border:1px solid #cbdbe7;background:#edf3f7;color:#193953;font-size:26px;cursor:pointer}
-#wootenPushDialog .push-body{padding:20px 22px}
+#wootenPushDialog .push-head{position:static;display:flex;flex:0 0 auto;gap:16px;align-items:center;justify-content:space-between;padding:20px 22px;margin:0;border-bottom:1px solid #d7e3ec;background:#fff}
+#wootenPushDialog h2{min-width:0;font-size:1.3rem;font-weight:700;line-height:1.3;margin:0;color:#102d45}
+#wootenPushDialog .push-close{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 44px;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;margin:0!important;padding:0!important;border-radius:12px!important;border:1px solid #d7e1e9!important;background:#eef3f7!important;color:#17324d!important;line-height:1!important;box-shadow:none!important;cursor:pointer;appearance:none}
+#wootenPushDialog .push-close svg{display:block;flex:none;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;pointer-events:none}
+#wootenPushDialog .push-body{flex:1 1 auto;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:20px 22px;overflow-wrap:anywhere}
+#wootenPushDialog .push-foot{position:static;display:block;flex:0 0 auto;margin:0;padding:16px 22px 20px;border-top:1px solid #d7e3ec;background:#f7f9fb;text-align:left}
 #wootenPushDialog p{font-size:15px;line-height:1.5;margin:0 0 16px;color:#61788c}
 #wootenPushDialog .push-options{display:grid;gap:12px;margin:16px 0;border:0;padding:0}
 #wootenPushDialog legend{font-size:15px;font-weight:700;margin-bottom:12px}
 #wootenPushDialog label{display:flex;align-items:center;gap:10px;min-height:32px;font-size:15px;font-weight:400;cursor:pointer}
 #wootenPushDialog input[type=checkbox]{width:20px;height:20px;min-width:20px;margin:0;accent-color:#193953}
-#wootenPushDialog .push-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+#wootenPushDialog .push-actions{display:flex;flex-wrap:wrap;gap:10px;margin:0}
 #wootenPushDialog .push-actions button{font:inherit;font-size:15px;flex:1 1 160px;min-height:44px;padding:10px 14px;border:1px solid #cbdbe7;border-radius:10px;background:#edf3f7;color:#193953;cursor:pointer;line-height:1.3}
 #wootenPushDialog .push-actions [data-enable]{background:#d52027;color:#fff;border-color:#d52027}
 #wootenPushDialog button:disabled{opacity:.55;cursor:default}
 #wootenPushDialog button:focus-visible,.wooten-push-settings-button:focus-visible{outline:3px solid #65a6d8;outline-offset:2px}
 #wootenPushDialog [data-result]{margin-top:16px;padding:12px;border-radius:10px;background:#eff6fb;color:#193953}
+#wootenPushDialog .push-body>:last-child{margin-bottom:0}
 #wootenPushDialog [data-result][data-error=true]{background:#fff1f2;color:#a21338}
 #wootenPushDialog [data-install]{padding:12px;background:#fff8e8;border-radius:10px;color:#775216}
 #wootenPushDialog [data-busy=true]::before{content:'';display:inline-block;width:14px;height:14px;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:wootenPushSpin .8s linear infinite}
 @keyframes wootenPushSpin{to{transform:rotate(360deg)}}
 @media(max-width:600px){#wootenPushDialog .push-actions{flex-direction:column}#wootenPushDialog .push-actions button{width:100%;flex:auto}}
+@media(max-height:480px){#wootenPushDialog .push-head,#wootenPushDialog .push-foot{padding:12px 16px}#wootenPushDialog .push-body{padding:12px 16px}#wootenPushDialog .push-actions{flex-direction:row;gap:8px}#wootenPushDialog .push-actions button{width:auto;flex:1 1 150px}}
+@media(hover:hover){#wootenPushDialog .push-close:hover{background:#c83c34!important;border-color:#c83c34!important;color:#fff!important}}
 @media(prefers-reduced-motion:reduce){#wootenPushDialog [data-busy=true]::before{animation:none}}
