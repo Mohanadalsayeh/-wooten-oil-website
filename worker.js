@@ -18,6 +18,7 @@ import * as IntevaconApiSchedule from './fleet/intevacon-api-schedule.mjs';
 import {handleCustomer as customerApiFleet} from './fleet/intevacon-customer-api.mjs';
 import * as IntevaconCards from './fleet/intevacon-cards.mjs';
 import * as PortalPush from './notifications/push.mjs';
+import * as AdminBrowserSession from './admin/browser-session.mjs';
 import {digest as pushDigest} from './notifications/web-push.mjs';
 export {IntevaconApiScheduler} from './fleet/intevacon-api-schedule.mjs';
 import './assets/js/wooten-admin-access.js';
@@ -11565,6 +11566,28 @@ async function adminAuthLogin({request,env}){
 }
 async function adminAuthMe({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return notificationJson({success:true,user:{display_name:"Wooten Oil Admin",username:"Admin",owner:true,permissions:ADMIN_PERMISSION_KEYS}});const session=await adminSessionFromCredential(env,credential);if(!session)return notificationJson({success:false,error:"Session expired."},401);return notificationJson({success:true,user:{id:session.user_id,username:session.username,display_name:session.display_name,owner:false,permissions:session.permissions}});}
 async function adminAuthLogout({request,env}){const credential=String(request.headers.get("X-Admin-Key")||"");if(!credential||!env?.DB)return notificationJson({success:true});if(credential===String(env.ADMIN_IMPORT_KEY||"")){const headers=new Headers();headers.set("X-Admin-Key",credential);headers.set("X-Admin-Actor-Name","Wooten Oil Admin");headers.set("X-Admin-Actor-Owner","1");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_owner","Admin","Signed out");return notificationJson({success:true});}await ensureAdminUsersTables(env);const session=await adminSessionFromCredential(env,credential);if(session){const headers=new Headers();headers.set("X-Admin-Actor-Id",String(session.user_id));headers.set("X-Admin-Actor-Name",String(session.display_name||session.username));headers.set("X-Admin-Actor-Owner","0");await adminAudit(env,new Request(request.url,{headers}),"admin_logout","admin_user",String(session.user_id),"Signed out");}await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash=?`).bind(await adminSha256(credential)).run();return notificationJson({success:true});}
+function adminBrowserSessionHelpers(request,env){
+  return {
+    hash:adminSha256,
+    expires:adminNextCentralMidnightIso,
+    ensureUsers:()=>ensureAdminUsersTables(env),
+    validate:async token=>{
+      const headers=new Headers(request.headers);headers.set('X-Admin-Key',token);
+      const response=await adminAuthMe({request:new Request(request,{headers}),env});
+      const data=await response.json();return response.ok&&data.success?data.user:null;
+    }
+  };
+}
+async function adminBrowserLogin(request,env){
+  const response=await adminAuthLogin({request,env});
+  try{return await AdminBrowserSession.attach(request,env,response,adminBrowserSessionHelpers(request,env));}
+  catch{return notificationJson({success:false,error:'The browser session could not be saved. Please try signing in again.'},503);}
+}
+async function adminBrowserLogout(request,env){
+  const response=await adminAuthLogout({request,env});
+  try{return await AdminBrowserSession.clear(request,env,response,adminBrowserSessionHelpers(request,env));}
+  catch{return notificationJson({success:false,error:'The browser session could not be signed out. Please retry.'},503);}
+}
 async function adminUsersApi({request,env}){
   try{await ensureAdminUsersTables(env);if(request.method==="GET"){const users=await env.DB.prepare(`SELECT id,username,display_name,permissions,active,created_at,updated_at FROM admin_users ORDER BY display_name COLLATE NOCASE`).all();return notificationJson({success:true,users:(users?.results||[]).map(u=>({...u,permissions:adminSafePermissions(u.permissions)}))});}
     const body=await request.json();const id=Number(body.id||0);const username=String(body.username||"").trim().slice(0,60);const displayName=String(body.display_name||"").trim().slice(0,100);const password=String(body.password||"");const permissions=adminSafePermissions(body.permissions);const active=body.active===false||body.active===0?0:1;if(!username||!displayName)return notificationJson({success:false,error:"Enter the user's name and username."},400);if(!/^[A-Za-z0-9._-]+$/.test(username))return notificationJson({success:false,error:"Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed."},400);if((!id||password)&&!(password.length>=8&&/[A-Za-z]/.test(password)&&/\d/.test(password)))return notificationJson({success:false,error:"Password must contain at least 8 characters, including at least one letter and one number."},400);const duplicateUser=await env.DB.prepare(`SELECT id FROM admin_users WHERE username=? COLLATE NOCASE AND id<>? LIMIT 1`).bind(username,id||0).first();if(duplicateUser)return notificationJson({success:false,error:"That username is already in use."},409);
@@ -12491,15 +12514,18 @@ var worker_default = {
       return PortalPush.handle({request,env,role,actor});
     }
     if(url.pathname==="/api/admin/auth/login"){
-      if(request.method==="POST")return adminAuthLogin({request,env});
+      if(request.method==="POST")return adminBrowserLogin(request,env);
       return methodNotAllowed();
+    }
+    if(url.pathname==="/api/admin/auth/browser-session"){
+      return AdminBrowserSession.restore(request,env,adminBrowserSessionHelpers(request,env));
     }
     if(url.pathname==="/api/admin/auth/me"){
       if(request.method==="GET")return adminAuthMe({request,env});
       return methodNotAllowed();
     }
     if(url.pathname==="/api/admin/auth/logout"){
-      if(request.method==="POST")return adminAuthLogout({request,env});
+      if(request.method==="POST")return adminBrowserLogout(request,env);
       return methodNotAllowed();
     }
     if(url.pathname==="/api/mas90-agent/sync/next"){

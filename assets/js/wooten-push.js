@@ -1,4 +1,4 @@
-/* Ver680 — reuse an authenticated admin window when opening device notifications. */
+/* Ver682 — open pending admin alerts after browser-session restoration completes. */
 (function(){
  'use strict';
  const role=document.getElementById('adminNotificationBell')?'admin':'customer',storageKey='wooten-push-device-'+role;
@@ -133,6 +133,7 @@
  }
  function openPending(){
   if(!pendingOpen||!signedIn())return;
+  if(role==='admin'&&document.body.classList.contains('admin-login-locked'))return;
   const target=pendingOpen;pendingOpen=null;
   const url=new URL(location.href);url.searchParams.delete('portal-notifications');history.replaceState(history.state,'',url.href);
   if(role==='admin'){
@@ -149,7 +150,10 @@
   const saved=read();if(saved&&(!next||(saved.identity&&saved.identity!==next)||prior&&prior!==next))await remove(saved).catch(()=>{});
   openPending();
  }
- if(role==='admin')window.addEventListener('wooten-admin-auth-changed',changed);
+ if(role==='admin'){
+  window.addEventListener('wooten-admin-auth-changed',changed);
+  window.addEventListener('wooten-admin-auth-ready',openPending);
+ }
  else{
   new MutationObserver(changed).observe(document.body,{attributes:true,attributeFilter:['class']});
   const account=document.getElementById('acctNumber');if(account)new MutationObserver(changed).observe(account,{childList:true,subtree:true,characterData:true});

@@ -13404,6 +13404,9 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
   const submitBtn=form ? form.querySelector('button[type="submit"]') : null;
   const storageKey='wootenAdminLoginSession';
   let currentUser=null;
+  let authGeneration=0;
+  const logoutSignal='wooten-admin-signout';
+  const logoutPending='wooten-admin-signout-pending';
   let adminSessionDay=adminCentralDayKey();
 
   function applyPermissions(user){
@@ -13468,6 +13471,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
     body.classList.remove('admin-login-locked');
     overlay.setAttribute('aria-hidden','true');
     clearStatus();
+    window.dispatchEvent(new Event('wooten-admin-auth-ready'));
   }
 
   function adminCentralDayKey(date){
@@ -13491,9 +13495,29 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
     try{ sessionStorage.removeItem(storageKey); }catch(_e){}
   }
 
+  function notifyOtherWindows(){
+    try{localStorage.setItem(logoutPending,'1');localStorage.setItem(logoutSignal,JSON.stringify({at:Date.now(),id:crypto.randomUUID()}));}catch(_e){}
+  }
+
+  async function endBrowserSession(key){
+    try{
+      const response=await fetch('/api/admin/auth/logout',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'X-Admin-Key':key,'Content-Type':'application/json'},body:'{}'});
+      if(!response.ok)throw Error('logout failed');
+      try{localStorage.removeItem(logoutPending);}catch(_e){}
+      return true;
+    }catch(_e){setStatus('Sign-out could not be confirmed. Reconnect and reload this page to finish signing out.',true);return false;}
+  }
+
+  window.addEventListener('storage',event=>{
+    if(event.key!==logoutSignal)return;
+    authGeneration++;clearSession();keyField.value='';keyPrompt.value='';applyPermissions(null);updateAccessMeta();
+    openLogin({message:'Signed out in another admin window. Please sign in again.'});
+  });
+
   function expireAdminSession(message){
+    authGeneration++;
     const oldKey=(keyField.value||'').trim();
-    if(oldKey)fetch('/api/admin/auth/logout',{method:'POST',headers:{'X-Admin-Key':oldKey}}).catch(()=>{});
+    notifyOtherWindows();endBrowserSession(oldKey);
     clearSession();
     keyField.value='';
     keyPrompt.value='';
@@ -13514,7 +13538,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
 
   async function loginAdmin(username,password){
     const response = await fetch('/api/admin/auth/login', {
-      method:'POST',
+      method:'POST',credentials:'same-origin',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
       body:JSON.stringify({username,password}),
       cache:'no-store'
@@ -13529,37 +13553,51 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
     return response.ok&&data.success?{ok:true,user:data.user}:{ok:false};
   }
 
-  async function tryRestoreSession(){
+  async function browserSession(savedKey=''){
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
     try{
-      const raw=sessionStorage.getItem(storageKey);
-      if(!raw) return false;
-      const data=JSON.parse(raw)||{};
-      const savedKey=String(data.key||'').trim();
-      if(!savedKey) return false;
-      if(String(data.day||'')!==adminCentralDayKey()){
-        clearSession();
-        return false;
+      const response=await fetch('/api/admin/auth/browser-session',{
+        method:'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,
+        headers:{'Content-Type':'application/json','Accept':'application/json',...(savedKey?{'X-Admin-Key':savedKey}:{})},body:'{}'
+      });
+      const data=await response.json().catch(()=>({}));
+      return {...data,ok:response.ok&&data.success,status:response.status};
+    }finally{clearTimeout(timeout);}
+  }
+
+  async function tryRestoreSession(){
+    const ticket=++authGeneration;
+    try{
+      // A new notification window has no sessionStorage, but can still have a
+      // valid HttpOnly browser session. Validate that session on the server first.
+      let mustSignOut=false;try{mustSignOut=localStorage.getItem(logoutPending)==='1';}catch(_e){}
+      if(mustSignOut){clearSession();await endBrowserSession('');return false;}
+      let check=await browserSession(),savedKey='',login='';
+      if(ticket!==authGeneration)return false;
+      if(check.ok){savedKey=check.token;login=check.user?.username||'Admin';}
+      else{
+        // A known-expired cookie must not be revived from an old tab. The local
+        // fallback is only for migrating pre-Ver682 logins or an older deployment.
+        if(!(check.code==='no_browser_session'||check.status===404))return false;
+        const raw=sessionStorage.getItem(storageKey),data=raw?JSON.parse(raw):null;
+        if(!data?.key||String(data.day)!==adminCentralDayKey()){clearSession();return false;}
+        savedKey=String(data.key).trim();login=String(data.login||'Admin');
+        check=await validateSession(savedKey);
+        if(ticket!==authGeneration)return false;
+        if(!check.ok){clearSession();return false;}
+        if(check.user&&savedKey){
+          const promoted=await browserSession(savedKey);
+          if(ticket!==authGeneration)return false;
+          if(promoted.ok)check=promoted;
+          else if(promoted.status!==404)return false;
+        }
       }
-      const check=await validateSession(savedKey);
-      if(!check.ok){
-        clearSession();
-        return false;
-      }
-      loginName.value=String(data.login||check.user?.username||'Admin');
-      adminSessionDay=String(data.day);
-      keyField.value=savedKey;
-      keyPrompt.value=savedKey;
-      applyPermissions(check.user||data.user);
-      openAdminDashboard();
-      updateAccessMeta();
-      closeLogin();
-      loadImportLastUpdates();
-      window.loadCustomerImportAreaCodeSetting?.();
+      if(!savedKey||!check.user||ticket!==authGeneration)return false;
+      loginName.value=login;keyField.value=savedKey;keyPrompt.value='';
+      applyPermissions(check.user);openAdminDashboard();saveSession();updateAccessMeta();closeLogin();
+      loadImportLastUpdates();window.loadCustomerImportAreaCodeSetting?.();
       return true;
-    }catch(_e){
-      clearSession();
-      return false;
-    }
+    }catch(_e){return false;}
   }
 
   window.ensureAdminLoginKey=function(message){
@@ -13577,10 +13615,15 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
       keyPrompt.focus();
       return;
     }
+    const ticket=++authGeneration;
     setBusy(true);
     clearStatus();
     try{
+      let mustSignOut=false;try{mustSignOut=localStorage.getItem(logoutPending)==='1';}catch(_e){}
+      if(mustSignOut&&!await endBrowserSession(''))return;
+      if(ticket!==authGeneration)return;
       const check=await loginAdmin(username,key);
+      if(ticket!==authGeneration){if(check.ok)await endBrowserSession(check.token);return;}
       if(!check.ok){
         keyField.value='';
         if(check.reason==='invalid') setStatus('Invalid username or password.',true);
@@ -13600,6 +13643,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
       loadImportLastUpdates();
       window.loadCustomerImportAreaCodeSetting?.();
     }catch(_error){
+      if(ticket!==authGeneration)return;
       keyField.value='';
       setStatus('Could not verify administrator access right now. Please try again.',true);
       keyPrompt.focus();
@@ -13612,7 +13656,8 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
 
   if(openBtn){
     openBtn.addEventListener('click',function(){
-      const oldKey=(keyField.value||'').trim();if(oldKey)fetch('/api/admin/auth/logout',{method:'POST',headers:{'X-Admin-Key':oldKey}}).catch(()=>{});
+      authGeneration++;const oldKey=(keyField.value||'').trim();
+      notifyOtherWindows();endBrowserSession(oldKey);
       clearSession();
       keyField.value='';
       keyPrompt.value='';
@@ -13638,7 +13683,7 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
   loginName.value='Admin';
   updateAccessMeta();
   tryRestoreSession().then(function(restored){
-    if(!restored) openLogin();
+    if(!restored&&!(keyField.value||'').trim()) openLogin();
   });
 
   window.setInterval(function(){
@@ -15478,7 +15523,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <style>#invoiceDbTable{min-width:1120px}#invoiceDbTable .invoice-comment-cell{min-width:220px;max-width:360px;white-space:normal;overflow-wrap:anywhere}</style>
 <style>#invoiceDbTable .invoice-comment-cell{white-space:pre-wrap}</style>
-<script defer src="assets/js/wooten-push.js?v=680"></script>
+<script defer src="assets/js/wooten-push.js?v=682"></script>
 </body>
 </html>
 
