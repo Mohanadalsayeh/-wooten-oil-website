@@ -1,4 +1,4 @@
-/* Ver663 — fixed dialog header/footer; only the notification settings body scrolls. */
+/* Ver664 — separate schedule notice; fixed dialog header/footer. */
 .wooten-push-settings-button{font:inherit!important;color:#193953!important;background:#edf3f7!important;border:1px solid #c9dbea!important;border-radius:10px!important;padding:10px 14px!important;min-height:44px!important;cursor:pointer!important;text-align:center!important;line-height:1.35!important}
 .wooten-push-menu-controls{padding:10px 14px;flex-shrink:0;border-top:1px solid #d7e3ec;background:#fff}
 .wooten-push-menu-controls .wooten-push-settings-button{width:100%!important}
@@ -27,7 +27,7 @@
 #wootenPushDialog [data-result]{margin-top:16px;padding:12px;border-radius:10px;background:#eff6fb;color:#193953}
 #wootenPushDialog .push-body>:last-child{margin-bottom:0}
 #wootenPushDialog [data-result][data-error=true]{background:#fff1f2;color:#a21338}
-#wootenPushDialog [data-install]{padding:12px;background:#fff8e8;border-radius:10px;color:#775216}
+#wootenPushDialog [data-install],#wootenPushDialog [data-health]{padding:12px;background:#fff8e8;border-radius:10px;color:#775216}
 #wootenPushDialog [data-busy=true]::before{content:'';display:inline-block;width:14px;height:14px;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:wootenPushSpin .8s linear infinite}
 @keyframes wootenPushSpin{to{transform:rotate(360deg)}}
 @media(max-width:600px){#wootenPushDialog .push-actions{flex-direction:column}#wootenPushDialog .push-actions button{width:100%;flex:auto}}

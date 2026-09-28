@@ -1,6 +1,7 @@
-/* Ver662 — device opt-in, durable event feed, current permission checks and delivery. */
+/* Ver664 — separate test cooldown, registration and delivery results. */
 import {configuration,subscription,digest,send} from './web-push.mjs';
-const json=(v,s=200)=>Response.json(v,{status:s,headers:{'Cache-Control':'no-store, private'}});
+const json=(v,s=200,headers={})=>Response.json(v,{status:s,headers:{'Cache-Control':'no-store, private',...headers}});
+const testWait=at=>Math.max(0,Math.ceil((Number(at||0)+60000-Date.now())/1000));
 const choices={customer:{payments:'Payments',documents:'Statements and documents',requests:'Fuel and profile request updates',messages:'Other portal messages'},admin:{requests:'Fuel and profile requests',applications:'Account applications',payments:'Online payments',fleet:'Fleet sync failures',mas90:'MAS 90 sync failures'}};
 const permissions={requests:'customer_requests',applications:'applications',payments:'payment_transactions',fleet:'fleet_cards',mas90:'mas90_health'};
 export function categories(role,actor){return Object.entries(choices[role]||{}).filter(([k])=>role==='customer'||actor?.owner===true||actor?.permissions?.includes(permissions[k])).map(([id,label])=>({id,label}));}
@@ -53,20 +54,34 @@ export async function handle({request,env,role,actor,transport=send}){
   await ensure(env);const db=env.DB,cfg=configuration(env);
   if(route==='status'&&request.method==='GET'){
    const id=new URL(request.url).searchParams.get('device')||'';
-   const saved=await db.prepare('SELECT id,categories,enabled,public_key,last_error,last_sent FROM web_push_devices WHERE id=? AND role=? AND principal=? AND account=?').bind(id,role,principal,account).first();
+   const saved=await db.prepare('SELECT id,categories,enabled,public_key,last_error,last_sent,test_at FROM web_push_devices WHERE id=? AND role=? AND principal=? AND account=?').bind(id,role,principal,account).first();
    const health=await db.prepare('SELECT last_run FROM web_push_health WHERE id=1').first();
-   return json({success:true,configured:!!cfg,publicKey:cfg?.publicKey||null,principal:await digest(role+':'+principal+':'+account),categories:available,device:saved?{id:saved.id,categories:JSON.parse(saved.categories),enabled:!!saved.enabled&&saved.public_key===cfg?.publicKey,last_error:saved.last_error,last_sent:saved.last_sent}:null,last_dispatch:health?.last_run||null});
+   return json({success:true,configured:!!cfg,publicKey:cfg?.publicKey||null,principal:await digest(role+':'+principal+':'+account),categories:available,device:saved?{id:saved.id,categories:JSON.parse(saved.categories),enabled:!!saved.enabled&&saved.public_key===cfg?.publicKey,last_error:saved.last_error,last_sent:saved.last_sent,test_retry_after_seconds:testWait(saved.test_at)}:null,last_dispatch:health?.last_run||null});
   }
   if(request.method!=='POST')return json({success:false},405);
   if(!sameOrigin(request))return json({success:false,error:'Use the portal to change notification settings.'},403);
   if(!cfg)return json({success:false,error:'Device notifications are awaiting portal setup.'},503);
   const b=await body(request);
   if(route==='test'){
-   const row=await db.prepare('UPDATE web_push_devices SET test_at=? WHERE id=? AND role=? AND principal=? AND account=? AND enabled=1 AND test_at<? RETURNING *').bind(Date.now(),String(b.id||''),role,principal,account,Date.now()-60000).first();
-   if(!row)return json({success:false,error:'Enable notifications first, or wait one minute before another test.'},429);
-   const result=await transport(env,JSON.parse(row.subscription),{title:'Wooten Oil',body:'Test notification. Your notification bell is still available in the portal.',tag:'wooten-test-'+row.id,role,device:row.id,target:'notifications'});
-   if(result.status<200||result.status>=300){if([404,410].includes(result.status))await db.prepare('DELETE FROM web_push_devices WHERE id=?').bind(row.id).run();return json({success:false,error:'The notification provider could not accept the test. Disable and enable notifications, then try again.'},502);}
-   return json({success:true,message:'Test accepted by your notification provider. Check your device notifications.'});
+   const now=Date.now(),id=String(b.id||'');
+   // Claim atomically: concurrent taps can send only one test per minute.
+   const row=await db.prepare('UPDATE web_push_devices SET test_at=? WHERE id=? AND role=? AND principal=? AND account=? AND enabled=1 AND public_key=? AND test_at<=? RETURNING *').bind(now,id,role,principal,account,cfg.publicKey,now-60000).first();
+   if(!row){
+    const device=await db.prepare('SELECT enabled,public_key,test_at FROM web_push_devices WHERE id=? AND role=? AND principal=? AND account=?').bind(id,role,principal,account).first();
+    if(!device||!device.enabled||device.public_key!==cfg.publicKey)return json({success:false,code:'device_not_enabled',error:'This device registration is no longer active. Enable notifications again, then send a test.'},409);
+    const seconds=testWait(device.test_at);
+    if(seconds)return json({success:false,code:'test_cooldown',retry_after_seconds:seconds,error:'Please wait '+seconds+' seconds before sending another test.'},429,{'Retry-After':String(seconds)});
+    return json({success:false,code:'test_state_changed',error:'Notification settings changed during the test. Reopen Device Notifications and try again.'},409);
+   }
+   try{
+    const result=await transport(env,JSON.parse(row.subscription),{title:'Wooten Oil',body:'Test notification. Your notification bell is still available in the portal.',tag:'wooten-test-'+row.id,role,device:row.id,target:'notifications'});
+    if([404,410].includes(result.status)){
+     await db.prepare('DELETE FROM web_push_devices WHERE id=?').bind(row.id).run();
+     return json({success:false,code:'device_not_enabled',error:'This device subscription expired. Enable notifications again, then send a test.'},409);
+    }
+    if(result.status<200||result.status>=300)return json({success:false,code:'test_provider_rejected',retry_after_seconds:testWait(now),error:'The notification provider rejected the test (HTTP '+result.status+'). Your alert choices are still saved.'},502);
+    return json({success:true,retry_after_seconds:testWait(now),message:'Test accepted by your notification provider. Check your device notifications.'});
+   }catch{return json({success:false,code:'test_delivery_failed',retry_after_seconds:testWait(now),error:'The test could not reach the notification provider. Your alert choices are still saved. Try again when Send Test becomes available.'},502);}
   }
   const sub=subscription(b.subscription),allowed=new Set(available.map(x=>x.id));
   const selected=[...new Set(Array.isArray(b.categories)?b.categories:[])];
