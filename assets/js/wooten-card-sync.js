@@ -1,11 +1,11 @@
-/* Ver672: card sync button and tab track queued/running website collection. */
+/* Ver674: numeric date/time display; card sync activity from Ver672 retained. */
 (function(){
  'use strict';
  const root=document.getElementById('websiteCardSync'),panel=document.getElementById('admin-tab-intevacon-api-test');if(!root||!panel)return;
  const get=s=>root.querySelector(s),key=()=>document.getElementById('adminKey')?.value.trim()||'';
  const allowed=()=>!!key()&&!!window.wootenAdminUser&&(window.WootenAdminAccess?.has?window.WootenAdminAccess.has(window.wootenAdminUser,'fleet_cards'):window.wootenAdminUser.owner===true||window.wootenAdminUser.permissions?.includes('fleet_cards'));
  const active=()=>!panel.hidden&&allowed();
- const date=v=>v?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',dateStyle:'medium',timeStyle:'short'}).format(new Date(v))+' CT':'—';
+ const date=v=>window.WootenIntevaconDates?.central(v)??(v?String(v):'—');
  let generation=0,busy=false,dirty=false,configured=false,controller=null;
  let syncRequestPending=false,serverRunning=false,serverRequested=false;
  function syncControls(){

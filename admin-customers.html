@@ -7289,7 +7289,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <input id="apiTestSearch" type="search" placeholder="Search transaction, customer, card, merchant, driver or product…" autocomplete="off">
     <div class="api-test-summary" id="apiTestSummary"></div>
     <p id="apiTestResultMeta"></p>
-    <p class="api-test-help">Dates are displayed as returned by the API. Quantities use Intevacon’s units. Totals reflect reported values across all returned statuses, including declined or cancelled records if present. Choose a transaction number to inspect its products and quantities.</p>
+    <p class="api-test-help">Dates use MM/DD/YYYY hh:mm AM/PM and keep Intevacon’s reported time. Quantities use Intevacon’s units. Totals reflect reported values across all returned statuses, including declined or cancelled records if present. Choose a transaction number to inspect its products and quantities.</p>
     <div class="api-test-table-wrap"><table data-auto-pdf="false" aria-label="Intevacon API test transactions"><thead><tr><th scope="col">Trans #</th><th scope="col">Received (API)</th><th scope="col">API Customer ID</th><th scope="col">Cardholder</th><th scope="col">Card number</th><th scope="col">Merchant</th><th scope="col">Fuel quantity</th><th scope="col">Sale amount</th><th scope="col">Status</th></tr></thead><tbody id="apiTestRows"></tbody></table></div>
     <p id="apiTestRange" class="db-page-info" aria-live="polite"></p>
         <div class="db-pagination api-test-pager"><button class="secondary" id="apiTestPrev" type="button" disabled>Previous</button><div class="db-page-info" id="apiTestPage">Page 1 of 1</div><button class="secondary" id="apiTestNext" type="button" disabled>Next</button></div>
@@ -18088,8 +18088,9 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=661">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=673">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=672"></script>
-<script src="assets/js/wooten-card-sync.js?v=672"></script>
+<script src="assets/js/wooten-intevacon-dates.js?v=674"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=674"></script>
+<script src="assets/js/wooten-card-sync.js?v=674"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}

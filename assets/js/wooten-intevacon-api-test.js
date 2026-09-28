@@ -1,4 +1,4 @@
-/* Ver672: API transaction sync button and tab show independent progress. */
+/* Ver674: numeric display dates; raw API timestamps remain intact for sorting. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -13,7 +13,7 @@
     ? value.toLocaleString('en-US', {maximumFractionDigits: digits}) : '—';
   const money = value => typeof value === 'number' && Number.isFinite(value)
     ? value.toLocaleString('en-US', {style: 'currency', currency: 'USD'}) : '—';
-  const sourceDate = value => value ? String(value).replace('T', ' ') : '—';
+  const sourceDate = value => window.WootenIntevaconDates?.source(value) ?? (value ? String(value).replace('T', ' ') : '—');
   function element(tag, value, className) {
     const el = document.createElement(tag);
     if (value != null) el.textContent = String(value);
@@ -270,7 +270,7 @@
     message(''); defaults(); refreshControls(); pollSchedule();
   });
   let lastCompleted = null, scheduleLoaded = false, pollBusy = false;
-  const stamp = value => value ? new Date(value).toLocaleString('en-US', {timeZone:'America/Chicago',timeZoneName:'short'}) : '—';
+  const stamp = value => window.WootenIntevaconDates?.central(value) ?? sourceDate(value);
   async function portalRequest(path, options = {}) {
     const credential = key(), epoch = generation;
     const response = await fetch('/api/admin/fleet/' + path, {...options, credentials:'same-origin',cache:'no-store',

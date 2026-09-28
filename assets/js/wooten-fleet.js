@@ -1,12 +1,12 @@
-// Ver661: saved website cards; fresh customer-scoped API transactions.
+// Ver674: consistent display dates for saved website cards and fresh API transactions.
 /* Ver656 — customer-initiated API refresh with session-scoped cards and transactions. */
 (function(){
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const periodLabel=days=>({30:'Last 30 days',21:'Last 3 weeks',14:'Last 2 weeks',7:'Last 1 week'}[days]||'Last 30 days');
-const central=v=>v?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',dateStyle:'medium',timeStyle:'short'}).format(new Date(v))+' CT':'Not synced yet';
+const central=v=>window.WootenIntevaconDates?.central(v,'Not synced yet')??(v?String(v):'Not synced yet');
 const quantity=v=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-US',{maximumFractionDigits:6}):'—';
-const sourceDate=v=>v?String(v).replace('T',' '):'—';
+const sourceDate=v=>window.WootenIntevaconDates?.source(v)??(v?String(v).replace('T',' '):'—');
 const fieldLabel=k=>({ID:'Transaction number',CustomerID:'Customer ID',AuthRef:'Authorization reference',InvoiceID:'Intevacon invoice ID',CardHolderOrgID:'Cardholder organization ID',MerchantOrgID:'Merchant organization ID',RawVehicleID:'Raw vehicle ID',RawDriverID:'Raw driver ID'}[k]||k.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z])ID$/,'$1 ID'));
 const fieldValue=(key,value)=>value==null||value===''?'—':typeof value==='boolean'?(value?'Yes':'No'):/DateTime$/.test(key)?sourceDate(value):typeof value==='number'?(/Amount|TotalAmountOfSale/.test(key)?dollars(value.toFixed(2)):quantity(value)):String(value);
 function dollars(value){
@@ -32,13 +32,13 @@ function driverVehicleDetails(r){
 // The source transaction export's 18 checked columns, in source order.
 const adminTransactionColumns=[
  ['Received On',r=>r.received_at?central(r.received_at):'—'],
- ['Trans #',r=>r.transaction_id,'transaction'],['Local Date/Time',r=>r.local_date_time],
+ ['Trans #',r=>r.transaction_id,'transaction'],['Local Date/Time',r=>sourceDate(r.local_date_time)],
  ['Entry Method',r=>r.entry_method],['Decline Reason',r=>r.decline_reason],
  ['Merchant',r=>r.merchant],['Auth Ref',r=>r.auth_ref],['Card Number',r=>r.card_number,'card'],
  ['Total Sale',r=>dollars(r.total_sale),'money'],['Billable Amount',r=>dollars(r.billable_amount),'money'],
  ['Cardholder',r=>r.cardholder],['Driver#',r=>r.driver_number],['Driver Name',r=>r.driver_name||r.driver],
  ['Vehicle#',r=>r.vehicle_number],['Vehicle Desc',r=>r.vehicle_description||r.vehicle],
- ['Raw VehicleID',r=>r.raw_vehicle_id],['Odometer',r=>r.odometer],['Processed On',r=>r.processed_on]
+ ['Raw VehicleID',r=>r.raw_vehicle_id],['Odometer',r=>r.odometer],['Processed On',r=>sourceDate(r.processed_on)]
 ];
 const customerTransactionColumns=[
  ['Trans #',r=>r.transaction_id,'transaction','transaction_id'],['Received On',r=>sourceDate(r.received_at),'','received_at'],
@@ -80,7 +80,7 @@ function adminTransactionCells(r,index){return adminTransactionColumns.map(([,va
 function fleetPdfData(kind,items){
  const account=r=>(r.account_number||'Unmatched')+(r.needs_review?' (Needs account review)':'');
  if(kind==='cards')return {headers:['Portal account','Card number','Status','Cardholder','Assigned to','Driver / Vehicle'],rows:items.map(r=>[account(r),r.card_number,r.status,r.cardholder,r.assigned_to||'—',[r.driver_no||'—',r.vehicle_no||'—'].join(' / ')])};
- return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Entry / Auth Ref','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+(r.local_date_time||'—'),'Received: '+central(r.received_at),r.processed_on?'Processed: '+r.processed_on:'',r.posted_on?'Posted: '+r.posted_on:'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Entry method: '+(r.entry_method||'—')+' / Auth Ref: '+(r.auth_ref||'—'),driverVehicleDetails(r).join('; ')])};
+ return {headers:['Portal account','Transaction / Invoice','Total Sale','Billable Amount','Dates / Location','Card number','Cardholder','Status / Type','Entry / Auth Ref','Driver / Vehicle'],rows:items.map(r=>[account(r),r.transaction_id+' / Invoice: '+(r.invoice_number||'—'),dollars(r.total_sale),dollars(r.billable_amount),['Local: '+sourceDate(r.local_date_time),'Received: '+central(r.received_at),r.processed_on?'Processed: '+sourceDate(r.processed_on):'',r.posted_on?'Posted: '+sourceDate(r.posted_on):'',[r.merchant,r.merchant_city].filter(Boolean).join(', ')].filter(Boolean).join('; '),r.card_number,r.cardholder,[r.status,r.transaction_type,r.decline_reason].filter(Boolean).join(' / '),'Entry method: '+(r.entry_method||'—')+' / Auth Ref: '+(r.auth_ref||'—'),driverVehicleDetails(r).join('; ')])};
 }
 function fleetSortKeys(kind,admin){
  if(!admin)return (kind==='cards'?customerCardColumns:customerTransactionColumns).map(column=>column[3]);
@@ -241,7 +241,7 @@ function mount(root,admin){
    live.dataset.state=lastLiveState||'not_loaded';
   }
   if(websiteCards)get('[data-meta]').textContent=data.notice;
-  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-sales]').textContent=dollars(data.summary.total_sale);get('[data-meta]').textContent+=' · '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Transaction dates are shown as supplied by Intevacon.';}
+  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-sales]').textContent=dollars(data.summary.total_sale);get('[data-meta]').textContent+=' · '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Dates use MM/DD/YYYY hh:mm AM/PM; transaction times follow Intevacon’s reported time.';}
   const headers=!admin?(kind==='cards'?customerCardColumns:customerTransactionColumns).map(([label])=>label):kind==='transactions'?adminTransactionColumns.map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
