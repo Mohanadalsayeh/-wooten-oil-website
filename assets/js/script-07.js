@@ -487,6 +487,8 @@
       row && row.delivery_date,
       row && row.delivery_address,
       row && row.notes,
+      row && row.status,
+      row && row.admin_response,
       row && row.received_at
     ].map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ');
   }
@@ -617,10 +619,39 @@
 
       card.appendChild(grid);
 
+      var status=String(r.status||'pending').trim().toLowerCase();
+      if(['pending','accepted','denied'].indexOf(status)===-1)status='pending';
+      var response=document.createElement('section');
+      response.className='fuel-history-admin-response';
+      response.setAttribute('aria-label','Wooten Oil response');
+      var responseHead=document.createElement('div');
+      responseHead.className='fuel-history-response-head';
+      var responseTitle=document.createElement('strong');
+      responseTitle.textContent='Wooten Oil response';
       var badge=document.createElement('span');
       badge.className='fuel-history-badge';
-      badge.textContent='Submitted';
-      card.appendChild(badge);
+      badge.dataset.status=status;
+      badge.textContent=status.charAt(0).toUpperCase()+status.slice(1);
+      responseHead.appendChild(responseTitle);
+      responseHead.appendChild(badge);
+      response.appendChild(responseHead);
+
+      var adminNote=document.createElement('p');
+      adminNote.className='fuel-history-admin-note';
+      adminNote.textContent=String(r.admin_response||'').trim()||
+        (status==='pending'&&!r.decision_at?'Your request is waiting for review by the Wooten Oil team.':'No note was added.');
+      response.appendChild(adminNote);
+      if(r.decision_at){
+        var responseDate=document.createElement('p');
+        responseDate.className='fuel-history-response-updated';
+        responseDate.appendChild(document.createTextNode('Last updated: '));
+        var dateValue=document.createElement('span');
+        dateValue.className='fuel-history-decision-date';
+        dateValue.textContent=historyDate(r.decision_at);
+        responseDate.appendChild(dateValue);
+        response.appendChild(responseDate);
+      }
+      card.appendChild(response);
 
       fuelHistoryList.appendChild(card);
     });

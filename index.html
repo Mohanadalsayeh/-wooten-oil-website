@@ -899,7 +899,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
             type="search"
             id="fuelHistorySearch"
             class="fuel-history-search"
-            placeholder="Search request #, fuel type, address, gallons, notes..."
+            placeholder="Search request #, fuel type, status, notes..."
             autocomplete="off"
             aria-label="Search fuel request history"
           >
@@ -1442,7 +1442,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=478"></script>
+<script src="assets/js/script-07.js?v=670"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -4252,6 +4252,33 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
   printButton.addEventListener('click',printAccountSummary);
 })();
 </script>
+<style id="wooten-fuel-history-response-ver670">
+#customerFuelHistory .fuel-history-card{height:auto;min-height:0;max-height:none}
+#customerFuelHistory .fuel-history-admin-response{
+  margin-top:16px;padding:14px 16px;border:1px solid #d5e2ed;
+  border-radius:12px;background:#fff;min-width:0;
+}
+#customerFuelHistory .fuel-history-response-head{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+}
+#customerFuelHistory .fuel-history-response-head>strong{font-size:14px;color:#173650}
+#customerFuelHistory .fuel-history-admin-response .fuel-history-badge{
+  display:inline-flex;align-items:center;margin:0;padding:6px 12px;max-width:100%;
+  border-radius:999px;font-size:13px;font-weight:700;line-height:1.4;
+}
+#customerFuelHistory .fuel-history-badge[data-status="pending"]{background:#fff4d6;color:#805405}
+#customerFuelHistory .fuel-history-badge[data-status="accepted"]{background:#e9f7ef;color:#1a713e}
+#customerFuelHistory .fuel-history-badge[data-status="denied"]{background:#fff0f1;color:#a41e36}
+#customerFuelHistory .fuel-history-admin-note{
+  margin:10px 0 0;font-size:14px;line-height:1.6;color:#304b61;
+  white-space:pre-wrap;overflow-wrap:anywhere;
+}
+#customerFuelHistory .fuel-history-response-updated{margin:8px 0 0;font-size:12px;line-height:1.5;color:#64778c}
+@media(max-width:600px){
+  #customerFuelHistory .fuel-history-admin-response{padding:12px}
+  #customerFuelHistory .fuel-history-response-head{justify-content:flex-start}
+}
+</style>
 <style id="wooten-fuel-history-print-ver419">
 .fuel-history-print-actions{
   display:flex;
@@ -4306,7 +4333,9 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       gallons:clean(cardField(card,'Estimated Gallons')),
       deliveryDate:clean(cardField(card,'Preferred Delivery Date')),
       address:clean(cardField(card,'Delivery Address')),
-      notes:clean(cardField(card,'Notes'))
+      notes:clean(cardField(card,'Notes')),
+      adminResponse:clean(card.querySelector('.fuel-history-admin-note')?.textContent),
+      decisionAt:clean(card.querySelector('.fuel-history-decision-date')?.textContent)
     };
   }
   function safe(data,key){return escapeHtml(data[key]);}
@@ -4320,6 +4349,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '.title{text-align:right}.title h1{margin:0;font-size:23px}.status{display:block;margin-top:6px;color:#117443;font-weight:700}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0}'+
       '.label{display:block;margin-bottom:5px;color:#718196;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.value{font-weight:700;overflow-wrap:anywhere}.section-title{margin:14px 0 8px;font-size:13px;font-weight:700}'+
       '.details{display:grid;grid-template-columns:repeat(2,1fr);gap:0 24px;border-top:1px solid #dfe7ed}.detail{padding:13px 4px;border-bottom:1px solid #dfe7ed}.wide{grid-column:1/-1}.notes{min-height:64px}'+
+      '.response{margin-top:18px;padding:14px;border:1px solid #dfe7ed;border-radius:10px;break-inside:avoid}.response .value{font-weight:400;line-height:1.5;white-space:pre-wrap}.response .updated{margin-top:10px;font-size:10px;color:#617489}.status{color:#173650}'+
       '.note{margin:20px 0 0;color:#617489;font-size:10px;line-height:1.5}.footer{margin-top:30px;padding-top:10px;border-top:1px solid #dfe7ed;color:#718196;text-align:center;font-size:9px}'+
       '.screen-actions{display:flex;justify-content:center;gap:10px;margin:26px auto 0}.screen-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 22px;border:1px solid #173650;border-radius:10px;background:#173650;color:#fff;font:inherit;font-weight:700;cursor:pointer}.screen-actions .close{border-color:#cbd8e3;background:#eef3f7;color:#17314b}.screen-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}'+
       '@media screen and (max-width:620px){html,body{min-height:100%;font-size:14px}body{padding:22px}.receipt{min-height:0}.head{display:grid;gap:18px}.title{text-align:left}.title h1{font-size:23px}.meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.meta>div:last-child{grid-column:1/-1}.label{font-size:11px}.amount{padding:14px}.amount strong{font-size:25px}table thead{display:none}table tr{display:block}table td{display:block;padding:10px 0}table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#718196;font-size:11px;font-weight:700;text-transform:uppercase}.note{font-size:12px}.footer{font-size:11px}}'+
@@ -4328,6 +4358,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<header class="head"><div class="brand"><div class="mark">WO</div><div><div class="company">WOOTEN OIL CO INC.</div><div class="place">Covington, Tennessee</div></div></div><div class="title"><h1>Fuel Request</h1><span class="status">'+safe(data,'status')+'</span></div></header>'+
       '<section class="meta"><div><span class="label">Customer</span><div class="value">'+safe(data,'customer')+'</div></div><div><span class="label">Customer number</span><div class="value">'+safe(data,'customerNumber')+'</div></div><div><span class="label">Request number</span><div class="value">'+safe(data,'number')+'</div></div><div><span class="label">Submitted</span><div class="value">'+safe(data,'submitted')+'</div></div></section>'+
       '<div class="section-title">Request details</div><section class="details"><div class="detail"><span class="label">Fuel type</span><div class="value">'+safe(data,'fuelType')+'</div></div><div class="detail"><span class="label">Estimated gallons</span><div class="value">'+safe(data,'gallons')+'</div></div><div class="detail"><span class="label">Preferred delivery date</span><div class="value">'+safe(data,'deliveryDate')+'</div></div><div class="detail wide"><span class="label">Delivery address</span><div class="value">'+safe(data,'address')+'</div></div><div class="detail wide notes"><span class="label">Notes</span><div class="value">'+safe(data,'notes')+'</div></div></section>'+
+      '<section class="response"><span class="label">Wooten Oil response — '+safe(data,'status')+'</span><div class="value">'+safe(data,'adminResponse')+'</div>'+(data.decisionAt!=='—'?'<div class="updated">Last updated: '+safe(data,'decisionAt')+'</div>':'')+'</section>'+
       '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Request</span></button></div>'+
       '</main></body></html>';
