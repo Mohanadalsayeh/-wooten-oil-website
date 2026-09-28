@@ -1,4 +1,4 @@
-/* Ver664 — separate save/test results and visible test cooldown. */
+/* Ver680 — reuse an authenticated admin window when opening device notifications. */
 (function(){
  'use strict';
  const role=document.getElementById('adminNotificationBell')?'admin':'customer',storageKey='wooten-push-device-'+role;
@@ -155,10 +155,24 @@
   const account=document.getElementById('acctNumber');if(account)new MutationObserver(changed).observe(account,{childList:true,subtree:true,characterData:true});
  }
  if('serviceWorker'in navigator)navigator.serviceWorker.addEventListener('message',e=>{
-  if(e.data?.role!==role||e.data.device!==read()?.id||!signedIn())return;
+  const saved=read(),matches=!!saved&&e.data?.role===role&&e.data.device===saved.id;
+  if(e.data?.type==='wooten-push-client-status'){
+   const ready=matches&&signedIn()&&(!saved.identity||saved.identity===identity())&&!(role==='admin'&&document.body.classList.contains('admin-login-locked'));
+   e.ports?.[0]?.postMessage({ready:!!ready});
+   return;
+  }
+  if(!matches)return;
+  // Keep an admin alert pending while that window restores or requests its login.
+  if(role==='admin'&&e.data.type==='wooten-push-open'){
+   pendingOpen=['fleet','mas90'].includes(e.data.target)?e.data.target:'notifications';openPending();return;
+  }
+  if(!signedIn())return;
   if(e.data.type==='wooten-push-open'){pendingOpen=e.data.target||'notifications';openPending();}
   if(e.data.type==='wooten-push-refresh')refreshBell();
  });
+ // The notification worker has a narrow scope, so portal navigation alone may
+ // not update it. Check its existing registration without enabling notifications.
+ if(role==='admin'&&'serviceWorker'in navigator)registration(false).then(r=>r?.update()).catch(()=>{});
  window.addEventListener('storage',event=>{if(event.key===storageKey&&dialog.open)refresh();});
  window.addEventListener('online',()=>{const s=read();if(s&&!signedIn())remove(s).catch(()=>{});else if(dialog.open)refresh();});
  // Authentication may finish after page load; existing auth observers handle that event.
