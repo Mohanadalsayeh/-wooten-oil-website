@@ -5658,6 +5658,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 .schedule-email-spinner{display:inline-block;width:14px;height:14px;box-sizing:border-box;border:2px solid #c7d7e4;border-top-color:#173e5b;border-radius:50%;animation:statement-processing-spin .8s linear infinite;flex:0 0 14px}
 @media(prefers-reduced-motion:reduce){.schedule-email-spinner{animation:none}}
 </style>
+<link rel="manifest" href="/push/admin/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/push/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="assets/css/wooten-push.css?v=662">
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -14895,7 +14899,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
  const key=()=>g('adminKey')?.value.trim()||'';
- const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
+ const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='fleet'?'fleet_cards':type==='mas90'?'mas90_health':type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
  const time=v=>v?WootenTime.dateTime(v):'';
@@ -14909,7 +14913,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  }
  async function load(append=false,force=false){
    const token=key();if(token!==activeKey){controller?.abort();controller=null;flight=null;activeKey=token;clear();}
-   const canRead=allowed('application')||allowed('fuel')||allowed('payment');bell.closest('.admin-bell-shell').hidden=!canRead;
+   const canRead=allowed('application')||allowed('fuel')||allowed('payment')||allowed('fleet')||allowed('mas90');bell.closest('.admin-bell-shell').hidden=!canRead;
    if(!token||!canRead){controller?.abort();controller=null;flight=null;clear();menu.hidden=true;bell.setAttribute('aria-expanded','false');return;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
    lastAttempt=Date.now();const abort=new AbortController();controller=abort;
    refresh.disabled=true;refresh.classList.add('is-loading');refresh.setAttribute('aria-busy','true');more.disabled=true;more.textContent=append?'Loading...':'Load More';
@@ -15455,6 +15459,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <style>#invoiceDbTable{min-width:1120px}#invoiceDbTable .invoice-comment-cell{min-width:220px;max-width:360px;white-space:normal;overflow-wrap:anywhere}</style>
 <style>#invoiceDbTable .invoice-comment-cell{white-space:pre-wrap}</style>
+<script defer src="assets/js/wooten-push.js?v=662"></script>
 </body>
 </html>
 

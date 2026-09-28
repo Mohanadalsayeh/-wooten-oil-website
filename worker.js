@@ -17,6 +17,8 @@ import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as IntevaconApiSchedule from './fleet/intevacon-api-schedule.mjs';
 import {handleCustomer as customerApiFleet} from './fleet/intevacon-customer-api.mjs';
 import * as IntevaconCards from './fleet/intevacon-cards.mjs';
+import * as PortalPush from './notifications/push.mjs';
+import {digest as pushDigest} from './notifications/web-push.mjs';
 export {IntevaconApiScheduler} from './fleet/intevacon-api-schedule.mjs';
 import './assets/js/wooten-admin-access.js';
 const adminAccess=globalThis.WootenAdminAccess;
@@ -11452,7 +11454,7 @@ function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/database-backups"))return "database_backup";
   if(path.startsWith("/api/admin/request-center"))return "customer_requests";
   if(path==="/api/admin/mas90-health")return "mas90_health";
-  if(path==="/api/admin/notification-bell")return ["customer_requests","applications","payment_transactions"];
+  if(path==="/api/admin/notification-bell")return ["customer_requests","applications","payment_transactions","fleet_cards","mas90_health"];
   if(path.startsWith("/api/admin/users"))return "manage_users";
   if(path.startsWith("/api/admin/credit-collections"))return "collections";
   if(path.includes("mas90-sync"))return "database";
@@ -11907,7 +11909,7 @@ async function adminNotificationBellGet({request,env,actor}){
     const requestsAllowed=adminAccess.has(actor,'customer_requests');
     const applicationsAllowed=adminAccess.has(actor,'applications');
     const paymentsAllowed=adminAccess.has(actor,'payment_transactions');
-    if(!requestsAllowed&&!applicationsAllowed&&!paymentsAllowed)return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
+    if(!requestsAllowed&&!applicationsAllowed&&!paymentsAllowed&&!adminAccess.has(actor,'fleet_cards')&&!adminAccess.has(actor,'mas90_health'))return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
     await ensureRequestCenterSchema(env);
     await Heartland.ensureSchema(env,heartlandHelpers());
     const params=new URL(request.url).searchParams;
@@ -11949,6 +11951,7 @@ const PORTAL_DATABASE_BACKUP_PREFIX="portal-database-backups/";
 const PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION=30;
 const PORTAL_DATABASE_BACKUP_ROW_BATCH=1000;
 const PORTAL_DATABASE_BACKUP_EXCLUDED_TABLES=new Set([
+  "web_push_devices", "web_push_events", "web_push_health",
   "admin_sessions",
   "customer_sessions",
   "shared_email_password_reset_tokens",
@@ -12385,9 +12388,48 @@ async function ensureDailyPortalDatabaseBackup(env){
   }catch(error){console.error("Automatic portal database backup failed",error);}
 }
 
+// Ver662: independent device subscriptions; existing bell routes remain authoritative.
+async function pushActor(request,env,role){
+  if(role==='customer'){
+    const customer=await getCustomerFromSession(request,env);
+    return customer?{...customer,pushId:String(customer.id)}:null;
+  }
+  const credential=String(request.headers.get('X-Admin-Key')||'');
+  if(env.ADMIN_IMPORT_KEY&&credential===String(env.ADMIN_IMPORT_KEY))return {owner:true,pushId:'owner:'+await pushDigest(credential),permissions:ADMIN_PERMISSION_KEYS};
+  const session=await adminSessionFromCredential(env,credential);
+  return session?{owner:false,pushId:String(session.user_id),permissions:session.permissions}:null;
+}
+async function pushRecipient(env,device){
+  if(device.role==='customer')return env.DB.prepare("SELECT id FROM customers WHERE id=? AND account_number=? AND lower(trim(account_status))='active'").bind(device.principal,device.account).first();
+  if(device.principal.startsWith('owner:'))return env.ADMIN_IMPORT_KEY&&device.principal==='owner:'+await pushDigest(String(env.ADMIN_IMPORT_KEY))?{owner:true}:null;
+  const user=await env.DB.prepare('SELECT permissions FROM admin_users WHERE id=? AND active=1').bind(device.principal).first();
+  return user?{owner:false,permissions:adminSafePermissions(user.permissions)}:null;
+}
+const pushInitialized=new WeakMap();
+async function initializePush(env){
+  if(pushInitialized.has(env.DB))return pushInitialized.get(env.DB);
+  const task=(async()=>{
+  await ensureCustomerNotificationsTable(env);
+  await ensureRequestCenterSchema(env);
+  await ensureAdminUsersTables(env);
+  await Heartland.ensureSchema(env,heartlandHelpers());
+  await PortalPush.ensure(env,true);
+  })();pushInitialized.set(env.DB,task);try{await task;}catch(error){pushInitialized.delete(env.DB);throw error;}
+}
+async function runPortalPush(env){
+  try{await PortalPush.pump(env,s=>pushRecipient(env,s));}catch{console.error('Device notification delivery will retry on the next scheduled run.');}
+}
+
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if(url.pathname==='/api/push/revoke')return PortalPush.revoke({request,env});
+    const pushRoute=url.pathname.match(/^\/api\/push\/(customer|admin)\/(status|subscribe|test)$/);
+    if(pushRoute){
+      const role=pushRoute[1],actor=await pushActor(request,env,role);
+      if(actor){try{await initializePush(env);}catch{return notificationJson({success:false,error:'Notification setup is temporarily unavailable.'},503);}}
+      return PortalPush.handle({request,env,role,actor});
+    }
     if(url.pathname==="/api/admin/auth/login"){
       if(request.method==="POST")return adminAuthLogin({request,env});
       return methodNotAllowed();
@@ -13030,13 +13072,17 @@ return env.ASSETS.fetch(request);
   },
 
   async scheduled(controller, env, ctx) {
+    // Add this cron alongside the existing payment and hourly triggers.
+    if(controller.cron==='* * * * *'){ctx.waitUntil(runPortalPush(env));return;}
     if(controller.cron==='*/2 * * * *'){
       ctx.waitUntil((async()=>{
         await Promise.allSettled([reconcileHostedPayments(env),Heartland.scheduled(env,heartlandHelpers())]);
         await dispatchPaymentNotices(env);
+        await runPortalPush(env);
       })());
       return;
     }
+    ctx.waitUntil(runPortalPush(env));
     // The hourly maintenance trigger runs these jobs once and checks whether
     // the local Central-Time backup hour has arrived.
     ctx.waitUntil(syncGmailSentToPortal(env,{force:true,maxMessages:100}));

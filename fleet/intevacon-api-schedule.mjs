@@ -1,3 +1,4 @@
+import {recordFleetFailure} from '../notifications/push.mjs';
 // Ver658: fresh customer-scoped requests; admin scheduling remains independent.
 // Ver651: automatic runs always retrieve all cards.
 // Ver650: one durable scheduler for the issuer; cached admin results only.
@@ -143,13 +144,16 @@ export class IntevaconApiScheduler {
     const failures=(old.failures||0)+1;
     delay=Math.max(60000,Math.min(1800000,30000*2**Math.min(failures,6)),Number(r.headers.get('Retry-After')||0)*1000);
     await this.ctx.storage.put('status',{...old,state:'error',lastAttempt:new Date(now).toISOString(),error:data.error||'API sync failed.',failures});
+    if(failures===1)await recordFleetFailure(this.env,String(now));
    }
    const retryAfterSeconds=Math.ceil(delay/1000);
    return response({...data,retryAfterSeconds},r.status,r.status===429?{'Retry-After':String(retryAfterSeconds)}:{});
   }catch{
    delay=60000;
    const old=await this.ctx.storage.get('status')||{};
-   await this.ctx.storage.put('status',{...old,state:'error',error:'Sync was interrupted. The last successful results were kept.'});
+   const failures=(old.failures||0)+1;
+   await this.ctx.storage.put('status',{...old,state:'error',failures,error:'Sync was interrupted. The last successful results were kept.'});
+   if(failures===1)await recordFleetFailure(this.env,String(now));
    return response({success:false,error:'Sync was interrupted. The last successful results were kept.',retryAfterSeconds:60},502);
   }finally{
    const c=await this.ctx.storage.get('config')||defaults;
