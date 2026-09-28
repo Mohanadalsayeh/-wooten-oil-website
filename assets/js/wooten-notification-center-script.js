@@ -36,6 +36,7 @@
   }
 
   function renderError(message){
+    lastRenderSignature='';
     var els=notificationElements();
     var html='<div class="notification-empty" style="color:#a12622">'+
       escapeHtml(message||'Unable to load notifications.')+
@@ -48,8 +49,23 @@
     if(els.headerBadge) els.headerBadge.style.display='none';
   }
 
+  function notificationTime(value){
+    var text=String(value||'').trim();
+    // SQLite timestamps have no zone suffix; the API stores them in UTC.
+    if(/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(text)){
+      text=text.replace(' ','T')+'Z';
+    }
+    var time=Date.parse(text);
+    return Number.isFinite(time)?time:-Infinity;
+  }
+
   function renderItems(items,force){
-    items=Array.isArray(items)?items:[];
+    items=(Array.isArray(items)?items:[]).slice().sort(function(a,b){
+      var aTime=notificationTime(a.created_at),bTime=notificationTime(b.created_at);
+      if(aTime!==bTime) return aTime>bTime?-1:1;
+      return (Number(b.id)||0)-(Number(a.id)||0);
+    });
+    window.wootenNotificationsLoaded=true;
     cachedItems=items;
     window.wootenNotificationCache=items;
 
@@ -63,11 +79,13 @@
     var badgeText=unread>9?'9+':String(unread);
 
     if(els.badge){
+      els.badge.dataset.unreadCount=String(unread);
       els.badge.textContent=badgeText;
       els.badge.style.display=unread?'block':'none';
     }
 
     if(els.headerBadge){
+      els.headerBadge.dataset.unreadCount=String(unread);
       els.headerBadge.textContent=badgeText;
       els.headerBadge.style.display=unread?'block':'none';
     }
@@ -173,7 +191,7 @@
         var items=Array.isArray(data.notifications)?data.notifications:[];
         lastNotificationLoadFailed=false;
         renderItems(items);
-        return items;
+        return cachedItems;
       }catch(error){
         if(generation!==notificationLoadGeneration || (error && error.name==='AbortError')) return cachedItems;
         lastNotificationLoadFailed=true;
@@ -296,7 +314,8 @@
   };
 
   window.wootenAddCustomerNotification=function(){
-    return window.wootenRenderCustomerNotifications();
+    // A just-saved request must not reuse a fetch started before its receipt.
+    return window.wootenRenderCustomerNotifications('',{supersede:true});
   };
 
   function openNotificationItem(item){
@@ -333,57 +352,32 @@
     });
   }
 
-  /* Defensive bell behavior: make both customer bells work even if an earlier
-     portal handler was interrupted by another page script. */
-  function toggleNotificationSurface(source){
-    var headerMenu=document.getElementById('headerNotificationMenu');
-    var dashboardPanel=document.getElementById('dashboardNotificationPanel');
-
-    window.wootenRenderCustomerNotifications();
-
-    if(source==='dashboard' && dashboardPanel){
-      var willOpen=!dashboardPanel.classList.contains('show');
-      dashboardPanel.classList.toggle('show',willOpen);
-      var dashboardBell=document.getElementById('dashboardNotifications');
-      if(dashboardBell) dashboardBell.setAttribute('aria-expanded',willOpen?'true':'false');
-      return;
-    }
-
-    if(headerMenu){
-      headerMenu.classList.toggle('show');
-    }
+  /* One owner for each bell: older portal listeners must not toggle again or
+     refresh on close. Fetches already in flight for this account are shared. */
+  function bindNotificationBell(bellId,surfaceId,listId){
+    var bell=document.getElementById(bellId);
+    var surface=document.getElementById(surfaceId);
+    if(!bell || !surface || bell.dataset.notificationOpenBound) return;
+    bell.dataset.notificationOpenBound='1';
+    bell.addEventListener('click',function(event){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var willOpen=!surface.classList.contains('show');
+      surface.classList.toggle('show',willOpen);
+      bell.setAttribute('aria-expanded',willOpen?'true':'false');
+      if(!willOpen) return;
+      if(typeof window.wootenCloseMainMenu==='function') window.wootenCloseMainMenu();
+      var list=document.getElementById(listId);
+      if(list) list.scrollTop=0;
+      window.wootenRenderCustomerNotifications();
+    },true);
+    // Keep accessibility state in sync with existing X/outside-click handlers.
+    new MutationObserver(function(){
+      bell.setAttribute('aria-expanded',surface.classList.contains('show')?'true':'false');
+    }).observe(surface,{attributes:true,attributeFilter:['class']});
   }
-
-  var headerBell=document.getElementById('mobileHeaderNotifications');
-  if(headerBell && !headerBell.dataset.notificationFallbackBound){
-    headerBell.dataset.notificationFallbackBound='1';
-    headerBell.addEventListener('click',function(e){
-      /* Earlier customer-portal handler normally handles this. If it did not
-         produce a visible menu, make sure the menu is visible now. */
-      setTimeout(function(){
-        var menu=document.getElementById('headerNotificationMenu');
-        if(menu && !menu.classList.contains('show')){
-          window.wootenRenderCustomerNotifications();
-          menu.classList.add('show');
-        }
-      },0);
-    });
-  }
-
-  var dashboardBell=document.getElementById('dashboardNotifications');
-  if(dashboardBell && !dashboardBell.dataset.notificationFallbackBound){
-    dashboardBell.dataset.notificationFallbackBound='1';
-    dashboardBell.addEventListener('click',function(){
-      setTimeout(function(){
-        var panel=document.getElementById('dashboardNotificationPanel');
-        if(panel && !panel.classList.contains('show')){
-          window.wootenRenderCustomerNotifications();
-          panel.classList.add('show');
-          dashboardBell.setAttribute('aria-expanded','true');
-        }
-      },0);
-    });
-  }
+  bindNotificationBell('mobileHeaderNotifications','headerNotificationMenu','headerNotificationList');
+  bindNotificationBell('dashboardNotifications','dashboardNotificationPanel','dashboardNotificationList');
 
 
   function canRefreshNotifications(){

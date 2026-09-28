@@ -119,10 +119,12 @@ async function onRequestPost({request,env}) {
     await ensureFuelRequestHistorySchema(env);
     inserted=await env.DB.prepare(`INSERT INTO fuel_requests
       (request_number,customer_account_number,customer_name,phone,email,delivery_address,fuel_type,gallons,delivery_date,notes,submitted_from,received_at,email_status,customer_email_status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_number) DO NOTHING`).bind(
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_number) DO NOTHING RETURNING id`).bind(
         requestNumber,...Object.values(values),submittedFrom,receivedAt,'pending',values.email?'pending':'not_requested'
-      ).run();
-    if(Number(inserted.meta?.changes)!==1) {
+      ).first();
+    // RETURNING identifies this insert directly; trigger writes can inflate D1
+    // change totals. A missing returned row alone means a duplicate request.
+    if(!inserted) {
       const existing=await env.DB.prepare('SELECT * FROM fuel_requests WHERE request_number=?').bind(requestNumber).first();
       if(!existing||Object.entries(values).some(([k,v])=>String(existing[k]||'')!==v)) return json({success:false,error:"This request number is already in use. Close this message and submit the form again to get a new number."},409);
       return fuelRequestSavedReply(existing);
@@ -132,7 +134,7 @@ async function onRequestPost({request,env}) {
     return json({success:false,error:"Your fuel request could not be saved. Your information is still on the form; please try again."},500);
   }
   const receiptMessage=`Your fuel request ${requestNumber} has been sent and is being reviewed by the Wooten Oil team. Delivery is subject to confirmation by our office.`;
-  const receipt=await fuelRequestCreateReceipt(env,values.customer_account_number,Number(inserted.meta?.last_row_id||0),requestNumber,receiptMessage);
+  const receipt=await fuelRequestCreateReceipt(env,values.customer_account_number,Number(inserted.id),requestNumber,receiptMessage);
   const fromAddress=String(env.FUEL_FROM_EMAIL||'Wooten Oil <support@wootenoil.com>').trim()||'Wooten Oil <support@wootenoil.com>';
   const toAddress=String(env.FUEL_TO_EMAIL||'support@wootenoil.com').trim()||'support@wootenoil.com';
   const rows=[
@@ -173,7 +175,7 @@ async function onRequestPost({request,env}) {
     await env.DB.prepare(`INSERT INTO admin_communication_log
       (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,sms_status,sms_to,sms_body,sms_error_code,sms_error_message,error_text,sms_updated_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(source_type,source_id) DO NOTHING`)
-      .bind(values.customer_account_number,'fuel_request','Fuel Request Received — '+requestNumber,receiptMessage,receipt.id?'notification':'fuel_request_receipt',receipt.id||Number(inserted.meta?.last_row_id||0),receipt.id?1:0,confirmation.status==='sent'?1:0,sms.id?1:0,confirmation.id,sms.id,sms.status,twilioNormalizePhone(values.phone),smsMessage,sms.code||'',sms.error||'',[
+      .bind(values.customer_account_number,'fuel_request','Fuel Request Received — '+requestNumber,receiptMessage,receipt.id?'notification':'fuel_request_receipt',receipt.id||Number(inserted.id),receipt.id?1:0,confirmation.status==='sent'?1:0,sms.id?1:0,confirmation.id,sms.id,sms.status,twilioNormalizePhone(values.phone),smsMessage,sms.code||'',sms.error||'',[
         receipt.status==='failed'?'Portal confirmation could not be saved.':'',
         !['sent','not_requested'].includes(confirmation.status)?'Confirmation email: '+confirmation.status:'',sms.error||''
       ].filter(Boolean).join(' ')).run();
@@ -232,7 +234,7 @@ function fuelRequestSavedReply(row) {
   if(portal==='failed')warnings.push('Your portal confirmation is temporarily unavailable. Your fuel request is still saved.');
   if(['failed','invalid_phone','not_configured','unknown'].includes(sms))warnings.push('Your SMS confirmation has not been confirmed as sent. You do not need to submit another request.');
   return json({success:true,saved:true,requestNumber:row.request_number,emailId:row.resend_email_id||null,
-    notifications:{office:{status:office},customer:{status:customer},portal:{status:portal},sms:{status:sms}},warning:warnings.join(' '),
+    notification_version:668,notifications:{office:{status:office},customer:{status:customer},portal:{status:portal},sms:{status:sms}},warning:warnings.join(' '),
     message:'Your fuel request has been sent and is being reviewed by the Wooten Oil team.'+(customer==='sent'?' Your confirmation email was sent; please check your inbox or spam folder.':'')});
 }
 

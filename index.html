@@ -1458,7 +1458,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script id="wooten-cookie-consent-script" src="assets/js/wooten-cookie-consent-script.js"></script>
 
 
-<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=667"></script>
+<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=668"></script>
 <script id="wooten-notification-login-refresh-ver393">
 (function(){
   // Use the existing renderer: do not open menus or mark anything as read.
@@ -2096,7 +2096,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 </script>
 
-<script id="wooten-notification-sound-core-ver667" src="assets/js/wooten-notification-sound.js?v=667"></script>
+<script id="wooten-notification-sound-core-ver668" src="assets/js/wooten-notification-sound.js?v=668"></script>
 
 <script id="wooten-customer-notification-sound-ver667">
 (function(){
@@ -2113,7 +2113,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     ].filter(Boolean);
     if(!badges.length) return;
 
-    var baseline = null;
+    var baseline = window.wootenNotificationsLoaded ? currentCount() : null;
     var timer = 0;
     function readCount(el){
       var n = parseInt(String(el.dataset.unreadCount || el.textContent || '0').replace(/[^0-9]/g,''), 10);

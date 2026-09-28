@@ -14912,7 +14912,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  const time=v=>v?WootenTime.dateTime(v):'';
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
- function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.textContent='0';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
+ function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='0';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
    list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
@@ -14936,7 +14936,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
          result.push(...(data.items||[]));cursor=data.next_cursor||null;
        }while(!append&&cursor&&result.length<target);
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
-       const total=Number(data.total||0);badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
+       const total=Number(data.total||0);badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
        counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();
@@ -15044,7 +15044,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </script>
 
 
-<script id="wooten-notification-sound-core-ver667" src="assets/js/wooten-notification-sound.js?v=667"></script>
+<script id="wooten-notification-sound-core-ver668" src="assets/js/wooten-notification-sound.js?v=668"></script>
 
 <script id="wooten-admin-notification-sound-ver235">
 (function(){
@@ -15055,10 +15055,10 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
   ready(function(){
     var badge = document.getElementById('adminNotificationBadge');
     if(!badge || !window.WootenNotificationSound) return;
-    var baseline = null;
+    var baseline = badge.dataset.notificationLoaded==='true' ? readCount() : null;
     var timer = 0;
     function readCount(){
-      var n = parseInt(String(badge.textContent || '0').replace(/[^0-9]/g,''), 10);
+      var n = parseInt(String(badge.dataset.unreadCount || badge.textContent || '0').replace(/[^0-9]/g,''), 10);
       return Number.isFinite(n) ? n : 0;
     }
     function evaluate(){
@@ -15070,7 +15070,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
         baseline = current;
       }, 140);
     }
-    new MutationObserver(evaluate).observe(badge, {childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:['hidden','style','class']});
+    new MutationObserver(evaluate).observe(badge, {childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:['hidden','style','class','data-unread-count']});
   });
 })();
 </script>

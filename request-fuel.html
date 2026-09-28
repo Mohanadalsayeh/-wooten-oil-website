@@ -3443,7 +3443,7 @@ body.request-fuel-page .fuel-field{
     overlay.dataset.stage='sending';
   }
 
-  function showSuccess(requestNumber,warning,customerAccountNumber){
+  function showSuccess(requestNumber,warning,customerAccountNumber,notifications){
     completedReturnUrl=customerAccountNumber?'index.html#customer-login':'index.html';
     title.textContent='Fuel Request Submitted Successfully';
     msg.innerHTML='Your fuel request has been sent and is being reviewed by the Wooten Oil team. Please keep this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
@@ -3451,7 +3451,28 @@ body.request-fuel-page .fuel-field{
     yes.disabled=false;
     no.style.display='inline-flex';
     no.textContent='OK';
-    if(status) status.textContent=warning||'Your fuel request is saved for Wooten Oil to review.';
+    if(status){
+      status.textContent=warning||'Your fuel request is saved for Wooten Oil to review.';
+      const delivery=document.createElement('div');
+      delivery.id='fuelConfirmationDelivery';
+      delivery.style.cssText='margin-top:12px;display:grid;gap:6px;text-align:left';
+      const descriptions={
+        portal:{sent:'Saved to your account',not_requested:'No signed-in account',failed:'Could not save confirmation'},
+        customer:{sent:'Sent',not_requested:'No email provided',pending:'Pending',not_configured:'Email service unavailable'},
+        sms:{delivered:'Delivered',sent:'Sent',pending:'Queued for delivery',queued:'Queued for delivery',accepted:'Queued for delivery',opted_out:'Off for this phone number',not_requested:'No phone provided',invalid_phone:'Phone number cannot receive SMS',not_configured:'SMS service unavailable'}
+      };
+      if(!notifications){
+        delivery.textContent='Customer notifications were not confirmed by the server. Please contact Wooten Oil; do not submit another request.';
+      }else{
+        [['portal','Portal confirmation'],['customer','Email confirmation'],['sms','SMS confirmation']].forEach(function(entry){
+          const state=String(notifications[entry[0]]?.status||'unknown');
+          const line=document.createElement('div');
+          line.textContent=entry[1]+': '+(descriptions[entry[0]][state]||'Not confirmed as sent');
+          delivery.appendChild(line);
+        });
+      }
+      status.appendChild(delivery);
+    }
     overlay.dataset.stage='complete';
     var customerAccount=document.getElementById('fuelCustomerAccount');
     if(customerAccount && customerAccount.value && window.wootenAddCustomerNotification){
@@ -3506,7 +3527,7 @@ body.request-fuel-page .fuel-field{
       if(!response.ok || data.success!==true || data.saved!==true || data.requestNumber!==request.requestNumber){
         throw new Error(data.error || data.message || 'The server did not confirm that your request was saved. Keep this form open and try again, or call Wooten Oil at (901) 476-2684.');
       }
-      showSuccess(data.requestNumber,data.warning||data.message||'',request.customerAccountNumber);
+      showSuccess(data.requestNumber,data.warning||data.message||'',request.customerAccountNumber,data.notifications);
     }catch(err){
       console.error('Fuel request submission failed:',err);
       showError(err.message||'The request was not confirmed as saved. Please try again.');
@@ -4758,8 +4779,8 @@ body.request-fuel-page .fuel-field{
 </script>
 
 
-<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=667"></script>
-<script id="wooten-notification-sound-core-ver667" src="assets/js/wooten-notification-sound.js?v=667"></script>
+<script id="wooten-notification-center-script" src="assets/js/wooten-notification-center-script.js?v=668"></script>
+<script id="wooten-notification-sound-core-ver668" src="assets/js/wooten-notification-sound.js?v=668"></script>
 <script id="wooten-customer-notification-sound-ver667">
 (function(){
   function ready(fn){
@@ -4775,7 +4796,7 @@ body.request-fuel-page .fuel-field{
     ].filter(Boolean);
     if(!badges.length) return;
 
-    var baseline = null;
+    var baseline = window.wootenNotificationsLoaded ? currentCount() : null;
     var timer = 0;
     function readCount(el){
       var n = parseInt(String(el.dataset.unreadCount || el.textContent || '0').replace(/[^0-9]/g,''), 10);
