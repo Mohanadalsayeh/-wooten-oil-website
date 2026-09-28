@@ -1,4 +1,4 @@
-/* Ver683: admin-only saved card inventory. Reading this table never starts a pull. */
+/* Ver684: shared numbered pagination, matching Live Customer Database. */
 (function(){
  'use strict';
  const $=id=>document.getElementById(id),root=$('adminFleetCardInventory'),panel=$('admin-tab-intevacon-api-test'),cardPanel=$('websiteCardSync');
@@ -65,6 +65,14 @@
  $('adminFleetCardClear').addEventListener('click',()=>{search.value='';assignment.value='all';sort='card_number';direction='asc';applyFilters();});
  $('adminFleetCardPrev').addEventListener('click',()=>{if(!loading&&page>1){page--;load();}});
  $('adminFleetCardNext').addEventListener('click',()=>{if(!loading&&page<pages){page++;load();}});
+ // The same shared pager used by the Live Customer Database calls this loader.
+ const goToPage=target=>{
+  const next=Number(target);
+  if(loading||!loaded||!visible()||!Number.isInteger(next)||next<1||next>pages||next===page)return;
+  page=next;return load();
+ };
+ $('adminFleetCardPrev').wootenGoToPage=goToPage;
+ $('adminFleetCardNext').wootenGoToPage=goToPage;
  const editing=()=>document.activeElement===search||search.value.trim()!==appliedSearch;
  function open(){if(visible()&&!loading&&(!loaded||(latestSync!==lastSync&&!editing())))load();}
  window.addEventListener('wooten-card-list-status',event=>{
