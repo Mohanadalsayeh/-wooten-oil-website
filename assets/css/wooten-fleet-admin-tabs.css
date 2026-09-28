@@ -1,0 +1,19 @@
+/* Ver672: two responsive sync tabs with independent progress indicators. */
+#admin-tab-intevacon-api-test .fleet-sync-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px 0 24px}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;width:100%;box-sizing:border-box;white-space:normal;line-height:1.4;padding:14px 16px;font-weight:700}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab>span:last-child{min-width:0;overflow-wrap:anywhere}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab:focus-visible{outline:2px solid #1d5f91;outline-offset:2px}
+#admin-tab-intevacon-api-test .fleet-sync-panel{min-width:0;max-width:100%;box-sizing:border-box}
+#admin-tab-intevacon-api-test #websiteCardSync{margin:0}
+#admin-tab-intevacon-api-test #fleetApiPanel>h3{margin-top:0}
+#admin-tab-intevacon-api-test [data-card-sync]{display:inline-flex;align-items:center;justify-content:center;gap:10px}
+#admin-tab-intevacon-api-test .fleet-sync-spinner{display:inline-block;box-sizing:border-box;width:18px;height:18px;flex:0 0 18px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:fleet-admin-sync-spin .8s linear infinite}
+#admin-tab-intevacon-api-test [hidden]{display:none!important}
+@keyframes fleet-admin-sync-spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+ #admin-tab-intevacon-api-test .fleet-sync-tabs{grid-template-columns:minmax(0,1fr)}
+ #admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab{justify-content:flex-start;text-align:left}
+}
+@media(prefers-reduced-motion:reduce){
+ #admin-tab-intevacon-api-test .fleet-sync-spinner,#admin-tab-intevacon-api-test .api-test-spinner{animation:none}
+}

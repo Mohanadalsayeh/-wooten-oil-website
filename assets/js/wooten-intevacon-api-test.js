@@ -1,4 +1,4 @@
-/* Ver654: all-card snapshots are shared with matching customer accounts. */
+/* Ver672: API transaction sync button and tab show independent progress. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -72,10 +72,11 @@
     const busy = !!controller || serverRunning;
     $('apiTestFields').disabled = !!controller;
     $('apiTestRun').disabled = busy || wait > 0 || !allowed();
-    $('apiTestRunLabel').textContent = busy ? 'Sync in progress…'
-      : wait > 0 ? `Sync available in ${wait}s` : 'Sync Now';
+    $('apiTestRunLabel').textContent = busy ? 'Syncing API transactions…'
+      : wait > 0 ? `Sync API Transactions Now (${wait}s)` : 'Sync API Transactions Now';
     $('apiTestSpinner').hidden = !busy;
     $('apiTestRun').setAttribute('aria-busy', String(busy));
+    window.WootenFleetTabs?.setBusy('api', busy, 'Syncing API transactions…');
     $('apiTestDefaults').disabled = !!controller;
     if (syncNotice === 'waiting') {
       if (serverRunning) message('An API sync is already running. Waiting for it to finish.', '', 'waiting');
@@ -331,7 +332,7 @@
     } catch (error) { $('apiScheduleMessage').textContent = error.message; }
     finally { $('apiScheduleSave').disabled = false; }
   });
-  // These requests read portal status/cache; only the cloud scheduler and Sync Now contact Intevacon.
+  // These requests read portal status/cache; only the cloud scheduler and Sync API Transactions Now contact Intevacon.
   setInterval(pollSchedule, 5000);
   document.addEventListener('visibilitychange', pollSchedule);
   defaults(); refreshControls(); pollSchedule();

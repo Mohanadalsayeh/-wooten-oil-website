@@ -7231,10 +7231,14 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
   </div>
 
 
-<section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-label="Intevacon API" data-admin-panel="intevacon-api-test" hidden>
+<section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-labelledby="admin-tab-btn-fleet" data-admin-panel="intevacon-api-test" hidden>
 
   <h2>Fleet Cards &amp; Transactions</h2>
-  <section class="fleet-card-sync" id="websiteCardSync" aria-labelledby="websiteCardSyncTitle">
+  <nav class="admin-subtabs fleet-sync-tabs" role="tablist" aria-label="Fleet sync methods">
+    <button class="admin-subtab" id="fleetSyncTabCards" type="button" role="tab" aria-selected="true" aria-controls="websiteCardSync" data-fleet-sync-tab="cards"><span class="fleet-sync-spinner" data-fleet-tab-spinner aria-hidden="true" hidden></span><span>Fleet Cards - Website Sync</span></button>
+    <button class="admin-subtab" id="fleetSyncTabApi" type="button" role="tab" aria-selected="false" aria-controls="fleetApiPanel" tabindex="-1" data-fleet-sync-tab="api"><span class="fleet-sync-spinner" data-fleet-tab-spinner aria-hidden="true" hidden></span><span>Intevacon API - Transactions</span></button>
+  </nav>
+  <section class="fleet-card-sync fleet-sync-panel" id="websiteCardSync" role="tabpanel" aria-labelledby="fleetSyncTabCards">
     <h3 id="websiteCardSyncTitle">Fleet Cards — Website Sync</h3>
     <p>Retrieve the complete Intevacon card list, including cards without recent transactions. Customers see their saved cards immediately. Transactions use the API independently.</p>
     <form>
@@ -7242,7 +7246,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <label>Card sync interval<select name="cardsInterval"><option value="7200">Every 2 hours</option><option value="14400">Every 4 hours</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Every 24 hours</option></select></label>
       <button class="secondary" data-card-save type="submit">Save card schedule</button>
     </form>
-    <div class="cards-actions"><button type="button" data-card-sync disabled>Sync Cards Now</button><button type="button" data-card-refresh>Refresh status</button></div>
+    <div class="cards-actions"><button type="button" data-card-sync disabled><span class="fleet-sync-spinner" data-card-spinner aria-hidden="true" hidden></span><span data-card-sync-label>Sync Cards Now</span></button><button type="button" data-card-refresh>Refresh status</button></div>
     <p data-card-status role="status" aria-live="polite">Loading card service status…</p>
     <dl><div><dt>Cards in latest complete export</dt><dd data-card-count>—</dd></div><div><dt>Cards last updated</dt><dd data-card-success>—</dd></div><div><dt>Next card pull</dt><dd data-card-next>—</dd></div><div><dt>Card service last check-in</dt><dd data-card-checkin>—</dd></div></dl>
     <p data-card-unmatched hidden></p>
@@ -7254,9 +7258,10 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     </details>
     <p data-card-message role="status" hidden></p>
   </section>
-  <h3>Transactions — Intevacon API</h3>
+  <section class="fleet-sync-panel" id="fleetApiPanel" role="tabpanel" aria-labelledby="fleetSyncTabApi" hidden>
+  <h3>Intevacon API - Transactions</h3>
   <p>Retrieve transactions from Intevacon manually or on an automatic schedule.</p>
-  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync Now. These results are for the admin transaction view. Customers request fresh API transactions for their own account, including quantities and details. Card lists are updated separately above. Transactions are not marked as exported.</div>
+  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync API Transactions Now. These results are for the admin transaction view. Customers request fresh API transactions for their own account, including quantities and details. Card lists are updated in the Fleet Cards - Website Sync tab. Transactions are not marked as exported.</div>
   <form id="apiScheduleForm" class="api-schedule">
     <h3>Automatic transaction sync</h3>
     <label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox"> Enable automatic transaction sync</label>
@@ -7276,7 +7281,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
       <label for="apiTestCard">Card number (optional)<input id="apiTestCard" type="text" inputmode="numeric" pattern="[0-9]{1,32}" maxlength="32" autocomplete="off" placeholder="All cards"></label>
     </div></fieldset>
     <p class="api-test-help">Start with the last 24 hours. Maximum range: 92 days. The initial dates use Central time; values are sent as entered. Intevacon’s guide does not specify its date-filter timezone.</p>
-    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Sync Now</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button></div>
+    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Sync API Transactions Now</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button></div>
   </form>
   <div id="apiTestMessage" role="status" aria-live="polite" hidden></div>
   <section id="apiTestResults" aria-label="API transactions" hidden>
@@ -7288,6 +7293,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
     <div class="api-test-table-wrap"><table data-auto-pdf="false" aria-label="Intevacon API test transactions"><thead><tr><th scope="col">Trans #</th><th scope="col">Received (API)</th><th scope="col">API Customer ID</th><th scope="col">Cardholder</th><th scope="col">Card number</th><th scope="col">Merchant</th><th scope="col">Fuel quantity</th><th scope="col">Sale amount</th><th scope="col">Status</th></tr></thead><tbody id="apiTestRows"></tbody></table></div>
     <p id="apiTestRange" class="db-page-info" aria-live="polite"></p>
         <div class="db-pagination api-test-pager"><button class="secondary" id="apiTestPrev" type="button" disabled>Previous</button><div class="db-page-info" id="apiTestPage">Page 1 of 1</div><button class="secondary" id="apiTestNext" type="button" disabled>Next</button></div>
+  </section>
   </section>
 </section>
 <dialog id="apiTestDetail" aria-labelledby="apiTestDetailTitle"><div class="api-test-detail-shell"><header class="api-test-detail-head"><div><div class="api-test-kicker">WOOTEN OIL · API TRANSACTION</div><h2 id="apiTestDetailTitle">Transaction</h2><div id="apiTestDetailSubtitle"></div></div><button id="apiTestDetailClose" type="button" aria-label="Close transaction details">×</button></header><div id="apiTestDetailBody"></div><footer class="api-test-detail-foot">Retrieved from Intevacon. Results are retained for admin review.</footer></div></dialog>
@@ -18079,9 +18085,11 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=651">
-<script src="assets/js/wooten-intevacon-api-test.js?v=654"></script>
 <link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=661">
-<script src="assets/js/wooten-card-sync.js?v=661"></script>
+<link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=672">
+<script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=672"></script>
+<script src="assets/js/wooten-card-sync.js?v=672"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
