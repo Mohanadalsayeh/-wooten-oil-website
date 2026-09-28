@@ -1,4 +1,4 @@
-/* Ver674: numeric date/time display; card sync activity from Ver672 retained. */
+/* Ver683: available-card wording and saved inventory refresh notifications. */
 (function(){
  'use strict';
  const root=document.getElementById('websiteCardSync'),panel=document.getElementById('admin-tab-intevacon-api-test');if(!root||!panel)return;
@@ -32,12 +32,13 @@
   get('[data-card-checkin]').textContent=date(data.last_poll);
   get('[data-card-status]').textContent=!data.configured?'Set up the card service below to retrieve your first card list.':data.message||'Card service ready.';
   get('[data-card-status]').dataset.state=data.state;
-  get('[data-card-unmatched]').textContent=data.unmatched?Number(data.unmatched).toLocaleString()+' cards have no Customer ID and are not shown to customers.':'';
+  get('[data-card-unmatched]').textContent=data.unmatched?Number(data.unmatched).toLocaleString()+(Number(data.unmatched)===1?' card available':' cards available')+' to assign to customers.':'';
   get('[data-card-unmatched]').hidden=!data.unmatched;
   syncControls();
   get('[data-card-setup]').hidden=!data.can_manage_credentials;
   get('[data-card-credential]').disabled=busy||data.running;
   get('[data-card-credential]').textContent=data.configured?'Replace card sync credential':'Create card sync credential';
+  window.dispatchEvent(new CustomEvent('wooten-card-list-status',{detail:{last_sync:data.last_success||null}}));
  }
  async function refresh(){
   if(!active()||busy)return;const ticket=generation;

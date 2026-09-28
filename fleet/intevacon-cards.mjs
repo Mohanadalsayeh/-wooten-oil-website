@@ -1,4 +1,4 @@
-// Ver661: independent website card snapshots. Never reads or writes API transactions.
+// Ver683: searchable admin card inventory; customer ownership rules unchanged.
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const ready=new WeakSet();
 const fields=['status','card_type','cardholder','driver_id','driver_no','vehicle_id','vehicle_no','assigned_to','last_used_on'];
@@ -42,6 +42,7 @@ export async function admin({request,env,actor}){
   need(actor&&(actor.owner===true||actor.permissions?.includes('fleet_cards')),'Fleet administrator access is required.',403);
   await ensure(env.DB);const db=env.DB,path=new URL(request.url).pathname.split('/').pop();
   if(path==='status'&&request.method==='GET')return status(db,actor);
+  if(path==='list'&&request.method==='GET')return await adminCards(db,request);
   need(request.method==='POST','Method not allowed.',405);
   need(request.headers.get('Origin')===new URL(request.url).origin&&/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''),'Use the admin portal.',403);
   const b=await body(request,2048),now=Date.now();
@@ -64,6 +65,28 @@ export async function admin({request,env,actor}){
   }
   return json({success:false,error:'Not found.'},404);
  }catch(e){return json({success:false,error:e.status?e.message:'Card sync settings could not be loaded.'},e.status||503);}
+}
+async function adminCards(db,request){
+ const current=await run(db),snapshot=current.active_run||'',q=new URL(request.url).searchParams;
+ const search=(q.get('search')||'').trim().slice(0,200);
+ const assignment=['assigned','unassigned'].includes(q.get('assignment'))?q.get('assignment'):'all';
+ const expressions={card_number:'card_number',customer_id:"json_extract(payload,'$.customer_id')",assignment:"CASE WHEN account_number='' THEN 'Unassigned' ELSE 'Assigned' END"};
+ for(const field of fields)expressions[field]=`COALESCE(json_extract(payload,'$.${field}'),'')`;
+ const sort=Object.hasOwn(expressions,q.get('sort'))?q.get('sort'):'card_number',direction=q.get('direction')==='desc'?'DESC':'ASC';
+ let where='run_id=?';const args=[snapshot];
+ if(assignment!=='all')where+=assignment==='unassigned'?" AND account_number=''":" AND account_number<>''";
+ if(search){
+  const term='%'+search.replace(/[\\%_]/g,'\\$&')+'%';
+  const searchable=['card_number','account_number',expressions.customer_id,...fields.map(f=>expressions[f])];
+  where+=' AND ('+searchable.map(column=>`${column} LIKE ? ESCAPE '\\'`).join(' OR ')+')';args.push(...searchable.map(()=>term));
+ }
+ const summary=await db.prepare(`SELECT COUNT(*) AS cards,COALESCE(SUM(CASE WHEN account_number='' THEN 1 ELSE 0 END),0) AS unassigned FROM intevacon_website_cards WHERE run_id=?`).bind(snapshot).first();
+ const {total}=await db.prepare(`SELECT COUNT(*) AS total FROM intevacon_website_cards WHERE ${where}`).bind(...args).first();
+ const pages=Math.max(1,Math.ceil(total/20)),page=Math.max(1,Math.min(pages,Number.parseInt(q.get('page'),10)||1));
+ const column=expressions[sort];
+ const order=['card_number','customer_id'].includes(sort)?`LENGTH(LTRIM(${column},'0')) ${direction},LTRIM(${column},'0') ${direction}`:`${column} COLLATE NOCASE ${direction}`;
+ const rows=await db.prepare(`SELECT payload FROM intevacon_website_cards WHERE ${where} ORDER BY ${order},card_number ASC LIMIT 20 OFFSET ?`).bind(...args,(page-1)*20).all();
+ return json({success:true,items:rows.results.map(r=>{const card=normalize(JSON.parse(r.payload));return {...card,assignment:card.customer_id?'assigned':'unassigned'};}),total,page,pages,summary:{...summary,assigned:summary.cards-summary.unassigned},snapshot_id:snapshot,last_sync:iso(current.last_success)});
 }
 export async function agent({request,env}){
  try{

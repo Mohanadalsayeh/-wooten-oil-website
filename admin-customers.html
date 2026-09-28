@@ -7305,7 +7305,25 @@ SOFTWARE.
     <p data-card-status role="status" aria-live="polite">Loading card service status…</p>
     <dl><div><dt>Cards in latest complete export</dt><dd data-card-count>—</dd></div><div><dt>Cards last updated</dt><dd data-card-success>—</dd></div><div><dt>Next card pull</dt><dd data-card-next>—</dd></div><div><dt>Card service last check-in</dt><dd data-card-checkin>—</dd></div></dl>
     <p data-card-unmatched hidden></p>
-    <p>Failed pulls keep the previous complete card list. Cards and transactions have separate update times.</p>
+    <p>Your saved card list is preserved if a sync is interrupted. Cards and transactions have separate update times.</p>
+    <section id="adminFleetCardInventory" class="cards-inventory" aria-labelledby="adminFleetCardInventoryTitle">
+      <h3 id="adminFleetCardInventoryTitle">Fleet Cards</h3>
+      <p>View assigned cards and cards available to assign. Card assignments and changes are made in Intevacon.</p>
+      <form id="adminFleetCardSearchForm" class="cards-inventory-search" role="search">
+        <label for="adminFleetCardSearch">Search cards<input id="adminFleetCardSearch" type="search" maxlength="200" autocomplete="off" placeholder="Card number, Customer ID, cardholder, driver or vehicle…"></label>
+        <label for="adminFleetCardAssignment">Assignment<select id="adminFleetCardAssignment"><option value="all">All cards</option><option value="assigned">Assigned cards</option><option value="unassigned">Unassigned — available</option></select></label>
+        <div class="cards-inventory-actions"><button class="secondary" type="submit">Search</button><button class="secondary" id="adminFleetCardRefresh" type="button">Refresh</button><button class="secondary" id="adminFleetCardClear" type="button">Clear Filters</button></div>
+      </form>
+      <p id="adminFleetCardSummary" class="cards-inventory-summary" aria-live="polite"></p>
+      <p id="adminFleetCardMessage" role="status" aria-live="polite" hidden></p>
+      <p id="adminFleetCardUpdated" class="cards-inventory-updated" hidden>A new card list is ready. Click Refresh to view it.</p>
+      <p id="adminFleetCardRange" aria-live="polite"></p>
+      <div class="cards-inventory-table-wrap" role="region" aria-label="Fleet card list" tabindex="0">
+        <table id="adminFleetCardTable" data-full-data-sort="true"><caption class="cards-visually-hidden">Saved fleet cards, including unassigned cards available to assign</caption><thead><tr></tr></thead><tbody id="adminFleetCardRows"></tbody></table>
+      </div>
+      <div class="db-pagination cards-inventory-pagination" aria-label="Fleet card pages"><button class="secondary" id="adminFleetCardPrev" type="button" disabled>Previous</button><div class="db-page-info" id="adminFleetCardPage">Page 1 of 1</div><button class="secondary" id="adminFleetCardNext" type="button" disabled>Next</button></div>
+      <p id="adminFleetCardLastSync" class="cards-inventory-last-sync"></p>
+    </section>
     <details data-card-setup hidden><summary>Card service setup</summary>
       <p>Create a credential for the separate <strong>wooten-intevacon-cards</strong> cloud Worker. Use the installation instructions supplied with this update.</p>
       <button class="secondary" type="button" data-card-credential>Create card sync credential</button>
@@ -18185,12 +18203,13 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=676">
-<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=679">
+<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=683">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
 <script src="assets/js/wooten-intevacon-api-test.js?v=678"></script>
-<script src="assets/js/wooten-card-sync.js?v=681"></script>
+<script src="assets/js/wooten-card-sync.js?v=683"></script>
+<script src="assets/js/wooten-admin-fleet-cards.js?v=683"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
