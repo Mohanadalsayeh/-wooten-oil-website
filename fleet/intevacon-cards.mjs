@@ -1,4 +1,4 @@
-// Ver683: searchable admin card inventory; customer ownership rules unchanged.
+// Ver685: bounded export batches for the admin card inventory.
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const ready=new WeakSet();
 const fields=['status','card_type','cardholder','driver_id','driver_no','vehicle_id','vehicle_no','assigned_to','last_used_on'];
@@ -82,11 +82,12 @@ async function adminCards(db,request){
  }
  const summary=await db.prepare(`SELECT COUNT(*) AS cards,COALESCE(SUM(CASE WHEN account_number='' THEN 1 ELSE 0 END),0) AS unassigned FROM intevacon_website_cards WHERE run_id=?`).bind(snapshot).first();
  const {total}=await db.prepare(`SELECT COUNT(*) AS total FROM intevacon_website_cards WHERE ${where}`).bind(...args).first();
- const pages=Math.max(1,Math.ceil(total/20)),page=Math.max(1,Math.min(pages,Number.parseInt(q.get('page'),10)||1));
+ const pageSize=Math.max(1,Math.min(500,Number.parseInt(q.get('page_size'),10)||20));
+ const pages=Math.max(1,Math.ceil(total/pageSize)),page=Math.max(1,Math.min(pages,Number.parseInt(q.get('page'),10)||1));
  const column=expressions[sort];
  const order=['card_number','customer_id'].includes(sort)?`LENGTH(LTRIM(${column},'0')) ${direction},LTRIM(${column},'0') ${direction}`:`${column} COLLATE NOCASE ${direction}`;
- const rows=await db.prepare(`SELECT payload FROM intevacon_website_cards WHERE ${where} ORDER BY ${order},card_number ASC LIMIT 20 OFFSET ?`).bind(...args,(page-1)*20).all();
- return json({success:true,items:rows.results.map(r=>{const card=normalize(JSON.parse(r.payload));return {...card,assignment:card.customer_id?'assigned':'unassigned'};}),total,page,pages,summary:{...summary,assigned:summary.cards-summary.unassigned},snapshot_id:snapshot,last_sync:iso(current.last_success)});
+ const rows=await db.prepare(`SELECT payload FROM intevacon_website_cards WHERE ${where} ORDER BY ${order},card_number ASC LIMIT ? OFFSET ?`).bind(...args,pageSize,(page-1)*pageSize).all();
+ return json({success:true,items:rows.results.map(r=>{const card=normalize(JSON.parse(r.payload));return {...card,assignment:card.customer_id?'assigned':'unassigned'};}),total,page,pages,page_size:pageSize,summary:{...summary,assigned:summary.cards-summary.unassigned},snapshot_id:snapshot,last_sync:iso(current.last_success)});
 }
 export async function agent({request,env}){
  try{

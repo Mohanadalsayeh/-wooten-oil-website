@@ -7318,8 +7318,15 @@ SOFTWARE.
       <p id="adminFleetCardMessage" role="status" aria-live="polite" hidden></p>
       <p id="adminFleetCardUpdated" class="cards-inventory-updated" hidden>A new card list is ready. Click Refresh to view it.</p>
       <p id="adminFleetCardRange" aria-live="polite"></p>
+      <div class="table-pdf-export-toolbar database-export-actions" id="adminFleetCardExportActions">
+        <button class="secondary table-pdf-export-button" id="adminFleetCardExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
+        <button class="secondary table-pdf-export-button" id="adminFleetCardExportExcel" type="button" disabled>Export Full Database — Excel</button>
+        <button class="secondary" id="adminFleetCardExportCancel" type="button" hidden>Cancel Export</button>
+      </div>
+      <p class="cards-inventory-export-help">PDF uses the table’s applied search and assignment filter. Excel includes all saved cards, including unassigned cards.</p>
+      <p id="adminFleetCardExportStatus" role="status" aria-live="polite" hidden></p>
       <div class="cards-inventory-table-wrap" role="region" aria-label="Fleet card list" tabindex="0">
-        <table id="adminFleetCardTable" data-full-data-sort="true"><caption class="cards-visually-hidden">Saved fleet cards, including unassigned cards available to assign</caption><thead><tr></tr></thead><tbody id="adminFleetCardRows"></tbody></table>
+        <table id="adminFleetCardTable" data-auto-pdf="false" data-full-data-sort="true"><caption class="cards-visually-hidden">Saved fleet cards, including unassigned cards available to assign</caption><thead><tr></tr></thead><tbody id="adminFleetCardRows"></tbody></table>
       </div>
       <div class="db-pagination cards-inventory-pagination" aria-label="Fleet card pages"><button class="secondary" id="adminFleetCardPrev" type="button" disabled>Previous</button><div class="db-page-info" id="adminFleetCardPage">Page 1 of 1</div><button class="secondary" id="adminFleetCardNext" type="button" disabled>Next</button></div>
       <p id="adminFleetCardLastSync" class="cards-inventory-last-sync"></p>
@@ -17340,7 +17347,8 @@ html,body{
     if(!data.rows.length)throw new Error('Load the table data before exporting it.');
     const blob=await buildPdf(title,data,onProgress);
     onProgress?.(data.rows.length,data.rows.length,'Downloading PDF');
-    const safeName=(String(title||'Table').replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()||'Table')+'.pdf';
+    const filenameBase=options.filename?String(options.filename).replace(/\.pdf$/i,''):title;
+    const safeName=(String(filenameBase||'Table').replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()||'Table')+'.pdf';
     const url=URL.createObjectURL(blob);
     const link=document.createElement('a');
     link.href=url;link.download=safeName;link.style.display='none';
@@ -17966,6 +17974,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #adminAuditRefresh,
 #portalBackupRefresh,
 #dbRefreshBtn,
+#adminFleetCardRefresh,
+#websiteCardSync [data-card-refresh],
 #livePaymentRefreshBtn,
 #invoiceDbRefresh,
 #refreshInboxBtn,
@@ -17984,6 +17994,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #adminAuditRefresh:not(:disabled):is(:hover,:focus-visible,:active),
 #portalBackupRefresh:not(:disabled):is(:hover,:focus-visible,:active),
 #dbRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
+#adminFleetCardRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#websiteCardSync [data-card-refresh]:not(:disabled):is(:hover,:focus-visible,:active),
 #livePaymentRefreshBtn:not(:disabled):is(:hover,:focus-visible,:active),
 #invoiceDbRefresh:not(:disabled):is(:hover,:focus-visible,:active),
 #refreshInboxBtn:not(:disabled):is(:hover,:focus-visible,:active),
@@ -18001,6 +18013,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #adminAuditRefresh:disabled,
 #portalBackupRefresh:disabled,
 #dbRefreshBtn:disabled,
+#adminFleetCardRefresh:disabled,
+#websiteCardSync [data-card-refresh]:disabled,
 #livePaymentRefreshBtn:disabled,
 #invoiceDbRefresh:disabled,
 #refreshInboxBtn:disabled,
@@ -18203,13 +18217,13 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=676">
-<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=684">
+<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=685">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
 <script src="assets/js/wooten-intevacon-api-test.js?v=678"></script>
 <script src="assets/js/wooten-card-sync.js?v=683"></script>
-<script src="assets/js/wooten-admin-fleet-cards.js?v=684"></script>
+<script src="assets/js/wooten-admin-fleet-cards.js?v=686"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}

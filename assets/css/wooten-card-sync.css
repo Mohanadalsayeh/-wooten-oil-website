@@ -40,7 +40,6 @@
 #adminFleetCardInventory select{min-height:48px;font-size:16px}
 #adminFleetCardInventory .cards-inventory-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px}
 #adminFleetCardInventory .cards-inventory-actions button{width:auto;min-height:44px}
-#adminFleetCardInventory #adminFleetCardRefresh{background:#2ca371;border:1px solid #2ca371;color:#fff}
 #adminFleetCardInventory .cards-inventory-summary{padding:14px 16px;background:#f2f7fb;border:1px solid #d8e3ed;border-radius:12px;font-weight:700}
 #adminFleetCardInventory .cards-inventory-summary:empty{display:none}
 #adminFleetCardMessage{color:#48647e}#adminFleetCardMessage[data-error=true]{padding:12px;border-radius:10px;color:#9c2542;background:#fff0f1}
@@ -63,9 +62,15 @@
 #adminFleetCardInventory tr[data-assignment=unassigned] .cards-assignment-badge{background:#fff0c2;color:#765011}
 /* Pagination uses the portal's existing wooten-pagination-layout.css rules. */
 #adminFleetCardInventory .cards-inventory-last-sync{font-size:14px;color:#62798e}
+#adminFleetCardInventory .cards-inventory-export-help{font-size:14px;color:#62798e}
+#adminFleetCardInventory #adminFleetCardExportStatus{padding:12px;border-radius:10px;background:#edf4fa;color:#193953}
+#adminFleetCardInventory #adminFleetCardExportStatus[data-error=true]{background:#fff0f1;color:#9c2542}
+#adminFleetCardInventory #adminFleetCardExportActions{gap:12px}
 #adminFleetCardInventory .cards-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:640px){
  #adminFleetCardInventory .cards-inventory-search{grid-template-columns:minmax(0,1fr)}
  #adminFleetCardInventory .cards-inventory-actions{display:grid;grid-template-columns:minmax(0,1fr)}
  #adminFleetCardInventory .cards-inventory-actions button{width:100%}
+ #adminFleetCardInventory #adminFleetCardExportActions{width:100%!important;flex-direction:column!important;align-items:stretch!important}
+ #adminFleetCardInventory #adminFleetCardExportActions>button{width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box;margin-inline:0!important;white-space:normal!important}
 }
