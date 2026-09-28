@@ -1,18 +1,23 @@
-/* Ver672: two responsive sync tabs with independent progress indicators. */
-#admin-tab-intevacon-api-test .fleet-sync-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px 0 24px}
-#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;width:100%;box-sizing:border-box;white-space:normal;line-height:1.4;padding:14px 16px;font-weight:700}
-#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab>span:last-child{min-width:0;overflow-wrap:anywhere}
-#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab:focus-visible{outline:2px solid #1d5f91;outline-offset:2px}
+/* Ver673: approved flat tabs with a navy underline; independent sync indicators retained. */
+#admin-tab-intevacon-api-test .fleet-sync-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px 0 28px;padding:0;border:0;border-bottom:1px solid #d7e3ee;border-radius:0;background:transparent;box-shadow:none}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab{display:flex;align-items:center;justify-content:center;gap:9px;min-width:0;min-height:56px;width:100%;box-sizing:border-box;white-space:normal;line-height:1.5;padding:16px 8px 17px;margin:0 0 -1px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;box-shadow:none;color:#617994;font-size:14px;font-weight:700;text-align:center}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab[aria-selected="true"]{border-bottom-color:#123654;color:#123654;background:transparent;box-shadow:none}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab:hover{background:#f5f8fb;color:#123654}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab,
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab:is(:hover,:focus,:focus-visible,:active){box-shadow:none!important;font-weight:700!important}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab>span:last-child{min-width:0;overflow-wrap:break-word;font-weight:700!important}
+#admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab:focus-visible{outline:2px solid #1d5f91!important;outline-offset:2px}
 #admin-tab-intevacon-api-test .fleet-sync-panel{min-width:0;max-width:100%;box-sizing:border-box}
 #admin-tab-intevacon-api-test #websiteCardSync{margin:0}
 #admin-tab-intevacon-api-test #fleetApiPanel>h3{margin-top:0}
 #admin-tab-intevacon-api-test [data-card-sync]{display:inline-flex;align-items:center;justify-content:center;gap:10px}
-#admin-tab-intevacon-api-test .fleet-sync-spinner{display:inline-block;box-sizing:border-box;width:18px;height:18px;flex:0 0 18px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:fleet-admin-sync-spin .8s linear infinite}
+#admin-tab-intevacon-api-test .fleet-sync-spinner{display:inline-block;box-sizing:border-box;width:17px;height:17px;flex:0 0 17px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:fleet-admin-sync-spin .8s linear infinite}
+#admin-tab-intevacon-api-test #apiTestSpinner{animation-name:fleet-admin-sync-spin}
 #admin-tab-intevacon-api-test [hidden]{display:none!important}
-@keyframes fleet-admin-sync-spin{to{transform:rotate(360deg)}}
-@media(max-width:640px){
- #admin-tab-intevacon-api-test .fleet-sync-tabs{grid-template-columns:minmax(0,1fr)}
- #admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab{justify-content:flex-start;text-align:left}
+/* Use individual rotation so the portal's button transform reset cannot stop the icons. */
+@keyframes fleet-admin-sync-spin{to{rotate:1turn}}
+@media(max-width:480px){
+ #admin-tab-intevacon-api-test .fleet-sync-tabs .admin-subtab{font-size:13px;padding:14px 4px;gap:6px}
 }
 @media(prefers-reduced-motion:reduce){
  #admin-tab-intevacon-api-test .fleet-sync-spinner,#admin-tab-intevacon-api-test .api-test-spinner{animation:none}
