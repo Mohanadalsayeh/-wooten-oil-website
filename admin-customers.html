@@ -11325,6 +11325,7 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
     mobileMenuBtn?.setAttribute("aria-expanded","false");
     if(updateHash){try{history.replaceState(null,"","#"+activePanel);}catch{}}
     try{sessionStorage.setItem("wootenAdminTab",activePanel);}catch{}
+    window.dispatchEvent(new CustomEvent("wooten-admin-page-open",{detail:{panel:activePanel}}));
   }
 
   tabs.forEach((tab,index)=>{
@@ -13701,7 +13702,13 @@ let pagingRequests=false;
    }
  }
  g('requestCenterLoad').addEventListener('click',()=>{page=1;load()});g('requestCenterType').addEventListener('change',()=>{page=1;load()});g('requestCenterStatusFilter').addEventListener('change',()=>{page=1;load()});let timer;g('requestCenterSearch').addEventListener('input',()=>{if(!loaded)return;clearTimeout(timer);timer=setTimeout(()=>{page=1;load()},300)});g('requestCenterPrev').wootenGoToPage = target => { return changeRequestPage(target); };
-g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPage(page-1)}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){changeRequestPage(page+1)}});g('admin-tab-btn-requests').addEventListener('click',()=>{page=1;load()});
+g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPage(page-1)}});g('requestCenterNext').addEventListener('click',()=>{if(page<pages){changeRequestPage(page+1)}});
+ // Refresh on every form opening, including keyboard, hash and notification navigation.
+ // Use the page event instead of a second menu-click handler to load only once.
+ window.addEventListener('wooten-admin-page-open',event=>{
+   clearTimeout(timer);
+   if(event.detail?.panel==='requests'){page=1;load();}
+ });
 })();
 </script>
 
@@ -14937,7 +14944,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
      finally{if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
- function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){g('admin-tab-btn-requests')?.click();setTimeout(()=>{if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('requestCenterLoad')?.click();},80);}}
+ function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true);});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});

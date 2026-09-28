@@ -101,7 +101,7 @@ async function onRequestPost({request,env}) {
   const values={
     customer_account_number:String(customer?.account_number||"").trim(),
     customer_name:String(body.customerName||"").trim(),
-    phone:String(body.phone||"").trim(),
+    phone:String(body.phone||customer?.phone||"").trim(),
     email:String(body.email||customer?.email||"").trim(),
     delivery_address:String(body.deliveryAddress||"").trim(),
     fuel_type:String(body.fuelType||"").trim(),
@@ -131,6 +131,8 @@ async function onRequestPost({request,env}) {
     console.error("Fuel request could not be saved",error);
     return json({success:false,error:"Your fuel request could not be saved. Your information is still on the form; please try again."},500);
   }
+  const receiptMessage=`Your fuel request ${requestNumber} has been sent and is being reviewed by the Wooten Oil team. Delivery is subject to confirmation by our office.`;
+  const receipt=await fuelRequestCreateReceipt(env,values.customer_account_number,Number(inserted.meta?.last_row_id||0),requestNumber,receiptMessage);
   const fromAddress=String(env.FUEL_FROM_EMAIL||'Wooten Oil <support@wootenoil.com>').trim()||'Wooten Oil <support@wootenoil.com>';
   const toAddress=String(env.FUEL_TO_EMAIL||'support@wootenoil.com').trim()||'support@wootenoil.com';
   const rows=[
@@ -147,18 +149,60 @@ async function onRequestPost({request,env}) {
     html:`<div style="font-family:Arial,sans-serif;color:#172033;max-width:700px;margin:auto"><h2>New Fuel Delivery Request</h2>${detailsHtml}<p>Submitted from ${esc(submittedFrom||'wootenoil.com')}</p></div>`,text:detailsText,
     ...(values.email?{reply_to:values.email}:{})};
   const customerPayload={from:fromAddress,to:[values.email],reply_to:toAddress,subject:`Wooten Oil Fuel Request Confirmation - ${requestNumber}`,
-    html:`<div style="font-family:Arial,sans-serif;color:#172033;max-width:700px;margin:auto"><h2>Fuel Request Confirmation</h2><p>Thank you. Your fuel request has been received by Wooten Oil.</p>${detailsHtml}<p>This confirms receipt of your request. Delivery is subject to confirmation by our office.</p><p>Please keep your request number for your records.<br>Wooten Oil Co. Inc.<br>(901) 476-2684 | support@wootenoil.com</p></div>`,
-    text:`Your fuel request has been received by Wooten Oil.\n\n${detailsText}\n\nThis confirms receipt of your request. Delivery is subject to confirmation by our office.\nPlease keep your request number for your records.\nWooten Oil Co. Inc.\n(901) 476-2684 | support@wootenoil.com`};
-  // A failure in either email must not prevent the other email or undo a saved request.
-  const [office,confirmation]=await Promise.all([
+    html:`<div style="font-family:Arial,sans-serif;color:#172033;max-width:700px;margin:auto"><h2>Fuel Request Confirmation</h2><p>${esc(receiptMessage)}</p>${detailsHtml}<p>Please keep your request number for your records.<br>Wooten Oil Co. Inc.<br>(901) 476-2684 | support@wootenoil.com</p></div>`,
+    text:`${receiptMessage}\n\n${detailsText}\n\nPlease keep your request number for your records.\nWooten Oil Co. Inc.\n(901) 476-2684 | support@wootenoil.com`};
+  const smsMessage=`Wooten Oil: ${receiptMessage} Questions? (901) 476-2684. Reply STOP to opt out.`;
+  // Only a newly saved request sends receipts. Each channel can fail independently.
+  const [office,confirmation,sms]=await Promise.all([
     fuelRequestSendEmail(env,officePayload,`fuel-request-${requestNumber}`),
-    values.email?fuelRequestSendEmail(env,customerPayload,`fuel-confirmation-${requestNumber}`):Promise.resolve({status:'not_requested',id:''})
+    values.email?fuelRequestSendEmail(env,customerPayload,`fuel-confirmation-${requestNumber}`):Promise.resolve({status:'not_requested',id:''}),
+    fuelRequestSendSms(request,env,values.phone,smsMessage)
   ]);
   try {
-    await env.DB.prepare('UPDATE fuel_requests SET email_status=?,resend_email_id=?,customer_email_status=?,customer_resend_email_id=? WHERE request_number=?')
-      .bind(office.status,office.id,confirmation.status,confirmation.id,requestNumber).run();
-  } catch(error) { console.error('Fuel request email status could not be saved',error); }
-  return fuelRequestSavedReply({request_number:requestNumber,email_status:office.status,resend_email_id:office.id,customer_email_status:confirmation.status});
+    await env.DB.prepare('UPDATE fuel_requests SET email_status=?,resend_email_id=?,customer_email_status=?,customer_resend_email_id=?,customer_portal_status=?,customer_sms_status=?,customer_sms_sid=? WHERE request_number=?')
+      .bind(office.status,office.id,confirmation.status,confirmation.id,receipt.status,sms.status,sms.id,requestNumber).run();
+  } catch(error) { console.error('Fuel request notification status could not be saved',error); }
+  if(receipt.id){
+    try{
+      await env.DB.prepare(`UPDATE portal_notifications SET email_sent=?,email_id=?,sms_sent=?,sms_sid=?,sms_status=?,sms_error=?,sms_error_code=?,sms_updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .bind(confirmation.status==='sent'?1:0,confirmation.id,sms.id?1:0,sms.id,sms.status,sms.error||'',sms.code||'',receipt.id).run();
+    }catch(error){console.error('Fuel request portal delivery status could not be saved',error);}
+  }
+  try{
+    await ensureAdminCommunicationLogTable(env);
+    await env.DB.prepare(`INSERT INTO admin_communication_log
+      (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,sms_status,sms_to,sms_body,sms_error_code,sms_error_message,error_text,sms_updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(source_type,source_id) DO NOTHING`)
+      .bind(values.customer_account_number,'fuel_request','Fuel Request Received — '+requestNumber,receiptMessage,receipt.id?'notification':'fuel_request_receipt',receipt.id||Number(inserted.meta?.last_row_id||0),receipt.id?1:0,confirmation.status==='sent'?1:0,sms.id?1:0,confirmation.id,sms.id,sms.status,twilioNormalizePhone(values.phone),smsMessage,sms.code||'',sms.error||'',[
+        receipt.status==='failed'?'Portal confirmation could not be saved.':'',
+        !['sent','not_requested'].includes(confirmation.status)?'Confirmation email: '+confirmation.status:'',sms.error||''
+      ].filter(Boolean).join(' ')).run();
+  }catch(error){console.error('Fuel request communication log could not be saved',error);}
+  return fuelRequestSavedReply({request_number:requestNumber,email_status:office.status,resend_email_id:office.id,customer_email_status:confirmation.status,customer_portal_status:receipt.status,customer_sms_status:sms.status});
+}
+async function fuelRequestCreateReceipt(env,account,requestId,requestNumber,message){
+  if(!account)return {status:'not_requested',id:0};
+  try{
+    await ensureCustomerNotificationsTable(env);
+    const row=await env.DB.prepare(`INSERT INTO portal_notifications (account_number,title,message,action_type,action_id) VALUES (?,?,?,?,?)`)
+      .bind(account,'Fuel Request Received — '+requestNumber,message,'fuel_request',requestId).run();
+    return {status:'sent',id:Number(row.meta?.last_row_id||0)};
+  }catch(error){console.error('Fuel request portal confirmation could not be saved',error);return {status:'failed',id:0};}
+}
+async function fuelRequestSendSms(request,env,phone,message){
+  if(!phone)return {status:'not_requested',id:''};
+  if(!twilioNormalizePhone(phone))return {status:'invalid_phone',id:'',error:'The phone number cannot receive an SMS confirmation.'};
+  if(!twilioConfig(env).configured)return {status:'not_configured',id:'',error:'SMS confirmation service is not configured.'};
+  try{
+    const result=await twilioSendSms(env,phone,message,{statusCallbackUrl:twilioCallbackUrl(request,'/api/twilio/message-status'),signal:AbortSignal.timeout(10000)});
+    if(!result.sid)return {status:'failed',id:'',error:'SMS confirmation was not accepted by the provider.'};
+    const status=twilioDeliveryStatus(result.status);
+    return {status,id:result.sid,...(status==='failed'?{error:'SMS confirmation could not be delivered.'}:{})};
+  }catch(error){
+    const code=String(error.twilioCode||'');
+    console.error('Fuel request SMS could not be confirmed',{code,error:String(error?.name||'NetworkError')});
+    return {status:code==='21610'?'opted_out':error.twilioStatus?'failed':'unknown',id:'',code,error:code==='21610'?'SMS is turned off for this phone number.':'SMS confirmation has not been confirmed as sent.'};
+  }
 }
 async function fuelRequestSendEmail(env,payload,key) {
   if(!env.RESEND_API_KEY) return {status:'not_configured',id:''};
@@ -184,9 +228,12 @@ function fuelRequestSavedReply(row) {
   if(office!=='sent') warnings.push('Your request is saved for our office to review, but the office email notification has not been confirmed.');
   if(customer==='not_requested') warnings.push('No customer email address was provided, so no confirmation email was sent.');
   else if(customer!=='sent') warnings.push('Your confirmation email has not been confirmed as sent. Keep the request number below; you do not need to submit another request.');
+  const portal=row.customer_portal_status||'unknown',sms=row.customer_sms_status||'unknown';
+  if(portal==='failed')warnings.push('Your portal confirmation is temporarily unavailable. Your fuel request is still saved.');
+  if(['failed','invalid_phone','not_configured','unknown'].includes(sms))warnings.push('Your SMS confirmation has not been confirmed as sent. You do not need to submit another request.');
   return json({success:true,saved:true,requestNumber:row.request_number,emailId:row.resend_email_id||null,
-    notifications:{office:{status:office},customer:{status:customer}},warning:warnings.join(' '),
-    message:customer==='sent'?'Your request is saved and your confirmation email was sent. Please check your inbox or spam folder.':'Your request is saved for Wooten Oil to review.'});
+    notifications:{office:{status:office},customer:{status:customer},portal:{status:portal},sms:{status:sms}},warning:warnings.join(' '),
+    message:'Your fuel request has been sent and is being reviewed by the Wooten Oil team.'+(customer==='sent'?' Your confirmation email was sent; please check your inbox or spam folder.':'')});
 }
 
 __name(onRequestPost, "onRequestPost");
@@ -225,7 +272,10 @@ async function ensureFuelRequestHistorySchema(env) {
     ['decision_note','TEXT'],['decision_by','TEXT'],['decision_at','TEXT'],
     ['resend_email_id','TEXT'],
     ['customer_email_status',"TEXT NOT NULL DEFAULT 'unknown'"],
-    ['customer_resend_email_id','TEXT']
+    ['customer_resend_email_id','TEXT'],
+    ['customer_portal_status',"TEXT NOT NULL DEFAULT 'unknown'"],
+    ['customer_sms_status',"TEXT NOT NULL DEFAULT 'unknown'"],
+    ['customer_sms_sid','TEXT']
   ];
   for(const [name,definition] of additions) {
     if(columns.has(name)) continue;

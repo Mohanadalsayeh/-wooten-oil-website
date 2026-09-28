@@ -3405,6 +3405,7 @@ body.request-fuel-page .fuel-field{
 
   const FORM_ENDPOINT='/api/fuel-request';
   let pendingRequest=null;
+  let completedReturnUrl='index.html';
 
   const value=id=>document.getElementById(id).value.trim();
 
@@ -3442,13 +3443,14 @@ body.request-fuel-page .fuel-field{
     overlay.dataset.stage='sending';
   }
 
-  function showSuccess(requestNumber,warning){
+  function showSuccess(requestNumber,warning,customerAccountNumber){
+    completedReturnUrl=customerAccountNumber?'index.html#customer-login':'index.html';
     title.textContent='Fuel Request Submitted Successfully';
-    msg.innerHTML='Thank you for contacting Wooten Oil. Your fuel request has been submitted. Please save this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
+    msg.innerHTML='Your fuel request has been sent and is being reviewed by the Wooten Oil team. Please keep this request number for your records.<div class="tracking-number-box"><small>Request Number</small><strong>'+requestNumber+'</strong></div>';
     yes.style.display='none';
     yes.disabled=false;
     no.style.display='inline-flex';
-    no.textContent='Done';
+    no.textContent='OK';
     if(status) status.textContent=warning||'Your fuel request is saved for Wooten Oil to review.';
     overlay.dataset.stage='complete';
     var customerAccount=document.getElementById('fuelCustomerAccount');
@@ -3504,7 +3506,7 @@ body.request-fuel-page .fuel-field{
       if(!response.ok || data.success!==true || data.saved!==true || data.requestNumber!==request.requestNumber){
         throw new Error(data.error || data.message || 'The server did not confirm that your request was saved. Keep this form open and try again, or call Wooten Oil at (901) 476-2684.');
       }
-      showSuccess(data.requestNumber,data.warning||data.message||'');
+      showSuccess(data.requestNumber,data.warning||data.message||'',request.customerAccountNumber);
     }catch(err){
       console.error('Fuel request submission failed:',err);
       showError(err.message||'The request was not confirmed as saved. Please try again.');
@@ -3545,6 +3547,7 @@ body.request-fuel-page .fuel-field{
     if(overlay.dataset.stage==='sending') return;
     closeOverlay();
     if(overlay.dataset.stage==='confirm' || overlay.dataset.stage==='complete') pendingRequest=null;
+    if(overlay.dataset.stage==='complete') window.location.assign(completedReturnUrl);
   });
 })();
 </script>
