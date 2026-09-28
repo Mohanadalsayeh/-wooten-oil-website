@@ -28,7 +28,7 @@
   if(!dirty){get('[name=cardsEnabled]').checked=data.enabled;get('[name=cardsInterval]').value=String(data.interval_seconds);}
   get('[data-card-count]').textContent=Number(data.cards).toLocaleString();
   get('[data-card-success]').textContent=date(data.last_success);
-  get('[data-card-next]').textContent=data.needs_attention?'Action required':data.running?'Pull in progress':data.requested?'Queued':!data.enabled?'Automatic sync off':date(data.next_due);
+  get('[data-card-next]').textContent=data.needs_attention?'Action required':data.running?'Pull in Progress...':data.requested?'Queued':!data.enabled?'Automatic sync off':date(data.next_due);
   get('[data-card-checkin]').textContent=date(data.last_poll);
   get('[data-card-status]').textContent=!data.configured?'Set up the card service below to retrieve your first card list.':data.message||'Card service ready.';
   get('[data-card-status]').dataset.state=data.state;
