@@ -1,4 +1,4 @@
-/* Ver686: consistent Central-time fleet card PDF and Excel filenames. */
+/* Ver687: shared database loading progress for the fleet card list. */
 (function(){
  'use strict';
  const $=id=>document.getElementById(id),root=$('adminFleetCardInventory'),panel=$('admin-tab-intevacon-api-test'),cardPanel=$('websiteCardSync');
@@ -13,9 +13,12 @@
  let generation=0,controller=null,loading=false,loaded=false,page=1,pages=1,appliedSearch='',appliedAssignment='all',sort='card_number',direction='asc',lastSync=null,latestSync=null;
  let totalCards=0,matchingCards=0,exportOperation=null;
  const pdf=$('adminFleetCardExportPdf'),excel=$('adminFleetCardExportExcel'),cancel=$('adminFleetCardExportCancel'),exportStatus=$('adminFleetCardExportStatus');
+ const loadProgress=$('adminFleetCardLoadProgress');
  function message(text,error=false){const node=$('adminFleetCardMessage');node.textContent=text;node.hidden=!text;node.dataset.error=String(error);}
  function controls(){
   table.setAttribute('aria-busy',String(loading));
+  loadProgress.hidden=!loading;
+  loadProgress.classList.toggle('is-indeterminate',loading);
   $('adminFleetCardPrev').disabled=loading||!loaded||page<=1;
   $('adminFleetCardNext').disabled=loading||!loaded||page>=pages;
   $('adminFleetCardRefresh').disabled=loading||!allowed();
@@ -41,7 +44,6 @@
   }
   if(data.items.length)body.replaceChildren(fragment);else empty(data.summary.cards?'No cards match your search and assignment filter.':'No saved cards yet. Use Sync Cards Now to retrieve the card list.');
   $('adminFleetCardSummary').textContent=n(data.summary.cards)+' total cards · '+n(data.summary.assigned)+' assigned · '+n(data.summary.unassigned)+' available to assign';
-  $('adminFleetCardRange').textContent=n(data.total)+' matching card'+(data.total===1?'':'s')+(data.total?' · Showing '+n((page-1)*20+1)+'–'+n(Math.min(page*20,data.total)):'');
   $('adminFleetCardPage').textContent='Page '+n(page)+' of '+n(pages);
   $('adminFleetCardLastSync').textContent='Cards last updated: '+(window.WootenIntevaconDates?.central(lastSync)??(lastSync||'Not synced yet'));
   $('adminFleetCardUpdated').hidden=true;
@@ -49,7 +51,7 @@
  }
  async function load(){
   if(!visible())return;
-  const ticket=++generation,credential=key();controller?.abort();controller=new AbortController();loading=true;message('Loading cards…');controls();
+  const ticket=++generation,credential=key();controller?.abort();controller=new AbortController();loading=true;message('');controls();
   const params=new URLSearchParams({search:appliedSearch,assignment:appliedAssignment,sort,direction,page:String(page)});
   try{
    const response=await fetch('/api/admin/fleet/cards/list?'+params,{credentials:'same-origin',cache:'no-store',headers:{'X-Admin-Key':credential,'Accept':'application/json'},signal:controller.signal});
@@ -57,7 +59,7 @@
    if(ticket!==generation||credential!==key()||!allowed())return;
    if(!response.ok||!data.success)throw Error(data.error||'The saved card list could not be loaded.');
    render(data);message('');
-  }catch(error){if(ticket===generation&&error.name!=='AbortError'){loaded=false;empty('The saved card list could not be loaded. Click Refresh to try again.');$('adminFleetCardRange').textContent='';message(error.message,true);}}
+  }catch(error){if(ticket===generation&&error.name!=='AbortError'){loaded=false;empty('The saved card list could not be loaded. Click Refresh to try again.');message(error.message,true);}}
   finally{if(ticket===generation){loading=false;controls();}}
  }
  columns.forEach(([,label])=>table.tHead.rows[0].append(element('th',label)));
@@ -152,7 +154,7 @@
  window.addEventListener('wooten-admin-auth-changed',()=>{
   exportOperation?.controller.abort();exportOperation=null;totalCards=matchingCards=0;exportMessage('');excel.classList.remove('database-excel-exporting');excel.setAttribute('aria-busy','false');pdf.setAttribute('aria-busy','false');
   generation++;controller?.abort();controller=null;loading=false;loaded=false;page=pages=1;lastSync=latestSync=null;appliedSearch='';appliedAssignment='all';sort='card_number';direction='asc';search.value='';assignment.value='all';
-  for(const id of ['adminFleetCardSummary','adminFleetCardRange','adminFleetCardLastSync'])$(id).textContent='';
+  for(const id of ['adminFleetCardSummary','adminFleetCardLastSync'])$(id).textContent='';
   $('adminFleetCardPage').textContent='Page 1 of 1';$('adminFleetCardUpdated').hidden=true;empty('Sign in to view fleet cards.');message('');controls();open();
  });
  window.addEventListener('wooten-admin-auth-ready',open);

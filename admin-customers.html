@@ -7317,7 +7317,10 @@ SOFTWARE.
       <p id="adminFleetCardSummary" class="cards-inventory-summary" aria-live="polite"></p>
       <p id="adminFleetCardMessage" role="status" aria-live="polite" hidden></p>
       <p id="adminFleetCardUpdated" class="cards-inventory-updated" hidden>A new card list is ready. Click Refresh to view it.</p>
-      <p id="adminFleetCardRange" aria-live="polite"></p>
+      <div class="preview-progress" id="adminFleetCardLoadProgress" hidden>
+        <div class="preview-progress-head"><strong>Loading fleet cards…</strong><span>Requesting records</span></div>
+        <div class="preview-progress-track" role="progressbar" aria-label="Fleet card database loading progress"><span></span></div>
+      </div>
       <div class="table-pdf-export-toolbar database-export-actions" id="adminFleetCardExportActions">
         <button class="secondary table-pdf-export-button" id="adminFleetCardExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
         <button class="secondary table-pdf-export-button" id="adminFleetCardExportExcel" type="button" disabled>Export Full Database — Excel</button>
@@ -18223,7 +18226,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
 <script src="assets/js/wooten-intevacon-api-test.js?v=678"></script>
 <script src="assets/js/wooten-card-sync.js?v=683"></script>
-<script src="assets/js/wooten-admin-fleet-cards.js?v=686"></script>
+<script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 
 <style id="wooten-statement-history-pages-ver527">
 #scheduleReportPagination{margin-top:16px;padding-top:16px;border-top:1px solid #d5e2ec;box-sizing:border-box}
@@ -18588,7 +18591,8 @@ body #admin-tab-automation span.mas90-health-result-chip.is-failed{background:#f
 
 <style id="wooten-database-progress-spacing-ver616">
 #customerDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar,
-#paymentDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar {
+#paymentDatabaseLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar,
+#adminFleetCardLoadProgress:not([hidden]) ~ .table-pdf-export-toolbar {
   margin-top:14px!important;
 }
 </style>
