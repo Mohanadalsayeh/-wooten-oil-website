@@ -3,6 +3,13 @@
   "main": "worker.js",
   "compatibility_date": "2026-08-16",
   "keep_vars": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
 
   "triggers": {
     "crons": [
