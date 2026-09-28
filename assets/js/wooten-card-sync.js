@@ -1,4 +1,4 @@
-/* Ver683: available-card wording and saved inventory refresh notifications. */
+/* Ver689: refresh status feedback, error recovery and stale-response protection. */
 (function(){
  'use strict';
  const root=document.getElementById('websiteCardSync'),panel=document.getElementById('admin-tab-intevacon-api-test');if(!root||!panel)return;
@@ -8,6 +8,15 @@
  const date=v=>window.WootenIntevaconDates?.central(v)??(v?String(v):'—');
  let generation=0,busy=false,dirty=false,configured=false,controller=null;
  let syncRequestPending=false,serverRunning=false,serverRequested=false;
+ let refreshOperation=null,messageSource='';
+ const refreshButton=get('[data-card-refresh]');
+ function refreshControls(){
+  const manual=!!refreshOperation?.manual;
+  refreshButton.disabled=busy||manual||!allowed();
+  refreshButton.setAttribute('aria-busy',String(manual));
+  refreshButton.textContent=manual?'Refreshing…':'Refresh status';
+ }
+ function cancelRefresh(){refreshOperation?.controller.abort();refreshOperation=null;refreshControls();}
  function syncControls(){
   const syncing=syncRequestPending||serverRunning||serverRequested;
   const label=serverRunning?'Syncing cards…':serverRequested?'Cards sync queued':syncRequestPending?'Requesting card sync…':'Sync Cards Now';
@@ -16,10 +25,11 @@
   get('[data-card-spinner]').hidden=!syncing;
   get('[data-card-sync-label]').textContent=label;
   window.WootenFleetTabs?.setBusy('cards',syncing,label);
+  refreshControls();
  }
- const message=(text,error=false)=>{get('[data-card-message]').textContent=text;get('[data-card-message]').dataset.error=String(error);get('[data-card-message]').hidden=!text;};
- async function request(route,data){
-  const response=await fetch('/api/admin/fleet/cards/'+route,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller?.signal,headers:{'X-Admin-Key':key(),'Accept':'application/json',...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)})});
+ const message=(text,error=false,source='action')=>{messageSource=source;get('[data-card-message]').textContent=text;get('[data-card-message]').dataset.error=String(error);get('[data-card-message]').hidden=!text;};
+ async function request(route,data,signal=controller?.signal){
+  const response=await fetch('/api/admin/fleet/cards/'+route,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'X-Admin-Key':key(),'Accept':'application/json',...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)})});
   const result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'Card service request failed.');return result;
  }
  function display(data){
@@ -40,13 +50,20 @@
   get('[data-card-credential]').textContent=data.configured?'Replace card sync credential':'Create card sync credential';
   window.dispatchEvent(new CustomEvent('wooten-card-list-status',{detail:{last_sync:data.last_success||null}}));
  }
- async function refresh(){
-  if(!active()||busy)return;const ticket=generation;
-  try{const data=await request('status');if(ticket===generation)display(data);}catch(e){if(ticket===generation&&e.name!=='AbortError')message(e.message,true);}
+ async function refresh(manual=false){
+  if(!active()||busy||(refreshOperation&&!manual))return;
+  refreshOperation?.controller.abort();
+  const operation={controller:new AbortController(),generation,credential:key(),manual};refreshOperation=operation;refreshControls();
+  const current=()=>refreshOperation===operation&&operation.generation===generation&&operation.credential===key()&&allowed();
+  try{
+   const data=await request('status',undefined,operation.controller.signal);
+   if(current()){display(data);if(messageSource==='status')message('');}
+  }catch(e){if(current()&&e.name!=='AbortError')message(e.message,true,'status');}
+  finally{if(refreshOperation===operation){refreshOperation=null;refreshControls();}}
  }
  async function action(route,data){
   if(!allowed()||busy)return;
-  busy=true;const ticket=++generation;controller?.abort();controller=new AbortController();root.setAttribute('aria-busy','true');
+  busy=true;const ticket=++generation;cancelRefresh();controller?.abort();controller=new AbortController();root.setAttribute('aria-busy','true');
   syncRequestPending=route==='sync';syncControls();
   get('[data-card-sync]').disabled=true;get('[data-card-save]').disabled=true;get('[data-card-credential]').disabled=true;message('');
   try{
@@ -62,13 +79,14 @@
  get('form').addEventListener('submit',e=>{e.preventDefault();action('settings',{enabled:get('[name=cardsEnabled]').checked,interval_seconds:Number(get('[name=cardsInterval]').value)});});
  get('form').addEventListener('change',()=>{dirty=true;});
  get('[data-card-sync]').addEventListener('click',()=>action('sync',{}));
- get('[data-card-refresh]').addEventListener('click',refresh);
+ refreshButton.addEventListener('click',()=>refresh(true));
  get('[data-card-credential]').addEventListener('click',()=>{
   if(configured&&!confirm('Replace the card sync credential? You will need to update the separate card Worker secret.'))return;
   action('credential',{});
  });
  get('[data-card-copy]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(get('[data-card-secret]').value);message('Credential copied. Paste it into the card Worker secret.');}catch{get('[data-card-secret]').type='text';get('[data-card-secret]').select();message('Select and copy the credential, then paste it into the card Worker secret.');}});
- window.addEventListener('wooten-admin-auth-changed',()=>{generation++;controller?.abort();controller=null;busy=false;syncRequestPending=false;serverRunning=false;serverRequested=false;dirty=false;configured=false;syncControls();root.removeAttribute('aria-busy');get('[data-card-secret]').value='';get('[data-card-secret]').type='password';get('[data-card-secret-area]').hidden=true;get('[data-card-setup]').hidden=true;get('[data-card-save]').disabled=false;message('');refresh();});
- new MutationObserver(refresh).observe(panel,{attributes:true,attributeFilter:['hidden','class']});
+ window.addEventListener('wooten-admin-auth-changed',()=>{generation++;cancelRefresh();controller?.abort();controller=null;busy=false;syncRequestPending=false;serverRunning=false;serverRequested=false;dirty=false;configured=false;syncControls();root.removeAttribute('aria-busy');get('[data-card-secret]').value='';get('[data-card-secret]').type='password';get('[data-card-secret-area]').hidden=true;get('[data-card-setup]').hidden=true;get('[data-card-save]').disabled=false;message('');refresh();});
+ window.addEventListener('wooten-admin-auth-ready',()=>refresh());
+ new MutationObserver(()=>refresh()).observe(panel,{attributes:true,attributeFilter:['hidden','class']});
  setInterval(()=>{if(!document.hidden)refresh();},15000);syncControls();refresh();
 })();

@@ -1,4 +1,4 @@
-/* Ver674: numeric display dates; raw API timestamps remain intact for sorting. */
+/* Ver690: transaction footer retrieval time and invoice-style PDF printing. */
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -7,6 +7,8 @@
   const rowsBody = $('apiTestRows'), dialog = $('apiTestDetail');
   let filtered = [], rows = [], page = 1, controller = null, generation = 0, cooldownTimer = null, cooldownUntil = 0;
   let serverRunning = false, syncNotice = '';
+  let resultRetrievedAt = null, detailPrintData = null;
+  const detailPdfUrls = [];
   const key = () => $('adminKey')?.value.trim() || '';
   const allowed = () => !!key() && window.WootenAdminAccess?.has(window.wootenAdminUser, 'fleet_cards');
   const number = (value, digits = 3) => typeof value === 'number' && Number.isFinite(value)
@@ -88,6 +90,8 @@
   }
   function clearResults() {
     rows = []; page = 1;
+    resultRetrievedAt = null; detailPrintData = null;
+    releaseDetailPdfs();
     delete table.dataset.fullSortColumn; delete table.dataset.fullSortDirection;
     rowsBody.replaceChildren();
     $('apiTestSummary').replaceChildren();
@@ -97,6 +101,9 @@
     $('apiTestDetailBody').replaceChildren();
     $('apiTestDetailTitle').textContent = 'Transaction';
     $('apiTestDetailSubtitle').textContent = '';
+    $('apiTestDetailRetrieved').textContent = 'Retrieved from Intevacon. Last retrieval: —. Results are retained for admin review.';
+    $('apiTestDetailPrintStatus').textContent = '';
+    $('apiTestDetailPrintStatus').hidden = true;
   }
   function cell(tr, value) { tr.append(element('td', value == null || value === '' ? '—' : value)); }
   function renderPage() {
@@ -128,6 +135,7 @@
   }
   function showResults(data) {
     rows = data.rows; page = 1;
+    resultRetrievedAt = data.completedAt || null;
     const quantities = rows.map(fuelQuantity).filter(v => v != null);
     const saleAmounts = rows.map(r => r.TotalAmountOfSale).filter(v => typeof v === 'number' && Number.isFinite(v));
     const stats = [
@@ -157,7 +165,7 @@
     $('apiTestDetailSubtitle').textContent = row.CardHolderName || 'Intevacon API result';
     const body = $('apiTestDetailBody'); body.replaceChildren();
     const fields = element('dl', null, 'api-test-detail-fields');
-    [
+    const detailFields = [
       ['API Customer ID', row.CustomerID], ['Cardholder organization ID', row.CardHolderOrgID],
       ['Card number', row.CardNumber], ['Status', row.Status],
       ['Merchant', row.MerchantName], ['Sale amount', money(row.TotalAmountOfSale)],
@@ -168,7 +176,8 @@
       ['Driver', [row.DriverNumber, row.DriverName].filter(Boolean).join(' · ')],
       ['Vehicle', [row.VehicleNumber, row.VehicleDescription].filter(Boolean).join(' · ')],
       ['Odometer', row.Odometer], ['Decline reason', row.DeclineReason]
-    ].forEach(([label, value]) => {
+    ].map(([label, value]) => [label, value == null || value === '' ? '—' : String(value)]);
+    detailFields.forEach(([label, value]) => {
       const group = element('div');
       group.append(element('dt', label), element('dd', value == null || value === '' ? '—' : value)); fields.append(group);
     });
@@ -187,7 +196,48 @@
     });
     if (!tbody.children.length) { const tr = element('tr'), td = element('td', 'No product details returned.'); td.colSpan = 6; tr.append(td); tbody.append(tr); }
     table.append(tbody); wrap.append(table); body.append(wrap);
+    // Capture the opened result's timestamp, even if an automatic sync later replaces the table.
+    const retrieved = stamp(resultRetrievedAt);
+    $('apiTestDetailRetrieved').textContent = `Retrieved from Intevacon. Last retrieval: ${retrieved}. Results are retained for admin review.`;
+    $('apiTestDetailPrintStatus').textContent = '';
+    $('apiTestDetailPrintStatus').hidden = true;
+    detailPrintData = {
+      title: 'Fleet Transaction', number: String(row.ID ?? ''), meta: 'Intevacon API',
+      customerLabel: 'Cardholder', customer: row.CardHolderName || '—',
+      account: 'API Customer ID: ' + (row.CustomerID ?? '—'),
+      balanceLabel: 'Sale amount', balance: money(row.TotalAmountOfSale),
+      updated: 'Last retrieval: ' + retrieved, stackedGroups: true,
+      groups: [{title: 'Transaction details', rows: detailFields},
+        ...(row.Details || []).map((d, i) => ({title: 'Product ' + (i + 1), rows: [
+          ['Product', d.ProductName ?? '—'], ['Code', d.ProductCode ?? '—'],
+          ['Fuel', d.IsFuel === true ? 'Yes' : d.IsFuel === false ? 'No' : '—'],
+          ['Quantity', number(d.Quantity)], ['Unit price', number(d.ResolvedUnitPrice ?? d.RawUnitPrice, 4)],
+          ['Amount', money(d.ResolvedAmount ?? d.RawAmount)]
+        ]}))],
+      notes: (row.Details || []).length ? [] : ['No product details returned.']
+    };
     dialog.showModal(); $('apiTestDetailClose').focus();
+  }
+  function releaseDetailPdfs() {
+    detailPdfUrls.splice(0).forEach(url => URL.revokeObjectURL(url));
+  }
+  function printDetail() {
+    if (!allowed() || !dialog.open || !detailPrintData) return;
+    const output = $('apiTestDetailPrintStatus');
+    output.textContent = ''; output.hidden = true;
+    try {
+      if (!window.WootenInvoicePdf?.buildDetail)
+        throw new Error('The PDF exporter is unavailable. Refresh the page and try again.');
+      const blob = window.WootenInvoicePdf.buildDetail(detailPrintData), url = URL.createObjectURL(blob);
+      let tab;
+      try { tab = window.open(url, '_blank'); }
+      catch (error) { URL.revokeObjectURL(url); throw error; }
+      if (!tab) { URL.revokeObjectURL(url); throw new Error('Please allow pop-ups to open the transaction PDF.'); }
+      tab.opener = null; detailPdfUrls.push(url);
+    } catch (error) {
+      output.textContent = error.message || 'The transaction PDF could not be created.';
+      output.hidden = false;
+    }
   }
   form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -261,6 +311,10 @@
     if (button) showDetail(Number(button.dataset.apiTestRow));
   });
   $('apiTestDetailClose').addEventListener('click', () => dialog.close());
+  $('apiTestDetailOk').addEventListener('click', () => dialog.close());
+  $('apiTestDetailPrint').addEventListener('click', printDetail);
+  dialog.addEventListener('close', () => { detailPrintData = null; });
+  window.addEventListener('pagehide', releaseDetailPdfs);
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   window.addEventListener('wooten-admin-auth-changed', () => {
     generation++; controller?.abort(); controller = null;

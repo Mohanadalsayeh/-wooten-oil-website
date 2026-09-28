@@ -51,7 +51,16 @@
 #apiTestDetail dt{color:#6b8094;font-size:13px;margin-bottom:5px}
 #apiTestDetail dd{margin:0;overflow-wrap:anywhere;font-size:16px}
 #apiTestDetail h3{margin:26px 0 8px;font-size:18px}
-#apiTestDetail .api-test-detail-foot{border-top:1px solid #d5e3ef;padding:16px 24px;background:#f6f9fc;color:#60798f;font-size:13px;flex-shrink:0;line-height:1.5}
+/* Ver690: fixed, taller footer with retrieval metadata and right-aligned actions. */
+#apiTestDetail .api-test-detail-foot{display:flex;align-items:center;gap:16px 24px;flex-wrap:wrap;box-sizing:border-box;min-height:88px;border-top:1px solid #d5e3ef;padding:20px 24px;background:#f6f9fc;color:#60798f;font-size:13px;flex-shrink:0;line-height:1.5}
+#apiTestDetail .api-test-detail-meta{flex:1 1 360px;min-width:0;overflow-wrap:anywhere}
+#apiTestDetail .api-test-detail-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-left:auto;flex:0 0 auto}
+#apiTestDetail .api-test-detail-actions button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:96px;min-height:44px;padding:10px 20px;border:1px solid #c9dae8;border-radius:10px;background:#e7eef4;color:#193d59;font:inherit;font-size:16px;cursor:pointer}
+#apiTestDetail #apiTestDetailPrint{background:#19547e;border-color:#19547e;color:#fff}
+#apiTestDetail .api-test-detail-actions button:hover{background:#dbe6ee}
+#apiTestDetail #apiTestDetailPrint:hover{background:#124465;border-color:#124465}
+#apiTestDetail .api-test-detail-actions button:focus-visible{outline:2px solid #2476b4;outline-offset:3px}
+#apiTestDetailPrintStatus{margin:6px 0 0;color:#a31836}
 #admin-tab-intevacon-api-test [hidden],#apiTestDetail [hidden]{display:none!important}
 @media(max-width:760px){
   #apiTestForm .api-test-fields{grid-template-columns:1fr}
@@ -64,6 +73,8 @@
   #apiTestPage{order:-1;flex-basis:100%;text-align:center}
   #admin-tab-intevacon-api-test .api-test-pager button{flex:1}
   #apiTestDetail .api-test-detail-head,#apiTestDetailBody{padding:18px}
+  #apiTestDetail .api-test-detail-foot{padding:18px;gap:14px}
+  #apiTestDetail .api-test-detail-actions{flex-basis:100%}
   #apiTestDetail .api-test-detail-fields{grid-template-columns:1fr}
   #admin-tab-intevacon-api-test .api-test-stat{padding:14px}
   #admin-tab-intevacon-api-test .api-test-stat strong{font-size:23px}
