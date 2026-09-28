@@ -1,4 +1,4 @@
-/* Ver662 — RFC 8291 aes128gcm and RFC 8292 VAPID using Workers Web Crypto. */
+/* Ver665 — Cloudflare-compatible push delivery; never follow provider redirects. */
 const utf8=new TextEncoder();
 export const bytes=v=>utf8.encode(v);
 export const join=(...parts)=>{const out=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let i=0;for(const p of parts){out.set(p,i);i+=p.length;}return out;};
@@ -49,7 +49,8 @@ export async function send(env,sub,payload,transport=fetch){
  const token=encode(bytes(JSON.stringify({typ:'JWT',alg:'ES256'})))+'.'+encode(bytes(JSON.stringify({aud:new URL(sub.endpoint).origin,exp:now+3600,sub:cfg.subject})));
  const key=await crypto.subtle.importKey('jwk',cfg.key,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
  const sig=encode(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,bytes(token)));
- const response=await transport(sub.endpoint,{method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),headers:{Authorization:'vapid t='+token+'.'+sig+', k='+cfg.publicKey,'Content-Type':'application/octet-stream','Content-Encoding':'aes128gcm',TTL:'3600',Urgency:'normal',Topic:(await digest(payload.tag)).slice(0,32)},body:await encrypt(sub,JSON.stringify(payload))});
+ // Workers supports manual/follow, not error. Never forward signed requests to redirects.
+ const response=await transport(sub.endpoint,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(10000),headers:{Authorization:'vapid t='+token+'.'+sig+', k='+cfg.publicKey,'Content-Type':'application/octet-stream','Content-Encoding':'aes128gcm',TTL:'3600',Urgency:'normal',Topic:(await digest(payload.tag)).slice(0,32)},body:await encrypt(sub,JSON.stringify(payload))});
  await response.body?.cancel();
  return {status:response.status,retryAfter:Math.max(0,Math.min(86400,Number(response.headers.get('Retry-After'))||0))};
 }
