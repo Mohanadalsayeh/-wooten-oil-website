@@ -270,7 +270,7 @@
     message(''); defaults(); refreshControls(); pollSchedule();
   });
   let lastCompleted = null, scheduleLoaded = false, pollBusy = false;
-  const stamp = value => window.WootenIntevaconDates?.central(value) ?? sourceDate(value);
+  const stamp = (value, includeSeconds = false) => window.WootenIntevaconDates?.central(value, '—', includeSeconds) ?? sourceDate(value);
   async function portalRequest(path, options = {}) {
     const credential = key(), epoch = generation;
     const response = await fetch('/api/admin/fleet/' + path, {...options, credentials:'same-origin',cache:'no-store',
@@ -304,7 +304,7 @@
         + (data.running ? ' Pulling transactions…' : '')
         + ` Last successful pull: ${stamp(status.completedAt)}.`
         + (status.count != null ? ` ${number(status.count)} transactions.` : '')
-        + (data.nextRun ? ` Next pull: ${stamp(data.nextRun)}.` : '')
+        + (data.nextRun ? ` Next pull: ${stamp(data.nextRun, true)}.` : '')
         + (status.error ? ` ${status.error}` : '');
       if (!controller && status.completedAt && status.completedAt !== lastCompleted) {
         const cached = await portalRequest('results');

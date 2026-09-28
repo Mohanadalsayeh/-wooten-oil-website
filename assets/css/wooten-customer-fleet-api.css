@@ -12,7 +12,7 @@ body #customerFleetRoot .fleet-live-status[data-state="success"]{background:#eaf
 body #customerFleetRoot .fleet-live-status[data-state="error"]{background:#fff2f3;color:#962444}
 body #customerFleetRoot .fleet-live-status[hidden]{display:none!important}
 @media(max-width:600px){body #customerFleetRoot .fleet-live-dates,body #customerFleetRoot .fleet-live-date-actions{grid-template-columns:minmax(0,1fr)}}
-body #customerFleetRoot .fleet-summary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+body #customerFleetRoot .fleet-summary{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 body #customerFleetRoot .fleet-summary .fleet-stat{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:12px}
 body #customerFleetRoot .fleet-stat strong{font-size:24px;overflow-wrap:anywhere}
 body #customerFleetRoot .fleet-stat span{font-size:13px;line-height:1.4}
@@ -30,7 +30,7 @@ body .fleet-transaction-dialog .fleet-product-table{overflow-x:auto;margin:16px 
 body .fleet-transaction-dialog .fleet-product-table table{width:100%;min-width:650px;border-collapse:collapse}
 body .fleet-transaction-dialog .fleet-product-table th{font-weight:700;text-align:left;white-space:nowrap}
 body .fleet-transaction-dialog .fleet-product-table :is(th,td){padding:12px;border-bottom:1px solid #dde6ee}
-body .fleet-transaction-dialog .fleet-product-table :is(th,td):nth-child(n+3):nth-child(-n+5){text-align:right;font-variant-numeric:tabular-nums}
+body .fleet-transaction-dialog .fleet-product-table :is(th,td):nth-child(3){text-align:right;font-variant-numeric:tabular-nums}
 body .fleet-transaction-dialog .fleet-product-info{margin:16px 0;padding:14px;background:#f6f9fb;border:1px solid #d9e4ed;border-radius:12px}
 body .fleet-transaction-dialog .fleet-product-info summary{cursor:pointer;font-weight:700}
 body .fleet-transaction-dialog dd{overflow-wrap:anywhere}
@@ -44,3 +44,6 @@ body .fleet-transaction-dialog dd{overflow-wrap:anywhere}
 /* Ver661: saved card lists have no transaction date or quantity controls. */
 body #customerFleetRoot .fleet-live-dates[hidden],body #customerFleetRoot .fleet-stat[hidden]{display:none!important}
 body #customerFleetRoot[data-kind="cards"] .fleet-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* Ver676: quantity fills the last row when customer transaction metrics stack. */
+@media(max-width:760px){body #customerFleetRoot[data-kind="transactions"] .fleet-summary .fleet-stat:last-child{grid-column:1/-1}}

@@ -1,4 +1,5 @@
-/* Ver674: display-only dates. Source wall times and original stored values are preserved. */
+/* Ver678: format scheduler epoch milliseconds and optionally include seconds.
+   Display-only dates. Source wall times and original stored values are preserved. */
 (function () {
   'use strict';
   const pad = value => String(value).padStart(2, '0');
@@ -45,15 +46,22 @@
     timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hour12: true
   });
-  function central(value, empty = '—') {
+  const centralSecondsFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+  });
+  function central(value, empty = '—', includeSeconds = false) {
     if (value == null || String(value).trim() === '') return empty;
     // Portal sync timestamps carry an explicit UTC/offset. Unknown source zones stay as supplied.
     const text = String(value).trim();
-    if (!/T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) return source(value, empty);
-    const instant = new Date(text);
+    // Cloudflare's scheduler returns nextRun as Unix epoch milliseconds.
+    const epochMilliseconds = typeof value === 'number' || /^-?\d{13}$/.test(text);
+    if (!epochMilliseconds && !/T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) return source(value, empty);
+    const instant = new Date(epochMilliseconds ? Number(value) : text);
     if (!Number.isFinite(instant.getTime())) return text;
-    const parts = Object.fromEntries(centralFormatter.formatToParts(instant).map(part => [part.type, part.value]));
-    return `${parts.month}/${parts.day}/${parts.year} ${pad(parts.hour)}:${parts.minute} ${parts.dayPeriod} CT`;
+    const formatter = includeSeconds ? centralSecondsFormatter : centralFormatter;
+    const parts = Object.fromEntries(formatter.formatToParts(instant).map(part => [part.type, part.value]));
+    return `${parts.month}/${parts.day}/${parts.year} ${pad(parts.hour)}:${parts.minute}${includeSeconds ? ':' + parts.second : ''} ${parts.dayPeriod} CT`;
   }
   window.WootenIntevaconDates = Object.freeze({source, central});
 })();

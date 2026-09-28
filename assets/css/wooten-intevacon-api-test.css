@@ -25,8 +25,19 @@
 #admin-tab-intevacon-api-test th,#apiTestDetail th{background:#f1f6fa;color:#1b3d58;text-align:left;font-size:13px;font-weight:750;white-space:nowrap;padding:16px;text-transform:uppercase;letter-spacing:.02em}
 #admin-tab-intevacon-api-test td,#apiTestDetail td{border-top:1px solid #e0eaf2;padding:14px 16px;text-align:left;vertical-align:top;white-space:nowrap;color:#193d59}
 #admin-tab-intevacon-api-test tbody tr:nth-child(even){background:#f7fafc}
-#admin-tab-intevacon-api-test .api-test-trans-link{background:none;border:0;color:#1c527b;padding:0;margin:0;min-height:32px;min-width:0;font:inherit;cursor:pointer;text-decoration:none}
-#admin-tab-intevacon-api-test .api-test-trans-link:hover,#admin-tab-intevacon-api-test .api-test-trans-link:focus-visible{text-decoration:underline}
+/* Ver676: transaction numbers remain plain text links except during hover. */
+#admin-tab-intevacon-api-test .api-test-trans-link,
+#admin-tab-intevacon-api-test .api-test-trans-link:is(:hover,:focus,:focus-visible,:active){
+ appearance:none!important;-webkit-appearance:none!important;background:transparent!important;
+ border:0!important;border-radius:0!important;box-shadow:none!important;
+ color:#1c527b!important;padding:0!important;margin:0!important;min-height:32px;min-width:0;
+ font:inherit;cursor:pointer;text-decoration:none!important;text-decoration-line:none!important;
+ text-underline-offset:3px;transform:none!important;
+}
+#admin-tab-intevacon-api-test .api-test-trans-link:focus-visible{outline:2px solid #1c527b!important;outline-offset:3px!important}
+@media(hover:hover) and (pointer:fine){
+ #admin-tab-intevacon-api-test .api-test-trans-link:hover{text-decoration:underline!important;text-decoration-line:underline!important}
+}
 #admin-tab-intevacon-api-test .api-test-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}
 #apiTestDetail{color:#18374f;background:#fff;border:1px solid #d5e3ef;border-radius:20px;padding:0;width:min(880px,94vw);max-width:94vw;max-height:90vh;max-height:90dvh;overflow:hidden;box-shadow:0 22px 80px #0820324d}
 #apiTestDetail::backdrop{background:#102b42aa}
