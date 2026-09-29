@@ -11,7 +11,7 @@
  let refreshOperation=null,messageSource='',savedSettings=null;
  const settings=()=>({enabled:get('[name=cardsEnabled]').checked,interval_seconds:Number(get('[name=cardsInterval]').value)});
  const settingsKey=v=>JSON.stringify({enabled:!!v.enabled,interval_seconds:Number(v.interval_seconds)});
- function saveControls(){dirty=savedSettings!==null&&settingsKey(settings())!==savedSettings;get('[data-card-save]').disabled=!allowed()||busy||savedSettings===null||!dirty;}
+ function saveControls(){get('[name=cardsInterval]').disabled=!get('[name=cardsEnabled]').checked||busy||!allowed()||savedSettings===null;dirty=savedSettings!==null&&settingsKey(settings())!==savedSettings;get('[data-card-save]').disabled=!allowed()||busy||savedSettings===null||!dirty;}
  const refreshButton=get('[data-card-refresh]');
  function refreshControls(){
   const manual=!!refreshOperation?.manual;

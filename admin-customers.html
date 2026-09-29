@@ -5662,6 +5662,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 <link rel="apple-touch-icon" href="/assets/push/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="assets/css/wooten-push.css?v=664">
+<script defer src="assets/js/wooten-company-header-text.js?v=703"></script>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -7035,7 +7036,7 @@ SOFTWARE.
         <h3>Statement &amp; Delivery Settings</h3>
         <p>These settings apply to Cycle A, Cycle B, and Test All Cycles. Each customer’s colored or gray communication icons are still respected.</p>
         <div class="schedule-fields schedule-shared-fields">
-          <div class="schedule-field"><label for="scheduleStatementDate">Statement Date — Cycles A, B &amp; All</label><input id="scheduleStatementDate" type="date" required><small>Printed on statements. Balances and payments use the latest imported data.</small></div>
+          <div class="schedule-field statement-date-field"><label for="scheduleStatementDate">Statement Date — Cycles A, B &amp; All</label><input id="scheduleStatementDate" type="date" required><small>Printed on statements. Balances and payments use the latest imported data.</small></div>
           <div class="schedule-field schedule-payment-count-field"><label for="schedulePaymentCount">Recent Payments</label><select id="schedulePaymentCount"><option value="0">None</option><option value="1">1 payment</option><option value="2">2 payments</option><option value="3">3 payments</option><option value="5">5 payments</option><option value="10">10 payments</option><option value="20">20 payments</option></select></div>
           <div class="schedule-field"><label for="scheduleEmailFilter">Customer Email — Cycles A &amp; B <span id="scheduleEmailLoading" class="schedule-email-loading" role="status" hidden><span class="schedule-email-spinner" aria-hidden="true"></span><span>Updating…</span></span></label><select id="scheduleEmailFilter"><option value="all">All customers</option><option value="with_email">With email</option><option value="without_email">Without email</option></select></div>
           <label class="schedule-balance-toggle" for="schedulePositiveOnly">
@@ -7132,6 +7133,11 @@ SOFTWARE.
           </div>
           <p>Manually process selected active customers assigned to Cycle B.</p>
           <fieldset id="scheduleWeeklyControls" class="schedule-cycle-controls" aria-label="B — Weekly / Biweekly Cycle settings and customers" disabled>
+          <div class="schedule-field">
+            <label for="scheduleWeeklyFrequency">Cycle B frequency</label>
+            <select id="scheduleWeeklyFrequency"><option value="weekly">Weekly — every 7 days</option><option value="biweekly">Biweekly — every 14 days</option></select>
+            <small>Applies to Cycle B. Fleet transaction default dates follow this frequency. Statements are still generated and sent manually.</small>
+          </div>
           <div class="actions schedule-cycle-actions">
             <div class="schedule-action-lane" role="group" aria-labelledby="schedulePrepareWeekly">
               <span class="schedule-action-label" id="schedulePrepareWeekly">Prepare</span>
@@ -7351,19 +7357,19 @@ SOFTWARE.
   <p>Retrieve transactions from Intevacon manually or on an automatic schedule.</p>
   <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync API Transactions Now. These results are for the admin transaction view. Customers request fresh API transactions for their own account, including quantities and details. Card lists are updated in the Fleet Cards - Website Sync tab. Transactions are not marked as exported.</div>
   <form id="apiScheduleForm" class="api-schedule">
-    <h3>Automatic transaction sync</h3>
-    <label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox"> Enable automatic transaction sync</label>
+    <div class="api-schedule-header"><label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox" role="switch"><span>Automatic transaction sync</span></label><button id="apiScheduleExpand" type="button" aria-expanded="false" aria-controls="apiScheduleControls" aria-label="Expand automatic transaction sync">+</button></div>
+    <div id="apiScheduleControls" hidden>
     <div class="api-schedule-fields">
       <label>Interval (seconds)<input id="apiScheduleInterval" type="number" min="30" max="86400" step="1" value="300" required></label>
       <label>Recent transaction window<select id="apiScheduleDays"><option value="1">Last 24 hours</option><option value="2" selected>Last 48 hours</option></select></label><label>Nightly 92-day refresh time (Central)<input id="apiNightlyTime" type="time" value="02:00" required></label>
     </div>
     <label class="api-schedule-toggle"><input id="apiNightlyEnabled" type="checkbox" checked> Refresh the full 92 days nightly</label><p class="api-test-help">Initialize history once, then update recent activity for all cards. Saved transactions are merged by transaction ID and retained. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
-    <button id="apiScheduleSave" class="secondary" disabled type="submit">Save schedule</button>
-    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button><progress hidden id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
+    <div class="api-schedule-actions"><button id="apiScheduleSave" class="secondary" disabled type="submit">Save schedule</button>
+    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button></div></div><progress hidden id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
   </form>
   <form id="apiTestForm" aria-labelledby="apiManualHeading">
-    <h3 id="apiManualHeading">Manual transaction sync</h3>
+    <div class="api-manual-heading"><span class="api-manual-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span><h3 id="apiManualHeading">Manual transaction sync</h3></div>
     <fieldset id="apiTestFields"><div class="api-test-fields">
       <label for="apiTestFrom">From<input id="apiTestFrom" type="datetime-local" step="60" min="2010-01-01T00:00" required></label>
       <label for="apiTestTo">To<input id="apiTestTo" type="datetime-local" step="60" min="2010-01-01T00:00" required></label>
@@ -7415,7 +7421,7 @@ SOFTWARE.
     <section class="pt-dialog collections-modal-card" role="dialog" aria-modal="true" aria-labelledby="ptDetailTitle" tabindex="-1">
       <header class="pt-detail-header">
         <button class="collections-modal-close" id="ptClose" type="button" aria-label="Close transaction details">&times;</button>
-        <div style="display:flex;gap:12px;align-items:flex-start;padding-right:44px;margin-bottom:16px"><span style="display:grid;place-items:center;flex:0 0 38px;height:38px;background:#d9222e;color:#fff;border-radius:9px;font-weight:700">WO</span><div><strong>WOOTEN OIL CO INC.</strong><div style="font-size:13px;line-height:1.6;color:#64748b;margin-top:6px">513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</div></div></div><h2 id="ptDetailTitle">Transaction details</h2>
+        <div class="wo-company-header-text" style="display:flex;gap:12px;align-items:flex-start;padding-right:44px;margin-bottom:16px"><span style="display:grid;place-items:center;flex:0 0 38px;height:38px;background:#d9222e;color:#fff;border-radius:9px;font-weight:700">WO</span><div><strong>WOOTEN OIL CO INC.</strong><div style="font-size:13px;line-height:1.6;color:#64748b;margin-top:6px">513 East Sanford Avenue<br>Covington, TN 38019<br>(901) 476-2684<br>support@wootenoil.com</div></div></div><h2 id="ptDetailTitle">Transaction details</h2>
         <div id="ptDetailSummary" class="pt-record-head" aria-live="polite" hidden></div>
       </header>
       <div class="pt-detail-scroll" id="ptDetailScroll" tabindex="0" role="region" aria-label="Transaction details"><div id="ptDetail" aria-live="polite"></div></div>
@@ -11734,7 +11740,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 .statement-fleet-settings .sf-help{margin-bottom:0}
 @media(max-width:620px){.statement-fleet-settings{padding:16px}.statement-fleet-settings .sf-ranges{grid-template-columns:minmax(0,1fr)}.statement-fleet-settings button{width:100%}}
 </style>
-<script src="assets/js/wooten-statement-fleet.js?v=691"></script>
+<script src="assets/js/wooten-statement-fleet.js?v=707"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -12227,7 +12233,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(card){card.classList.toggle('schedule-email-unavailable',unavailable);card.title=unavailable?'Email PDF is unavailable for customers without an email address.':'';}
   }
   function configBody(){return {
-    fleet:window.WootenStatementFleet.options('cycle'),weekly_frequency:window.WootenStatementFleet.options('cycle').frequency,
+    fleet:window.WootenStatementFleet.options('cycle'),weekly_frequency:get('scheduleWeeklyFrequency').value,
     weekly_enabled:weeklyEnabled.checked,
     midmonth_enabled:false,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
     monthly_enabled:monthlyEnabled.checked,statement_date:statementDateValue(),
@@ -15577,6 +15583,34 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <style>#invoiceDbTable{min-width:1120px}#invoiceDbTable .invoice-comment-cell{min-width:220px;max-width:360px;white-space:normal;overflow-wrap:anywhere}</style>
 <style>#invoiceDbTable .invoice-comment-cell{white-space:pre-wrap}</style>
 <script defer src="assets/js/wooten-push.js?v=682"></script>
+
+<style id="wooten-admin-single-line-menu-ver705">
+#adminSidebar .admin-tab{white-space:nowrap!important;flex-wrap:nowrap!important;box-sizing:border-box!important;gap:9px!important;padding-left:10px!important;padding-right:10px!important}
+#adminSidebar .admin-tab .admin-nav-icon{flex:0 0 22px!important}
+@media(min-width:801px){
+ .admin-workspace{grid-template-columns:320px minmax(0,1fr)!important}
+ #adminSidebar.admin-tabs-shell{width:320px!important}
+}
+@media(max-width:800px){
+ #adminSidebar.admin-tabs-shell{width:min(360px,calc(100vw - 16px))!important;max-width:calc(100vw - 16px)!important}
+}
+</style>
+
+<style id="wooten-statement-date-layout-ver706">
+#documentSectionStatementScheduling .statement-date-field{display:flex!important;flex-direction:column!important;gap:8px!important;min-width:0!important;max-width:100%!important;height:auto!important;box-sizing:border-box!important}
+#documentSectionStatementScheduling .statement-date-field label{margin:0!important}
+#documentSectionStatementScheduling #scheduleStatementDate{
+ appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+ display:flex!important;align-items:center!important;flex:0 0 52px!important;
+ width:0!important;min-width:100%!important;max-width:100%!important;
+ height:52px!important;min-height:52px!important;max-height:52px!important;
+ padding:0 12px!important;margin:0!important;line-height:50px!important;font-size:16px!important;text-align:left;
+}
+#scheduleStatementDate::-webkit-date-and-time-value{display:flex;align-items:center;min-width:0;height:50px;line-height:50px;text-align:left;margin:0;padding:0}
+#scheduleStatementDate::-webkit-datetime-edit{display:inline-flex;align-items:center;height:50px;line-height:normal;padding:0;min-width:0}
+#scheduleStatementDate::-webkit-datetime-edit-fields-wrapper{padding:0}
+#documentSectionStatementScheduling .statement-date-field small{display:block!important;position:static!important;margin:0!important;line-height:1.5!important;height:auto!important;white-space:normal;overflow-wrap:anywhere;color:#62798e;font-size:13px}
+</style>
 </body>
 </html>
 
@@ -18244,13 +18278,13 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
-<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=694">
-<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=699">
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=702">
+<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=700">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=696"></script>
-<script src="assets/js/wooten-card-sync.js?v=699"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=701"></script>
+<script src="assets/js/wooten-card-sync.js?v=700"></script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 
 <style id="wooten-statement-history-pages-ver527">

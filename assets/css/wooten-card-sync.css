@@ -95,3 +95,14 @@
  #websiteCardSync .cards-schedule-save button,#websiteCardSync .cards-manual-panel .cards-actions button{width:100%}
  #websiteCardSync .cards-manual-panel .cards-actions{flex-direction:column}
 }
+
+/* Ver700: plain disclosure control and disabled schedule interval. */
+#websiteCardSync .cards-schedule-header button.cards-schedule-expand,
+#websiteCardSync .cards-schedule-header button.cards-schedule-expand:hover,
+#websiteCardSync .cards-schedule-header button.cards-schedule-expand:focus,
+#websiteCardSync .cards-schedule-header button.cards-schedule-expand:active{
+ appearance:none!important;-webkit-appearance:none!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;
+}
+#websiteCardSync .cards-schedule-header button.cards-schedule-expand:focus:not(:focus-visible){outline:none!important}
+#websiteCardSync .cards-schedule-header button.cards-schedule-expand:focus-visible{outline:2px solid #1d5f91!important;outline-offset:2px}
+#websiteCardSync [name=cardsInterval]:disabled{opacity:.55;cursor:not-allowed;background:#edf2f6}

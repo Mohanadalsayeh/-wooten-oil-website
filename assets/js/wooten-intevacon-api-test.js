@@ -339,13 +339,23 @@
     message(''); defaults(); refreshControls(); pollSchedule();
   });
   let lastCompleted = null, scheduleLoaded = false, pollBusy = false;
-  let savedSchedule=null,scheduleSaving=false;
+  let savedSchedule=null,scheduleSaving=false,historyJobActive=false;
   const scheduleValues=()=>({enabled:$('apiScheduleEnabled').checked,intervalSeconds:Number($('apiScheduleInterval').value),days:Number($('apiScheduleDays').value),cardNumber:'',nightlyEnabled:$('apiNightlyEnabled').checked,nightlyTime:$('apiNightlyTime').value});
   const scheduleKey=v=>JSON.stringify({enabled:!!v.enabled,intervalSeconds:Number(v.intervalSeconds),days:Number(v.days),nightlyEnabled:!!v.nightlyEnabled,nightlyTime:v.nightlyTime});
   const scheduleDirty=()=>savedSchedule!==null&&scheduleKey(scheduleValues())!==savedSchedule;
-  function scheduleSaveControls(){$('apiScheduleSave').disabled=!allowed()||scheduleSaving||savedSchedule===null||!scheduleDirty();}
+  function scheduleSaveControls(){
+    const off=!$('apiScheduleEnabled').checked||!allowed()||scheduleSaving||savedSchedule===null;
+    for(const id of ['apiScheduleInterval','apiScheduleDays','apiNightlyEnabled'])$(id).disabled=off;
+    $('apiNightlyTime').disabled=off||!$('apiNightlyEnabled').checked;
+    $('apiHistoryInitialize').disabled=off||historyJobActive;
+    $('apiScheduleSave').disabled=!allowed()||scheduleSaving||savedSchedule===null||!scheduleDirty();}
   for(const event of ['input','change'])$('apiScheduleForm').addEventListener(event,scheduleSaveControls);
 
+  $('apiScheduleExpand').addEventListener('click',()=>{
+    const controls=$('apiScheduleControls'),button=$('apiScheduleExpand');controls.hidden=!controls.hidden;
+    button.textContent=controls.hidden?'+':'−';button.setAttribute('aria-expanded',String(!controls.hidden));
+    button.setAttribute('aria-label',(controls.hidden?'Expand':'Collapse')+' automatic transaction sync');
+  });
   const stamp = (value, includeSeconds = false) => window.WootenIntevaconDates?.central(value, '—', includeSeconds) ?? sourceDate(value);
   async function portalRequest(path, options = {}) {
     const credential = key(), epoch = generation;
@@ -375,7 +385,7 @@
       const status = data.status,h=data.history;
       $('apiHistoryProgress').value=h.percent;
       $('apiHistoryProgress').hidden = !(data.running || (data.config.enabled && h.job && !h.retryAt));
-      $('apiHistoryInitialize').disabled=!!h.job&&data.config.enabled;
+      historyJobActive=!!h.job&&data.config.enabled;scheduleSaveControls();
       $('apiHistoryStatus').textContent=(h.job?`${h.job.type==='initial'?'Initializing 92-day history':h.job.type==='nightly'?'Nightly 92-day refresh':'Recent transaction update'}: ${h.percent}% · Saved through ${sourceDate(h.job.through)}.`:h.initialized?'92-day history initialized. Older saved transactions are retained.':'Click Initialize 92-Day History to begin.')+(h.error?' '+h.error:'')+(data.config.enabled?'':' Automatic updates paused.')+` Next recent update: ${stamp(h.nextRecent,true)}. Next nightly refresh: ${data.config.nightlyEnabled?stamp(h.nextNight,true):'Off'}. Last nightly completion: ${stamp(h.lastNight)}.`;
       if (!controller) {
         serverRunning = data.running === true;
@@ -436,7 +446,7 @@
   }
   $('apiHistoryLoad').addEventListener('click',()=>{if(!form.reportValidity())return;dynamicHistory=false;historyRange={from:$('apiTestFrom').value,to:$('apiTestTo').value,card:$('apiTestCard').value.trim()};page=1;loadHistory();});
   $('apiHistoryInitialize').addEventListener('click',async()=>{
-    if(!allowed()||scheduleSaving||!$('apiScheduleForm').reportValidity())return;
+    if(!allowed()||scheduleSaving||!$('apiScheduleEnabled').checked||historyJobActive||!$('apiScheduleForm').reportValidity())return;
     if(!confirm('Initialize or resume the last 92 days of transaction history? This will save these schedule settings, enable automatic transaction sync, and retrieve history in the background.'))return;
     const submitted={...scheduleValues(),enabled:true},before=scheduleKey(scheduleValues()),epoch=generation;
     scheduleSaving=true;scheduleSaveControls();$('apiHistoryInitialize').disabled=true;

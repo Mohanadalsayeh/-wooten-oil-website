@@ -1,0 +1,21 @@
+/* Ver704: contain customer fleet date inputs, including iOS intrinsic sizing. */
+.fleet-live-dates,.fleet-live-dates>label,.fleet-live-dates .fleet-live-date-actions{
+ box-sizing:border-box!important;min-width:0!important;max-width:100%!important;
+}
+.fleet-live-dates>label{display:flex;flex-direction:column;gap:8px}
+.fleet-live-dates input[type="datetime-local"]{
+ appearance:none;-webkit-appearance:none;box-sizing:border-box!important;
+ display:flex!important;align-items:center!important;
+ width:0!important;min-width:100%!important;max-width:100%!important;
+ height:48px!important;min-height:48px!important;max-height:48px!important;
+ margin-inline:0!important;padding:0 12px!important;line-height:46px!important;
+ font-size:16px;text-align:left;
+}
+.fleet-live-dates input[type="datetime-local"]::-webkit-date-and-time-value{
+ display:flex;align-items:center;min-width:0;height:46px;line-height:46px;margin:0;padding:0;text-align:left;
+}
+.fleet-live-dates input[type="datetime-local"]::-webkit-datetime-edit{
+ display:inline-flex;align-items:center;min-width:0;height:46px;line-height:normal;padding:0;
+}
+.fleet-live-dates input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper{padding:0}
+@media(max-width:760px){.fleet-live-dates{grid-template-columns:minmax(0,1fr)!important}}
