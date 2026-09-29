@@ -82,6 +82,13 @@
   }catch(e){if(ticket===generation&&e.name!=='AbortError')message(e.message,true);}
   finally{if(ticket===generation){busy=false;syncRequestPending=false;syncControls();root.removeAttribute('aria-busy');saveControls();get('[data-card-credential]').disabled=serverRunning||!allowed();await refresh();}}
  }
+ const scheduleExpand=get('.cards-schedule-expand');
+ scheduleExpand.addEventListener('click',()=>{
+  const controls=get('#cardsScheduleControls');controls.hidden=!controls.hidden;
+  scheduleExpand.setAttribute('aria-expanded',String(!controls.hidden));
+  scheduleExpand.setAttribute('aria-label',(controls.hidden?'Expand':'Collapse')+' automatic schedule');
+  scheduleExpand.textContent=controls.hidden?'+':'−';
+ });
  get('form').addEventListener('submit',e=>{e.preventDefault();action('settings',{enabled:get('[name=cardsEnabled]').checked,interval_seconds:Number(get('[name=cardsInterval]').value)});});
  for(const event of ['input','change'])get('form').addEventListener(event,saveControls);
  get('[data-card-sync]').addEventListener('click',()=>{if(confirm('Sync the complete fleet card list from Intevacon now? This will update the saved cards shown in the portal.'))action('sync',{});});
