@@ -7162,7 +7162,7 @@ SOFTWARE.
     </div>
 
     <div id="documentSectionStatementRunReport" role="tabpanel" aria-labelledby="documentTabStatementRunReport" hidden>
-      <div class="documents-form-heading schedule-report-heading"><div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for all saved manual sends, scheduled runs, and tests. Browse 20 runs per page. Click a run title to open customer progress, PDF statements, and delivery details.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
+      <div class="documents-form-heading schedule-report-heading"><div><div class="admin-page-label">Statement Run Report</div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for all saved manual sends, scheduled runs, and tests. Browse 20 runs per page. Click a run title to open customer progress, PDF statements, and delivery details.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
       <div id="scheduleReportStatus" class="status" role="status" aria-live="polite"></div>
       <div class="schedule-report-search" id="scheduleReportSearchBar">
         <label for="scheduleReportSearch">Search Statement Run Report</label>
@@ -7365,8 +7365,9 @@ SOFTWARE.
     </div>
     <label class="api-schedule-toggle"><input id="apiNightlyEnabled" type="checkbox" checked> Refresh the full 92 days nightly</label><p class="api-test-help">Initialize history once, then update recent activity for all cards. Saved transactions are merged by transaction ID and retained. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
     <div class="api-schedule-actions"><button id="apiScheduleSave" class="secondary" disabled type="submit">Save schedule</button>
-    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button></div></div><progress hidden id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
+    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button></div><progress hidden id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
+    </div><!-- Entire automatic transaction sync panel body -->
   </form>
   <form id="apiTestForm" aria-labelledby="apiManualHeading">
     <div class="api-manual-heading"><span class="api-manual-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span><h3 id="apiManualHeading">Manual transaction sync</h3></div>
@@ -18279,7 +18280,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=702">
-<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=700">
+<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=709">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
@@ -18686,3 +18687,61 @@ body #admin-tab-automation span.mas90-health-result-chip.is-failed{background:#f
   #invoiceExportActions > button{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box;flex:0 0 auto!important;margin-inline:0!important;min-height:48px;white-space:normal;justify-content:center}
 }
 </style>
+
+<style id="wooten-admin-menu-hover-width-ver708">
+/* Fit the longest menu label inside the same full-width hover target. */
+#adminSidebar .admin-tabs{box-sizing:border-box!important;width:100%!important;min-width:0!important}
+#adminSidebar .admin-tab{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;white-space:nowrap!important;flex-wrap:nowrap!important;gap:9px!important;padding-inline:10px!important;font-size:13px!important}
+#adminSidebar .admin-tab .admin-nav-icon{flex:0 0 22px!important}
+@media(min-width:801px){
+ .admin-workspace{grid-template-columns:360px minmax(0,1fr)!important}
+ #adminSidebar.admin-tabs-shell{width:360px!important}
+}
+@media(max-width:800px){
+ #adminSidebar.admin-tabs-shell{box-sizing:border-box!important;width:min(380px,calc(100vw - 16px))!important;max-width:calc(100vw - 16px)!important}
+}
+@media(max-width:360px){
+ #adminSidebar .admin-tab{font-size:12px!important;gap:6px!important;padding-inline:6px!important}
+}
+</style>
+
+<style id="wooten-statement-date-match-ver711">
+#documentSectionStatementScheduling .statement-date-field,
+#documentSectionStatementScheduling .schedule-payment-count-field{display:flex!important;flex-direction:column!important;align-items:stretch!important;align-self:start!important;gap:6px!important}
+#documentSectionStatementScheduling .statement-date-field>label,
+#documentSectionStatementScheduling .schedule-payment-count-field>label{align-self:stretch!important;text-align:left!important;margin:0!important;width:100%!important}
+#documentSectionStatementScheduling #scheduleStatementDate,
+#documentSectionStatementScheduling #schedulePaymentCount{height:44px!important;min-height:44px!important;max-height:44px!important;flex:0 0 44px!important;box-sizing:border-box!important;margin:0!important}
+#documentSectionStatementScheduling #scheduleStatementDate{text-align:left!important;justify-content:flex-start!important;line-height:42px!important}
+#documentSectionStatementScheduling #scheduleStatementDate::-webkit-date-and-time-value{height:42px;line-height:42px;text-align:left;justify-content:flex-start}
+#documentSectionStatementScheduling #scheduleStatementDate::-webkit-datetime-edit{height:42px;line-height:normal;align-items:center}
+</style>
+
+<style id="wooten-cycle-row-alignment-ver712">
+.wo-cycle-rows-aligned .schedule-cycle-actions.actions{margin-top:0!important;gap:18px!important}
+.wo-cycle-rows-aligned .schedule-action-lane{grid-template-rows:20px 44px;row-gap:8px!important;align-content:start}
+.wo-cycle-rows-aligned .schedule-action-label{line-height:20px!important;margin:0!important}
+.wo-cycle-rows-aligned .schedule-action-lane>button{height:44px!important;min-height:44px!important;padding-top:0!important;padding-bottom:0!important}
+.wo-cycle-rows-aligned #scheduleWeeklyControls>.schedule-field{display:flex!important;flex-direction:column!important;gap:8px!important;margin:0 0 18px!important;padding:0!important}
+.wo-cycle-rows-aligned label[for="scheduleWeeklyFrequency"]{line-height:20px!important;height:20px!important;margin:0!important;align-self:stretch!important;text-align:left!important}
+.wo-cycle-rows-aligned #scheduleWeeklyFrequency{height:44px!important;min-height:44px!important;margin:0!important}
+.wo-cycle-rows-aligned #scheduleWeeklyControls>.schedule-field small{margin:0!important;line-height:1.5}
+.wo-cycle-rows-aligned #scheduleMonthlyControls .schedule-action-lane:first-child{min-height:var(--cycle-b-frequency-height)}
+</style>
+<script>
+/* Ver712: match Cycle A's two action rows to Cycle B's frequency and Prepare rows. */
+(()=>{
+ const a=document.getElementById('scheduleMonthlyControls'),b=document.getElementById('scheduleWeeklyControls');
+ if(!a||!b)return;
+ const ac=a.closest('.schedule-card'),bc=b.closest('.schedule-card'),field=document.getElementById('scheduleWeeklyFrequency').closest('.schedule-field');
+ let frame=0;
+ function align(){frame=0;const ar=ac.getBoundingClientRect(),br=bc.getBoundingClientRect();const sideBySide=ar.width>0&&br.left>ar.left+ar.width-2&&Math.abs(ar.top-br.top)<3;
+  ac.classList.toggle('wo-cycle-rows-aligned',sideBySide);bc.classList.toggle('wo-cycle-rows-aligned',sideBySide);
+  if(sideBySide)ac.style.setProperty('--cycle-b-frequency-height',field.getBoundingClientRect().height+'px');
+  else ac.style.removeProperty('--cycle-b-frequency-height');
+ }
+ function schedule(){if(!frame)frame=requestAnimationFrame(align);}
+ if(window.ResizeObserver){const observer=new ResizeObserver(schedule);observer.observe(ac);observer.observe(bc);observer.observe(field);}
+ window.addEventListener('resize',schedule);schedule();
+})();
+</script>

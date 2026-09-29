@@ -106,3 +106,13 @@
 #websiteCardSync .cards-schedule-header button.cards-schedule-expand:focus:not(:focus-visible){outline:none!important}
 #websiteCardSync .cards-schedule-header button.cards-schedule-expand:focus-visible{outline:2px solid #1d5f91!important;outline-offset:2px}
 #websiteCardSync [name=cardsInterval]:disabled{opacity:.55;cursor:not-allowed;background:#edf2f6}
+
+/* Ver709: align the save button with the select, excluding label spacing. */
+#websiteCardSync .cards-schedule-controls{align-items:end!important}
+#websiteCardSync .cards-schedule-controls>label{margin:0!important;padding:0!important;display:flex!important;flex-direction:column!important;gap:8px!important}
+#websiteCardSync .cards-schedule-controls select,
+#websiteCardSync .cards-schedule-controls [data-card-save]{
+ box-sizing:border-box!important;height:48px!important;min-height:48px!important;max-height:48px!important;
+ margin:0!important;align-self:end!important;line-height:normal!important;
+}
+#websiteCardSync .cards-schedule-controls [data-card-save]{display:flex!important;align-items:center!important;justify-content:center!important;padding:0 16px!important}
