@@ -6,7 +6,9 @@ function wrap(v,n){const s=plain(v)||'-',lines=[];let line='';for(let word of s.
 function day(v){const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);return m?m[2]+'/'+m[3]+'/'+m[1]+(m[4]?' '+m[4]+':'+m[5]:''):plain(v)||'-';}
 function central(v){if(!v)return 'Not available';const date=new Date(v);return Number.isFinite(date.getTime())?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(date)+' CT':'Not available';}
 export function pages(fleet,customer,statementDate,letterhead){
- if(!fleet?.cards?.length)return [];
+ // Ver718: omit zero-gallon cards before pagination and numbering.
+ const cards=(fleet?.cards||[]).filter(card=>card.total!==0);
+ if(!cards.length)return [];
  const result=[];let ops=[],y=0;
  const text=(x,top,value,size=9,bold=false)=>ops.push(`BT /${bold?'F2':'F1'} ${size} Tf 0.08 0.19 0.29 rg ${x} ${top} Td (${esc(value)}) Tj ET`);
  const line=top=>ops.push(`0.82 0.88 0.92 RG 0.5 w 42 ${top} m 570 ${top} l S`);
@@ -19,7 +21,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   ops.push(letterhead());text(42,655,'Fleet Cards & Transactions',13,true);text(42,637,day(statementDate)+' | Customer # '+customer.account_number,9);
   y=620;for(const v of wrap(customer.account_name,90)){text(42,y,v,10,true);y-=13;}
   text(42,y,'Period: '+day(fleet.range.from)+' 00:00 through '+day(fleet.range.to)+' 23:59 (Central dates)',8.5);y-=21;
-  text(42,y,(fleet.cards.length>1?'(Card '+(cardIndex+1)+'/'+fleet.cards.length+') ':'Card ')+(card.info.card_number||'Not reported')+(continued?' - continued':''),12,true);y-=17;
+  text(42,y,('(Card '+(cardIndex+1)+'/'+cards.length+') ')+(card.info.card_number||'Not reported')+(continued?' - continued':''),12,true);y-=17;
   const labels={status:'Status',card_type:'Type',cardholder:'Cardholder',driver_id:'Driver ID',driver_no:'Driver number',vehicle_id:'Vehicle ID',vehicle_no:'Vehicle number',assigned_to:'Assigned to',last_used_on:'Last used'};
   const details=Object.entries(labels).filter(([k])=>card.info[k]).map(([k,label])=>label+': '+(k==='last_used_on'?day(card.info[k]):card.info[k]));
   if(!details.length)details.push('Card information from transaction records.');
@@ -27,7 +29,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   y-=9;headings();
  }
  function next(){finish();continued=true;start();}
- for(const [index,currentCard] of fleet.cards.entries()){
+ for(const [index,currentCard] of cards.entries()){
   card=currentCard;cardIndex=index;
   continued=false;start();
   if(!card.transactions.length){text(46,y-15,'No saved transactions in this period.',9);y-=32;}
