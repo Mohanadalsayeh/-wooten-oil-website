@@ -354,6 +354,7 @@
       }
       const status = data.status,h=data.history;
       $('apiHistoryProgress').value=h.percent;
+      $('apiHistoryProgress').hidden = !(data.running || (data.config.enabled && h.job && !h.retryAt));
       $('apiHistoryInitialize').disabled=!!h.job&&data.config.enabled;
       $('apiHistoryStatus').textContent=(h.job?`${h.job.type==='initial'?'Initializing 92-day history':h.job.type==='nightly'?'Nightly 92-day refresh':'Recent transaction update'}: ${h.percent}% · Saved through ${sourceDate(h.job.through)}.`:h.initialized?'92-day history initialized. Older saved transactions are retained.':'Click Initialize 92-Day History to begin.')+(h.error?' '+h.error:'')+(data.config.enabled?'':' Automatic updates paused.')+` Next recent update: ${stamp(h.nextRecent,true)}. Next nightly refresh: ${data.config.nightlyEnabled?stamp(h.nextNight,true):'Off'}. Last nightly completion: ${stamp(h.lastNight)}.`;
       if (!controller) {

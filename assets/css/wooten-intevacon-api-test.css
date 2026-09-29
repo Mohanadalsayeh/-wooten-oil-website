@@ -120,12 +120,12 @@
 }
 
 /* Ver650: schedule and search controls. */
-#apiScheduleForm{border:1px solid #d5e3ef;border-radius:14px;padding:20px;margin:20px 0;background:#f7fafc}
-#apiScheduleForm h3{margin-top:0}
+#apiScheduleForm,#apiTestForm{border:1px solid #d5e3ef;border-radius:14px;padding:20px;margin:20px 0;background:#f7fafc}
+#apiScheduleForm h3,#apiTestForm h3{margin-top:0}
 #apiScheduleForm .api-schedule-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}
 #apiScheduleForm label,.api-search-label{display:block;font-weight:700;color:#1b3d58}
 #apiScheduleForm .api-schedule-toggle{display:flex;align-items:center;gap:10px}
-#apiScheduleForm input:not([type=checkbox]),#apiTestSearch{box-sizing:border-box;width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #bccfe0;border-radius:10px;background:white;color:#17354e;font:inherit;font-size:16px;margin-top:8px}
+#apiScheduleForm input:not([type=checkbox]),#apiScheduleForm select,#apiTestSearch{box-sizing:border-box;width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #bccfe0;border-radius:10px;background:white;color:#17354e;font:inherit;font-size:16px;margin-top:8px}
 #apiTestSearch{margin-bottom:18px}
 #apiScheduleStatus{line-height:1.6;color:#48647e}
 @media(max-width:760px){#apiScheduleForm .api-schedule-fields{grid-template-columns:1fr}#apiScheduleSave{width:100%}}
@@ -143,3 +143,10 @@
 }
 #apiTestForm input[type="datetime-local"]::-webkit-datetime-edit{min-width:0;padding:0}
 @media(max-width:760px){#apiTestForm .api-test-fields{grid-template-columns:minmax(0,1fr)}}
+
+/* Ver693: aligned portal-style schedule controls. */
+#apiScheduleForm .api-schedule-fields>label{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+#apiScheduleForm .api-schedule-fields input,
+#apiScheduleForm .api-schedule-fields select{display:block;height:48px;flex-shrink:0}
+#apiScheduleForm select{cursor:pointer}
+#apiHistoryProgress[hidden]{display:none!important}

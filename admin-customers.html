@@ -7356,10 +7356,11 @@ SOFTWARE.
     </div>
     <label class="api-schedule-toggle"><input id="apiNightlyEnabled" type="checkbox" checked> Refresh the full 92 days nightly</label><p class="api-test-help">Initialize history once, then update recent activity for all cards. Saved transactions are merged by transaction ID and retained. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
     <button id="apiScheduleSave" class="secondary" type="submit">Save schedule</button>
-    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button><progress id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
+    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button><progress hidden id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
   </form>
-  <form id="apiTestForm">
+  <form id="apiTestForm" aria-labelledby="apiManualHeading">
+    <h3 id="apiManualHeading">Manual transaction sync</h3>
     <fieldset id="apiTestFields"><div class="api-test-fields">
       <label for="apiTestFrom">From<input id="apiTestFrom" type="datetime-local" step="60" min="2010-01-01T00:00" required></label>
       <label for="apiTestTo">To<input id="apiTestTo" type="datetime-local" step="60" min="2010-01-01T00:00" required></label>
@@ -18240,12 +18241,12 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
-<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=690">
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=694">
 <link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=685">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=692"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=693"></script>
 <script src="assets/js/wooten-card-sync.js?v=689"></script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 
