@@ -26,6 +26,8 @@ if(section&&button&&status){
     if(!accounts.length){message('Select at least one customer.',false);return;}
     if(!statementDate){message('Choose the statement date.',false);return;}
 
+    let fleet;
+
     // Open synchronously so phone browsers can display the finished PDF in a tab.
     let popup=null;
     try{
@@ -48,6 +50,9 @@ if(section&&button&&status){
     button.textContent='Preparing Preview…';
 
     try{
+      await window.WootenStatementFleet.ready();
+      fleet=window.WootenStatementFleet.options('manual',true);
+      controls.forEach(control=>{control.disabled=true;});
       const parts=[];
       for(let start=0;start<accounts.length;start+=20){
         const batch=accounts.slice(start,start+20);
@@ -55,7 +60,7 @@ if(section&&button&&status){
         const response=await fetch('/api/admin/statements/preview',{
           method:'POST',cache:'no-store',
           headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/pdf'},
-          body:JSON.stringify({accounts:batch,statement_date:statementDate,payment_count:paymentCount})
+          body:JSON.stringify({accounts:batch,statement_date:statementDate,payment_count:paymentCount,fleet})
         });
         if(!response.ok){
           const data=await response.json().catch(()=>({}));

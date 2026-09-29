@@ -7,6 +7,8 @@
   const rowsBody = $('apiTestRows'), dialog = $('apiTestDetail');
   let filtered = [], rows = [], page = 1, controller = null, generation = 0, cooldownTimer = null, cooldownUntil = 0;
   let serverRunning = false, syncNotice = '';
+  let dynamicHistory=true;
+  let historyMode=true,historyData=null,historyRange=null,historySerial=0,historySort='received_at',historyDirection='desc',searchTimer;
   let resultRetrievedAt = null, detailPrintData = null;
   const detailPdfUrls = [];
   const key = () => $('adminKey')?.value.trim() || '';
@@ -56,6 +58,7 @@
     'CardNumber', 'MerchantName', null, 'TotalAmountOfSale', 'Status'];
   // Shared header controls delegate here instead of sorting only visible DOM rows.
   table.wootenSortAll = (column, direction) => {
+    if(historyMode){historySort=['transaction_id','received_at','customer_id','cardholder','card_number','merchant','fuel_quantity','total_sale','status'][column]||'received_at';historyDirection=direction==='descending'?'desc':'asc';table.dataset.fullSortColumn=String(column);table.dataset.fullSortDirection=direction;page=1;loadHistory();return;}
     const value = row => column === 6 ? fuelQuantity(row) : row[sortFields[column]];
     const missing = v => v == null || v === '' || (typeof v === 'number' && !Number.isFinite(v));
     rows.sort((a, b) => {
@@ -109,10 +112,10 @@
   function renderPage() {
     rowsBody.replaceChildren();
     const query = $('apiTestSearch').value.trim().toLowerCase();
-    filtered = rows.map((row, index) => ({row, index})).filter(({row}) => !query || [...Object.values(row).filter(v => typeof v === 'string' || typeof v === 'number'), ...(row.Details || []).flatMap(d => Object.values(d).filter(v => typeof v === 'string' || typeof v === 'number'))].join(' ').toLowerCase().includes(query));
-    page = Math.min(page, Math.max(1, Math.ceil(filtered.length / 20)));
+    filtered = rows.map((row, index) => ({row, index})).filter(({row}) => historyMode || !query || [...Object.values(row).filter(v => typeof v === 'string' || typeof v === 'number'), ...(row.Details || []).flatMap(d => Object.values(d).filter(v => typeof v === 'string' || typeof v === 'number'))].join(' ').toLowerCase().includes(query));
+    if(!historyMode)page = Math.min(page, Math.max(1, Math.ceil(filtered.length / 20)));
     const offsetStart = (page - 1) * 20;
-    filtered.slice(offsetStart, offsetStart + 20).forEach(({row, index}) => {
+    filtered.slice(historyMode?0:offsetStart, historyMode?20:offsetStart + 20).forEach(({row, index}) => {
       const tr = element('tr'), td = element('td');
       const link = element('button', row.ID, 'api-test-trans-link');
       link.type = 'button'; link.dataset.apiTestRow = String(index);
@@ -127,13 +130,15 @@
       const tr = element('tr'), td = element('td', 'No transactions match the current search or date range.');
       td.colSpan = 9; tr.append(td); rowsBody.append(tr);
     }
-    $('apiTestRange').textContent = filtered.length
-      ? `Showing ${number(offsetStart + 1)}–${number(Math.min(offsetStart + 20, filtered.length))} of ${number(filtered.length)} matching transactions (${number(rows.length)} retrieved)` : '0 matching transactions';
-    $('apiTestPage').textContent = `Page ${number(page)} of ${number(Math.max(1, Math.ceil(filtered.length / 20)))}`;
+    const total=historyMode?(historyData?.total||0):filtered.length;
+    $('apiTestRange').textContent = total
+      ? `Showing ${number(offsetStart + 1)}–${number(Math.min(offsetStart + 20, total))} of ${number(total)} matching transactions` : '0 matching transactions';
+    $('apiTestPage').textContent = `Page ${number(page)} of ${number(Math.max(1, Math.ceil(total / 20)))}`;
     $('apiTestPrev').disabled = page <= 1;
-    $('apiTestNext').disabled = page * 20 >= filtered.length;
+    $('apiTestNext').disabled = page * 20 >= total;
   }
   function showResults(data) {
+    historyMode=false;historySerial++;historyData=null;
     rows = data.rows; page = 1;
     resultRetrievedAt = data.completedAt || null;
     const quantities = rows.map(fuelQuantity).filter(v => v != null);
@@ -302,10 +307,10 @@
       }
     }
   });
-  $('apiTestSearch').addEventListener('input', () => { page = 1; renderPage(); });
+  $('apiTestSearch').addEventListener('input', () => { page=1;clearTimeout(searchTimer);if(historyMode)searchTimer=setTimeout(loadHistory,300);else renderPage(); });
   $('apiTestDefaults').addEventListener('click', defaults);
-  $('apiTestPrev').addEventListener('click', () => { if (page > 1) { page--; renderPage(); } });
-  $('apiTestNext').addEventListener('click', () => { if (page * 20 < filtered.length) { page++; renderPage(); } });
+  $('apiTestPrev').addEventListener('click', () => { if (page > 1) { page--; historyMode?loadHistory():renderPage(); } });
+  $('apiTestNext').addEventListener('click', () => { if(page*20<(historyMode?historyData?.total:filtered.length)){page++;historyMode?loadHistory():renderPage();} });
   rowsBody.addEventListener('click', event => {
     const button = event.target.closest('[data-api-test-row]');
     if (button) showDetail(Number(button.dataset.apiTestRow));
@@ -320,7 +325,7 @@
     generation++; controller?.abort(); controller = null;
     serverRunning = false; cooldownUntil = 0;
     clearInterval(cooldownTimer); cooldownTimer = null;
-    clearResults(); lastCompleted = null; scheduleLoaded = false; $('apiTestSearch').value = '';
+    clearResults(); historyMode=true;historyData=null;historyRange=null;dynamicHistory=true;historySerial++;lastCompleted = null; scheduleLoaded = false; $('apiTestSearch').value = '';
     message(''); defaults(); refreshControls(); pollSchedule();
   });
   let lastCompleted = null, scheduleLoaded = false, pollBusy = false;
@@ -344,9 +349,13 @@
         $('apiScheduleEnabled').checked = data.config.enabled;
         $('apiScheduleInterval').value = data.config.intervalSeconds;
         $('apiScheduleDays').value = data.config.days;
+        $('apiNightlyTime').value=data.config.nightlyTime; $('apiNightlyEnabled').checked=data.config.nightlyEnabled;
         scheduleLoaded = true;
       }
-      const status = data.status;
+      const status = data.status,h=data.history;
+      $('apiHistoryProgress').value=h.percent;
+      $('apiHistoryInitialize').disabled=!!h.job&&data.config.enabled;
+      $('apiHistoryStatus').textContent=(h.job?`${h.job.type==='initial'?'Initializing 92-day history':h.job.type==='nightly'?'Nightly 92-day refresh':'Recent transaction update'}: ${h.percent}% · Saved through ${sourceDate(h.job.through)}.`:h.initialized?'92-day history initialized. Older saved transactions are retained.':'Click Initialize 92-Day History to begin.')+(h.error?' '+h.error:'')+(data.config.enabled?'':' Automatic updates paused.')+` Next recent update: ${stamp(h.nextRecent,true)}. Next nightly refresh: ${data.config.nightlyEnabled?stamp(h.nextNight,true):'Off'}. Last nightly completion: ${stamp(h.lastNight)}.`;
       if (!controller) {
         serverRunning = data.running === true;
         // Use a duration from the server so a phone's clock cannot extend the wait.
@@ -360,9 +369,11 @@
         + (status.count != null ? ` ${number(status.count)} transactions.` : '')
         + (data.nextRun ? ` Next pull: ${stamp(data.nextRun, true)}.` : '')
         + (status.error ? ` ${status.error}` : '');
-      if (!controller && status.completedAt && status.completedAt !== lastCompleted) {
+      if(!controller&&historyMode&&(!historyData||status.completedAt!==lastCompleted)){await loadHistory();lastCompleted=status.completedAt;}
+      if (!controller && !historyMode && status.completedAt && status.completedAt !== lastCompleted) {
         const cached = await portalRequest('results');
-        if (controller || !cached.result) return;
+        if(controller)return;
+        if(!cached.result||cached.result.completedAt!==status.completedAt){lastCompleted=status.completedAt;return;}
         const oldPage = page, col = table.dataset.fullSortColumn, direction = table.dataset.fullSortDirection;
         showResults(cached.result);
         if (col !== undefined) table.wootenSortAll(Number(col), direction);
@@ -379,12 +390,36 @@
     try {
       await portalRequest('schedule', {method:'POST',body:JSON.stringify({
         enabled:$('apiScheduleEnabled').checked,intervalSeconds:Number($('apiScheduleInterval').value),
-        days:Number($('apiScheduleDays').value),cardNumber:''
+        days:Number($('apiScheduleDays').value),cardNumber:'',nightlyEnabled:$('apiNightlyEnabled').checked,nightlyTime:$('apiNightlyTime').value
       })});
       $('apiScheduleMessage').textContent = 'Schedule saved.';
       await pollSchedule();
     } catch (error) { $('apiScheduleMessage').textContent = error.message; }
     finally { $('apiScheduleSave').disabled = false; }
+  });
+  async function loadHistory(){
+    if(!allowed())return;
+    historyMode=true;
+    if(!historyRange||dynamicHistory){const to=centralMinute(new Date());historyRange={from:new Date(Date.parse(to+':00Z')-92*86400000).toISOString().slice(0,16),to,card:''};}
+    const ticket=++historySerial;
+    const q=new URLSearchParams({...historyRange,search:$('apiTestSearch').value,page:String(page),sort:historySort,direction:historyDirection});
+    $('apiTestPrev').disabled=$('apiTestNext').disabled=true;
+    try{
+      const data=await portalRequest('history?'+q);
+      if(ticket!==historySerial||!historyMode)return;
+      historyData=data;rows=data.items;page=data.page;resultRetrievedAt=data.last_sync;
+      const summary=$('apiTestSummary');summary.replaceChildren();
+      for(const [value,label] of [[number(data.total),'Matching saved transactions'],[number(data.summary.cards),'Distinct cards'],[number(data.summary.fuel_quantity),'Reported fuel quantity'],[money(data.summary.total_sale),'Reported sale amounts']]){const box=element('div',null,'api-test-stat');box.append(element('strong',value),element('span',label));summary.append(box);}
+      $('apiTestResultMeta').textContent=`Saved transaction history · ${sourceDate(data.window_from)} – ${sourceDate(data.window_to)} · Last updated: ${stamp(data.last_sync,true)}. ${data.notice||''}`;
+      $('apiTestResults').hidden=false;renderPage();
+    }catch(e){if(ticket===historySerial&&allowed()){page=historyData?.page||1;renderPage();message(e.message,'error');}}
+  }
+  $('apiHistoryLoad').addEventListener('click',()=>{if(!form.reportValidity())return;dynamicHistory=false;historyRange={from:$('apiTestFrom').value,to:$('apiTestTo').value,card:$('apiTestCard').value.trim()};page=1;loadHistory();});
+  $('apiHistoryInitialize').addEventListener('click',async()=>{
+    if(!$('apiScheduleForm').reportValidity())return;
+    $('apiHistoryInitialize').disabled=true;
+    try{await portalRequest('schedule',{method:'POST',body:JSON.stringify({enabled:true,intervalSeconds:Number($('apiScheduleInterval').value),days:Number($('apiScheduleDays').value),cardNumber:'',nightlyEnabled:$('apiNightlyEnabled').checked,nightlyTime:$('apiNightlyTime').value})});await portalRequest('initialize',{method:'POST',body:'{}'});scheduleLoaded=false;historyMode=true;$('apiScheduleMessage').textContent='History retrieval queued. You can close this page.';await pollSchedule();}
+    catch(e){$('apiScheduleMessage').textContent=e.message;$('apiHistoryInitialize').disabled=false;}
   });
   // These requests read portal status/cache; only the cloud scheduler and Sync API Transactions Now contact Intevacon.
   setInterval(pollSchedule, 5000);

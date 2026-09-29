@@ -11,6 +11,8 @@ import * as OpenInvoices from './assets/js/wooten-invoices-server.mjs';
 import {readInvoices} from './assets/js/wooten-invoice-view-server.mjs';
 import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
+import * as StatementFleet from './fleet/statement-fleet.mjs';
+import {pages as statementFleetPages} from './fleet/statement-fleet-pdf.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
@@ -9722,7 +9724,7 @@ function statementCustomerAddress(customer){
 }
 __name(statementCustomerAddress,"statementCustomerAddress");
 
-function statementBuildPdf(customer,statementDate,recentPayments=[]){
+function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
   const current=statementNumber(customer?.current_balance);
   const age1=statementNumber(customer?.aging_category_1);
   const age2=statementNumber(customer?.aging_category_2);
@@ -9933,6 +9935,8 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     pageStreams.push(paymentCommands.join("\n"));
   }
 
+  pageStreams.push(...statementFleetPages(fleet,customer,statementDate,statementLetterhead));
+
   // Add per-customer page numbering after all pages for this statement are known.
   // The count resets for every customer statement, including statements that are
   // later merged into an admin combined PDF.
@@ -9944,23 +9948,20 @@ function statementBuildPdf(customer,statementDate,recentPayments=[]){
     pageStreams[pageIndex]+=`\nBT /F1 ${pageLabelSize} Tf ${rgb(...slate)} rg ${pageLabelX.toFixed(1)} 43 Td (${statementPdfEscape(pageLabel)}) Tj ET`;
   }
 
-  const objects=[];
-  objects[1]="<< /Type /Catalog /Pages 2 0 R >>";
-  objects[2]=pageStreams.length===2
-    ?"<< /Type /Pages /Kids [3 0 R 7 0 R] /Count 2 >>"
-    :"<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-  objects[3]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>";
-  objects[4]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-  objects[5]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
-  objects[6]=`<< /Length ${new TextEncoder().encode(pageStreams[0]).length} >>\nstream\n${pageStreams[0]}\nendstream`;
-  if(pageStreams.length===2){
-    objects[7]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 8 0 R >>";
-    objects[8]=`<< /Length ${new TextEncoder().encode(pageStreams[1]).length} >>\nstream\n${pageStreams[1]}\nendstream`;
+  const objects=[null,"<< /Type /Catalog /Pages 2 0 R >>",'',
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"];
+  const pageIds=[];
+  for(const stream of pageStreams){
+    const contentId=objects.length;
+    objects.push(`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const pageId=objects.length;pageIds.push(pageId);
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentId} 0 R >>`);
   }
-
+  objects[2]=`<< /Type /Pages /Kids [${pageIds.map(id=>id+' 0 R').join(' ')}] /Count ${pageIds.length} >>`;
   let pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
   const offsets=[0];
-  const objectCount=pageStreams.length===2?8:6;
+  const objectCount=objects.length-1;
   for(let i=1;i<=objectCount;i++){
     offsets[i]=new TextEncoder().encode(pdf).length;
     pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;
@@ -10201,7 +10202,7 @@ __name(statementSendEmail,"statementSendEmail");
 async function statementLoadCustomer(env,account){
   return await env.DB.prepare(`
           SELECT
-            account_number,account_name,address1,address2,address3,city,state,zip_code,phone,email,
+            account_number,account_name,statement_cycle,address1,address2,address3,city,state,zip_code,phone,email,
             current_balance,aging_category_1,aging_category_2,aging_category_3,aging_category_4,
             COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
             COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
@@ -10232,6 +10233,11 @@ async function statementLoadPayments(env,account,paymentCount){
   return recentPayments;
 }
 
+async function statementFleetOptions(env,input){
+  const config=await statementScheduleConfig(env);
+  return StatementFleet.resolve(input??config.fleet_json??{},statementCentralParts().date,config.weekly_frequency||'weekly');
+}
+
 async function adminPreviewStatementsPost({request,env}){
   try{
     if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return notificationJson({success:false,error:'Unauthorized.'},401);
@@ -10249,12 +10255,13 @@ async function adminPreviewStatementsPost({request,env}){
     const paymentCount=Math.max(0,Math.min(20,Number.parseInt(body.payment_count,10)||0));
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerPaymentsSchema(env);
+    const fleetOptions=await statementFleetOptions(env,body.fleet);
     const pdfs=[];
     for(const account of accounts){
       const customer=await statementLoadCustomer(env,account);
       if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
       const payments=await statementLoadPayments(env,account,paymentCount);
-      pdfs.push(statementBuildPdf(customer,statementDate,payments));
+      pdfs.push(statementBuildPdf(customer,statementDate,payments,await StatementFleet.load(env,customer,fleetOptions)));
     }
     // Preview has no document storage, notification, or delivery operations.
     return new Response(statementBuildCombinedPdf(pdfs),{headers:{
@@ -10266,7 +10273,7 @@ async function adminPreviewStatementsPost({request,env}){
     }});
   }catch(error){
     console.error('Statement preview failed',error);
-    return notificationJson({success:false,error:'The statement preview could not be completed. Please try again.'},500);
+    return notificationJson({success:false,error:'The statement preview could not be completed. '+String(error?.message||error)},500);
   }
 }
 
@@ -10278,7 +10285,7 @@ async function adminStatementProgress({request,env}){
       const body=await request.json();
       const accounts=[...new Set((Array.isArray(body.accounts)?body.accounts:[]).map(normalizeNotificationAccount).filter(Boolean))];
       if(!accounts.length||accounts.length>5000)return notificationJson({success:false,error:"Select between 1 and 5,000 customers."},400);
-      const options={portal:body.portal_notification===true,email:body.email_pdf===true,sms:body.sms_link===true,dry_run:false,payment_count:Math.max(0,Math.min(20,Number(body.payment_count)||0))};
+      const options={fleet:await statementFleetOptions(env,body.fleet),portal:body.portal_notification===true,email:body.email_pdf===true,sms:body.sms_link===true,dry_run:false,payment_count:Math.max(0,Math.min(20,Number(body.payment_count)||0))};
       if(!options.portal&&!options.email&&!options.sms)return notificationJson({success:false,error:"Choose at least one delivery option."},400);
       const customers=[];
       for(let i=0;i<accounts.length;i+=80){
@@ -10322,7 +10329,7 @@ async function adminGenerateStatementsPost({request,env}){
     const progressJob=progressId?await StatementProgress.job(env,progressId):null;
     if(progressId&&!progressJob)return notificationJson({success:false,error:"Statement progress job not found. Start a new run."},409);
     if(progressJob){
-      body={...body,statement_date:progressJob.statement_date,payment_count:progressJob.options.payment_count,pdf_only:progressJob.options.pdf_only===true,dry_run:progressJob.options.dry_run,portal_notification:progressJob.options.portal,email_pdf:progressJob.options.email,sms_link:progressJob.options.sms};
+      body={...body,fleet:progressJob.options.fleet||{enabled:false},statement_date:progressJob.statement_date,payment_count:progressJob.options.payment_count,pdf_only:progressJob.options.pdf_only===true,dry_run:progressJob.options.dry_run,portal_notification:progressJob.options.portal,email_pdf:progressJob.options.email,sms_link:progressJob.options.sms};
       if(Number(body.statement_run_id||body.run_id||0)!==Number(progressJob.run_id))return notificationJson({success:false,error:"Statement run does not match the progress job."},409);
     }
     const pdfOnly=body.pdf_only===true;
@@ -10351,6 +10358,8 @@ async function adminGenerateStatementsPost({request,env}){
     }
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerPaymentsSchema(env);
+
+    const fleetOptions=await statementFleetOptions(env,body.fleet);
 
     const results=[];
     const generatedPdfParts=[];
@@ -10385,7 +10394,8 @@ async function adminGenerateStatementsPost({request,env}){
 
         const recentPayments=await statementLoadPayments(env,account,paymentCount);
 
-        const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments);
+        const fleet=await StatementFleet.load(env,customer,fleetOptions);
+        const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments,fleet);
         generatedPdfParts.push(pdfBytes);
         const filename=`Wooten-Oil-Statement-${account}-${statementDate}.pdf`;
         const title=`Statement ${statementPdfDate(statementDate)}`;
@@ -10699,6 +10709,7 @@ async function ensureStatementSchedulingSchema(env){
   if(!configColumns.has("midmonth_enabled"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_enabled INTEGER NOT NULL DEFAULT 0`).run();
   if(!configColumns.has("midmonth_day"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_day INTEGER NOT NULL DEFAULT 15`).run();
   if(!configColumns.has("midmonth_hour"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN midmonth_hour INTEGER NOT NULL DEFAULT 8`).run();
+  if(!configColumns.has("fleet_json"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN fleet_json TEXT NOT NULL DEFAULT '{}'`).run();
   if(!configColumns.has("weekly_frequency"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN weekly_frequency TEXT NOT NULL DEFAULT 'weekly'`).run();
   if(!configColumns.has("weekly_anchor_date"))await env.DB.prepare(`ALTER TABLE statement_schedule_config ADD COLUMN weekly_anchor_date TEXT NOT NULL DEFAULT ''`).run();
   await env.DB.prepare(`
@@ -10823,9 +10834,10 @@ async function statementScheduleCustomers(env,type,config){
 }
 __name(statementScheduleCustomers,"statementScheduleCustomers");
 
-async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,pdfOnly=false,accountNumbers=null,statementDate=null}={}){
+async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,testSend=false,pdfOnly=false,accountNumbers=null,statementDate=null,fleet=null}={}){
   if(!force||!Array.isArray(accountNumbers))throw new Error("Automatic statement sending is disabled. Select customers and start a manual action.");
   const selectedStatementDate=validateCycleStatementDate(statementDate);
+  const fleetOptions=await statementFleetOptions(env,fleet);
   if(pdfOnly){dryRun=true;testSend=false;}
   const config=await statementScheduleConfig(env);
   const central=statementCentralParts();
@@ -10876,7 +10888,7 @@ async function startStatementSchedule(env,type,origin,{force=false,dryRun=false,
         customer_count=?,target_json=?,cursor_position=0,processed_count=0,detail_json='[]'
       WHERE id=?
     `).bind(customers.length,JSON.stringify(customers.map(c=>c.account_number)),runId).run();
-    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:selectedStatementDate,options:{portal:!pdfOnly&&Number(config.portal_enabled)!==0,email:!pdfOnly&&Number(config.email_enabled)!==0,sms:!pdfOnly&&Number(config.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
+    await StatementProgress.create(env,{id:'schedule-'+runId,runId:Number(runId),source:pdfOnly?'generated':dryRun?'test':manualSelectedRun?'scheduled_manual':'automatic',title:(pdfOnly?'Generated PDF — ':dryRun?'Test — ':'')+'Cycle '+cycleLabel+' Account Statements',date:selectedStatementDate,options:{fleet:fleetOptions,portal:!pdfOnly&&Number(config.portal_enabled)!==0,email:!pdfOnly&&Number(config.email_enabled)!==0,sms:!pdfOnly&&Number(config.sms_enabled)!==0,pdf_only:pdfOnly,dry_run:dryRun,payment_count:Number(config.payment_count)||0},customers});
     if(!customers.length){
       await env.DB.prepare(`UPDATE statement_schedule_runs SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(isTest?"test_completed":"completed",runId).run();
     }
@@ -10963,7 +10975,7 @@ async function continueStatementSchedule(env,runId,origin){
   const siteOrigin=String(origin||env.PUBLIC_SITE_URL||"https://wootenoil.com").replace(/\/$/,"");
   const generateRequest=new Request(`${siteOrigin}/api/admin/statements/generate`,{
     method:"POST",headers:{"X-Admin-Key":String(env.ADMIN_IMPORT_KEY||""),"Content-Type":"application/json","Accept":"application/json"},
-    body:JSON.stringify({accounts,statement_run_id:runId,statement_date:central.date,payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun,pdf_only:pdfOnly})
+    body:JSON.stringify({accounts,statement_run_id:runId,statement_date:central.date,fleet:savedOptions.fleet||{enabled:false},payment_count:Math.max(0,Math.min(20,Number(config.payment_count||0))),portal_notification:dryRun?false:Number(config.portal_enabled)!==0,email_pdf:dryRun?false:Number(config.email_enabled)!==0,sms_link:dryRun?false:Number(config.sms_enabled)!==0,dry_run:dryRun,pdf_only:pdfOnly})
   });
   let batch=[];let batchCombinedKey="";let batchCombinedError="";
   try{
@@ -11048,6 +11060,8 @@ async function adminStatementScheduling({request,env}){
     await ensureStatementSchedulingSchema(env);
     if(request.method==="POST"){
       const body=await request.json().catch(()=>({}));
+      const fleetSettings=body.fleet===undefined?null:StatementFleet.settings(body.fleet,body.weekly_frequency||'weekly');
+      if(fleetSettings)StatementFleet.resolve(fleetSettings,statementCentralParts().date);
       if(body.email_filter!=null&&!['all','with_email','without_email'].includes(body.email_filter))return notificationJson({success:false,error:"Choose All customers, With email, or Without email."},400);
       await env.DB.prepare(`
         UPDATE statement_schedule_config SET
@@ -11060,6 +11074,7 @@ async function adminStatementScheduling({request,env}){
         body.monthly_enabled?1:0,Math.max(1,Math.min(28,Number(body.monthly_day)||1)),Math.max(0,Math.min(23,Number(body.monthly_hour)||0)),
         validateCycleStatementDate(body.statement_date),['all','with_email','without_email'].includes(body.email_filter)?body.email_filter:'all',body.positive_balance_only!==false?1:0,Math.max(0,Math.min(20,Number(body.payment_count)||0)),body.portal_enabled?1:0,body.email_filter!=='without_email'&&body.email_enabled?1:0,body.sms_enabled?1:0
       ).run();
+      if(fleetSettings)await env.DB.prepare('UPDATE statement_schedule_config SET fleet_json=? WHERE id=1').bind(JSON.stringify(fleetSettings)).run();
     }
     const config=await statementScheduleConfig(env);
     const compact=new URL(request.url).searchParams.get("compact")==="1";
@@ -11223,7 +11238,7 @@ async function adminStatementSchedulingRun({request,env}){
     if(normalized.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers can be selected for one statement run."},413);
     if(body.pdf_only===true&&!env.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Statement PDF storage is not configured."},503);
     const origin=new URL(request.url).origin;
-    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,pdfOnly:body.pdf_only===true,accountNumbers:normalized,statementDate:body.statement_date});
+    const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:body.dry_run===true,testSend:body.test_send===true,pdfOnly:body.pdf_only===true,accountNumbers:normalized,statementDate:body.statement_date,fleet:body.fleet});
     return notificationJson(started);
   }
   catch(error){return notificationJson({success:false,error:"Scheduled statement run failed. "+String(error?.message||error)},500);}
@@ -11272,7 +11287,7 @@ async function adminStatementSchedulingTestAll({request,env}){
     const combinedGroupId=`testall:${crypto.randomUUID()}`;
     try{
       for(const type of types){
-        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:true,testSend:false,accountNumbers:validated[type],statementDate:body.statement_date});
+        const started=await startStatementSchedule(env,type,origin,{force:true,dryRun:true,testSend:false,accountNumbers:validated[type],statementDate:body.statement_date,fleet:body.fleet});
         const returned=[...new Set((Array.isArray(started?.target_accounts)?started.target_accounts:[]).map(item=>{const digits=String(item||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
         const requested=validated[type];
         const exact=started?.selection_enforced===true&&Number(started?.total)===requested.length&&returned.length===requested.length&&requested.every(account=>returned.includes(account))&&started?.resumed!==true;
@@ -12567,7 +12582,7 @@ var worker_default = {
     }
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
-    if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
+    if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync","/api/admin/fleet/initialize","/api/admin/fleet/history"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
     if(url.pathname.startsWith("/api/admin/fleet/"))return notificationJson({success:false,error:"Legacy fleet synchronization has been retired. Use Intevacon API."},410);
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});

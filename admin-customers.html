@@ -6968,6 +6968,7 @@ SOFTWARE.
         <div class="statement-action-heading">
           <h3>Statement actions</h3>
         </div>
+        <section class="statement-fleet-settings" data-statement-fleet="manual"></section>
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
           <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
@@ -7043,6 +7044,7 @@ SOFTWARE.
             <span class="schedule-balance-copy"><strong>Only accounts with a positive balance</strong><small>Exclude accounts that have a zero or negative balance.</small></span>
           </label>
         </div>
+        <section class="statement-fleet-settings" data-statement-fleet="cycle"></section>
         <div class="schedule-options-heading">Delivery Options</div>
         <div class="schedule-options schedule-option-cards" role="group" aria-label="Scheduled statement delivery methods">
           <label class="schedule-option schedule-option-card" for="schedulePortal">
@@ -7350,11 +7352,11 @@ SOFTWARE.
     <label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox"> Enable automatic transaction sync</label>
     <div class="api-schedule-fields">
       <label>Interval (seconds)<input id="apiScheduleInterval" type="number" min="30" max="86400" step="1" value="300" required></label>
-      <label>Retrieve the last (days)<input id="apiScheduleDays" type="number" min="1" max="92" step="1" value="1" required></label>
+      <label>Recent transaction window<select id="apiScheduleDays"><option value="1">Last 24 hours</option><option value="2" selected>Last 48 hours</option></select></label><label>Nightly 92-day refresh time (Central)<input id="apiNightlyTime" type="time" value="02:00" required></label>
     </div>
-    <p class="api-test-help">Automatic transaction sync retrieves activity for all cards. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
+    <label class="api-schedule-toggle"><input id="apiNightlyEnabled" type="checkbox" checked> Refresh the full 92 days nightly</label><p class="api-test-help">Initialize history once, then update recent activity for all cards. Saved transactions are merged by transaction ID and retained. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
     <button id="apiScheduleSave" class="secondary" type="submit">Save schedule</button>
-    <p id="apiScheduleMessage" role="status"></p>
+    <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button><progress id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
   </form>
   <form id="apiTestForm">
@@ -7364,7 +7366,7 @@ SOFTWARE.
       <label for="apiTestCard">Card number (optional)<input id="apiTestCard" type="text" inputmode="numeric" pattern="[0-9]{1,32}" maxlength="32" autocomplete="off" placeholder="All cards"></label>
     </div></fieldset>
     <p class="api-test-help">Start with the last 24 hours. Maximum range: 92 days. The initial dates use Central time; values are sent as entered. Intevacon’s guide does not specify its date-filter timezone.</p>
-    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Sync API Transactions Now</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button></div>
+    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Sync API Transactions Now</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button><button class="secondary" id="apiHistoryLoad" type="button">Load Saved Transactions</button></div>
   </form>
   <div id="apiTestMessage" role="status" aria-live="polite" hidden></div>
   <section id="apiTestResults" aria-label="API transactions" hidden>
@@ -11713,6 +11715,22 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 })();
 </script>
 
+<style id="statement-fleet-settings-ver691">
+.statement-fleet-settings{padding:20px;margin:20px 0;border:1px solid #d5e2ed;border-radius:14px;background:#f7fafc;color:#193d59;box-sizing:border-box;min-width:0;grid-column:1/-1}
+.statement-fleet-settings h3{margin:0 0 14px;font-size:19px}
+.statement-fleet-settings p{color:#60778d;line-height:1.55;font-size:14px}
+.statement-fleet-settings .sf-enabled{display:flex;align-items:center;gap:10px;font-weight:700}
+.statement-fleet-settings .sf-enabled input{width:20px;height:20px;flex:0 0 auto}
+.statement-fleet-settings .sf-ranges{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0}
+.statement-fleet-settings fieldset{min-width:0;border:1px solid #d5e2ed;border-radius:12px;padding:16px;background:white}
+.statement-fleet-settings legend{padding:0 6px;font-weight:700}
+.statement-fleet-settings label:not(.sf-enabled){display:block;margin:10px 0 6px;font-weight:700}
+.statement-fleet-settings input[type=date],.statement-fleet-settings select{box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:46px;padding:10px 12px;border:1px solid #c5d6e4;border-radius:10px;background:white;color:#193d59;font:inherit}
+.statement-fleet-settings input[type=date]{appearance:none;-webkit-appearance:none;width:0;min-width:100%}
+.statement-fleet-settings .sf-help{margin-bottom:0}
+@media(max-width:620px){.statement-fleet-settings{padding:16px}.statement-fleet-settings .sf-ranges{grid-template-columns:minmax(0,1fr)}.statement-fleet-settings button{width:100%}}
+</style>
+<script src="assets/js/wooten-statement-fleet.js?v=691"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -12002,7 +12020,8 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     let completed=0,succeeded=0,failed=0,smsSent=0;
     try{
       if(!window.WootenStatementProgress)throw new Error('Reload this page to load the statement progress window.');
-      const progressJobId=await window.WootenStatementProgress.startManual({accounts,statement_date:date.value||todayLocal(),payment_count:Number(paymentCount&&paymentCount.value||0),portal_notification:!!portalNotification.checked,email_pdf:!!emailPdf.checked,sms_link:!!smsLink.checked});
+      await window.WootenStatementFleet.ready();
+      const progressJobId=await window.WootenStatementProgress.startManual({accounts,statement_date:date.value||todayLocal(),fleet:window.WootenStatementFleet.options('manual',true),payment_count:Number(paymentCount&&paymentCount.value||0),portal_notification:!!portalNotification.checked,email_pdf:!!emailPdf.checked,sms_link:!!smsLink.checked});
       for(let i=0;i<accounts.length;i+=10){
         const chunk=accounts.slice(i,i+10);
         const data=await sendChunk(key,chunk,progressJobId);
@@ -12053,7 +12072,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=530">
-<script type="module" src="assets/js/wooten-statement-preview.mjs?v=530"></script>
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=691"></script>
 
 
 
@@ -12204,6 +12223,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     if(card){card.classList.toggle('schedule-email-unavailable',unavailable);card.title=unavailable?'Email PDF is unavailable for customers without an email address.':'';}
   }
   function configBody(){return {
+    fleet:window.WootenStatementFleet.options('cycle'),weekly_frequency:window.WootenStatementFleet.options('cycle').frequency,
     weekly_enabled:weeklyEnabled.checked,
     midmonth_enabled:false,midmonth_day:Number(midmonthDay.value),midmonth_hour:Number(midmonthHour.value),
     monthly_enabled:monthlyEnabled.checked,statement_date:statementDateValue(),
@@ -12238,6 +12258,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     applyStatementPageLock();
   }
   function applyConfig(config){
+    window.WootenStatementFleet.load(config.fleet_json,config.weekly_frequency);
     weeklyEnabled.checked=Number(config.weekly_enabled)!==0;
     midmonthEnabled.checked=false;midmonthDay.value=String(config.midmonth_day??15);midmonthHour.value=String(config.midmonth_hour??8);
     monthlyEnabled.checked=Number(config.monthly_enabled)!==0;
@@ -12800,7 +12821,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       const capabilities=await requireSelectedRecipientServer();
       if(pdfOnly&&capabilities?.capabilities?.statement_pdf_only_v1!==true)throw new Error('Deploy the Ver549 Worker before generating PDFs.');
       await saveSettings(false);setStatus((pdfOnly?'Generating printable PDFs for ':isTest?'Generating and validating test statements for ':'Generating and sending statements to ')+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+'. Keep this page open…');
-      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,statement_date:statementDateValue(),dry_run:isTest||pdfOnly,pdf_only:pdfOnly,test_send:false,account_numbers:accounts,selected_only:true})});
+      const data=await request('/api/admin/statement-scheduling/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,statement_date:statementDateValue(),fleet:window.WootenStatementFleet.options('cycle',true),dry_run:isTest||pdfOnly,pdf_only:pdfOnly,test_send:false,account_numbers:accounts,selected_only:true})});
       verifySelectedRunTargets(data,accounts);
       await window.WootenStatementProgress.watch(['schedule-'+data.run_id]);
       const final=await waitForScheduledRun(data.run_id,type,isTest,data.total||accounts.length,undefined,pdfOnly);
@@ -12885,7 +12906,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       setStatus('Validating the selected Cycle A and Cycle B customer lists before the dry test begins…');
       await requireSelectedRecipientServer(true);
       await saveSettings(false);
-      const batch=await request('/api/admin/statement-scheduling/test-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selected_only:true,test_send:false,dry_run:true,statement_date:statementDateValue(),selections})});
+      const batch=await request('/api/admin/statement-scheduling/test-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selected_only:true,test_send:false,dry_run:true,statement_date:statementDateValue(),fleet:window.WootenStatementFleet.options('cycle',true),selections})});
       const runs=Array.isArray(batch.runs)?batch.runs:[];
       if(runs.length!==types.length)throw new Error('SAFETY STOP: the server did not create one exact selected-customer run for every selected cycle. No test processing was continued.');
       const runByType=new Map(runs.map(run=>[String(run.type||''),run]));
@@ -18224,7 +18245,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=690"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=692"></script>
 <script src="assets/js/wooten-card-sync.js?v=689"></script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 

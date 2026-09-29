@@ -204,7 +204,7 @@ function mount(root,admin){
   search.replaceChildren(input);
   get('[data-table]').after(get('[data-meta]'));
   const dates=document.createElement('section');dates.className='fleet-live-dates';dates.setAttribute('aria-label','Transaction dates');
-  dates.innerHTML='<label for="customerFleetFrom">From<input id="customerFleetFrom" name="fleetFrom" type="datetime-local" min="2010-01-01T00:00" required></label><label for="customerFleetTo">To<input id="customerFleetTo" name="fleetTo" type="datetime-local" required></label><div class="fleet-live-date-actions"><button type="button" data-load-dates>Load dates</button><button type="button" data-last-30>Last 30 days</button></div><p>Choose up to 92 days. Load dates retrieves current results from Intevacon.</p>';
+  dates.innerHTML='<label for="customerFleetFrom">From<input id="customerFleetFrom" name="fleetFrom" type="datetime-local" min="2010-01-01T00:00" required></label><label for="customerFleetTo">To<input id="customerFleetTo" name="fleetTo" type="datetime-local" required></label><div class="fleet-live-date-actions"><button type="button" data-load-dates>Load dates</button><button type="button" data-last-30>Last 30 days</button></div><p>Choose up to 92 days. Load dates searches saved transactions. Cloud updates run on the admin schedule.</p>';
   toolbar.after(dates);
   const live=document.createElement('p');live.className='fleet-live-status';live.setAttribute('data-live-status','');live.setAttribute('role','status');live.hidden=true;
   get('[data-table]').before(live);
@@ -239,11 +239,11 @@ function mount(root,admin){
   get('[data-meta]').textContent=`Last sync: ${central(data.last_sync)}${window}${data.card_scope==='active'?' · Card export includes active cards only.':''}`;
   if(!admin){
    const live=get('[data-live-status]');live.hidden=lastLiveState!=='success'||!get('[data-message]').hidden;
-   live.textContent=websiteCards?(data.last_sync?'Cards last updated: '+central(data.last_sync):''):data.live?.state==='success'?'Fresh from Intevacon · Retrieved '+central(data.live.fetchedAt):'';
+   live.textContent=websiteCards?(data.last_sync?'Cards last updated: '+central(data.last_sync):''):data.live?.state==='success'?'Saved transactions · Last updated '+central(data.live.fetchedAt):'';
    live.dataset.state=lastLiveState||'not_loaded';
   }
   if(websiteCards)get('[data-meta]').textContent=data.notice;
-  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-meta]').textContent+=' · '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Dates use MM/DD/YYYY hh:mm AM/PM; transaction times follow Intevacon’s reported time.';}
+  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-meta]').textContent+=(data.notice?' · '+data.notice:'')+' · '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Dates use MM/DD/YYYY hh:mm AM/PM; transaction times follow Intevacon’s reported time.';}
   const headers=!admin?(kind==='cards'?customerCardColumns:customerTransactionColumns).map(([label])=>label):kind==='transactions'?adminTransactionColumns.map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';
@@ -326,7 +326,7 @@ function mount(root,admin){
   get('[data-count]').nextElementSibling.textContent=cards?'Cards in your account':'Cards with activity';
   get('[data-active]').nextElementSibling.textContent=cards?'Active cards':'Transactions in selected dates';
   get('[data-quantity]').parentElement.hidden=cards;
-  get('[data-refresh]').title=cards?'Reload the saved card list. Card collection runs separately.':'Retrieve fresh transactions from Intevacon.';
+  get('[data-refresh]').title=cards?'Reload the saved card list. Card collection runs separately.':'Reload the latest saved transactions.';
  }
  async function load({refresh=false,background=false}={}){
   const cardsView=!admin&&kind==='cards',apiRefresh=refresh&&!admin&&!cardsView;
@@ -338,11 +338,11 @@ function mount(root,admin){
   if(apiRefresh){clearTimeout(customerRetry);customerRetry=null;const button=get('[data-refresh]');button.disabled=true;button.textContent='Refreshing…';button.setAttribute('aria-busy','true');}
   controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
   if(!background){get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';}
-  message(cardsView?'Loading your fleet cards…':apiRefresh?'Checking your fleet activity with Intevacon…':'Loading fleet records…');root.setAttribute('aria-busy','true');
+  message(cardsView?'Loading your fleet cards…':apiRefresh?'Loading your saved transactions…':'Loading fleet records…');root.setAttribute('aria-busy','true');
   const query=background&&loadedQuery?new URLSearchParams(loadedQuery):new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});
   if(admin&&get('[name=review]').checked)query.set('review','1');
   if(sortKey){query.set('sort',sortKey);query.set('direction',sortDirection);}
-  if(!admin&&!cardsView&&customerRequest)query.set('view',customerRequest.view);
+  if(!admin&&!cardsView&&customerRequest){query.set('view',customerRequest.view);query.set('from',customerRequest.from);query.set('to',customerRequest.to);}
   if(!admin)loadedQuery=query.toString();
   try{
    const path=admin?'/api/admin/fleet/data':cardsView?'/api/customer/fleet/cards':'/api/customer/fleet';
@@ -363,6 +363,7 @@ function mount(root,admin){
   if(!loadedQuery||refreshing||exporting||root.hasAttribute('aria-busy'))return;
   refreshing=true;
   const ticket=serial,query=new URLSearchParams(loadedQuery),signal=controller?.signal;
+  if(!admin&&kind==='transactions'&&customerRangePreset&&customerRequest){resetCustomerDates();customerRequest={...customerRequest,from:get('[name=fleetFrom]').value,to:get('[name=fleetTo]').value};query.set('from',customerRequest.from);query.set('to',customerRequest.to);}
   try{
    const path=admin?'/api/admin/fleet/data':kind==='cards'?'/api/customer/fleet/cards':'/api/customer/fleet';
    let data=await api(path+'?'+query,{signal});
@@ -376,7 +377,7 @@ function mount(root,admin){
    page=Number(query.get('page'));loadedQuery=query.toString();display(data);
    table.scrollLeft=left;table.scrollTop=top;
    if(!admin&&kind==='cards'){message(data.last_sync?'':data.notice);return;}
-   if(!admin&&(data.live?.state==='success'||data.live?.state==='error'||!customerRetry))customerRefreshState(data.refresh||{state:'success',message:'Fresh Intevacon results loaded for the selected dates.'});
+   if(!admin&&(data.live?.state==='success'||data.live?.state==='error'||!customerRetry))customerRefreshState(data.refresh||{state:'success',message:'Saved transactions loaded for the selected dates.'});
    message(admin?'Fleet records refreshed after a successful sync.':customerNotice,customerNoticeError);
   }catch(e){
    // Keep the last successfully loaded rows; the next poll retries.

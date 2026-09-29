@@ -1,4 +1,5 @@
 // Ver658: fresh customer API results; browser selects dates, never the customer identity.
+import {queryHistory} from './intevacon-history.mjs';
 import {parametersFor} from './intevacon-api-test.mjs';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
@@ -72,7 +73,7 @@ export async function handleCustomer({request,env,customer}){
  if(!customer)return json({success:false,error:'Please sign in to your Wooten Oil account.'},401);
  if(!['GET','POST'].includes(request.method))return json({success:false,error:'Method not allowed.'},405);
  if(!accountValid(customer.account_number))return json({success:false,error:'Fleet account matching is unavailable for this account.'},403);
- if(!env.INTEVACON_SCHEDULER)return json({success:false,error:'Fleet activity is temporarily unavailable.'},503);
+ if(!env.DB)return json({success:false,error:'Fleet activity is temporarily unavailable.'},503);
  let input=null;
  if(request.method==='POST'){
   if(request.headers.get('Origin')!==new URL(request.url).origin||!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''))
@@ -88,11 +89,9 @@ export async function handleCustomer({request,env,customer}){
    try{parametersFor({from:input.from,to:input.to,cardNumber:''});}catch{return json({success:false,error:'Choose valid From and To dates covering up to 92 days, starting on or after January 1, 2010.'},400);}
   }catch{return json({success:false,error:'Invalid refresh request.'},400);}
  }
- const supplied=new URL(request.url).searchParams,internal=new URL('https://scheduler/'+(request.method==='POST'?'customer-refresh':'customer-data'));
- for(const key of ['kind','search','sort','direction','page','view'])if(supplied.has(key))internal.searchParams.set(key,supplied.get(key));
- if(input)for(const key of ['from','to','view'])internal.searchParams.set(key,input[key]);
- // Only the authenticated server session chooses the account, never a browser parameter.
- internal.searchParams.set('account',customer.account_number);
- try{return await env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request(internal,{method:request.method}));}
- catch{return json({success:false,error:'Fleet activity could not be loaded. Please try Refresh.'},503);}
+ const query=new URL(request.url).searchParams;
+ if(input)for(const key of ['from','to'])query.set(key,input[key]);
+ if(!query.has('from')||!query.has('to')){const range=defaultCustomerRange();query.set('from',range.from);query.set('to',range.to);}
+ try{return json(await queryHistory(env.DB,query,{account:customer.account_number}));}
+ catch(error){return json({success:false,error:error.message||'Saved fleet activity could not be loaded.'},503);}
 }
