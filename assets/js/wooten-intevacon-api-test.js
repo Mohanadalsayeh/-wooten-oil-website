@@ -325,10 +325,17 @@
     generation++; controller?.abort(); controller = null;
     serverRunning = false; cooldownUntil = 0;
     clearInterval(cooldownTimer); cooldownTimer = null;
-    clearResults(); historyMode=true;historyData=null;historyRange=null;dynamicHistory=true;historySerial++;lastCompleted = null; scheduleLoaded = false; $('apiTestSearch').value = '';
+    clearResults(); historyMode=true;historyData=null;historyRange=null;dynamicHistory=true;historySerial++;lastCompleted = null; scheduleLoaded = false; savedSchedule=null;scheduleSaving=false;scheduleSaveControls(); $('apiTestSearch').value = '';
     message(''); defaults(); refreshControls(); pollSchedule();
   });
   let lastCompleted = null, scheduleLoaded = false, pollBusy = false;
+  let savedSchedule=null,scheduleSaving=false;
+  const scheduleValues=()=>({enabled:$('apiScheduleEnabled').checked,intervalSeconds:Number($('apiScheduleInterval').value),days:Number($('apiScheduleDays').value),cardNumber:'',nightlyEnabled:$('apiNightlyEnabled').checked,nightlyTime:$('apiNightlyTime').value});
+  const scheduleKey=v=>JSON.stringify({enabled:!!v.enabled,intervalSeconds:Number(v.intervalSeconds),days:Number(v.days),nightlyEnabled:!!v.nightlyEnabled,nightlyTime:v.nightlyTime});
+  const scheduleDirty=()=>savedSchedule!==null&&scheduleKey(scheduleValues())!==savedSchedule;
+  function scheduleSaveControls(){$('apiScheduleSave').disabled=!allowed()||scheduleSaving||savedSchedule===null||!scheduleDirty();}
+  for(const event of ['input','change'])$('apiScheduleForm').addEventListener(event,scheduleSaveControls);
+
   const stamp = (value, includeSeconds = false) => window.WootenIntevaconDates?.central(value, '—', includeSeconds) ?? sourceDate(value);
   async function portalRequest(path, options = {}) {
     const credential = key(), epoch = generation;
@@ -345,13 +352,16 @@
     const epoch = generation;
     try {
       const data = await portalRequest('schedule');
-      if (!scheduleLoaded) {
+      if (scheduleSaving) return;
+      const preserveScheduleEdits=scheduleDirty();
+      if (!scheduleLoaded || !preserveScheduleEdits) {
         $('apiScheduleEnabled').checked = data.config.enabled;
         $('apiScheduleInterval').value = data.config.intervalSeconds;
         $('apiScheduleDays').value = data.config.days;
         $('apiNightlyTime').value=data.config.nightlyTime; $('apiNightlyEnabled').checked=data.config.nightlyEnabled;
         scheduleLoaded = true;
       }
+      savedSchedule=scheduleKey(data.config);scheduleSaveControls();
       const status = data.status,h=data.history;
       $('apiHistoryProgress').value=h.percent;
       $('apiHistoryProgress').hidden = !(data.running || (data.config.enabled && h.job && !h.retryAt));
@@ -386,18 +396,17 @@
   }
   $('apiScheduleForm').addEventListener('submit', async event => {
     event.preventDefault();
-    if (!allowed() || !$('apiScheduleForm').reportValidity()) return;
-    $('apiScheduleSave').disabled = true;
+    if (!allowed() || scheduleSaving || !scheduleDirty() || !$('apiScheduleForm').reportValidity()) return;
+    const submitted=scheduleValues(),epoch=generation;
+    scheduleSaving=true;scheduleSaveControls();
     try {
-      await portalRequest('schedule', {method:'POST',body:JSON.stringify({
-        enabled:$('apiScheduleEnabled').checked,intervalSeconds:Number($('apiScheduleInterval').value),
-        days:Number($('apiScheduleDays').value),cardNumber:'',nightlyEnabled:$('apiNightlyEnabled').checked,nightlyTime:$('apiNightlyTime').value
-      })});
+      await portalRequest('schedule', {method:'POST',body:JSON.stringify(submitted)});
+      savedSchedule=scheduleKey(submitted);
       $('apiScheduleMessage').textContent = 'Schedule saved.';
-      await pollSchedule();
-    } catch (error) { $('apiScheduleMessage').textContent = error.message; }
-    finally { $('apiScheduleSave').disabled = false; }
+    } catch (error) { if(epoch===generation)$('apiScheduleMessage').textContent = error.message; }
+    finally { if(epoch===generation){scheduleSaving=false;scheduleSaveControls();await pollSchedule();} }
   });
+
   async function loadHistory(){
     if(!allowed())return;
     historyMode=true;
@@ -417,11 +426,19 @@
   }
   $('apiHistoryLoad').addEventListener('click',()=>{if(!form.reportValidity())return;dynamicHistory=false;historyRange={from:$('apiTestFrom').value,to:$('apiTestTo').value,card:$('apiTestCard').value.trim()};page=1;loadHistory();});
   $('apiHistoryInitialize').addEventListener('click',async()=>{
-    if(!$('apiScheduleForm').reportValidity())return;
-    $('apiHistoryInitialize').disabled=true;
-    try{await portalRequest('schedule',{method:'POST',body:JSON.stringify({enabled:true,intervalSeconds:Number($('apiScheduleInterval').value),days:Number($('apiScheduleDays').value),cardNumber:'',nightlyEnabled:$('apiNightlyEnabled').checked,nightlyTime:$('apiNightlyTime').value})});await portalRequest('initialize',{method:'POST',body:'{}'});scheduleLoaded=false;historyMode=true;$('apiScheduleMessage').textContent='History retrieval queued. You can close this page.';await pollSchedule();}
-    catch(e){$('apiScheduleMessage').textContent=e.message;$('apiHistoryInitialize').disabled=false;}
+    if(!allowed()||scheduleSaving||!$('apiScheduleForm').reportValidity())return;
+    const submitted={...scheduleValues(),enabled:true},before=scheduleKey(scheduleValues()),epoch=generation;
+    scheduleSaving=true;scheduleSaveControls();$('apiHistoryInitialize').disabled=true;
+    try{
+      await portalRequest('schedule',{method:'POST',body:JSON.stringify(submitted)});
+      if(scheduleKey(scheduleValues())===before)$('apiScheduleEnabled').checked=true;
+      savedSchedule=scheduleKey(submitted);
+      await portalRequest('initialize',{method:'POST',body:'{}'});
+      historyMode=true;$('apiScheduleMessage').textContent='History retrieval queued. You can close this page.';
+    }catch(e){if(epoch===generation){$('apiScheduleMessage').textContent=e.message;$('apiHistoryInitialize').disabled=false;}}
+    finally{if(epoch===generation){scheduleSaving=false;scheduleSaveControls();await pollSchedule();}}
   });
+
   // These requests read portal status/cache; only the cloud scheduler and Sync API Transactions Now contact Intevacon.
   setInterval(pollSchedule, 5000);
   document.addEventListener('visibilitychange', pollSchedule);

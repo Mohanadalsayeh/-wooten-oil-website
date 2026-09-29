@@ -8,7 +8,10 @@
  const date=v=>window.WootenIntevaconDates?.central(v)??(v?String(v):'—');
  let generation=0,busy=false,dirty=false,configured=false,controller=null;
  let syncRequestPending=false,serverRunning=false,serverRequested=false;
- let refreshOperation=null,messageSource='';
+ let refreshOperation=null,messageSource='',savedSettings=null;
+ const settings=()=>({enabled:get('[name=cardsEnabled]').checked,interval_seconds:Number(get('[name=cardsInterval]').value)});
+ const settingsKey=v=>JSON.stringify({enabled:!!v.enabled,interval_seconds:Number(v.interval_seconds)});
+ function saveControls(){dirty=savedSettings!==null&&settingsKey(settings())!==savedSettings;get('[data-card-save]').disabled=!allowed()||busy||savedSettings===null||!dirty;}
  const refreshButton=get('[data-card-refresh]');
  function refreshControls(){
   const manual=!!refreshOperation?.manual;
@@ -25,7 +28,7 @@
   get('[data-card-spinner]').hidden=!syncing;
   get('[data-card-sync-label]').textContent=label;
   window.WootenFleetTabs?.setBusy('cards',syncing,label);
-  refreshControls();
+  refreshControls();saveControls();
  }
  const message=(text,error=false,source='action')=>{messageSource=source;get('[data-card-message]').textContent=text;get('[data-card-message]').dataset.error=String(error);get('[data-card-message]').hidden=!text;};
  async function request(route,data,signal=controller?.signal){
@@ -36,6 +39,7 @@
   configured=data.configured;
   serverRunning=!!data.running;serverRequested=!!data.requested;
   if(!dirty){get('[name=cardsEnabled]').checked=data.enabled;get('[name=cardsInterval]').value=String(data.interval_seconds);}
+  savedSettings=settingsKey(data);
   get('[data-card-count]').textContent=Number(data.cards).toLocaleString();
   get('[data-card-success]').textContent=date(data.last_success);
   get('[data-card-next]').textContent=data.needs_attention?'Action required':data.running?'Pull in Progress...':data.requested?'Queued':!data.enabled?'Automatic sync off':date(data.next_due);
@@ -62,7 +66,7 @@
   finally{if(refreshOperation===operation){refreshOperation=null;refreshControls();}}
  }
  async function action(route,data){
-  if(!allowed()||busy)return;
+  if(!allowed()||busy||(route==='settings'&&!dirty))return;
   busy=true;const ticket=++generation;cancelRefresh();controller?.abort();controller=new AbortController();root.setAttribute('aria-busy','true');
   syncRequestPending=route==='sync';syncControls();
   get('[data-card-sync]').disabled=true;get('[data-card-save]').disabled=true;get('[data-card-credential]').disabled=true;message('');
@@ -71,13 +75,13 @@
    if(route==='credential'){
     get('[data-card-secret]').value=result.credential;get('[data-card-secret-area]').hidden=false;
     message('Copy this credential to PORTAL_SYNC_CREDENTIAL in the card Worker. It will not be shown again.');
-   }else if(route==='settings'){dirty=false;message('Card schedule saved.');}
+   }else if(route==='settings'){savedSettings=settingsKey(data);saveControls();message('Card schedule saved.');}
    const status=route==='credential'?await request('status'):result;if(ticket===generation){busy=false;syncRequestPending=false;display(status);}
   }catch(e){if(ticket===generation&&e.name!=='AbortError')message(e.message,true);}
-  finally{if(ticket===generation){busy=false;syncRequestPending=false;syncControls();root.removeAttribute('aria-busy');get('[data-card-save]').disabled=false;get('[data-card-credential]').disabled=serverRunning||!allowed();await refresh();}}
+  finally{if(ticket===generation){busy=false;syncRequestPending=false;syncControls();root.removeAttribute('aria-busy');saveControls();get('[data-card-credential]').disabled=serverRunning||!allowed();await refresh();}}
  }
  get('form').addEventListener('submit',e=>{e.preventDefault();action('settings',{enabled:get('[name=cardsEnabled]').checked,interval_seconds:Number(get('[name=cardsInterval]').value)});});
- get('form').addEventListener('change',()=>{dirty=true;});
+ for(const event of ['input','change'])get('form').addEventListener(event,saveControls);
  get('[data-card-sync]').addEventListener('click',()=>action('sync',{}));
  refreshButton.addEventListener('click',()=>refresh(true));
  get('[data-card-credential]').addEventListener('click',()=>{
@@ -85,7 +89,7 @@
   action('credential',{});
  });
  get('[data-card-copy]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(get('[data-card-secret]').value);message('Credential copied. Paste it into the card Worker secret.');}catch{get('[data-card-secret]').type='text';get('[data-card-secret]').select();message('Select and copy the credential, then paste it into the card Worker secret.');}});
- window.addEventListener('wooten-admin-auth-changed',()=>{generation++;cancelRefresh();controller?.abort();controller=null;busy=false;syncRequestPending=false;serverRunning=false;serverRequested=false;dirty=false;configured=false;syncControls();root.removeAttribute('aria-busy');get('[data-card-secret]').value='';get('[data-card-secret]').type='password';get('[data-card-secret-area]').hidden=true;get('[data-card-setup]').hidden=true;get('[data-card-save]').disabled=false;message('');refresh();});
+ window.addEventListener('wooten-admin-auth-changed',()=>{generation++;cancelRefresh();controller?.abort();controller=null;busy=false;syncRequestPending=false;serverRunning=false;serverRequested=false;dirty=false;savedSettings=null;configured=false;syncControls();root.removeAttribute('aria-busy');get('[data-card-secret]').value='';get('[data-card-secret]').type='password';get('[data-card-secret-area]').hidden=true;get('[data-card-setup]').hidden=true;saveControls();message('');refresh();});
  window.addEventListener('wooten-admin-auth-ready',()=>refresh());
  new MutationObserver(()=>refresh()).observe(panel,{attributes:true,attributeFilter:['hidden','class']});
  setInterval(()=>{if(!document.hidden)refresh();},15000);syncControls();refresh();

@@ -7295,7 +7295,7 @@ SOFTWARE.
         <form>
           <label class="cards-enable"><input name="cardsEnabled" type="checkbox" role="switch" checked> Automatic card sync</label>
           <label>Card sync interval<select name="cardsInterval"><option value="7200">Every 2 hours</option><option value="14400">Every 4 hours</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Every 24 hours</option></select></label>
-          <button class="secondary" data-card-save type="submit">Save schedule</button>
+          <button class="secondary" data-card-save disabled type="submit">Save schedule</button>
         </form>
       </section>
       <section class="cards-sync-panel" aria-labelledby="cardsManualTitle">
@@ -7355,7 +7355,7 @@ SOFTWARE.
       <label>Recent transaction window<select id="apiScheduleDays"><option value="1">Last 24 hours</option><option value="2" selected>Last 48 hours</option></select></label><label>Nightly 92-day refresh time (Central)<input id="apiNightlyTime" type="time" value="02:00" required></label>
     </div>
     <label class="api-schedule-toggle"><input id="apiNightlyEnabled" type="checkbox" checked> Refresh the full 92 days nightly</label><p class="api-test-help">Initialize history once, then update recent activity for all cards. Saved transactions are merged by transaction ID and retained. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
-    <button id="apiScheduleSave" class="secondary" type="submit">Save schedule</button>
+    <button id="apiScheduleSave" class="secondary" disabled type="submit">Save schedule</button>
     <button id="apiHistoryInitialize" class="secondary" type="button">Initialize 92-Day History / Resume</button><progress hidden id="apiHistoryProgress" max="100" value="0" style="width:100%;margin-top:16px" aria-label="History retrieval progress"></progress><p id="apiHistoryStatus" role="status">History has not been initialized.</p><p id="apiScheduleMessage" role="status"></p>
     <p id="apiScheduleStatus" aria-live="polite">Loading sync status…</p>
   </form>
@@ -18246,8 +18246,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=693"></script>
-<script src="assets/js/wooten-card-sync.js?v=689"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=695"></script>
+<script src="assets/js/wooten-card-sync.js?v=695"></script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 
 <style id="wooten-statement-history-pages-ver527">
