@@ -444,7 +444,17 @@
       $('apiTestResults').hidden=false;renderPage();
     }catch(e){if(ticket===historySerial&&allowed()){page=historyData?.page||1;renderPage();message(e.message,'error');}}
   }
-  $('apiHistoryLoad').addEventListener('click',()=>{if(!form.reportValidity())return;dynamicHistory=false;historyRange={from:$('apiTestFrom').value,to:$('apiTestTo').value,card:$('apiTestCard').value.trim()};page=1;loadHistory();});
+  $('apiHistoryLoad').addEventListener('click',async()=>{
+    const button=$('apiHistoryLoad');
+    if(button.disabled||!allowed()||!form.reportValidity())return;
+    button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='Loading saved transactions...';
+    try{
+      dynamicHistory=false;historyRange={from:$('apiTestFrom').value,to:$('apiTestTo').value,card:$('apiTestCard').value.trim()};page=1;
+      await loadHistory();
+    }finally{
+      button.textContent='Load saved transactions';button.removeAttribute('aria-busy');button.disabled=false;
+    }
+  });
   $('apiHistoryInitialize').addEventListener('click',async()=>{
     if(!allowed()||scheduleSaving||!$('apiScheduleEnabled').checked||historyJobActive||!$('apiScheduleForm').reportValidity())return;
     if(!confirm('Initialize or resume the last 92 days of transaction history? This will save these schedule settings, enable automatic transaction sync, and retrieve history in the background.'))return;

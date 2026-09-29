@@ -7162,7 +7162,7 @@ SOFTWARE.
     </div>
 
     <div id="documentSectionStatementRunReport" role="tabpanel" aria-labelledby="documentTabStatementRunReport" hidden>
-      <div class="documents-form-heading schedule-report-heading"><div><div class="admin-page-label">Statement Run Report</div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for all saved manual sends, scheduled runs, and tests. Browse 20 runs per page. Click a run title to open customer progress, PDF statements, and delivery details.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
+      <div class="documents-form-heading schedule-report-heading"><div><div class="admin-page-label">Statement Report History</div><h2>Statement Run Report</h2><p>Portal, Email, and SMS results for all saved manual sends, scheduled runs, and tests. Browse 20 runs per page. Click a run title to open customer progress, PDF statements, and delivery details.</p><div class="schedule-report-actions"><button class="secondary schedule-report-refresh" id="scheduleRefresh" type="button">Refresh</button><button class="secondary" id="schedulePdfCleanup" type="button"><svg class="schedule-action-icon schedule-cleanup-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>90-Day PDF Cleanup</span></button><button class="secondary table-pdf-export-button" id="scheduleExportPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div></div></div>
       <div id="scheduleReportStatus" class="status" role="status" aria-live="polite"></div>
       <div class="schedule-report-search" id="scheduleReportSearchBar">
         <label for="scheduleReportSearch">Search Statement Run Report</label>
@@ -7289,11 +7289,11 @@ SOFTWARE.
 
   <h2>Fleet Cards &amp; Transactions</h2>
   <nav class="admin-subtabs fleet-sync-tabs" role="tablist" aria-label="Fleet sync methods">
-    <button class="admin-subtab" id="fleetSyncTabCards" type="button" role="tab" aria-selected="true" aria-controls="websiteCardSync" data-fleet-sync-tab="cards"><span class="fleet-sync-spinner" data-fleet-tab-spinner aria-hidden="true" hidden></span><span>Fleet Cards - Website Sync</span></button>
-    <button class="admin-subtab" id="fleetSyncTabApi" type="button" role="tab" aria-selected="false" aria-controls="fleetApiPanel" tabindex="-1" data-fleet-sync-tab="api"><span class="fleet-sync-spinner" data-fleet-tab-spinner aria-hidden="true" hidden></span><span>Intevacon API - Transactions</span></button>
+    <button class="admin-subtab" id="fleetSyncTabCards" type="button" role="tab" aria-selected="true" aria-controls="websiteCardSync" data-fleet-sync-tab="cards"><span class="fleet-sync-spinner" data-fleet-tab-spinner aria-hidden="true" hidden></span><span>Fleet Cards</span></button>
+    <button class="admin-subtab" id="fleetSyncTabApi" type="button" role="tab" aria-selected="false" aria-controls="fleetApiPanel" tabindex="-1" data-fleet-sync-tab="api"><span class="fleet-sync-spinner" data-fleet-tab-spinner aria-hidden="true" hidden></span><span>Transactions</span></button>
   </nav>
   <section class="fleet-card-sync fleet-sync-panel" id="websiteCardSync" role="tabpanel" aria-labelledby="fleetSyncTabCards">
-    <h3 id="websiteCardSyncTitle">Fleet Cards — Website Sync</h3>
+    <div class="admin-page-label" id="websiteCardSyncTitle">Website Sync</div>
     <p>Retrieve the complete Intevacon card list, including cards without recent transactions. Customers see their saved cards immediately. Transactions use the API independently.</p>
     <div class="cards-sync-layout">
       <form class="cards-sync-panel cards-schedule-disclosure" aria-labelledby="cardsScheduleTitle">
@@ -7353,9 +7353,9 @@ SOFTWARE.
     <p data-card-message role="status" hidden></p>
   </section>
   <section class="fleet-sync-panel" id="fleetApiPanel" role="tabpanel" aria-labelledby="fleetSyncTabApi" hidden>
-  <h3>Intevacon API - Transactions</h3>
+  <div class="admin-page-label">API Sync</div>
   <p>Retrieve transactions from Intevacon manually or on an automatic schedule.</p>
-  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync API Transactions Now. These results are for the admin transaction view. Customers request fresh API transactions for their own account, including quantities and details. Card lists are updated in the Fleet Cards - Website Sync tab. Transactions are not marked as exported.</div>
+  <div class="api-test-note"><strong>Intevacon API sync.</strong> Enable automatic sync below or use Sync API Transactions Now. These results are for the admin transaction view. Customers request fresh API transactions for their own account, including quantities and details. Card lists are updated in the Fleet Cards tab. Transactions are not marked as exported.</div>
   <form id="apiScheduleForm" class="api-schedule">
     <div class="api-schedule-header"><label class="api-schedule-toggle"><input id="apiScheduleEnabled" type="checkbox" role="switch"><span>Automatic transaction sync</span></label><button id="apiScheduleExpand" type="button" aria-expanded="false" aria-controls="apiScheduleControls" aria-label="Expand automatic transaction sync">+</button></div>
     <div id="apiScheduleControls" hidden>
@@ -7377,7 +7377,7 @@ SOFTWARE.
       <label for="apiTestCard">Card number (optional)<input id="apiTestCard" type="text" inputmode="numeric" pattern="[0-9]{1,32}" maxlength="32" autocomplete="off" placeholder="All cards"></label>
     </div></fieldset>
     <p class="api-test-help">Start with the last 24 hours. Maximum range: 92 days. The initial dates use Central time; values are sent as entered. Intevacon’s guide does not specify its date-filter timezone.</p>
-    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Sync API Transactions Now</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button><button class="secondary" id="apiHistoryLoad" type="button">Load Saved Transactions</button></div>
+    <div class="api-test-actions"><button id="apiTestRun" type="submit"><span class="api-test-spinner" id="apiTestSpinner" aria-hidden="true" hidden></span><span id="apiTestRunLabel">Sync API Transactions Now</span></button><button class="secondary" id="apiTestDefaults" type="button">Use last 24 hours</button><button class="secondary" id="apiHistoryLoad" type="button">Load saved transactions</button></div>
   </form>
   <div id="apiTestMessage" role="status" aria-live="polite" hidden></div>
   <section id="apiTestResults" aria-label="API transactions" hidden>
@@ -18279,12 +18279,12 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
-<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=702">
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=715">
 <link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=709">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=701"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=716"></script>
 <script src="assets/js/wooten-card-sync.js?v=700"></script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 

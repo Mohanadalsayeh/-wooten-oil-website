@@ -189,3 +189,14 @@
 #apiTestForm .api-manual-heading h3{margin:0;line-height:1.4;min-width:0}
 #apiTestForm .api-manual-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;flex:0 0 40px;background:#e4eef7;color:#193953;border-radius:10px}
 #apiTestForm .api-manual-icon svg{display:block;width:22px;height:22px}
+
+/* Ver715: keep both native calendar buttons at the right, vertically centered. */
+#apiTestForm #apiTestFrom,
+#apiTestForm #apiTestTo{position:relative!important;padding-right:44px!important}
+#apiTestForm #apiTestFrom::-webkit-calendar-picker-indicator,
+#apiTestForm #apiTestTo::-webkit-calendar-picker-indicator{
+ position:absolute;right:12px;top:50%;transform:translateY(-50%);
+ width:20px;height:20px;box-sizing:border-box;padding:0;margin:0;cursor:pointer;
+}
+#apiTestForm #apiTestFrom::-webkit-datetime-edit,
+#apiTestForm #apiTestTo::-webkit-datetime-edit{flex:1 1 auto;min-width:0}
