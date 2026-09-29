@@ -82,7 +82,7 @@
  }
  get('form').addEventListener('submit',e=>{e.preventDefault();action('settings',{enabled:get('[name=cardsEnabled]').checked,interval_seconds:Number(get('[name=cardsInterval]').value)});});
  for(const event of ['input','change'])get('form').addEventListener(event,saveControls);
- get('[data-card-sync]').addEventListener('click',()=>action('sync',{}));
+ get('[data-card-sync]').addEventListener('click',()=>{if(confirm('Sync the complete fleet card list from Intevacon now? This will update the saved cards shown in the portal.'))action('sync',{});});
  refreshButton.addEventListener('click',()=>refresh(true));
  get('[data-card-credential]').addEventListener('click',()=>{
   if(configured&&!confirm('Replace the card sync credential? You will need to update the separate card Worker secret.'))return;

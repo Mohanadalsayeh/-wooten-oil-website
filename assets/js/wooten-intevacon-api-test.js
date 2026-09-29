@@ -254,6 +254,7 @@
     if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs || toMs - fromMs > 92 * 86400000) {
       message('Choose complete dates with To after From, no more than 92 days apart.', 'error'); return;
     }
+    if(!confirm('Retrieve transactions directly from Intevacon for the selected date range now? Successful results will update the saved transaction history.'))return;
     const body = {from, to, cardNumber: $('apiTestCard').value.trim()};
     const requestGeneration = ++generation;
     const credential = key();
@@ -309,6 +310,15 @@
   });
   $('apiTestSearch').addEventListener('input', () => { page=1;clearTimeout(searchTimer);if(historyMode)searchTimer=setTimeout(loadHistory,300);else renderPage(); });
   $('apiTestDefaults').addEventListener('click', defaults);
+  async function goToTransactionPage(target){
+    const total=historyMode?(historyData?.total||0):filtered.length;
+    target=Math.max(1,Math.min(Math.max(1,Math.ceil(total/20)),Number(target)||1));
+    if(target===page)return;
+    page=target;
+    if(historyMode)await loadHistory();else renderPage();
+  }
+  $('apiTestPrev').wootenGoToPage=goToTransactionPage;
+  $('apiTestNext').wootenGoToPage=goToTransactionPage;
   $('apiTestPrev').addEventListener('click', () => { if (page > 1) { page--; historyMode?loadHistory():renderPage(); } });
   $('apiTestNext').addEventListener('click', () => { if(page*20<(historyMode?historyData?.total:filtered.length)){page++;historyMode?loadHistory():renderPage();} });
   rowsBody.addEventListener('click', event => {
@@ -427,6 +437,7 @@
   $('apiHistoryLoad').addEventListener('click',()=>{if(!form.reportValidity())return;dynamicHistory=false;historyRange={from:$('apiTestFrom').value,to:$('apiTestTo').value,card:$('apiTestCard').value.trim()};page=1;loadHistory();});
   $('apiHistoryInitialize').addEventListener('click',async()=>{
     if(!allowed()||scheduleSaving||!$('apiScheduleForm').reportValidity())return;
+    if(!confirm('Initialize or resume the last 92 days of transaction history? This will save these schedule settings, enable automatic transaction sync, and retrieve history in the background.'))return;
     const submitted={...scheduleValues(),enabled:true},before=scheduleKey(scheduleValues()),epoch=generation;
     scheduleSaving=true;scheduleSaveControls();$('apiHistoryInitialize').disabled=true;
     try{

@@ -3,7 +3,7 @@
 .fleet-card-sync [hidden]{display:none!important}
 .fleet-card-sync h3{margin:0 0 10px;color:#193953;font-weight:800}
 .fleet-card-sync p{line-height:1.5}
-.fleet-card-sync .cards-sync-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}
+.fleet-card-sync .cards-sync-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:20px 0}
 .fleet-card-sync .cards-sync-panel{min-width:0;padding:20px;border:1px solid #d8e3ed;border-radius:13px;background:#f5f8fb;box-sizing:border-box}
 .fleet-card-sync .cards-sync-panel h4{margin:0 0 8px;font-size:16px;font-weight:700;color:#193953}
 .fleet-card-sync .cards-sync-panel p{margin:0 0 23px;color:#62798e}
