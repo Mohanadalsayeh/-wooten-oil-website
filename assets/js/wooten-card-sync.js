@@ -37,6 +37,8 @@
  }
  function display(data){
   configured=data.configured;
+  const intervalLabel=[...get('[name=cardsInterval]').options].find(option=>Number(option.value)===Number(data.interval_seconds))?.textContent||('Every '+Number(data.interval_seconds)/3600+' hours');
+  get('[data-card-schedule-summary]').textContent=data.enabled?'Enabled · '+intervalLabel:'Automatic sync off · '+intervalLabel;
   serverRunning=!!data.running;serverRequested=!!data.requested;
   if(!dirty){get('[name=cardsEnabled]').checked=data.enabled;get('[name=cardsInterval]').value=String(data.interval_seconds);}
   savedSettings=settingsKey(data);
@@ -89,7 +91,7 @@
   action('credential',{});
  });
  get('[data-card-copy]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(get('[data-card-secret]').value);message('Credential copied. Paste it into the card Worker secret.');}catch{get('[data-card-secret]').type='text';get('[data-card-secret]').select();message('Select and copy the credential, then paste it into the card Worker secret.');}});
- window.addEventListener('wooten-admin-auth-changed',()=>{generation++;cancelRefresh();controller?.abort();controller=null;busy=false;syncRequestPending=false;serverRunning=false;serverRequested=false;dirty=false;savedSettings=null;configured=false;syncControls();root.removeAttribute('aria-busy');get('[data-card-secret]').value='';get('[data-card-secret]').type='password';get('[data-card-secret-area]').hidden=true;get('[data-card-setup]').hidden=true;saveControls();message('');refresh();});
+ window.addEventListener('wooten-admin-auth-changed',()=>{generation++;cancelRefresh();controller?.abort();controller=null;busy=false;syncRequestPending=false;serverRunning=false;serverRequested=false;dirty=false;savedSettings=null;configured=false;get('[data-card-schedule-summary]').textContent='Loading schedule…';syncControls();root.removeAttribute('aria-busy');get('[data-card-secret]').value='';get('[data-card-secret]').type='password';get('[data-card-secret-area]').hidden=true;get('[data-card-setup]').hidden=true;saveControls();message('');refresh();});
  window.addEventListener('wooten-admin-auth-ready',()=>refresh());
  new MutationObserver(()=>refresh()).observe(panel,{attributes:true,attributeFilter:['hidden','class']});
  setInterval(()=>{if(!document.hidden)refresh();},15000);syncControls();refresh();

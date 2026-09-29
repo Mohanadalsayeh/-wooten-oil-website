@@ -74,3 +74,31 @@
  #adminFleetCardInventory #adminFleetCardExportActions{width:100%!important;flex-direction:column!important;align-items:stretch!important}
  #adminFleetCardInventory #adminFleetCardExportActions>button{width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box;margin-inline:0!important;white-space:normal!important}
 }
+
+/* Ver697 — expandable schedule and aligned manual controls. */
+#websiteCardSync .cards-schedule-disclosure{padding:20px;border:1px solid #d8e3ed;border-radius:13px;background:#f5f8fb}
+#websiteCardSync .cards-schedule-disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;list-style:none;min-height:44px;color:#193953}
+#websiteCardSync .cards-schedule-disclosure>summary::-webkit-details-marker{display:none}
+#websiteCardSync .cards-schedule-summary{display:grid;gap:4px;font-size:16px;font-weight:700}
+#websiteCardSync .cards-schedule-summary small{font-size:13px;font-weight:400;color:#62798e}
+#websiteCardSync .cards-disclosure-mark{flex:0 0 24px;text-align:center;font-size:24px;font-weight:400}
+#websiteCardSync .cards-disclosure-mark::before{content:'+'}
+#websiteCardSync .cards-schedule-disclosure[open] .cards-disclosure-mark::before{content:'−'}
+#websiteCardSync .cards-schedule-disclosure form{margin-top:20px;padding-top:20px;border-top:1px solid #d8e3ed}
+#websiteCardSync .cards-schedule-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:end}
+#websiteCardSync .cards-schedule-controls .cards-enable{height:46px;align-self:end}
+#websiteCardSync .cards-schedule-controls select{height:46px}
+#websiteCardSync .cards-schedule-save{display:flex;justify-content:flex-end}
+#websiteCardSync .cards-schedule-save button{width:auto;min-width:150px}
+#websiteCardSync .cards-manual-heading{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+#websiteCardSync .cards-manual-heading h4{margin:0;line-height:1.4}
+#websiteCardSync .cards-manual-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;flex:0 0 40px;background:#e4eef7;color:#193953;border-radius:10px}
+#websiteCardSync .cards-manual-icon svg{display:block;width:22px;height:22px}
+#websiteCardSync .cards-manual-panel .cards-actions{display:flex;align-items:stretch;gap:12px;flex-wrap:wrap}
+#websiteCardSync .cards-manual-panel .cards-actions button{width:auto}
+@media(max-width:640px){
+ #websiteCardSync .cards-schedule-disclosure{padding:16px}
+ #websiteCardSync .cards-schedule-controls{grid-template-columns:minmax(0,1fr);gap:16px}
+ #websiteCardSync .cards-schedule-save button,#websiteCardSync .cards-manual-panel .cards-actions button{width:100%}
+ #websiteCardSync .cards-manual-panel .cards-actions{flex-direction:column}
+}

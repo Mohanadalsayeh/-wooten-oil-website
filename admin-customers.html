@@ -7290,16 +7290,18 @@ SOFTWARE.
     <h3 id="websiteCardSyncTitle">Fleet Cards — Website Sync</h3>
     <p>Retrieve the complete Intevacon card list, including cards without recent transactions. Customers see their saved cards immediately. Transactions use the API independently.</p>
     <div class="cards-sync-layout">
-      <section class="cards-sync-panel" aria-labelledby="cardsScheduleTitle">
-        <h4 id="cardsScheduleTitle">Automatic schedule</h4>
-        <form>
-          <label class="cards-enable"><input name="cardsEnabled" type="checkbox" role="switch" checked> Automatic card sync</label>
-          <label>Card sync interval<select name="cardsInterval"><option value="7200">Every 2 hours</option><option value="14400">Every 4 hours</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Every 24 hours</option></select></label>
-          <button class="secondary" data-card-save disabled type="submit">Save schedule</button>
+      <details class="cards-sync-panel cards-schedule-disclosure">
+        <summary><span class="cards-schedule-summary"><span id="cardsScheduleTitle">Automatic schedule</span><small data-card-schedule-summary>Loading schedule…</small></span><span class="cards-disclosure-mark" aria-hidden="true"></span></summary>
+        <form aria-labelledby="cardsScheduleTitle">
+          <div class="cards-schedule-controls">
+            <label class="cards-enable"><input name="cardsEnabled" type="checkbox" role="switch" checked> Automatic card sync</label>
+            <label>Card sync interval<select name="cardsInterval"><option value="7200">Every 2 hours</option><option value="14400">Every 4 hours</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Every 24 hours</option></select></label>
+          </div>
+          <div class="cards-schedule-save"><button class="secondary" data-card-save disabled type="submit">Save schedule</button></div>
         </form>
-      </section>
-      <section class="cards-sync-panel" aria-labelledby="cardsManualTitle">
-        <h4 id="cardsManualTitle">Manual sync</h4>
+      </details>
+      <section class="cards-sync-panel cards-manual-panel" aria-labelledby="cardsManualTitle">
+        <div class="cards-manual-heading"><span class="cards-manual-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span><h4 id="cardsManualTitle">Manual Sync</h4></div>
         <p>Update the saved cards that customers see in their portal.</p>
         <div class="cards-actions"><button type="button" data-card-sync disabled><span class="fleet-sync-spinner" data-card-spinner aria-hidden="true" hidden></span><span data-card-sync-label>Sync Cards Now</span></button><button type="button" data-card-refresh>Refresh status</button></div>
       </section>
@@ -18242,12 +18244,12 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=694">
-<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=696">
+<link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=697">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
 <script src="assets/js/wooten-intevacon-api-test.js?v=696"></script>
-<script src="assets/js/wooten-card-sync.js?v=696"></script>
+<script src="assets/js/wooten-card-sync.js?v=697"></script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 
 <style id="wooten-statement-history-pages-ver527">
