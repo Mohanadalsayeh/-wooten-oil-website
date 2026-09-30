@@ -5659,7 +5659,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){.schedule-email-spinner{animation:none}}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-statement-sync.css?v=724">
-<script defer src="assets/js/wooten-statement-sync.js?v=726"></script>
+<script defer src="assets/js/wooten-statement-sync.js?v=732"></script>
 <link rel="manifest" href="/push/admin/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/assets/push/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11757,8 +11757,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 .statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field small{display:block;margin-top:7px;font-size:12px;font-weight:400;line-height:1.45;color:#637d96}
 .statement-fleet-settings[data-statement-fleet="manual"] .sf-period-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:13px}
 .statement-fleet-settings[data-statement-fleet="manual"] .sf-period-footer small{font-size:12px;color:#637d96;font-weight:400}
-.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates{width:auto;min-height:44px;margin:0;padding:8px 0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#193d59;font:400 14px Arial,sans-serif;text-decoration:underline;text-underline-offset:3px;transform:none}
-.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates:hover{background:transparent;color:#245a80;box-shadow:none}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates{width:auto;min-height:44px;margin:0;padding:8px 0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#193d59;font:400 14px Arial,sans-serif;text-decoration:none;text-underline-offset:3px;transform:none}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates:hover:not(:disabled){background:transparent;color:#245a80;box-shadow:none;text-decoration:underline}
 .statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates:disabled{opacity:.5;cursor:default}
 .statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field input:disabled{background:#edf2f6;color:#8493a1;cursor:default}
 @media(max-width:620px){.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{grid-template-columns:minmax(0,1fr);gap:16px}.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{padding:16px}}
@@ -11793,6 +11793,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   window.__wootenAdminBatchStatementsInitialized=true;
 
   let customers=[];
+  window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   let customerPage=1;
   const customerPageSize=20;
@@ -12105,7 +12106,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=530">
-<script type="module" src="assets/js/wooten-statement-preview.mjs?v=691"></script>
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=731"></script>
 
 
 

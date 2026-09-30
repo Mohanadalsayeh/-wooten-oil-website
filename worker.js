@@ -16,6 +16,7 @@ import {pages as statementFleetPages} from './fleet/statement-fleet-pdf.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
+import * as StatementPreviewFile from './assets/js/wooten-statement-preview-file-server.mjs';
 import * as IntevaconApiSchedule from './fleet/intevacon-api-schedule.mjs';
 import {handleCustomer as customerApiFleet} from './fleet/intevacon-customer-api.mjs';
 import * as IntevaconCards from './fleet/intevacon-cards.mjs';
@@ -960,6 +961,7 @@ async function ensureAdminImportMetadataSchema(env){
   const info=await env.DB.prepare(`PRAGMA table_info(admin_import_metadata)`).all();
   const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   const additions=[
+    ["last_success_at","TEXT"],
     ["last_import_by","TEXT NOT NULL DEFAULT ''"],
     ["last_import_mode","TEXT NOT NULL DEFAULT 'manual'"],
     ["last_import_status","TEXT NOT NULL DEFAULT 'completed'"],
@@ -968,6 +970,7 @@ async function ensureAdminImportMetadataSchema(env){
     ["last_import_run_id","TEXT NOT NULL DEFAULT ''"]
   ];
   for(const [name,definition] of additions)if(!columns.has(name))await env.DB.prepare(`ALTER TABLE admin_import_metadata ADD COLUMN ${name} ${definition}`).run();
+  if(!columns.has("last_success_at"))await env.DB.prepare(`UPDATE admin_import_metadata SET last_success_at=last_import_at WHERE last_import_status='completed'`).run();
 }
 __name(ensureAdminImportMetadataSchema,"ensureAdminImportMetadataSchema");
 
@@ -1068,6 +1071,7 @@ async function recordAdminImport(env,request,type,count,actorName="Wooten Oil Ad
       last_import_batch_count=excluded.last_import_batch_count,
       last_import_run_id=excluded.last_import_run_id
   `).bind(String(type||""),runTotal,recordedBy,mode,status,batchNumber,batchCount,runId).run();
+  if(status==="completed")await env.DB.prepare(`UPDATE admin_import_metadata SET last_success_at=last_import_at WHERE import_type=?`).bind(String(type||"")).run();
 
   const row=await env.DB.prepare(`
     SELECT last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count,last_import_run_id
@@ -1162,7 +1166,7 @@ async function adminImportStatusGet({request,env}){
     await env.DB.prepare(`UPDATE admin_import_control SET status='interrupted',updated_at=CURRENT_TIMESTAMP,completed_at=CURRENT_TIMESTAMP WHERE id=1 AND status='in_progress' AND datetime(updated_at)<datetime('now','-10 minutes')`).run();
     await env.DB.prepare(`UPDATE admin_import_metadata SET last_import_status='interrupted' WHERE last_import_mode='automatic' AND last_import_status='in_progress' AND datetime(last_import_at)<datetime('now','-10 minutes')`).run();
     const result=await env.DB.prepare(`
-      SELECT import_type,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count,last_import_run_id
+      SELECT import_type,last_success_at,last_import_at,last_record_count,last_import_by,last_import_mode,last_import_status,last_import_batch_number,last_import_batch_count,last_import_run_id
       FROM admin_import_metadata
       WHERE import_type IN ('customers','payments')
     `).all();
@@ -1197,6 +1201,8 @@ async function adminImportStatusGet({request,env}){
 
     return json3({
       success:true,
+      customers_last_success_at:(result.results||[]).find(r=>r.import_type==="customers")?.last_success_at||"",
+      payments_last_success_at:(result.results||[]).find(r=>r.import_type==="payments")?.last_success_at||"",
       customers_last_import_at:customersLast,
       customers_last_record_count:customersCount,
       customers_last_import_by:customersBy,
@@ -1282,6 +1288,7 @@ async function ensureMas90SyncRequestSchema(env){
   const info=await env.DB.prepare(`PRAGMA table_info(mas90_sync_control)`).all();
   const columns=new Set((info?.results||[]).map(row=>String(row.name||"").toLowerCase()));
   for(const [name,definition] of [
+    ["record_types","TEXT NOT NULL DEFAULT 'customers,payments,invoices'"],
     ["summary_available","INTEGER NOT NULL DEFAULT 0"],
     ["customers_success_count","INTEGER NOT NULL DEFAULT 0"],
     ["customers_failure_count","INTEGER NOT NULL DEFAULT 0"],
@@ -1980,6 +1987,7 @@ __name(adminMas90HealthGet,"adminMas90HealthGet");
 
 function mas90SyncPublicStatus(row){
   return {
+    record_types:String(row?.record_types||"customers,payments,invoices").split(","),
     request_id:String(row?.request_id||""),
     status:String(row?.status||"idle"),
     requested_by:String(row?.requested_by||""),
@@ -2048,6 +2056,9 @@ async function adminMas90SyncRequestPost({request,env}){
       await adminAudit(env,request,"mas90_sync_request_denied","database","","Incorrect master admin password");
       return notificationJson({success:false,error:"The master admin password is incorrect."},403);
     }
+    const recordTypes=body.record_types===undefined?["customers","payments","invoices"]:body.record_types;
+    if(!Array.isArray(recordTypes)||!recordTypes.length||recordTypes.some(t=>!["customers","payments","invoices"].includes(t)))return notificationJson({success:false,error:"Select valid MAS 90 datasets."},400);
+    const selection=[...new Set(recordTypes)].join(",");
     await ensureMas90SyncRequestSchema(env);
     await ensureAdminImportControlSchema(env);
     const importControl=await env.DB.prepare(`SELECT status,cancel_requested FROM admin_import_control WHERE id=1`).first();
@@ -2063,14 +2074,14 @@ async function adminMas90SyncRequestPost({request,env}){
     const actor=adminRequestActor(request,env);
     const saved=await env.DB.prepare(`
       UPDATE mas90_sync_control
-      SET request_id=?,status='queued',requested_by=?,requested_at=CURRENT_TIMESTAMP,
+      SET request_id=?,status='queued',requested_by=?,record_types=?,requested_at=CURRENT_TIMESTAMP,
           claimed_at=NULL,agent_name='',stage='queued',progress_percent=0,
           status_message='Waiting for the MAS 90 office computer.',summary_available=0,
           customers_success_count=0,customers_failure_count=0,payments_success_count=0,
           payments_failure_count=0,payments_inserted_count=0,payments_duplicate_count=0,
           updated_at=CURRENT_TIMESTAMP,completed_at=NULL
       WHERE id=1 AND status NOT IN ('queued','claimed','running','cancel_requested')
-    `).bind(requestId,String(actor.name||"Wooten Oil Admin")).run();
+    `).bind(requestId,String(actor.name||"Wooten Oil Admin"),selection).run();
     if(Number(saved?.meta?.changes||0)!==1){
       const current=await mas90SyncStatusRow(env);
       return notificationJson({success:false,error:"A MAS 90 retrieval request is already pending or running.",remote_sync_request:mas90SyncPublicStatus(current)},409);
@@ -2199,6 +2210,10 @@ async function mas90AgentClaimPost({request,env}){
     await ensureMas90SyncRequestSchema(env);
     await recordMas90AgentHeartbeat(env,request,{agent_status:"busy"});
     const agentName=mas90AgentName(request);
+    const pending=await mas90SyncStatusRow(env);
+    if(String(pending?.request_id||'')===requestId&&String(pending.record_types||'customers,payments,invoices').split(',').length<3&&body.supports_selection!==true){
+      return notificationJson({success:false,error:'Update the MAS 90 office scripts to Ver722 before using selective synchronization.'},409);
+    }
     const claimed=await env.DB.prepare(`
       UPDATE mas90_sync_control
       SET status='claimed',claimed_at=COALESCE(claimed_at,CURRENT_TIMESTAMP),agent_name=?,
@@ -12521,6 +12536,7 @@ async function runPortalPush(env,immediate=false){
 var worker_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if(url.pathname.startsWith('/api/statement-preview/'))return StatementPreviewFile.file(request,env);
     if(url.pathname==='/api/push/revoke')return PortalPush.revoke({request,env});
     const pushRoute=url.pathname.match(/^\/api\/push\/(customer|admin)\/(status|subscribe|test)$/);
     if(pushRoute){
@@ -12580,6 +12596,7 @@ var worker_default = {
       adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
+    if(url.pathname==='/api/admin/statements/preview-file-ticket')return StatementPreviewFile.ticket(request,env);
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
     if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync","/api/admin/fleet/initialize","/api/admin/fleet/history"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});

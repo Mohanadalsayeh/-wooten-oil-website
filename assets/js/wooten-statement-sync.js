@@ -1,4 +1,4 @@
-/* Ver726: synchronize selected sources before resuming the original statement action. */
+/* Ver732: include invoices in legacy combined MAS 90 progress messages. */
 (()=>{
 'use strict';
 const ids=['statementPreview','statementGenerateSend','scheduleGenerateMonthly','scheduleRunMonthly','scheduleTestMonthly','scheduleGenerateWeekly','scheduleRunWeekly','scheduleTestWeekly','schedulePreviewMidmonth','scheduleRunMidmonth','scheduleTestMidmonth','scheduleTestAll'];
@@ -26,12 +26,24 @@ function resume(){if(key()!==session){q('[data-message]').textContent='Your admi
 window.addEventListener('click',event=>{const b=event.target.closest?.('button');if(!b||!ids.includes(b.id)||b===bypass||b.disabled)return;event.preventDefault();event.stopImmediatePropagation();if(dialog.open)return;target=b;session=key();done=false;const ticket=++epoch;for(const r of Object.values(rows)){r.input.checked=false;r.done=false;r.progress.value=0;r.status.textContent='Use saved data';r.last.textContent='Last updated: Checking…';r.node.classList.remove('ss-failed');}q('[data-action]').textContent='Continue to: '+b.textContent.trim();q('[data-password]').hidden=true;q('[data-message]').textContent='';q('[data-apply]').textContent='Apply';lock(false);dialog.showModal();timestamps(ticket);},true);
 q('[data-close]').onclick=close;q('[data-cancel]').onclick=close;dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
 const pause=()=>new Promise(resolve=>setTimeout(resolve,4000));
+function masProgressMessage(report){
+ const message=String(report.message||'').trim();
+ if(['failed','cancelled','interrupted','completed_with_errors'].includes(report.status))return message||'MAS 90 synchronization failed.';
+ // Older office scripts still use two-dataset wording for the combined job.
+ // Translate only those known general messages; keep per-dataset stages/errors.
+ const legacy={
+  'Exporting all customers and recent payment data from MAS 90.':'Exporting customers, payments, and invoices from MAS 90.',
+  'MAS 90 is exporting customer and payment records.':'MAS 90 is exporting customer, payment, and invoice records.',
+  'Counting and validating the exported customer and payment records.':'Counting and validating the exported customer, payment, and invoice records.'
+ };
+ return Object.hasOwn(legacy,message)?legacy[message]:message||'Waiting for the office computer…';
+}
 async function mas90(password){
  const selected=['customers','payments','invoices'];
  const response=await api('mas90-sync-request',{confirmed:true,master_password:password});const id=response.remote_sync_request?.request_id;if(!id)throw Error('No MAS 90 request ID returned.');
  const until=Date.now()+30*60000;
  while(Date.now()<until){const d=await api('import-status'),r=d.remote_sync_request;if(r?.request_id!==id)throw Error('MAS 90 request changed; verify the Health Center.');
-  const reported=Number(r.progress_percent);progress('mas90',r.message||'Waiting for the office computer…',Number.isFinite(reported)&&reported>0?Math.min(99,reported):null);
+  const reported=Number(r.progress_percent);progress('mas90',masProgressMessage(r),Number.isFinite(reported)&&reported>0?Math.min(99,reported):null);
   if(['failed','cancelled','interrupted','completed_with_errors'].includes(r.status))throw Error(r.message||'MAS 90 synchronization failed.');
   if(r.status==='completed'){if(selected.some(k=>Number(r[k+'_failure_count']||d.invoice_result?.[k+'_failure_count']||0)>0))throw Error('MAS 90 reported failed records. Review the Automation Health Center.');complete('mas90',r.completed_at);masLast(d);return;}
   await pause();

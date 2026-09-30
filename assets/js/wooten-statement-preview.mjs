@@ -1,10 +1,48 @@
-/* Ver530: open the preview directly without a separate preview-links panel. */
+/* Ver731: readable names in the native preview and its Save/Download action. */
 import {statementBuildCombinedPdf} from './wooten-statement-pdf.mjs?v=494';
 
 const section=document.getElementById('documentSectionSendStatements');
 const button=document.getElementById('statementPreview');
 const status=document.getElementById('statementBatchStatus');
-let previewUrl='';
+function filenamePart(value,length=60){
+  return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/&/g,' and ').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,length).replace(/-+$/g,'');
+}
+export function statementPreviewFilename(accounts,statementDate,customerName=''){
+  const parts=String(statementDate).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!parts)throw new Error('Choose the statement date.');
+  const date=parts[2]+parts[3]+parts[1];
+  if(accounts.length===1){
+    const customer=[filenamePart(customerName),filenamePart(accounts[0],24)].filter(Boolean).join('-');
+    return 'Wooten-Oil-Statement-Preview-'+customer+'-'+date+'.pdf';
+  }
+  return 'Wooten-Oil-Statements-Preview-'+accounts.length+'-Customers-'+date+'.pdf';
+}
+async function openNamedPreview(popup,pdf,filename,key){
+  if(pdf.byteLength>32*1024*1024)throw new Error('This preview is larger than 32 MB. Select fewer customers and preview again.');
+  const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',pdf)),byte=>byte.toString(16).padStart(2,'0')).join('');
+  const response=await fetch('/api/admin/statements/preview-file-ticket',{
+    method:'POST',cache:'no-store',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify({filename,size:pdf.byteLength,sha256})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.ticket)throw new Error(data.error||'Update the portal Worker from Ver731, then preview statements again.');
+  if(popup.closed)throw new Error('The preview window was closed. Click Preview Statements again to reopen it.');
+  const doc=popup.document;
+  doc.title=filename;
+  doc.body.textContent='Opening '+filename+'…';
+  const form=doc.createElement('form');
+  form.method='POST';form.enctype='multipart/form-data';
+  form.action=new URL('/api/statement-preview/'+encodeURIComponent(filename),window.location.origin).href;
+  form.hidden=true;
+  const authorization=doc.createElement('input');authorization.type='hidden';authorization.name='ticket';authorization.value=data.ticket;
+  const input=doc.createElement('input');input.type='file';input.name='pdf';
+  const transfer=new popup.DataTransfer();
+  transfer.items.add(new popup.File([pdf],filename,{type:'application/pdf'}));
+  input.files=transfer.files;
+  form.append(authorization,input);doc.body.append(form);
+  // A native response retains Content-Disposition; a blob URL would lose it.
+  form.submit();
+}
 
 function message(text,ok){
   status.textContent=text;
@@ -21,6 +59,7 @@ if(section&&button&&status){
     const key=document.getElementById('adminKey').value.trim();
     const accounts=Array.from(window.WootenStatementSelectedAccounts||[]);
     const statementDate=document.getElementById('statementBatchDate').value;
+    const customerName=accounts.length===1?window.WootenStatementCustomerName?.(accounts[0])||'':'';
     const paymentCount=Number(document.getElementById('statementPaymentCount').value||0);
     if(!key){window.ensureAdminLoginKey?.('Enter your Admin Import Key to continue.');message('Sign in as an administrator to preview statements.',false);return;}
     if(!accounts.length){message('Select at least one customer.',false);return;}
@@ -41,7 +80,6 @@ if(section&&button&&status){
     if(!popup||popup.closed){
       message('Allow pop-ups for this site, then click Preview Statements again to open your PDF.',false);return;
     }
-    if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl='';}
     const controls=Array.from(section.querySelectorAll('input,select,button'));
     const disabled=controls.map(control=>control.disabled);
     controls.forEach(control=>{control.disabled=true;});
@@ -73,9 +111,8 @@ if(section&&button&&status){
         button.textContent='Preparing Preview… '+(start+batch.length)+' / '+accounts.length;
       }
       const pdf=statementBuildCombinedPdf(parts);
-      previewUrl=URL.createObjectURL(new Blob([pdf],{type:'application/pdf'}));
-      if(popup.closed)throw new Error('The preview window was closed. Click Preview Statements again to reopen it.');
-      try{popup.location.replace(previewUrl);}catch{throw new Error('The preview window could not open the PDF. Allow pop-ups for this site, then click Preview Statements again.');}
+      const filename=statementPreviewFilename(accounts,statementDate,customerName);
+      await openNamedPreview(popup,pdf,filename,key);
       message('Preview ready: '+accounts.length+' customer statement'+(accounts.length===1?'':'s')+' in one PDF. Nothing has been sent.',true);
     }catch(error){
       try{if(popup&&!popup.closed)popup.close();}catch{}
