@@ -1,4 +1,4 @@
-// Ver691: fleet supplement page streams use the statement's F1/F2 fonts.
+// Ver727: fleet supplement page streams use the statement's F1/F2 fonts.
 const plain=v=>String(v??'').normalize('NFKD').replace(/[^\x20-\x7e]/g,' ').replace(/\s+/g,' ').trim();
 const esc=v=>plain(v).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
 const qty=v=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-US',{maximumFractionDigits:3}):'-';
@@ -14,7 +14,7 @@ export function pages(fleet,customer,statementDate,letterhead){
  const line=top=>ops.push(`0.82 0.88 0.92 RG 0.5 w 42 ${top} m 570 ${top} l S`);
  const finish=()=>{line(82);text(42,68,'Fleet data retrieved: '+central(fleet.retrieved),8);text(42,56,'Saved API results through '+day(fleet.through)+'. Fuel totals include completed transactions only.',7.5);result.push(ops.join('\n'));ops=[];};
  const cols=[42,111,201,325,514],sizes=[13,17,23,35,10];
- const labels=['TRANS #|STATUS','RECEIVED','MERCHANT','FUEL / QUANTITY','GALLONS'];
+ const labels=['TRANS #|STATUS','RECEIVED','MERCHANT','FUEL TYPE','GALLONS'];
  const headings=()=>{ops.push(`0.94 0.97 0.99 rg 42 ${y-30} 528 30 re f`);labels.forEach((v,i)=>v.split('|').forEach((part,j)=>text(cols[i]+4,y-12-j*10,part,7.3,true)));y-=32;};
  let card,cardIndex=0,continued=false;
  function startPage(){
@@ -42,7 +42,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   continued=false;
   // Keep each card header with its first transaction (and total for short cards).
   const first=card.transactions[0];
-  const firstHeight=first?Math.min(150,Math.max(wrap(first.id+' / '+first.status,13).length,wrap(day(first.received),17).length,wrap(first.merchant,23).length,wrap(first.products.map(p=>p.name+': '+qty(p.quantity)).join('; ')||'No reported fuel',35).length)*11+60):32;
+  const firstHeight=first?Math.min(150,Math.max(wrap(first.id+' / '+first.status,13).length,wrap(day(first.received),17).length,wrap(first.merchant,23).length,wrap(first.products.map(p=>p.name).join('; ')||'No reported fuel',35).length)*11+60):32;
   const needed=67+cardDetails().length*11+firstHeight+(card.transactions.length<=1?70:0);
   if(!ops.length)startPage();
   else if(y-20-needed<100){finish();startPage();}
@@ -50,7 +50,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   cardHeader();
   if(!card.transactions.length){text(46,y-15,'No saved transactions in this period.',9);y-=32;}
   for(const [transactionIndex,t] of card.transactions.entries()){
-   const cells=[t.id+' / '+t.status,day(t.received),t.merchant,t.products.map(p=>p.name+': '+qty(p.quantity)).join('; ')||'No reported fuel',qty(t.quantity)];
+   const cells=[t.id+' / '+t.status,day(t.received),t.merchant,t.products.map(p=>p.name).join('; ')||'No reported fuel',qty(t.quantity)];
    const lines=cells.map((v,i)=>wrap(v,sizes[i]));
    const extra=[t.driver&&'Driver: '+t.driver,t.vehicle&&'Vehicle: '+t.vehicle,t.odometer&&'Odometer: '+t.odometer,t.auth&&'Auth ref: '+t.auth,t.invoice&&'Invoice: '+t.invoice,t.entry&&'Entry: '+t.entry,t.type&&'Type: '+t.type,!t.counted&&'Excluded from gallon total'+(t.complete?(t.hasFuel?' (quantity unavailable)':' (no reported fuel)'):' (not completed)')].filter(Boolean).join(' | ');
    const extras=extra?wrap(extra,112):[];

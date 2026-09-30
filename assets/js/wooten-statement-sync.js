@@ -1,7 +1,7 @@
-/* Ver724: synchronize selected sources before resuming the original statement action. */
+/* Ver726: synchronize selected sources before resuming the original statement action. */
 (()=>{
 'use strict';
-const ids=['statementPreview','statementGenerateSend','schedulePreviewMonthly','scheduleGenerateMonthly','scheduleRunMonthly','scheduleTestMonthly','schedulePreviewWeekly','scheduleGenerateWeekly','scheduleRunWeekly','scheduleTestWeekly','schedulePreviewMidmonth','scheduleRunMidmonth','scheduleTestMidmonth','scheduleTestAll'];
+const ids=['statementPreview','statementGenerateSend','scheduleGenerateMonthly','scheduleRunMonthly','scheduleTestMonthly','scheduleGenerateWeekly','scheduleRunWeekly','scheduleTestWeekly','schedulePreviewMidmonth','scheduleRunMidmonth','scheduleTestMidmonth','scheduleTestAll'];
 const sources=[['mas90','MAS 90 — Customers, payments & invoices'],['cards','Intevacon — Customer fleet cards'],['transactions','Intevacon — Transactions']];
 let target=null,bypass=null,busy=false,done=false,session='',epoch=0;
 const key=()=>document.getElementById('adminKey')?.value.trim()||'';
