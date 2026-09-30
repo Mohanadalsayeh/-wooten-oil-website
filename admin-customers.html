@@ -11743,8 +11743,27 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 .statement-fleet-settings input[type=date]{appearance:none;-webkit-appearance:none;width:0;min-width:100%}
 .statement-fleet-settings .sf-help{margin-bottom:0}
 @media(max-width:620px){.statement-fleet-settings{padding:16px}.statement-fleet-settings .sf-ranges{grid-template-columns:minmax(0,1fr)}.statement-fleet-settings button{width:100%}}
+/* Ver729: paired date period, scoped to Send Account Statements. */
+.statement-fleet-settings[data-statement-fleet="manual"]{background:#fff}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{margin-top:20px;padding:20px;background:#f3f8fc;border:1px solid #d6e4ef;border-radius:14px;min-width:0;box-sizing:border-box}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-title{display:flex;align-items:center;gap:9px;margin:0 0 17px;font-size:16px;line-height:1.3;color:#193d59;font-weight:700}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-title span{display:block;width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#d51e28}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field{min-width:0}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field label{margin:0 0 8px;font-size:14px;font-weight:700}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field input[type="date"]{display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;height:48px;min-height:48px;max-height:48px;margin:0;padding:0 12px;border:1px solid #bfd3e5;border-radius:9px;background:#fff;color:#193d59;font:400 16px Arial,sans-serif;text-align:left;line-height:normal}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field input::-webkit-date-and-time-value{min-height:46px;display:flex;align-items:center;text-align:left;margin:0}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field input::-webkit-datetime-edit{padding:0;display:inline-flex;align-items:center;min-height:46px}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field small{display:block;margin-top:7px;font-size:12px;font-weight:400;line-height:1.45;color:#637d96}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:13px}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-footer small{font-size:12px;color:#637d96;font-weight:400}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates{width:auto;min-height:44px;margin:0;padding:8px 0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#193d59;font:400 14px Arial,sans-serif;text-decoration:underline;text-underline-offset:3px;transform:none}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates:hover{background:transparent;color:#245a80;box-shadow:none}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-default-dates:disabled{opacity:.5;cursor:default}
+.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field input:disabled{background:#edf2f6;color:#8493a1;cursor:default}
+@media(max-width:620px){.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{grid-template-columns:minmax(0,1fr);gap:16px}.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{padding:16px}}
 </style>
-<script src="assets/js/wooten-statement-fleet.js?v=728"></script>
+<script src="assets/js/wooten-statement-fleet.js?v=729"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
