@@ -11735,6 +11735,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 .statement-fleet-settings .sf-enabled{display:flex;align-items:center;gap:10px;font-weight:700}
 .statement-fleet-settings .sf-enabled input{width:20px;height:20px;flex:0 0 auto}
 .statement-fleet-settings .sf-ranges{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0}
+.statement-fleet-settings[data-statement-fleet="manual"] fieldset{grid-column:1/-1}
 .statement-fleet-settings fieldset{min-width:0;border:1px solid #d5e2ed;border-radius:12px;padding:16px;background:white}
 .statement-fleet-settings legend{padding:0 6px;font-weight:700}
 .statement-fleet-settings label:not(.sf-enabled){display:block;margin:10px 0 6px;font-weight:700}
@@ -11743,7 +11744,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 .statement-fleet-settings .sf-help{margin-bottom:0}
 @media(max-width:620px){.statement-fleet-settings{padding:16px}.statement-fleet-settings .sf-ranges{grid-template-columns:minmax(0,1fr)}.statement-fleet-settings button{width:100%}}
 </style>
-<script src="assets/js/wooten-statement-fleet.js?v=707"></script>
+<script src="assets/js/wooten-statement-fleet.js?v=728"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
