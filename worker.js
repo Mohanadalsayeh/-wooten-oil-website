@@ -10259,6 +10259,8 @@ async function adminPreviewStatementsPost({request,env}){
     if(!env.DB)return notificationJson({success:false,error:'Customer database is not configured.'},503);
     let body;
     try{body=await request.json();}catch{return notificationJson({success:false,error:'Invalid request data.'},400);}
+    const previewId=String(body?.preview_request_id||'');
+    if(previewId&&!/^[a-zA-Z0-9-]{1,80}$/.test(previewId))return notificationJson({success:false,error:'Invalid preview request ID.'},400);
     const rawAccounts=Array.isArray(body?.accounts)?body.accounts:[];
     const normalized=rawAccounts.map(normalizeNotificationAccount);
     if(!normalized.length||normalized.some(account=>!account))return notificationJson({success:false,error:'Select valid customers to preview.'},400);
@@ -10284,7 +10286,9 @@ async function adminPreviewStatementsPost({request,env}){
       'Content-Disposition':`inline; filename="Wooten-Oil-Statements-Preview-${statementDate}.pdf"`,
       'Cache-Control':'private, no-store',
       'X-Content-Type-Options':'nosniff',
-      'X-Statement-Customer-Count':String(accounts.length)
+      'X-Statement-Customer-Count':String(accounts.length),
+      'X-Statement-Accounts':accounts.join(','),
+      'X-Statement-Preview-Id':previewId
     }});
   }catch(error){
     console.error('Statement preview failed',error);

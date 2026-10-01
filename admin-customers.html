@@ -11795,6 +11795,21 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   let customers=[];
   window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
+  // Ver733: reconcile visible checkboxes before capturing a new preview selection.
+  window.WootenStatementGetSelectedAccounts=()=>{
+    list.querySelectorAll('.statement-customer-check[data-account]').forEach(box=>{
+      const account=box.getAttribute('data-account');
+      if(box.checked)selected.add(account);else selected.delete(account);
+    });
+    return Array.from(selected);
+  };
+  function invalidateStatementPreview(){
+    if(status.textContent.startsWith('Preview ready:')){
+      status.textContent='Selection changed. Click Preview Statements to create a new preview.';
+      status.className='status show';
+    }
+  }
+
   let customerPage=1;
   const customerPageSize=20;
 
@@ -11980,6 +11995,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     if(!box) return;
     const acct=box.getAttribute('data-account');
     if(box.checked) selected.add(acct); else selected.delete(acct);
+    invalidateStatementPreview();
     updateCount();
   });
 
@@ -11988,16 +12004,19 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       if(selectAllVisible.checked) selected.add(c.account_number);
       else selected.delete(c.account_number);
     });
+    invalidateStatementPreview();
     render();
   });
 
   selectAllCustomers.addEventListener('click',function(){
     eligibleCustomers().forEach(c=>selected.add(c.account_number));
+    invalidateStatementPreview();
     render();
   });
 
   clearSelection.addEventListener('click',function(){
     selected.clear();
+    invalidateStatementPreview();
     render();
   });
 
@@ -12027,7 +12046,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   sendBtn.addEventListener('click',async function(){
     if(sendBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true') return;
     const key=document.getElementById('adminKey').value.trim();
-    const accounts=Array.from(selected);
+    const accounts=window.WootenStatementGetSelectedAccounts();
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     if(!accounts.length){setStatus('Select at least one customer.',false);return;}
     if(!date.value){setStatus('Choose the statement date.',false);return;}
@@ -12043,8 +12062,13 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     );
     if(!confirmed) return;
 
+    // Ver734: freeze the confirmed selection and controls for the entire send.
+    const controls=Array.from(document.getElementById('documentSectionSendStatements').querySelectorAll('input,select,button'));
+    const previousDisabled=controls.map(control=>control.disabled);
+    controls.forEach(control=>{control.disabled=true;});
     sendBtn.dataset.requestPending='true';
     updateCount();
+    controls.forEach(control=>{control.disabled=true;});
     sendBtn.disabled=true;loadBtn.disabled=true;
     sendBtn.textContent='Generating Statements…';
     beginAdminActionProgress('statementSend','Generating and sending statements in batches…');
@@ -12055,6 +12079,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     try{
       if(!window.WootenStatementProgress)throw new Error('Reload this page to load the statement progress window.');
       await window.WootenStatementFleet.ready();
+      controls.forEach(control=>{control.disabled=true;});
       const progressJobId=await window.WootenStatementProgress.startManual({accounts,statement_date:date.value||todayLocal(),fleet:window.WootenStatementFleet.options('manual',true),payment_count:Number(paymentCount&&paymentCount.value||0),portal_notification:!!portalNotification.checked,email_pdf:!!emailPdf.checked,sms_link:!!smsLink.checked});
       for(let i=0;i<accounts.length;i+=10){
         const chunk=accounts.slice(i,i+10);
@@ -12097,7 +12122,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       if(document.getElementById('documentSectionStatementRunReport')?.hidden===false)window.loadStatementRunReport?.(false);
       hideAdminActionProgress('statementSend');
       delete sendBtn.dataset.requestPending;
-      sendBtn.disabled=false;loadBtn.disabled=false;
+      controls.forEach((control,index)=>{control.disabled=previousDisabled[index];});
       sendBtn.textContent='Generate & Send Statements';
       updateCount();
     }
@@ -12106,7 +12131,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=530">
-<script type="module" src="assets/js/wooten-statement-preview.mjs?v=731"></script>
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=735"></script>
 
 
 
