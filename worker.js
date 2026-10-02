@@ -14,6 +14,7 @@ import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.m
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementFleet from './fleet/statement-fleet.mjs';
 import {pages as statementFleetPages} from './fleet/statement-fleet-pdf.mjs';
+import {load as statementLoadInvoices,pages as statementInvoicePages} from './fleet/statement-invoices.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
@@ -9748,7 +9749,7 @@ function statementCustomerAddress(customer){
 }
 __name(statementCustomerAddress,"statementCustomerAddress");
 
-function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
+function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null,invoices=null){
   const current=statementNumber(customer?.current_balance);
   const age1=statementNumber(customer?.aging_category_1);
   const age2=statementNumber(customer?.aging_category_2);
@@ -9960,6 +9961,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
     pageStreams.push(paymentCommands.join("\n"));
   }
 
+  pageStreams.push(...statementInvoicePages(invoices,customer,statementDate,statementLetterhead));
   pageStreams.push(...statementFleetPages(fleet,customer,statementDate,statementLetterhead));
 
   // Add per-customer page numbering after all pages for this statement are known.
@@ -10292,7 +10294,8 @@ async function adminPreviewStatementsPost({request,env}){
       if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
       customer.statement_period=fleetOptions.ranges[customer.statement_cycle]||fleetOptions.ranges.A;
       const payments=await statementLoadPayments(env,account,paymentCount);
-      pdfs.push(statementBuildPdf(customer,statementDate,payments,await StatementFleet.load(env,customer,fleetOptions)));
+      const invoices=await statementLoadInvoices(env.DB,account,customer.statement_period);
+      pdfs.push(statementBuildPdf(customer,statementDate,payments,await StatementFleet.load(env,customer,fleetOptions),invoices));
     }
     // Preview has no document storage, notification, or delivery operations.
     return new Response(statementBuildCombinedPdf(pdfs),{headers:{
@@ -10428,8 +10431,9 @@ async function adminGenerateStatementsPost({request,env}){
         customer.statement_period=fleetOptions.ranges[customer.statement_cycle]||fleetOptions.ranges.A;
         const recentPayments=await statementLoadPayments(env,account,paymentCount);
 
+        const invoices=await statementLoadInvoices(env.DB,account,customer.statement_period);
         const fleet=await StatementFleet.load(env,customer,fleetOptions);
-        const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments,fleet);
+        const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments,fleet,invoices);
         generatedPdfParts.push(pdfBytes);
         const filename=`Wooten-Oil-Statement-${account}-${statementDate}.pdf`;
         const title=`Statement ${statementPdfDate(statementDate)}`;

@@ -6980,7 +6980,7 @@ SOFTWARE.
 
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
-          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
+          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
           <button class="secondary" id="statementPreview" type="button" disabled>Preview Statements</button>
           <button class="primary" id="statementGenerateSend" type="button" disabled>Generate &amp; Send Statements</button>
         </div>
@@ -7011,8 +7011,8 @@ SOFTWARE.
 
       <div id="statementBatchStatus" class="status"></div>
 
-      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — Biweekly</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — Biweekly</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
-      <div class="sm-table-wrap"><table class="sm-table"><thead><tr><th>Select</th><th>Favorite</th><th>Customer #</th><th>Customer name</th><th class="sm-money">Balance</th><th>Statement group</th><th>Phone / Email</th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
+      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
+      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false"><thead><tr><th>Select</th><th data-statement-sort="favorite" aria-sort="none"><button type="button">Favorite</button></th><th data-statement-sort="account_number" aria-sort="none"><button type="button">Customer #</button></th><th data-statement-sort="account_name" aria-sort="none"><button type="button">Customer name</button></th><th class="sm-money" data-statement-sort="total_balance" aria-sort="none"><button type="button">Balance</button></th><th data-statement-sort="statement_cycle" aria-sort="none"><button type="button">Statement group</button></th><th data-statement-sort="contact" aria-sort="none"><button type="button">Phone / Email</button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
         <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
@@ -11766,8 +11766,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 @media(max-width:620px){.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{grid-template-columns:minmax(0,1fr);gap:16px}.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{padding:16px}}
 </style>
 <script src="assets/js/wooten-statement-fleet.js?v=729"></script>
-<link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=739">
-<script src="assets/js/wooten-statement-management.js?v=739"></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=741">
+<script src="assets/js/wooten-statement-management.js?v=741"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -11796,9 +11796,11 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   if(window.__wootenAdminBatchStatementsInitialized) return;
   window.__wootenAdminBatchStatementsInitialized=true;
 
-  let customers=[],appliedSearch="";
+  let customers=[],appliedSearch="",statementSortKey='',statementSortDirection=1;
+  const statementTable=list.closest('table');
+  const statementCollator=new Intl.Collator('en-US',{numeric:true,sensitivity:'base'});
   const groupFilter=document.getElementById("statementGroupFilter");
-  const groupNames={A:"Cycle A — Monthly",B:"Cycle B — Weekly",C:"Cycle C — Biweekly",E:"Exceptional"};
+  const groupNames={A:"Cycle A — Monthly",B:"Cycle B — Weekly",C:"Cycle C — 15th to month end",E:"Exceptional"};
   window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   // Ver733: reconcile visible checkboxes before capturing a new preview selection.
@@ -11852,11 +11854,28 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function filteredCustomers(){
     const q=String(appliedSearch||'').trim().toLowerCase();
     const eligible=eligibleCustomers();
-    if(!q) return eligible;
-    return eligible.filter(c=>[
+    const filtered=q?eligible.filter(c=>[
       c.account_number,c.account_name,c.email,c.phone
-    ].join(' ').toLowerCase().includes(q));
+    ].join(' ').toLowerCase().includes(q)):eligible;
+    if(!statementSortKey)return filtered;
+    const value=(row)=>statementSortKey==='contact'?[row.phone,row.email].join(' '):
+      statementSortKey==='statement_cycle'?(groupNames[row.statement_cycle]||row.statement_cycle||''):row[statementSortKey];
+    return filtered.sort((a,b)=>{
+      const order=statementSortKey==='total_balance'||statementSortKey==='favorite'
+        ?(Number(value(a)||0)-Number(value(b)||0))
+        :statementCollator.compare(String(value(a)||''),String(value(b)||''));
+      return order*statementSortDirection||statementCollator.compare(String(a.account_number||''),String(b.account_number||''));
+    });
   }
+  window.WootenStatementFilteredCustomers=()=>filteredCustomers();
+  statementTable?.querySelectorAll('th[data-statement-sort]').forEach(th=>th.querySelector('button')?.addEventListener('click',()=>{
+    const next=th.dataset.statementSort;
+    statementSortDirection=statementSortKey===next?-statementSortDirection:1;
+    statementSortKey=next;
+    statementTable.querySelectorAll('th[data-statement-sort]').forEach(cell=>cell.setAttribute('aria-sort',cell===th?(statementSortDirection===1?'ascending':'descending'):'none'));
+    customerPage=1;
+    render();
+  }));
   function visibleCustomers(){
     const filtered=filteredCustomers();
     const pages=Math.max(1,Math.ceil(filtered.length/customerPageSize));
@@ -11884,7 +11903,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     sendBtn.disabled=selected.size===0||showExceptional.disabled;
     if(previewButton)previewButton.disabled=selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
     const exportButton=document.getElementById('statementExportCustomersPdf');
-    if(exportButton) exportButton.disabled=selected.size===0||exportButton.dataset.exporting==='true';
+    if(exportButton) exportButton.disabled=!filteredCustomers().length||loadBtn.disabled||exportButton.dataset.exporting==='true';
     if(selectAllVisible){
       const visible=visibleCustomers();
       const checked=visible.length>0 && visible.every(c=>selected.has(c.account_number));
@@ -12290,7 +12309,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
     email_filter:get('scheduleEmailFilter').value,positive_balance_only:positiveOnly.checked,payment_count:Number(paymentCount.value),portal_enabled:portal.checked,email_enabled:get('scheduleEmailFilter').value!=='without_email'&&email.checked,sms_enabled:sms.checked
   };}
   function statementDateValue(){
-    const field=get('scheduleStatementDate'),value=field.value;
+    const field=get('statementBatchDate'),value=field.value;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value+'T00:00:00Z'))||new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value){field.focus();throw new Error('Choose a valid statement date.');}
     return value;
   }
@@ -17590,35 +17609,36 @@ html,body{
     const cityLine=[cityState,String(customer.zip_code||'').trim()].filter(Boolean).join(' ');
     return [street,cityLine].filter(Boolean).join(' - ');
   };
+  const exportFilename=()=>{
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
+      timeZone:'America/Chicago',month:'2-digit',day:'2-digit',year:'numeric',
+      hour:'numeric',minute:'2-digit',hour12:true
+    }).formatToParts(new Date()).map(part=>[part.type,part.value]));
+    return `Statement-List-${parts.month}${parts.day}${parts.year}-${parts.hour}-${parts.minute}${parts.dayPeriod}`;
+  };
   button.addEventListener('click',async()=>{
-    const key=field('adminKey').trim();
-    const selectedAccounts=new Set(Array.from(window.WootenStatementSelectedAccounts||[]).map(account=>String(account)));
-    if(!selectedAccounts.size){button.disabled=true;return;}
-    if(!key){window.ensureAdminLoginKey?.('Enter your Admin Import Key to continue.');return;}
+    const customers=window.WootenStatementFilteredCustomers?.()||[];
+    if(!customers.length){button.disabled=true;return;}
     if(!window.WootenAdminTablePdf?.exportData){if(status){status.className='status show bad';status.textContent='The PDF exporter is not available. Refresh the page and try again.';}return;}
     const label=button.querySelector('span');
     button.dataset.exporting='true';
     button.disabled=true;
-    if(label)label.textContent='Loading Records…';
+    if(label)label.textContent='Preparing all filtered rows…';
     try{
-      const response=await fetch('/api/admin/statement-customers',{headers:{'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok||data.success===false)throw new Error(data.error||'Statement customers could not be loaded.');
-      const customers=(Array.isArray(data.customers)?data.customers:[])
-        .filter(customer=>selectedAccounts.has(String(customer.account_number||'')));
-      if(!customers.length)throw new Error('The selected customer records are no longer available. Reload the customer list and try again.');
       await window.WootenAdminTablePdf.exportData(
-        'Statement Customers',
-        ['Customer #','Customer / Company','Address','Current','Previous','Total','Phone','Email'],
-        customers.map(customer=>[customer.account_number,customer.account_name||'Customer',address(customer)||'-',money(customer.current_balance),money(customer.previous_balance),money(customer.total_balance),customer.phone||'No phone on file',customer.email||'No email on file']),
-        (done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');}
+        'Filtered Statement Customers',
+        ['Customer #','Favorite','Customer / Company','Address','Balance','Statement group','Phone','Email'],
+        customers.map(customer=>[customer.account_number,customer.favorite?'Yes':'No',customer.account_name||'Customer',address(customer)||'-',money(customer.total_balance),({A:'Cycle A — Monthly',B:'Cycle B — Weekly',C:'Cycle C — 15th to month end',E:'Exceptional'}[customer.statement_cycle]||customer.statement_cycle||'-'),customer.phone||'No phone on file',customer.email||'No email on file']),
+        (done,total,stage)=>{const percent=total?Math.min(99,Math.max(1,Math.round((Number(done)||0)/(Number(total)||1)*100))):0;if(label)label.textContent=stage+(percent?' '+percent+'%':'…');},
+        {filename:exportFilename()}
       );
+      if(status){status.className='status show ok';status.textContent=customers.length.toLocaleString()+' filtered customer'+(customers.length===1?'':'s')+' exported across all pages.';}
     }catch(error){
       if(status){status.className='status show bad';status.textContent=error.message||'The statement customer table could not be exported.';}
     }finally{
       delete button.dataset.exporting;
-      button.disabled=!(window.WootenStatementSelectedAccounts&&window.WootenStatementSelectedAccounts.size);
-      if(label)label.textContent='Export PDF';
+      button.disabled=!(window.WootenStatementFilteredCustomers?.().length);
+      if(label)label.textContent='Export Filtered PDF';
     }
   });
 })();

@@ -1,0 +1,5 @@
+Wooten Oil Portal Ver744 — statement list export filename
+
+Apply after Ver743. Replace only admin-customers.html in GitHub, then deploy Pages. The Worker and office PC files are unchanged.
+
+The Statements & Cycles Export Filtered PDF download is now named Statement-List-MMDDYYYY-h-mmAM.pdf or Statement-List-MMDDYYYY-h-mmPM.pdf, using Central time. The hyphen between hour and minute is required because Windows does not allow a colon in a filename.
