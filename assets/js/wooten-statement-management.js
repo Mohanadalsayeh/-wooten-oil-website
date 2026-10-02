@@ -13,6 +13,7 @@ async function api(body){const session=key();if(!session)throw Error('Sign in to
 async function ready(){if(loadedKey&&loadedKey===key())return;if(pending)return pending;
  pending=(async()=>{const {data,session}=await api();write(data.periods);defaultPeriods=data.defaults;loadedKey=session;baseline=JSON.stringify(read());changed();status.textContent='Periods loaded. Favorites and cycle assignments are saved separately from MAS 90 imports.';})().finally(()=>pending=null);return pending;
 }
+document.getElementById('documentTabStatementPeriods')?.addEventListener('click',()=>{status.textContent='Loading statement periods...';ready().then(()=>{status.textContent='Statement periods ready.';}).catch(error=>{status.textContent=error.message;});});
 root.addEventListener('input',changed);root.addEventListener('change',changed);
 reset.addEventListener('click',()=>{write(defaultPeriods);changed();status.textContent='Default periods selected. Save periods to keep them.';});
 save.addEventListener('click',async()=>{saving=true;changed();for(const i of root.querySelectorAll('input'))i.disabled=true;try{const {data}=await api({action:'periods',periods:read()});write(data.periods);baseline=JSON.stringify(read());status.textContent='Statement periods saved.';}catch(e){status.textContent=e.message;}finally{saving=false;for(const i of root.querySelectorAll('input'))i.disabled=false;changed();}});

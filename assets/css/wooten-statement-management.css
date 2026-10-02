@@ -32,3 +32,15 @@
 @media(max-width:720px){#statementCyclePeriods .sm-periods{grid-template-columns:minmax(0,1fr)}#statementCyclePeriods{padding:16px}#documentSectionSendStatements .sm-filter-row>*{flex:1 1 100%}#documentSectionSendStatements .sm-filter-row select{width:100%}}
 
 @media(max-width:480px){#statementCyclePeriods .sm-period-fields{grid-template-columns:minmax(0,1fr)}}
+
+/* Ver739: favorite stars have no button box in any pointer state. */
+#documentSectionSendStatements .sm-table button.sm-star,
+#documentSectionSendStatements .sm-table button.sm-star:hover,
+#documentSectionSendStatements .sm-table button.sm-star:active,
+#documentSectionSendStatements .sm-table button.sm-star:focus{
+ border:0!important;box-shadow:none!important;background:transparent!important;
+}
+#documentSectionSendStatements .sm-table button.sm-star:hover{color:#e5a900!important}
+#documentSectionSendStatements .sm-table button.sm-star:focus:not(:focus-visible){outline:none!important}
+#documentSectionSendStatements .sm-table button.sm-star:focus-visible{outline:2px solid #1e6ba3!important;outline-offset:2px}
+#documentSectionStatementPeriods[hidden]{display:none!important}

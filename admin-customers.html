@@ -6795,8 +6795,8 @@ SOFTWARE.
   <div class="card admin-tab-panel" id="admin-tab-documents" role="tabpanel" aria-labelledby="admin-tab-btn-documents" data-admin-panel="documents">
     <nav class="admin-subtabs" role="tablist" aria-label="Statements and invoices sections">
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-document-section="customer-documents">Customer Documents</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Customers &amp; Cycles</span></button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Cycle Statements</span></button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Statements &amp; Cycles</span></button>
+      <button class="admin-subtab" id="documentTabStatementPeriods" type="button" role="tab" aria-selected="false" aria-controls="documentSectionStatementPeriods" data-document-section="statement-periods">Statement Cycles Periods</button>
       <button class="admin-subtab" id="documentTabStatementRunReport" type="button" role="tab" aria-selected="false" aria-controls="documentSectionStatementRunReport" data-document-section="statement-run-report">Statement Run Report</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="exceptional-customers">Exceptional Customers</button>
     </nav>
@@ -6889,7 +6889,7 @@ SOFTWARE.
       <div class="statement-batch-head documents-form-heading">
         <div>
           <div class="admin-page-label">Generate Statements</div>
-          <h2>Customers &amp; Cycles</h2>
+          <h2>Statements &amp; Cycles</h2>
           <p>Manage cycles and favorites in one table. Preview or generate statements for every checked customer, including selections on other pages or hidden by a filter.</p>
           <p class="statement-contact-selection-note"><strong>Contact availability:</strong> The SMS, Portal, and Email icons in Live Customer Database are display-only and show the contact methods currently available for each customer.</p>
         </div>
@@ -6977,7 +6977,7 @@ SOFTWARE.
         <div class="statement-action-heading">
           <h3>Statement actions</h3>
         </div>
-        <section id="statementCyclePeriods"></section>
+
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
           <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
@@ -7156,6 +7156,11 @@ SOFTWARE.
         </section>
       </div>
 
+    </div>
+
+    <div id="documentSectionStatementPeriods" role="tabpanel" aria-labelledby="documentTabStatementPeriods" hidden>
+      <div class="documents-form-heading"><div><div class="admin-page-label">Statement settings</div><h2>Statement Cycles Periods</h2></div></div>
+      <section id="statementCyclePeriods"></section>
     </div>
 
     <div id="documentSectionStatementRunReport" role="tabpanel" aria-labelledby="documentTabStatementRunReport" hidden>
@@ -11488,6 +11493,7 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
   const sectionButtons=Array.from(document.querySelectorAll('[data-document-section]'));
   const customerDocumentsSection=document.getElementById('documentSectionCustomerDocuments');
   const sendStatementsSection=document.getElementById('documentSectionSendStatements');
+  const statementPeriodsSection=document.getElementById('documentSectionStatementPeriods');
   const statementSchedulingSection=document.getElementById('documentSectionStatementScheduling');
   const statementRunReportSection=document.getElementById('documentSectionStatementRunReport');
   const exceptionalCustomersSection=document.getElementById('documentSectionExceptionalCustomers');
@@ -11495,6 +11501,7 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
     const section=button.dataset.documentSection;
     customerDocumentsSection.hidden=section!=='customer-documents';
     sendStatementsSection.hidden=section!=='send-statements';
+    if(statementPeriodsSection)statementPeriodsSection.hidden=section!=='statement-periods';
     if(statementSchedulingSection)statementSchedulingSection.hidden=section!=='statement-scheduling';
     if(statementRunReportSection)statementRunReportSection.hidden=section!=='statement-run-report';
     if(exceptionalCustomersSection)exceptionalCustomersSection.hidden=section!=='exceptional-customers';
@@ -11759,8 +11766,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 @media(max-width:620px){.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{grid-template-columns:minmax(0,1fr);gap:16px}.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{padding:16px}}
 </style>
 <script src="assets/js/wooten-statement-fleet.js?v=729"></script>
-<link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=737">
-<script src="assets/js/wooten-statement-management.js?v=737"></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=739">
+<script src="assets/js/wooten-statement-management.js?v=739"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
