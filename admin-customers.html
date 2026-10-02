@@ -7013,7 +7013,7 @@ SOFTWARE.
       <div id="statementBatchStatus" class="status"></div>
 
 
-      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th data-statement-sort="favorite" aria-sort="none"><button type="button">Favorite</button></th><th data-statement-sort="account_number" aria-sort="none"><button type="button">Customer #</button></th><th data-statement-sort="account_name" aria-sort="none"><button type="button">Customer name</button></th><th class="sm-money" data-statement-sort="total_balance" aria-sort="none"><button type="button">Balance</button></th><th data-statement-sort="statement_cycle" aria-sort="none"><button type="button">Statement group</button></th><th data-statement-sort="contact" aria-sort="none"><button type="button">Phone / Email</button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
+      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th class="wo-sortable-heading" data-statement-sort="favorite" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Favorite</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_number" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer #</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_name" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer name</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="sm-money wo-sortable-heading" data-statement-sort="total_balance" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Balance</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="statement_cycle" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Statement group</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="contact" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Phone / Email</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
         <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
@@ -15681,21 +15681,81 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #scheduleStatementDate::-webkit-datetime-edit-fields-wrapper{padding:0}
 #documentSectionStatementScheduling .statement-date-field small{display:block!important;position:static!important;margin:0!important;line-height:1.5!important;height:auto!important;white-space:normal;overflow-wrap:anywhere;color:#62798e;font-size:13px}
 </style>
-<style id="wooten-statement-headers-ver746">
-/* This table sorts its complete filtered dataset through its own header buttons. */
+<style id="wooten-statement-headers-ver749">
 #documentSectionSendStatements .sm-table{table-layout:auto;min-width:1120px}
-#documentSectionSendStatements .sm-table thead th{padding:16px 20px!important;white-space:nowrap;vertical-align:middle;font-weight:800!important}
-#documentSectionSendStatements .sm-table th[data-statement-sort] button{display:inline-flex!important;align-items:center!important;justify-content:flex-start;gap:10px!important;width:100%!important;min-width:max-content!important;height:auto!important;min-height:0!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;background:transparent!important;font:inherit!important;font-weight:800!important;line-height:1.3!important;white-space:nowrap!important;color:inherit!important}
-#documentSectionSendStatements .sm-table th.sm-money[data-statement-sort] button{justify-content:flex-end}
-#documentSectionSendStatements .sm-table th[data-statement-sort] button::after{content:'↕';display:inline-block;flex:0 0 12px;width:12px;font-size:12px;line-height:1;color:#8096a8}
-#documentSectionSendStatements .sm-table th[data-statement-sort][aria-sort="ascending"] button::after{content:'▲';color:#183b55}
-#documentSectionSendStatements .sm-table th[data-statement-sort][aria-sort="descending"] button::after{content:'▼';color:#183b55}
 #documentSectionSendStatements .sm-table th:nth-child(2){min-width:115px}
 #documentSectionSendStatements .sm-table th:nth-child(3){min-width:140px}
 #documentSectionSendStatements .sm-table th:nth-child(4){min-width:235px}
 #documentSectionSendStatements .sm-table th:nth-child(5){min-width:125px}
 #documentSectionSendStatements .sm-table th:nth-child(6){min-width:225px}
 #documentSectionSendStatements .sm-table th:nth-child(7){min-width:220px}
+#documentSectionSendStatements .sm-table thead th.wo-sortable-heading{
+  padding: 0 !important;
+  vertical-align: middle !important;
+}
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button{
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 9px 32px 9px 10px !important;
+  box-sizing: border-box !important;
+  line-height: 1.35 !important;
+  transition: none !important;
+  animation: none !important;
+}
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-label{
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: inherit !important;
+  text-align: inherit !important;
+}
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{
+  position: absolute !important;
+  top: calc(50% - 8px) !important;
+  right: 10px !important;
+  left: auto !important;
+  width: 12px !important;
+  height: 16px !important;
+  margin: 0 !important;
+}
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:hover,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:focus,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:focus-visible,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:active{
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 9px 32px 9px 10px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:hover .wo-table-sort-label,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:focus .wo-table-sort-label,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:active .wo-table-sort-label{
+  font-weight: inherit !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button:hover .wo-table-sort-label{
+  color: var(--wo-table-sort-hover) !important;
+}
+#documentSectionSendStatements .sm-table thead th{font-weight:var(--wo-table-heading-weight,700)!important;vertical-align:middle;height:40px;box-sizing:border-box}
+#documentSectionSendStatements .sm-table thead th:not([data-statement-sort]){padding:9px 10px!important}
+#documentSectionSendStatements .sm-table th[data-statement-sort] button{--wooten-action-button-height:40px;border-radius:0!important;font:inherit!important;letter-spacing:inherit!important;text-transform:inherit!important;text-align:inherit!important}
+#documentSectionSendStatements .sm-table th[data-statement-sort] button::after{content:none!important}
 </style>
 <style id="wooten-statement-actions-controls-ver747">
 /* Ver748: retain separation when the status banner is empty. */
@@ -15704,6 +15764,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #documentSectionSendStatements #statementBatchStatus{margin:16px 0 10px!important}
 #documentSectionSendStatements #statementBatchStatus:empty{display:none!important}
 #documentSectionSendStatements #statementBatchStatus + .sm-table-wrap{margin-top:0!important}
+#documentSectionSendStatements .sm-table th[data-statement-sort] button:hover{text-decoration:none!important}
 </style>
 </body>
 </html>

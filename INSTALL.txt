@@ -1,5 +1,5 @@
-Ver748 — Statement table spacing
+Ver749 — Match statement headers to Live Customer Database
 
-Replace admin-customers.html in GitHub.
-Adds a 20px gap below Statement actions, including when no status message is visible. Keeps the 10px message-to-table gap.
-Includes previous Ver747 changes. No Worker update required.
+Replace admin-customers.html in GitHub. Includes Ver748 changes.
+Uses the shared sort icons and matches Live Customers header sizing, typography and interaction states. Full filtered-data sorting remains in place.
+No Worker update required.
