@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="assets/js/wooten-admin-explicit-search.js?v=738"></script>
+<style>
+.schedule-report-search-row:has(>.wooten-explicit-search-button){grid-template-columns:minmax(0,1fr) auto auto}
+.wooten-explicit-search-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:90px;margin:8px 0;white-space:nowrap}
+@media(max-width:720px){.schedule-report-search-row:has(>.wooten-explicit-search-button){grid-template-columns:1fr}.wooten-explicit-search-button{width:100%;box-sizing:border-box}}
+</style>
 <meta name="format-detection" content="telephone=no">
 <script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
