@@ -83,7 +83,7 @@ export async function queryHistory(db,q,{account=null,admin=false}={}){
  const summary=summaryResult,total=summary.transactions,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(pages,Math.max(1,parseInt(q.get('page'),10)||1));
  const ordering=sort==='received_at'?`received_at ${direction},id ${direction}`:`(${sort} IS NULL OR ${sort}='') ASC,${sort} COLLATE NOCASE ${direction},id ASC`;
  const records=await db.prepare(`SELECT row_json FROM ${table} WHERE ${sql} ORDER BY ${ordering} LIMIT 20 OFFSET ?`).bind(...args,(page-1)*20).all();
- const spans=cov.spans,covered=spans.some(s=>s.from<=start&&s.to>=to);
+ const spans=cov.spans,covered=spans.some(s=>s.from<=from&&s.to>=to);
  const availableTo=spans.at(-1)?.to||null;
  return {success:true,source:'saved_intevacon_history',kind:'transactions',account_number:account,items:records.results.map(r=>admin?JSON.parse(r.row_json):publicTransaction(JSON.parse(r.row_json))),total,page,pages,summary,last_sync:cov.last_sync,window_from:from,window_to:to,coverage:{complete:covered,available_from:spans[0]?.from||null,available_to:availableTo},live:{state:'success',fetchedAt:cov.last_sync},refresh:{state:'success'},notice:covered?'':`Saved results ${availableTo?'are available through '+availableTo:'have not been initialized yet'}.`};
 }
