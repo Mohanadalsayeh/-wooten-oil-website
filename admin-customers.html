@@ -7007,11 +7007,12 @@ SOFTWARE.
             <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
           </div>
         </div>
+      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
       </div>
 
       <div id="statementBatchStatus" class="status"></div>
 
-      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
+
       <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th data-statement-sort="favorite" aria-sort="none"><button type="button">Favorite</button></th><th data-statement-sort="account_number" aria-sort="none"><button type="button">Customer #</button></th><th data-statement-sort="account_name" aria-sort="none"><button type="button">Customer name</button></th><th class="sm-money" data-statement-sort="total_balance" aria-sort="none"><button type="button">Balance</button></th><th data-statement-sort="statement_cycle" aria-sort="none"><button type="button">Statement group</button></th><th data-statement-sort="contact" aria-sort="none"><button type="button">Phone / Email</button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
@@ -15695,6 +15696,12 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #documentSectionSendStatements .sm-table th:nth-child(5){min-width:125px}
 #documentSectionSendStatements .sm-table th:nth-child(6){min-width:225px}
 #documentSectionSendStatements .sm-table th:nth-child(7){min-width:220px}
+</style>
+<style id="wooten-statement-actions-controls-ver747">
+#documentSectionSendStatements .statement-action-panel .sm-filter-row{grid-column:1/-1;width:100%;box-sizing:border-box;border-top:1px solid #d7e3ed;padding-top:20px;margin-top:20px!important}
+#documentSectionSendStatements #statementBatchStatus{margin:16px 0 10px!important}
+#documentSectionSendStatements #statementBatchStatus:empty{display:none!important}
+#documentSectionSendStatements #statementBatchStatus + .sm-table-wrap{margin-top:0!important}
 </style>
 </body>
 </html>

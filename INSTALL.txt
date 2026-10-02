@@ -1,5 +1,5 @@
-Ver746 — Statement table headers
+Ver747 — Statement actions controls
 
-Apply after Ver745. Replace admin-customers.html in your GitHub portal files.
-Fixes header spacing and keeps the full-filtered-data statement sorting controls from being replaced by the generic page sorter.
+Replace admin-customers.html in GitHub. Includes Ver746 header fix.
+Show customers, Move checked customers to, and Move selected now sit inside Statement actions. Status messages appear directly above the table with a 10px gap.
 No Worker update required.
