@@ -10,20 +10,22 @@ export function settings(input={},frequency='weekly'){
  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Invalid fleet statement settings.');
  const value={enabled:input.enabled!==false,frequency:input.frequency||frequency,ranges:{}};
  if(!['weekly','biweekly'].includes(value.frequency))throw Error('Choose weekly or biweekly for Cycle B.');
- for(const cycle of ['A','B']){
+ for(const cycle of ['A','B','C','E']){
   const r=input.ranges?.[cycle]||{},from=r.from||'',to=r.to||'';
   if((from&&!validDay(from))||(to&&!validDay(to)))throw Error('Choose complete fleet From and To dates.');
-  value.ranges[cycle]={from,to};
+  const fromTime=r.fromTime||'00:00:00',toTime=r.toTime||'23:59:59';
+  if(!/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(fromTime)||!/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(toTime))throw Error('Choose valid statement times.');
+  value.ranges[cycle]={from,to,fromTime,toTime};
  }
  return value;
 }
 export function resolve(input,date,frequency='weekly'){
  if(!validDay(date))throw Error('Choose a valid statement date.');
  const s=settings(input,frequency);
- for(const cycle of ['A','B']){
-  const days=cycle==='A'?30:s.frequency==='biweekly'?14:7;
+ for(const cycle of ['A','B','C','E']){
+  const days=['A','E'].includes(cycle)?30:cycle==='C'||s.frequency==='biweekly'?14:7;
   const r=s.ranges[cycle];r.to=r.to||date;r.from=r.from||shiftDay(r.to,-days);
-  if(r.from>r.to)throw Error('Fleet From date must be on or before To date.');
+  if(r.from+'T'+r.fromTime>r.to+'T'+r.toTime)throw Error('Fleet From date must be on or before To date.');
   if(r.from<'2010-01-01'||Date.parse(r.to)-Date.parse(r.from)>91*DAY)throw Error('Choose a fleet range of no more than 92 calendar days, starting in 2010 or later.');
  }
  return s;
@@ -39,7 +41,7 @@ export function project(row){
 }
 export async function load(env,customer,options){
  if(!options.enabled)return null;
- const cycle=text(customer.statement_cycle).toUpperCase()==='B'?'B':'A',range=options.ranges[cycle],account=text(customer.account_number);
+ const cycle=['A','B','C','E'].includes(text(customer.statement_cycle).toUpperCase())?text(customer.statement_cycle).toUpperCase():'A',range=options.ranges[cycle],account=text(customer.account_number);
  if(!/^000\d{1,20}$/.test(account))return null;
  const id=account.slice(3),db=env.DB;
  const names=(await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('intevacon_card_control','intevacon_website_cards')").all()).results||[];

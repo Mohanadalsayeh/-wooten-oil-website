@@ -20,7 +20,7 @@ export function pages(fleet,customer,statementDate,letterhead){
  function startPage(){
   ops.push(letterhead());text(42,655,'Fleet Cards & Transactions',13,true);text(42,637,day(statementDate)+' | Customer # '+customer.account_number,9);
   y=620;for(const v of wrap(customer.account_name,90)){text(42,y,v,10,true);y-=13;}
-  text(42,y,'Period: '+day(fleet.range.from)+' 00:00 through '+day(fleet.range.to)+' 23:59 (Central dates)',8.5);y-=21;
+  text(42,y,'Period: '+day(fleet.range.from)+' '+(fleet.range.fromTime||'00:00:00')+' through '+day(fleet.range.to)+' '+(fleet.range.toTime||'23:59:59')+' CT',8.5);y-=21;
  }
  function cardDetails(){
   const labels={status:'Status',card_type:'Type',cardholder:'Cardholder',driver_id:'Driver ID',driver_no:'Driver number',vehicle_id:'Vehicle ID',vehicle_no:'Vehicle number',assigned_to:'Assigned to',last_used_on:'Last used'};

@@ -1,0 +1,23 @@
+/* Ver737: shared, server-saved period controls for the combined statement table. */
+(()=>{'use strict';
+const root=document.getElementById('statementCyclePeriods');if(!root)return;
+const names={A:'Cycle A — Monthly',B:'Cycle B — Weekly',C:'Cycle C — Biweekly',E:'Exceptional — Manual'};
+root.innerHTML='<h3>Statement periods</h3><p>Central time. Edit each group’s start and end dates and times. Statements are generated and sent only when you request them.</p><label class="sm-include"><input type="checkbox" data-sm-fleet checked> Include fleet cards and transactions</label><div class="sm-periods">'+Object.entries(names).map(([c,name])=>'<fieldset><legend>'+name+'</legend><div class="sm-period-fields"><label>From<input type="date" data-cycle="'+c+'" data-bound="from"></label><label>Start time<input type="time" step="1" data-cycle="'+c+'" data-bound="fromTime"></label><label>To<input type="date" data-cycle="'+c+'" data-bound="to"></label><label>End time<input type="time" step="1" data-cycle="'+c+'" data-bound="toTime"></label></div></fieldset>').join('')+'</div><div class="actions"><button type="button" class="secondary" data-sm-defaults disabled>Use current month defaults</button><button type="button" class="secondary" data-sm-save disabled>Save periods</button></div><p data-sm-status role="status"></p><p class="note">Account balances use the latest imported data. Recent payments follow “Last Payments to Show.” Fleet transactions use each customer’s cycle period, with gallons only. Dates do not start an automatic send.</p>';
+const save=root.querySelector('[data-sm-save]'),reset=root.querySelector('[data-sm-defaults]'),status=root.querySelector('[data-sm-status]');
+let loadedKey='',pending=null,baseline='',defaultPeriods=null,saving=false;
+const key=()=>document.getElementById('adminKey')?.value.trim()||'';
+const read=()=>Object.fromEntries(Object.keys(names).map(c=>[c,Object.fromEntries([...root.querySelectorAll('[data-cycle="'+c+'"]')].map(i=>[i.dataset.bound,i.value.length===5&&i.type==='time'?i.value+':00':i.value]))]));
+function write(periods){for(const i of root.querySelectorAll('[data-cycle]'))i.value=periods[i.dataset.cycle][i.dataset.bound];}
+function changed(){save.disabled=saving||!loadedKey||JSON.stringify(read())===baseline;reset.disabled=saving||!loadedKey;}
+async function api(body){const session=key();if(!session)throw Error('Sign in to load statement periods.');const r=await fetch('/api/admin/statement-management',{method:body?'POST':'GET',cache:'no-store',headers:{'X-Admin-Key':session,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(session!==key())throw Error('Admin session changed.');if(!r.ok||!d.success)throw Error(d.error||'Deploy the Ver737 Worker to load statement periods.');return {data:d,session};}
+async function ready(){if(loadedKey&&loadedKey===key())return;if(pending)return pending;
+ pending=(async()=>{const {data,session}=await api();write(data.periods);defaultPeriods=data.defaults;loadedKey=session;baseline=JSON.stringify(read());changed();status.textContent='Periods loaded. Favorites and cycle assignments are saved separately from MAS 90 imports.';})().finally(()=>pending=null);return pending;
+}
+root.addEventListener('input',changed);root.addEventListener('change',changed);
+reset.addEventListener('click',()=>{write(defaultPeriods);changed();status.textContent='Default periods selected. Save periods to keep them.';});
+save.addEventListener('click',async()=>{saving=true;changed();for(const i of root.querySelectorAll('input'))i.disabled=true;try{const {data}=await api({action:'periods',periods:read()});write(data.periods);baseline=JSON.stringify(read());status.textContent='Statement periods saved.';}catch(e){status.textContent=e.message;}finally{saving=false;for(const i of root.querySelectorAll('input'))i.disabled=false;changed();}});
+function options(){if(!loadedKey||loadedKey!==key())throw Error('Load customers and statement periods first.');const ranges=read();for(const c of Object.keys(names)){const r=ranges[c];if(!r.from||!r.to||!r.fromTime||!r.toTime||r.from+'T'+r.fromTime>r.to+'T'+r.toTime||Date.parse(r.to)-Date.parse(r.from)>91*86400000)throw Error('Choose a valid period of up to 92 days for '+names[c]+'.');}return {enabled:root.querySelector('[data-sm-fleet]').checked,frequency:'weekly',ranges};}
+const old=window.WootenStatementFleet;
+window.WootenStatementFleet=Object.freeze({ready,options:(scope,...args)=>scope==='manual'?options():old.options(scope,...args),load:(...args)=>old.load(...args)});
+window.addEventListener('wooten-admin-auth-changed',()=>{loadedKey='';baseline='';changed();});
+})();

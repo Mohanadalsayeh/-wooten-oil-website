@@ -1,0 +1,34 @@
+/* Ver737 */
+[data-document-section="statement-scheduling"],[data-document-section="exceptional-customers"],#documentSectionStatementScheduling,#documentSectionExceptionalCustomers{display:none!important}
+#documentSectionSendStatements .statement-list-head{display:none}
+#documentSectionSendStatements .sm-table-wrap{overflow:auto;border:1px solid #cfdeeb;border-radius:14px;margin-top:20px;max-height:640px}
+#documentSectionSendStatements .sm-table{width:100%;min-width:880px;border-collapse:collapse;background:white}
+#documentSectionSendStatements .sm-table th{background:#eff5f9;color:#183b55;font-weight:800;padding:16px;position:sticky;top:0;z-index:1}
+#documentSectionSendStatements .sm-table td{padding:12px 16px;vertical-align:middle;border-bottom:1px solid #e2eaf0;white-space:normal}
+#documentSectionSendStatements .sm-table th,#documentSectionSendStatements .sm-table td{text-align:left}
+#documentSectionSendStatements .sm-table .sm-money{text-align:right;white-space:nowrap}
+#documentSectionSendStatements .sm-table .sm-star{font-size:27px;line-height:1;min-width:44px;min-height:44px;padding:8px;border:0;background:transparent;color:#637e91}
+#documentSectionSendStatements .sm-table .sm-star[aria-pressed="true"]{color:#aa7000}
+#documentSectionSendStatements .sm-table select{width:185px;min-height:44px;border:1px solid #c9d9e7;border-radius:10px;background:#fff;color:#193a53;padding:8px;font:inherit}
+#documentSectionSendStatements .sm-table small{display:block;color:#647d92;margin-top:5px}
+#documentSectionSendStatements .sm-table input[type=checkbox]{width:22px;height:22px;accent-color:#1976e8}
+#statementCyclePeriods{padding:22px;background:#f3f8fc;border:1px solid #d4e2ee;border-radius:16px;margin:18px 0}
+#statementCyclePeriods h3{margin-top:0;color:#17364d}
+#statementCyclePeriods .sm-include{display:flex;gap:10px;align-items:center;margin:18px 0}
+#statementCyclePeriods .sm-include input{width:22px;height:22px;accent-color:#1976e8}
+#statementCyclePeriods .sm-periods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+#statementCyclePeriods fieldset{min-width:0;border:1px solid #cedfea;border-radius:12px;padding:16px;background:white}
+#statementCyclePeriods legend{font-weight:700;color:#183b55;padding:0 7px}
+#statementCyclePeriods .sm-period-fields{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+#statementCyclePeriods label{min-width:0;color:#254860}
+#statementCyclePeriods input[type=date],#statementCyclePeriods input[type=time]{display:block;box-sizing:border-box;min-width:0;width:100%;max-width:100%;height:48px;min-height:48px;padding:0 10px;margin-top:7px;border:1px solid #c5d7e6;border-radius:10px;background:#fff;color:#193a53;font:16px Arial,sans-serif}
+#statementCyclePeriods input::-webkit-date-and-time-value{min-height:46px;display:flex;align-items:center;text-align:left;margin:0}
+#statementCyclePeriods input::-webkit-datetime-edit{padding:0;display:inline-flex;align-items:center;min-height:46px}
+#documentSectionSendStatements .sm-filter-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:15px}
+#documentSectionSendStatements .sm-filter-row select{min-height:46px;border:1px solid #c6d8e6;border-radius:10px;padding:10px;background:white;color:#17364d;font:inherit}
+#documentSectionSendStatements .statement-search-field{display:flex;flex-wrap:wrap;align-items:end;gap:10px}
+#documentSectionSendStatements .statement-search-field label{width:100%}
+#documentSectionSendStatements #statementCustomerSearch{flex:1;min-width:150px}
+@media(max-width:720px){#statementCyclePeriods .sm-periods{grid-template-columns:minmax(0,1fr)}#statementCyclePeriods{padding:16px}#documentSectionSendStatements .sm-filter-row>*{flex:1 1 100%}#documentSectionSendStatements .sm-filter-row select{width:100%}}
+
+@media(max-width:480px){#statementCyclePeriods .sm-period-fields{grid-template-columns:minmax(0,1fr)}}

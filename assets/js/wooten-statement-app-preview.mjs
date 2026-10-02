@@ -1,9 +1,7 @@
-/* Ver735: keep statement previews inside installed apps; never navigate the app to a PDF. */
+/* Ver736: use a fresh, closable statement viewer in apps and browser tabs. */
 const vendor=new URL('../vendor/pdfjs-5.6.205/',import.meta.url);
 let renderer;
-export function isStatementApp(){
-  return navigator.standalone===true||['standalone','minimal-ui','fullscreen'].some(mode=>window.matchMedia?.('(display-mode: '+mode+')').matches);
-}
+let activePreview=null;
 function loadRenderer(){
   if(!renderer)renderer=import(new URL('pdf.min.mjs',vendor).href).then(pdfjs=>{
     pdfjs.GlobalWorkerOptions.workerSrc=new URL('pdf.worker.min.mjs',vendor).href;
@@ -28,6 +26,7 @@ function styles(){
     #wootenStatementAppPreview button:disabled{opacity:.45;cursor:default}
     #wootenStatementAppPreview .wsp-close{padding:8px;width:44px;height:44px;flex:none}
     #wootenStatementAppPreview .wsp-close svg{width:22px;height:22px}
+    #wootenStatementAppPreview .wsp-customer{margin:8px 0 0;font-size:16px;font-weight:700;overflow-wrap:anywhere}
     #wootenStatementAppPreview .wsp-filename{margin:6px 0 0;font-size:12px;color:#60798d;overflow-wrap:anywhere}
     #wootenStatementAppPreview .wsp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;flex-wrap:wrap}
     #wootenStatementAppPreview .wsp-zoom{display:flex;align-items:center;gap:6px}
@@ -48,10 +47,11 @@ function styles(){
   document.head.append(style);
 }
 export function openStatementAppPreview(returnFocus){
+  activePreview?.close();
   styles();
   const controller=new AbortController(),dialog=document.createElement('dialog');
   dialog.id='wootenStatementAppPreview';dialog.setAttribute('aria-labelledby','wspTitle');
-  dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><button class="wsp-save" type="button" disabled>Save PDF</button></footer>`;
+  dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-customer"></p><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><button class="wsp-save" type="button" disabled>Save PDF</button></footer>`;
   const q=selector=>dialog.querySelector(selector),notice=q('.wsp-notice'),paper=q('.wsp-paper'),scroller=q('.wsp-scroll');
   const previous=q('.wsp-prev'),next=q('.wsp-next'),pageInput=q('.wsp-page'),save=q('.wsp-save');
   const zoomOut=q('.wsp-out'),zoomIn=q('.wsp-in'),fit=q('.wsp-fit');
@@ -64,7 +64,7 @@ export function openStatementAppPreview(returnFocus){
     window.removeEventListener('resize',onResize);renderTask?.cancel();
     if(loadingTask)Promise.resolve(loadingTask.destroy()).catch(()=>{});
     if(downloadUrl)URL.revokeObjectURL(downloadUrl);
-    previewFile=null;paper.replaceChildren();dialog.close();dialog.remove();
+    previewFile=null;paper.replaceChildren();dialog.close();dialog.remove();activePreview=null;
     document.body.style.overflow=oldOverflow;
     returnFocus?.focus({preventScroll:true});
   }
@@ -123,13 +123,14 @@ export function openStatementAppPreview(returnFocus){
   dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
   document.body.append(dialog);document.body.style.overflow='hidden';dialog.showModal();q('#wspTitle').focus({preventScroll:true});
   window.addEventListener('resize',onResize);
-  return {
+  activePreview={
     signal:controller.signal,
     get closed(){return closed;},
     close,
     message(text){if(!closed)notice.textContent=text;},
-    async show(bytes,filename){
+    async show(bytes,filename,selectionLabel=''){
       if(closed)return;
+      q('.wsp-customer').textContent=selectionLabel;
       q('.wsp-filename').textContent=filename;
       previewFile=new File([bytes],filename,{type:'application/pdf'});
       try{shareSupported=!!navigator.canShare?.({files:[previewFile]})&&typeof navigator.share==='function';}catch{shareSupported=false;}
@@ -145,4 +146,5 @@ export function openStatementAppPreview(returnFocus){
       }
     }
   };
+  return activePreview;
 }

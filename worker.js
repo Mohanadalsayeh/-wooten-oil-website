@@ -1,3 +1,4 @@
+import * as StatementManagement from './assets/js/wooten-statement-management-server.mjs';
 // Ver654: authenticated customer fleet views use account-scoped API snapshots.
 // Ver646: retire legacy Intevacon agent/write routes; preserve API retrieval and customer database reads.
 // Ver645: Fleet manual/API tabs; fleet agent claims require a manual request.
@@ -642,8 +643,16 @@ async function ensureCustomerStatementCycleColumn(env){
   if(Number(migration?.meta?.changes||0)>0){
     await env.DB.prepare(`UPDATE customers SET statement_cycle=CASE WHEN upper(trim(COALESCE(statement_cycle,''))) IN ('C','W') THEN 'B' ELSE 'A' END,updated_at=CURRENT_TIMESTAMP`).run();
   }
-  await env.DB.prepare(`UPDATE customers SET statement_cycle='B' WHERE upper(trim(COALESCE(statement_cycle,''))) IN ('C','W')`).run();
-  await env.DB.prepare(`UPDATE customers SET statement_cycle='A' WHERE upper(trim(COALESCE(statement_cycle,''))) NOT IN ('A','B','E')`).run();
+  // Ver737: migrate the former shared B frequency once; never collapse new C assignments.
+  const scheduleTable=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='statement_schedule_config'").first();
+  let biweekly=false;
+  if(scheduleTable){const cols=await env.DB.prepare('PRAGMA table_info(statement_schedule_config)').all();if(cols.results.some(c=>c.name==='weekly_frequency'))biweekly=(await env.DB.prepare('SELECT weekly_frequency FROM statement_schedule_config WHERE id=1').first())?.weekly_frequency==='biweekly';}
+  await env.DB.batch([
+    env.DB.prepare("UPDATE customers SET statement_cycle='C' WHERE statement_cycle='B' AND ?=1 AND NOT EXISTS(SELECT 1 FROM portal_schema_migrations WHERE migration_key='statement_cycles_abc_v737')").bind(biweekly?1:0),
+    env.DB.prepare("INSERT OR IGNORE INTO portal_schema_migrations(migration_key) VALUES('statement_cycles_abc_v737')")
+  ]);
+  await env.DB.prepare(`UPDATE customers SET statement_cycle='B' WHERE upper(trim(COALESCE(statement_cycle,'')))='W'`).run();
+  await env.DB.prepare(`UPDATE customers SET statement_cycle='A' WHERE upper(trim(COALESCE(statement_cycle,''))) NOT IN ('A','B','C','E')`).run();
 }
 __name(ensureCustomerStatementCycleColumn,"ensureCustomerStatementCycleColumn");
 async function onRequestPost3({ request, env }) {
@@ -703,7 +712,7 @@ async function onRequestPost3({ request, env }) {
       aging2:numberValue(row?.aging_category_2),
       aging3:numberValue(row?.aging_category_3),
       aging4:numberValue(row?.aging_category_4),
-      normalizedCycle:importedCycle==="C"||importedCycle==="W"?"B":"A",
+      normalizedCycle:importedCycle==="W"?"B":(["A","B","C","E"].includes(importedCycle)?importedCycle:"A"),
       hasImportedCycle:importedCycle!==""
     });
   }
@@ -9808,6 +9817,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
   }
   customerBox(roundedRect,text);
 
+  if(customer.statement_period){const r=customer.statement_period;text(42,540,8,`Period: ${statementPdfDate(r.from)} ${r.fromTime||'00:00:00'} through ${statementPdfDate(r.to)} ${r.toTime||'23:59:59'} CT`,false,slate);}
   // Summary heading
   text(42,522,15,"Account Summary",true,navy);
   text(42,505,9.5,"Balances shown reflect the latest information available in the Wooten Oil customer portal.",false,slate);
@@ -10117,6 +10127,7 @@ async function adminStatementCustomersGet({request,env}){
 
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerStatementCycleColumn(env);
+    await StatementManagement.ensure(env.DB);
     const result=await env.DB.prepare(`
       SELECT
         account_number,account_name,email,phone,
@@ -10124,6 +10135,7 @@ async function adminStatementCustomersGet({request,env}){
         current_balance,
         aging_category_1,aging_category_2,aging_category_3,aging_category_4,
         account_status,statement_cycle,
+        COALESCE((SELECT favorite FROM statement_customer_preferences p WHERE p.account_number=customers.account_number),0) AS favorite,
         COALESCE((SELECT p.email_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_email_enabled,
         COALESCE((SELECT p.sms_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_sms_enabled,
         COALESCE((SELECT p.portal_enabled FROM admin_customer_contact_preferences p WHERE p.account_number=customers.account_number),1) AS contact_portal_enabled,
@@ -10159,6 +10171,7 @@ async function adminStatementCustomersGet({request,env}){
         contact_portal_enabled:Number(c.contact_portal_enabled)!==0,
         online_activated:!!c.online_activated,
         account_status:c.account_status||"",
+        favorite:Number(c.favorite)===1,
         statement_cycle:String(c.statement_cycle||"A").trim().toUpperCase()
       };
     });
@@ -10277,6 +10290,7 @@ async function adminPreviewStatementsPost({request,env}){
     for(const account of accounts){
       const customer=await statementLoadCustomer(env,account);
       if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
+      customer.statement_period=fleetOptions.ranges[customer.statement_cycle]||fleetOptions.ranges.A;
       const payments=await statementLoadPayments(env,account,paymentCount);
       pdfs.push(statementBuildPdf(customer,statementDate,payments,await StatementFleet.load(env,customer,fleetOptions)));
     }
@@ -10411,6 +10425,7 @@ async function adminGenerateStatementsPost({request,env}){
         const total=current+previous;
         if(progressRow){Object.assign(progressRow,{account_name:customer.account_name||account,total_balance:total});await persist();}
 
+        customer.statement_period=fleetOptions.ranges[customer.statement_cycle]||fleetOptions.ranges.A;
         const recentPayments=await statementLoadPayments(env,account,paymentCount);
 
         const fleet=await StatementFleet.load(env,customer,fleetOptions);
@@ -11045,18 +11060,18 @@ async function adminCustomerStatementCycle({request,env}){
   try{
     const body=await request.json().catch(()=>({}));
     const cycle=String(body.statement_cycle||"").trim().toUpperCase();
-    if(!["A","B","E"].includes(cycle))return notificationJson({success:false,error:"Statement assignment must be Cycle A, Cycle B, or Exceptional Customers."},400);
+    if(!["A","B","C","E"].includes(cycle))return notificationJson({success:false,error:"Statement assignment must be Cycle A, B, C, or Exceptional."},400);
     await ensureCustomerStatementCycleColumn(env);
     if(Array.isArray(body.account_numbers)){
       const accounts=[...new Set(body.account_numbers.map(value=>{const digits=String(value||"").replace(/\D/g,"");return digits?digits.padStart(7,"0"):"";}).filter(Boolean))];
       if(!accounts.length)return notificationJson({success:false,error:"Select at least one customer."},400);
       if(accounts.length>5000)return notificationJson({success:false,error:"No more than 5,000 customers can be moved at once."},413);
-      let updated=0;
-      for(let start=0;start<accounts.length;start+=100){
-        const chunk=accounts.slice(start,start+100),placeholders=chunk.map(()=>"?").join(",");
-        const result=await env.DB.prepare(`UPDATE customers SET statement_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE account_number IN (${placeholders}) AND upper(trim(COALESCE(statement_cycle,'')))<>?`).bind(cycle,...chunk,cycle).run();
-        updated+=Number(result?.meta?.changes||0);
+      const updates=[];
+      for(let start=0;start<accounts.length;start+=80){
+        const chunk=accounts.slice(start,start+80),placeholders=chunk.map(()=>"?").join(",");
+        updates.push(env.DB.prepare(`UPDATE customers SET statement_cycle=?,updated_at=CURRENT_TIMESTAMP WHERE account_number IN (${placeholders}) AND upper(trim(COALESCE(statement_cycle,'')))<>?`).bind(cycle,...chunk,cycle));
       }
+      const results=await env.DB.batch(updates),updated=results.reduce((n,r)=>n+Number(r.meta?.changes||0),0);
       return notificationJson({success:true,bulk:true,selected:accounts.length,updated,statement_cycle:cycle});
     }
     const digits=String(body.account_number||"").replace(/\D/g,"");
@@ -11515,6 +11530,7 @@ function adminGeneralAuditDescriptor(request){
     "/api/admin/gmail-inbox":["customer_messages_viewed","communication","Customer message history viewed"],
     "/api/admin/gmail-portal-sync":["gmail_portal_sync_run","communication","Gmail portal synchronization run"],
     "/api/admin/gmail-portal-sync/status":["gmail_portal_sync_status_viewed","communication","Gmail portal synchronization status viewed"],
+    "/api/admin/statement-management":["statement_preferences_changed","statements","Statement preferences accessed"],
     "/api/admin/statement-customers":["statement_customers_viewed","statements","Statement customer list viewed"],
     "/api/admin/communication-log":["communication_history_viewed","communication","Communication history viewed"],
     "/api/admin/communication-log/resend":["communication_resent","communication","Communication resend requested"],
@@ -12811,6 +12827,8 @@ var worker_default = {
       if (request.method === "GET") return adminGmailPortalSyncStatus({ request, env });
       return methodNotAllowed();
     }
+
+    if (url.pathname === "/api/admin/statement-management") return StatementManagement.handle(request,env);
 
     if (url.pathname === "/api/admin/statement-customers") {
       if (request.method === "GET") return adminStatementCustomersGet({ request, env });

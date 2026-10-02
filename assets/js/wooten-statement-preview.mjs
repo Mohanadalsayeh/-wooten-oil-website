@@ -1,6 +1,6 @@
-/* Ver735: keep installed-app previews in a closable viewer; retain Ver733 selection checks. */
+/* Ver736: every preview uses a new in-portal document, including Windows browser tabs. */
 import {statementBuildCombinedPdf} from './wooten-statement-pdf.mjs?v=494';
-import {isStatementApp,openStatementAppPreview} from './wooten-statement-app-preview.mjs?v=735';
+import {openStatementAppPreview} from './wooten-statement-app-preview.mjs?v=736';
 
 const section=document.getElementById('documentSectionSendStatements');
 const button=document.getElementById('statementPreview');
@@ -17,34 +17,6 @@ export function statementPreviewFilename(accounts,statementDate,customerName='')
     return 'Wooten-Oil-Statement-Preview-'+customer+'-'+date+'.pdf';
   }
   return 'Wooten-Oil-Statements-Preview-'+accounts.length+'-Customers-'+date+'.pdf';
-}
-async function openNamedPreview(popup,pdf,filename,key,requestId){
-  if(pdf.byteLength>32*1024*1024)throw new Error('This preview is larger than 32 MB. Select fewer customers and preview again.');
-  const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',pdf)),byte=>byte.toString(16).padStart(2,'0')).join('');
-  const response=await fetch('/api/admin/statements/preview-file-ticket',{
-    method:'POST',cache:'no-store',headers:{'X-Admin-Key':key,'Content-Type':'application/json','Accept':'application/json'},
-    body:JSON.stringify({filename,size:pdf.byteLength,sha256})
-  });
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok||!data.ticket)throw new Error(data.error||'Update the portal Worker from Ver731, then preview statements again.');
-  if(popup.closed)throw new Error('The preview window was closed. Click Preview Statements again to reopen it.');
-  const doc=popup.document;
-  doc.title=filename;
-  doc.body.textContent='Opening '+filename+'…';
-  const form=doc.createElement('form');
-  form.method='POST';form.enctype='multipart/form-data';
-  const destination=new URL('/api/statement-preview/'+encodeURIComponent(filename),window.location.origin);
-  destination.searchParams.set('preview',requestId);
-  form.action=destination.href;
-  form.hidden=true;
-  const authorization=doc.createElement('input');authorization.type='hidden';authorization.name='ticket';authorization.value=data.ticket;
-  const input=doc.createElement('input');input.type='file';input.name='pdf';
-  const transfer=new popup.DataTransfer();
-  transfer.items.add(new popup.File([pdf],filename,{type:'application/pdf'}));
-  input.files=transfer.files;
-  form.append(authorization,input);doc.body.append(form);
-  // A native response retains Content-Disposition; a blob URL would lose it.
-  form.submit();
 }
 
 function message(text,ok){
@@ -71,24 +43,7 @@ if(section&&button&&status){
 
     let fleet;
 
-    let popup=null,appPreview=null;
-    if(isStatementApp()){
-      // The app stays on the admin page. No popup, form navigation, or PDF URL.
-      appPreview=openStatementAppPreview(button);
-    }else{
-      // Browser tabs retain their named native PDF preview.
-      try{
-        popup=window.open('about:blank','_blank');
-        if(popup){
-          popup.opener=null;
-          popup.document.title='Preparing statement preview';
-          popup.document.body.textContent='Preparing your statement preview. Nothing is being sent.';
-        }
-      }catch{try{popup?.close();}catch{}popup=null;}
-      if(!popup||popup.closed){
-        message('Allow pop-ups for this site, then click Preview Statements again to open your PDF.',false);return;
-      }
-    }
+    const appPreview=openStatementAppPreview(button);
     const controls=Array.from(section.querySelectorAll('input,select,button'));
     const disabled=controls.map(control=>control.disabled);
     controls.forEach(control=>{control.disabled=true;});
@@ -130,14 +85,12 @@ if(section&&button&&status){
       const pdf=statementBuildCombinedPdf(parts);
       if(pdf.byteLength>32*1024*1024)throw new Error('This preview is larger than 32 MB. Select fewer customers and preview again.');
       const filename=statementPreviewFilename(accounts,statementDate,customerName);
-      if(appPreview){
-        if(appPreview.closed)return;
-        await appPreview.show(pdf,filename);
-        if(appPreview.closed)return;
-      }else await openNamedPreview(popup,pdf,filename,key,requestId);
+      if(appPreview.closed)return;
+      const selectionLabel=accounts.length===1?((customerName?customerName+' · ':'')+'Customer # '+accounts[0]):accounts.length+' selected customers';
+      await appPreview.show(pdf,filename,selectionLabel);
+      if(appPreview.closed)return;
       message('Preview ready: '+(accounts.length===1?((customerName?customerName+' — ':'')+'Customer # '+accounts[0]):accounts.length+' customer statements in one PDF')+'. Nothing has been sent.',true);
     }catch(error){
-      try{if(popup&&!popup.closed)popup.close();}catch{}
       if(!appPreview?.closed){
         const text=error.message||'The statement preview could not be completed.';
         message(text,false);appPreview?.message(text);

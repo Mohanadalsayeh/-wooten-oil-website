@@ -6789,7 +6789,7 @@ SOFTWARE.
   <div class="card admin-tab-panel" id="admin-tab-documents" role="tabpanel" aria-labelledby="admin-tab-btn-documents" data-admin-panel="documents">
     <nav class="admin-subtabs" role="tablist" aria-label="Statements and invoices sections">
       <button class="admin-subtab" type="button" role="tab" aria-selected="true" data-document-section="customer-documents">Customer Documents</button>
-      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Send Account Statements</span></button>
+      <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="send-statements"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Customers &amp; Cycles</span></button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="statement-scheduling"><span class="statement-tab-spinner" aria-hidden="true" hidden></span><span>Cycle Statements</span></button>
       <button class="admin-subtab" id="documentTabStatementRunReport" type="button" role="tab" aria-selected="false" aria-controls="documentSectionStatementRunReport" data-document-section="statement-run-report">Statement Run Report</button>
       <button class="admin-subtab" type="button" role="tab" aria-selected="false" data-document-section="exceptional-customers">Exceptional Customers</button>
@@ -6883,8 +6883,8 @@ SOFTWARE.
       <div class="statement-batch-head documents-form-heading">
         <div>
           <div class="admin-page-label">Generate Statements</div>
-          <h2>Send Account Statements</h2>
-          <p>Select individual customers or select all customers with phone numbers on file. Send each generated PDF through the secure customer portal, email, SMS, or all three.</p>
+          <h2>Customers &amp; Cycles</h2>
+          <p>Manage cycles and favorites in one table. Preview or generate statements for every checked customer, including selections on other pages or hidden by a filter.</p>
           <p class="statement-contact-selection-note"><strong>Contact availability:</strong> The SMS, Portal, and Email icons in Live Customer Database are display-only and show the contact methods currently available for each customer.</p>
         </div>
       </div>
@@ -6962,7 +6962,7 @@ SOFTWARE.
         </div>
         <div class="statement-search-field">
           <label for="statementCustomerSearch">Find Customer</label>
-          <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off">
+          <input id="statementCustomerSearch" type="search" placeholder="Search customer # or name…" autocomplete="off"><button class="secondary" id="statementCustomerSearchButton" type="button">Search</button>
         </div>
         </div>
       </div>
@@ -6971,7 +6971,7 @@ SOFTWARE.
         <div class="statement-action-heading">
           <h3>Statement actions</h3>
         </div>
-        <section class="statement-fleet-settings" data-statement-fleet="manual"></section>
+        <section id="statementCyclePeriods"></section>
         <div class="actions statement-send-actions">
           <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
           <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button>
@@ -6988,8 +6988,8 @@ SOFTWARE.
         </div>
 
         <div class="statement-selection-toolbar">
-          <label class="statement-exception-filter" for="statementShowExceptional">
-            <input id="statementShowExceptional" type="checkbox">
+          <label class="statement-exception-filter" for="statementShowExceptional" style="display:none">
+            <input id="statementShowExceptional" type="checkbox" checked>
             <span>Show exceptional customers</span>
           </label>
           <label class="statement-select-all" for="statementSelectAllVisible">
@@ -6997,7 +6997,7 @@ SOFTWARE.
             <span class="statement-selection-copy">Select all shown <span aria-hidden="true">·</span> <span id="statementSelectedCount" aria-live="polite" aria-atomic="true">0 selected</span></span>
           </label>
           <div class="statement-selection-actions">
-            <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Customers</button>
+            <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Matching</button>
             <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
           </div>
         </div>
@@ -7005,19 +7005,8 @@ SOFTWARE.
 
       <div id="statementBatchStatus" class="status"></div>
 
-      <div class="statement-customer-list-wrap">
-        <div class="statement-list-head">
-          <span></span>
-          <span>Customer</span>
-          <span>Current</span>
-          <span>Previous</span>
-          <span>Total</span>
-          <span>Phone / Email</span>
-        </div>
-        <div class="statement-customer-list" id="statementCustomerList">
-          <div class="statement-list-empty">Click Load Customers to begin.</div>
-        </div>
-      </div>
+      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — Biweekly</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — Biweekly</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
+      <div class="sm-table-wrap"><table class="sm-table"><thead><tr><th>Select</th><th>Favorite</th><th>Customer #</th><th>Customer name</th><th class="sm-money">Balance</th><th>Statement group</th><th>Phone / Email</th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
         <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
@@ -11764,6 +11753,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 @media(max-width:620px){.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{grid-template-columns:minmax(0,1fr);gap:16px}.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{padding:16px}}
 </style>
 <script src="assets/js/wooten-statement-fleet.js?v=729"></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=737">
+<script src="assets/js/wooten-statement-management.js?v=737"></script>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -11792,7 +11783,9 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   if(window.__wootenAdminBatchStatementsInitialized) return;
   window.__wootenAdminBatchStatementsInitialized=true;
 
-  let customers=[];
+  let customers=[],appliedSearch="";
+  const groupFilter=document.getElementById("statementGroupFilter");
+  const groupNames={A:"Cycle A — Monthly",B:"Cycle B — Weekly",C:"Cycle C — Biweekly",E:"Exceptional"};
   window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   // Ver733: reconcile visible checkboxes before capturing a new preview selection.
@@ -11838,22 +11831,13 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       const emailChoice=emailScope?emailScope.value:'all';
       const phoneMatch=phoneChoice==='all'||(phoneChoice==='with'?hasPhone:!hasPhone);
       const emailMatch=emailChoice==='all'||(emailChoice==='with'?hasEmail:!hasEmail);
-      return phoneMatch&&emailMatch&&(showExceptional.checked||!isExceptional(c));
+      const group=groupFilter.value;
+      return phoneMatch&&emailMatch&&(group==='all'||group==='favorites'&&c.favorite||group===c.statement_cycle);
     });
   }
-  function scopeSelectLabel(){
-    const phoneChoice=phoneScope?phoneScope.value:'all';
-    const emailChoice=emailScope?emailScope.value:'all';
-    if(phoneChoice==='all'&&emailChoice==='all')return 'Select All Customers';
-    const parts=[];
-    if(phoneChoice==='with')parts.push('With Phone');
-    if(phoneChoice==='without')parts.push('Without Phone');
-    if(emailChoice==='with')parts.push('With Email');
-    if(emailChoice==='without')parts.push('Without Email');
-    return 'Select All '+parts.join(' & ');
-  }
+  function scopeSelectLabel(){return 'Select All Matching';}
   function filteredCustomers(){
-    const q=String(search&&search.value||'').trim().toLowerCase();
+    const q=String(appliedSearch||'').trim().toLowerCase();
     const eligible=eligibleCustomers();
     if(!q) return eligible;
     return eligible.filter(c=>[
@@ -11880,7 +11864,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(customerPageInfo)customerPageInfo.textContent='Showing '+start+'–'+end+' of '+filtered.length+' • Page '+customerPage+' of '+pages;
   }
   function updateCount(){
-    if(selectedCount) selectedCount.textContent=selected.size+' selected';
+    if(selectedCount) selectedCount.textContent=selected.size+' selected (all pages and filters)';
+    document.getElementById('statementBulkMove').disabled=selected.size===0||loadBtn.disabled||sendBtn.dataset.requestPending==='true';
     const previewButton=document.getElementById('statementPreview');
     showExceptional.disabled=sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
     sendBtn.disabled=selected.size===0||showExceptional.disabled;
@@ -11898,23 +11883,13 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function render(){
     const visible=visibleCustomers();
     if(!visible.length){
-      list.innerHTML='<div class="statement-list-empty">'+(customers.length?'No customers match your search.':'No customers loaded.')+'</div>';
+      list.innerHTML='<tr><td colspan="7">'+(customers.length?'No customers match your filters.':'No customers loaded.')+'</td></tr>';
       updateCount();
       return;
     }
     list.innerHTML=visible.map(c=>{
       const acct=esc(c.account_number);
-      const hasEmail=!!String(c.email||'').trim();
-      const hasPhone=!!String(c.phone||'').trim();
-      return '<label class="statement-customer-row">'+
-        '<input type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'>'+
-        '<span class="statement-customer-name"><strong>'+esc(c.account_name||'Customer')+'</strong><small>Customer # '+acct+'</small>'+(isExceptional(c)?'<small class="statement-exception-badge">Exceptional</small>':'')+'<small class="statement-customer-address">'+esc(customerAddress(c)||'No address on file')+'</small></span>'+
-        '<span class="statement-money statement-current">'+money(c.current_balance)+'</span>'+
-        '<span class="statement-money statement-previous">'+money(c.previous_balance)+'</span>'+
-        '<span class="statement-money statement-total">'+money(c.total_balance)+'</span>'+
-        '<span class="statement-email '+(hasPhone||hasEmail?'':'statement-no-email')+'">'+
-          esc(hasPhone?c.phone:'No phone on file')+'<br>'+esc(hasEmail?c.email:'No email on file')+'</span>'+
-      '</label>';
+      return '<tr><td><input aria-label="Select '+esc(c.account_name)+'" type="checkbox" class="statement-customer-check" data-account="'+acct+'" '+(selected.has(c.account_number)?'checked':'')+'></td><td><button class="sm-star" type="button" data-favorite="'+acct+'" aria-pressed="'+!!c.favorite+'" aria-label="'+(c.favorite?'Remove favorite: ':'Add favorite: ')+esc(c.account_name)+'">'+(c.favorite?'★':'☆')+'</button></td><td>'+acct+'</td><td><strong>'+esc(c.account_name||'Customer')+'</strong><small>'+esc(customerAddress(c))+'</small></td><td class="sm-money">'+money(c.total_balance)+'</td><td><select data-customer-cycle="'+acct+'" aria-label="Statement group for '+esc(c.account_name)+'">'+Object.entries(groupNames).map(([value,label])=>'<option value="'+value+'" '+(c.statement_cycle===value?'selected':'')+'>'+label+'</option>').join('')+'</select></td><td>'+esc(c.phone||'No phone')+'<small>'+esc(c.email||'No email')+'</small></td></tr>';
     }).join('');
     updateCount();
   }
@@ -11926,7 +11901,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function filterSummary(){
     const count=filteredCustomers().length;
     return count.toLocaleString('en-US')+' customer'+(count===1?' matches':'s match')+' your filters. '+
-      'Exceptional customers '+(showExceptional.checked?'are included.':'are hidden.');
+      'Checked customers remain selected across pages and filters.';
   }
   function updateFilterStatus(){
     if(!customers.length||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true')return;
@@ -11936,10 +11911,11 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     const key=document.getElementById('adminKey').value.trim();
     if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
     loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';updateCount();
-    list.innerHTML='<div class="admin-inline-skeleton" aria-hidden="true">'+Array.from({length:8},(_,r)=>'<div class="admin-inline-skeleton-row statement"><span class="admin-inline-skeleton-line sm"></span><span class="admin-inline-skeleton-line '+(r%2?'lg':'md')+'"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line md"></span><span class="admin-inline-skeleton-line lg"></span></div>').join('')+'</div>';
+    list.innerHTML='<tr><td colspan="7">Loading customers…</td></tr>';
     beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
     await new Promise(resolve=>requestAnimationFrame(resolve));
     try{
+      await window.WootenStatementFleet.ready();
       const res=await fetch('/api/admin/statement-customers',{
         headers:{'X-Admin-Key':key,'Accept':'application/json'},
         cache:'no-store'
@@ -11958,7 +11934,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
         updateAdminActionProgress('statementCustomerLoad',customers.length,loadedCustomers.length,'Loading customers in batches…');
         await new Promise(resolve=>setTimeout(resolve,0));
       }
-      const eligibleAccounts=new Set(eligibleCustomers().map(c=>c.account_number));
+      const eligibleAccounts=new Set(customers.map(c=>c.account_number));
       for(const account of Array.from(selected)){
         if(!eligibleAccounts.has(account)) selected.delete(account);
       }
@@ -11974,11 +11950,13 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   }
 
   loadBtn.addEventListener('click',loadCustomers);
-  search.addEventListener('input',function(){customerPage=1;render();updateFilterStatus();});
+  function applySearch(){appliedSearch=search.value;customerPage=1;render();updateFilterStatus();}
+  document.getElementById('statementCustomerSearchButton').addEventListener('click',applySearch);
+  search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applySearch();}});
+  groupFilter.addEventListener('change',()=>{customerPage=1;render();updateFilterStatus();});
   function contactFiltersChanged(){
     customerPage=1;
-    const eligible=new Set(eligibleCustomers().map(c=>c.account_number));
-    for(const account of Array.from(selected)) if(!eligible.has(account)) selected.delete(account);
+
     if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
     render();
     updateFilterStatus();
@@ -12009,7 +11987,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   });
 
   selectAllCustomers.addEventListener('click',function(){
-    eligibleCustomers().forEach(c=>selected.add(c.account_number));
+    filteredCustomers().forEach(c=>selected.add(c.account_number));
     invalidateStatementPreview();
     render();
   });
@@ -12019,6 +11997,16 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     invalidateStatementPreview();
     render();
   });
+
+  async function savePreference(path,body,apply){
+    if(loadBtn.disabled||sendBtn.dataset.requestPending==='true')return;
+    loadBtn.disabled=true;updateCount();list.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);
+    try{const response=await fetch('/api/admin/'+path,{method:'POST',cache:'no-store',headers:{'X-Admin-Key':document.getElementById('adminKey').value.trim(),'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok||!data.success)throw Error(data.error||'The change could not be saved.');apply();setStatus('Saved. Favorites and cycle assignments are retained across imports.',true);}
+    catch(e){setStatus(e.message,false);}finally{loadBtn.disabled=false;render();}
+  }
+  list.addEventListener('click',e=>{const button=e.target.closest('[data-favorite]');if(!button)return;const c=customers.find(c=>c.account_number===button.dataset.favorite);savePreference('statement-management',{action:'favorite',account_number:c.account_number,favorite:!c.favorite},()=>c.favorite=!c.favorite);});
+  list.addEventListener('change',e=>{const field=e.target.closest('[data-customer-cycle]');if(!field)return;const c=customers.find(c=>c.account_number===field.dataset.customerCycle),cycle=field.value;savePreference('customer-statement-cycle',{account_number:c.account_number,statement_cycle:cycle},()=>c.statement_cycle=cycle);});
+  document.getElementById('statementBulkMove').addEventListener('click',()=>{const accounts=window.WootenStatementGetSelectedAccounts(),cycle=document.getElementById('statementBulkCycle').value;if(!accounts.length)return;savePreference('customer-statement-cycle',{account_numbers:accounts,statement_cycle:cycle},()=>customers.forEach(c=>{if(accounts.includes(c.account_number))c.statement_cycle=cycle;}));});
 
   async function sendChunk(key,accounts,progressJobId){
     const res=await fetch('/api/admin/statements/generate',{
@@ -12131,7 +12119,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=530">
-<script type="module" src="assets/js/wooten-statement-preview.mjs?v=735"></script>
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=736"></script>
 
 
 
