@@ -1,5 +1,5 @@
-Wooten Oil Portal Ver744 — statement list export filename
+Wooten Oil Portal Ver745 — statement filter layout
 
-Apply after Ver743. Replace only admin-customers.html in GitHub, then deploy Pages. The Worker and office PC files are unchanged.
+Apply after Ver744. Replace admin-customers.html in GitHub and publish the Pages update.
 
-The Statements & Cycles Export Filtered PDF download is now named Statement-List-MMDDYYYY-h-mmAM.pdf or Statement-List-MMDDYYYY-h-mmPM.pdf, using Central time. The hyphen between hour and minute is required because Windows does not allow a colon in a filename.
+Find Customer now has more room. Search aligns with the input and uses the same height. Show customers and Move checked customers to have labels above their dropdowns with consistent spacing. Desktop, tablet and phone layouts were checked at 1396, 1000 and 390 pixels wide.

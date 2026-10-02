@@ -17567,32 +17567,37 @@ html,body{
 })();
 </script>
 
-<style id="wooten-statement-customer-toolbar-ver310-style">
-@media(min-width:1301px){
-  #documentSectionSendStatements .statement-batch-controls{
-    grid-template-columns:minmax(150px,.8fr) minmax(190px,1.05fr) minmax(150px,.78fr) minmax(150px,.78fr) minmax(230px,1.25fr)!important;
-    align-items:end!important;
-  }
+<style id="wooten-statement-customer-toolbar-ver745-style">
+#documentSectionSendStatements .statement-batch-controls{
+ grid-template-columns: minmax(145px,.8fr) minmax(150px,.85fr) minmax(150px,.85fr) minmax(340px,1.8fr)!important;
+ gap:16px!important;align-items:end!important;
 }
+#documentSectionSendStatements .statement-batch-controls .statement-search-field{
+ display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;
+ grid-template-rows:auto 46px;column-gap:10px!important;row-gap:7px!important;
+ grid-column:auto!important;align-items:stretch!important;min-width:0!important;
+}
+#documentSectionSendStatements .statement-search-field label{
+ grid-column:1/-1!important;margin:0!important;width:auto!important;
+}
+#documentSectionSendStatements #statementCustomerSearch,
+#documentSectionSendStatements #statementCustomerSearchButton{
+ box-sizing:border-box!important;height:46px!important;min-height:46px!important;max-height:46px!important;
+ margin:0!important;min-width:0!important;align-self:stretch!important;
+}
+#documentSectionSendStatements #statementCustomerSearch{width:100%!important;max-width:100%!important}
+#documentSectionSendStatements #statementCustomerSearchButton{--wooten-action-button-height:46px;width:auto!important;padding:0 20px!important;white-space:nowrap}
+#documentSectionSendStatements .sm-filter-row{gap:18px!important;align-items:flex-end!important;margin-top:20px!important}
+#documentSectionSendStatements .sm-filter-row>label{display:flex!important;flex-direction:column;gap:8px!important;min-width:220px;margin:0!important;line-height:1.4}
+#documentSectionSendStatements .sm-filter-row>label select{display:block;width:100%;height:46px;box-sizing:border-box;margin:0!important}
+#documentSectionSendStatements #statementBulkMove{--wooten-action-button-height:46px;height:46px;box-sizing:border-box;margin:0!important}
 @media(min-width:701px) and (max-width:1300px){
-  #documentSectionSendStatements .statement-batch-controls{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  }
-  #documentSectionSendStatements .statement-search-field{
-    grid-column:1/-1;
-  }
+ #documentSectionSendStatements .statement-batch-controls{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ #documentSectionSendStatements .statement-batch-controls .statement-search-field{grid-column:1/-1!important}
 }
-#documentSectionSendStatements .statement-batch-controls>div:not(.statement-delivery-options){
-  min-width:0;
-}
-#documentSectionSendStatements .statement-batch-controls label{
-  white-space:nowrap;
-}
-#documentSectionSendStatements .statement-contact-filter-select,
-#documentSectionSendStatements #statementBatchDate,
-#documentSectionSendStatements #statementCustomerSearch{
-  height:46px;
-  min-height:46px;
+@media(max-width:700px){
+ #documentSectionSendStatements .statement-batch-controls{grid-template-columns:minmax(0,1fr)!important}
+ #documentSectionSendStatements .sm-filter-row>label{min-width:0;width:100%}
 }
 </style>
 
