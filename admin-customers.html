@@ -7012,7 +7012,7 @@ SOFTWARE.
       <div id="statementBatchStatus" class="status"></div>
 
       <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
-      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false"><thead><tr><th>Select</th><th data-statement-sort="favorite" aria-sort="none"><button type="button">Favorite</button></th><th data-statement-sort="account_number" aria-sort="none"><button type="button">Customer #</button></th><th data-statement-sort="account_name" aria-sort="none"><button type="button">Customer name</button></th><th class="sm-money" data-statement-sort="total_balance" aria-sort="none"><button type="button">Balance</button></th><th data-statement-sort="statement_cycle" aria-sort="none"><button type="button">Statement group</button></th><th data-statement-sort="contact" aria-sort="none"><button type="button">Phone / Email</button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
+      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th data-statement-sort="favorite" aria-sort="none"><button type="button">Favorite</button></th><th data-statement-sort="account_number" aria-sort="none"><button type="button">Customer #</button></th><th data-statement-sort="account_name" aria-sort="none"><button type="button">Customer name</button></th><th class="sm-money" data-statement-sort="total_balance" aria-sort="none"><button type="button">Balance</button></th><th data-statement-sort="statement_cycle" aria-sort="none"><button type="button">Statement group</button></th><th data-statement-sort="contact" aria-sort="none"><button type="button">Phone / Email</button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
         <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
@@ -15679,6 +15679,22 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #scheduleStatementDate::-webkit-datetime-edit{display:inline-flex;align-items:center;height:50px;line-height:normal;padding:0;min-width:0}
 #scheduleStatementDate::-webkit-datetime-edit-fields-wrapper{padding:0}
 #documentSectionStatementScheduling .statement-date-field small{display:block!important;position:static!important;margin:0!important;line-height:1.5!important;height:auto!important;white-space:normal;overflow-wrap:anywhere;color:#62798e;font-size:13px}
+</style>
+<style id="wooten-statement-headers-ver746">
+/* This table sorts its complete filtered dataset through its own header buttons. */
+#documentSectionSendStatements .sm-table{table-layout:auto;min-width:1120px}
+#documentSectionSendStatements .sm-table thead th{padding:16px 20px!important;white-space:nowrap;vertical-align:middle;font-weight:800!important}
+#documentSectionSendStatements .sm-table th[data-statement-sort] button{display:inline-flex!important;align-items:center!important;justify-content:flex-start;gap:10px!important;width:100%!important;min-width:max-content!important;height:auto!important;min-height:0!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;background:transparent!important;font:inherit!important;font-weight:800!important;line-height:1.3!important;white-space:nowrap!important;color:inherit!important}
+#documentSectionSendStatements .sm-table th.sm-money[data-statement-sort] button{justify-content:flex-end}
+#documentSectionSendStatements .sm-table th[data-statement-sort] button::after{content:'↕';display:inline-block;flex:0 0 12px;width:12px;font-size:12px;line-height:1;color:#8096a8}
+#documentSectionSendStatements .sm-table th[data-statement-sort][aria-sort="ascending"] button::after{content:'▲';color:#183b55}
+#documentSectionSendStatements .sm-table th[data-statement-sort][aria-sort="descending"] button::after{content:'▼';color:#183b55}
+#documentSectionSendStatements .sm-table th:nth-child(2){min-width:115px}
+#documentSectionSendStatements .sm-table th:nth-child(3){min-width:140px}
+#documentSectionSendStatements .sm-table th:nth-child(4){min-width:235px}
+#documentSectionSendStatements .sm-table th:nth-child(5){min-width:125px}
+#documentSectionSendStatements .sm-table th:nth-child(6){min-width:225px}
+#documentSectionSendStatements .sm-table th:nth-child(7){min-width:220px}
 </style>
 </body>
 </html>

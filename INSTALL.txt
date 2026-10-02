@@ -1,5 +1,5 @@
-Wooten Oil Portal Ver745 — statement filter layout
+Ver746 — Statement table headers
 
-Apply after Ver744. Replace admin-customers.html in GitHub and publish the Pages update.
-
-Find Customer now has more room. Search aligns with the input and uses the same height. Show customers and Move checked customers to have labels above their dropdowns with consistent spacing. Desktop, tablet and phone layouts were checked at 1396, 1000 and 390 pixels wide.
+Apply after Ver745. Replace admin-customers.html in your GitHub portal files.
+Fixes header spacing and keeps the full-filtered-data statement sorting controls from being replaced by the generic page sorter.
+No Worker update required.
