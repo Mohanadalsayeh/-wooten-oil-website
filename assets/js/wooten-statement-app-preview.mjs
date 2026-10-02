@@ -1,4 +1,4 @@
-/* Ver736: use a fresh, closable statement viewer in apps and browser tabs. */
+/* Ver752: continuous pages, isolated scrolling and PDF printing. Previous: use a fresh, closable statement viewer in apps and browser tabs. */
 const vendor=new URL('../vendor/pdfjs-5.6.205/',import.meta.url);
 let renderer;
 let activePreview=null;
@@ -13,6 +13,12 @@ function styles(){
   if(document.getElementById('wootenStatementAppPreviewStyle'))return;
   const style=document.createElement('style');style.id='wootenStatementAppPreviewStyle';
   style.textContent=`
+    html.wsp-open,html.wsp-open body{overflow:hidden!important;overscroll-behavior:none!important}
+    #wootenStatementAppPreview{overflow:hidden!important;max-height:100dvh!important}
+    #wootenStatementAppPreview .wsp-sheet{position:relative;margin:0 auto 20px;background:white;box-shadow:0 3px 14px #17364d26}
+    #wootenStatementAppPreview .wsp-actions{display:flex;gap:8px;flex-wrap:wrap}
+    #wootenStatementAppPreview .wsp-print{background:#1d6596;color:white}
+
     #wootenStatementAppPreview{position:fixed;inset:0;margin:0;padding:0;border:0;width:100%;max-width:none;height:100vh;height:100dvh;max-height:none;background:#edf2f7;color:#17364d;font:16px/1.4 Inter,Segoe UI,Arial,sans-serif;box-sizing:border-box;overflow:hidden}
     #wootenStatementAppPreview[open]{display:flex;flex-direction:column}
     #wootenStatementAppPreview *{box-sizing:border-box}
@@ -51,12 +57,14 @@ export function openStatementAppPreview(returnFocus){
   styles();
   const controller=new AbortController(),dialog=document.createElement('dialog');
   dialog.id='wootenStatementAppPreview';dialog.setAttribute('aria-labelledby','wspTitle');
-  dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-customer"></p><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><button class="wsp-save" type="button" disabled>Save PDF</button></footer>`;
+  dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-customer"></p><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><div class="wsp-actions"><button class="wsp-print" type="button" disabled>Print</button><button class="wsp-save" type="button" disabled>Save PDF</button></div></footer>`;
   const q=selector=>dialog.querySelector(selector),notice=q('.wsp-notice'),paper=q('.wsp-paper'),scroller=q('.wsp-scroll');
   const previous=q('.wsp-prev'),next=q('.wsp-next'),pageInput=q('.wsp-page'),save=q('.wsp-save');
   const zoomOut=q('.wsp-out'),zoomIn=q('.wsp-in'),fit=q('.wsp-fit');
   let closed=false,loadingTask=null,pdfDocument=null,renderTask=null,currentPage=1,zoom=1,serial=0,resizeTimer,downloadUrl=null;
-  let previewFile=null,shareSupported=false;
+  let previewFile=null,shareSupported=false, sheets=[],painting=false,paintAgain=false,layoutSerial=0;
+  const print=q('.wsp-print');
+  const hadScrollLock=document.documentElement.classList.contains('wsp-open');
   const oldOverflow=document.body.style.overflow;
   function close(){
     if(closed)return;
@@ -66,6 +74,7 @@ export function openStatementAppPreview(returnFocus){
     if(downloadUrl)URL.revokeObjectURL(downloadUrl);
     previewFile=null;paper.replaceChildren();dialog.close();dialog.remove();activePreview=null;
     document.body.style.overflow=oldOverflow;
+    if(!hadScrollLock)document.documentElement.classList.remove('wsp-open');
     returnFocus?.focus({preventScroll:true});
   }
   function navigation(busy=false){
@@ -74,35 +83,76 @@ export function openStatementAppPreview(returnFocus){
     pageInput.disabled=unavailable;pageInput.value=String(currentPage);
     zoomOut.disabled=unavailable||zoom<=1;zoomIn.disabled=unavailable||zoom>=3;fit.disabled=unavailable||zoom===1;
   }
+  async function paintVisible(){
+    if(painting){paintAgain=true;return;}
+    if(closed||!pdfDocument||!sheets.length)return;
+    painting=true;
+    const generation=layoutSerial;
+    try{
+      const top=scroller.scrollTop,bottom=top+scroller.clientHeight;
+      let best=0,bestDistance=Infinity;
+      for(let i=0;i<sheets.length;i++){
+        const item=sheets[i],y=item.element.offsetTop-paper.offsetTop;
+        const distance=Math.abs(y-top);
+        if(distance<bestDistance){best=i;bestDistance=distance;}
+      }
+      currentPage=best+1;navigation();
+      for(let i=0;i<sheets.length;i++){
+        const item=sheets[i],y=item.element.offsetTop-paper.offsetTop;
+        const near=y+item.height>=top-scroller.clientHeight&&y<=bottom+scroller.clientHeight;
+        if(!near){const old=item.element.querySelector('canvas');if(old){old.width=old.height=0;old.remove();}continue;}
+        if(item.element.querySelector('canvas'))continue;
+        const page=await pdfDocument.getPage(i+1);
+        if(closed||generation!==layoutSerial)break;
+        const viewport=page.getViewport({scale:item.width/item.natural.width});
+        const ratio=Math.min(window.devicePixelRatio||1,2,Math.sqrt(8000000/(viewport.width*viewport.height)));
+        const canvas=document.createElement('canvas');
+        canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Statement page '+(i+1)+' of '+sheets.length);
+        canvas.width=Math.ceil(viewport.width*ratio);canvas.height=Math.ceil(viewport.height*ratio);
+        canvas.style.width=viewport.width+'px';canvas.style.height=viewport.height+'px';
+        renderTask=page.render({canvasContext:canvas.getContext('2d'),viewport,transform:[ratio,0,0,ratio,0,0]});
+        await renderTask.promise;
+        if(closed||generation!==layoutSerial){canvas.width=canvas.height=0;break;}
+        item.element.replaceChildren(canvas);page.cleanup();
+      }
+    }catch(error){if(!closed&&error.name!=='RenderingCancelledException')notice.textContent='A page could not display. Scroll to retry, or save the PDF.';}
+    finally{painting=false;renderTask=null;if(paintAgain&&!closed){paintAgain=false;paintVisible();}}
+  }
+  function goToPage(value){
+    if(!sheets.length)return;
+    currentPage=Math.max(1,Math.min(sheets.length,Math.trunc(Number(value))||1));
+    const element=sheets[currentPage-1].element;
+    scroller.scrollTop=element.offsetTop-paper.offsetTop;navigation();paintVisible();
+  }
   async function renderPage(){
     if(closed||!pdfDocument)return;
-    const id=++serial;
-    renderTask?.cancel();navigation(true);notice.textContent='Loading page '+currentPage+'…';
+    const generation=++layoutSerial,target=currentPage;
+    renderTask?.cancel();navigation(true);notice.textContent='Preparing pages…';
     try{
-      const page=await pdfDocument.getPage(currentPage);
-      if(closed||id!==serial)return;
-      const natural=page.getViewport({scale:1}),width=Math.max(220,scroller.clientWidth-32);
-      const viewport=page.getViewport({scale:Math.min(width,1100)/natural.width*zoom});
-      // Limit the canvas on phones, even when zoomed in; keep only one rendered page.
-      const ratio=Math.min(window.devicePixelRatio||1,2,Math.sqrt(8000000/(viewport.width*viewport.height)));
-      const canvas=document.createElement('canvas');canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Statement preview page '+currentPage+' of '+pdfDocument.numPages);
-      canvas.width=Math.ceil(viewport.width*ratio);canvas.height=Math.ceil(viewport.height*ratio);
-      canvas.style.width=viewport.width+'px';canvas.style.height=viewport.height+'px';
-      const task=page.render({canvasContext:canvas.getContext('2d'),viewport,transform:[ratio,0,0,ratio,0,0]});renderTask=task;
-      await task.promise;
-      if(closed||id!==serial){canvas.width=canvas.height=0;return;}
-      const oldCanvas=paper.querySelector('canvas');if(oldCanvas)oldCanvas.width=oldCanvas.height=0;
-      paper.replaceChildren(canvas);page.cleanup();scroller.scrollTop=0;scroller.scrollLeft=0;notice.textContent='';
-    }catch(error){
-      if(!closed&&id===serial&&error.name!=='RenderingCancelledException'){
-        paper.replaceChildren();notice.textContent='This page could not be displayed. You can save the PDF or return to statements.';
+      if(!sheets.length){
+        for(let n=1;n<=pdfDocument.numPages;n++){
+          const page=await pdfDocument.getPage(n);
+          if(closed||generation!==layoutSerial)return;
+          const element=document.createElement('div');element.className='wsp-sheet';
+          element.setAttribute('aria-label','Page '+n);sheets.push({element,natural:page.getViewport({scale:1})});
+          paper.append(element);page.cleanup();
+        }
       }
-    }finally{if(!closed&&id===serial){renderTask=null;navigation();}}
+      const width=Math.min(Math.max(220,scroller.clientWidth-32),1100)*zoom;
+      for(const item of sheets){
+        item.width=width;item.height=width*item.natural.height/item.natural.width;
+        const canvas=item.element.querySelector('canvas');if(canvas)canvas.width=canvas.height=0;
+        item.element.replaceChildren();item.element.style.width=width+'px';item.element.style.height=item.height+'px';
+      }
+      notice.textContent='';goToPage(target);
+    }catch(error){if(!closed)notice.textContent='The preview could not display. Save the PDF to view it.';}
+    finally{if(!closed&&generation===layoutSerial)navigation();}
   }
   function onResize(){clearTimeout(resizeTimer);resizeTimer=setTimeout(renderPage,150);}
-  previous.addEventListener('click',()=>{if(currentPage>1){currentPage--;renderPage();}});
-  next.addEventListener('click',()=>{if(currentPage<pdfDocument?.numPages){currentPage++;renderPage();}});
-  pageInput.addEventListener('change',()=>{currentPage=Math.max(1,Math.min(pdfDocument.numPages,Math.trunc(Number(pageInput.value))||1));renderPage();});
+  scroller.addEventListener('scroll',()=>paintVisible(),{passive:true});
+  previous.addEventListener('click',()=>goToPage(currentPage-1));
+  next.addEventListener('click',()=>goToPage(currentPage+1));
+  pageInput.addEventListener('change',()=>goToPage(pageInput.value));
   pageInput.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();pageInput.dispatchEvent(new Event('change'));}});
   zoomOut.addEventListener('click',()=>{zoom=Math.max(1,zoom-.5);renderPage();});
   zoomIn.addEventListener('click',()=>{zoom=Math.min(3,zoom+.5);renderPage();});
@@ -119,9 +169,17 @@ export function openStatementAppPreview(returnFocus){
     const link=document.createElement('a');link.href=downloadUrl;link.download=previewFile.name;link.hidden=true;
     dialog.append(link);link.click();link.remove();
   });
+  print.addEventListener('click',()=>{
+    if(!previewFile)return;
+    if(!downloadUrl)downloadUrl=URL.createObjectURL(previewFile);
+    const printWindow=window.open(downloadUrl,'_blank');
+    if(!printWindow){notice.textContent='Allow pop-ups to open the PDF for printing, or use Save PDF.';return;}
+    // Keep the portal open; the PDF viewer provides native Print (or Share > Print on iPhone).
+    printWindow.opener=null;
+  });
   q('.wsp-close').addEventListener('click',close);q('.wsp-back').addEventListener('click',close);
   dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
-  document.body.append(dialog);document.body.style.overflow='hidden';dialog.showModal();q('#wspTitle').focus({preventScroll:true});
+  document.body.append(dialog);document.body.style.overflow='hidden';document.documentElement.classList.add('wsp-open');dialog.showModal();q('#wspTitle').focus({preventScroll:true});
   window.addEventListener('resize',onResize);
   activePreview={
     signal:controller.signal,
@@ -134,7 +192,7 @@ export function openStatementAppPreview(returnFocus){
       q('.wsp-filename').textContent=filename;
       previewFile=new File([bytes],filename,{type:'application/pdf'});
       try{shareSupported=!!navigator.canShare?.({files:[previewFile]})&&typeof navigator.share==='function';}catch{shareSupported=false;}
-      save.textContent=shareSupported?'Share / Save PDF':'Save PDF';save.disabled=false;
+      save.textContent=shareSupported?'Share / Save PDF':'Save PDF';save.disabled=false;print.disabled=false;
       try{
         const pdfjs=await loadRenderer();if(closed)return;
         loadingTask=pdfjs.getDocument({data:new Uint8Array(bytes).slice(),isEvalSupported:false,standardFontDataUrl:new URL('standard_fonts/',vendor).href});

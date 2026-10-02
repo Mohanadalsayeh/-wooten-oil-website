@@ -6942,10 +6942,10 @@ SOFTWARE.
           <label for="statementPaymentCount">Last Payments to Show</label>
           <select class="statement-contact-filter-select" id="statementPaymentCount">
             <option value="0">None</option>
-            <option value="1" selected>1 payment</option>
+            <option value="1">1 payment</option>
             <option value="2">2 payments</option>
             <option value="3">3 payments</option>
-            <option value="5">5 payments</option>
+            <option value="5" selected>5 payments</option>
             <option value="10">10 payments</option>
             <option value="20">20 payments</option>
           </select>
@@ -7007,7 +7007,7 @@ SOFTWARE.
             <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
           </div>
         </div>
-      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle"><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
+      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle" disabled><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
       </div>
 
       <div id="statementBatchStatus" class="status"></div>
@@ -11810,6 +11810,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       const account=box.getAttribute('data-account');
       if(box.checked)selected.add(account);else selected.delete(account);
     });
+    pruneStatementSelection();
     return Array.from(selected);
   };
   function invalidateStatementPreview(){
@@ -11896,9 +11897,19 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(customerNext)customerNext.disabled=empty||customerPage>=pages;
     if(customerPageInfo)customerPageInfo.textContent='Showing '+start+'–'+end+' of '+filtered.length+' • Page '+customerPage+' of '+pages;
   }
+  function pruneStatementSelection(){
+    const matching=new Set(filteredCustomers().map(c=>c.account_number));
+    for(const account of selected)if(!matching.has(account))selected.delete(account);
+  }
+  function clearSelectionForFilter(){
+    selected.clear();
+    invalidateStatementPreview();
+  }
   function updateCount(){
-    if(selectedCount) selectedCount.textContent=selected.size+' selected (all pages and filters)';
+    pruneStatementSelection();
+    if(selectedCount) selectedCount.textContent=selected.size+' selected (current filter, all pages)';
     document.getElementById('statementBulkMove').disabled=selected.size===0||loadBtn.disabled||sendBtn.dataset.requestPending==='true';
+    document.getElementById('statementBulkCycle').disabled=document.getElementById('statementBulkMove').disabled;
     const previewButton=document.getElementById('statementPreview');
     showExceptional.disabled=sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
     sendBtn.disabled=selected.size===0||showExceptional.disabled;
@@ -11934,7 +11945,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function filterSummary(){
     const count=filteredCustomers().length;
     return count.toLocaleString('en-US')+' customer'+(count===1?' matches':'s match')+' your filters. '+
-      'Checked customers remain selected across pages and filters.';
+      'Selections stay checked across pages. Changing filters or applying a different search clears the selection.';
   }
   function updateFilterStatus(){
     if(!customers.length||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true')return;
@@ -11983,11 +11994,12 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   }
 
   loadBtn.addEventListener('click',loadCustomers);
-  function applySearch(){appliedSearch=search.value;customerPage=1;render();updateFilterStatus();}
+  function applySearch(){if(appliedSearch!==search.value)clearSelectionForFilter();appliedSearch=search.value;customerPage=1;render();updateFilterStatus();}
   document.getElementById('statementCustomerSearchButton').addEventListener('click',applySearch);
   search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applySearch();}});
-  groupFilter.addEventListener('change',()=>{customerPage=1;render();updateFilterStatus();});
+  groupFilter.addEventListener('change',()=>{clearSelectionForFilter();customerPage=1;render();updateFilterStatus();});
   function contactFiltersChanged(){
+    clearSelectionForFilter();
     customerPage=1;
 
     if(selectAllCustomers) selectAllCustomers.textContent=scopeSelectLabel();
@@ -12039,7 +12051,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   }
   list.addEventListener('click',e=>{const button=e.target.closest('[data-favorite]');if(!button)return;const c=customers.find(c=>c.account_number===button.dataset.favorite);savePreference('statement-management',{action:'favorite',account_number:c.account_number,favorite:!c.favorite},()=>c.favorite=!c.favorite);});
   list.addEventListener('change',e=>{const field=e.target.closest('[data-customer-cycle]');if(!field)return;const c=customers.find(c=>c.account_number===field.dataset.customerCycle),cycle=field.value;savePreference('customer-statement-cycle',{account_number:c.account_number,statement_cycle:cycle},()=>c.statement_cycle=cycle);});
-  document.getElementById('statementBulkMove').addEventListener('click',()=>{const accounts=window.WootenStatementGetSelectedAccounts(),cycle=document.getElementById('statementBulkCycle').value;if(!accounts.length)return;savePreference('customer-statement-cycle',{account_numbers:accounts,statement_cycle:cycle},()=>customers.forEach(c=>{if(accounts.includes(c.account_number))c.statement_cycle=cycle;}));});
+  document.getElementById('statementBulkMove').addEventListener('click',()=>{const accounts=window.WootenStatementGetSelectedAccounts(),cycle=document.getElementById('statementBulkCycle').value;if(!accounts.length)return;if(!window.confirm('Move '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' to '+groupNames[cycle]+'?'))return;savePreference('customer-statement-cycle',{account_numbers:accounts,statement_cycle:cycle},()=>customers.forEach(c=>{if(accounts.includes(c.account_number))c.statement_cycle=cycle;}));});
 
   async function sendChunk(key,accounts,progressJobId){
     const res=await fetch('/api/admin/statements/generate',{
@@ -12152,7 +12164,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=530">
-<script type="module" src="assets/js/wooten-statement-preview.mjs?v=736"></script>
+<script type="module" src="assets/js/wooten-statement-preview.mjs?v=752"></script>
 
 
 
