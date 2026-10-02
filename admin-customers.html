@@ -5671,6 +5671,15 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="assets/css/wooten-push.css?v=664">
 <script defer src="assets/js/wooten-company-header-text.js?v=703"></script>
+
+<style id="wooten-statement-favorite-width-ver753">
+#documentSectionSendStatements .sm-table th:nth-child(2),
+#documentSectionSendStatements .sm-table td:nth-child(2){width:64px;min-width:64px;max-width:64px;box-sizing:border-box;padding-left:4px!important;padding-right:4px!important;text-align:center}
+#documentSectionSendStatements .sm-table th:nth-child(2) .wo-table-sort-button{padding:9px 20px 9px 4px!important}
+#documentSectionSendStatements .sm-table th:nth-child(2) .wo-table-sort-label{font-size:20px;text-align:center!important}
+#documentSectionSendStatements .sm-table th:nth-child(2) .wo-table-sort-icon{right:2px!important}
+#documentSectionSendStatements .sm-table td:nth-child(2) .sm-star{width:44px;min-width:44px;max-width:44px;margin:0!important}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -7013,7 +7022,7 @@ SOFTWARE.
       <div id="statementBatchStatus" class="status"></div>
 
 
-      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th class="wo-sortable-heading" data-statement-sort="favorite" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Favorite</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_number" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer #</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_name" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer name</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="sm-money wo-sortable-heading" data-statement-sort="total_balance" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Balance</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="statement_cycle" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Statement group</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="contact" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Phone / Email</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
+      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th class="wo-sortable-heading" data-statement-sort="favorite" aria-sort="none"><button class="wo-table-sort-button" type="button" aria-label="Sort by favorite" title="Sort by favorite"><span class="wo-table-sort-label" aria-hidden="true">★</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_number" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer #</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_name" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer name</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="sm-money wo-sortable-heading" data-statement-sort="total_balance" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Balance</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="statement_cycle" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Statement group</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="contact" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Phone / Email</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
         <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
@@ -15694,8 +15703,8 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #documentSectionStatementScheduling .statement-date-field small{display:block!important;position:static!important;margin:0!important;line-height:1.5!important;height:auto!important;white-space:normal;overflow-wrap:anywhere;color:#62798e;font-size:13px}
 </style>
 <style id="wooten-statement-headers-ver749">
-#documentSectionSendStatements .sm-table{table-layout:auto;min-width:1120px}
-#documentSectionSendStatements .sm-table th:nth-child(2){min-width:115px}
+#documentSectionSendStatements .sm-table{table-layout:auto;min-width:1068px}
+#documentSectionSendStatements .sm-table th:nth-child(2){min-width:64px;width:64px}
 #documentSectionSendStatements .sm-table th:nth-child(3){min-width:140px}
 #documentSectionSendStatements .sm-table th:nth-child(4){min-width:235px}
 #documentSectionSendStatements .sm-table th:nth-child(5){min-width:125px}
