@@ -11917,8 +11917,11 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function updateCount(){
     pruneStatementSelection();
     if(selectedCount) selectedCount.textContent=selected.size+' selected (current filter, all pages)';
-    document.getElementById('statementBulkMove').disabled=selected.size===0||loadBtn.disabled||sendBtn.dataset.requestPending==='true';
-    document.getElementById('statementBulkCycle').disabled=document.getElementById('statementBulkMove').disabled;
+    const moveDestination=document.getElementById('statementBulkCycle');
+    const moveUnavailable=selected.size===0||loadBtn.disabled||sendBtn.dataset.requestPending==='true';
+    moveDestination.disabled=moveUnavailable;
+    const hasCycleChange=customers.some(c=>selected.has(c.account_number)&&c.statement_cycle!==moveDestination.value);
+    document.getElementById('statementBulkMove').disabled=moveUnavailable||!hasCycleChange;
     const previewButton=document.getElementById('statementPreview');
     showExceptional.disabled=sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
     sendBtn.disabled=selected.size===0||showExceptional.disabled;
@@ -12060,7 +12063,8 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
   }
   list.addEventListener('click',e=>{const button=e.target.closest('[data-favorite]');if(!button)return;const c=customers.find(c=>c.account_number===button.dataset.favorite);savePreference('statement-management',{action:'favorite',account_number:c.account_number,favorite:!c.favorite},()=>c.favorite=!c.favorite);});
   list.addEventListener('change',e=>{const field=e.target.closest('[data-customer-cycle]');if(!field)return;const c=customers.find(c=>c.account_number===field.dataset.customerCycle),cycle=field.value;savePreference('customer-statement-cycle',{account_number:c.account_number,statement_cycle:cycle},()=>c.statement_cycle=cycle);});
-  document.getElementById('statementBulkMove').addEventListener('click',()=>{const accounts=window.WootenStatementGetSelectedAccounts(),cycle=document.getElementById('statementBulkCycle').value;if(!accounts.length)return;if(!window.confirm('Move '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' to '+groupNames[cycle]+'?'))return;savePreference('customer-statement-cycle',{account_numbers:accounts,statement_cycle:cycle},()=>customers.forEach(c=>{if(accounts.includes(c.account_number))c.statement_cycle=cycle;}));});
+  document.getElementById('statementBulkCycle').addEventListener('change',updateCount);
+  document.getElementById('statementBulkMove').addEventListener('click',()=>{const checked=window.WootenStatementGetSelectedAccounts(),cycle=document.getElementById('statementBulkCycle').value,accounts=checked.filter(account=>customers.some(c=>c.account_number===account&&c.statement_cycle!==cycle));if(!accounts.length){updateCount();return;}if(!window.confirm('Move '+accounts.length.toLocaleString()+' selected customer'+(accounts.length===1?'':'s')+' to '+groupNames[cycle]+'?'))return;savePreference('customer-statement-cycle',{account_numbers:accounts,statement_cycle:cycle},()=>customers.forEach(c=>{if(accounts.includes(c.account_number))c.statement_cycle=cycle;}));});
 
   async function sendChunk(key,accounts,progressJobId){
     const res=await fetch('/api/admin/statements/generate',{
@@ -15786,6 +15790,12 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #documentSectionSendStatements #statementBatchStatus:empty{display:none!important}
 #documentSectionSendStatements #statementBatchStatus + .sm-table-wrap{margin-top:0!important}
 #documentSectionSendStatements .sm-table th[data-statement-sort] button:hover{text-decoration:none!important}
+</style>
+
+<style id="wooten-statement-header-bold-ver755">
+#documentSectionSendStatements .sm-table thead th,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-button,
+#documentSectionSendStatements .sm-table thead th .wo-table-sort-label{font-weight:800!important}
 </style>
 </body>
 </html>
