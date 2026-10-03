@@ -5702,6 +5702,13 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 #notifyRecipientPicker button:disabled,#notifyRecipientSource:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:520px){#notifyRecipientPicker .notify-recipient-source-row,#notifyRecipientPicker .notify-recipient-search-row{grid-template-columns:minmax(0,1fr)}#notifyRecipientPicker .notify-recipient-source-row button,#notifyRecipientPicker .notify-recipient-search-row button{width:100%!important}#notifyRecipientCount{margin-left:0}}
 </style>
+
+<style id="wooten-notify-find-ver780">
+#notifyRecipientList{box-sizing:border-box;border:1px solid #cdddea;border-radius:12px;background:#fff}
+#notifyRecipientList .notify-recipient-row:last-child{border-bottom:0}
+#notifyRecipientList .notify-recipient-found{background:#fff5cf;box-shadow:inset 3px 0 #21699b}
+.notify-field[hidden]{display:none!important}.notify-grid.notify-selected-layout{grid-template-columns:minmax(0,1fr)!important}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6770,20 +6777,15 @@ SOFTWARE.
             One customer
           </label>
           <label class="notify-audience-option"><input id="notifyAudienceSelected" type="radio" name="notifyAudience" value="selected">Selected customers</label>
-          <label class="notify-audience-option">
-            <input id="notifyAudienceAll" type="radio" name="notifyAudience" value="all">
-            All customers with email addresses
-          </label>
+
         </div>
-        <div class="notify-broadcast-warning" id="notifyBroadcastWarning">
-          This sends the notification to every customer with a valid email address on file. Each matching customer will receive the message by email and in the Wooten Oil customer portal.
-        </div>
+
       </div>
 
       <div id="notifyRecipientPicker" hidden>
         <div class="notify-recipient-tools notify-recipient-source-row"><label for="notifyRecipientSource">Customer source<select id="notifyRecipientSource"><option value="all">All customers</option></select></label><button id="notifyRecipientLoad" type="button" class="primary">Load customers</button></div>
         <div class="notify-recipient-tools notify-recipient-search-row"><label for="notifyRecipientSearch">Find customers in this list<input id="notifyRecipientSearch" type="search" placeholder="Customer number, name or phone"></label><button id="notifyRecipientSearchBtn" type="button" class="secondary">Search</button></div>
-        <div class="notify-recipient-tools notify-recipient-selection-row"><button id="notifyRecipientSelect" type="button" class="secondary">Select all matching</button><button id="notifyRecipientClear" type="button" class="secondary">Clear selection</button><strong id="notifyRecipientCount" role="status">0 selected</strong></div>
+        <div class="notify-recipient-tools notify-recipient-selection-row"><button id="notifyRecipientSelect" type="button" class="secondary">Select all in list</button><button id="notifyRecipientClear" type="button" class="secondary">Clear selection</button><strong id="notifyRecipientCount" role="status">0 selected</strong></div>
         <p id="notifyRecipientStatus" role="status"></p><div id="notifyRecipientList"></div>
         <div class="notify-recipient-tools"><button id="notifyRecipientPrev" type="button" class="secondary">Previous</button><span id="notifyRecipientPage"></span><button id="notifyRecipientNext" type="button" class="secondary">Next</button></div>
         <label class="notify-options"><input id="notifyRecipientConsent" type="checkbox">I confirm our Twilio sender is approved for this use and selected customers have agreed to receive these SMS messages.</label>
@@ -10349,7 +10351,7 @@ document.getElementById("gmailPortalSyncStatusBtn").addEventListener("click",loa
 
 /* Send Customer Notification */
 const notifyAudienceOne=document.getElementById("notifyAudienceOne");
-const notifyAudienceAll=document.getElementById("notifyAudienceAll");
+const notifyAudienceAll={checked:false};
 const notifySendSms=document.getElementById("notifySendSms");
 const notifyAccountInput=document.getElementById("notifyAccount");
 const notifySendEmailInput=document.getElementById("notifySendEmail");
@@ -10730,13 +10732,13 @@ function updateNotificationAudience(){
     notifySendEmailInput.checked=notifySingleEmailChoice;
     if(notifyAttachmentsInput) notifyAttachmentsInput.disabled=false;
     if(notifyAttachmentBox) notifyAttachmentBox.classList.remove("disabled");
-    notifyBroadcastWarning.classList.remove("show");
+    notifyBroadcastWarning?.classList.remove("show");
     sendCustomerNotificationBtn.textContent="Send Notification";
   }
 }
 
 notifyAudienceOne.addEventListener("change",updateNotificationAudience);
-notifyAudienceAll.addEventListener("change",updateNotificationAudience);
+
 notifySendEmailInput.addEventListener("change",()=>{
   if(!notifyAudienceAll.checked) notifySingleEmailChoice=notifySendEmailInput.checked;
 });
@@ -19276,7 +19278,7 @@ body #documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{top:c
     document.getElementById('notifyTextSegments').textContent=text;
     document.getElementById('notifyFileSegments').textContent=total-text;
     document.getElementById('notifyTotalSegments').textContent=total;
-    const enabled=document.getElementById('notifySendSms').checked&&!document.getElementById('notifyAudienceAll').checked;
+    const enabled=document.getElementById('notifySendSms').checked;
     document.getElementById('notifyTotalCost').textContent='$'+(total*0.0083*Math.max(1,window.WootenNotifyRecipientCount?.()||1)).toFixed(4);
     document.getElementById('notifyTotalCost').title='Estimate if sent by SMS; excludes carrier fees.';
     const recipients=window.WootenNotifyRecipientCount?.()||0;
@@ -19285,7 +19287,7 @@ body #documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{top:c
   }
   window.WootenUpdateSmsEstimate=update;
   ['notifyMessage','notifySubject'].forEach(id=>document.getElementById(id).addEventListener('input',update));
-  ['notifyAttachments','notifySendSms','notifyAudienceOne','notifyAudienceAll'].forEach(id=>document.getElementById(id).addEventListener('change',update));
+  ['notifyAttachments','notifySendSms','notifyAudienceOne'].forEach(id=>document.getElementById(id).addEventListener('change',update));
   update();
 })();
 </script>
@@ -19303,11 +19305,11 @@ body #documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{top:c
 const el=id=>document.getElementById(id),chosen=new Set();let customers=[],page=1,query='',busy=false,loading=false,listsLoading=false,sourceRevision=0;
 const radio=el('notifyAudienceSelected'),picker=el('notifyRecipientPicker');
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const matching=()=>customers.filter(c=>[c.account_number,c.account_name,c.phone].join(' ').toLowerCase().includes(query));
+const matching=()=>customers;let matchIndex=-1,highlighted='';
 window.WootenNotifyRecipientCount=()=>radio.checked?chosen.size:0;
 function render(){
  const rows=matching(),pages=Math.max(1,Math.ceil(rows.length/20));page=Math.max(1,Math.min(page,pages));
- el('notifyRecipientList').innerHTML=rows.slice((page-1)*20,page*20).map(c=>'<label class="notify-recipient-row"><input type="checkbox" data-recipient="'+esc(c.account_number)+'" '+(chosen.has(c.account_number)?'checked ':'')+(!c.phone||busy?'disabled ':'')+'><span>'+esc(c.account_name)+'<small>#'+esc(c.account_number)+' · '+esc(c.phone||'No phone number')+'</small></span></label>').join('');
+ el('notifyRecipientList').innerHTML=rows.slice((page-1)*20,page*20).map(c=>'<label class="notify-recipient-row'+(highlighted===c.account_number?' notify-recipient-found':'')+'" data-customer-row="'+esc(c.account_number)+'"><input type="checkbox" data-recipient="'+esc(c.account_number)+'" '+(chosen.has(c.account_number)?'checked ':'')+(!c.phone||busy?'disabled ':'')+'><span>'+esc(c.account_name)+'<small>#'+esc(c.account_number)+' · '+esc(c.phone||'No phone number')+'</small></span></label>').join('');
  el('notifyRecipientCount').textContent=chosen.size+' selected';el('notifyRecipientPage').textContent='Page '+page+' of '+pages;
  el('notifyRecipientPrev').disabled=busy||page<=1;el('notifyRecipientNext').disabled=busy||page>=pages;
  el('notifyRecipientSelect').disabled=busy||!rows.some(c=>c.phone);el('notifyRecipientClear').disabled=busy||!chosen.size;
@@ -19320,7 +19322,7 @@ async function getData(url){
 }
 function sourceLabel(){return el('notifyRecipientSource').selectedOptions[0]?.textContent||'All customers';}
 function resetSource(){
- sourceRevision++;customers=[];chosen.clear();page=1;query='';el('notifyRecipientSearch').value='';
+ sourceRevision++;customers=[];chosen.clear();page=1;query='';matchIndex=-1;highlighted='';el('notifyRecipientSearch').value='';
  el('notifyRecipientLoad').textContent=el('notifyRecipientSource').value==='all'?'Load customers':'Load list';
  el('notifyRecipientStatus').textContent='Click '+el('notifyRecipientLoad').textContent+' to review customers from '+sourceLabel()+'.';render();
 }
@@ -19348,20 +19350,30 @@ async function load(){
  }
  if(revision!==sourceRevision)return;
  customers=rows;const valid=new Set(customers.filter(c=>c.phone).map(c=>c.account_number));for(const id of chosen)if(!valid.has(id))chosen.delete(id);
- page=1;query='';el('notifyRecipientSearch').value='';
+ page=1;query='';matchIndex=-1;highlighted='';el('notifyRecipientSearch').value='';
  el('notifyRecipientStatus').textContent=sourceLabel()+' · '+customers.length+' customers loaded. Select the recipients below. Customers without a phone number cannot be selected.';render();
  }catch(e){customers=[];chosen.clear();render();el('notifyRecipientStatus').textContent=e.message;}
  finally{loading=false;el('notifyRecipientLoad').disabled=false;el('notifyRecipientSource').disabled=false;}
 }
 el('notifyRecipientSource').addEventListener('change',()=>{if(!busy&&!loading)resetSource();});
 function audience(){
- if(busy)return;picker.hidden=!radio.checked;
+ if(busy)return;picker.hidden=!radio.checked;el('notifyAccount').closest('.notify-field').hidden=radio.checked;el('notifyAccount').closest('.notify-grid').classList.toggle('notify-selected-layout',radio.checked);
  if(radio.checked){updateNotificationAudience();el('notifyAccount').disabled=true;el('notifySendSms').disabled=false;el('notifySendSms').checked=true;el('notifySendEmail').checked=false;notifySingleEmailChoice=false;el('notifySmsNote').textContent='Send a separate SMS and portal notification to each checked customer. Email is optional.';sendCustomerNotificationBtn.textContent='Send to Selected Customers';refreshLists();}
  window.WootenUpdateSmsEstimate?.();
 }
-['notifyAudienceOne','notifyAudienceAll','notifyAudienceSelected'].forEach(id=>el(id).addEventListener('change',audience));
+['notifyAudienceOne','notifyAudienceSelected'].forEach(id=>el(id).addEventListener('change',audience));
 el('notifyRecipientLoad').addEventListener('click',load);
-function search(){query=el('notifyRecipientSearch').value.trim().toLowerCase();page=1;render();}
+function search(){
+ if(busy||loading)return;
+ const next=el('notifyRecipientSearch').value.trim().toLowerCase();
+ if(next!==query){matchIndex=-1;query=next;}
+ const matches=customers.map((c,i)=>({c,i})).filter(({c})=>[c.account_number,c.account_name,c.phone].join(' ').toLowerCase().includes(query));
+ if(!query){highlighted='';matchIndex=-1;render();el('notifyRecipientStatus').textContent='Search cleared. All '+customers.length+' customers remain in the list.';return;}
+ if(!matches.length){highlighted='';matchIndex=-1;render();el('notifyRecipientStatus').textContent='No customer found. All '+customers.length+' customers remain in the list.';return;}
+ matchIndex=(matchIndex+1)%matches.length;const hit=matches[matchIndex];highlighted=hit.c.account_number;page=Math.floor(hit.i/20)+1;render();
+ const row=el('notifyRecipientList').querySelector('.notify-recipient-found');row?.scrollIntoView?.({block:'nearest',behavior:'auto'});
+ el('notifyRecipientStatus').textContent='Match '+(matchIndex+1)+' of '+matches.length+': '+hit.c.account_name+'. Search again for the next match. All '+customers.length+' customers remain in the list.';
+}
 el('notifyRecipientSearchBtn').addEventListener('click',search);el('notifyRecipientSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search();}});
 el('notifyRecipientList').addEventListener('change',e=>{const id=e.target.dataset.recipient;if(!id||busy)return;e.target.checked?chosen.add(id):chosen.delete(id);render();});
 el('notifyRecipientSelect').addEventListener('click',()=>{matching().filter(c=>c.phone).forEach(c=>chosen.add(c.account_number));render();});el('notifyRecipientClear').addEventListener('click',()=>{chosen.clear();render();});
