@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="assets/js/wooten-admin-explicit-search.js?v=738"></script>
+<script src="assets/js/wooten-admin-explicit-search.js?v=779"></script>
 <style>
 .schedule-report-search-row:has(>.wooten-explicit-search-button){grid-template-columns:minmax(0,1fr) auto auto}
 .wooten-explicit-search-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:90px;margin:8px 0;white-space:nowrap}
@@ -5688,6 +5688,20 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 #statementSavedListDialog select:disabled{background-color:#edf2f6;color:#758595;opacity:.65;cursor:not-allowed}
 #statementSavedListDialog select option{background:#fff;color:#193d59;font:inherit}
 </style>
+
+<style id="wooten-notify-lists-ver779">
+#notifyRecipientPicker .notify-recipient-source-row,#notifyRecipientPicker .notify-recipient-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin-bottom:18px}
+#notifyRecipientPicker .notify-recipient-tools label{display:block;min-width:0;margin:0;color:#193d59;font-weight:700}
+#notifyRecipientPicker .notify-recipient-tools input[type="search"],#notifyRecipientSource{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;height:46px;min-height:46px;margin:7px 0 0;padding:10px 12px;border:1px solid #bfd2e2;border-radius:10px;background:#fff;color:#193d59;font:inherit;font-size:16px}
+#notifyRecipientSource:focus-visible{outline:2px solid #21699b;outline-offset:2px}
+#notifyRecipientPicker .notify-recipient-source-row button,#notifyRecipientPicker .notify-recipient-search-row button{width:auto!important;height:46px;min-height:46px;margin:0!important;align-self:end;padding:10px 18px}
+#notifyRecipientLoad{background:#21699b!important;color:#fff!important;border:1px solid #21699b!important}
+#notifyRecipientLoad:hover:not(:disabled){background:#195681!important}
+#notifyRecipientPicker .notify-recipient-selection-row{align-items:center;border-top:1px solid #d6e2ec;padding-top:14px}
+#notifyRecipientCount{margin-left:auto;color:#193d59}
+#notifyRecipientPicker button:disabled,#notifyRecipientSource:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:520px){#notifyRecipientPicker .notify-recipient-source-row,#notifyRecipientPicker .notify-recipient-search-row{grid-template-columns:minmax(0,1fr)}#notifyRecipientPicker .notify-recipient-source-row button,#notifyRecipientPicker .notify-recipient-search-row button{width:100%!important}#notifyRecipientCount{margin-left:0}}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6745,7 +6759,7 @@ SOFTWARE.
   <div class="card admin-tab-panel" id="admin-tab-notifications" role="tabpanel" aria-labelledby="admin-tab-btn-notifications" data-admin-panel="notifications">
     <div class="admin-page-label">Notifications</div>
     <h2>Send Customer Notification</h2>
-    <p>Send a private portal notification to one customer, with optional email and SMS delivery.</p>
+    <p>Choose customers or a saved Statements &amp; Cycles list, then send a portal notification with optional email and SMS delivery.</p>
 
     <div class="notify-card">
       <div class="notify-audience">
@@ -6767,8 +6781,9 @@ SOFTWARE.
       </div>
 
       <div id="notifyRecipientPicker" hidden>
-        <div class="notify-recipient-tools"><label for="notifyRecipientSearch">Find customers<input id="notifyRecipientSearch" type="search" placeholder="Customer number, name or phone"></label><button id="notifyRecipientSearchBtn" type="button" class="secondary">Search</button><button id="notifyRecipientLoad" type="button" class="secondary">Load customers</button></div>
-        <div class="notify-recipient-tools"><button id="notifyRecipientSelect" type="button" class="secondary">Select all matching</button><button id="notifyRecipientClear" type="button" class="secondary">Clear selection</button><button id="notifyRecipientStatements" type="button" class="secondary">Use checked statement customers</button><strong id="notifyRecipientCount">0 selected</strong></div>
+        <div class="notify-recipient-tools notify-recipient-source-row"><label for="notifyRecipientSource">Customer source<select id="notifyRecipientSource"><option value="all">All customers</option></select></label><button id="notifyRecipientLoad" type="button" class="primary">Load customers</button></div>
+        <div class="notify-recipient-tools notify-recipient-search-row"><label for="notifyRecipientSearch">Find customers in this list<input id="notifyRecipientSearch" type="search" placeholder="Customer number, name or phone"></label><button id="notifyRecipientSearchBtn" type="button" class="secondary">Search</button></div>
+        <div class="notify-recipient-tools notify-recipient-selection-row"><button id="notifyRecipientSelect" type="button" class="secondary">Select all matching</button><button id="notifyRecipientClear" type="button" class="secondary">Clear selection</button><strong id="notifyRecipientCount" role="status">0 selected</strong></div>
         <p id="notifyRecipientStatus" role="status"></p><div id="notifyRecipientList"></div>
         <div class="notify-recipient-tools"><button id="notifyRecipientPrev" type="button" class="secondary">Previous</button><span id="notifyRecipientPage"></span><button id="notifyRecipientNext" type="button" class="secondary">Next</button></div>
         <label class="notify-options"><input id="notifyRecipientConsent" type="checkbox">I confirm our Twilio sender is approved for this use and selected customers have agreed to receive these SMS messages.</label>
@@ -19285,7 +19300,7 @@ body #documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{top:c
 <script id="wooten-multiple-sms-ver770-script">
 (function(){
 'use strict';
-const el=id=>document.getElementById(id),chosen=new Set();let customers=[],page=1,query='',busy=false,loading=false;
+const el=id=>document.getElementById(id),chosen=new Set();let customers=[],page=1,query='',busy=false,loading=false,listsLoading=false,sourceRevision=0;
 const radio=el('notifyAudienceSelected'),picker=el('notifyRecipientPicker');
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const matching=()=>customers.filter(c=>[c.account_number,c.account_name,c.phone].join(' ').toLowerCase().includes(query));
@@ -19298,14 +19313,50 @@ function render(){
  el('notifyRecipientSelect').disabled=busy||!rows.some(c=>c.phone);el('notifyRecipientClear').disabled=busy||!chosen.size;
  window.WootenUpdateSmsEstimate?.();
 }
-async function load(){
- if(loading||busy)return;const key=el('adminKey').value.trim();if(!key){el('notifyRecipientStatus').textContent='Sign in as admin first.';return;}
- loading=true;el('notifyRecipientLoad').disabled=true;el('notifyRecipientStatus').textContent='Loading customers…';
- try{const response=await fetch('/api/admin/statement-customers',{headers:{'X-Admin-Key':key},cache:'no-store'}),data=await response.json();if(!response.ok||data.success===false)throw Error(data.error||'Customers could not be loaded.');customers=(data.customers||[]).map(c=>({...c,account_number:String(c.account_number)}));const valid=new Set(customers.filter(c=>c.phone).map(c=>c.account_number));for(const id of chosen)if(!valid.has(id))chosen.delete(id);el('notifyRecipientStatus').textContent=customers.length+' customers loaded. Customers without a phone number cannot be selected.';render();}catch(e){el('notifyRecipientStatus').textContent=e.message;}finally{loading=false;el('notifyRecipientLoad').disabled=false;}
+async function getData(url){
+ const key=el('adminKey').value.trim();if(!key)throw Error('Sign in as admin first.');
+ const response=await fetch(url,{headers:{'X-Admin-Key':key},cache:'no-store'}),data=await response.json();
+ if(!response.ok||data.success===false)throw Error(data.error||'Customers or saved lists could not be loaded.');return data;
 }
+function sourceLabel(){return el('notifyRecipientSource').selectedOptions[0]?.textContent||'All customers';}
+function resetSource(){
+ sourceRevision++;customers=[];chosen.clear();page=1;query='';el('notifyRecipientSearch').value='';
+ el('notifyRecipientLoad').textContent=el('notifyRecipientSource').value==='all'?'Load customers':'Load list';
+ el('notifyRecipientStatus').textContent='Click '+el('notifyRecipientLoad').textContent+' to review customers from '+sourceLabel()+'.';render();
+}
+async function refreshLists(){
+ if(listsLoading||loading||busy)return;listsLoading=true;
+ try{const data=await getData('/api/admin/statement-lists');const select=el('notifyRecipientSource'),previous=select.value;
+ select.replaceChildren(new Option('All customers','all'));
+ for(const list of data.lists||[])select.add(new Option('Statements & Cycles — '+list.name+' ('+(list.accounts||[]).length+')',String(list.id)));
+ if(Array.from(select.options).some(o=>o.value===previous))select.value=previous;
+ else if(previous!=='all')resetSource();
+ }catch(e){el('notifyRecipientStatus').textContent='Saved lists: '+e.message;}finally{listsLoading=false;}
+}
+async function load(){
+ if(loading||busy)return;
+ loading=true;const source=el('notifyRecipientSource').value,revision=sourceRevision;
+ el('notifyRecipientLoad').disabled=true;el('notifyRecipientSource').disabled=true;
+ el('notifyRecipientStatus').textContent='Loading customers…';
+ try{
+ const data=await getData('/api/admin/statement-customers');
+ let rows=(data.customers||[]).map(c=>({...c,account_number:String(c.account_number)}));
+ if(source!=='all'){
+  const saved=await getData('/api/admin/statement-lists'),list=(saved.lists||[]).find(l=>String(l.id)===source);
+  if(!list)throw Error('This saved list no longer exists. Choose another customer source.');
+  const ids=new Set((list.accounts||[]).map(String));rows=rows.filter(c=>ids.has(c.account_number));
+ }
+ if(revision!==sourceRevision)return;
+ customers=rows;const valid=new Set(customers.filter(c=>c.phone).map(c=>c.account_number));for(const id of chosen)if(!valid.has(id))chosen.delete(id);
+ page=1;query='';el('notifyRecipientSearch').value='';
+ el('notifyRecipientStatus').textContent=sourceLabel()+' · '+customers.length+' customers loaded. Select the recipients below. Customers without a phone number cannot be selected.';render();
+ }catch(e){customers=[];chosen.clear();render();el('notifyRecipientStatus').textContent=e.message;}
+ finally{loading=false;el('notifyRecipientLoad').disabled=false;el('notifyRecipientSource').disabled=false;}
+}
+el('notifyRecipientSource').addEventListener('change',()=>{if(!busy&&!loading)resetSource();});
 function audience(){
  if(busy)return;picker.hidden=!radio.checked;
- if(radio.checked){updateNotificationAudience();el('notifyAccount').disabled=true;el('notifySendSms').disabled=false;el('notifySendSms').checked=true;el('notifySendEmail').checked=false;notifySingleEmailChoice=false;el('notifySmsNote').textContent='Send a separate SMS and portal notification to each checked customer. Email is optional.';sendCustomerNotificationBtn.textContent='Send to Selected Customers';}
+ if(radio.checked){updateNotificationAudience();el('notifyAccount').disabled=true;el('notifySendSms').disabled=false;el('notifySendSms').checked=true;el('notifySendEmail').checked=false;notifySingleEmailChoice=false;el('notifySmsNote').textContent='Send a separate SMS and portal notification to each checked customer. Email is optional.';sendCustomerNotificationBtn.textContent='Send to Selected Customers';refreshLists();}
  window.WootenUpdateSmsEstimate?.();
 }
 ['notifyAudienceOne','notifyAudienceAll','notifyAudienceSelected'].forEach(id=>el(id).addEventListener('change',audience));
@@ -19315,7 +19366,7 @@ el('notifyRecipientSearchBtn').addEventListener('click',search);el('notifyRecipi
 el('notifyRecipientList').addEventListener('change',e=>{const id=e.target.dataset.recipient;if(!id||busy)return;e.target.checked?chosen.add(id):chosen.delete(id);render();});
 el('notifyRecipientSelect').addEventListener('click',()=>{matching().filter(c=>c.phone).forEach(c=>chosen.add(c.account_number));render();});el('notifyRecipientClear').addEventListener('click',()=>{chosen.clear();render();});
 el('notifyRecipientPrev').addEventListener('click',()=>{page--;render();});el('notifyRecipientNext').addEventListener('click',()=>{page++;render();});
-el('notifyRecipientStatements').addEventListener('click',async()=>{if(!customers.length)await load();const ids=window.WootenStatementGetSelectedAccounts?.()||[];const valid=new Set(customers.filter(c=>c.phone).map(c=>c.account_number));ids.forEach(id=>{if(valid.has(String(id)))chosen.add(String(id));});el('notifyRecipientStatus').textContent=ids.length?'Checked statement customers with phone numbers added.':'Check customers in Statements & Cycles first; you can use a saved list there.';render();});
+
 window.WootenSendSelectedNotifications=async function(){
  if(busy)return;
  const status=el('notifyStatus'),say=(text,bad=false)=>{status.className='status show '+(bad?'bad':'ok');status.textContent=text;};

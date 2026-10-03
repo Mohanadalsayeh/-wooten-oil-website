@@ -3,7 +3,7 @@
  'use strict';
  if(window.WootenAdminExplicitSearch)return;
  const selector='input[type="search"]',allowed=new WeakSet(),wired=new WeakSet();
- const existing={statementCustomerSearch:'statementCustomerSearchButton',activityCustomerSearch:'activityCustomerSearchBtn'};
+ const existing={notifyRecipientSearch:'notifyRecipientSearchBtn',statementCustomerSearch:'statementCustomerSearchButton',activityCustomerSearch:'activityCustomerSearchBtn'};
  const actions={dbSearch:'dbLoadBtn',livePaymentSearch:'livePaymentLoadBtn',invoiceDbSearch:'invoiceDbLoad',invoiceDbComment:'invoiceDbLoad',requestCenterSearch:'requestCenterLoad',applicationSearch:'applicationLoad'};
  const isSearch=el=>el instanceof HTMLInputElement&&el.matches(selector);
  function dispatch(input,type){const event=type==='keydown'?new KeyboardEvent(type,{key:'Enter',code:'Enter',bubbles:true,cancelable:true}):new Event(type,{bubbles:true,cancelable:true});allowed.add(event);input.dispatchEvent(event);}
