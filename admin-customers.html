@@ -6767,8 +6767,15 @@ SOFTWARE.
           <input id="notifySubject" type="text" maxlength="160" placeholder="Example: Account Update">
         </div>
         <div class="notify-field full">
-          <label for="notifyMessage">Message</label>
+          <div class="notify-message-heading"><label for="notifyMessage">Message</label>
+<div id="notifySmsEstimate" class="notify-sms-estimate" role="status" aria-live="polite" aria-atomic="true">
+<span>Text Segments = <strong id="notifyTextSegments">0</strong></span>
+<span>Attachment Segments = <strong id="notifyFileSegments">0</strong></span>
+<span>Total Segments = <strong id="notifyTotalSegments">0</strong></span>
+<span>Estimated Total Cost = <strong id="notifyTotalCost">$0.0000</strong></span>
+</div></div>
           <textarea id="notifyMessage" maxlength="5000" placeholder="Type the message the customer should see in the notification bell."></textarea>
+          <small id="notifyEstimateNote" class="notify-estimate-note">SMS estimate per recipient at $0.0083/segment, before carrier fees. Includes subject, company name and closing text. Attachment segments are extra segments added by the first PDF link; other files are delivered through email/portal.</small>
         </div>
         <div class="notify-attachment-box" id="notifyAttachmentBox">
           <label for="notifyAttachments">Attachments</label>
@@ -10680,6 +10687,7 @@ function updateNotificationAudience(){
       notifyAttachmentsInput.value="";
       notifyAttachmentsInput.disabled=true;
       renderNotifyAttachmentList();
+      window.WootenUpdateSmsEstimate?.();
     }
     if(notifyAttachmentBox) notifyAttachmentBox.classList.add("disabled");
     notifyBroadcastWarning.classList.add("show");
@@ -10793,6 +10801,7 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
     if(notifyAttachmentsInput){
       notifyAttachmentsInput.value="";
       renderNotifyAttachmentList();
+      window.WootenUpdateSmsEstimate?.();
     }
   }catch(error){
     status.className="status show bad";
@@ -19194,3 +19203,54 @@ body #documentSectionSendStatements .sm-table thead th #statementSelectAllHeader
 body #documentSectionSendStatements .sm-table thead th[data-statement-sort="favorite"] .wo-table-sort-button{padding:0!important}
 body #documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{top:calc(50% - 8px)!important}
 </style>
+
+<style id="wooten-sms-summary-ver769">
+.notify-message-heading{display:flex;align-items:center;justify-content:space-between;gap:10px 20px;flex-wrap:wrap;margin-bottom:8px}
+.notify-message-heading label{margin:0!important;flex:none}
+.notify-sms-estimate{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px 16px;margin-left:auto;text-align:right;color:#526c83;font-size:12px;line-height:1.5}
+.notify-sms-estimate span{white-space:nowrap}.notify-sms-estimate strong{color:#193d59;font-variant-numeric:tabular-nums}
+.notify-estimate-note{display:block;margin-top:8px;color:#647a8e;font-size:12px;line-height:1.5}
+@media(max-width:600px){.notify-sms-estimate{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:4px 10px;font-size:11px}}
+</style>
+<script id="wooten-sms-summary-ver769-script">
+(function(){
+  'use strict';
+  const basic=new Set(Array.from('@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà'));
+  const extended=new Set(Array.from('\f^{}\\[~]|€'));
+  function segments(text){
+    if(!text)return 0;
+    const chars=Array.from(text),gsm=chars.every(c=>basic.has(c)||extended.has(c));
+    const sizes=chars.map(c=>gsm?(extended.has(c)?2:1):c.length);
+    const units=sizes.reduce((a,b)=>a+b,0);
+    if(units<=(gsm?160:70))return 1;
+    // Pack characters without splitting GSM escape pairs or Unicode surrogate pairs.
+    const capacity=gsm?153:67;let count=1,used=0;
+    for(const size of sizes){if(used+size>capacity){count++;used=0;}used+=size;}
+    return count;
+  }
+  const message=document.getElementById('notifyMessage'),subject=document.getElementById('notifySubject');
+  if(!message||!subject)return;
+  function update(){
+    const body=message.value.trim(),title=subject.value.trim();
+    const hasText=!!(body||title);
+    const prefix='WOOTEN OIL CO INC\n\n'+title+'\n\n'+body+'\n\n';
+    const suffix='Please do not reply to this message.';
+    const files=Array.from(document.getElementById('notifyAttachments').files||[]);
+    const pdf=files.some(file=>String(file.type||'application/octet-stream').toLowerCase()==='application/pdf');
+    const link=location.origin+'/open-document/'+'0'.repeat(64);
+    const text=hasText?segments(prefix+suffix):0;
+    const total=hasText?segments(prefix+(pdf?link+'\n\n':'')+suffix):0;
+    document.getElementById('notifyTextSegments').textContent=text;
+    document.getElementById('notifyFileSegments').textContent=total-text;
+    document.getElementById('notifyTotalSegments').textContent=total;
+    const enabled=document.getElementById('notifySendSms').checked&&!document.getElementById('notifyAudienceAll').checked;
+    document.getElementById('notifyTotalCost').textContent='$'+(enabled?total*0.0083:0).toFixed(4);
+    document.getElementById('notifyTotalCost').title=enabled?'Estimated SMS base cost per recipient; excludes carrier fees.':'SMS delivery is off. Segment counts preview the SMS if enabled.';
+    document.getElementById('notifyEstimateNote').textContent=(enabled?'SMS estimate per recipient':'SMS is off; cost is $0. Counts preview SMS delivery')+' at $0.0083/segment, before carrier fees. Includes subject, company name and closing text. Attachment segments are extra segments added by the first PDF link; other files are delivered through email/portal. Standard-number estimate; toll-free multipart limits may differ.';
+  }
+  window.WootenUpdateSmsEstimate=update;
+  ['notifyMessage','notifySubject'].forEach(id=>document.getElementById(id).addEventListener('input',update));
+  ['notifyAttachments','notifySendSms','notifyAudienceOne','notifyAudienceAll'].forEach(id=>document.getElementById(id).addEventListener('change',update));
+  update();
+})();
+</script>
