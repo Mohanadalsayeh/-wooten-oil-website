@@ -7027,7 +7027,7 @@ SOFTWARE.
       <div id="statementBatchStatus" class="status"></div>
 
 
-      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th>Select</th><th class="wo-sortable-heading" data-statement-sort="favorite" aria-sort="none"><button class="wo-table-sort-button" type="button" aria-label="Sort by favorite" title="Sort by favorite"><span class="wo-table-sort-label" aria-hidden="true">★</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_number" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer #</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_name" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer name</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="sm-money wo-sortable-heading" data-statement-sort="total_balance" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Balance</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="statement_cycle" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Statement group</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="contact" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Phone / Email</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
+      <div class="sm-table-wrap"><table class="sm-table" data-auto-pdf="false" data-no-column-sort><thead><tr><th><button id="statementSelectAllHeader" class="wo-table-sort-button" type="button" aria-label="Select all customers in the current filtered list, across all pages" disabled>Select All</button></th><th class="wo-sortable-heading" data-statement-sort="favorite" aria-sort="none"><button class="wo-table-sort-button" type="button" aria-label="Sort by favorite" title="Sort by favorite"><span class="wo-table-sort-label" aria-hidden="true">★</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_number" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer #</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="account_name" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Customer name</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="sm-money wo-sortable-heading" data-statement-sort="total_balance" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Balance</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="statement_cycle" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Statement group</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th><th class="wo-sortable-heading" data-statement-sort="contact" aria-sort="none"><button class="wo-table-sort-button" type="button"><span class="wo-table-sort-label">Phone / Email</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th></tr></thead><tbody id="statementCustomerList"><tr><td colspan="7">Click Load Customers to begin.</td></tr></tbody></table></div>
 
       <div class="db-pagination statement-customer-pagination" id="statementCustomerPagination" hidden>
         <button class="secondary" id="statementCustomerPrev" type="button" disabled>Previous 20</button>
@@ -12019,6 +12019,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(previewButton)previewButton.disabled=savedListsBusy||selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
     const exportButton=document.getElementById('statementExportCustomersPdf');
     if(exportButton) exportButton.disabled=savedListsBusy||!filteredCustomers().length||loadBtn.disabled||exportButton.dataset.exporting==='true';
+    document.getElementById('statementSelectAllHeader').disabled=showExceptional.disabled||!filteredCustomers().length;
     if(selectAllVisible){
       const visible=visibleCustomers();
       const checked=visible.length>0 && visible.every(c=>selected.has(c.account_number));
@@ -12131,6 +12132,13 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       if(selectAllVisible.checked) selected.add(c.account_number);
       else selected.delete(c.account_number);
     });
+    invalidateStatementPreview();
+    render();
+  });
+
+  document.getElementById('statementSelectAllHeader').addEventListener('click',function(){
+    if(this.disabled)return;
+    filteredCustomers().forEach(c=>selected.add(c.account_number));
     invalidateStatementPreview();
     render();
   });
@@ -15981,6 +15989,11 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 /* Keep the title at the same position when list management actions are unavailable. */
 #statementSavedLists .statement-list-heading #statementRenameList[hidden],
 #statementSavedLists .statement-list-heading #statementDeleteList[hidden]{display:inline-block!important;visibility:hidden!important;pointer-events:none!important}
+</style>
+
+<style id="wooten-select-all-header-ver764">
+#documentSectionSendStatements #statementSelectAllHeader{width:100%;white-space:nowrap;font-weight:800!important;text-align:left;justify-content:flex-start;padding:9px 10px!important;cursor:pointer}
+#documentSectionSendStatements #statementSelectAllHeader:disabled{cursor:not-allowed}
 </style>
 </body>
 </html>
