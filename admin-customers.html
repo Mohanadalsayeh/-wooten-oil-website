@@ -15959,6 +15959,29 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 }
 </style>
 
+
+<style id="wooten-statement-list-controls-ver762">
+#statementSavedLists #statementRenameList{--list-action:#21699b;--list-hover:#195681;--list-pressed:#14476b}
+#statementSavedLists #statementDeleteList{--list-action:#cf2b2b;--list-hover:#b92424;--list-pressed:#9f1f1f}
+#statementSavedLists #statementRenameList,#statementSavedLists #statementDeleteList{background:var(--list-action)!important;color:#fff!important;border:1px solid var(--list-action)!important;box-shadow:none!important}
+#statementSavedLists #statementRenameList:hover:not(:disabled),#statementSavedLists #statementDeleteList:hover:not(:disabled){background:var(--list-hover)!important;border-color:var(--list-hover)!important}
+#statementSavedLists #statementRenameList:focus-visible,#statementSavedLists #statementDeleteList:focus-visible{outline:2px solid var(--list-action)!important;outline-offset:3px}
+#statementSavedLists #statementRenameList:active:not(:disabled),#statementSavedLists #statementDeleteList:active:not(:disabled){background:var(--list-pressed)!important;border-color:var(--list-pressed)!important}
+#statementSavedLists #statementRenameList:disabled,#statementSavedLists #statementDeleteList:disabled{background:var(--list-action)!important;border-color:var(--list-action)!important;color:#fff!important;opacity:.55!important;cursor:not-allowed}
+#statementSavedLists #statementListMoveControls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}
+#statementSavedLists #statementListMoveControls label{display:block;min-width:0;margin:0!important;color:#193d59}
+#statementSavedLists #statementMoveToList{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;height:48px;min-height:48px;margin:8px 0 0!important;padding:10px 12px;border:1px solid #c5d6e4;border-radius:10px;background:#fff;color:#193d59;font:inherit;font-size:16px}
+#statementSavedLists #statementMoveToList:focus-visible{outline:2px solid #21699b;outline-offset:2px}
+#statementSavedLists #statementMoveToList:disabled{background:#edf2f6;color:#758595;opacity:.65;cursor:not-allowed}
+#statementSavedLists #statementMoveList{box-sizing:border-box;height:48px;min-height:48px;margin:0!important;align-self:end;white-space:nowrap}
+@media(max-width:600px){#statementSavedLists #statementListMoveControls{grid-template-columns:minmax(0,1fr)!important}}
+</style>
+
+<style id="wooten-list-heading-alignment-ver763">
+/* Keep the title at the same position when list management actions are unavailable. */
+#statementSavedLists .statement-list-heading #statementRenameList[hidden],
+#statementSavedLists .statement-list-heading #statementDeleteList[hidden]{display:inline-block!important;visibility:hidden!important;pointer-events:none!important}
+</style>
 </body>
 </html>
 
