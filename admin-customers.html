@@ -11784,7 +11784,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 <link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=741">
 <script src="assets/js/wooten-statement-management.js?v=741"></script>
 <dialog id="statementSavedListDialog" aria-labelledby="statementListDialogTitle">
-<form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
+<form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2><button id="statementListClose" type="button" aria-label="Close rename form" hidden>×</button></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -11866,8 +11866,11 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     listDialogAccounts=window.WootenStatementGetSelectedAccounts();
     if(action!=='rename'&&!listDialogAccounts.length)return;
     listDialogAction=action;
+    listDialog.dataset.mode=action;
+    listEl("statementListClose").hidden=action!=="rename";
+    listDialog.querySelector("button[type=submit]").textContent=action==="rename"?"Save name":"Save list";
     const name=listEl('statementListName'),target=listEl('statementListTarget');
-    listEl('statementListDialogTitle').textContent=action==='create'?'Create customer list':action==='rename'?'Rename customer list':'Add checked customers to a list';
+    listEl('statementListDialogTitle').textContent=action==='create'?'Create customer list':action==='rename'?'Rename list':'Add checked customers to a list';
     listEl('statementListNameLabel').hidden=action==='add';listEl('statementListTargetLabel').hidden=action!=='add';
     name.value=action==='rename'?savedLists.find(l=>l.id===activeListId).name:'';name.required=action!=='add';
     target.replaceChildren();for(const item of savedLists){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;target.append(option);}
@@ -11897,6 +11900,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   };
   listEl('statementCreateList').onclick=()=>openListDialog('create');listEl('statementAddToList').onclick=()=>openListDialog('add');listEl('statementRenameList').onclick=()=>openListDialog('rename');
   listEl('statementListCancel').onclick=()=>{if(!savedListsBusy)listDialog.close();};
+  listEl('statementListClose').onclick=()=>{if(!savedListsBusy)listDialog.close();};
   listDialog.addEventListener('cancel',e=>{if(savedListsBusy)e.preventDefault();});
   listEl('statementListForm').onsubmit=e=>{e.preventDefault();const body={action:listDialogAction,name:listEl('statementListName').value.trim(),accounts:listDialogAccounts,id:listDialogAction==='add'?listEl('statementListTarget').value:activeListId};mutateList(body);};
   listEl('statementRemoveFromList').onclick=()=>{const accounts=window.WootenStatementGetSelectedAccounts();if(accounts.length&&confirm('Remove '+accounts.length+' checked customers from this list? Customer records will be kept.'))mutateList({action:'remove',id:activeListId,accounts});};
@@ -16008,6 +16012,25 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #documentSectionSendStatements .sm-table td:first-child{box-sizing:border-box;width:86px!important;min-width:86px!important;max-width:86px!important;padding:0 4px!important;text-align:center!important}
 #documentSectionSendStatements #statementSelectAllHeader{box-sizing:border-box;min-width:0!important;width:100%!important;padding:9px 0!important;margin:0!important;text-align:center!important;letter-spacing:0!important;font-size:12px!important;white-space:nowrap!important}
 #documentSectionSendStatements .sm-table td:first-child input{margin-left:auto!important;margin-right:auto!important}
+</style>
+
+<style id="wooten-rename-minimal-ver766">
+#statementSavedListDialog[data-mode="rename"]{box-sizing:border-box;width:540px;max-width:calc(100% - 28px);padding:28px;border-radius:18px;background:#fff;color:#193d59;box-shadow:0 15px 40px #17364d24}
+#statementSavedListDialog[data-mode="rename"] header{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff;padding:0;margin:0 0 24px;border:0}
+#statementSavedListDialog[data-mode="rename"] h2{font-size:23px;line-height:1.3;color:#193d59}
+#statementSavedListDialog[data-mode="rename"] .statement-list-dialog-body{padding:0}
+#statementSavedListDialog[data-mode="rename"] #statementListDialogNote{display:none}
+#statementSavedListDialog[data-mode="rename"] #statementListNameLabel{margin:0;font-size:14px;color:#193d59}
+#statementSavedListDialog[data-mode="rename"] #statementListName{box-sizing:border-box;height:48px;min-height:48px;width:100%;min-width:0;margin:8px 0 0;padding:12px 14px;border:1px solid #c2d4e4;border-radius:10px;background:#fff;color:#193d59;font-size:16px}
+#statementSavedListDialog[data-mode="rename"] #statementListDialogError{margin:12px 0 0;font-size:13px}
+#statementSavedListDialog[data-mode="rename"] #statementListDialogError:empty{display:none}
+#statementSavedListDialog[data-mode="rename"] footer{padding:24px 0 0;background:#fff;border:0;gap:10px}
+#statementSavedListDialog[data-mode="rename"] footer button{min-height:44px;padding:12px 20px;border-radius:10px;font-size:15px}
+#statementSavedListDialog[data-mode="rename"] #statementListCancel{background:#edf4f8!important;border:1px solid #cadce9!important;color:#193d59!important}
+#statementSavedListDialog[data-mode="rename"] button[type="submit"]{background:#21699b!important;border:1px solid #21699b!important;color:#fff!important}
+#statementSavedListDialog[data-mode="rename"] button[type="submit"]:hover{background:#195681!important}
+#statementSavedListDialog[data-mode="rename"] #statementListClose{position:static!important;display:flex;align-items:center;justify-content:center;flex:0 0 44px;box-sizing:border-box;width:44px;height:44px;min-height:44px;padding:0!important;margin:0!important;border:0!important;border-radius:10px;background:transparent!important;color:#193d59!important;box-shadow:none!important;font-size:28px;line-height:1}
+@media(max-width:440px){#statementSavedListDialog[data-mode="rename"]{padding:20px}#statementSavedListDialog[data-mode="rename"] h2{font-size:20px}}
 </style>
 </body>
 </html>
