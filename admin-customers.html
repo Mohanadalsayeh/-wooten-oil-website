@@ -5680,6 +5680,14 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 #documentSectionSendStatements .sm-table th:nth-child(2) .wo-table-sort-icon{right:2px!important}
 #documentSectionSendStatements .sm-table td:nth-child(2) .sm-star{width:44px;min-width:44px;max-width:44px;margin:0!important}
 </style>
+
+<style id="wooten-list-dialog-select-ver775">
+#statementSavedListDialog select{display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;height:48px;min-height:48px;margin:8px 0 0;padding:10px 12px;border:1px solid #c5d6e4;border-radius:10px;background-color:#fff;color:#193d59;font:inherit;font-size:16px;line-height:1.5;cursor:pointer;color-scheme:light}
+#statementSavedListDialog select:hover:not(:disabled){border-color:#8daec7}
+#statementSavedListDialog select:focus-visible{outline:2px solid #21699b;outline-offset:2px;border-color:#21699b}
+#statementSavedListDialog select:disabled{background-color:#edf2f6;color:#758595;opacity:.65;cursor:not-allowed}
+#statementSavedListDialog select option{background:#fff;color:#193d59;font:inherit}
+</style>
 </head>
 <body>
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -7394,7 +7402,7 @@ SOFTWARE.
     <div id="apiScheduleControls" hidden>
     <div class="api-schedule-fields">
       <label>Interval (seconds)<input id="apiScheduleInterval" type="number" min="30" max="86400" step="1" value="300" required></label>
-      <label>Recent transaction window<select id="apiScheduleDays"><option value="1">Last 24 hours</option><option value="2" selected>Last 48 hours</option></select></label><label>Nightly 92-day refresh time (Central)<input id="apiNightlyTime" type="time" value="02:00" required></label>
+      <label>Recent transaction window<select id="apiScheduleDays"><option value="1">Last 24 hours</option><option value="2" selected>Last 48 hours</option><option value="7">Last week — 7 days</option><option value="14">Last two weeks — 14 days</option><option value="30">Last month — 30 days</option></select></label><label>Nightly 92-day refresh time (Central)<input id="apiNightlyTime" type="time" value="02:00" required></label>
     </div>
     <label class="api-schedule-toggle"><input id="apiNightlyEnabled" type="checkbox" checked> Refresh the full 92 days nightly</label><p class="api-test-help">Initialize history once, then update recent activity for all cards. Saved transactions are merged by transaction ID and retained. Minimum: 30 seconds. 60 = 1 minute; 300 = 5 minutes; 3600 = 1 hour. Runs in the cloud while this page is closed. The interval starts after each pull finishes; service delays and retries can extend it.</p>
     <div class="api-schedule-actions"><button id="apiScheduleSave" class="secondary" disabled type="submit">Save schedule</button>
@@ -11799,7 +11807,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 .statement-fleet-settings[data-statement-fleet="manual"] .sf-date-field input:disabled{background:#edf2f6;color:#8493a1;cursor:default}
 @media(max-width:620px){.statement-fleet-settings[data-statement-fleet="manual"] .sf-date-pair{grid-template-columns:minmax(0,1fr);gap:16px}.statement-fleet-settings[data-statement-fleet="manual"] .sf-period-panel{padding:16px}}
 </style>
-<script src="assets/js/wooten-statement-fleet.js?v=729"></script>
+<script src="assets/js/wooten-statement-fleet.js?v=777"></script>
 <link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=741">
 <script src="assets/js/wooten-statement-management.js?v=741"></script>
 <dialog id="statementSavedListDialog" aria-labelledby="statementListDialogTitle">

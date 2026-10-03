@@ -1,5 +1,5 @@
 import {statementRows} from './intevacon-history.mjs';
-// Ver691: account-scoped statement fleet data. No provider calls or monetary fields.
+// Ver691: account-scoped statement fleet data. No provider calls. Statement-only sale amounts are retained.
 const DAY=86400000;
 const text=v=>v==null?'':String(v).trim();
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
@@ -37,7 +37,7 @@ export function project(row){
  const fuel=(Array.isArray(row.Details)?row.Details:[]).filter(d=>d.IsFuel===true&&(d.IsTaxProduct!==true||text(d.ProductCategory).toLowerCase()==='fuel products'));
  const products=fuel.map(d=>({name:text(d.ProductName)||text(d.ProductCode)||'Fuel',quantity:finite(d.Quantity)?d.Quantity:null}));
  const quantity=fuel.length&&fuel.every(d=>finite(d.Quantity))?fuel.reduce((n,d)=>n+d.Quantity,0):null;
- return {id:text(row.ID),card:text(row.CardNumber),received:text(row.ReceivedDateTime),merchant:[row.MerchantName,row.MerchantCity].map(text).filter(Boolean).join(' - '),status:text(row.Status)||'Unknown',driver:[row.DriverNumber,row.DriverName].map(text).filter(Boolean).join(' - '),vehicle:[row.VehicleNumber,row.VehicleDescription].map(text).filter(Boolean).join(' - '),odometer:text(row.Odometer),auth:text(row.AuthRef),invoice:text(row.InvoiceID),entry:text(row.EntryMethod),type:text(row.TranType),card_type:text(row.CardType),cardholder:text(row.CardHolderName),products,hasFuel:fuel.length>0,quantity,counted:complete&&quantity!==null,complete};
+ return {id:text(row.ID),card:text(row.CardNumber),received:text(row.ReceivedDateTime),merchant:[row.MerchantName,row.MerchantCity].map(text).filter(Boolean).join(' - '),status:text(row.Status)||'Unknown',driver:[row.DriverNumber,row.DriverName].map(text).filter(Boolean).join(' - '),vehicle:[row.VehicleNumber,row.VehicleDescription].map(text).filter(Boolean).join(' - '),odometer:text(row.Odometer),auth:text(row.AuthRef),invoice:text(row.InvoiceID),entry:text(row.EntryMethod),type:text(row.TranType),card_type:text(row.CardType),cardholder:text(row.CardHolderName),products,saleCents:finite(row.TotalAmountOfSale)?Math.round(row.TotalAmountOfSale*100):null,hasFuel:fuel.length>0,quantity,counted:complete&&quantity!==null,complete};
 }
 export async function load(env,customer,options){
  if(!options.enabled)return null;

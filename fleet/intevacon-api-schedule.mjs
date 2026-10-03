@@ -13,7 +13,7 @@ export function nextNight(now,time){
  for(let t=Math.floor(now/60000)*60000+60000;t<=now+48*3600000;t+=60000){const d=central(new Date(t));if(d.slice(0,10)>=target&&d.slice(11)>=time)return t;}
  throw Error('Could not calculate the next nightly refresh.');
 }
-export function validateConfig(c){if(typeof c.enabled!=='boolean'||!Number.isInteger(c.intervalSeconds)||c.intervalSeconds<30||c.intervalSeconds>86400||![1,2].includes(c.days)||typeof c.nightlyEnabled!=='boolean'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(c.nightlyTime))throw Error('Choose 24 or 48 hours, an interval of 30–86,400 seconds, and a valid Central nightly time.');return {...defaults,...c,cardNumber:''};}
+export function validateConfig(c){if(typeof c.enabled!=='boolean'||!Number.isInteger(c.intervalSeconds)||c.intervalSeconds<30||c.intervalSeconds>86400||![1,2,7,14,30].includes(c.days)||typeof c.nightlyEnabled!=='boolean'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(c.nightlyTime))throw Error('Choose 24 hours, 48 hours, 7 days, 14 days, or 30 days, an interval of 30–86,400 seconds, and a valid Central nightly time.');return {...defaults,...c,cardNumber:''};}
 export function newJob(type,from,to){return {type,from,to,cursor:from,pending:[],count:0,failures:0,startedAt:new Date().toISOString()};}
 export function rangeFor(job){return job.pending[0]||{from:job.cursor,to:date(Math.min(wall(job.to),wall(job.cursor)+7*DAY))};}
 async function readSnapshot(storage){const n=await storage.get('chunks')||0;if(!n)return null;let value='';for(let i=0;i<n;i++)value+=await storage.get('result:'+i);return JSON.parse(value);}
