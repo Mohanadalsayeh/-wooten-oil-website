@@ -1,3 +1,4 @@
+import * as StatementLists from './assets/js/wooten-statement-lists-server.mjs';
 import * as StatementManagement from './assets/js/wooten-statement-management-server.mjs';
 // Ver654: authenticated customer fleet views use account-scoped API snapshots.
 // Ver646: retire legacy Intevacon agent/write routes; preserve API retrieval and customer database reads.
@@ -11534,6 +11535,7 @@ function adminGeneralAuditDescriptor(request){
     "/api/admin/gmail-inbox":["customer_messages_viewed","communication","Customer message history viewed"],
     "/api/admin/gmail-portal-sync":["gmail_portal_sync_run","communication","Gmail portal synchronization run"],
     "/api/admin/gmail-portal-sync/status":["gmail_portal_sync_status_viewed","communication","Gmail portal synchronization status viewed"],
+    "/api/admin/statement-lists":["statement_lists_accessed","statements","Statement customer lists accessed"],
     "/api/admin/statement-management":["statement_preferences_changed","statements","Statement preferences accessed"],
     "/api/admin/statement-customers":["statement_customers_viewed","statements","Statement customer list viewed"],
     "/api/admin/communication-log":["communication_history_viewed","communication","Communication history viewed"],
@@ -12831,6 +12833,8 @@ var worker_default = {
       if (request.method === "GET") return adminGmailPortalSyncStatus({ request, env });
       return methodNotAllowed();
     }
+
+    if (url.pathname === "/api/admin/statement-lists") return StatementLists.handle(request,env);
 
     if (url.pathname === "/api/admin/statement-management") return StatementManagement.handle(request,env);
 

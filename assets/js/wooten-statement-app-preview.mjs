@@ -21,6 +21,7 @@ function styles(){
 
     #wootenStatementAppPreview{position:fixed;inset:0;margin:0;padding:0;border:0;width:100%;max-width:none;height:100vh;height:100dvh;max-height:none;background:#edf2f7;color:#17364d;font:16px/1.4 Inter,Segoe UI,Arial,sans-serif;box-sizing:border-box;overflow:hidden}
     #wootenStatementAppPreview[open]{display:flex;flex-direction:column}
+    #wootenStatementAppPreview:focus{outline:none}
     #wootenStatementAppPreview *{box-sizing:border-box}
     #wootenStatementAppPreview::backdrop{background:#17364d99}
     #wootenStatementAppPreview header{flex:none;padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left));background:#fff;border-bottom:1px solid #cddde9}
@@ -48,7 +49,7 @@ function styles(){
     #wootenStatementAppPreview .wsp-save{background:#1d6596;color:#fff;border-color:#1d6596}
     #wootenStatementAppPreview .wsp-save:hover{background:#184f77}
     #wootenStatementAppPreview [hidden]{display:none!important}
-    @media(max-width:600px){#wootenStatementAppPreview footer{justify-content:center}#wootenStatementAppPreview .wsp-pages{width:100%;gap:6px}#wootenStatementAppPreview .wsp-save{width:100%}#wootenStatementAppPreview h2{font-size:20px}}
+    @media(max-width:600px){#wootenStatementAppPreview footer{justify-content:center}#wootenStatementAppPreview .wsp-pages{width:100%;gap:6px}#wootenStatementAppPreview .wsp-actions{width:100%;display:flex;flex-wrap:nowrap;align-items:stretch;gap:8px}#wootenStatementAppPreview .wsp-print{flex:0 0 auto}#wootenStatementAppPreview .wsp-save{width:auto;min-width:0;flex:1 1 auto}#wootenStatementAppPreview h2{font-size:20px}}
   `;
   document.head.append(style);
 }
@@ -56,7 +57,7 @@ export function openStatementAppPreview(returnFocus){
   activePreview?.close();
   styles();
   const controller=new AbortController(),dialog=document.createElement('dialog');
-  dialog.id='wootenStatementAppPreview';dialog.setAttribute('aria-labelledby','wspTitle');
+  dialog.id='wootenStatementAppPreview';dialog.tabIndex=-1;dialog.setAttribute('aria-labelledby','wspTitle');
   dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-customer"></p><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><div class="wsp-actions"><button class="wsp-print" type="button" disabled>Print</button><button class="wsp-save" type="button" disabled>Save PDF</button></div></footer>`;
   const q=selector=>dialog.querySelector(selector),notice=q('.wsp-notice'),paper=q('.wsp-paper'),scroller=q('.wsp-scroll');
   const previous=q('.wsp-prev'),next=q('.wsp-next'),pageInput=q('.wsp-page'),save=q('.wsp-save');
@@ -179,7 +180,7 @@ export function openStatementAppPreview(returnFocus){
   });
   q('.wsp-close').addEventListener('click',close);q('.wsp-back').addEventListener('click',close);
   dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
-  document.body.append(dialog);document.body.style.overflow='hidden';document.documentElement.classList.add('wsp-open');dialog.showModal();q('#wspTitle').focus({preventScroll:true});
+  document.body.append(dialog);document.body.style.overflow='hidden';document.documentElement.classList.add('wsp-open');dialog.showModal();dialog.focus({preventScroll:true});
   window.addEventListener('resize',onResize);
   activePreview={
     signal:controller.signal,

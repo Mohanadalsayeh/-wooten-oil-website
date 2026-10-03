@@ -1,4 +1,4 @@
-/* Ver732: include invoices in legacy combined MAS 90 progress messages. */
+/* Ver758: run selected sources sequentially; retain combined MAS 90 progress messages. */
 (()=>{
 'use strict';
 const ids=['statementPreview','statementGenerateSend','scheduleGenerateMonthly','scheduleRunMonthly','scheduleTestMonthly','scheduleGenerateWeekly','scheduleRunWeekly','scheduleTestWeekly','schedulePreviewMidmonth','scheduleRunMidmonth','scheduleTestMidmonth','scheduleTestAll'];
@@ -57,8 +57,17 @@ q('[data-apply]').onclick=async()=>{
  if(busy)return;if(done){resume();return;}const selected=Object.keys(rows).filter(id=>rows[id].input.checked&&!rows[id].done);if(!selected.length){resume();return;}
  const mas=selected.includes('mas90');const password=q('[data-master]').value;if(mas&&!password){q('[data-message]').textContent='Enter the Master Admin password to authorize MAS 90 synchronization.';q('[data-master]').focus();return;}
  lock(true);q('[data-apply]').textContent='Synchronizing…';q('[data-message]').textContent='Keep this window open. The statement action will wait until you click OK.';
- const jobs=[];function job(names,fn){jobs.push((async()=>{try{await fn();}catch(e){for(const id of names)if(!rows[id].done)progress(id,'Failed: '+(e.name==='AbortError'?'Request timed out. Check sync status before retrying.':e.message),0);throw e;}})());}
- if(mas)job(['mas90'],()=>mas90(password));if(selected.includes('cards'))job(['cards'],cards);if(selected.includes('transactions'))job(['transactions'],transactions);q('[data-master]').value='';
- const results=await Promise.allSettled(jobs);lock(false);done=results.every(r=>r.status==='fulfilled');q('[data-apply]').textContent=done?'OK':'Retry failed updates';q('[data-message]').textContent=done?'Selected updates completed. Click OK to continue to '+target.textContent.trim()+'.':'Some updates failed. The statement action has not started. Retry, or cancel and review synchronization status.';
+ // Work through the checked sources in display order. Each source owns its progress bar,
+ // and a later sync cannot begin while an earlier one is still running or polling.
+ const jobs=[['mas90',()=>mas90(password)],['cards',cards],['transactions',transactions]].filter(([id])=>selected.includes(id));
+ for(const [id] of jobs)progress(id,'Queued — waiting for the previous update',0);
+ q('[data-master]').value='';
+ let allSucceeded=true;
+ for(const [id,run] of jobs){
+  progress(id,'Starting synchronization…',null);
+  try{await run();}
+  catch(e){allSucceeded=false;if(!rows[id].done)progress(id,'Failed: '+(e.name==='AbortError'?'Request timed out. Check sync status before retrying.':e.message),0);}
+ }
+ lock(false);done=allSucceeded;q('[data-apply]').textContent=done?'OK':'Retry failed updates';q('[data-message]').textContent=done?'Selected updates completed. Click OK to continue to '+target.textContent.trim()+'.':'Some updates failed. The statement action has not started. Retry, or cancel and review synchronization status.';
 };
 })();

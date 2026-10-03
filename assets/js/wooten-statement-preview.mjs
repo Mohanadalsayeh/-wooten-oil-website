@@ -1,6 +1,6 @@
 /* Ver736: every preview uses a new in-portal document, including Windows browser tabs. */
 import {statementBuildCombinedPdf} from './wooten-statement-pdf.mjs?v=494';
-import {openStatementAppPreview} from './wooten-statement-app-preview.mjs?v=752';
+import {openStatementAppPreview} from './wooten-statement-app-preview.mjs?v=757';
 
 const section=document.getElementById('documentSectionSendStatements');
 const button=document.getElementById('statementPreview');
