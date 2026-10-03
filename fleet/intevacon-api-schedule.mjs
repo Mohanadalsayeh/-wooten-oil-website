@@ -22,7 +22,7 @@ export async function handle({request,env,actor}){
  if(!actor||!(actor.owner===true||actor.permissions?.includes('fleet_cards')))return response({success:false,error:'Fleet administrator access is required.'},403);
  if(!env.INTEVACON_SCHEDULER)return response({success:false,error:'The Intevacon scheduler binding is missing.'},503);
  const url=new URL(request.url),route=url.pathname.split('/').pop();
- const methods={schedule:['GET','POST'],results:['GET'],sync:['POST'],initialize:['POST'],history:['GET']};
+ const methods={schedule:['GET','POST'],results:['GET'],sync:['POST'],cancel:['POST'],initialize:['POST'],history:['GET']};
  if(!methods[route]?.includes(request.method))return response({success:false},405);
  if(request.method==='POST'&&(request.headers.get('Origin')!==url.origin||!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||'')))return response({success:false,error:'Use the admin page.'},403);
  if(route==='history'){try{return response(await queryHistory(env.DB,url.searchParams,{admin:true}));}catch(e){return response({success:false,error:e.message},400);}}
@@ -30,7 +30,7 @@ export async function handle({request,env,actor}){
  return env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request('https://scheduler/'+route,{method:request.method,headers:{'Content-Type':'application/json'},body}));
 }
 export class IntevaconApiScheduler{
- constructor(ctx,env){this.ctx=ctx;this.env=env;this.running=false;this.queue=Promise.resolve();}
+ constructor(ctx,env){this.ctx=ctx;this.env=env;this.running=false;this.queue=Promise.resolve();this.manualController=null;this.manualId=null;this.manualPhase=null;this.cancelledManual=new Set();}
  exclusive(fn){const p=this.queue.then(fn);this.queue=p.catch(()=>{});return p;}
  async config(){return await this.ctx.storage.get('historyConfig')||{...defaults};}
  async state(){return await this.ctx.storage.get('historyState')||{initialized:false,job:null,nightlyJob:null,nextRecent:null,nextNight:null,lastSuccess:null,lastNight:null,error:null};}
@@ -40,6 +40,13 @@ export class IntevaconApiScheduler{
    const c=await this.config(),s=await this.state(),status=await this.ctx.storage.get('status')||{},j=s.job||s.nightlyJob;
    const percent=j?Math.min(99,Math.floor((wall(j.cursor)-wall(j.from))/(wall(j.to)-wall(j.from))*100)):s.initialized?100:0;
    return response({success:true,config:c,status:{...status,completedAt:s.lastSuccess||status.completedAt},nextRun:await this.ctx.storage.getAlarm(),running:this.running,retryAfterSeconds:Math.max(0,Math.ceil(((await this.ctx.storage.get('nextAllowed')||0)-Date.now())/1000)),history:{...s,job:j?{type:j.type,from:j.from,to:j.to,through:j.cursor,count:j.count}:null,nightlyJob:undefined,percent}});
+  }
+  if(route==='/cancel'&&request.method==='POST'){
+   const b=await request.json();if(!/^[a-f0-9-]{36}$/i.test(b.request_id||''))return response({success:false,error:'Invalid request ID.'},400);
+   if(this.manualId===b.request_id&&this.manualPhase==='saving')return response({success:true,finishing:true,message:'The retrieval finished and is saving; no further updates will start.'});
+   this.cancelledManual.add(b.request_id);if(this.cancelledManual.size>100)this.cancelledManual.delete(this.cancelledManual.values().next().value);
+   if(this.manualId===b.request_id)this.manualController?.abort();
+   return response({success:true,cancelled:true});
   }
   if(route==='/sync'&&this.running)return response({success:false,code:'sync_in_progress',error:'An API pull is already running.'},409);
   return this.exclusive(async()=>{
@@ -71,24 +78,30 @@ export class IntevaconApiScheduler{
   if(!times.length){await this.ctx.storage.deleteAlarm();return;}
   await this.ctx.storage.setAlarm(Math.max(now+1000,cool,s.retryAt||0,Math.min(...times)));
  }
- async get(input){
+ async get(input,signal){
   this.running=true;
   const now=Date.now();await this.ctx.storage.put('nextAllowed',now+90000);await this.ctx.storage.setAlarm(now+120000);
-  try{return await retrieve({request:new Request('https://scheduler/api',{method:'POST',headers:{Origin:'https://scheduler','Content-Type':'application/json'},body:JSON.stringify(input)}),env:this.env,actor:{owner:true}});}
+  try{return await retrieve({request:new Request('https://scheduler/api',{method:'POST',headers:{Origin:'https://scheduler','Content-Type':'application/json'},body:JSON.stringify(input),signal}),env:this.env,actor:{owner:true}});}
   finally{this.running=false;await this.ctx.storage.put('nextAllowed',Date.now()+30000);}
  }
  async manual(input){
+  const id=input.request_id;if(id&&!/^[a-f0-9-]{36}$/i.test(id))return response({success:false,error:'Invalid request ID.'},400);
+  if(id&&this.cancelledManual.has(id))return response({success:false,error:'Cancelled.',code:'cancelled'},409);
   const wait=Number(await this.ctx.storage.get('nextAllowed')||0)-Date.now();if(wait>0)return response({success:false,code:'sync_cooldown',error:'Please wait before the next API sync.',retryAfterSeconds:Math.ceil(wait/1000)},429);
   const c=await this.config(),s=await this.state();
   try{
-   const r=await this.get(input),data=await r.json();
+   this.manualId=id||null;this.manualController=new AbortController();this.manualPhase='retrieving';
+   if(id&&this.cancelledManual.has(id))this.manualController.abort();
+   const r=await this.get(input,this.manualController.signal),data=await r.json();
+   if(this.manualController.signal.aborted||(id&&this.cancelledManual.has(id)))return response({success:false,error:'Cancelled. Previous saved history kept.',code:'cancelled'},409);
    if(!r.ok||!data.success){s.error=data.error||'API pull failed.';s.retryAt=Date.now()+Math.max(60000,Number(r.headers.get('Retry-After')||0)*1000);return response({...data,retryAfterSeconds:60},r.status);}
+   this.manualPhase='saving';
    await saveHistory(this.env.DB,data.rows,data.completedAt,data.cardNumber?null:{from:data.from,to:data.to});
    await writeSnapshot(this.ctx.storage,data);s.lastSuccess=data.completedAt;s.error=null;
    await this.ctx.storage.put('status',{state:'success',completedAt:data.completedAt,count:data.count});
    return response({...data,retryAfterSeconds:30});
   }catch(e){s.error='Sync did not finish. Saved history was kept.';return response({success:false,error:s.error},502);}
-  finally{await this.ctx.storage.put('historyState',s);await this.schedule(c,s);}
+  finally{this.manualController=null;this.manualId=null;this.manualPhase=null;await this.ctx.storage.put('historyState',s);await this.schedule(c,s);}
  }
  async alarm(){return this.exclusive(async()=>{
   const storage=this.ctx.storage,c=await this.config(),s=await this.state();if(!c.enabled)return;

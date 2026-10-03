@@ -12644,7 +12644,7 @@ var worker_default = {
     if(url.pathname==='/api/admin/statements/preview-file-ticket')return StatementPreviewFile.ticket(request,env);
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
-    if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync","/api/admin/fleet/initialize","/api/admin/fleet/history"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
+    if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync","/api/admin/fleet/cancel","/api/admin/fleet/initialize","/api/admin/fleet/history"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
     if(url.pathname.startsWith("/api/admin/fleet/"))return notificationJson({success:false,error:"Legacy fleet synchronization has been retired. Use Intevacon API."},410);
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});

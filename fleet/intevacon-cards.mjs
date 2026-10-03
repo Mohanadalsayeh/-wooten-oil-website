@@ -20,7 +20,10 @@ async function ensure(db){
   db.prepare(`CREATE TABLE IF NOT EXISTS intevacon_website_cards(run_id TEXT NOT NULL,card_number TEXT NOT NULL,account_number TEXT NOT NULL,payload TEXT NOT NULL,created_ms INTEGER NOT NULL,PRIMARY KEY(run_id,card_number))`),
   db.prepare(`CREATE INDEX IF NOT EXISTS intevacon_website_cards_account ON intevacon_website_cards(run_id,account_number,card_number)`),
   db.prepare(`INSERT OR IGNORE INTO intevacon_card_control(id) VALUES(1)`)
- ]);ready.add(db);
+ ]);
+ const columns=await db.prepare('PRAGMA table_info(intevacon_card_control)').all();
+ if(!columns.results.some(c=>c.name==='manual_request_id')){try{await db.prepare('ALTER TABLE intevacon_card_control ADD COLUMN manual_request_id TEXT').run();}catch(e){const check=await db.prepare('PRAGMA table_info(intevacon_card_control)').all();if(!check.results.some(c=>c.name==='manual_request_id'))throw e;}}
+ ready.add(db);
 }
 const control=db=>db.prepare('SELECT * FROM intevacon_card_control WHERE id=1').first();
 const run=db=>db.prepare('SELECT active_run,last_success FROM intevacon_card_control WHERE id=1').first();
@@ -58,9 +61,23 @@ export async function admin({request,env,actor}){
    await db.prepare(`UPDATE intevacon_card_control SET enabled=?,interval_seconds=?,next_due=?,needs_attention=0 WHERE id=1`).bind(b.enabled?1:0,b.interval_seconds,b.enabled?now+b.interval_seconds*1000:null).run();
    return status(db,actor);
   }
+  if(path==='cancel'){
+   need(typeof b.request_id==='string'&&uuid(b.request_id),'A valid request ID is required.');
+   const current=await control(db);
+   if(current.manual_request_id!==b.request_id)return json({success:false,error:'This card sync is no longer current.'},409);
+   await db.prepare(`UPDATE intevacon_card_control SET requested=0,lease=NULL,lease_until=NULL,expected=NULL,state='cancelled',message='Card sync cancelled. Previous complete cards kept.',next_due=CASE WHEN enabled=1 THEN ?+interval_seconds*1000 ELSE NULL END WHERE id=1 AND manual_request_id=? AND (requested=1 OR lease IS NOT NULL)`).bind(now,b.request_id).run();
+   return json({success:true,cancelled:true});
+  }
+  if(path==='sync'&&b.request_id){
+   need(uuid(b.request_id),'A valid request ID is required.');
+   const c=await control(db);need(c.credential_hash,'Configure card sync first.',409);
+   const queued=await db.prepare(`UPDATE intevacon_card_control SET requested=1,manual_request_id=?,needs_attention=0,state='queued',message='Card sync queued.' WHERE id=1 AND requested=0 AND (lease IS NULL OR lease_until<=?) RETURNING id`).bind(b.request_id,now).first();
+   need(queued,'Another card sync is already pending or running.',409);
+   return json({success:true,request_id:b.request_id});
+  }
   if(path==='sync'){
    const c=await control(db);need(c.credential_hash,'Create and configure the card service credential first.',409);
-   if(!c.lease||c.lease_until<=now)await db.prepare(`UPDATE intevacon_card_control SET requested=1,needs_attention=0,state='queued',message='Card sync queued. Waiting for the cloud service.' WHERE id=1`).run();
+   if(!c.lease||c.lease_until<=now)await db.prepare(`UPDATE intevacon_card_control SET requested=1,manual_request_id=NULL,needs_attention=0,state='queued',message='Card sync queued. Waiting for the cloud service.' WHERE id=1`).run();
    return status(db,actor);
   }
   return json({success:false,error:'Not found.'},404);
@@ -100,7 +117,7 @@ export async function agent({request,env}){
    // An abandoned run never replaces the last complete card snapshot.
    await db.prepare(`UPDATE intevacon_card_control SET lease=NULL,lease_until=NULL,expected=NULL,state='failed',message='Card collection was interrupted. Previous cards were kept.',failures=failures+1,next_due=CASE WHEN enabled=1 THEN ? ELSE NULL END WHERE id=1 AND lease IS NOT NULL AND lease_until<=?`).bind(now+300000,now).run();
    const lease=crypto.randomUUID();
-   const claimed=await db.prepare(`UPDATE intevacon_card_control SET lease=?,lease_until=?,expected=NULL,requested=0,state='collecting',message='Opening Intevacon and collecting cards only.',last_attempt=? WHERE id=1 AND lease IS NULL AND credential_hash=? AND (requested=1 OR (enabled=1 AND needs_attention=0 AND next_due<=?)) RETURNING lease`).bind(lease,now+15*60000,now,c.credential_hash,now).first();
+   const claimed=await db.prepare(`UPDATE intevacon_card_control SET lease=?,lease_until=?,expected=NULL,manual_request_id=CASE WHEN requested=1 THEN manual_request_id ELSE NULL END,requested=0,state='collecting',message='Opening Intevacon and collecting cards only.',last_attempt=? WHERE id=1 AND lease IS NULL AND credential_hash=? AND (requested=1 OR (enabled=1 AND needs_attention=0 AND next_due<=?)) RETURNING lease`).bind(lease,now+15*60000,now,c.credential_hash,now).first();
    if(!claimed)return json({success:true,run:false});
    await db.prepare(`DELETE FROM intevacon_website_cards WHERE created_ms<? AND run_id NOT IN (SELECT COALESCE(active_run,'') FROM intevacon_card_control) AND run_id<>?`).bind(now-86400000,lease).run();
    return json({success:true,run:true,lease});
