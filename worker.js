@@ -2058,14 +2058,33 @@ async function mas90MasterPasswordMatches(value,env){
 }
 __name(mas90MasterPasswordMatches,"mas90MasterPasswordMatches");
 
+// Ver772: verify the authenticated actor, never a username supplied in the body.
+async function mas90CurrentAdminPasswordMatches(request,env,value){
+  const actor=adminRequestActor(request,env),password=String(value||'');
+  if(!password)return false;
+  if(actor.owner)return mas90MasterPasswordMatches(password,env);
+  if(!actor.id)return false;
+  const user=await env.DB.prepare('SELECT password_salt,password_hash,active FROM admin_users WHERE id=? LIMIT 1').bind(actor.id).first();
+  if(!user||!Number(user.active))return false;
+  const actual=await adminPasswordHash(password,user.password_salt),expected=String(user.password_hash||'');
+  if(!expected)return false;
+  let difference=actual.length^expected.length;
+  for(let i=0;i<Math.max(actual.length,expected.length);i++)difference|=(actual.charCodeAt(i)||0)^(expected.charCodeAt(i)||0);
+  return difference===0;
+}
+
 async function adminMas90SyncRequestPost({request,env}){
   if(!env?.DB)return notificationJson({success:false,error:"Customer database is not configured."},503);
   try{
     const body=await request.json().catch(()=>({}));
     if(body.confirmed!==true)return notificationJson({success:false,error:"Confirm that you want to retrieve current MAS 90 data."},400);
-    if(!await mas90MasterPasswordMatches(body.master_password,env)){
-      await adminAudit(env,request,"mas90_sync_request_denied","database","","Incorrect master admin password");
-      return notificationJson({success:false,error:"The master admin password is incorrect."},403);
+    const useCurrentAdmin=Object.hasOwn(body,'current_admin_password');
+    const authorized=useCurrentAdmin
+      ?await mas90CurrentAdminPasswordMatches(request,env,body.current_admin_password)
+      :await mas90MasterPasswordMatches(body.master_password,env);
+    if(!authorized){
+      await adminAudit(env,request,"mas90_sync_request_denied","database","",useCurrentAdmin?"Incorrect signed-in admin password":"Incorrect master admin password");
+      return notificationJson({success:false,error:useCurrentAdmin?"The password for the signed-in admin is incorrect.":"The master admin password is incorrect."},403);
     }
     const recordTypes=body.record_types===undefined?["customers","payments","invoices"]:body.record_types;
     if(!Array.isArray(recordTypes)||!recordTypes.length||recordTypes.some(t=>!["customers","payments","invoices"].includes(t)))return notificationJson({success:false,error:"Select valid MAS 90 datasets."},400);

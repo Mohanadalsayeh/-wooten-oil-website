@@ -1,12 +1,12 @@
-/* Ver758: run selected sources sequentially; retain combined MAS 90 progress messages. */
+/* Ver771: stop the selected sync queue on any failure; retry only unfinished sources. */
 (()=>{
 'use strict';
 const ids=['statementPreview','statementGenerateSend','scheduleGenerateMonthly','scheduleRunMonthly','scheduleTestMonthly','scheduleGenerateWeekly','scheduleRunWeekly','scheduleTestWeekly','schedulePreviewMidmonth','scheduleRunMidmonth','scheduleTestMidmonth','scheduleTestAll'];
 const sources=[['mas90','MAS 90 — Customers, payments & invoices'],['cards','Intevacon — Customer fleet cards'],['transactions','Intevacon — Transactions']];
-let target=null,bypass=null,busy=false,done=false,session='',epoch=0;
+let target=null,bypass=null,busy=false,done=false,session='',epoch=0,currentUsername='';
 const key=()=>document.getElementById('adminKey')?.value.trim()||'';
 const dialog=document.createElement('dialog');dialog.id='woStatementSync';dialog.setAttribute('aria-labelledby','woStatementSyncTitle');
-dialog.innerHTML='<header><h2 id="woStatementSyncTitle">Update data before continuing</h2><button type="button" data-close aria-label="Cancel">×</button></header><div class="ss-body"><p data-action></p><p>Select the data to synchronize first. Leave everything unchecked to use saved data.</p><div data-rows></div><div data-password hidden><label>Master Admin password<input type="password" autocomplete="off" data-master></label><small>Required by the existing MAS 90 authorization. Customers, payments, and invoices synchronize together using the existing office computer scripts.</small></div><p data-message role="status" aria-live="polite"></p></div><footer><button type="button" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></footer>';
+dialog.innerHTML='<header><h2 id="woStatementSyncTitle">Update data before continuing</h2><button type="button" data-close aria-label="Cancel">×</button></header><div class="ss-body"><p data-action></p><p>Select the data to synchronize first. Leave everything unchecked to use saved data.</p><div data-rows></div><div data-password hidden><label>Signed-in admin: <strong data-username>Checking…</strong></label><label>Your admin password<input type="password" autocomplete="current-password" data-master></label><small>Enter the password for the username shown above. Customers, payments, and invoices synchronize together.</small></div><p data-message role="status" aria-live="polite"></p></div><footer><button type="button" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></footer>';
 document.body.append(dialog);const q=s=>dialog.querySelector(s);const rows={};
 for(const [id,label] of sources){const row=document.createElement('div');row.className='ss-row';row.innerHTML='<label class="ss-choice"><span class="ss-toggle"><input type="checkbox"><span class="ss-track" aria-hidden="true"></span></span><span data-choice-label></span></label><div class="ss-progress"><small data-last>Last updated: Checking…</small><progress max="100" value="0" aria-label="'+label+' progress"></progress><small data-status>Use saved data</small></div>';row.querySelector('[data-choice-label]').textContent=label;q('[data-rows]').append(row);rows[id]={node:row,input:row.querySelector('input'),last:row.querySelector('[data-last]'),progress:row.querySelector('progress'),status:row.querySelector('[data-status]'),done:false};rows[id].input.addEventListener('change',()=>{done=false;q('[data-apply]').textContent='Apply';rows[id].status.textContent=rows[id].input.checked?'Ready to synchronize':'Use saved data';q('[data-password]').hidden=!rows.mas90.input.checked;});}
 function date(v){if(!v)return 'Never';const raw=typeof v==='string'&&/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(v)?v.replace(' ','T')+'Z':v;const d=new Date(raw);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'2-digit',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(d)+' CT':'Unavailable';}
@@ -16,6 +16,7 @@ function progress(id,text,value){const r=rows[id];r.status.textContent=text;r.no
 function complete(id,time){rows[id].done=true;progress(id,'Completed',100);last(id,time);}
 async function api(path,body){if(!session||key()!==session)throw Error('Admin session changed. Close this window and sign in again.');const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),120000);try{const response=await fetch('/api/admin/'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'X-Admin-Key':session,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const data=await response.json();if(key()!==session)throw Error('Admin session changed.');if(!response.ok||data.success===false)throw Error(data.error||'Request failed.');return data;}finally{clearTimeout(timeout);}}
 async function timestamps(ticket){await Promise.allSettled([
+ (async()=>{try{const d=await api('auth/me');if(ticket!==epoch)return;currentUsername=String(d.user?.username||'');q('[data-username]').textContent=currentUsername||'Unavailable';}catch{if(ticket===epoch){currentUsername='';q('[data-username]').textContent='Unavailable — sign in again';}}})(),
  (async()=>{try{const d=await api('import-status');if(ticket!==epoch||busy)return;masLast(d);}catch{if(ticket===epoch&&!busy)last('mas90',null,true);}})(),
  (async()=>{try{const d=await api('fleet/cards/status');if(ticket===epoch&&!busy)last('cards',d.last_success);}catch{if(ticket===epoch&&!busy)last('cards',null,true);}})(),
  (async()=>{try{const d=await api('fleet/schedule');if(ticket===epoch&&!busy)last('transactions',d.history?.lastSuccess);}catch{if(ticket===epoch&&!busy)last('transactions',null,true);}})()
@@ -23,7 +24,7 @@ async function timestamps(ticket){await Promise.allSettled([
 function lock(value){busy=value;for(const r of Object.values(rows))r.input.disabled=value;q('[data-apply]').disabled=value;q('[data-cancel]').disabled=value;q('[data-close]').disabled=value;q('[data-master]').disabled=value;}
 function close(){if(busy)return;epoch++;dialog.close();q('[data-master]').value='';target?.focus();target=null;}
 function resume(){if(key()!==session){q('[data-message]').textContent='Your admin session changed. Close and try again.';return;}const original=target;if(!original||!original.isConnected||original.disabled){q('[data-message]').textContent='The original action is no longer available. Close and check your statement selection.';return;}close();bypass=original;try{original.click();}finally{bypass=null;}}
-window.addEventListener('click',event=>{const b=event.target.closest?.('button');if(!b||!ids.includes(b.id)||b===bypass||b.disabled)return;event.preventDefault();event.stopImmediatePropagation();if(dialog.open)return;target=b;session=key();done=false;const ticket=++epoch;for(const r of Object.values(rows)){r.input.checked=false;r.done=false;r.progress.value=0;r.status.textContent='Use saved data';r.last.textContent='Last updated: Checking…';r.node.classList.remove('ss-failed');}q('[data-action]').textContent='Continue to: '+b.textContent.trim();q('[data-password]').hidden=true;q('[data-message]').textContent='';q('[data-apply]').textContent='Apply';lock(false);dialog.showModal();timestamps(ticket);},true);
+window.addEventListener('click',event=>{const b=event.target.closest?.('button');if(!b||!ids.includes(b.id)||b===bypass||b.disabled)return;event.preventDefault();event.stopImmediatePropagation();if(dialog.open)return;target=b;session=key();done=false;currentUsername='';q('[data-username]').textContent='Checking…';const ticket=++epoch;for(const r of Object.values(rows)){r.input.checked=false;r.done=false;r.progress.value=0;r.status.textContent='Use saved data';r.last.textContent='Last updated: Checking…';r.node.classList.remove('ss-failed');}q('[data-action]').textContent='Continue to: '+b.textContent.trim();q('[data-password]').hidden=true;q('[data-message]').textContent='';q('[data-apply]').textContent='Apply';lock(false);dialog.showModal();timestamps(ticket);},true);
 q('[data-close]').onclick=close;q('[data-cancel]').onclick=close;dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
 const pause=()=>new Promise(resolve=>setTimeout(resolve,4000));
 function masProgressMessage(report){
@@ -40,7 +41,7 @@ function masProgressMessage(report){
 }
 async function mas90(password){
  const selected=['customers','payments','invoices'];
- const response=await api('mas90-sync-request',{confirmed:true,master_password:password});const id=response.remote_sync_request?.request_id;if(!id)throw Error('No MAS 90 request ID returned.');
+ const response=await api('mas90-sync-request',{confirmed:true,current_admin_password:password});const id=response.remote_sync_request?.request_id;if(!id)throw Error('No MAS 90 request ID returned.');
  const until=Date.now()+30*60000;
  while(Date.now()<until){const d=await api('import-status'),r=d.remote_sync_request;if(r?.request_id!==id)throw Error('MAS 90 request changed; verify the Health Center.');
   const reported=Number(r.progress_percent);progress('mas90',masProgressMessage(r),Number.isFinite(reported)&&reported>0?Math.min(99,reported):null);
@@ -55,19 +56,26 @@ function centralMinute(value){const p=new Intl.DateTimeFormat('en-CA',{timeZone:
 async function transactions(){const status=await api('fleet/schedule');const days=Number(status.config?.days)===1?1:2;const to=centralMinute(new Date()),from=new Date(Date.parse(to+':00Z')-days*86400000).toISOString().slice(0,16);progress('transactions','Retrieving the last '+days*24+' hours…',null);const d=await api('fleet/sync',{from,to,cardNumber:''});if(!Array.isArray(d.rows)||d.readOnly!==true)throw Error('Unexpected transaction sync response.');complete('transactions',d.completedAt||d.retrieved_at);}
 q('[data-apply]').onclick=async()=>{
  if(busy)return;if(done){resume();return;}const selected=Object.keys(rows).filter(id=>rows[id].input.checked&&!rows[id].done);if(!selected.length){resume();return;}
- const mas=selected.includes('mas90');const password=q('[data-master]').value;if(mas&&!password){q('[data-message]').textContent='Enter the Master Admin password to authorize MAS 90 synchronization.';q('[data-master]').focus();return;}
+ const mas=selected.includes('mas90');if(mas&&!currentUsername){q('[data-message]').textContent='The signed-in admin could not be confirmed. Close and sign in again.';return;}const password=q('[data-master]').value;if(mas&&!password){q('[data-message]').textContent='Enter your signed-in admin password to authorize MAS 90 synchronization.';q('[data-master]').focus();return;}
  lock(true);q('[data-apply]').textContent='Synchronizing…';q('[data-message]').textContent='Keep this window open. The statement action will wait until you click OK.';
  // Work through the checked sources in display order. Each source owns its progress bar,
  // and a later sync cannot begin while an earlier one is still running or polling.
  const jobs=[['mas90',()=>mas90(password)],['cards',cards],['transactions',transactions]].filter(([id])=>selected.includes(id));
  for(const [id] of jobs)progress(id,'Queued — waiting for the previous update',0);
  q('[data-master]').value='';
- let allSucceeded=true;
+ let allSucceeded=true,failedSource=null;
  for(const [id,run] of jobs){
   progress(id,'Starting synchronization…',null);
   try{await run();}
-  catch(e){allSucceeded=false;if(!rows[id].done)progress(id,'Failed: '+(e.name==='AbortError'?'Request timed out. Check sync status before retrying.':e.message),0);}
+  catch(e){
+   allSucceeded=false;failedSource=id;
+   if(!rows[id].done)progress(id,'Failed: '+(e.name==='AbortError'?'Request timed out. Check sync status before retrying.':e.message),0);
+   const failedIndex=jobs.findIndex(([source])=>source===id);
+   for(const [pendingId] of jobs.slice(failedIndex+1))progress(pendingId,'Not started — waiting for the failed update to be corrected',0);
+   break;
+  }
  }
- lock(false);done=allSucceeded;q('[data-apply]').textContent=done?'OK':'Retry failed updates';q('[data-message]').textContent=done?'Selected updates completed. Click OK to continue to '+target.textContent.trim()+'.':'Some updates failed. The statement action has not started. Retry, or cancel and review synchronization status.';
+ lock(false);done=allSucceeded;q('[data-apply]').textContent=done?'OK':'Retry failed updates';q('[data-message]').textContent=done?'Selected updates completed. Click OK to continue to '+target.textContent.trim()+'.':'Synchronization stopped. Remaining updates and the statement action have not started. Correct the failed update, then retry.';
+ if(failedSource==='mas90'){q('[data-password]').hidden=false;q('[data-master]').focus();}
 };
 })();

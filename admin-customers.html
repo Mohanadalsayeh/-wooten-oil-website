@@ -5665,7 +5665,7 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){.schedule-email-spinner{animation:none}}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-statement-sync.css?v=724">
-<script defer src="assets/js/wooten-statement-sync.js?v=758"></script>
+<script defer src="assets/js/wooten-statement-sync.js?v=772"></script>
 <link rel="manifest" href="/push/admin/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/assets/push/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6747,6 +6747,7 @@ SOFTWARE.
             <input id="notifyAudienceOne" type="radio" name="notifyAudience" value="one" checked>
             One customer
           </label>
+          <label class="notify-audience-option"><input id="notifyAudienceSelected" type="radio" name="notifyAudience" value="selected">Selected customers</label>
           <label class="notify-audience-option">
             <input id="notifyAudienceAll" type="radio" name="notifyAudience" value="all">
             All customers with email addresses
@@ -6757,6 +6758,14 @@ SOFTWARE.
         </div>
       </div>
 
+      <div id="notifyRecipientPicker" hidden>
+        <div class="notify-recipient-tools"><label for="notifyRecipientSearch">Find customers<input id="notifyRecipientSearch" type="search" placeholder="Customer number, name or phone"></label><button id="notifyRecipientSearchBtn" type="button" class="secondary">Search</button><button id="notifyRecipientLoad" type="button" class="secondary">Load customers</button></div>
+        <div class="notify-recipient-tools"><button id="notifyRecipientSelect" type="button" class="secondary">Select all matching</button><button id="notifyRecipientClear" type="button" class="secondary">Clear selection</button><button id="notifyRecipientStatements" type="button" class="secondary">Use checked statement customers</button><strong id="notifyRecipientCount">0 selected</strong></div>
+        <p id="notifyRecipientStatus" role="status"></p><div id="notifyRecipientList"></div>
+        <div class="notify-recipient-tools"><button id="notifyRecipientPrev" type="button" class="secondary">Previous</button><span id="notifyRecipientPage"></span><button id="notifyRecipientNext" type="button" class="secondary">Next</button></div>
+        <label class="notify-options"><input id="notifyRecipientConsent" type="checkbox">I confirm our Twilio sender is approved for this use and selected customers have agreed to receive these SMS messages.</label>
+        <progress id="notifyRecipientProgress" value="0" max="1" hidden></progress><div id="notifyRecipientResults" role="log"></div>
+      </div>
       <div class="notify-grid">
         <div class="notify-field">
           <label for="notifyAccount">Customer Number</label>
@@ -10711,6 +10720,7 @@ notifySendEmailInput.addEventListener("change",()=>{
 updateNotificationAudience();
 
 sendCustomerNotificationBtn.addEventListener("click",async()=>{
+  if(document.getElementById("notifyAudienceSelected")?.checked){await window.WootenSendSelectedNotifications();return;}
   const key=document.getElementById("adminKey").value.trim();
   const sendAll=notifyAudienceAll.checked;
   const account=sendAll ? "" : normalizeActivationAccount(notifyAccountInput.value);
@@ -19244,13 +19254,89 @@ body #documentSectionSendStatements .sm-table thead th .wo-table-sort-icon{top:c
     document.getElementById('notifyFileSegments').textContent=total-text;
     document.getElementById('notifyTotalSegments').textContent=total;
     const enabled=document.getElementById('notifySendSms').checked&&!document.getElementById('notifyAudienceAll').checked;
-    document.getElementById('notifyTotalCost').textContent='$'+(enabled?total*0.0083:0).toFixed(4);
-    document.getElementById('notifyTotalCost').title=enabled?'Estimated SMS base cost per recipient; excludes carrier fees.':'SMS delivery is off. Segment counts preview the SMS if enabled.';
-    document.getElementById('notifyEstimateNote').textContent=(enabled?'SMS estimate per recipient':'SMS is off; cost is $0. Counts preview SMS delivery')+' at $0.0083/segment, before carrier fees. Includes subject, company name and closing text. Attachment segments are extra segments added by the first PDF link; other files are delivered through email/portal. Standard-number estimate; toll-free multipart limits may differ.';
+    document.getElementById('notifyTotalCost').textContent='$'+(total*0.0083*Math.max(1,window.WootenNotifyRecipientCount?.()||1)).toFixed(4);
+    document.getElementById('notifyTotalCost').title='Estimate if sent by SMS; excludes carrier fees.';
+    const recipients=window.WootenNotifyRecipientCount?.()||0;
+    document.getElementById('notifyEstimateNote').textContent=(enabled?'SMS enabled. ':'SMS is off. Estimate if sent by SMS. ')+(recipients?recipients+' selected recipient(s). ':'Per recipient. ')+total+' segments per recipient × $0.0083. Excludes carrier fees. Includes subject and automatic text. Attachment segments count the extra segments from the first PDF link; other files are email/portal only. Standard-number estimate; toll-free limits may differ.';
+
   }
   window.WootenUpdateSmsEstimate=update;
   ['notifyMessage','notifySubject'].forEach(id=>document.getElementById(id).addEventListener('input',update));
   ['notifyAttachments','notifySendSms','notifyAudienceOne','notifyAudienceAll'].forEach(id=>document.getElementById(id).addEventListener('change',update));
   update();
+})();
+</script>
+
+<style id="wooten-multiple-sms-ver770">
+#notifyRecipientPicker{padding:18px;margin:16px 0 24px;border:1px solid #cddfea;border-radius:14px;background:#f3f8fc}
+#notifyRecipientPicker[hidden]{display:none!important}.notify-recipient-tools{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}.notify-recipient-tools label{flex:1;min-width:180px}.notify-recipient-tools input{display:block;width:100%;box-sizing:border-box}.notify-recipient-tools button{margin:0!important}
+#notifyRecipientList{max-height:360px;overflow:auto;background:white;border-radius:10px;margin-bottom:14px}
+.notify-recipient-row{display:flex!important;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #e0e8ef;color:#193d59}.notify-recipient-row input{flex:none}.notify-recipient-row small{display:block;color:#61798e}
+#notifyRecipientProgress{width:100%;height:12px;margin:12px 0}#notifyRecipientResults{max-height:200px;overflow:auto;font-size:13px}#notifyRecipientResults p{margin:6px 0}.notify-sms-estimate span:last-child{font-weight:700;color:#193d59;background:#e8f2f9;border-radius:5px;padding:2px 6px}
+</style>
+<script id="wooten-multiple-sms-ver770-script">
+(function(){
+'use strict';
+const el=id=>document.getElementById(id),chosen=new Set();let customers=[],page=1,query='',busy=false,loading=false;
+const radio=el('notifyAudienceSelected'),picker=el('notifyRecipientPicker');
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const matching=()=>customers.filter(c=>[c.account_number,c.account_name,c.phone].join(' ').toLowerCase().includes(query));
+window.WootenNotifyRecipientCount=()=>radio.checked?chosen.size:0;
+function render(){
+ const rows=matching(),pages=Math.max(1,Math.ceil(rows.length/20));page=Math.max(1,Math.min(page,pages));
+ el('notifyRecipientList').innerHTML=rows.slice((page-1)*20,page*20).map(c=>'<label class="notify-recipient-row"><input type="checkbox" data-recipient="'+esc(c.account_number)+'" '+(chosen.has(c.account_number)?'checked ':'')+(!c.phone||busy?'disabled ':'')+'><span>'+esc(c.account_name)+'<small>#'+esc(c.account_number)+' · '+esc(c.phone||'No phone number')+'</small></span></label>').join('');
+ el('notifyRecipientCount').textContent=chosen.size+' selected';el('notifyRecipientPage').textContent='Page '+page+' of '+pages;
+ el('notifyRecipientPrev').disabled=busy||page<=1;el('notifyRecipientNext').disabled=busy||page>=pages;
+ el('notifyRecipientSelect').disabled=busy||!rows.some(c=>c.phone);el('notifyRecipientClear').disabled=busy||!chosen.size;
+ window.WootenUpdateSmsEstimate?.();
+}
+async function load(){
+ if(loading||busy)return;const key=el('adminKey').value.trim();if(!key){el('notifyRecipientStatus').textContent='Sign in as admin first.';return;}
+ loading=true;el('notifyRecipientLoad').disabled=true;el('notifyRecipientStatus').textContent='Loading customers…';
+ try{const response=await fetch('/api/admin/statement-customers',{headers:{'X-Admin-Key':key},cache:'no-store'}),data=await response.json();if(!response.ok||data.success===false)throw Error(data.error||'Customers could not be loaded.');customers=(data.customers||[]).map(c=>({...c,account_number:String(c.account_number)}));const valid=new Set(customers.filter(c=>c.phone).map(c=>c.account_number));for(const id of chosen)if(!valid.has(id))chosen.delete(id);el('notifyRecipientStatus').textContent=customers.length+' customers loaded. Customers without a phone number cannot be selected.';render();}catch(e){el('notifyRecipientStatus').textContent=e.message;}finally{loading=false;el('notifyRecipientLoad').disabled=false;}
+}
+function audience(){
+ if(busy)return;picker.hidden=!radio.checked;
+ if(radio.checked){updateNotificationAudience();el('notifyAccount').disabled=true;el('notifySendSms').disabled=false;el('notifySendSms').checked=true;el('notifySendEmail').checked=false;notifySingleEmailChoice=false;el('notifySmsNote').textContent='Send a separate SMS and portal notification to each checked customer. Email is optional.';sendCustomerNotificationBtn.textContent='Send to Selected Customers';}
+ window.WootenUpdateSmsEstimate?.();
+}
+['notifyAudienceOne','notifyAudienceAll','notifyAudienceSelected'].forEach(id=>el(id).addEventListener('change',audience));
+el('notifyRecipientLoad').addEventListener('click',load);
+function search(){query=el('notifyRecipientSearch').value.trim().toLowerCase();page=1;render();}
+el('notifyRecipientSearchBtn').addEventListener('click',search);el('notifyRecipientSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search();}});
+el('notifyRecipientList').addEventListener('change',e=>{const id=e.target.dataset.recipient;if(!id||busy)return;e.target.checked?chosen.add(id):chosen.delete(id);render();});
+el('notifyRecipientSelect').addEventListener('click',()=>{matching().filter(c=>c.phone).forEach(c=>chosen.add(c.account_number));render();});el('notifyRecipientClear').addEventListener('click',()=>{chosen.clear();render();});
+el('notifyRecipientPrev').addEventListener('click',()=>{page--;render();});el('notifyRecipientNext').addEventListener('click',()=>{page++;render();});
+el('notifyRecipientStatements').addEventListener('click',async()=>{if(!customers.length)await load();const ids=window.WootenStatementGetSelectedAccounts?.()||[];const valid=new Set(customers.filter(c=>c.phone).map(c=>c.account_number));ids.forEach(id=>{if(valid.has(String(id)))chosen.add(String(id));});el('notifyRecipientStatus').textContent=ids.length?'Checked statement customers with phone numbers added.':'Check customers in Statements & Cycles first; you can use a saved list there.';render();});
+window.WootenSendSelectedNotifications=async function(){
+ if(busy)return;
+ const status=el('notifyStatus'),say=(text,bad=false)=>{status.className='status show '+(bad?'bad':'ok');status.textContent=text;};
+ const key=el('adminKey').value.trim(),title=el('notifySubject').value.trim(),message=el('notifyMessage').value.trim(),sms=el('notifySendSms').checked,email=el('notifySendEmail').checked,accounts=Array.from(chosen);
+ if(!key||!title||!message||!accounts.length){say('Sign in, select customers, and enter a subject and message.',true);return;}
+ if(sms&&!el('notifyRecipientConsent').checked){say('Confirm the SMS sender approval and customer consent before sending.',true);return;}
+ if(!confirm('Send to '+accounts.length+' selected customers?\n\nPortal: Yes · SMS: '+(sms?'Yes':'No')+' · Email: '+(email?'Yes':'No')+'\nEstimated SMS base cost: '+(sms?el('notifyTotalCost').textContent:'$0.0000')+' before carrier fees.'))return;
+ busy=true;
+ const controls=Array.from(sendCustomerNotificationBtn.closest('.notify-card').querySelectorAll('input,textarea,button,select')),states=controls.map(x=>x.disabled);controls.forEach(x=>x.disabled=true);
+ el('notifyRecipientResults').replaceChildren();const progress=el('notifyRecipientProgress');progress.hidden=false;progress.max=accounts.length;progress.value=0;
+ const log=text=>{const p=document.createElement('p');p.textContent=text;el('notifyRecipientResults').appendChild(p);};
+ let done=0,sent=0,failed=0;
+ const leave=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',leave);
+ try{
+  const attachments=await collectNotifyAttachments();
+  for(const account of accounts){
+   sendCustomerNotificationBtn.textContent='Sending '+(done+1)+' of '+accounts.length+'…';
+   const name=customers.find(c=>c.account_number===account)?.account_name||account;
+   let response,data;
+   try{response=await fetch('/api/admin/customer-notifications',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Key':key},body:JSON.stringify({account_number:account,title,message,send_email:email,send_sms:sms,attachments})});data=await response.json();}
+   catch(e){chosen.delete(account);log(name+': result unknown. Check communication history before resending. Queue stopped.');throw Error('Connection interrupted. No automatic retry; check communication history before resending this customer.');}
+   if(!response.ok||data.success===false){chosen.delete(account);failed++;log(name+': '+(data.error||'Request failed')+' — check history before retrying.');if(response.status===401||response.status===403||response.status===429||response.status>=500)throw Error('Queue stopped after a server error. Remaining customers are still selected.');}
+   else{chosen.delete(account);if(sms&&!data.sms_sent){failed++;log(name+': SMS not sent. '+(data.warning||'Check communication history.'));}else{sent++;log(name+': '+(sms?'SMS submitted':'Portal notification saved')+(data.warning?' · '+data.warning:''));}}
+   done++;progress.value=done;
+  }
+  say('Finished: '+done+' processed; '+sent+' '+(sms?'SMS submitted (delivery pending)':'completed')+'; '+failed+' need review.',failed>0);
+ }catch(e){say(e.message,true);}
+ finally{window.removeEventListener('beforeunload',leave);busy=false;controls.forEach((x,i)=>x.disabled=states[i]);sendCustomerNotificationBtn.textContent='Send to Selected Customers';render();if(sms)refreshTwilioBalance().catch(()=>{});}
+};
+render();
 })();
 </script>
