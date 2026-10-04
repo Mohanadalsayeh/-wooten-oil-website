@@ -1,19 +1,21 @@
-/* Ver781: admin-only explicit search. Shared viewers are unchanged on customer pages. */
+/* Ver782: admin-only explicit search. Shared viewers are unchanged on customer pages. */
 (function(){
  'use strict';
  if(window.WootenAdminExplicitSearch)return;
  const selector='input[type="search"]',allowed=new WeakSet(),wired=new WeakSet();
  const existing={notifyRecipientSearch:'notifyRecipientSearchBtn',statementCustomerSearch:'statementCustomerSearchButton',activityCustomerSearch:'activityCustomerSearchBtn'};
  const actions={dbSearch:'dbLoadBtn',livePaymentSearch:'livePaymentLoadBtn',invoiceDbSearch:'invoiceDbLoad',invoiceDbComment:'invoiceDbLoad',requestCenterSearch:'requestCenterLoad',applicationSearch:'applicationLoad'};
- const insideIds=new Set(['dbSearch','livePaymentSearch','invoiceDbSearch','invoiceDbComment','adminFleetCardSearch','apiTestSearch','collectionsSearch','applicationSearch','communicationLogSearch','inboxSearch','requestCenterSearch','adminActivitySearch']);
+ const insideIds=new Set(['dbSearch','livePaymentSearch','invoiceDbSearch','invoiceDbComment','adminFleetCardSearch','apiTestSearch','collectionsSearch','applicationSearch','communicationLogSearch','inboxSearch','requestCenterSearch','adminActivitySearch','activityCustomerSearch','ptSearch','statementCustomerSearch','scheduleReportSearch','notifyRecipientSearch']);
  function placeInside(input,button){
   if(!insideIds.has(input.id))return false;
   let wrap=input.parentElement;
-  if(!wrap.matches('.admin-activity-search-wrap')){
+  if(!wrap.matches('.admin-activity-search-wrap,.schedule-report-search-field')){
    wrap=document.createElement('span');wrap.className='wooten-search-inside';
    input.before(wrap);wrap.append(input);
   }else wrap.classList.add('wooten-search-inside');
-  button.classList.add('wooten-search-inside-button');wrap.append(button);
+  button.classList.add('wooten-search-inside-button');
+  if(input.id==='activityCustomerSearch'||input.id==='ptSearch')button.textContent='Search';
+  wrap.append(button);
   return true;
  }
  const isSearch=el=>el instanceof HTMLInputElement&&el.matches(selector);

@@ -49,3 +49,22 @@ body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button{min-wi
 body#wooten-admin-page .admin-activity-search-wrap.wooten-search-inside input{padding-right:138px!important}
 body#wooten-admin-page .wooten-search-inside .admin-activity-search-clear{right:98px!important}
 }
+
+/* Ver782 — match the remaining five reviewed admin forms. */
+body#wooten-admin-page .activity-search-row,
+body#wooten-admin-page #notifyRecipientPicker .notify-recipient-search-row{grid-template-columns:minmax(0,1fr)!important}
+body#wooten-admin-page #notifyRecipientPicker .notify-recipient-search-row .wooten-search-inside{margin-top:8px!important}
+body#wooten-admin-page #documentSectionSendStatements .statement-batch-controls .statement-search-field{display:block!important;grid-template-columns:none!important;grid-template-rows:none!important}
+body#wooten-admin-page #documentSectionSendStatements .statement-search-field label{margin-bottom:8px!important}
+body#wooten-admin-page #documentSectionSendStatements #statementCustomerSearch{height:56px!important;min-height:56px!important;max-height:56px!important}
+body#wooten-admin-page #documentSectionSendStatements #statementCustomerSearchButton{height:44px!important;min-height:44px!important;max-height:44px!important;min-width:88px!important;padding:0 15px!important}
+body#wooten-admin-page #documentSectionSendStatements .statement-batch-controls select{height:56px!important;min-height:56px!important;box-sizing:border-box!important}
+body#wooten-admin-page .schedule-report-search-row{grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important}
+body#wooten-admin-page .schedule-report-search-field.wooten-search-inside{padding:0!important;border:0!important;background:transparent!important;height:56px!important}
+body#wooten-admin-page .schedule-report-search-field.wooten-search-inside>svg{position:absolute;left:16px;top:18px;width:20px;height:20px;pointer-events:none;z-index:1}
+body#wooten-admin-page .schedule-report-search-field.wooten-search-inside input{padding-left:48px!important}
+body#wooten-admin-page .pt-filters .pt-search{min-width:0!important}
+@media(max-width:650px){
+body#wooten-admin-page .schedule-report-search-row{grid-template-columns:minmax(0,1fr)!important}
+body#wooten-admin-page #documentSectionSendStatements #statementCustomerSearchButton{min-width:80px!important;padding:0 11px!important}
+}
