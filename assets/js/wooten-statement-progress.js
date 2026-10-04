@@ -97,6 +97,9 @@
   function rowHtml(row,job){
     const channels=['portal','email','sms'].map(name=>row.channels?.[name]||{status:'queued'});
     const isDone=['complete','failed','stopped'].includes(row.stage),hasError=row.stage==='failed'||row.stage==='stopped'||channels.some(c=>c.status==='failed');
+    const deliveryFailures=channels.slice(1).filter(channel=>channel.status==='failed').length;
+    const deliverySelected=channels.slice(1).filter(channel=>channel.status!=='not_selected');
+    const deliveryState=deliveryFailures===2?'failed':deliveryFailures===1?'partial':deliverySelected.length>0&&deliverySelected.every(channel=>['sent','accepted','delivered'].includes(channel.status))?'success':hasError?'failed':'pending';
     const partialDeliveryFailure=channels.slice(1).filter(channel=>channel.status==='failed').length===1;
     const selected=channels.filter(c=>c.status!=='not_selected'),finished=selected.filter(c=>!['queued','sending'].includes(c.status)).length;
     const percent=isDone?100:Math.round(((row.pdf_ready?1:0)+finished)/(1+selected.length)*100);
@@ -111,7 +114,7 @@
       ?'<a '+pdfAttrs+' href="'+esc(pdfState.url)+'" download="'+esc(pdfState.filename)+'"><span>Save PDF</span></a>'
       :'<button type="button" '+pdfAttrs+(opening?' disabled aria-busy="true"':'')+'><span>'+(opening?'Preparing PDF…':'Save PDF')+'</span></button>')+'</div>':'';
     const pdfMessage=pdfState?.message?'<small class="'+(pdfState.error?'sp-pdf-error':'sp-pdf-hint')+'" role="status">'+esc(pdfState.message)+'</small>':'';
-    return '<tr class="'+(hasError?'sp-has-error':'')+(partialDeliveryFailure?' sp-partial-delivery-failure':'')+'"><td>'+name+pdfLink+'<small>Customer # '+esc(row.account_number)+(job.source==='test'?' • Test':'')+'</small>'+pdfMessage+(!row.pdf_ready?'<small>PDF '+(isDone?'unavailable':'pending')+'</small>':'')+'</td><td class="sp-balance">'+money(row.total_balance)+'</td><td><span class="'+(hasError?'sp-row-error':'')+'">'+esc(status)+'</span><progress max="100" value="'+percent+'" aria-label="Progress for '+esc(row.account_name)+'"></progress><small>'+percent+'%'+(row.error?' • '+esc(row.error):'')+'</small></td>'+channels.map(c=>'<td><span class="sp-badge" data-state="'+esc(c.status)+'">'+esc(labels[c.status]||c.status)+'</span>'+(c.reason?'<small>'+esc(c.reason)+'</small>':'')+'</td>').join('')+'</tr>';
+    return '<tr data-delivery-state="'+deliveryState+'" class="'+(hasError?'sp-has-error':'')+(partialDeliveryFailure?' sp-partial-delivery-failure':'')+'"><td>'+name+pdfLink+'<small>Customer # '+esc(row.account_number)+(job.source==='test'?' • Test':'')+'</small>'+pdfMessage+(!row.pdf_ready?'<small>PDF '+(isDone?'unavailable':'pending')+'</small>':'')+'</td><td class="sp-balance">'+money(row.total_balance)+'</td><td><span class="'+(hasError?'sp-row-error':'')+'">'+esc(status)+'</span><progress max="100" value="'+percent+'" aria-label="Progress for '+esc(row.account_name)+'"></progress><small>'+percent+'%'+(row.error?' • '+esc(row.error):'')+'</small></td>'+channels.map(c=>'<td><span class="sp-badge" data-state="'+esc(c.status)+'">'+esc(labels[c.status]||c.status)+'</span>'+(c.reason?'<small>'+esc(c.reason)+'</small>':'')+'</td>').join('')+'</tr>';
   }
   function render(){
     if(!host)return;

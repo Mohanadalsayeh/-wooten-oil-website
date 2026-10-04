@@ -1,6 +1,34 @@
 /* Ver736: every preview uses a new in-portal document, including Windows browser tabs. */
 import {statementBuildCombinedPdf} from './wooten-statement-pdf.mjs?v=494';
-import {openStatementAppPreview} from './wooten-statement-app-preview.mjs?v=757';
+import {openStatementAppPreview} from './wooten-statement-app-preview.mjs?v=787';
+
+// Installed apps retain their closable viewer; browser previews use a fresh tab.
+function installedStatementApp(){
+  return navigator.standalone===true||['standalone','fullscreen','minimal-ui'].some(mode=>window.matchMedia?.('(display-mode: '+mode+')').matches);
+}
+function openStatementPreview(returnFocus){
+  if(installedStatementApp())return openStatementAppPreview(returnFocus);
+  const tab=window.open('about:blank','_blank');
+  if(!tab)return openStatementAppPreview(returnFocus);
+  tab.opener=null;
+  tab.document.title='Preparing statement preview';
+  tab.document.body.textContent='Preparing your statement PDF…';
+  tab.document.body.style.cssText='font:16px system-ui;padding:24px;color:#17364d';
+  let opened=false;
+  return {
+    get closed(){return tab.closed;},
+    message(text){if(!tab.closed&&!opened)tab.document.body.textContent=text;},
+    async show(bytes,filename){
+      if(tab.closed)return;
+      const file=new File([bytes],filename,{type:'application/pdf'});
+      const url=URL.createObjectURL(file);
+      try{tab.location.replace(url);opened=true;}
+      catch(error){URL.revokeObjectURL(url);throw error;}
+      // Retain the document while its native viewer is open, including Save/Print.
+      const cleanup=setInterval(()=>{if(tab.closed){clearInterval(cleanup);URL.revokeObjectURL(url);}},10000);
+    }
+  };
+}
 
 const section=document.getElementById('documentSectionSendStatements');
 const button=document.getElementById('statementPreview');
@@ -43,7 +71,7 @@ if(section&&button&&status){
 
     let fleet;
 
-    const appPreview=openStatementAppPreview(button);
+    const appPreview=openStatementPreview(button);
     const controls=Array.from(section.querySelectorAll('input,select,button'));
     const disabled=controls.map(control=>control.disabled);
     controls.forEach(control=>{control.disabled=true;});

@@ -68,3 +68,18 @@ body#wooten-admin-page .pt-filters .pt-search{min-width:0!important}
 body#wooten-admin-page .schedule-report-search-row{grid-template-columns:minmax(0,1fr)!important}
 body#wooten-admin-page #documentSectionSendStatements #statementCustomerSearchButton{min-width:80px!important;padding:0 11px!important}
 }
+
+/* Ver789 — statement delivery progress and inset search. */
+body#wooten-admin-page .sp-actions{display:grid!important;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto!important;align-items:end!important;gap:16px!important}
+body#wooten-admin-page .sp-actions>label{display:block!important;min-width:0!important;margin:0!important}
+body#wooten-admin-page .sp-actions>label>span:first-child{display:block;margin-bottom:8px}
+body#wooten-admin-page .sp-actions #sp-filter,body#wooten-admin-page .sp-actions .sp-export{height:56px!important;min-height:56px!important;box-sizing:border-box!important;margin:0!important;width:100%!important}
+body#wooten-admin-page .sp-table tr[data-delivery-state=failed]{--delivery-color:#b42318}
+body#wooten-admin-page .sp-table tr[data-delivery-state=partial]{--delivery-color:#b85c00}
+body#wooten-admin-page .sp-table tr[data-delivery-state=success]{--delivery-color:#16803c}
+body#wooten-admin-page .sp-table tr[data-delivery-state=pending]{--delivery-color:#247dab}
+body#wooten-admin-page .sp-table tr[data-delivery-state] td:nth-child(3)>span{color:var(--delivery-color)!important}
+body#wooten-admin-page .sp-table tr[data-delivery-state] progress{accent-color:var(--delivery-color)!important;color:var(--delivery-color)!important}
+body#wooten-admin-page .sp-table tr[data-delivery-state] progress::-webkit-progress-value{background:var(--delivery-color)!important}
+body#wooten-admin-page .sp-table tr[data-delivery-state] progress::-moz-progress-bar{background:var(--delivery-color)!important}
+@media(max-width:700px){body#wooten-admin-page .sp-actions{grid-template-columns:minmax(0,1fr)!important}}

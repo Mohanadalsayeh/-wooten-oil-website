@@ -58,9 +58,9 @@ export function openStatementAppPreview(returnFocus){
   styles();
   const controller=new AbortController(),dialog=document.createElement('dialog');
   dialog.id='wootenStatementAppPreview';dialog.tabIndex=-1;dialog.setAttribute('aria-labelledby','wspTitle');
-  dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-customer"></p><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><div class="wsp-actions"><button class="wsp-print" type="button" disabled>Print</button><button class="wsp-save" type="button" disabled>Save PDF</button></div></footer>`;
+  dialog.innerHTML=`<header><div class="wsp-heading"><h2 id="wspTitle" tabindex="-1">Statement Preview</h2><button class="wsp-close" type="button" aria-label="Close statement preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="wsp-customer"></p><p class="wsp-filename">Preparing your statements…</p><div class="wsp-toolbar"><button class="wsp-back" type="button">‹ Back to Statements</button><div class="wsp-zoom"><button class="wsp-out" type="button" aria-label="Zoom out" disabled>−</button><button class="wsp-fit" type="button" disabled>Fit width</button><button class="wsp-in" type="button" aria-label="Zoom in" disabled>+</button></div></div></header><div class="wsp-scroll"><p class="wsp-notice" role="status" aria-live="polite">Preparing your preview. Nothing is being sent.</p><div class="wsp-paper"></div></div><footer><div class="wsp-pages"><button class="wsp-prev" type="button" disabled>Previous</button><label>Page <input class="wsp-page" type="number" min="1" value="1" inputmode="numeric" aria-label="Preview page number" disabled> <span class="wsp-count">of —</span></label><button class="wsp-next" type="button" disabled>Next</button></div><div class="wsp-actions"><button class="wsp-print" type="button" disabled>Print</button><button class="wsp-save" type="button" disabled>Save PDF</button><button class="wsp-share" type="button" disabled>Share</button></div></footer>`;
   const q=selector=>dialog.querySelector(selector),notice=q('.wsp-notice'),paper=q('.wsp-paper'),scroller=q('.wsp-scroll');
-  const previous=q('.wsp-prev'),next=q('.wsp-next'),pageInput=q('.wsp-page'),save=q('.wsp-save');
+  const previous=q('.wsp-prev'),next=q('.wsp-next'),pageInput=q('.wsp-page'),save=q('.wsp-save'),share=q('.wsp-share');
   const zoomOut=q('.wsp-out'),zoomIn=q('.wsp-in'),fit=q('.wsp-fit');
   let closed=false,loadingTask=null,pdfDocument=null,renderTask=null,currentPage=1,zoom=1,serial=0,resizeTimer,downloadUrl=null;
   let previewFile=null,shareSupported=false, sheets=[],painting=false,paintAgain=false,layoutSerial=0;
@@ -158,13 +158,15 @@ export function openStatementAppPreview(returnFocus){
   zoomOut.addEventListener('click',()=>{zoom=Math.max(1,zoom-.5);renderPage();});
   zoomIn.addEventListener('click',()=>{zoom=Math.min(3,zoom+.5);renderPage();});
   fit.addEventListener('click',()=>{zoom=1;renderPage();});
-  save.addEventListener('click',async()=>{
+  share.addEventListener('click',async()=>{
+    if(!previewFile||!shareSupported)return;
+    share.disabled=true;
+    try{await navigator.share({files:[previewFile],title:'Wooten Oil statement preview'});}
+    catch(error){if(error.name!=='AbortError')notice.textContent='The sharing menu could not open. Use Save PDF to download the statement.';}
+    finally{if(!closed)share.disabled=!shareSupported;}
+  });
+  save.addEventListener('click',()=>{
     if(!previewFile)return;
-    if(shareSupported){
-      try{await navigator.share({files:[previewFile],title:'Wooten Oil statement preview'});}
-      catch(error){if(error.name!=='AbortError')notice.textContent='The sharing menu could not open. Please try again.';}
-      return;
-    }
     // A download is explicit; previewing never navigates the installed app.
     if(!downloadUrl)downloadUrl=URL.createObjectURL(previewFile);
     const link=document.createElement('a');link.href=downloadUrl;link.download=previewFile.name;link.hidden=true;
@@ -193,7 +195,7 @@ export function openStatementAppPreview(returnFocus){
       q('.wsp-filename').textContent=filename;
       previewFile=new File([bytes],filename,{type:'application/pdf'});
       try{shareSupported=!!navigator.canShare?.({files:[previewFile]})&&typeof navigator.share==='function';}catch{shareSupported=false;}
-      save.textContent=shareSupported?'Share / Save PDF':'Save PDF';save.disabled=false;print.disabled=false;
+      save.disabled=false;print.disabled=false;share.disabled=!shareSupported;share.title=shareSupported?'Share this PDF':'Sharing is unavailable in this browser. Use Save PDF.';
       try{
         const pdfjs=await loadRenderer();if(closed)return;
         loadingTask=pdfjs.getDocument({data:new Uint8Array(bytes).slice(),isEvalSupported:false,standardFontDataUrl:new URL('standard_fonts/',vendor).href});

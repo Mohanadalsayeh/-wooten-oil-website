@@ -5,7 +5,7 @@
  const selector='input[type="search"]',allowed=new WeakSet(),wired=new WeakSet();
  const existing={notifyRecipientSearch:'notifyRecipientSearchBtn',statementCustomerSearch:'statementCustomerSearchButton',activityCustomerSearch:'activityCustomerSearchBtn'};
  const actions={dbSearch:'dbLoadBtn',livePaymentSearch:'livePaymentLoadBtn',invoiceDbSearch:'invoiceDbLoad',invoiceDbComment:'invoiceDbLoad',requestCenterSearch:'requestCenterLoad',applicationSearch:'applicationLoad'};
- const insideIds=new Set(['dbSearch','livePaymentSearch','invoiceDbSearch','invoiceDbComment','adminFleetCardSearch','apiTestSearch','collectionsSearch','applicationSearch','communicationLogSearch','inboxSearch','requestCenterSearch','adminActivitySearch','activityCustomerSearch','ptSearch','statementCustomerSearch','scheduleReportSearch','notifyRecipientSearch']);
+ const insideIds=new Set(['sp-search','dbSearch','livePaymentSearch','invoiceDbSearch','invoiceDbComment','adminFleetCardSearch','apiTestSearch','collectionsSearch','applicationSearch','communicationLogSearch','inboxSearch','requestCenterSearch','adminActivitySearch','activityCustomerSearch','ptSearch','statementCustomerSearch','scheduleReportSearch','notifyRecipientSearch']);
  function placeInside(input,button){
   if(!insideIds.has(input.id))return false;
   let wrap=input.parentElement;
