@@ -8,6 +8,10 @@ const money=cents=>Number.isSafeInteger(cents)?(cents/100).toLocaleString('en-US
 function wrap(v,n){const s=plain(v)||'-',lines=[];let line='';for(let word of s.split(' ')){while(word.length>n){if(line){lines.push(line);line='';}lines.push(word.slice(0,n));word=word.slice(n);}if(!word)continue;if(line.length+word.length+1>n){lines.push(line);line='';}line+=(line?' ':'')+word;}if(line)lines.push(line);return lines;}
 function day(v){const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);return m?m[2]+'/'+m[3]+'/'+m[1]+(m[4]?' '+m[4]+':'+m[5]:''):plain(v)||'-';}
 function central(v){if(!v)return 'Not available';const date=new Date(v);return Number.isFinite(date.getTime())?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(date)+' CT':'Not available';}
+function roundedPath(x,y,w,h,r=6){
+ const k=r*0.55228475;
+ return `${x+r} ${y} m ${x+w-r} ${y} l ${x+w-r+k} ${y} ${x+w} ${y+r-k} ${x+w} ${y+r} c ${x+w} ${y+h-r} l ${x+w} ${y+h-r+k} ${x+w-r+k} ${y+h} ${x+w-r} ${y+h} c ${x+r} ${y+h} l ${x+r-k} ${y+h} ${x} ${y+h-r+k} ${x} ${y+h-r} c ${x} ${y+r} l ${x} ${y+r-k} ${x+r-k} ${y} ${x+r} ${y} c h`;
+}
 export function pages(fleet,customer,statementDate,letterhead){
  // Ver718: omit zero-gallon cards before pagination and numbering.
  const cards=(fleet?.cards||[]).filter(card=>card.total!==0);
@@ -15,7 +19,17 @@ export function pages(fleet,customer,statementDate,letterhead){
  const result=[];let ops=[],y=0;
  const text=(x,top,value,size=9,bold=false)=>ops.push(`BT /${bold?'F2':'F1'} ${size} Tf 100 Tz 0.08 0.19 0.29 rg ${x} ${top} Td (${esc(value)}) Tj ET`);
  const line=top=>ops.push(`0.82 0.88 0.92 RG 0.5 w 42 ${top} m 570 ${top} l S`);
- const finish=()=>{line(82);text(42,68,'Fleet data retrieved: '+central(fleet.retrieved),8);text(42,56,'Saved API results through '+day(fleet.through)+'. Totals include completed transactions only.',7.5);result.push(ops.join('\n'));ops=[];};
+ let table=null;
+ const beginTable=()=>{table={index:ops.length,top:y};};
+ const endTable=()=>{
+  if(!table)return;
+  const path=roundedPath(42,y,528,table.top-y);
+  // Clip the complete table, including blue header and row separators, to its rounded outline.
+  ops.splice(table.index,0,`q ${path} W n`);
+  ops.push(`Q q 0.80 0.86 0.90 RG 0.65 w ${path} S Q`);
+  table=null;
+ };
+ const finish=()=>{endTable();line(82);text(42,68,'Fleet data retrieved: '+central(fleet.retrieved),8);text(42,56,'Saved API results through '+day(fleet.through)+'. Totals include completed transactions only.',7.5);result.push(ops.join('\n'));ops=[];};
  const cols=[42,114,218,332,434,500],widths=[72,104,114,102,66,70];
  const single=(x,top,value,width,bold=false,right=false)=>{
   const v=plain(value)||'-';
@@ -27,7 +41,7 @@ export function pages(fleet,customer,statementDate,letterhead){
  };
  const shortDay=v=>day(v).replace(/(\d{2}\/\d{2}\/)\d{2}(\d{2})/,'$1$2');
  const labels=['TRANS #','DATE / TIME','LOCATION','FUEL','GALLONS','SALE'];
- const headings=()=>{ops.push(`0.94 0.97 0.99 rg 42 ${y-30} 528 30 re f`);labels.forEach((v,i)=>v.split('|').forEach((part,j)=>text(cols[i]+4,y-17.6-j*10,part,7.3,true)));y-=32;};
+ const headings=()=>{beginTable();ops.push(`0.94 0.97 0.99 rg 42 ${y-30} 528 30 re f`);labels.forEach((v,i)=>v.split('|').forEach((part,j)=>text(cols[i]+4,y-17.6-j*10,part,7.3,true)));y-=32;};
  let card,cardIndex=0,continued=false;
  function startPage(){
   // Full company letterhead appears once at the start of this customer's fleet section.
@@ -48,7 +62,7 @@ export function pages(fleet,customer,statementDate,letterhead){
  function cardHeader(){
   const details=cardDetails();
   const height=35+details.length*11;
-  ops.push(`0.94 0.97 0.99 rg 42 ${y-height+13} 528 ${height} re f`);
+  ops.push(`q 0.94 0.97 0.99 rg 0.80 0.86 0.90 RG 0.65 w ${roundedPath(42,y-height+13,528,height)} B Q`);
   text(50,y-5,'(Card '+(cardIndex+1)+'/'+cards.length+') '+(card.info.card_number||'Not reported')+(continued?' - continued':''),12,true);y-=17;
   for(const v of details){text(50,y-5,v,8);y-=11;}
   y-=18;headings();
@@ -58,6 +72,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   text(42,y,'Fuel Summary - All Cards',12,true);y-=18;
   text(42,y,'Completed fuel only. Base Price and taxes are dollar amounts, not per-gallon rates.',7.5);y-=15;
   const xs=[42,173,240,306,372,438,504],ws=[131,67,66,66,66,66,66];
+  beginTable();
   ops.push(`0.94 0.97 0.99 rg 42 ${y-25} 528 25 re f`);
   ['PRODUCT','QUANTITY (GAL)','BASE PRICE','FEDERAL TAX','STATE TAX','OTHER TAXES','TOTAL'].forEach((v,i)=>single(xs[i],y-15,v,ws[i],true,i>0));y-=27;
  }
@@ -70,7 +85,7 @@ export function pages(fleet,customer,statementDate,letterhead){
  const summary=fuelSummary(cards);
  for(const row of summary.rows){if(y<160){finish();startPage();summaryHead();}summaryRow(row);}
  if(y<175){finish();startPage();summaryHead();}
- summaryRow(summary.total,true);y-=14;
+ summaryRow(summary.total,true);endTable();y-=14;
  text(42,y,'- = breakdown unavailable or incomplete. Base amounts count once per fuel product line.',7.5);y-=12;
  text(42,y,'Fuel summary total = base + charged taxes. Card sales are the reported transaction sale amounts.',7.5);y-=12;
  for(const [index,currentCard] of cards.entries()){
@@ -91,7 +106,7 @@ export function pages(fleet,customer,statementDate,letterhead){
    y-=24;line(y);
   }
 
-  if(y<180)next();y-=23;
+  if(y<180)next();endTable();y-=23;
   text(42,y,(card.missing?'Known completed gallons':'Total gallons used')+' for this card: '+qty(card.total),11,true);y-=16;
   const completed=card.transactions.filter(t=>t.complete);
   const missingAmounts=completed.filter(t=>!Number.isSafeInteger(t.saleCents)).length;
