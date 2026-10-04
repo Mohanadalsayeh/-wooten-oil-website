@@ -10455,6 +10455,14 @@ function fileToBase64(file){
   });
 }
 
+function clearNotifyAttachmentsAfterSend(){
+  if(!notifyAttachmentsInput) return;
+  notifyAttachmentsInput.value="";
+  notifyAttachmentsInput.dispatchEvent(new Event("change",{bubbles:true}));
+  renderNotifyAttachmentList();
+  window.WootenUpdateSmsEstimate?.();
+}
+
 async function collectNotifyAttachments(){
   const files=Array.from(notifyAttachmentsInput?.files||[]);
   if(!files.length) return [];
@@ -10894,15 +10902,11 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
         (data.warning?` ${data.warning}`:"");
     }
 
-    if(data.sms_sent) await refreshTwilioBalance();
+    if(data.sms_sent) refreshTwilioBalance().catch(()=>{});
     document.getElementById("notifySubject").value="";
     document.getElementById("notifyMessage").value="";
     if(notifySendSms) notifySendSms.checked=false;
-    if(notifyAttachmentsInput){
-      notifyAttachmentsInput.value="";
-      renderNotifyAttachmentList();
-      window.WootenUpdateSmsEstimate?.();
-    }
+    clearNotifyAttachmentsAfterSend();
   }catch(error){
     status.className="status show bad";
     status.textContent=error.message||"Could not send notification.";
@@ -19469,6 +19473,7 @@ window.WootenSendSelectedNotifications=async function(){
    else{chosen.delete(account);if(sms&&!data.sms_sent){failed++;log(name+': SMS not sent. '+(data.warning||'Check communication history.'));}else{sent++;log(name+': '+(sms?'SMS submitted':'Portal notification saved')+(data.warning?' · '+data.warning:''));}}
    done++;progress.value=done;
   }
+  if(failed===0) clearNotifyAttachmentsAfterSend();
   say('Finished: '+done+' processed; '+sent+' '+(sms?'SMS submitted (delivery pending)':'completed')+'; '+failed+' need review.',failed>0);
  }catch(e){say(e.message,true);}
  finally{window.removeEventListener('beforeunload',leave);busy=false;controls.forEach((x,i)=>x.disabled=states[i]);sendCustomerNotificationBtn.textContent='Send to Selected Customers';render();if(sms)refreshTwilioBalance().catch(()=>{});}
