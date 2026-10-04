@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="assets/js/wooten-admin-explicit-search.js?v=779"></script>
+<script src="assets/js/wooten-admin-explicit-search.js?v=781"></script>
 <style>
 .schedule-report-search-row:has(>.wooten-explicit-search-button){grid-template-columns:minmax(0,1fr) auto auto}
 .wooten-explicit-search-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:90px;margin:8px 0;white-space:nowrap}
@@ -5709,8 +5709,9 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 #notifyRecipientList .notify-recipient-found{background:#fff5cf;box-shadow:inset 3px 0 #21699b}
 .notify-field[hidden]{display:none!important}.notify-grid.notify-selected-layout{grid-template-columns:minmax(0,1fr)!important}
 </style>
+<link rel="stylesheet" href="assets/css/wooten-admin-search-layout.css?v=781">
 </head>
-<body>
+<body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
   <div class="admin-login-site-preview" aria-hidden="true"></div>
 </div>
@@ -6608,22 +6609,19 @@ SOFTWARE.
     <div class="admin-page-label">Customer Messages</div>
     <h2>Customer Messages</h2>
     <p>View Fuel Delivery Requests and Website Messages received by support@wootenoil.com.</p>
-    <div class="actions phone-outbox-actions">
-      <button class="primary" id="loadInboxBtn" type="button">Load Outbox</button>
-      <button class="secondary" id="refreshInboxBtn" type="button">Refresh</button>
-    </div>
+
     <div id="inboxStatus" class="status"></div>
     <div class="preview-progress" id="inboxLoadProgress" hidden>
       <div class="preview-progress-head"><strong id="inboxLoadProgressLabel">Loading outbox…</strong><span id="inboxLoadProgressCount">Preparing</span></div>
       <div class="preview-progress-track" id="inboxLoadProgressTrack" role="progressbar" aria-label="Customer message outbox loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="inboxLoadProgressBar"></span></div>
     </div>
     <div class="inbox-tools">
-      <input id="inboxSearch" type="search" placeholder="Search name, account #, email, subject or message">
-      <select id="inboxTypeFilter">
+      <div class="wooten-inbox-search-field"><label for="inboxSearch">Search</label><input id="inboxSearch" type="search" placeholder="Search name, account #, email, subject or message"></div>
+      <div class="wooten-inbox-type-field"><label for="inboxTypeFilter">Message Type</label><select id="inboxTypeFilter">
         <option value="">All message types</option>
         <option value="Fuel Request">Fuel Requests</option>
         <option value="Website Message">Website Messages</option>
-      </select>
+      </select></div>
 
       <label class="inbox-sort-label" for="inboxSort">
         Sort by
@@ -6640,6 +6638,10 @@ SOFTWARE.
       </label>
 
       <span id="inboxFilterCount" class="inbox-count"></span>
+    </div>
+    <div class="actions phone-outbox-actions">
+      <button class="primary" id="loadInboxBtn" type="button">Load Outbox</button>
+      <button class="secondary" id="refreshInboxBtn" type="button">Refresh</button>
     </div>
 
     <div id="inboxTableWrap" style="display:none">

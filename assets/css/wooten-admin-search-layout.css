@@ -1,0 +1,51 @@
+/* Ver781 — eleven admin search sections; search remains explicit. */
+body#wooten-admin-page .wooten-search-inside{position:relative!important;display:block!important;min-width:0!important;width:100%!important;margin:0!important;box-sizing:border-box!important}
+body#wooten-admin-page .wooten-search-inside input[type=search]{box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:56px!important;min-height:56px!important;margin:0!important;padding-right:112px!important}
+body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button{position:absolute!important;right:6px!important;top:6px!important;bottom:6px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;width:auto!important;min-width:88px!important;height:44px!important;min-height:44px!important;padding:0 15px!important;margin:0!important;border:0!important;border-radius:8px!important;background:#d91e26!important;color:#fff!important;font:inherit!important;font-size:16px!important;line-height:1!important;white-space:nowrap!important;box-shadow:none!important;transform:none!important}
+body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button:hover{background:#bd1820!important}
+body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button:active{background:#a7131a!important}
+body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button:focus-visible{outline:2px solid #173b57!important;outline-offset:2px!important}
+body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button:disabled{background:#e59095!important;color:#fff!important;cursor:not-allowed!important}
+body#wooten-admin-page .admin-activity-search-wrap.wooten-search-inside input{padding-right:148px!important}
+body#wooten-admin-page .wooten-search-inside .admin-activity-search-clear{right:108px!important}
+body#wooten-admin-page .db-toolbar:has(#dbSearch),body#wooten-admin-page .live-payment-toolbar,body#wooten-admin-page .invoice-db-toolbar,body#wooten-admin-page .collections-filters,body#wooten-admin-page .application-filters,body#wooten-admin-page .request-center-filters,body#wooten-admin-page .communication-log-filters,body#wooten-admin-page .inbox-tools,body#wooten-admin-page .admin-activity-search-row,body#wooten-admin-page .cards-inventory-search{display:grid!important;gap:18px!important;align-items:end!important}
+body#wooten-admin-page .db-toolbar:has(#dbSearch),body#wooten-admin-page .live-payment-toolbar{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+body#wooten-admin-page .db-toolbar .db-search,body#wooten-admin-page .live-payment-search,body#wooten-admin-page .db-toolbar .db-actions,body#wooten-admin-page .live-payment-toolbar .live-payment-actions{grid-column:1/-1!important}
+body#wooten-admin-page .invoice-db-toolbar{grid-template-columns:repeat(10,minmax(0,1fr))!important}
+body#wooten-admin-page .invoice-db-toolbar>.db-field{grid-column:span 2!important}
+body#wooten-admin-page .invoice-db-toolbar>.db-field:has(#invoiceDbSearch),body#wooten-admin-page .invoice-db-toolbar>.db-field:has(#invoiceDbComment){grid-column:span 5!important}
+body#wooten-admin-page .invoice-db-actions{grid-column:1/-1!important}
+body#wooten-admin-page .collections-filters{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+body#wooten-admin-page .collections-filters>div:has(#collectionsSearch){grid-column:1/-1!important}
+body#wooten-admin-page #collectionsApply{grid-column:1/-1!important;justify-self:end}
+body#wooten-admin-page .application-filters,body#wooten-admin-page .request-center-filters,body#wooten-admin-page .inbox-tools{grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr))!important}
+body#wooten-admin-page .request-center-filters>div:has(#requestCenterSearch){order:-1}
+body#wooten-admin-page .communication-log-filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+body#wooten-admin-page .communication-log-filters>div:has(#communicationLogSearch){order:-1;grid-column:1/-1!important}
+body#wooten-admin-page .cards-inventory-search{grid-template-columns:minmax(0,2fr) minmax(0,1fr)!important}
+body#wooten-admin-page .cards-inventory-actions{grid-column:1/-1!important}
+body#wooten-admin-page .admin-activity-search-row{grid-template-columns:minmax(0,1fr) minmax(0,3fr)!important}
+body#wooten-admin-page .inbox-sort-label{display:block!important;margin:0!important}
+body#wooten-admin-page .phone-outbox-actions{justify-content:flex-start!important;gap:12px!important;margin-top:20px!important}
+body#wooten-admin-page #refreshInboxBtn{margin-left:0!important}
+body#wooten-admin-page .wooten-search-inside:has(#apiTestSearch){margin:10px 0 22px!important}
+body#wooten-admin-page :is(.db-toolbar,.live-payment-toolbar,.invoice-db-toolbar,.collections-filters,.application-filters,.request-center-filters,.communication-log-filters,.inbox-tools,.admin-activity-search-row,.cards-inventory-search)>*{min-width:0!important}
+body#wooten-admin-page :is(.db-toolbar,.live-payment-toolbar,.invoice-db-toolbar,.collections-filters,.application-filters,.request-center-filters,.communication-log-filters,.inbox-tools,.admin-activity-search-row,.cards-inventory-search) label{display:block;margin-bottom:8px}
+body#wooten-admin-page :is(.db-toolbar,.live-payment-toolbar,.invoice-db-toolbar,.collections-filters,.application-filters,.request-center-filters,.communication-log-filters,.inbox-tools,.admin-activity-search-row,.cards-inventory-search) :is(select,input:not([type=search])){height:56px!important;min-height:56px!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;margin-bottom:0!important}
+body#wooten-admin-page .cards-inventory-search>label{margin-bottom:0!important}
+body#wooten-admin-page .cards-inventory-search>label>.wooten-search-inside,body#wooten-admin-page .cards-inventory-search>label>select,body#wooten-admin-page .inbox-sort-label>select{margin-top:8px!important}
+@media(max-width:1100px){
+body#wooten-admin-page .db-toolbar:has(#dbSearch),body#wooten-admin-page .live-payment-toolbar,body#wooten-admin-page .collections-filters{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body#wooten-admin-page .invoice-db-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body#wooten-admin-page .invoice-db-toolbar>.db-field,body#wooten-admin-page .invoice-db-toolbar>.db-field:has(#invoiceDbSearch),body#wooten-admin-page .invoice-db-toolbar>.db-field:has(#invoiceDbComment){grid-column:auto!important}
+body#wooten-admin-page .application-filters,body#wooten-admin-page .request-center-filters,body#wooten-admin-page .inbox-tools{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body#wooten-admin-page .application-filters>div:has(#applicationSearch),body#wooten-admin-page .request-center-filters>div:has(#requestCenterSearch),body#wooten-admin-page .wooten-inbox-search-field{grid-column:1/-1!important}
+}
+@media(max-width:650px){
+body#wooten-admin-page .db-toolbar:has(#dbSearch),body#wooten-admin-page .live-payment-toolbar,body#wooten-admin-page .invoice-db-toolbar,body#wooten-admin-page .collections-filters,body#wooten-admin-page .application-filters,body#wooten-admin-page .request-center-filters,body#wooten-admin-page .communication-log-filters,body#wooten-admin-page .inbox-tools,body#wooten-admin-page .admin-activity-search-row,body#wooten-admin-page .cards-inventory-search{grid-template-columns:minmax(0,1fr)!important}
+body#wooten-admin-page #collectionsApply{justify-self:stretch}
+body#wooten-admin-page .wooten-search-inside input[type=search]{font-size:16px!important;padding-right:102px!important}
+body#wooten-admin-page .wooten-search-inside>.wooten-search-inside-button{min-width:80px!important;padding:0 11px!important}
+body#wooten-admin-page .admin-activity-search-wrap.wooten-search-inside input{padding-right:138px!important}
+body#wooten-admin-page .wooten-search-inside .admin-activity-search-clear{right:98px!important}
+}
