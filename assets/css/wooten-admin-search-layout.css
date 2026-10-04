@@ -83,3 +83,10 @@ body#wooten-admin-page .sp-table tr[data-delivery-state] progress{accent-color:v
 body#wooten-admin-page .sp-table tr[data-delivery-state] progress::-webkit-progress-value{background:var(--delivery-color)!important}
 body#wooten-admin-page .sp-table tr[data-delivery-state] progress::-moz-progress-bar{background:var(--delivery-color)!important}
 @media(max-width:700px){body#wooten-admin-page .sp-actions{grid-template-columns:minmax(0,1fr)!important}}
+
+/* Ver790 — Export PDF aligns with the statement progress search input. */
+body#wooten-admin-page .sp-actions>.sp-export{
+ align-self:end!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ height:56px!important;min-height:56px!important;max-height:56px!important;
+ box-sizing:border-box!important;padding:0 20px!important;margin:0!important;line-height:1.2!important;
+}

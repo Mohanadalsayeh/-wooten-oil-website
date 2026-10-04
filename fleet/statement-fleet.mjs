@@ -1,3 +1,4 @@
+import {productBreakdown} from './statement-fuel-summary.mjs';
 import {statementRows} from './intevacon-history.mjs';
 // Ver691: account-scoped statement fleet data. No provider calls. Statement-only sale amounts are retained.
 const DAY=86400000;
@@ -35,7 +36,7 @@ export function project(row){
  // A positive completion status is required before reported fuel can count as used.
  const complete=[2,6,7].includes(Number(row.StatusID))||['processed','complete','invoiced'].includes(text(row.Status).toLowerCase());
  const fuel=(Array.isArray(row.Details)?row.Details:[]).filter(d=>d.IsFuel===true&&(d.IsTaxProduct!==true||text(d.ProductCategory).toLowerCase()==='fuel products'));
- const products=fuel.map(d=>({name:text(d.ProductName)||text(d.ProductCode)||'Fuel',quantity:finite(d.Quantity)?d.Quantity:null}));
+ const products=fuel.map(d=>({name:text(d.ProductName)||text(d.ProductCode)||'Fuel',quantity:finite(d.Quantity)?d.Quantity:null,code:text(d.ProductCode),breakdown:productBreakdown(d)}));
  const quantity=fuel.length&&fuel.every(d=>finite(d.Quantity))?fuel.reduce((n,d)=>n+d.Quantity,0):null;
  return {id:text(row.ID),card:text(row.CardNumber),received:text(row.ReceivedDateTime),merchant:[row.MerchantName,row.MerchantCity].map(text).filter(Boolean).join(' - '),status:text(row.Status)||'Unknown',driver:[row.DriverNumber,row.DriverName].map(text).filter(Boolean).join(' - '),vehicle:[row.VehicleNumber,row.VehicleDescription].map(text).filter(Boolean).join(' - '),odometer:text(row.Odometer),auth:text(row.AuthRef),invoice:text(row.InvoiceID),entry:text(row.EntryMethod),type:text(row.TranType),card_type:text(row.CardType),cardholder:text(row.CardHolderName),products,saleCents:finite(row.TotalAmountOfSale)?Math.round(row.TotalAmountOfSale*100):null,hasFuel:fuel.length>0,quantity,counted:complete&&quantity!==null,complete};
 }
