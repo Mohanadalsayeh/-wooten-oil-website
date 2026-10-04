@@ -27,7 +27,7 @@ export function pages(fleet,customer,statementDate,letterhead){
  };
  const shortDay=v=>day(v).replace(/(\d{2}\/\d{2}\/)\d{2}(\d{2})/,'$1$2');
  const labels=['TRANS #','DATE / TIME','LOCATION','FUEL','GALLONS','SALE'];
- const headings=()=>{ops.push(`0.94 0.97 0.99 rg 42 ${y-30} 528 30 re f`);labels.forEach((v,i)=>v.split('|').forEach((part,j)=>text(cols[i]+4,y-12-j*10,part,7.3,true)));y-=32;};
+ const headings=()=>{ops.push(`0.94 0.97 0.99 rg 42 ${y-30} 528 30 re f`);labels.forEach((v,i)=>v.split('|').forEach((part,j)=>text(cols[i]+4,y-17.6-j*10,part,7.3,true)));y-=32;};
  let card,cardIndex=0,continued=false;
  function startPage(){
   // Full company letterhead appears once at the start of this customer's fleet section.
@@ -49,8 +49,8 @@ export function pages(fleet,customer,statementDate,letterhead){
   const details=cardDetails();
   const height=35+details.length*11;
   ops.push(`0.94 0.97 0.99 rg 42 ${y-height+13} 528 ${height} re f`);
-  text(50,y,'(Card '+(cardIndex+1)+'/'+cards.length+') '+(card.info.card_number||'Not reported')+(continued?' - continued':''),12,true);y-=17;
-  for(const v of details){text(50,y,v,8);y-=11;}
+  text(50,y-5,'(Card '+(cardIndex+1)+'/'+cards.length+') '+(card.info.card_number||'Not reported')+(continued?' - continued':''),12,true);y-=17;
+  for(const v of details){text(50,y-5,v,8);y-=11;}
   y-=18;headings();
  }
  function next(){finish();continued=true;startPage();cardHeader();}
