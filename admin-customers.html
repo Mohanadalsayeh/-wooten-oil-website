@@ -10318,6 +10318,27 @@ function normalizeActivationAccount(v){
 
 
 
+// Ver783: Explain Gmail failures without treating every failure as expired authorization.
+function gmailPortalSyncErrorMessage(value){
+  const message=String(value||'').trim();
+  if(!message) return 'Gmail synchronization failed. Please try again. If it continues, contact your portal administrator.';
+  if(/invalid_grant|expired or revoked|token has been expired|gmail is not connected/i.test(message))
+    return 'Gmail needs reconnection. Google no longer accepts the saved authorization. Reconnect the Gmail account, then click Sync Gmail Sent Now.';
+  if(/invalid_client|unauthorized_client/i.test(message))
+    return 'Gmail connection settings were rejected by Google. Ask your portal administrator to check the Google client ID and client secret before reconnecting Gmail.';
+  if(/^(bad request|400(?: bad request)?)$/i.test(message))
+    return 'Gmail sync could not complete because Google rejected the request. The saved Gmail authorization may need to be renewed. Reconnect Gmail, then click Sync Gmail Sent Now. If it still fails, ask your portal administrator to check the Google connection settings.';
+  if(/unable to refresh gmail access token/i.test(message))
+    return 'The portal could not renew Gmail access. Try again; if the problem continues, reconnect Gmail and run the sync again.';
+  if(/rate.?limit|too many requests|quota exceeded/i.test(message))
+    return 'Google temporarily limited Gmail requests. Wait a few minutes, then try syncing again.';
+  if(/failed to fetch|networkerror|network error|timeout|timed out|service unavailable/i.test(message))
+    return 'Gmail sync was interrupted by a connection or service problem. Please try again shortly.';
+  if(/^unauthorized\.?$/i.test(message))
+    return 'Your portal admin authorization was not accepted. Sign in to the admin portal again, then retry Gmail sync.';
+  return message;
+}
+
 async function loadGmailPortalSyncStatus(){
   const key=document.getElementById("adminKey").value.trim();
   const status=document.getElementById("gmailPortalSyncStatus");
@@ -10329,9 +10350,18 @@ async function loadGmailPortalSyncStatus(){
     if(!res.ok||data.success===false) throw new Error(data.error||"Could not read Gmail sync status.");
     document.getElementById("gmailSyncLastSuccess").textContent=data.last_success_at?WootenTime.dateTime(data.last_success_at):"Not yet";
     document.getElementById("gmailSyncTotal").textContent=String(data.synced_notifications||0);
-    document.getElementById("gmailSyncError").textContent=data.last_error||"None";
+    document.getElementById("gmailSyncError").textContent=data.last_error?gmailPortalSyncErrorMessage(data.last_error):"None";
+    if(data.last_error){
+      status.className="status show bad";
+      status.textContent=gmailPortalSyncErrorMessage(data.last_error);
+      status.dataset.gmailFailure="true";
+    }else if(status.dataset.gmailFailure==="true"){
+      status.className="status show ok";
+      status.textContent="Gmail sync status checked. No saved sync error.";
+      delete status.dataset.gmailFailure;
+    }
     meta.style.display="grid";
-  }catch(error){status.className="status show bad";status.textContent=error.message||"Could not read Gmail sync status.";}
+  }catch(error){status.className="status show bad";status.textContent=gmailPortalSyncErrorMessage(error.message||"Could not read Gmail sync status.");status.dataset.gmailFailure="true";}
 }
 document.getElementById("gmailPortalSyncBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();
@@ -10344,9 +10374,10 @@ document.getElementById("gmailPortalSyncBtn").addEventListener("click",async()=>
     const data=await res.json().catch(()=>({}));
     if(!res.ok||data.success===false) throw new Error(data.error||"Gmail synchronization failed.");
     status.className="status show ok";
+    delete status.dataset.gmailFailure;
     status.textContent=`Gmail sync complete. ${data.notifications_created||0} new portal notification(s) created, ${data.duplicates||0} duplicate(s) skipped, ${data.unmatched_messages||0} sent message(s) had no matching customer email.`;
     await loadGmailPortalSyncStatus();
-  }catch(error){status.className="status show bad";status.textContent=error.message||"Gmail synchronization failed.";}
+  }catch(error){status.className="status show bad";status.textContent=gmailPortalSyncErrorMessage(error.message);status.dataset.gmailFailure="true";}
   finally{btn.disabled=false;btn.textContent="Sync Gmail Sent Now";}
 });
 document.getElementById("gmailPortalSyncStatusBtn").addEventListener("click",loadGmailPortalSyncStatus);
