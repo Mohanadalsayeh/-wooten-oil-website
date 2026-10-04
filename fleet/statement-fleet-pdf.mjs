@@ -30,8 +30,13 @@ export function pages(fleet,customer,statementDate,letterhead){
  const headings=()=>{ops.push(`0.94 0.97 0.99 rg 42 ${y-30} 528 30 re f`);labels.forEach((v,i)=>v.split('|').forEach((part,j)=>text(cols[i]+4,y-12-j*10,part,7.3,true)));y-=32;};
  let card,cardIndex=0,continued=false;
  function startPage(){
-  ops.push(letterhead());text(42,655,'Fleet Cards & Transactions',13,true);text(42,637,day(statementDate)+' | Customer # '+customer.account_number,9);
-  y=620;for(const v of wrap(customer.account_name,90)){text(42,y,v,10,true);y-=13;}
+  // Full company letterhead appears once at the start of this customer's fleet section.
+  const first=result.length===0;
+  if(first)ops.push(letterhead());
+  const headingY=first?655:746;
+  text(42,headingY,'Fleet Cards & Transactions'+(first?'':' - continued'),13,true);
+  text(42,headingY-18,day(statementDate)+' | Customer # '+customer.account_number,9);
+  y=headingY-35;for(const v of wrap(customer.account_name,90)){text(42,y,v,10,true);y-=13;}
   text(42,y,'Period: '+day(fleet.range.from)+' '+(fleet.range.fromTime||'00:00:00')+' through '+day(fleet.range.to)+' '+(fleet.range.toTime||'23:59:59')+' CT',8.5);y-=21;
  }
  function cardDetails(){
@@ -54,7 +59,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   text(42,y,'Completed fuel only. Base Price and taxes are dollar amounts, not per-gallon rates.',7.5);y-=15;
   const xs=[42,173,240,306,372,438,504],ws=[131,67,66,66,66,66,66];
   ops.push(`0.94 0.97 0.99 rg 42 ${y-25} 528 25 re f`);
-  ['PRODUCT','QUANTITY (GAL)','BASE PRICE','FEDERAL TAX','STATE TAX','OTHER TAXES','TOTAL'].forEach((v,i)=>single(xs[i],y-15,v,ws[i],true));y-=27;
+  ['PRODUCT','QUANTITY (GAL)','BASE PRICE','FEDERAL TAX','STATE TAX','OTHER TAXES','TOTAL'].forEach((v,i)=>single(xs[i],y-15,v,ws[i],true,i>0));y-=27;
  }
  function summaryRow(row,bold=false){
   const xs=[42,173,240,306,372,438,504],ws=[131,67,66,66,66,66,66];
