@@ -6317,6 +6317,40 @@ async function backfillAdminCommunicationLog(env){
 }
 __name(backfillAdminCommunicationLog,"backfillAdminCommunicationLog");
 
+async function communicationLogAttachments(env, entries, account) {
+  const ids=[...new Set(entries.filter(r=>r.source_type==='notification').map(r=>Number(r.source_id)).filter(id=>Number.isSafeInteger(id)&&id>0))];
+  if(!ids.length)return entries.map(r=>({...r,attachments:[]}));
+  const result=await env.DB.prepare(`SELECT id,notification_id,filename,content_type,size_bytes
+    FROM portal_notification_attachments WHERE account_number=? AND notification_id IN (${ids.map(()=>'?').join(',')}) ORDER BY id ASC`).bind(account,...ids).all();
+  const grouped=new Map();
+  for(const a of result.results||[]){
+    const id=Number(a.notification_id);if(!grouped.has(id))grouped.set(id,[]);
+    grouped.get(id).push({id:a.id,filename:a.filename,content_type:a.content_type,size_bytes:Number(a.size_bytes||0)});
+  }
+  return entries.map(r=>({...r,attachments:r.source_type==='notification'?(grouped.get(Number(r.source_id))||[]):[]}));
+}
+async function adminCommunicationAttachmentGet({request,env}) {
+  if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return new Response('Unauthorized.',{status:401});
+  const url=new URL(request.url),id=Number(url.pathname.split('/').pop()),account=normalizeNotificationAccount(url.searchParams.get('account_number')||'');
+  if(!Number.isSafeInteger(id)||id<=0||!account)return new Response('Attachment not found.',{status:404});
+  if(!env.DB||!env.NOTIFICATION_ATTACHMENTS)return new Response('Attachment storage is not configured.',{status:503});
+  try{
+    await ensureCustomerNotificationsTable(env);
+    const row=await env.DB.prepare(`SELECT a.object_key,a.filename,a.content_type FROM portal_notification_attachments a
+      INNER JOIN portal_notifications n ON n.id=a.notification_id AND n.account_number=a.account_number
+      WHERE a.id=? AND a.account_number=? LIMIT 1`).bind(id,account).first();
+    if(!row)return new Response('Attachment not found.',{status:404});
+    const object=await env.NOTIFICATION_ATTACHMENTS.get(row.object_key);
+    if(!object)return new Response('Attachment file is unavailable.',{status:404});
+    const name=notificationSafeFilename(row.filename),headers=new Headers();
+    headers.set('Content-Type',row.content_type||'application/octet-stream');
+    headers.set('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
+    headers.set('Cache-Control','private, no-store');headers.set('X-Content-Type-Options','nosniff');
+    headers.set('Content-Security-Policy',"default-src 'none'; sandbox");
+    return new Response(object.body,{headers});
+  }catch(error){console.error('Admin communication attachment failed',error);return new Response('Attachment could not be opened.',{status:500});}
+}
+
 async function adminCommunicationLogGet({request,env}){
   try{
     const supplied=request.headers.get("X-Admin-Key")||"";
@@ -6374,7 +6408,8 @@ async function adminCommunicationLogGet({request,env}){
         ORDER BY l.created_at DESC,l.id DESC
         LIMIT ? OFFSET ?
       `).bind(...binds,pageSize,offset).all();
-      return notificationJson({success:true,account_number:account,page:safePage,page_size:pageSize,total,pages,entries:result?.results||[]});
+      const entries=await communicationLogAttachments(env,result?.results||[],account);
+      return notificationJson({success:true,account_number:account,page:safePage,page_size:pageSize,total,pages,entries});
     }
     const countRow=await env.DB.prepare(`
       SELECT COUNT(*) AS total FROM (
@@ -12855,6 +12890,11 @@ var worker_default = {
 
     if (url.pathname === "/api/admin/statement-customers") {
       if (request.method === "GET") return adminStatementCustomersGet({ request, env });
+      return methodNotAllowed();
+    }
+
+    if (/^\/api\/admin\/communication-log\/attachments\/[^/]+$/.test(url.pathname)) {
+      if(request.method==='GET')return adminCommunicationAttachmentGet({request,env});
       return methodNotAllowed();
     }
 

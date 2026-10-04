@@ -5710,6 +5710,38 @@ body .admin-header .admin-bell-shell[hidden]{display:none!important}
 .notify-field[hidden]{display:none!important}.notify-grid.notify-selected-layout{grid-template-columns:minmax(0,1fr)!important}
 </style>
 <link rel="stylesheet" href="assets/css/wooten-admin-search-layout.css?v=782">
+<style>
+.communication-attachments{display:grid;gap:8px;margin:12px 0;padding:12px;background:#f2f7fb;border:1px solid #d4e2ed;border-radius:12px}
+.communication-attachment-row{display:flex;align-items:center;gap:12px;min-width:0}.communication-attachment-row span{flex:1;overflow-wrap:anywhere;min-width:0;color:#17384e}.communication-attachment-row button{flex:0 0 auto;border:1px solid #b8d1e4;border-radius:9px;background:white;color:#176797;padding:8px 14px;font:inherit;cursor:pointer}.communication-attachment-row button:hover{background:#e2eff8}.communication-attachment-row button:disabled{opacity:.6;cursor:wait}
+.communication-attachment-error{color:#b91c32;font-size:14px;margin:4px 0 0}
+</style>
+<script id="wooten-history-attachments-v785">
+window.wootenCommunicationAttachments=function(row){
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const files=(row.attachments||[]).filter(a=>Number.isSafeInteger(Number(a.id))&&Number(a.id)>0);
+ if(!files.length)return '';
+ return '<div class="communication-attachments"><strong>Attachments</strong>'+files.map(a=>'<div class="communication-attachment-row"><span>'+esc(a.filename||'Attachment')+'</span><button type="button" data-history-attachment="'+Number(a.id)+'" data-account="'+esc(row.account_number)+'" data-filename="'+esc(a.filename||'Attachment')+'">Open</button></div>').join('')+'<p class="communication-attachment-error" role="status"></p></div>';
+};
+document.addEventListener('click',async function(event){
+ const button=event.target.closest('[data-history-attachment]');if(!button)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(button.disabled)return;
+ const error=button.closest('.communication-attachments').querySelector('[role="status"]');error.textContent='';
+ button.disabled=true;button.textContent='Opening…';
+ const tab=window.open('about:blank','_blank');if(tab){tab.opener=null;tab.document.title='Opening attachment';tab.document.body.textContent='Opening attachment…';}
+ try{
+  const response=await fetch('/api/admin/communication-log/attachments/'+encodeURIComponent(button.dataset.historyAttachment)+'?account_number='+encodeURIComponent(button.dataset.account),{headers:{'X-Admin-Key':document.getElementById('adminKey').value.trim()},cache:'no-store'});
+  if(!response.ok)throw Error(await response.text()||'Attachment could not be opened.');
+  const original=await response.blob(),type=(response.headers.get('Content-Type')||'').split(';')[0].toLowerCase();
+  const preview=['application/pdf','image/png','image/jpeg','image/gif','image/webp'].includes(type);
+  const blob=new Blob([original],{type:preview?type:'application/octet-stream'}),url=URL.createObjectURL(blob);
+  if(preview&&tab)tab.location.replace(url);
+  else{if(tab)tab.close();const link=document.createElement('a');link.href=url;link.download=button.dataset.filename;document.body.appendChild(link);link.click();link.remove();}
+  setTimeout(()=>URL.revokeObjectURL(url),300000);
+ }catch(e){if(tab)tab.close();error.textContent=e.message||'Attachment could not be opened.';}
+ finally{button.disabled=false;button.textContent='Open';}
+},true);
+</script>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -13457,7 +13489,7 @@ prev.addEventListener('click',()=>{page--;render();});next.addEventListener('cli
       const titleHtml=documentId&&!pdfMatch?'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+titleText+'</button>':titleText;
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+titleHtml+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
-        '<p>'+detailHtml+'</p><div class="communication-channels">'+
+        '<p>'+detailHtml+'</p>'+window.wootenCommunicationAttachments(r)+'<div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
         '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
@@ -13600,7 +13632,7 @@ if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){
       const titleHtml=documentId&&!pdfMatch?'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+titleText+'</button>':titleText;
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+titleHtml+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
-        '<p>'+detailHtml+'</p><div class="communication-channels">'+
+        '<p>'+detailHtml+'</p>'+window.wootenCommunicationAttachments(r)+'<div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
         '</div>'+smsDelivery+(error&&!smsError?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
@@ -14703,7 +14735,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       const titleHtml=documentId&&!pdfMatch?'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+titleText+'</button>':titleText;
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+titleHtml+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
-        '<p>'+detailHtml+'</p><div class="communication-channels">'+
+        '<p>'+detailHtml+'</p>'+window.wootenCommunicationAttachments(r)+'<div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
         '</div>'+(error?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
@@ -14835,7 +14867,7 @@ if(entriesPrev)entriesPrev.addEventListener('click',function(){if(detailPage>1){
       const titleHtml=documentId&&!pdfMatch?'<button class="communication-pdf-link" type="button" data-open-document="'+documentId+'">'+titleText+'</button>':titleText;
       return '<article class="communication-entry '+esc(r.event_type||'notification')+'">'+
         '<div class="communication-entry-head"><strong>'+esc(String(r.event_type||'notification').toUpperCase())+' — '+titleHtml+'</strong><span class="communication-entry-time">'+esc(formatDate(r.created_at))+'</span></div>'+
-        '<p>'+detailHtml+'</p><div class="communication-channels">'+
+        '<p>'+detailHtml+'</p>'+window.wootenCommunicationAttachments(r)+'<div class="communication-channels">'+
         channel('Portal',!!r.portal_sent,!!r.portal_sent)+channel('Email',!!r.email_sent,emailAttempted)+channel('SMS',!!r.sms_sent,smsAttempted)+
         '</div>'+smsDelivery+(error&&!smsError?'<p class="statement-no-email">'+esc(error)+'</p>':'')+'</article>';
     }).join('');
