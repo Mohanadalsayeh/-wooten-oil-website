@@ -366,8 +366,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <link rel="stylesheet" href="assets/css/wooten-push.css?v=664">
 <script defer src="assets/js/wooten-company-header-text.js?v=703"></script>
 <link rel="stylesheet" href="assets/css/wooten-customer-fleet-dates.css?v=704">
-<meta name="wooten-portal-version" content="800">
-<meta name="wooten-build-fingerprint" content="7417bf3ace5ebf846a6c2cd756855e33a0477cdf03acd5cf6a36af3f0ca60996">
+<meta name="wooten-portal-version" content="802">
+<meta name="wooten-build-fingerprint" content="1f0803f10fc2408f4fb98bdc8071dfa6c3a272c863894d9df0fb1ac84a6c8612">
 </head>
 <body>
 
@@ -818,7 +818,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
       <div class="customer-documents-tools">
         <div class="customer-documents-search-wrap">
-          <input id="customerDocumentsSearch" type="search" placeholder="Search statements or invoices…" autocomplete="off">
+          <input id="customerDocumentsSearch" type="search" placeholder="Search statements or invoices…" autocomplete="off"><button type="button" id="customerDocumentsSearchButton" aria-label="Search statements and invoices">Search</button>
         </div>
         <select id="customerDocumentsTypeFilter" aria-label="Filter documents">
           <option value="all">All documents</option>
@@ -855,7 +855,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       </div>
 
       <div class="payment-history-tools">
-        <input id="paymentHistorySearch" type="search" placeholder="Search date, amount, check #, invoice #, deposit #..." autocomplete="off">
+        <div class="payment-history-search-wrap"><input id="paymentHistorySearch" type="search" placeholder="Search date, amount, check #, invoice #, deposit #..." autocomplete="off"><button type="button" id="paymentHistorySearchButton" aria-label="Search payments">Search</button></div>
         <select id="paymentHistorySort" aria-label="Sort payment history">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
@@ -907,7 +907,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
             autocomplete="off"
             aria-label="Search fuel request history"
           >
-          <button type="button" id="fuelHistoryClear" class="fuel-history-clear" aria-label="Clear fuel request search">×</button>
+          <button type="button" id="fuelHistorySearchButton" class="fuel-history-submit" aria-label="Search fuel requests">Search</button>
         </div>
 
         <label class="fuel-history-sort-wrap">
@@ -1446,7 +1446,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=670"></script>
+<script src="assets/js/script-07.js?v=802"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
@@ -2202,7 +2202,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   function resetAndRender(){page=1;setTimeout(renderPage,0);}
   openButton?.addEventListener('click',skeleton);
   refreshButton?.addEventListener('click',skeleton);
-  search?.addEventListener('input',resetAndRender);
+  search?.addEventListener('wooten-search-applied',resetAndRender);
   typeFilter?.addEventListener('change',resetAndRender);
   prev.wootenGoToPage=function(target){page=target;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});};
   prev.addEventListener('click',function(){if(page>1){page--;renderPage();list.scrollIntoView({behavior:'smooth',block:'start'});}});
@@ -5156,6 +5156,30 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 </style>
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-5">
 <script src="assets/js/wooten-sortable-tables.js?v=576"></script>
+<style id="wooten-customer-search-submit-ver802">
+#customerDocuments .customer-documents-search-wrap,
+#customerPaymentHistory .payment-history-search-wrap,
+#customerFuelHistory .fuel-history-search-wrap{position:relative;display:flex;align-items:center;min-width:0}
+#customerDocuments .customer-documents-search-wrap input,
+#customerPaymentHistory .payment-history-search-wrap input,
+#customerFuelHistory .fuel-history-search-wrap input{width:100%!important;min-width:0!important;box-sizing:border-box!important;padding-right:112px!important;margin:0!important}
+#customerDocumentsSearchButton,#paymentHistorySearchButton,#fuelHistorySearchButton{
+ position:absolute!important;top:50%!important;right:6px!important;transform:translateY(-50%)!important;
+ z-index:2;height:44px!important;min-height:44px!important;min-width:94px!important;margin:0!important;
+ padding:0 14px!important;border:0!important;border-radius:9px!important;
+ background:#d71920!important;color:#fff!important;font-weight:700!important;cursor:pointer;
+}
+#customerDocumentsSearchButton:hover,#paymentHistorySearchButton:hover,#fuelHistorySearchButton:hover{background:#bd1820!important;color:#fff!important}
+#customerDocumentsSearchButton:focus-visible,#paymentHistorySearchButton:focus-visible,#fuelHistorySearchButton:focus-visible{outline:3px solid #66a6d8!important;outline-offset:2px!important}
+#customerPaymentHistory .payment-history-search-wrap{flex:1 1 250px}
+#customerFuelHistory .fuel-history-search-wrap .fuel-history-search-icon{pointer-events:none}
+.iv-customer-list .iv-tools .iv-search-inline{position:relative;display:flex;align-items:center;min-width:0}
+.iv-customer-list .iv-tools input[name="search"]{box-sizing:border-box!important;width:100%!important;min-width:0!important;padding-right:112px!important}
+.iv-customer-list .iv-tools [data-search]{position:absolute!important;top:50%!important;right:6px!important;transform:translateY(-50%)!important;z-index:2;margin:0!important;min-width:94px!important;height:44px!important;min-height:44px!important;padding:0 14px!important;border:0!important;border-radius:9px!important;background:#d71920!important;color:#fff!important;font-weight:700!important}
+.iv-customer-list .iv-tools [data-search]:hover{background:#bd1820!important;color:#fff!important}
+@media(max-width:650px){#customerPaymentHistory .payment-history-search-wrap{flex:1 1 100%}}
+</style>
+<script defer src="assets/js/wooten-search-clear.js?v=802"></script>
 </html>
 
 <script src="assets/js/wooten-numbered-pagination.js?v=447"></script>
@@ -5165,7 +5189,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-customer-fleet-compact.css?v=603">
 <link rel="stylesheet" href="assets/css/wooten-customer-fleet-api.css?v=676">
 <script src="assets/js/wooten-intevacon-dates.js?v=674"></script>
-<script src="assets/js/wooten-fleet.js?v=692"></script>
+<script src="assets/js/wooten-fleet.js?v=801"></script>
 <script src="assets/js/wooten-customer-fleet-layout.js?v=671"></script>
 
 <link rel="stylesheet" href="assets/css/wooten-search-icons.css?v=531">
@@ -5175,4 +5199,21 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 <link rel="stylesheet" href="assets/css/wooten-invoice-viewer.css?v=624">
 <link rel="stylesheet" href="assets/css/wooten-classic-documents.css?v=593">
 <script src="assets/js/wooten-invoice-pdf.js?v=654"></script>
-<script src="assets/js/wooten-invoice-viewer.js?v=653"></script>
+<script src="assets/js/wooten-invoice-viewer.js?v=802"></script>
+<style id="wooten-customer-fleet-search-inline-ver801">
+#customerFleetRoot .fleet-search-inline{position:relative;display:flex;align-items:center;min-width:0;flex:1 1 190px}
+#customerFleetRoot .fleet-search-inline input[type="search"]{
+  width:100%!important;height:56px!important;min-height:56px!important;margin:0!important;
+  padding-right:112px!important;border-radius:12px!important;
+}
+#customerFleetRoot .fleet-search-inline button[type="submit"]{
+  position:absolute!important;right:6px!important;top:50%!important;z-index:1;
+  transform:translateY(-50%)!important;margin:0!important;
+  min-width:94px!important;height:44px!important;min-height:44px!important;
+  padding:0 14px!important;border:0!important;border-radius:9px!important;
+  background:#d71920!important;color:#fff!important;font-weight:700!important;
+}
+#customerFleetRoot .fleet-search-inline button[type="submit"]:hover{background:#bd1820!important;color:#fff!important}
+#customerFleetRoot .fleet-search-inline button[type="submit"]:focus-visible{outline:3px solid #66a6d8!important;outline-offset:2px!important}
+@media(max-width:650px){#customerFleetRoot .fleet-search-inline{flex:1 1 100%}}
+</style>

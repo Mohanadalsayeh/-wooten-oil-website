@@ -2,7 +2,7 @@
 (function(){
  'use strict';
  if(window.WootenAdminExplicitSearch)return;
- const selector='input[type="search"]',allowed=new WeakSet(),wired=new WeakSet();
+ const selector='input[type="search"]',allowed=new WeakSet(),wired=new WeakSet(),lastValue=new WeakMap();
  const existing={notifyRecipientSearch:'notifyRecipientSearchBtn',statementCustomerSearch:'statementCustomerSearchButton',activityCustomerSearch:'activityCustomerSearchBtn'};
  const actions={dbSearch:'dbLoadBtn',livePaymentSearch:'livePaymentLoadBtn',invoiceDbSearch:'invoiceDbLoad',invoiceDbComment:'invoiceDbLoad',requestCenterSearch:'requestCenterLoad',applicationSearch:'applicationLoad'};
  const insideIds=new Set(['sp-search','dbSearch','livePaymentSearch','invoiceDbSearch','invoiceDbComment','adminFleetCardSearch','apiTestSearch','collectionsSearch','applicationSearch','communicationLogSearch','inboxSearch','requestCenterSearch','adminActivitySearch','activityCustomerSearch','ptSearch','statementCustomerSearch','scheduleReportSearch','notifyRecipientSearch']);
@@ -33,7 +33,7 @@
   dispatch(input,'input');
  }
  function attach(input){
-  if(wired.has(input))return;wired.add(input);input.setAttribute('enterkeyhint','search');
+  if(wired.has(input))return;wired.add(input);lastValue.set(input,input.value);input.setAttribute('enterkeyhint','search');
   const existingButton=buttonFor(input);
   if(existingButton){placeInside(input,existingButton);return;}
   const button=document.createElement('button');button.type='button';button.className='secondary wooten-explicit-search-button';button.textContent='Search';
@@ -48,7 +48,20 @@
  // Capture on window before existing controllers: typing, pasting, clearing the
  // native X, or blurring never reaches a legacy automatic-search listener.
  for(const type of ['input','change','search','keyup'])window.addEventListener(type,event=>{
-  if(isSearch(event.target)&&!allowed.has(event))event.stopImmediatePropagation();
+  if(!isSearch(event.target)||allowed.has(event))return;
+  const input=event.target,old=lastValue.get(input)||'';
+  lastValue.set(input,input.value);
+  event.stopImmediatePropagation();
+  if((type==='input'||type==='search')&&old.trim()&&!input.value.trim()){
+   queueMicrotask(()=>{
+    if(input.value.trim()||!input.isConnected)return;
+    if(input.id==='activityCustomerSearch'){
+     document.getElementById('activitySearchResults')?.replaceChildren();
+     const status=document.getElementById('activityStatus');
+     if(status)status.textContent='';
+    }else run(input);
+   });
+  }
  },true);
  window.addEventListener('keydown',event=>{
   if(!isSearch(event.target)||allowed.has(event))return;

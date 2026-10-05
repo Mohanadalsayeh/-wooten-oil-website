@@ -236,6 +236,7 @@
   var paymentHistoryFilteredTotal=0;
   var paymentHistoryHasMore=false;
   var paymentHistorySearchTimer=0;
+  var paymentHistoryAppliedSearch='';
   var paymentHistoryRows=[];
   var PAYMENT_HISTORY_ENDPOINT='/api/customer/payments';
   var customerDocuments=document.getElementById('customerDocuments');
@@ -246,6 +247,7 @@
   var customerDocumentsStatus=document.getElementById('customerDocumentsStatus');
   var customerDocumentsList=document.getElementById('customerDocumentsList');
   var customerDocumentRows=[];
+  var customerDocumentsAppliedSearch='';
   var CUSTOMER_DOCUMENTS_ENDPOINT='/api/customer/documents';
   var dashboardLogout=document.getElementById('dashboardLogout');
   var dashboardBack=document.getElementById('dashboardBack');
@@ -259,6 +261,7 @@
   var fuelHistoryStatus=document.getElementById('fuelHistoryStatus');
   var fuelHistoryList=document.getElementById('fuelHistoryList');
   var fuelHistoryRows=[];
+  var fuelHistoryAppliedSearch='';
   var FUEL_HISTORY_ENDPOINT='/api/customer/fuel-requests';
   var customerHistoryLoads={
     documents:{generation:0,controller:null},
@@ -346,7 +349,7 @@
 
   function renderCustomerDocuments(){
     if(!customerDocumentsList) return;
-    var q=String(customerDocumentsSearch && customerDocumentsSearch.value || '').trim().toLowerCase();
+    var q=customerDocumentsAppliedSearch.toLowerCase();
     var type=String(customerDocumentsTypeFilter && customerDocumentsTypeFilter.value || 'all');
     var rows=(customerDocumentRows||[]).filter(function(r){
       if(type!=='all' && String(r.document_type||'')!==type) return false;
@@ -510,7 +513,7 @@
   }
 
   function filteredSortedFuelHistory(){
-    var query=String(fuelHistorySearch && fuelHistorySearch.value || '').trim().toLowerCase();
+    var query=fuelHistoryAppliedSearch.toLowerCase();
     var sort=String(fuelHistorySort && fuelHistorySort.value || 'newest');
     var rows=(fuelHistoryRows||[]).slice();
 
@@ -543,7 +546,7 @@
 
     if(fuelHistoryResultsMeta){
       var total=(fuelHistoryRows||[]).length;
-      var query=String(fuelHistorySearch && fuelHistorySearch.value || '').trim();
+      var query=fuelHistoryAppliedSearch;
       if(!total){
         fuelHistoryResultsMeta.textContent='';
       }else if(query){
@@ -567,7 +570,7 @@
     if(!Array.isArray(rows) || !rows.length){
       var empty=document.createElement('div');
       empty.className='fuel-history-empty';
-      var searching=String(fuelHistorySearch && fuelHistorySearch.value || '').trim().length>0;
+      var searching=fuelHistoryAppliedSearch.length>0;
       empty.textContent=searching
         ? 'No fuel requests match your search.'
         : 'No fuel requests are saved to this online account yet.';
@@ -782,12 +785,12 @@
     if(paymentHistoryResultsMeta){
       var loaded=(paymentHistoryRows||[]).length;
       var total=paymentHistoryFilteredTotal;
-      var q=String(paymentHistorySearch && paymentHistorySearch.value || '').trim();
+      var q=paymentHistoryAppliedSearch;
       paymentHistoryResultsMeta.textContent=total?(loaded<total?'Showing '+loaded+' of '+total+(q?' matching':'')+' payments':total+' payment'+(total===1?'':'s')+(q?' match your search':'')):'';
     }
     if(!rows.length){
       var empty=document.createElement('div');empty.className='payment-history-empty';
-      empty.textContent=String(paymentHistorySearch && paymentHistorySearch.value || '').trim()?'No payments match your search.':'No payment history is available for this account yet.';
+      empty.textContent=paymentHistoryAppliedSearch?'No payments match your search.':'No payment history is available for this account yet.';
       paymentHistoryList.appendChild(empty);return;
     }
     var fragment=document.createDocumentFragment();
@@ -869,7 +872,7 @@
       var params=new URLSearchParams({
         page:String(requestedPage),
         page_size:String(PAYMENT_HISTORY_PAGE_SIZE),
-        q:String(paymentHistorySearch && paymentHistorySearch.value || '').trim(),
+        q:paymentHistoryAppliedSearch,
         sort:String(paymentHistorySort && paymentHistorySort.value || 'newest')
       });
       var response=await customerFetch(PAYMENT_HISTORY_ENDPOINT+'?'+params.toString(),{method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'},signal:request.controller ? request.controller.signal : undefined});
@@ -1654,34 +1657,60 @@
   });
   if(dashboardPayments) dashboardPayments.addEventListener('click',function(){ showPaymentHistory(); });
   if(paymentHistoryBack) paymentHistoryBack.addEventListener('click',function(){ showDashboardView(); });
-  if(paymentHistoryRefresh) paymentHistoryRefresh.addEventListener('click',function(){ clearTimeout(paymentHistorySearchTimer);loadPaymentHistory(); });
-  if(paymentHistorySearch) paymentHistorySearch.addEventListener('input',function(){
-    clearTimeout(paymentHistorySearchTimer);
-    invalidateCustomerHistoryLoad('payments');
+  function applyPaymentHistorySearch(){
+    var next=String(paymentHistorySearch && paymentHistorySearch.value || '').trim();
+    if(next===paymentHistoryAppliedSearch)return;
+    paymentHistoryAppliedSearch=next;
     paymentHistoryPage=0;
     paymentHistoryHasMore=false;
-    updatePaymentHistoryLoadMore();
-    paymentHistorySearchTimer=setTimeout(function(){loadPaymentHistory();},220);
-  });
-  if(paymentHistorySort) paymentHistorySort.addEventListener('change',function(){ clearTimeout(paymentHistorySearchTimer);loadPaymentHistory(); });
+    loadPaymentHistory();
+  }
+  if(paymentHistoryRefresh) paymentHistoryRefresh.addEventListener('click',function(){loadPaymentHistory();});
+  if(paymentHistorySearch){
+    paymentHistorySearch.addEventListener('input',function(){if(!paymentHistorySearch.value)applyPaymentHistorySearch();});
+    paymentHistorySearch.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyPaymentHistorySearch();}});
+  }
+  document.getElementById('paymentHistorySearchButton')?.addEventListener('click',applyPaymentHistorySearch);
+  if(paymentHistorySort) paymentHistorySort.addEventListener('change',function(){loadPaymentHistory();});
   if(paymentHistoryLoadMore) paymentHistoryLoadMore.addEventListener('click',function(){
     if(paymentHistoryHasMore)loadPaymentHistory({append:true});
   });
   if(dashboardDocuments) dashboardDocuments.addEventListener('click',function(){ showCustomerDocuments(); });
   if(customerDocumentsBack) customerDocumentsBack.addEventListener('click',function(){ showDashboardView(); });
   if(customerDocumentsRefresh) customerDocumentsRefresh.addEventListener('click',function(){ loadCustomerDocuments(); });
-  if(customerDocumentsSearch) customerDocumentsSearch.addEventListener('input',function(){ renderCustomerDocuments(); });
+  function applyCustomerDocumentsSearch(){
+    var next=String(customerDocumentsSearch && customerDocumentsSearch.value || '').trim();
+    if(next===customerDocumentsAppliedSearch)return;
+    customerDocumentsAppliedSearch=next;
+    renderCustomerDocuments();
+    customerDocumentsSearch.dispatchEvent(new Event('wooten-search-applied'));
+  }
+  if(customerDocumentsSearch){
+    customerDocumentsSearch.addEventListener('input',function(){if(!customerDocumentsSearch.value)applyCustomerDocumentsSearch();});
+    customerDocumentsSearch.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyCustomerDocumentsSearch();}});
+  }
+  document.getElementById('customerDocumentsSearchButton')?.addEventListener('click',applyCustomerDocumentsSearch);
   if(customerDocumentsTypeFilter) customerDocumentsTypeFilter.addEventListener('change',function(){ renderCustomerDocuments(); });
   if(dashboardFuelHistory) dashboardFuelHistory.addEventListener('click',function(){ showFuelHistory(); });
   if(fuelHistoryRefresh) fuelHistoryRefresh.addEventListener('click',function(){ loadFuelHistory(); });
-  if(fuelHistorySearch) fuelHistorySearch.addEventListener('input',function(){ updateFuelHistoryView(); });
+  function applyFuelHistorySearch(){
+    var next=String(fuelHistorySearch && fuelHistorySearch.value || '').trim();
+    if(next===fuelHistoryAppliedSearch)return;
+    fuelHistoryAppliedSearch=next;
+    updateFuelHistoryView();
+  }
+  if(fuelHistorySearch){
+    fuelHistorySearch.addEventListener('input',function(){if(!fuelHistorySearch.value)applyFuelHistorySearch();});
+    fuelHistorySearch.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();applyFuelHistorySearch();}});
+  }
+  document.getElementById('fuelHistorySearchButton')?.addEventListener('click',applyFuelHistorySearch);
   if(fuelHistorySort) fuelHistorySort.addEventListener('change',function(){ updateFuelHistoryView(); });
   if(fuelHistoryClear) fuelHistoryClear.addEventListener('click',function(){
     if(fuelHistorySearch){
       fuelHistorySearch.value='';
       fuelHistorySearch.focus();
     }
-    updateFuelHistoryView();
+    applyFuelHistorySearch();
   });
   if(fuelHistoryBack) fuelHistoryBack.addEventListener('click',function(){ showDashboardView(); });
   if(dashboardBack) dashboardBack.addEventListener('click',function(){ showDashboardView(); });

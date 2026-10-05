@@ -136,7 +136,7 @@ function mount(root,admin){
  let controlDirty=false;
  let lastControl={},syncRequestPending=false;
  let sortKey='',sortDirection='asc';
- let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false;
+ let kind='cards',page=1,serial=0,controller=null,loaded=false,exporting=false,lastSync=null,loadedQuery=null,refreshing=false,appliedSearch='';
  let customerRetry=null,customerNotice='',customerNoticeError=false,lastLiveState=null,customerRequest=null,customerRequestPending=false,customerRangePreset=true;
  root.classList.add('wooten-fleet');
  root.innerHTML=`${admin?'<section class="fleet-health" data-health role="status" aria-live="polite">Loading sync status…</section>':''}${admin?'<section class="fleet-sync-controls" aria-label="Sync controls"><button type="button" class="primary" data-sync-now>Sync Now</button><label>Automatic interval (off) <select data-sync-hours disabled title="Automatic pulls are disabled">'+Array.from({length:12},(_,i)=>'<option value="'+((i+1)*2)+'">'+((i+1)*2)+' hours</option>').join('')+'</select></label><label>Transaction history <select data-sync-days><option value="30">Last 30 days</option><option value="21">Last 3 weeks</option><option value="14">Last 2 weeks</option><option value="7">Last 1 week</option></select></label><button type="button" data-save-schedule>Save settings</button><p data-control-status role="status"></p></section>':''}<div class="fleet-summary"><div class="fleet-stat"><strong data-count>—</strong><span>Cards in latest sync</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Active cards</span></div>${admin?'<div class="fleet-stat" style="grid-column:1/-1"><strong data-pulled-count>—</strong><span data-pulled-label>Transactions in latest successful pull</span><small data-pulled-window></small></div>':''}</div><div class="fleet-tabs" role="group" aria-label="Fleet records"><button type="button" data-kind="cards" aria-pressed="true">Fleet cards</button><button type="button" data-kind="transactions" aria-pressed="false">Transactions</button></div><form class="fleet-toolbar"><label class="fleet-search">Search <input type="search" name="search" placeholder="Search card, transaction, merchant, driver or vehicle" autocomplete="off"></label>${admin?'<label class="fleet-check"><input type="checkbox" name="review"> Needs account review</label>':''}<button type="submit">Search</button><button type="button" data-refresh>Refresh</button></form><p class="fleet-meta" data-meta></p><div class="fleet-message" data-message role="status" aria-live="polite" hidden></div>${admin?'<div class="fleet-export-actions"><button type="button" class="secondary table-pdf-export-button" data-export disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export PDF</span></button></div>':''}<div class="fleet-table-wrap" data-table></div><nav class="fleet-pages" aria-label="Fleet table pages" data-pages></nav>${admin?'<details class="fleet-device-panel"><summary>Intevacon synchronization</summary><div data-sync-status></div><div data-owner hidden><p>Create a separate credential for each sync service (office PC or cloud).</p><button type="button" data-create>Create sync credential</button><div data-token hidden></div></div></details>':''}`;
@@ -150,7 +150,7 @@ function mount(root,admin){
  document.body.append(transactionDialog);
  transactionDialog.addEventListener('click',e=>{
   const card=e.target.closest('[data-view-card-transactions]');
-  if(card){get('[name=search]').value=card.dataset.viewCardTransactions;kind='transactions';page=1;sortKey='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===kind)));transactionDialog.close();load({refresh:!customerRequest||customerRequestPending});return;}
+  if(card){appliedSearch=card.dataset.viewCardTransactions;get('[name=search]').value=appliedSearch;kind='transactions';page=1;sortKey='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===kind)));transactionDialog.close();load({refresh:!customerRequest||customerRequestPending});return;}
   if(e.target.closest('[data-transaction-close]'))transactionDialog.close();
   if(e.target.closest('[data-transaction-print]')&&transactionDialog.open&&transactionPrintData){
    const output=transactionDialog.querySelector('[data-transaction-print-status]');output.textContent='';
@@ -199,9 +199,10 @@ function mount(root,admin){
   get('.fleet-summary').innerHTML='<div class="fleet-stat"><strong data-count>—</strong><span>Cards with activity</span></div><div class="fleet-stat"><strong data-active>—</strong><span>Transactions in selected dates</span></div><div class="fleet-stat"><strong data-quantity>—</strong><span>Reported fuel quantity</span></div>';
   const toolbar=document.createElement('div');toolbar.className='fleet-customer-toolbar';
   root.prepend(toolbar);toolbar.append(get('.fleet-tabs'),get('.fleet-toolbar'));
-  const search=get('.fleet-search'),input=search.querySelector('input');
+  const search=get('.fleet-search'),input=search.querySelector('input'),submit=get('.fleet-toolbar button[type="submit"]');
   input.setAttribute('aria-label','Search fleet cards and transactions');
-  search.replaceChildren(input);
+  const field=document.createElement('div');field.className='fleet-search fleet-search-inline';
+  search.replaceWith(field);field.append(input,submit);
   get('[data-table]').after(get('[data-meta]'));
   const dates=document.createElement('section');dates.className='fleet-live-dates';dates.setAttribute('aria-label','Transaction dates');
   dates.innerHTML='<label for="customerFleetFrom">From<input id="customerFleetFrom" name="fleetFrom" type="datetime-local" min="2010-01-01T00:00" required></label><label for="customerFleetTo">To<input id="customerFleetTo" name="fleetTo" type="datetime-local" required></label><div class="fleet-live-date-actions"><button type="button" data-load-dates>Load dates</button><button type="button" data-last-30>Last 30 days</button></div><p>Choose up to 92 days. Load dates searches saved transactions. Cloud updates run on the admin schedule.</p>';
@@ -265,7 +266,7 @@ function mount(root,admin){
   const button=get('[data-export]'),buttonLabel=button.querySelector('span'),ticket=serial,exportKind=kind,signal=controller?.signal;
   if(!window.WootenAdminTablePdf?.exportData){message('The PDF exporter is not available. Refresh the page and try again.',true);return;}
   exporting=true;button.disabled=true;
-  const query=new URLSearchParams({kind:exportKind,search:get('[name=search]').value,page:'1'});
+  const query=new URLSearchParams({kind:exportKind,search:appliedSearch,page:'1'});
   if(get('[name=review]').checked)query.set('review','1');
   if(sortKey){query.set('sort',sortKey);query.set('direction',sortDirection);}
   try{
@@ -339,7 +340,7 @@ function mount(root,admin){
   controller?.abort();controller=new AbortController();const ticket=++serial;loaded=true;
   if(!background){get('[data-table]').innerHTML=fleetSkeleton(kind,admin);get('[data-pages]').innerHTML='';}
   message(cardsView?'Loading your fleet cards…':apiRefresh?'Loading your saved transactions…':'Loading fleet records…');root.setAttribute('aria-busy','true');
-  const query=background&&loadedQuery?new URLSearchParams(loadedQuery):new URLSearchParams({kind,page:String(page),search:get('[name=search]').value});
+  const query=background&&loadedQuery?new URLSearchParams(loadedQuery):new URLSearchParams({kind,page:String(page),search:appliedSearch});
   if(admin&&get('[name=review]').checked)query.set('review','1');
   if(sortKey){query.set('sort',sortKey);query.set('direction',sortDirection);}
   if(!admin&&!cardsView&&customerRequest){query.set('view',customerRequest.view);query.set('from',customerRequest.from);query.set('to',customerRequest.to);}
@@ -383,7 +384,7 @@ function mount(root,admin){
    // Keep the last successfully loaded rows; the next poll retries.
   }finally{refreshing=false;}
  }
- function clear(){if(!admin){kind='cards';sortKey='';sortDirection='asc';get('[name=search]').value='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind==='cards')));customerView();}lastLiveState=null;customerRequest=null;customerRequestPending=false;if(!admin){customerRefreshState(null);resetCustomerDates();get('[data-live-status]').hidden=true;get('[data-live-status]').textContent='';}transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
+ function clear(){appliedSearch='';if(!admin){kind='cards';sortKey='';sortDirection='asc';get('[name=search]').value='';root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind==='cards')));customerView();}lastLiveState=null;customerRequest=null;customerRequestPending=false;if(!admin){customerRefreshState(null);resetCustomerDates();get('[data-live-status]').hidden=true;get('[data-live-status]').textContent='';}transactionPrintData=null;transactionRows=[];cardRows=[];transactionAccount='';if(!admin){get('[data-quantity]').textContent='—';}if(transactionDialog.open)transactionDialog.close();transactionDialog.replaceChildren();if(admin){get('[data-pulled-count]').textContent='—';get('[data-pulled-label]').textContent='Transactions in latest successful pull';get('[data-pulled-window]').textContent='';}controlDirty=false;loadedQuery=null;lastSync=null;if(admin)get('[data-export]').disabled=true;controller?.abort();serial++;loaded=false;page=1;get('[data-table]').innerHTML='';get('[data-pages]').innerHTML='';get('[data-count]').textContent='—';get('[data-active]').textContent='—';get('[data-meta]').textContent='';message('');if(admin){get('[data-sync-status]').innerHTML='';get('[data-health]').textContent='';get('[data-health]').removeAttribute('data-state');get('[data-token]').innerHTML='';get('[data-token]').hidden=true;get('[data-owner]').hidden=true;}}
  root.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn)return;if(btn.hasAttribute('data-fleet-card')){const row=cardRows[Number(btn.dataset.fleetCard)];if(row)openCard(row,btn);}else if(btn.hasAttribute('data-fleet-transaction')){const row=transactionRows[Number(btn.dataset.fleetTransaction)];if(row)openTransaction(row,btn);}else if(btn.dataset.fleetSort){sortDirection=sortKey===btn.dataset.fleetSort&&sortDirection==='asc'?'desc':'asc';sortKey=btn.dataset.fleetSort;page=1;load();}else if(btn.dataset.kind){sortKey='';sortDirection='asc';kind=btn.dataset.kind;page=1;root.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));load({refresh:!admin&&kind==='transactions'&&(!customerRequest||customerRequestPending)});}else if(btn.dataset.page){page=Number(btn.dataset.page);load();}else if(btn.hasAttribute('data-refresh')){
  if(btn.disabled)return;
  btn.disabled=true;btn.textContent='Refreshing…';btn.setAttribute('aria-busy','true');
@@ -391,7 +392,7 @@ function mount(root,admin){
   if(admin){btn.disabled=false;btn.textContent='Refresh';btn.removeAttribute('aria-busy');}
  });
 }});
- get('form').addEventListener('submit',e=>{e.preventDefault();page=1;load();});get('[name=review]')?.addEventListener('change',()=>{page=1;load();});
+ get('form').addEventListener('submit',e=>{e.preventDefault();appliedSearch=get('[name=search]').value.trim();page=1;load();});get('[name=review]')?.addEventListener('change',()=>{page=1;load();});
  async function status(){
   const ticket=serial;
   try{const data=await api('/api/admin/fleet/status');if(ticket!==serial)return;
