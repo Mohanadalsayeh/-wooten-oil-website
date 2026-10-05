@@ -5753,8 +5753,8 @@ document.addEventListener('click',async function(event){
 #adminNotificationMenu .admin-bell-list{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain}
 #adminNotificationBell{touch-action:manipulation}
 </style>
-<meta name="wooten-portal-version" content="802">
-<meta name="wooten-build-fingerprint" content="3d2410e16a416d64107951d5c2cf72cdacfcede9c72d6e29b484631e5405abdd">
+<meta name="wooten-portal-version" content="807">
+<meta name="wooten-build-fingerprint" content="23863afc14e93074cf206cc9478b08374a7e9ad0679bc3d5ce9c1589146b8666">
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -7075,14 +7075,16 @@ SOFTWARE.
         </div>
       </div>
 
-      <div class="statement-action-panel statement-balanced-grid">
+      <div class="statement-action-panel statement-balanced-panel">
         <div class="statement-action-heading">
           <h3>Statement actions</h3>
+          <div class="actions statement-utility-actions">
+            <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
+            <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
+          </div>
         </div>
 
         <div class="actions statement-send-actions">
-          <button class="secondary" id="statementLoadCustomers" type="button">Load Customers</button>
-          <button class="secondary table-pdf-export-button" id="statementExportCustomersPdf" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
           <button class="secondary" id="statementPreview" type="button" disabled>Preview Statements</button>
           <button class="primary" id="statementGenerateSend" type="button" disabled>Generate &amp; Send Statements</button>
         </div>
@@ -7102,14 +7104,14 @@ SOFTWARE.
           </label>
           <label class="statement-select-all" for="statementSelectAllVisible">
             <input id="statementSelectAllVisible" type="checkbox">
-            <span class="statement-selection-copy">Select all shown <span aria-hidden="true">·</span> <span id="statementSelectedCount" aria-live="polite" aria-atomic="true">0 selected</span></span>
+            <span><span class="statement-selection-copy">Select all shown <span aria-hidden="true">·</span> <span id="statementSelectedCount" aria-live="polite" aria-atomic="true">0 selected</span></span><span class="statement-selection-scope">Current filter, all pages</span></span>
           </label>
           <div class="statement-selection-actions">
             <button class="secondary" id="statementSelectAllCustomers" type="button">Select All Matching</button>
             <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
           </div>
         </div>
-      <div class="sm-filter-row"><label>Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><label>Move checked customers to<select id="statementBulkCycle" disabled><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div>
+      <div class="sm-filter-row statement-balanced-grouping"><label for="statementGroupFilter">Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><div class="statement-balanced-move"><label for="statementBulkCycle">Move checked customers to<select id="statementBulkCycle" disabled><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div></div>
       </div>
 
       <div id="statementBatchStatus" class="status"></div>
@@ -12137,7 +12139,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function updateCount(){
     pruneStatementSelection();
     refreshListControls();
-    if(selectedCount) selectedCount.textContent=selected.size+' selected (current filter, all pages)';
+    if(selectedCount) selectedCount.textContent=selected.size+' selected';
     const moveDestination=document.getElementById('statementBulkCycle');
     const moveUnavailable=savedListsBusy||selected.size===0||loadBtn.disabled||sendBtn.dataset.requestPending==='true';
     moveDestination.disabled=moveUnavailable;
@@ -19508,3 +19510,140 @@ window.WootenSendSelectedNotifications=async function(){
 render();
 })();
 </script>
+
+<style id="wooten-statement-balanced-panel-ver807">
+/* Ver807 — approved Balanced panel for statement actions. */
+#documentSectionSendStatements .statement-action-panel.statement-balanced-panel{
+  display:block!important;box-sizing:border-box!important;min-width:0!important;
+  margin:18px 0 20px!important;padding:24px!important;border:1px solid #d7e3ed!important;
+  border-radius:15px!important;background:#fff!important;box-shadow:none!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-action-heading{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  flex-wrap:wrap!important;gap:16px!important;margin:0 0 24px!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-action-heading h3{
+  margin:0!important;color:#173850!important;font-size:21px!important;font-weight:700!important;line-height:1.25!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-utility-actions{
+  display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:10px!important;margin:0!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-utility-actions button{
+  --wooten-action-button-height:44px;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  gap:8px!important;width:auto!important;min-width:0!important;margin:0!important;padding-inline:14px!important;
+  border:1px solid #d7e3ed!important;border-radius:9px!important;font-size:13px!important;font-weight:600!important;
+  line-height:1.3!important;white-space:normal!important;box-shadow:none!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementLoadCustomers{
+  background:#f4f8fb!important;color:#173850!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementExportCustomersPdf{
+  background:#fff!important;color:#226aa1!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementLoadCustomers:not(:disabled):is(:hover,:active){background:#e8f0f7!important}
+#documentSectionSendStatements .statement-balanced-panel #statementExportCustomersPdf:not(:disabled):is(:hover,:active){background:#f4f8fb!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-send-actions{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch!important;
+  gap:12px!important;width:100%!important;margin:0!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-send-actions button{
+  --wooten-action-button-height:50px;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;padding-inline:16px!important;
+  border-radius:9px!important;font-size:14px!important;font-weight:600!important;gap:9px!important;
+  white-space:normal!important;line-height:1.3!important;box-shadow:none!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementPreview{background:#193c56!important;border-color:#193c56!important;color:#fff!important}
+#documentSectionSendStatements .statement-balanced-panel #statementPreview:not(:disabled):is(:hover,:active){background:#123047!important;border-color:#123047!important;color:#fff!important}
+#documentSectionSendStatements .statement-balanced-panel #statementGenerateSend{background:#d71920!important;border-color:#d71920!important;color:#fff!important}
+#documentSectionSendStatements .statement-balanced-panel #statementGenerateSend:not(:disabled):is(:hover,:active){background:#bc151d!important;border-color:#bc151d!important;color:#fff!important}
+#documentSectionSendStatements .statement-balanced-panel button:disabled{opacity:.42!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-utility-actions svg,
+#documentSectionSendStatements .statement-balanced-panel .statement-send-actions svg{
+  width:18px!important;height:18px!important;flex:0 0 18px!important;fill:none!important;
+  stroke:currentColor!important;stroke-width:1.7!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-selection-toolbar{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:wrap!important;
+  gap:16px!important;margin:20px 0!important;padding:15px 16px!important;border:0!important;
+  border-radius:10px!important;background:#f4f8fb!important;min-width:0!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-select-all{
+  display:flex!important;align-items:center!important;align-self:center!important;gap:11px!important;
+  width:auto!important;min-width:0!important;max-width:100%!important;min-height:44px!important;margin:0!important;
+  padding:0!important;border:0!important;background:transparent!important;white-space:normal!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-select-all input{flex-shrink:0!important;margin:0!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-select-all span{min-width:0!important;white-space:normal!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-selection-copy{
+  display:block!important;font-size:13px!important;font-weight:700!important;line-height:1.4!important;color:#173850!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementSelectedCount{color:#226aa1!important;font:inherit!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-selection-scope{
+  display:block!important;margin:4px 0 0!important;font-size:12px!important;font-weight:400!important;line-height:1.4!important;color:#657d92!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-selection-actions{
+  display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:2px!important;
+  width:auto!important;min-width:0!important;flex-basis:auto!important;margin:0!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-selection-actions button{
+  --wooten-action-button-height:44px;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  width:auto!important;min-width:0!important;margin:0!important;padding-inline:9px!important;
+  border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;color:#226aa1!important;
+  font-size:13px!important;font-weight:600!important;text-decoration:none!important;box-shadow:none!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-selection-actions button:not(:disabled):is(:hover,:active){background:#e7eff7!important;color:#1b5480!important;text-decoration:none!important}
+#documentSectionSendStatements .statement-balanced-panel .sm-filter-row.statement-balanced-grouping{
+  display:grid!important;grid-template-columns:minmax(190px,.9fr) minmax(320px,1.5fr)!important;
+  gap:22px!important;align-items:end!important;min-width:0!important;width:100%!important;
+  margin:0!important;padding:0!important;border:0!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-balanced-grouping label{
+  display:flex!important;flex-direction:column!important;gap:9px!important;min-width:0!important;width:100%!important;
+  margin:0!important;color:#173850!important;font-size:13px!important;font-weight:700!important;line-height:1.4!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-balanced-grouping select{
+  display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+  height:46px!important;min-height:46px!important;margin:0!important;padding:0 13px!important;
+  border:1px solid #d7e3ed!important;border-radius:9px!important;background:#fff!important;color:#173850!important;
+  font-size:14px!important;font-weight:600!important;line-height:normal!important;
+}
+#documentSectionSendStatements .statement-balanced-panel .statement-balanced-grouping select:disabled{background:#f4f8fb!important;opacity:.5!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-balanced-move{
+  display:grid!important;grid-template-columns:minmax(180px,1fr) auto!important;gap:10px!important;align-items:end!important;min-width:0!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementBulkMove{
+  --wooten-action-button-height:46px;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  box-sizing:border-box!important;width:auto!important;min-width:0!important;height:46px!important;margin:0!important;padding-inline:16px!important;
+  border:1px solid #226aa1!important;border-radius:9px!important;background:#fff!important;color:#226aa1!important;
+  font-size:13px!important;font-weight:600!important;white-space:normal!important;box-shadow:none!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementBulkMove:not(:disabled):is(:hover,:active){background:#f4f8fb!important;color:#1b5480!important}
+#documentSectionSendStatements .statement-balanced-panel .preview-progress{width:100%!important;margin:16px 0 0!important}
+#documentSectionSendStatements .statement-balanced-panel [hidden]{display:none!important}
+@media(max-width:900px){
+  #documentSectionSendStatements .statement-balanced-panel .sm-filter-row.statement-balanced-grouping{grid-template-columns:minmax(0,1fr)!important;gap:18px!important}
+}
+@media(max-width:700px){
+  #documentSectionSendStatements .statement-action-panel.statement-balanced-panel{padding:20px!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-action-heading{gap:16px!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-utility-actions{width:100%!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-utility-actions button{width:100%!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-selection-actions{display:flex!important;grid-column:auto!important;width:auto!important;flex-basis:auto!important}
+}
+@media(max-width:440px){
+  #documentSectionSendStatements .statement-balanced-panel .statement-send-actions{grid-template-columns:minmax(0,1fr)!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-balanced-move{grid-template-columns:minmax(0,1fr)!important}
+  #documentSectionSendStatements .statement-balanced-panel #statementBulkMove{width:100%!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-selection-toolbar{padding:14px!important;gap:10px!important}
+  #documentSectionSendStatements .statement-balanced-panel .statement-balanced-grouping select{font-size:16px!important}
+}
+
+/* Keep action icons visible when existing scripts change the button labels. */
+#documentSectionSendStatements .statement-balanced-panel :is(#statementLoadCustomers,#statementPreview,#statementGenerateSend)::before{
+  content:"";display:block;width:18px;height:18px;flex:0 0 18px;background:currentColor;
+  -webkit-mask:var(--statement-action-icon) center/contain no-repeat;mask:var(--statement-action-icon) center/contain no-repeat;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementLoadCustomers{--statement-action-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M16%2021v-2a4%204%200%200%200-4-4H6a4%204%200%200%200-4%204v2%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%227%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M22%2021v-2a4%204%200%200%200-3-3.87M16%203.13a4%204%200%200%201%200%207.75%22%2F%3E%3C%2Fsvg%3E")}
+#documentSectionSendStatements .statement-balanced-panel #statementPreview{--statement-action-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%2012s3.5-7%2010-7%2010%207%2010%207-3.5%207-10%207-10-7-10-7Z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E")}
+#documentSectionSendStatements .statement-balanced-panel #statementGenerateSend{--statement-action-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m22%202-7%2020-4-9-9-4%2020-7ZM22%202%2011%2013%22%2F%3E%3C%2Fsvg%3E")}
+</style>
