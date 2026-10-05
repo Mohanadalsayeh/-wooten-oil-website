@@ -5753,8 +5753,8 @@ document.addEventListener('click',async function(event){
 #adminNotificationMenu .admin-bell-list{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain}
 #adminNotificationBell{touch-action:manipulation}
 </style>
-<meta name="wooten-portal-version" content="798">
-<meta name="wooten-build-fingerprint" content="909833cfce9ca530695a44fc8afc0fda8eb4b41b5322de66a94384100016dc29">
+<meta name="wooten-portal-version" content="799">
+<meta name="wooten-build-fingerprint" content="45cda4aee978f97289f0e360a630111f8a00623e48a6ed5e649cf657ffcb2514">
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -18783,6 +18783,14 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 }
 </style>
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-9">
+<style id="wooten-payment-environment-header-ver799">
+/* Keep the Online Payment Transactions environment heading on one line. */
+.pt-table thead th:nth-child(5){min-width:172px}
+.pt-table thead th:nth-child(5) .wo-table-sort-label{
+  white-space:nowrap;
+  overflow-wrap:normal;
+}
+</style>
 <style id="wooten-customer-preview-headers-ver571">
 /* Include the full label, gap, and sort arrows in each column's minimum width. */
 #admin-tab-customers #tablewrap table{table-layout:auto}
