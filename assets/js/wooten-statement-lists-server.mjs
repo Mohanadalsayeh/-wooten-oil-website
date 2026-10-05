@@ -1,6 +1,6 @@
 // Saved statement lists are portal-owned; MAS 90 imports do not change membership.
 const LIST_ICONS=new Set(['folder','users','user-round-minus','calendar-days','calendar-clock','mail','mail-x','star','fuel','truck','building-2','church','tractor','store','wrench','shield-check']);
-export async function handle(request,env){
+export async function handle(request,env,{verifyCurrentAdminPassword,auditStatement}={}){
  const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'private, no-store'}});
  if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return json({success:false,error:'Unauthorized.'},401);
  if(!['GET','POST'].includes(request.method))return json({success:false,error:'Use GET or POST.'},405);
@@ -11,9 +11,11 @@ export async function handle(request,env){
   if(request.method==='POST'){
    const body=await request.json(),action=body.action;
    if(!['create','rename','add','remove','move','delete'].includes(action))return json({success:false,error:'Unknown list action.'},400);
+   if(action==='delete'&&(typeof verifyCurrentAdminPassword!=='function'||!await verifyCurrentAdminPassword(body.current_admin_password)))return json({success:false,error:'The password for the signed-in admin is incorrect. The list was not deleted.'},403);
    const id=action==='create'?crypto.randomUUID():String(body.id||'');
    if(!/^[a-zA-Z0-9-]{1,80}$/.test(id))return json({success:false,error:'Choose a valid list.'},400);
-   if(action!=='create'&&!await env.DB.prepare('SELECT id FROM statement_saved_lists WHERE id=?').bind(id).first())return json({success:false,error:'This list no longer exists. Reload customers.'},404);
+   const previous=action==='create'?null:await env.DB.prepare("SELECT l.id,l.name,COALESCE(i.icon,'folder') AS icon FROM statement_saved_lists l LEFT JOIN statement_saved_list_icons i ON i.list_id=l.id WHERE l.id=?").bind(id).first();
+   if(action!=='create'&&!previous)return json({success:false,error:'This list no longer exists. Reload customers.'},404);
    const name=String(body.name||'').trim();
    if(['create','rename'].includes(action)&&(!name||name.length>80))return json({success:false,error:'Enter a list name of 1–80 characters.'},400);
    const hasIcon=Object.prototype.hasOwnProperty.call(body,'icon');
@@ -27,11 +29,12 @@ export async function handle(request,env){
      if(Number(valid.count)!==accounts.length)return json({success:false,error:'Some customers are no longer available. Reload customers and select them again.'},400);
     }
    }
-   let destination='';
+   let destination='',destinationList=null;
    if(action==='move'){
     destination=String(body.destination_id||'');
     if(!/^[a-zA-Z0-9-]{1,80}$/.test(destination)||destination===id)return json({success:false,error:'Choose a different destination list.'},400);
-    if(!await env.DB.prepare('SELECT id FROM statement_saved_lists WHERE id=?').bind(destination).first())return json({success:false,error:'The destination list no longer exists. Reload customers.'},404);
+    destinationList=await env.DB.prepare('SELECT id,name FROM statement_saved_lists WHERE id=?').bind(destination).first();
+    if(!destinationList)return json({success:false,error:'The destination list no longer exists. Reload customers.'},404);
     const current=await env.DB.prepare('SELECT COUNT(*) AS count FROM statement_saved_list_members WHERE list_id=? AND account_number IN (SELECT value FROM json_each(?))').bind(id,JSON.stringify(accounts)).first();
     if(Number(current.count)!==accounts.length)return json({success:false,error:'Some checked customers are no longer in this list. Reload customers.'},409);
    }
@@ -47,6 +50,30 @@ export async function handle(request,env){
    }
    if(action==='remove')jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_members WHERE list_id=? AND account_number IN (SELECT value FROM json_each(?))').bind(id,JSON.stringify(accounts)));
    if(action==='delete'){jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_icons WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_members WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_lists WHERE id=?').bind(id));}
+   // Commit the list change and its tracking history entry together.
+   if(typeof auditStatement!=='function')return json({success:false,error:'List tracking is unavailable. Update the Worker together with the statement list module.'},503);
+   const label=action==='create'?name:previous.name;
+   let detail='',auditAction='';
+   const countText=n=>n+' customer'+(n===1?'':'s');
+   if(action==='create'){auditAction='statement_list_created';detail='Created statement list “'+name+'” with '+countText(accounts.length)+'. Icon: '+(hasIcon?body.icon:'folder')+'.';}
+   if(action==='rename'){
+    auditAction='statement_list_edited';const changes=[];
+    if(previous.name!==name)changes.push('Renamed “'+previous.name+'” to “'+name+'”');
+    if(hasIcon&&previous.icon!==body.icon)changes.push('Icon changed from '+previous.icon+' to '+body.icon);
+    detail=changes.length?changes.join('. ')+'.':'Saved statement list “'+name+'”; name and icon unchanged.';
+   }
+   if(['add','remove'].includes(action)){
+    const row=await env.DB.prepare('SELECT COUNT(*) AS count FROM statement_saved_list_members WHERE list_id=? AND account_number IN (SELECT value FROM json_each(?))').bind(id,JSON.stringify(accounts)).first();
+    const affected=action==='add'?accounts.length-Number(row.count):Number(row.count);
+    auditAction=action==='add'?'statement_list_customers_added':'statement_list_customers_removed';
+    detail=(action==='add'?'Added '+countText(affected)+' to':'Removed '+countText(affected)+' from')+' statement list “'+label+'”.';
+   }
+   if(action==='move'){auditAction='statement_list_customers_moved';detail='Moved '+countText(accounts.length)+' from statement list “'+label+'” to “'+destinationList.name+'”.';}
+   if(action==='delete'){
+    const row=await env.DB.prepare('SELECT COUNT(*) AS count FROM statement_saved_list_members WHERE list_id=?').bind(id).first();
+    auditAction='statement_list_deleted';detail='Deleted statement list “'+label+'” containing '+countText(Number(row.count))+'. Customer records and their cycles were kept.';
+   }
+   jobs.push(await auditStatement({action:auditAction,id,detail}));
    await env.DB.batch(jobs);
    return json({success:true,id});
   }

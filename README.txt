@@ -1,9 +1,7 @@
-Wooten Oil Portal — Ver812
+Wooten Oil Portal — Ver815
 
-Apply this update after Ver811. Copy the files inside GitHub-Update to the matching paths in your GitHub repository, preserving assets/css and assets/js folders.
+Apply after Ver814. Replace admin-customers.html and portal-version.json at the matching GitHub paths.
 
-Statements & Cycles automatically loads saved portal customers on the first visit in each page/session. Returning to the section, switching lists, and paging reuse the loaded customers. Load Customers remains available for a manual refresh. Failed loads can be retried, and changing the signed-in admin clears the previous session data. This does not trigger a MAS 90 or Intevacon synchronization.
+Statement date and Weekly cutoff day now have matching 52px field heights, aligned labels, and matching top/bottom positions when displayed side by side. Phone layouts retain stacked full-width fields with the same height. Only these two setup controls are styled by this change. Date selection, cutoff calculations, and saving periods are unchanged.
 
-List tabs and the create/rename icon picker now use the approved subtle icon colors. The All customers icon remains fixed.
-
-No Worker or database changes are included. Nothing has been deployed.
+Verified at 1503px, 1024px, 768px, and 390px widths. No Worker changes are needed. Nothing has been deployed.

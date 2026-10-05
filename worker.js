@@ -11560,10 +11560,16 @@ async function ensureAdminAuditV2(env){
     await env.DB.prepare(`INSERT OR IGNORE INTO admin_audit_log_v2(actor_user_id,actor_name,action_type,target_type,target_id,detail,source,legacy_id,created_at) SELECT actor_user_id,COALESCE(NULLIF(actor_name,''),'Wooten Oil Admin'),COALESCE(NULLIF(action_type,''),'activity'),target_type,target_id,detail,'legacy',COALESCE(CAST(id AS TEXT),CAST(rowid AS TEXT)),COALESCE(created_at,CURRENT_TIMESTAMP) FROM admin_audit_log`).run();
   }catch(error){console.warn("Legacy admin activity could not be copied",error);}
 }
-async function adminAudit(env,request,action,targetType="",targetId="",detail=""){try{await ensureAdminAuditV2(env);const actor=adminRequestActor(request,env);await env.DB.prepare(`INSERT INTO admin_audit_log_v2(actor_user_id,actor_name,action_type,target_type,target_id,detail) VALUES (?,?,?,?,?,?)`).bind(actor.id,actor.name,String(action||""),String(targetType||""),String(targetId||""),String(detail||"").slice(0,2000)).run();}catch(error){console.error("Admin audit could not be recorded",error);}}
+async function adminAuditStatement(env,request,action,targetType="",targetId="",detail=""){
+  await ensureAdminAuditV2(env);const actor=adminRequestActor(request,env);
+  return env.DB.prepare(`INSERT INTO admin_audit_log_v2(actor_user_id,actor_name,action_type,target_type,target_id,detail) VALUES (?,?,?,?,?,?)`).bind(actor.id,actor.name,String(action||""),String(targetType||""),String(targetId||""),String(detail||"").slice(0,2000));
+}
+async function adminAudit(env,request,action,targetType="",targetId="",detail=""){try{await (await adminAuditStatement(env,request,action,targetType,targetId,detail)).run();}catch(error){console.error("Admin audit could not be recorded",error);}}
 function adminGeneralAuditDescriptor(request){
   const url=new URL(request.url),path=url.pathname,method=String(request.method||"GET").toUpperCase();
   if(path==="/api/admin/audit")return null;
+  // List mutations write their specific audit entry in the same D1 transaction.
+  if(method==="POST"&&path==="/api/admin/statement-lists")return null;
   if(method==="DELETE"&&/^\/api\/admin\/account-applications\/\d+$/.test(path))return null;
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
   if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
@@ -12885,7 +12891,7 @@ var worker_default = {
       return methodNotAllowed();
     }
 
-    if (url.pathname === "/api/admin/statement-lists") return StatementLists.handle(request,env);
+    if (url.pathname === "/api/admin/statement-lists") return StatementLists.handle(request,env,{verifyCurrentAdminPassword:password=>mas90CurrentAdminPasswordMatches(request,env,password),auditStatement:entry=>adminAuditStatement(env,request,entry.action,'statement_list',entry.id,entry.detail)});
 
     if (url.pathname === "/api/admin/statement-management") return StatementManagement.handle(request,env);
 

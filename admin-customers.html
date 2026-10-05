@@ -5755,6 +5755,20 @@ document.addEventListener('click',async function(event){
 </style>
 <meta name="wooten-portal-version" content="808">
 <meta name="wooten-build-fingerprint" content="fcae0d0a3a0f2fd29e43821eca38c1d0bc17adc4c9d14170bca7096521cef192">
+<style id="wooten-statement-period-setup-ver815">
+/* Keep the relocated date input and nested cutoff label on the same baseline. */
+body#wooten-admin-page #statementCyclePeriods .sm-period-setup{align-items:start!important}
+body#wooten-admin-page #statementCyclePeriods .sm-period-setup>label,
+body#wooten-admin-page #statementCyclePeriods .sm-statement-date,
+body#wooten-admin-page #statementCyclePeriods .sm-statement-date>label{margin:0!important;padding:0!important;min-width:0}
+body#wooten-admin-page #statementCyclePeriods .sm-period-setup>label,
+body#wooten-admin-page #statementCyclePeriods .sm-statement-date>label{display:block!important;line-height:20px!important}
+body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementBatchDate,
+body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyCutoff{
+ display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+ height:52px!important;min-height:52px!important;max-height:52px!important;margin:7px 0 0!important;padding:0 12px!important;line-height:normal!important;
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -11915,7 +11929,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 <link rel="stylesheet" href="assets/css/wooten-statement-list-icons.css?v=812">
 <script src="assets/js/wooten-statement-list-icons.js?v=812"></script>
 <dialog id="statementSavedListDialog" aria-labelledby="statementListDialogTitle">
-<form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2><button id="statementListClose" type="button" aria-label="Close rename form" hidden>×</button></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><fieldset id="statementListIconField"><legend>List icon</legend><div id="statementListIconChoices"></div></fieldset><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
+<form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2><button id="statementListClose" type="button" aria-label="Close list form" hidden>×</button></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><fieldset id="statementListIconField"><legend>List icon</legend><div id="statementListIconChoices"></div></fieldset><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><div id="statementListDeleteAuthorization" hidden><p>Signed-in admin: <strong id="statementListDeleteUsername">Checking…</strong></p><label for="statementListDeletePassword">Your admin password<input id="statementListDeletePassword" type="password" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="256"></label></div><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -11951,7 +11965,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   const groupNames={A:"Cycle A — Monthly",B:"Cycle B — Weekly",C:"Cycle C — 15th to month end",E:"Exceptional"};
   window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
-  let savedLists=[],activeListId='',savedListsBusy=false,listDialogAction='',listDialogAccounts=[];
+  let savedLists=[],activeListId='',savedListsBusy=false,listDialogAction='',listDialogAccounts=[],listDialogId='',listDialogSession='',listDialogGeneration=0;
   let customersLoadedFor='',customersLoadingFor='',customerLoadGeneration=0,customerLoadController=null;
   let statementCustomerSession=document.getElementById('adminKey').value.trim();
   const listTabs=document.getElementById('statementSavedListTabs'),listDialog=document.getElementById('statementSavedListDialog');
@@ -11994,23 +12008,40 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(!response.ok||data.success===false)throw Error(data.error||'Customer lists could not be loaded.');return data;
   }
   async function refreshSavedLists(){const data=await listApi();savedLists=data.lists||[];if(activeListId&&!savedLists.some(l=>l.id===activeListId))activeListId='';renderListTabs();}
-  function openListDialog(action){
+  function closeListDialog(){listDialogGeneration++;listEl('statementListDeletePassword').value='';listDialog.close();}
+  async function openListDialog(action){
     if(listControlsBusy())return;
     listDialogAccounts=window.WootenStatementGetSelectedAccounts();
-    if(action!=='rename'&&!listDialogAccounts.length)return;
+    if(!['rename','delete'].includes(action)&&!listDialogAccounts.length)return;
+    const current=savedLists.find(l=>l.id===activeListId);
+    if(['rename','delete'].includes(action)&&!current)return;
+    const ticket=++listDialogGeneration;listDialogId=activeListId;listDialogSession=document.getElementById('adminKey').value.trim();
+    listEl('statementListDeletePassword').value='';listEl('statementListDeletePassword').required=action==='delete';
+    listEl('statementListDeleteAuthorization').hidden=action!=='delete';listEl('statementListDeleteUsername').textContent='Checking…';
     listDialogAction=action;
     listDialog.dataset.mode=action;
-    listEl("statementListClose").hidden=action!=="rename";
-    listDialog.querySelector("button[type=submit]").textContent=action==="rename"?"Save changes":"Save list";
+    listEl("statementListClose").hidden=!["rename","delete"].includes(action);
+    listDialog.querySelector("button[type=submit]").textContent=action==="delete"?"Delete list":action==="rename"?"Save changes":"Save list";
     const name=listEl('statementListName'),target=listEl('statementListTarget');
-    listEl('statementListDialogTitle').textContent=action==='create'?'Create customer list':action==='rename'?'Rename list':'Add checked customers to a list';
-    listEl('statementListNameLabel').hidden=action==='add';listEl('statementListTargetLabel').hidden=action!=='add';
-    name.value=action==='rename'?savedLists.find(l=>l.id===activeListId).name:'';name.required=action!=='add';
-    listEl('statementListIconField').hidden=action==='add';
+    listEl('statementListDialogTitle').textContent=action==='delete'?'Authorize list deletion':action==='create'?'Create customer list':action==='rename'?'Rename list':'Add checked customers to a list';
+    listEl('statementListNameLabel').hidden=['add','delete'].includes(action);listEl('statementListTargetLabel').hidden=action!=='add';
+    name.value=action==='rename'?savedLists.find(l=>l.id===activeListId).name:'';name.required=!['add','delete'].includes(action);
+    listEl('statementListIconField').hidden=['add','delete'].includes(action);
     window.WootenStatementListIcons.renderPicker(listEl('statementListIconChoices'),action==='rename'?savedLists.find(l=>l.id===activeListId).icon:'folder');
     target.replaceChildren();for(const item of savedLists){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;target.append(option);}
-    listEl('statementListDialogNote').textContent=action==='rename'?'The customer list and its members will be kept.':listDialogAccounts.length+' checked customers will be included.';
+    listEl('statementListDialogNote').textContent=action==='delete'?'Delete “'+current.name+'”? Customer records and their cycles will be kept. Enter the password for the admin shown below.':action==='rename'?'The customer list and its members will be kept.':listDialogAccounts.length+' checked customers will be included.';
     listEl('statementListDialogError').textContent='';listDialog.showModal();
+    if(action==='delete'){
+      const submit=listDialog.querySelector('button[type=submit]');submit.disabled=true;
+      try{
+        const response=await fetch('/api/admin/auth/me',{headers:{'X-Admin-Key':listDialogSession,'Accept':'application/json'},cache:'no-store'});
+        const data=await response.json();
+        if(ticket!==listDialogGeneration||!listDialog.open)return;
+        if(document.getElementById('adminKey').value.trim()!==listDialogSession)throw Error('Admin session changed. Close and try again.');
+        if(!response.ok||data.success===false||!data.user?.username)throw Error(data.error||'The signed-in admin could not be confirmed. Sign in again.');
+        listEl('statementListDeleteUsername').textContent=data.user.username;submit.disabled=false;listEl('statementListDeletePassword').focus();
+      }catch(error){if(ticket===listDialogGeneration&&listDialog.open){listEl('statementListDeleteUsername').textContent='Unavailable';listEl('statementListDialogError').textContent=error.message;}}
+    }
   }
   async function mutateList(body){
     if(listControlsBusy())return;
@@ -12021,9 +12052,9 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       if(body.action==='create'){activeListId=result.id;groupFilter.value='all';phoneScope.value='all';emailScope.value='all';search.value='';appliedSearch='';}
       if(body.action==='delete')activeListId='';
       selected.clear();customerPage=1;invalidateStatementPreview();
-      await refreshSavedLists();listDialog.close();render();setStatus('Customer list saved. Lists are retained across MAS 90 imports.',true);
-    }catch(error){const message=saved?'The list change was saved. Click Load Customers to refresh your lists.':error.message;listEl('statementListDialogError').textContent=message;setStatus(message,false);if(saved)listDialog.close();}
-    finally{savedListsBusy=false;listDialog.querySelectorAll('input,select,button').forEach(el=>el.disabled=false);updateCount();}
+      await refreshSavedLists();closeListDialog();render();setStatus(body.action==='delete'?'Customer list deleted. Customer records and their cycles were kept.':'Customer list saved. Lists are retained across MAS 90 imports.',true);
+    }catch(error){const message=saved?'The list change was saved. Click Load Customers to refresh your lists.':error.message;listEl('statementListDialogError').textContent=message;setStatus(message,false);if(saved)closeListDialog();}
+    finally{if(body.action==='delete')listEl('statementListDeletePassword').value='';savedListsBusy=false;listDialog.querySelectorAll('input,select,button').forEach(el=>el.disabled=false);updateCount();}
   }
   listEl('statementMoveToList').addEventListener('change',e=>{e.target.dataset.chosen=e.target.value;refreshListControls();});
   listEl('statementMoveList').onclick=()=>{
@@ -12034,12 +12065,20 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(confirm('Move '+accounts.length+' checked customer'+(accounts.length===1?'':'s')+' from “'+savedLists.find(item=>item.id===activeListId).name+'” to “'+name+'”?'))mutateList({action:'move',id:activeListId,destination_id:destination,accounts});
   };
   listEl('statementCreateList').onclick=()=>openListDialog('create');listEl('statementAddToList').onclick=()=>openListDialog('add');listEl('statementRenameList').onclick=()=>openListDialog('rename');
-  listEl('statementListCancel').onclick=()=>{if(!savedListsBusy)listDialog.close();};
-  listEl('statementListClose').onclick=()=>{if(!savedListsBusy)listDialog.close();};
-  listDialog.addEventListener('cancel',e=>{if(savedListsBusy)e.preventDefault();});
-  listEl('statementListForm').onsubmit=e=>{e.preventDefault();const body={action:listDialogAction,name:listEl('statementListName').value.trim(),accounts:listDialogAccounts,id:listDialogAction==='add'?listEl('statementListTarget').value:activeListId};if(['create','rename'].includes(listDialogAction))body.icon=listDialog.querySelector('input[name=statementListIcon]:checked')?.value||'folder';mutateList(body);};
+  listEl('statementListCancel').onclick=()=>{if(!savedListsBusy)closeListDialog();};
+  listEl('statementListClose').onclick=()=>{if(!savedListsBusy)closeListDialog();};
+  listDialog.addEventListener('cancel',e=>{e.preventDefault();if(!savedListsBusy)closeListDialog();});
+  listDialog.addEventListener('close',()=>{if(!listDialog.open)listEl('statementListDeletePassword').value='';});
+  listEl('statementListForm').onsubmit=e=>{e.preventDefault();
+    if(listDialogAction==='delete'){
+      const password=listEl('statementListDeletePassword').value;
+      if(listDialogSession!==document.getElementById('adminKey').value.trim()){listEl('statementListDialogError').textContent='Admin session changed. Close and try again.';return;}
+      if(!password||['Checking…','Unavailable'].includes(listEl('statementListDeleteUsername').textContent)){listEl('statementListDialogError').textContent='Enter your signed-in admin password.';return;}
+      mutateList({action:'delete',id:listDialogId,current_admin_password:password});return;
+    }
+    const body={action:listDialogAction,name:listEl('statementListName').value.trim(),accounts:listDialogAccounts,id:listDialogAction==='add'?listEl('statementListTarget').value:activeListId};if(['create','rename'].includes(listDialogAction))body.icon=listDialog.querySelector('input[name=statementListIcon]:checked')?.value||'folder';mutateList(body);};
   listEl('statementRemoveFromList').onclick=()=>{const accounts=window.WootenStatementGetSelectedAccounts();if(accounts.length&&confirm('Remove '+accounts.length+' checked customers from this list? Customer records will be kept.'))mutateList({action:'remove',id:activeListId,accounts});};
-  listEl('statementDeleteList').onclick=()=>{const item=savedLists.find(l=>l.id===activeListId);if(item&&confirm('Delete the list “'+item.name+'”? Customer records and their cycles will be kept.'))mutateList({action:'delete',id:item.id});};
+  listEl('statementDeleteList').onclick=()=>{const item=savedLists.find(l=>l.id===activeListId);if(item&&confirm('Delete the list “'+item.name+'”? Customer records and their cycles will be kept.'))openListDialog('delete');};
   // Ver733: reconcile visible checkboxes before capturing a new preview selection.
   window.WootenStatementGetSelectedAccounts=()=>{
     list.querySelectorAll('.statement-customer-check[data-account]').forEach(box=>{
@@ -12444,6 +12483,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
     const session=document.getElementById('adminKey').value.trim();
     if(session!==statementCustomerSession){
       statementCustomerSession=session;customerLoadGeneration++;
+      if(listDialog.open)closeListDialog();listEl('statementListDeletePassword').value='';
       customerLoadController?.abort();customerLoadController=null;
       customersLoadedFor='';customersLoadingFor='';customers=[];selected.clear();
       savedLists=[];activeListId='';loadBtn.disabled=false;loadBtn.textContent='Load Customers';
@@ -14288,7 +14328,7 @@ auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAudit
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
   list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
-  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('adminAuditRefresh'),()=>load()));get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
+  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('adminAuditRefresh'),()=>load()));window.addEventListener('wooten-admin-page-open',event=>{if(event.detail?.panel==='users')load();});
   if(window.wootenAdminUser?.owner)setTimeout(load,0);
 })();
 </script>
@@ -16200,6 +16240,26 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #statementSavedListDialog[data-mode="rename"] button[type="submit"]:hover{background:#195681!important}
 #statementSavedListDialog[data-mode="rename"] #statementListClose{position:static!important;display:flex;align-items:center;justify-content:center;flex:0 0 44px;box-sizing:border-box;width:44px;height:44px;min-height:44px;padding:0!important;margin:0!important;border:0!important;border-radius:10px;background:transparent!important;color:#193d59!important;box-shadow:none!important;font-size:28px;line-height:1}
 @media(max-width:440px){#statementSavedListDialog[data-mode="rename"]{padding:20px}#statementSavedListDialog[data-mode="rename"] h2{font-size:20px}}
+</style>
+<style id="wooten-statement-list-delete-auth-ver813">
+#statementSavedListDialog[data-mode="delete"]{box-sizing:border-box;width:540px;max-width:calc(100% - 28px);padding:28px;border-radius:18px;background:#fff;color:#193d59;box-shadow:0 15px 40px #17364d24}
+#statementSavedListDialog[data-mode="delete"] header{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff;padding:0;margin:0 0 24px;border:0}
+#statementSavedListDialog[data-mode="delete"] h2{font-size:23px;line-height:1.3;color:#193d59}
+#statementSavedListDialog[data-mode="delete"] .statement-list-dialog-body{padding:0}
+#statementSavedListDialog[data-mode="delete"] #statementListDialogNote{margin:0 0 18px;line-height:1.55}
+#statementSavedListDialog[data-mode="delete"] #statementListNameLabel{margin:0;font-size:14px;color:#193d59}
+#statementSavedListDialog[data-mode="delete"] #statementListName{box-sizing:border-box;height:48px;min-height:48px;width:100%;min-width:0;margin:8px 0 0;padding:12px 14px;border:1px solid #c2d4e4;border-radius:10px;background:#fff;color:#193d59;font-size:16px}
+#statementSavedListDialog[data-mode="delete"] #statementListDialogError{margin:12px 0 0;font-size:13px}
+#statementSavedListDialog[data-mode="delete"] #statementListDialogError:empty{display:none}
+#statementSavedListDialog[data-mode="delete"] footer{padding:24px 0 0;background:#fff;border:0;gap:10px}
+#statementSavedListDialog[data-mode="delete"] footer button{min-height:44px;padding:12px 20px;border-radius:10px;font-size:15px}
+#statementSavedListDialog[data-mode="delete"] #statementListCancel{background:#edf4f8!important;border:1px solid #cadce9!important;color:#193d59!important}
+#statementSavedListDialog[data-mode="delete"] button[type="submit"]{background:#df1827!important;border:1px solid #df1827!important;color:#fff!important}
+#statementSavedListDialog[data-mode="delete"] button[type="submit"]:hover{background:#bb1420!important}
+#statementSavedListDialog[data-mode="delete"] #statementListClose{position:static!important;display:flex;align-items:center;justify-content:center;flex:0 0 44px;box-sizing:border-box;width:44px;height:44px;min-height:44px;padding:0!important;margin:0!important;border:0!important;border-radius:10px;background:transparent!important;color:#193d59!important;box-shadow:none!important;font-size:28px;line-height:1}
+@media(max-width:440px){#statementSavedListDialog[data-mode="delete"]{padding:20px}#statementSavedListDialog[data-mode="delete"] h2{font-size:20px}}
+#statementSavedListDialog[data-mode="delete"] #statementListDeletePassword{box-sizing:border-box;height:48px;min-height:48px;width:100%;min-width:0;margin:8px 0 0;padding:12px 14px;border:1px solid #c2d4e4;border-radius:10px;background:#fff;color:#193d59;font-size:16px}
+#statementSavedListDialog[data-mode="delete"] #statementListDeleteAuthorization p{margin:0 0 18px}
 </style>
 
 <style id="wooten-list-tabs-ver767">
