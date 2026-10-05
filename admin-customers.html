@@ -11912,8 +11912,10 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 <script src="assets/js/wooten-statement-fleet.js?v=777"></script>
 <link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=741">
 <script src="assets/js/wooten-statement-management.js?v=741"></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-list-icons.css?v=811">
+<script src="assets/js/wooten-statement-list-icons.js?v=811"></script>
 <dialog id="statementSavedListDialog" aria-labelledby="statementListDialogTitle">
-<form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2><button id="statementListClose" type="button" aria-label="Close rename form" hidden>×</button></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
+<form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2><button id="statementListClose" type="button" aria-label="Close rename form" hidden>×</button></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><fieldset id="statementListIconField"><legend>List icon</legend><div id="statementListIconChoices"></div></fieldset><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
 <script id="wooten-admin-batch-statements-script">
 (function(){
   const loadBtn=document.getElementById('statementLoadCustomers');
@@ -11976,7 +11978,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   function renderListTabs(){
     listTabs.replaceChildren();
     for(const item of [{id:'',name:'All customers'},...savedLists]){
-      const button=document.createElement('button');button.type='button';const label=document.createElement('span');label.className='statement-list-tab-name';label.textContent=item.name+(item.accounts?' ('+item.accounts.length+')':'');button.append(label);button.setAttribute('aria-pressed',String(item.id===activeListId));
+      const button=document.createElement('button');button.type='button';const label=document.createElement('span');label.className='statement-list-tab-name';label.textContent=item.name+(item.accounts?' ('+item.accounts.length+')':'');button.append(window.WootenStatementListIcons.icon(item.id?item.icon:'users'),label);button.setAttribute('aria-pressed',String(item.id===activeListId));
       button.addEventListener('click',()=>{if(listControlsBusy())return;activeListId=item.id;clearSelectionForFilter();groupFilter.value='all';phoneScope.value='all';emailScope.value='all';search.value='';appliedSearch='';customerPage=1;renderListTabs();render();updateFilterStatus();});listTabs.append(button);
     }
     listEl('statementSavedListTitle').textContent=savedLists.find(l=>l.id===activeListId)?.name||'All customers';
@@ -11997,11 +11999,13 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     listDialogAction=action;
     listDialog.dataset.mode=action;
     listEl("statementListClose").hidden=action!=="rename";
-    listDialog.querySelector("button[type=submit]").textContent=action==="rename"?"Save name":"Save list";
+    listDialog.querySelector("button[type=submit]").textContent=action==="rename"?"Save changes":"Save list";
     const name=listEl('statementListName'),target=listEl('statementListTarget');
     listEl('statementListDialogTitle').textContent=action==='create'?'Create customer list':action==='rename'?'Rename list':'Add checked customers to a list';
     listEl('statementListNameLabel').hidden=action==='add';listEl('statementListTargetLabel').hidden=action!=='add';
     name.value=action==='rename'?savedLists.find(l=>l.id===activeListId).name:'';name.required=action!=='add';
+    listEl('statementListIconField').hidden=action==='add';
+    window.WootenStatementListIcons.renderPicker(listEl('statementListIconChoices'),action==='rename'?savedLists.find(l=>l.id===activeListId).icon:'folder');
     target.replaceChildren();for(const item of savedLists){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;target.append(option);}
     listEl('statementListDialogNote').textContent=action==='rename'?'The customer list and its members will be kept.':listDialogAccounts.length+' checked customers will be included.';
     listEl('statementListDialogError').textContent='';listDialog.showModal();
@@ -12031,7 +12035,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   listEl('statementListCancel').onclick=()=>{if(!savedListsBusy)listDialog.close();};
   listEl('statementListClose').onclick=()=>{if(!savedListsBusy)listDialog.close();};
   listDialog.addEventListener('cancel',e=>{if(savedListsBusy)e.preventDefault();});
-  listEl('statementListForm').onsubmit=e=>{e.preventDefault();const body={action:listDialogAction,name:listEl('statementListName').value.trim(),accounts:listDialogAccounts,id:listDialogAction==='add'?listEl('statementListTarget').value:activeListId};mutateList(body);};
+  listEl('statementListForm').onsubmit=e=>{e.preventDefault();const body={action:listDialogAction,name:listEl('statementListName').value.trim(),accounts:listDialogAccounts,id:listDialogAction==='add'?listEl('statementListTarget').value:activeListId};if(['create','rename'].includes(listDialogAction))body.icon=listDialog.querySelector('input[name=statementListIcon]:checked')?.value||'folder';mutateList(body);};
   listEl('statementRemoveFromList').onclick=()=>{const accounts=window.WootenStatementGetSelectedAccounts();if(accounts.length&&confirm('Remove '+accounts.length+' checked customers from this list? Customer records will be kept.'))mutateList({action:'remove',id:activeListId,accounts});};
   listEl('statementDeleteList').onclick=()=>{const item=savedLists.find(l=>l.id===activeListId);if(item&&confirm('Delete the list “'+item.name+'”? Customer records and their cycles will be kept.'))mutateList({action:'delete',id:item.id});};
   // Ver733: reconcile visible checkboxes before capturing a new preview selection.

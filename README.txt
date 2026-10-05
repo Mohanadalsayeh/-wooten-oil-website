@@ -1,7 +1,9 @@
-Ver810 — Statement Progress toolbar
+Ver811 — Statement customer list icons
 
-Upload the files in GitHub-Update to your repository, preserving the assets/css folder path. This update is applied after Ver809.
+Upload only these updated files to GitHub, preserving the assets/css and assets/js folder paths. Apply after Ver810.
 
-Search customers and Filter status now match the Export PDF button height. The inset Search button keeps a 6-pixel gap at the top, right, and bottom. Search button, Enter, and clearing behavior are preserved.
+Create List and Rename List now offer 16 matching outline icons. The selected icon is saved with the list and shown beside its tab name. All customers always keeps the customers icon and is not editable. Existing lists use the Folder icon until changed.
 
-No deployment or database changes were made.
+The server module creates its icon metadata table automatically on the first list request. No manual SQL, office-PC script change, or changes to customer list membership are needed. The existing Worker imports this module; ensure your normal Cloudflare Worker build includes the updated server module. worker.js itself has not changed and is not included.
+
+Verified: create, rename, reload, existing lists, unauthorized requests, invalid icons, moving customers and deleting lists; desktop, tablet and phone layouts. Nothing has been deployed.

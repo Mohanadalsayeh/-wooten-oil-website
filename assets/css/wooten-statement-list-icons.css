@@ -1,0 +1,25 @@
+/* Ver811 — persistent list icons, matching the portal's outline icon style. */
+#statementSavedLists #statementSavedListTabs button{gap:8px!important}
+#statementSavedLists #statementSavedListTabs .statement-list-icon{display:block;width:17px;height:17px;min-width:17px;flex:0 0 17px;align-self:center;stroke:currentColor;pointer-events:none}
+#statementSavedListDialog #statementListIconField{min-width:0;margin:22px 0 0;padding:0;border:0;color:#193d59}
+#statementSavedListDialog #statementListIconField legend{padding:0;margin:0 0 10px;font-size:14px;font-weight:600}
+#statementSavedListDialog #statementListIconChoices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#statementSavedListDialog .statement-list-icon-choice{position:relative;display:block;margin:0;min-width:0;cursor:pointer}
+#statementSavedListDialog .statement-list-icon-choice input{position:absolute!important;width:1px!important;min-width:1px!important;max-width:1px!important;height:1px!important;min-height:1px!important;max-height:1px!important;margin:0!important;padding:0!important;border:0!important;opacity:0;overflow:hidden}
+#statementSavedListDialog .statement-list-icon-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;box-sizing:border-box;width:100%;min-height:68px;padding:10px 4px;border:1px solid #d5e2ec;border-radius:9px;background:#fff;color:#607c98;text-align:center;font-size:12px;line-height:1.3;transition:background .15s,border-color .15s,color .15s}
+#statementSavedListDialog .statement-list-icon-tile svg{display:block;width:21px;height:21px;flex:0 0 21px}
+#statementSavedListDialog .statement-list-icon-choice:hover .statement-list-icon-tile{background:#f4f8fb;border-color:#9ab7cc;color:#193d59}
+#statementSavedListDialog .statement-list-icon-choice input:checked+.statement-list-icon-tile{background:#eaf2f8;border-color:#21699b;color:#193d59;box-shadow:inset 0 0 0 1px #21699b}
+#statementSavedListDialog .statement-list-icon-choice input:focus-visible+.statement-list-icon-tile{outline:2px solid #21699b;outline-offset:2px}
+#statementSavedListDialog .statement-list-icon-choice:has(input:disabled){cursor:default;opacity:.55}
+#statementSavedListDialog #statementListIconField[hidden]{display:none!important}
+#statementSavedListDialog:not([data-mode="add"]){max-height:calc(100dvh - 28px);overflow:hidden}
+#statementSavedListDialog:not([data-mode="add"]) #statementListForm{display:flex;flex-direction:column;max-height:calc(100dvh - 30px)}
+#statementSavedListDialog[data-mode="rename"] #statementListForm{max-height:calc(100dvh - 86px)}
+#statementSavedListDialog:not([data-mode="add"]) .statement-list-dialog-body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+#statementSavedListDialog:not([data-mode="add"]) header,#statementSavedListDialog:not([data-mode="add"]) footer{flex:0 0 auto}
+@media(max-width:440px){
+ #statementSavedListDialog #statementListIconChoices{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #statementSavedListDialog[data-mode="rename"] #statementListForm{max-height:calc(100dvh - 70px)}
+}
+@media(prefers-reduced-motion:reduce){#statementSavedListDialog .statement-list-icon-tile{transition:none}}
