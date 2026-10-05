@@ -1,1 +1,7 @@
-{"version": "798"}
+{
+  "version": "800",
+  "pages": {
+    "admin-customers.html": "800",
+    "index.html": "800"
+  }
+}
