@@ -5742,6 +5742,14 @@ document.addEventListener('click',async function(event){
  finally{button.disabled=false;button.textContent='Open';}
 },true);
 </script>
+<style id="wooten-admin-bell-recovery-v796">
+#adminNotificationBadge[hidden],#adminNotificationMenu[hidden]{display:none!important}
+.admin-header:has(#adminNotificationMenu:not([hidden])){position:relative;z-index:300}
+#adminNotificationMenu:not([hidden]){display:block!important;max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain}
+#adminNotificationBell{touch-action:manipulation}
+</style>
+<meta name="wooten-portal-version" content="797">
+<meta name="wooten-build-fingerprint" content="4a9c80e1c63cfc4063d7ad1765977af64d3dd8060c31834833ec165a2e8c1395">
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -15404,13 +15412,13 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
  const key=()=>g('adminKey')?.value.trim()||'';
- const allowed=type=>WootenAdminAccess.has(window.wootenAdminUser,type==='fleet'?'fleet_cards':type==='mas90'?'mas90_health':type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
+ const allowed=type=>!!window.WootenAdminAccess?.has(window.wootenAdminUser,type==='fleet'?'fleet_cards':type==='mas90'?'mas90_health':type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
  const time=v=>v?WootenTime.dateTime(v):'';
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
- function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='0';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
+ function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
    list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
@@ -15418,9 +15426,13 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  }
  async function load(append=false,force=false,supersede=false){
    const token=key();if(token!==activeKey){controller?.abort();controller=null;flight=null;activeKey=token;clear();}
-   const canRead=allowed('application')||allowed('fuel')||allowed('payment')||allowed('fleet')||allowed('mas90');bell.closest('.admin-bell-shell').hidden=!canRead;
-   if(!token||!canRead){controller?.abort();controller=null;flight=null;clear();menu.hidden=true;bell.setAttribute('aria-expanded','false');return;}if(supersede&&flight){controller?.abort();controller=null;flight=null;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
-   lastAttempt=Date.now();const abort=new AbortController();controller=abort;
+   const canRead=allowed('application')||allowed('fuel')||allowed('payment')||allowed('fleet')||allowed('mas90');
+   if(!token||!canRead){controller?.abort();controller=null;flight=null;clear();
+     summary.textContent=!token?'Admin session unavailable':!window.wootenAdminUser?'Checking admin session…':'Notifications unavailable';
+     list.innerHTML='<div class="admin-bell-empty">'+(!token?'Your admin session is not ready. Try Refresh, or sign in again using Logout / Change Key.':!window.wootenAdminUser?'Please wait for sign-in to finish, then try Refresh.':'Your notification permissions could not be confirmed. Try Refresh, or sign in again.')+'</div>';
+     return;
+   }if(supersede&&flight){controller?.abort();controller=null;flight=null;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
+   lastAttempt=Date.now();const abort=new AbortController();controller=abort;let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;abort.abort();},20000);
    refresh.disabled=true;refresh.classList.add('is-loading');refresh.setAttribute('aria-busy','true');more.disabled=true;more.textContent=append?'Loading...':'Load More';
    const task=(async()=>{
      try{
@@ -15438,13 +15450,13 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
        counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();
-     }catch(e){if(!abort.signal.aborted&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(e.message||'Notifications could not be loaded.')+'</div>';}}
-     finally{if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
+     }catch(e){if((!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}
+     finally{clearTimeout(timeout);if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
  window.wootenRefreshAdminNotifications=()=>load(false,true,true);
  function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
- bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true);});
+ bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true).catch(()=>{summary.textContent='Notifications could not be loaded';list.innerHTML='<div class="admin-bell-empty">Please tap Refresh to try again.</div>';});});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
  menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId,item.dataset.noticeId);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
@@ -16157,6 +16169,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #statementSavedLists #statementSavedListTabs button:is(:hover,:focus,:focus-visible,:active),
 #statementSavedLists #statementSavedListTabs button:is(:hover,:focus,:focus-visible,:active) .statement-list-tab-name{text-decoration:none!important;text-decoration-line:none!important}
 </style>
+<script defer src="assets/js/wooten-update-notice.js?v=797"></script>
 </body>
 </html>
 

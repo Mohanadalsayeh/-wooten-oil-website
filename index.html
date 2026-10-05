@@ -366,6 +366,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <link rel="stylesheet" href="assets/css/wooten-push.css?v=664">
 <script defer src="assets/js/wooten-company-header-text.js?v=703"></script>
 <link rel="stylesheet" href="assets/css/wooten-customer-fleet-dates.css?v=704">
+<meta name="wooten-portal-version" content="797">
+<meta name="wooten-build-fingerprint" content="f1d66f5c59222a4bd3ec8b690dd8846aa5ebcb5de118b5ae40864deee99a8a28">
 </head>
 <body>
 
@@ -4363,7 +4365,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<section class="response"><span class="label">Wooten Oil response — '+safe(data,'status')+'</span><div class="value">'+safe(data,'adminResponse')+'</div>'+(data.decisionAt!=='—'?'<div class="updated">Last updated: '+safe(data,'decisionAt')+'</div>':'')+'</section>'+
       '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Request</span></button></div>'+
-      '</main></body></html>';
+      '</main><script defer src="assets/js/wooten-update-notice.js?v=797"></script>
+</body></html>';
   }
   function printFuelRequest(card){
     var requestWindow=window.open('','_blank');
