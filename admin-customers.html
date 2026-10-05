@@ -11912,8 +11912,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
 <script src="assets/js/wooten-statement-fleet.js?v=777"></script>
 <link rel="stylesheet" href="assets/css/wooten-statement-management.css?v=741">
 <script src="assets/js/wooten-statement-management.js?v=741"></script>
-<link rel="stylesheet" href="assets/css/wooten-statement-list-icons.css?v=811">
-<script src="assets/js/wooten-statement-list-icons.js?v=811"></script>
+<link rel="stylesheet" href="assets/css/wooten-statement-list-icons.css?v=812">
+<script src="assets/js/wooten-statement-list-icons.js?v=812"></script>
 <dialog id="statementSavedListDialog" aria-labelledby="statementListDialogTitle">
 <form id="statementListForm"><header><h2 id="statementListDialogTitle">Create customer list</h2><button id="statementListClose" type="button" aria-label="Close rename form" hidden>×</button></header><div class="statement-list-dialog-body"><p id="statementListDialogNote"></p><label id="statementListNameLabel">List name<input id="statementListName" type="text" maxlength="80" required autocomplete="off"></label><fieldset id="statementListIconField"><legend>List icon</legend><div id="statementListIconChoices"></div></fieldset><label id="statementListTargetLabel" hidden>Customer list<select id="statementListTarget"></select></label><p id="statementListDialogError" role="alert"></p></div><footer><button class="secondary" id="statementListCancel" type="button">Cancel</button><button type="submit">Save list</button></footer></form></dialog>
 <script id="wooten-admin-batch-statements-script">
@@ -11952,6 +11952,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   let savedLists=[],activeListId='',savedListsBusy=false,listDialogAction='',listDialogAccounts=[];
+  let customersLoadedFor='',customersLoadingFor='',customerLoadGeneration=0,customerLoadController=null;
+  let statementCustomerSession=document.getElementById('adminKey').value.trim();
   const listTabs=document.getElementById('statementSavedListTabs'),listDialog=document.getElementById('statementSavedListDialog');
   const listEl=id=>document.getElementById(id);
   function listControlsBusy(){return savedListsBusy||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true';}
@@ -12196,46 +12198,60 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(!customers.length||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true')return;
     setStatus(filterSummary(),true);
   }
-  async function loadCustomers(){
+  async function loadCustomers(force=true){
     const key=document.getElementById('adminKey').value.trim();
-    if(!key){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);return;}
+    if(!key){if(force){window.ensureAdminLoginKey('Enter your Admin Import Key to continue.');setStatus('Enter your Admin Import Key in the Admin Login window first.',false);}return;}
+    if(customersLoadingFor===key||listControlsBusy()||(!force&&customersLoadedFor===key))return;
+    const generation=++customerLoadGeneration,controller=new AbortController();
+    customerLoadController=controller;customersLoadingFor=key;
+    const current=()=>generation===customerLoadGeneration&&document.getElementById('adminKey').value.trim()===key;
     loadBtn.disabled=true;loadBtn.textContent='Loading Customers…';updateCount();
     list.innerHTML='<tr><td colspan="7">Loading customers…</td></tr>';
     beginAdminActionProgress('statementCustomerLoad','Loading statement customers…');
     await new Promise(resolve=>requestAnimationFrame(resolve));
     try{
       await window.WootenStatementFleet.ready();
+      if(!current())return;
       const res=await fetch('/api/admin/statement-customers',{
         headers:{'X-Admin-Key':key,'Accept':'application/json'},
-        cache:'no-store'
+        cache:'no-store',signal:controller.signal
       });
       const data=await res.json().catch(()=>({}));
+      if(!current())return;
       if(!res.ok||data.success===false) throw new Error(data.error||'Customers could not be loaded.');
       await refreshSavedLists();
+      if(!current())return;
       const loadedCustomers=Array.isArray(data.customers)?data.customers:[];
       if(loadedCustomers.some(c=>typeof c.statement_cycle!=='string'))throw new Error('Update the Worker included with Ver501, then load customers again.');
       customers=[];
       customerPage=1;
       if(!loadedCustomers.length){render();updateAdminActionProgress('statementCustomerLoad',0,0,'Loading customers in batches…');}
       for(let i=0;i<loadedCustomers.length;i+=200){
+        if(!current())return;
         const chunk=loadedCustomers.slice(i,i+200);
         customers.push(...chunk);
         render();
         updateAdminActionProgress('statementCustomerLoad',customers.length,loadedCustomers.length,'Loading customers in batches…');
         await new Promise(resolve=>setTimeout(resolve,0));
       }
+      if(!current())return;
       const eligibleAccounts=new Set(customers.map(c=>c.account_number));
       for(const account of Array.from(selected)){
         if(!eligibleAccounts.has(account)) selected.delete(account);
       }
       render();
+      customersLoadedFor=key;
       setStatus(filterSummary(),true);
     }catch(e){
-      customers=[];selected.clear();render();
+      if(!current()||controller.signal.aborted)return;
+      customersLoadedFor='';customers=[];selected.clear();render();
       setStatus(e.message||'Customers could not be loaded.',false);
     }finally{
+      if(current()){
+      customersLoadingFor='';customerLoadController=null;
       hideAdminActionProgress('statementCustomerLoad');
       loadBtn.disabled=false;loadBtn.textContent='Load Customers';updateCount();
+      }
     }
   }
 
@@ -12416,13 +12432,29 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       updateCount();
     }
   });
-  document.querySelector('[data-document-section="send-statements"]')?.addEventListener('click',async()=>{
-    if(listControlsBusy()||!document.getElementById('adminKey').value.trim())return;
-    savedListsBusy=true;updateCount();
-    try{await refreshSavedLists();render();}catch(error){setStatus(error.message,false);}finally{savedListsBusy=false;updateCount();}
+  function ensureStatementCustomersLoaded(){
+    const section=document.getElementById('documentSectionSendStatements');
+    if(!section||section.closest('[hidden]')||!document.getElementById('adminKey').value.trim())return;
+    // Load once per page/session. List tabs, filters and pagination reuse memory.
+    loadCustomers(false);
+  }
+  document.querySelector('[data-document-section="send-statements"]')?.addEventListener('click',ensureStatementCustomersLoaded);
+  window.addEventListener('wooten-admin-page-open',ensureStatementCustomersLoaded);
+  window.addEventListener('wooten-admin-auth-changed',()=>{
+    const session=document.getElementById('adminKey').value.trim();
+    if(session!==statementCustomerSession){
+      statementCustomerSession=session;customerLoadGeneration++;
+      customerLoadController?.abort();customerLoadController=null;
+      customersLoadedFor='';customersLoadingFor='';customers=[];selected.clear();
+      savedLists=[];activeListId='';loadBtn.disabled=false;loadBtn.textContent='Load Customers';
+      hideAdminActionProgress('statementCustomerLoad');renderListTabs();render();setStatus('');
+    }
+    // Wait for the other authentication listeners to reset their state first.
+    queueMicrotask(ensureStatementCustomersLoaded);
   });
   renderListTabs();
   updateCount();
+  ensureStatementCustomersLoaded();
 })();
 </script>
 <link rel="stylesheet" href="assets/css/wooten-statement-preview.css?v=530">

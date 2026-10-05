@@ -7,7 +7,7 @@ function icon(id){
  const item=known.get(id)||known.get('folder'),ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
  Object.entries({viewBox:'0 0 24 24',width:'18',height:'18',fill:'none',stroke:'currentColor','stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false'}).forEach(([key,value])=>svg.setAttribute(key,value));
  for(const [tag,attrs] of item.nodes){const child=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))child.setAttribute(key,value);svg.append(child);}
- svg.classList.add('statement-list-icon');return svg;
+ svg.classList.add('statement-list-icon');svg.dataset.listIcon=item.id;return svg;
 }
 function renderPicker(container,selected){
  container.replaceChildren();

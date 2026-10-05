@@ -23,3 +23,21 @@
  #statementSavedListDialog[data-mode="rename"] #statementListForm{max-height:calc(100dvh - 70px)}
 }
 @media(prefers-reduced-motion:reduce){#statementSavedListDialog .statement-list-icon-tile{transition:none}}
+
+/* Ver812 — subtle outline colors, shared by list tabs and the icon picker. */
+body#wooten-admin-page .statement-list-icon[data-list-icon="folder"]{color:#b48d46}
+body#wooten-admin-page .statement-list-icon[data-list-icon="users"]{color:#5189b8}
+body#wooten-admin-page .statement-list-icon[data-list-icon="user-round-minus"]{color:#8593a0}
+body#wooten-admin-page .statement-list-icon[data-list-icon="calendar-days"]{color:#6c8faf}
+body#wooten-admin-page .statement-list-icon[data-list-icon="calendar-clock"]{color:#9180ad}
+body#wooten-admin-page .statement-list-icon[data-list-icon="mail"]{color:#5c9c85}
+body#wooten-admin-page .statement-list-icon[data-list-icon="mail-x"]{color:#b67d75}
+body#wooten-admin-page .statement-list-icon[data-list-icon="star"]{color:#c5a051}
+body#wooten-admin-page .statement-list-icon[data-list-icon="fuel"]{color:#7d9b85}
+body#wooten-admin-page .statement-list-icon[data-list-icon="truck"]{color:#668caf}
+body#wooten-admin-page .statement-list-icon[data-list-icon="building-2"]{color:#7b8d9d}
+body#wooten-admin-page .statement-list-icon[data-list-icon="church"]{color:#9c88aa}
+body#wooten-admin-page .statement-list-icon[data-list-icon="tractor"]{color:#91a069}
+body#wooten-admin-page .statement-list-icon[data-list-icon="store"]{color:#639c9b}
+body#wooten-admin-page .statement-list-icon[data-list-icon="wrench"]{color:#8a929f}
+body#wooten-admin-page .statement-list-icon[data-list-icon="shield-check"]{color:#699e86}
