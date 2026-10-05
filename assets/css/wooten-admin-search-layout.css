@@ -90,3 +90,28 @@ body#wooten-admin-page .sp-actions>.sp-export{
  height:56px!important;min-height:56px!important;max-height:56px!important;
  box-sizing:border-box!important;padding:0 20px!important;margin:0!important;line-height:1.2!important;
 }
+
+/* Ver810 — equal field heights and the portal's 6px inset Search button. */
+body#wooten-admin-page .sp-dialog .sp-actions .sp-search-field .wooten-search-inside,
+body#wooten-admin-page .sp-dialog .sp-actions #sp-search,
+body#wooten-admin-page .sp-dialog .sp-actions #sp-filter,
+body#wooten-admin-page .sp-dialog .sp-actions>button.sp-export{
+ height:56px!important;min-height:56px!important;max-height:56px!important;
+ box-sizing:border-box!important;margin:0!important;
+}
+body#wooten-admin-page .sp-dialog .sp-actions .sp-search-field .wooten-search-inside{
+ padding:0!important;border:0!important;
+}
+body#wooten-admin-page .sp-dialog .sp-actions #sp-search{
+ padding-top:0!important;padding-bottom:0!important;line-height:normal!important;
+}
+body#wooten-admin-page .sp-dialog .sp-actions #sp-filter{
+ padding-top:0!important;padding-bottom:0!important;line-height:normal!important;
+}
+body#wooten-admin-page .sp-dialog .sp-actions .wooten-search-inside>.wooten-search-inside-button{
+ top:6px!important;right:6px!important;bottom:6px!important;
+ height:44px!important;min-height:44px!important;max-height:44px!important;
+ margin:0!important;padding-top:0!important;padding-bottom:0!important;
+}
+
+body#wooten-admin-page .sp-dialog .sp-actions>button.sp-export{--wooten-action-button-height:56px;}
