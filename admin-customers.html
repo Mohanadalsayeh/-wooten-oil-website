@@ -5745,11 +5745,16 @@ document.addEventListener('click',async function(event){
 <style id="wooten-admin-bell-recovery-v796">
 #adminNotificationBadge[hidden],#adminNotificationMenu[hidden]{display:none!important}
 .admin-header:has(#adminNotificationMenu:not([hidden])){position:relative;z-index:300}
-#adminNotificationMenu:not([hidden]){display:block!important;max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain}
+#adminNotificationMenu:not([hidden]){display:flex!important;flex-direction:column;max-height:calc(100dvh - 100px);overflow:hidden;overscroll-behavior:contain}
+#adminNotificationMenu .admin-bell-menu-head,
+#adminNotificationMenu .admin-bell-counts,
+#adminNotificationMenu .admin-bell-load-more,
+#adminNotificationMenu .admin-bell-footer{flex:none}
+#adminNotificationMenu .admin-bell-list{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain}
 #adminNotificationBell{touch-action:manipulation}
 </style>
-<meta name="wooten-portal-version" content="797">
-<meta name="wooten-build-fingerprint" content="4a9c80e1c63cfc4063d7ad1765977af64d3dd8060c31834833ec165a2e8c1395">
+<meta name="wooten-portal-version" content="798">
+<meta name="wooten-build-fingerprint" content="909833cfce9ca530695a44fc8afc0fda8eb4b41b5322de66a94384100016dc29">
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
