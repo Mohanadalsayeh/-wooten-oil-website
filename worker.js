@@ -16,7 +16,8 @@ import {history as statementRunHistory} from './assets/js/wooten-statement-histo
 import * as StatementFleet from './fleet/statement-fleet.mjs';
 import {pages as statementFleetPages} from './fleet/statement-fleet-pdf.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
-import {statementLetterhead,statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
+import {statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
+import {statementMailingLetterhead as statementLetterhead,statementFoldMarks} from './assets/js/wooten-statement-mailing.mjs';
 import {statementBuildCombinedPdf} from './assets/js/wooten-statement-pdf.mjs';
 import * as StatementPreviewFile from './assets/js/wooten-statement-preview-file-server.mjs';
 import * as IntevaconApiSchedule from './fleet/intevacon-api-schedule.mjs';
@@ -9847,28 +9848,27 @@ function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
     text(Math.max(42,right-s.length*avg),y,size,s,bold,color);
   }
 
-  // Shared clean letterhead, repeated on every statement page.
+  // Approved mailing letterhead at the start of the account summary section.
   add(statementLetterhead());
 
   // Statement meta
-  text(42,657,13,"Statement Date",true,slate);
-  text(42,638,12,statementPdfDate(statementDate),false,navy);
-  rightText(570,657,10,"Customer #",true,slate);
-  rightText(570,638,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
+  text(42,666,13,"Statement Date",true,slate);
+  text(42,647,12,statementPdfDate(statementDate),false,navy);
+  rightText(570,666,10,"Customer #",true,slate);
+  rightText(570,647,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
 
-  // Customer box
+  // Plain mailing address, aligned with Account Summary and raised 1/8 inch.
   const address=statementCustomerAddress(customer);
   function customerBox(drawRect,drawText){
-    drawRect(42,552,528,76,light,line,0.8);
-    drawText(56,614,9,"BILL TO",true,slate);
+    drawText(42,623,9,"BILL TO",true,slate);
     const fit=(y,size,value,bold,color)=>{
       const safe=statementPdfSafeText(value);
       const fitted=Math.min(size,500/Math.max(1,safe.length*0.65));
-      drawText(56,y,Number(fitted.toFixed(2)),safe,bold,color);
+      drawText(42,y,Number(fitted.toFixed(2)),safe,bold,color);
     };
-    fit(598,13,customer?.account_name||"Customer",true,navy);
-    if(address[0])fit(583,9.5,address[0],false,slate);
-    if(address[1])fit(568,9.5,address[1],false,slate);
+    fit(607,13,customer?.account_name||"Customer",true,navy);
+    if(address[0])fit(592,9.5,address[0],false,slate);
+    if(address[1])fit(577,9.5,address[1],false,slate);
   }
   customerBox(roundedRect,text);
 
@@ -9972,10 +9972,10 @@ function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
     };
 
     pAdd(statementLetterhead());
-    pRight(570,657,10,"Customer #",true,slate);
-    pRight(570,638,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
-    pText(42,657,13,"Statement Date",true,slate);
-    pText(42,638,12,statementPdfDate(statementDate),false,navy);
+    pRight(570,666,10,"Customer #",true,slate);
+    pRight(570,647,12,statementPdfSafeText(customer?.account_number)||"-",true,navy);
+    pText(42,666,13,"Statement Date",true,slate);
+    pText(42,647,12,statementPdfDate(statementDate),false,navy);
     customerBox((...args)=>roundedRect(...args,pAdd),pText);
     pText(42,533,9.5,`Recent Payments - ${payments.length} most recent payment${payments.length===1?"":"s"}`,false,slate);
 
@@ -10022,6 +10022,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
   // later merged into an admin combined PDF.
   const statementTotalPages=pageStreams.length;
   for(let pageIndex=0;pageIndex<statementTotalPages;pageIndex++){
+    pageStreams[pageIndex]+='\n'+statementFoldMarks();
     const pageLabel=`Page ${pageIndex+1} of ${statementTotalPages}`;
     const pageLabelSize=8.5;
     const pageLabelX=Math.max(42,570-pageLabel.length*(0.52*pageLabelSize));
