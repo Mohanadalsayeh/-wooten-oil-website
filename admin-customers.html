@@ -5753,8 +5753,8 @@ document.addEventListener('click',async function(event){
 #adminNotificationMenu .admin-bell-list{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain}
 #adminNotificationBell{touch-action:manipulation}
 </style>
-<meta name="wooten-portal-version" content="807">
-<meta name="wooten-build-fingerprint" content="23863afc14e93074cf206cc9478b08374a7e9ad0679bc3d5ce9c1589146b8666">
+<meta name="wooten-portal-version" content="808">
+<meta name="wooten-build-fingerprint" content="fcae0d0a3a0f2fd29e43821eca38c1d0bc17adc4c9d14170bca7096521cef192">
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6995,7 +6995,7 @@ SOFTWARE.
       <section id="statementSavedLists" class="statement-saved-lists" aria-label="Saved customer lists">
         <div id="statementSavedListTabs" class="statement-list-tabs" aria-label="Customer list tabs"></div>
         <div class="statement-list-heading"><h3 id="statementSavedListTitle">All customers</h3><div><button type="button" class="secondary" id="statementRenameList" hidden>Rename list</button><button type="button" class="secondary" id="statementDeleteList" hidden>Delete list</button></div></div>
-        <div class="statement-list-actions"><button type="button" class="secondary" id="statementCreateList" disabled>+ Create list from checked</button><button type="button" class="secondary" id="statementAddToList" disabled>Add checked to a list</button><button type="button" class="secondary" id="statementRemoveFromList" hidden disabled>Remove checked from list</button><div id="statementListMoveControls" class="statement-list-move" hidden><label for="statementMoveToList">Move checked customers to<select id="statementMoveToList" disabled></select></label><button type="button" class="secondary" id="statementMoveList" disabled>Move selected</button></div></div>
+        <div class="statement-list-actions"><button type="button" class="secondary" id="statementCreateList" disabled>+ Create list from checked</button><button type="button" class="secondary" id="statementAddToList" disabled>Add checked to a list</button><button type="button" class="secondary" id="statementRemoveFromList" hidden disabled>Remove checked from list</button></div>
       </section>
       <div class="statement-delivery-options statement-delivery-card-section schedule-shared" role="group" aria-labelledby="statementSendingOptionsTitle">
           <div class="statement-delivery-heading" id="statementSendingOptionsTitle">
@@ -7111,7 +7111,8 @@ SOFTWARE.
             <button class="secondary" id="statementClearSelection" type="button">Clear Selection</button>
           </div>
         </div>
-      <div class="sm-filter-row statement-balanced-grouping"><label for="statementGroupFilter">Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><div class="statement-balanced-move"><label for="statementBulkCycle">Move checked customers to<select id="statementBulkCycle" disabled><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div></div>
+      <div class="sm-filter-row statement-balanced-grouping"><label for="statementGroupFilter">Show customers<select id="statementGroupFilter"><option value="all">All customers</option><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option><option value="favorites">Favorites</option></select></label><div class="statement-balanced-move"><label for="statementBulkCycle"><span class="statement-move-label">Move checked customers to <small>Cycle</small></span><select id="statementBulkCycle" disabled><option value="A">Cycle A — Monthly</option><option value="B">Cycle B — Weekly</option><option value="C">Cycle C — 15th to month end</option><option value="E">Exceptional</option></select></label><button class="secondary" type="button" id="statementBulkMove">Move selected</button></div></div>
+      <div id="statementListMoveControls" class="statement-list-move statement-balanced-list-move" hidden><label for="statementMoveToList"><span class="statement-move-label">Move checked customers to <small>Customer list</small></span><select id="statementMoveToList" disabled></select></label><button type="button" class="secondary" id="statementMoveList" disabled>Move selected</button></div>
       </div>
 
       <div id="statementBatchStatus" class="status"></div>
@@ -19646,4 +19647,40 @@ render();
 #documentSectionSendStatements .statement-balanced-panel #statementLoadCustomers{--statement-action-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M16%2021v-2a4%204%200%200%200-4-4H6a4%204%200%200%200-4%204v2%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%227%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M22%2021v-2a4%204%200%200%200-3-3.87M16%203.13a4%204%200%200%201%200%207.75%22%2F%3E%3C%2Fsvg%3E")}
 #documentSectionSendStatements .statement-balanced-panel #statementPreview{--statement-action-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%2012s3.5-7%2010-7%2010%207%2010%207-3.5%207-10%207-10-7-10-7Z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E")}
 #documentSectionSendStatements .statement-balanced-panel #statementGenerateSend{--statement-action-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m22%202-7%2020-4-9-9-4%2020-7ZM22%202%2011%2013%22%2F%3E%3C%2Fsvg%3E")}
+</style>
+
+<style id="wooten-statement-list-move-ver808">
+/* Keep customer-list moves inside Statement actions, alongside cycle controls. */
+#documentSectionSendStatements .statement-balanced-panel .statement-move-label{display:block!important;min-width:0!important}
+#documentSectionSendStatements .statement-balanced-panel .statement-move-label small{display:inline!important;margin-left:7px!important;font-size:12px!important;font-weight:400!important;line-height:inherit!important;color:#657d92!important}
+#documentSectionSendStatements .statement-balanced-panel #statementListMoveControls{
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:end!important;
+  gap:10px!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;
+  margin:20px 0 0!important;padding:20px 0 0!important;border:0!important;border-top:1px solid #d7e3ed!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementListMoveControls[hidden]{display:none!important}
+#documentSectionSendStatements .statement-balanced-panel #statementListMoveControls label{
+  display:flex!important;flex-direction:column!important;gap:9px!important;min-width:0!important;width:100%!important;
+  margin:0!important;color:#173850!important;font-size:13px!important;font-weight:700!important;line-height:1.4!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementMoveToList{
+  display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+  height:46px!important;min-height:46px!important;margin:0!important;padding:0 13px!important;
+  border:1px solid #d7e3ed!important;border-radius:9px!important;background:#fff!important;color:#173850!important;
+  font-size:14px!important;font-weight:600!important;line-height:normal!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementMoveToList:focus-visible{outline:2px solid #21699b;outline-offset:2px}
+#documentSectionSendStatements .statement-balanced-panel #statementMoveToList:disabled{background:#f4f8fb!important;opacity:.5!important}
+#documentSectionSendStatements .statement-balanced-panel #statementMoveList{
+  --wooten-action-button-height:46px;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  box-sizing:border-box!important;width:auto!important;min-width:0!important;height:46px!important;margin:0!important;padding-inline:16px!important;
+  border:1px solid #226aa1!important;border-radius:9px!important;background:#fff!important;color:#226aa1!important;
+  font-size:13px!important;font-weight:600!important;white-space:normal!important;box-shadow:none!important;
+}
+#documentSectionSendStatements .statement-balanced-panel #statementMoveList:not(:disabled):is(:hover,:active){background:#f4f8fb!important;color:#1b5480!important}
+@media(max-width:440px){
+  #documentSectionSendStatements .statement-balanced-panel #statementListMoveControls{grid-template-columns:minmax(0,1fr)!important}
+  #documentSectionSendStatements .statement-balanced-panel #statementMoveList{width:100%!important}
+  #documentSectionSendStatements .statement-balanced-panel #statementMoveToList{font-size:16px!important}
+}
 </style>
