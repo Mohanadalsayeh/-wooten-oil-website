@@ -366,8 +366,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <link rel="stylesheet" href="assets/css/wooten-push.css?v=664">
 <script defer src="assets/js/wooten-company-header-text.js?v=703"></script>
 <link rel="stylesheet" href="assets/css/wooten-customer-fleet-dates.css?v=704">
-<meta name="wooten-portal-version" content="804">
-<meta name="wooten-build-fingerprint" content="c0fb12478693b4be5b5f45ef8b6cacde50a6cc455ea5cb3e0a9abffcb38b68ee">
+<meta name="wooten-portal-version" content="806">
+<meta name="wooten-build-fingerprint" content="7900d9be54a883a6bd008999da5c0213c835b129de586115b7d7e9be736c3705">
 </head>
 <body>
 
@@ -3472,6 +3472,7 @@ body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-hist
 <link rel="stylesheet" href="assets/css/wooten-customer-back-to-top.css?v=493">
 <script src="assets/js/wooten-customer-back-to-top.js?v=493"></script>
 <script defer src="assets/js/wooten-push.js?v=669"></script>
+<script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 </body>
 <style id="wooten-customer-close-and-login-hover-ver347">
 /* Close controls must override ordinary navigation-item hover fills. */
@@ -4365,8 +4366,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
       '<section class="response"><span class="label">Wooten Oil response — '+safe(data,'status')+'</span><div class="value">'+safe(data,'adminResponse')+'</div>'+(data.decisionAt!=='—'?'<div class="updated">Last updated: '+safe(data,'decisionAt')+'</div>':'')+'</section>'+
       '<p class="note">This document is a copy of the fuel request submitted through the Wooten Oil Customer Portal. It confirms the request was received and is not proof of delivery.</p><div class="footer">Wooten Oil Co., Inc. &bull; Customer Fuel Request</div>'+
       '<div class="screen-actions"><button type="button" class="close" onclick="window.close()">Close</button><button type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg><span>Print Request</span></button></div>'+
-      '</main><script defer src="assets/js/wooten-update-notice.js?v=800"></script>
-</body></html>';
+      '</main></body></html>';
   }
   function printFuelRequest(card){
     var requestWindow=window.open('','_blank');
@@ -5156,7 +5156,7 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 </style>
 <link rel="stylesheet" href="assets/css/wooten-table-system.css?v=20260914-5">
 <script src="assets/js/wooten-sortable-tables.js?v=576"></script>
-<style id="wooten-customer-search-submit-ver804">
+<style id="wooten-customer-search-submit-ver805">
 #customerDocuments .customer-documents-search-wrap,
 #customerPaymentHistory .payment-history-search-wrap,
 #customerFuelHistory .fuel-history-search-wrap{position:relative;display:flex;align-items:center;min-width:0}
@@ -5173,8 +5173,8 @@ body #site-header a.customer-login-link:is(:hover,:focus,:focus-visible,:active)
 #customerDocumentsSearchButton:focus-visible,#paymentHistorySearchButton:focus-visible,#fuelHistorySearchButton:focus-visible{outline:3px solid #66a6d8!important;outline-offset:2px!important}
 #customerPaymentHistory .payment-history-search-wrap{flex:1 1 250px}
 #customerFuelHistory .fuel-history-search-wrap .fuel-history-search-icon{pointer-events:none}
-.iv-customer-list .iv-tools .iv-search-inline{position:relative;display:flex;align-items:center;min-width:0}
-.iv-customer-list .iv-tools input[name="search"]{box-sizing:border-box!important;width:100%!important;min-width:0!important;height:56px!important;min-height:56px!important;padding-right:112px!important}
+.iv-customer-list .iv-tools .iv-search-inline{position:relative;display:flex;align-items:center;min-width:0;margin-top:7px}
+.iv-customer-list .iv-tools input[name="search"]{box-sizing:border-box!important;width:100%!important;min-width:0!important;height:56px!important;min-height:56px!important;margin-top:0!important;padding-right:112px!important}
 .iv-customer-list .iv-tools [data-search]{position:absolute!important;top:6px!important;right:6px!important;bottom:6px!important;transform:none!important;z-index:2;margin:0!important;min-width:94px!important;height:auto!important;min-height:0!important;padding:0 14px!important;border:0!important;border-radius:9px!important;background:#d71920!important;color:#fff!important;font-weight:700!important}
 .iv-customer-list .iv-tools [data-search]:hover{background:#bd1820!important;color:#fff!important}
 @layer wootenActionSizing {
