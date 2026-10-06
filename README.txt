@@ -1,4 +1,3 @@
-Ver845 — Tank setting unit prefixes
+Ver846 — Tank units on the right
 
-Upload the included files to the same paths in GitHub. No Worker change.
-Capacity shows gal. Low fuel, Critical fuel, and Recovery level show gal or % before the number according to Threshold units. Changing units updates prefixes immediately. Numeric values are unchanged; changing units does not convert values.
+Upload these changed files to the same paths in GitHub after Ver845. The gal and % unit labels now appear on the right of the numeric fields, with room for number controls. No Worker change.

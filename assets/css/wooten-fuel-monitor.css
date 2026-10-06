@@ -245,5 +245,5 @@
 
 /* Units stay outside numeric values so saved thresholds remain numbers. */
 #fuelMonitorRoot .fm-unit-field,.fm-dialog .fm-unit-field{position:relative;display:block;min-width:0;width:100%}
-#fuelMonitorRoot .fm-unit-prefix,.fm-dialog .fm-unit-prefix{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#607b90;font-weight:600;pointer-events:none;line-height:1}
-#fuelMonitorRoot .fm-unit-field input,.fm-dialog .fm-unit-field input{box-sizing:border-box;width:100%;min-width:0;padding-left:52px}
+#fuelMonitorRoot .fm-unit-prefix,.fm-dialog .fm-unit-prefix{position:absolute;right:36px;top:50%;transform:translateY(-50%);color:#607b90;font-weight:600;pointer-events:none;line-height:1}
+#fuelMonitorRoot .fm-unit-field input,.fm-dialog .fm-unit-field input{box-sizing:border-box;width:100%;min-width:0;padding-left:15px;padding-right:76px}
