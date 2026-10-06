@@ -15504,7 +15504,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  const allowed=type=>!!window.WootenAdminAccess?.has(window.wootenAdminUser,type==='tank'?'fuel_monitoring':type==='fleet'?'fleet_cards':type==='mas90'?'mas90_health':type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={tank:'Tank Fuel Alert',profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
- const time=v=>v?WootenTime.dateTime(v):'';
+ const time=v=>{if(!v)return '';try{if(window.WootenTime?.dateTime)return window.WootenTime.dateTime(v);const date=new Date(v);return Number.isNaN(date.getTime())?String(v):date.toLocaleString('en-US',{timeZone:'America/Chicago'});}catch{return String(v);}};
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
  function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
@@ -15520,18 +15520,20 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
      summary.textContent=!token?'Admin session unavailable':!window.wootenAdminUser?'Checking admin session…':'Notifications unavailable';
      list.innerHTML='<div class="admin-bell-empty">'+(!token?'Your admin session is not ready. Try Refresh, or sign in again using Logout / Change Key.':!window.wootenAdminUser?'Please wait for sign-in to finish, then try Refresh.':'Your notification permissions could not be confirmed. Try Refresh, or sign in again.')+'</div>';
      return;
-   }if(supersede&&flight){controller?.abort();controller=null;flight=null;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
+   }if(append&&!nextCursor)return;if(supersede&&flight){controller?.abort();controller=null;flight=null;}if(flight)return flight;if(!force&&!append&&Date.now()-lastAttempt<1500)return;
    lastAttempt=Date.now();const abort=new AbortController();controller=abort;let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;abort.abort();},20000);
    refresh.disabled=true;refresh.classList.add('is-loading');refresh.setAttribute('aria-busy','true');more.disabled=true;more.textContent=append?'Loading...':'Load More';
+   summary.textContent=append?'Loading more notifications…':'Loading notifications…';
    const task=(async()=>{
+     await Promise.resolve();
      try{
        let cursor=append?nextCursor:null,result=[],data;
        if(append&&!cursor)return;
        const target=append?20:Math.max(20,items.length);
        do{
          const response=await fetch('/api/admin/notification-bell'+(cursor?'?cursor='+encodeURIComponent(cursor):''),{headers:{'X-Admin-Key':token},cache:'no-store',signal:abort.signal});
-         data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||'Notifications could not be loaded.');
-         if(token!==key()||abort.signal.aborted)return;
+         try{data=await response.json();}catch{throw new Error('The notification service returned an unexpected response. Tap Refresh to retry.');}if(!response.ok||!data.success)throw new Error(response.status===401?'Your admin session has expired. Sign in again using Logout / Change Key.':data.error||'Notifications could not be loaded (HTTP '+response.status+').');
+         if(token!==key()||abort.signal.aborted||controller!==abort)return;
          result.push(...(data.items||[]));cursor=data.next_cursor||null;
        }while(!append&&cursor&&result.length<target);
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
@@ -15539,22 +15541,22 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
        counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();
-     }catch(e){if((!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}
+     }catch(e){if(controller===abort&&(!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}
      finally{clearTimeout(timeout);if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
  window.wootenRefreshAdminNotifications=()=>load(false,true,true);
  function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='tank'){g('admin-tab-btn-fuel-monitor')?.click();}else if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
- bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true).catch(()=>{summary.textContent='Notifications could not be loaded';list.innerHTML='<div class="admin-bell-empty">Please tap Refresh to try again.</div>';});});
- refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
+ bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true,true).catch(()=>{summary.textContent='Notifications could not be loaded';list.innerHTML='<div class="admin-bell-empty">Please tap Refresh to try again.</div>';});});
+ refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
  menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId,item.dataset.noticeId);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
  document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  window.addEventListener('wooten-admin-auth-changed',()=>{controller?.abort();controller=null;flight=null;clear();load(false,true);});
  window.addEventListener('wooten-payment-notification-read',()=>load(false,true));
- for(const event of ['focus','pageshow','online'])window.addEventListener(event,()=>{if(!document.hidden)load();});
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
+ for(const event of ['focus','pageshow','online'])window.addEventListener(event,()=>{if(!document.hidden)load(false,true,true);});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(false,true,true);});
  setInterval(()=>{if(!document.hidden)load();},60000);
  load(false,true);
 })();
