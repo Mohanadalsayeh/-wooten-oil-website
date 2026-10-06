@@ -240,3 +240,5 @@
 /* Match standard admin page heading placement and typography. */
 #fuelMonitorRoot > .fm-heading{align-items:flex-start}
 #fuelMonitorRoot > .fm-heading > div > h2{margin:0 0 8px;color:var(--navy);font-size:24px}
+
+.fm-simulation{width:min(1000px,calc(100vw - 24px));max-width:1000px}.fm-simulation .fm-simulation-note{margin:0 0 18px;padding:12px;background:#fff5d9;border-radius:10px}.fm-simulation-slider{margin-top:16px!important}.fm-simulation input[type=range]{padding:0;height:28px;accent-color:#247aaa}.fm-simulation .fm-dial{width:100%;max-height:160px}.fm-simulation .fm-dial-value{font-size:30px;fill:#173850;font-weight:700}.fm-simulation .fm-dial-tick{font-size:12px;fill:#647b90}.fm-simulation .fm-dial-track{stroke:#e6eef5}.fm-simulation .fm-dial-quantity,.fm-simulation .fm-dial-caption{text-align:center}.fm-simulation .fm-tank-title{display:flex;gap:10px;align-items:center}.fm-simulation .fm-tank-thresholds{display:flex;justify-content:space-between;margin-top:12px}.fm-simulation .fm-tank-thresholds b{display:block}
