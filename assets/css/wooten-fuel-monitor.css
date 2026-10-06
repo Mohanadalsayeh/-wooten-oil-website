@@ -67,3 +67,41 @@
 #fuelMonitorRoot .fm-station-actions .fm-collector-action{margin-left:auto;border-color:transparent!important;background:transparent!important;color:#657f95!important}
 #fuelMonitorRoot .fm-station-actions button:hover{filter:brightness(.96)}
 @media(max-width:540px){#fuelMonitorRoot .fm-station-header{padding:20px;flex-wrap:wrap}#fuelMonitorRoot .fm-station-status{text-align:left}#fuelMonitorRoot .fm-location .fm-tanks{grid-template-columns:1fr;padding:16px}#fuelMonitorRoot .fm-tank-dial{padding:16px}#fuelMonitorRoot .fm-dial{max-width:170px}#fuelMonitorRoot .fm-station-actions{padding:16px}#fuelMonitorRoot .fm-station-actions .fm-collector-action{margin-left:0}}
+
+/* Ver821: station middle-page editors. */
+.fm-inline-form label{display:flex;flex-direction:column;gap:7px;font-weight:600;min-width:0;margin:0}
+.fm-inline-form input:not([type=checkbox]),.fm-inline-form select{width:100%;min-width:0;max-width:100%;height:48px;box-sizing:border-box;border:1px solid #c3d4e2;border-radius:10px;padding:0 12px;background:white;color:#183b50;font:inherit}
+.fm-inline-form .fm-toggle{flex-direction:row;align-items:center;gap:12px;align-self:center}
+.fm-inline-form .fm-close[aria-label]{font-size:26px;width:44px;height:44px;padding:0;flex-shrink:0}
+.fm-inline-form .fm-toggle input[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;width:42px!important;min-width:42px!important;max-width:42px!important;height:24px!important;min-height:24px!important;padding:0!important;margin:0!important;border:1px solid #b7c9d6!important;border-radius:20px!important;background:#d2dde6!important;vertical-align:middle;cursor:pointer;box-sizing:border-box}
+.fm-inline-form .fm-toggle input[type=checkbox]::before{content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;background:white;border-radius:50%;transition:transform .15s}
+.fm-inline-form .fm-toggle input[type=checkbox]:checked{background:#187aed!important;border-color:#187aed!important}
+.fm-inline-form .fm-toggle input[type=checkbox]:checked::before{transform:translateX(18px)}
+.fm-inline-form .fm-toggle span{display:block;flex:1;min-width:0}
+.fm-inline-form input:focus-visible,.fm-inline-form button:focus-visible{outline:2px solid #2578bf;outline-offset:2px}
+.fm-inline-form .fm-icon-field{margin:0 0 24px;padding:0;border:0;min-width:0}
+.fm-inline-form .fm-icon-field legend{font-weight:650;margin:0 0 12px;padding:0}
+.fm-inline-form #fmInlineIcons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fm-inline-form .fm-icon-choice{position:relative;display:block;min-width:0;cursor:pointer}
+.fm-inline-form .fm-icon-choice input[type=radio]{position:absolute!important;width:1px!important;min-width:1px!important;max-width:1px!important;height:1px!important;min-height:1px!important;max-height:1px!important;opacity:0;margin:0!important;padding:0!important;border:0!important}
+.fm-inline-form .fm-icon-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 6px;min-height:78px;box-sizing:border-box;border:1px solid #d5e2ec;border-radius:9px;background:#fff;text-align:center;font-size:12px;color:#526f87;line-height:1.3}
+.fm-inline-form .fm-icon-tile .fm-location-icon{width:23px;height:23px}
+.fm-inline-form .fm-icon-choice:hover .fm-icon-tile{background:#f4f8fb;border-color:#9ab7cc}
+.fm-inline-form .fm-icon-choice input:checked+.fm-icon-tile{background:#eaf2f8;border-color:#21699b;box-shadow:inset 0 0 0 1px #21699b;color:#193d59}
+.fm-inline-form .fm-icon-choice input:focus-visible+.fm-icon-tile{outline:2px solid #21699b;outline-offset:2px}
+.fm-inline-form #fmInlineIcons{grid-template-columns:repeat(2,minmax(0,1fr))}#fuelMonitorRoot .fm-station-page{min-height:360px}
+#fuelMonitorRoot .fm-inline-form{padding:22px;margin:0}
+#fuelMonitorRoot .fm-inline-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+#fuelMonitorRoot .fm-inline-heading h3{margin:0;font-size:19px}
+#fuelMonitorRoot .fm-inline-form .fm-grid{margin:18px 0}
+#fuelMonitorRoot .fm-inline-form button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:10px 14px;border:1px solid #d5e2ec;border-radius:9px;background:#fff;color:#173850;font:600 13px Arial,sans-serif}
+#fuelMonitorRoot .fm-inline-form button svg{width:16px;height:16px}
+#fuelMonitorRoot .fm-inline-save{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;padding-top:16px;margin-top:22px;border-top:1px solid #d5e2ec}
+#fuelMonitorRoot .fm-inline-save button[type=submit]{background:#db1928;color:#fff;border-color:#db1928}
+#fuelMonitorRoot .fm-inline-form button:disabled{opacity:.5;cursor:wait}
+#fuelMonitorRoot .fm-inline-alerts{padding:16px;background:#f3f8fc;border:1px solid #d5e2ec;border-radius:12px}
+#fuelMonitorRoot .fm-inline-alerts summary{font-weight:700;cursor:pointer}
+#fuelMonitorRoot .fm-inline-form .fm-icon-field{padding:0;border:0;margin-bottom:20px}
+#fuelMonitorRoot .fm-inline-form #fmInlineIcons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#fuelMonitorRoot .fm-station-actions button[aria-pressed=true]:not(.fm-add-tank){border-color:#173850!important;background:#eaf2f8!important}
+@media(max-width:540px){#fuelMonitorRoot .fm-inline-form{padding:16px}#fuelMonitorRoot .fm-inline-form #fmInlineIcons{grid-template-columns:repeat(2,minmax(0,1fr))}}
