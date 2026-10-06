@@ -12108,41 +12108,43 @@ async function adminNotificationBellGet({request,env,actor}){
     const applicationsAllowed=adminAccess.has(actor,'applications');
     const paymentsAllowed=adminAccess.has(actor,'payment_transactions');
     const tanksAllowed=adminAccess.has(actor,'fuel_monitoring');
-    await FuelMonitor.ensure(env);
     if(!tanksAllowed&&!requestsAllowed&&!applicationsAllowed&&!paymentsAllowed&&!adminAccess.has(actor,'fleet_cards')&&!adminAccess.has(actor,'mas90_health'))return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
-    await ensureRequestCenterSchema(env);
-    await Heartland.ensureSchema(env,heartlandHelpers());
+    // Attempt schema preparation independently; a category failure must not hide all others.
+    for(const prepare of [()=>FuelMonitor.ensure(env),()=>ensureRequestCenterSchema(env),()=>Heartland.ensureSchema(env,heartlandHelpers())]){
+      try{await prepare();}catch(error){console.error('Admin bell schema preparation',error);}
+    }
     const params=new URL(request.url).searchParams;
     let cursor=null;
     if(params.get('cursor')){
       try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['tank','profile','fuel','application','payment','sandbox_payment'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
       catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
     }
-    const counts=await env.DB.prepare(`SELECT
-      (SELECT COUNT(*) FROM fuel_monitor_alerts WHERE portal=1 AND acknowledged=0 AND ${tanksAllowed?1:0}=1) AS tank,
-      (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS profile,
-      (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS fuel,
-      (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1) AS applications,
-      (SELECT COUNT(*) FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) + (SELECT COUNT(*) FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) AS payment`).first();
-    const query=`SELECT * FROM (
-      SELECT 'tank' AS item_type,id,'Tank '||tank_number AS request_number,message AS name,'' AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM fuel_monitor_alerts WHERE portal=1 AND acknowledged=0 AND ${tanksAllowed?1:0}=1
-      UNION ALL
-      SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1
-      UNION ALL
-      SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1
-      UNION ALL
-      SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1
-      UNION ALL
-      SELECT 'payment',id,reference,customer_name||' — USD '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1
-      UNION ALL
-      SELECT 'sandbox_payment',id,reference,customer_name||' — '||title||' — '||currency||' '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1
-    ) ${cursor?'WHERE (sort_time,item_type,id) < (?,?,?)':''} ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21`;
-    const statement=env.DB.prepare(query);
-    const rows=((await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all())?.results)||[];
-    const items=rows.slice(0,20),last=items[items.length-1],hasMore=rows.length>20;
-    for(const item of items)if(item.item_type==='payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM payment_notification_events WHERE id=?').bind(item.id).first())?.intent_id;}
-    for(const item of items)if(item.item_type==='sandbox_payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM sandbox_payment_notifications WHERE id=?').bind(item.id).first())?.intent_id;}
-    return notificationJson({success:true,total:Number(counts?.tank||0)+Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0)+Number(counts?.payment||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
+    const sources=[
+      {type:'tank',key:'tank',allowed:tanksAllowed,sql:`SELECT 'tank' AS item_type,id,'Tank '||tank_number AS request_number,message AS name,'' AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM fuel_monitor_alerts WHERE portal=1 AND acknowledged=0 AND 1=1`},
+      {type:'profile',key:'profile',allowed:requestsAllowed,sql:`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND 1=1`},
+      {type:'fuel',key:'fuel',allowed:requestsAllowed,sql:`SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND 1=1`},
+      {type:'application',key:'applications',allowed:applicationsAllowed,sql:`SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending' AND 1=1`},
+      {type:'payment',key:'payment',allowed:paymentsAllowed,sql:`SELECT 'payment',id,reference,customer_name||' — USD '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND 1=1`},
+      {type:'sandbox_payment',key:'payment',allowed:paymentsAllowed,sql:`SELECT 'sandbox_payment',id,reference,customer_name||' — '||title||' — '||currency||' '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND 1=1`},
+    ];
+    const counts={},rows=[],unavailable=[];let loaded=0;
+    for(const source of sources){
+      if(!source.allowed)continue;
+      try{
+        const cte='WITH notices(item_type,id,request_number,name,account,created_at,sort_time) AS ('+source.sql+') ';
+        const count=await env.DB.prepare(cte+'SELECT COUNT(*) AS total FROM notices').first();
+        const statement=env.DB.prepare(cte+'SELECT * FROM notices '+(cursor?'WHERE (sort_time,item_type,id) < (?,?,?) ':'')+'ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21');
+        const result=(await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all()).results||[];
+        rows.push(...result);counts[source.key]=(counts[source.key]||0)+Number(count?.total||0);loaded++;
+      }catch(error){unavailable.push(source.type);console.error('Admin bell category '+source.type,error);}
+    }
+    if(!loaded&&unavailable.length)return notificationJson({success:false,error:'Notification sources are temporarily unavailable. Please check the Worker logs for Admin bell category errors.'},503);
+    rows.sort((a,b)=>a.sort_time!==b.sort_time?(a.sort_time>b.sort_time?-1:1):a.item_type!==b.item_type?(a.item_type>b.item_type?-1:1):Number(b.id)-Number(a.id));
+    const items=rows.slice(0,20),last=items.at(-1),hasMore=rows.length>20;
+    for(const item of items)if(['payment','sandbox_payment'].includes(item.item_type)){
+      try{const table=item.item_type==='payment'?'payment_notification_events':'sandbox_payment_notifications';item.intent_id=(await env.DB.prepare('SELECT intent_id FROM '+table+' WHERE id=?').bind(item.id).first())?.intent_id;}catch(error){console.error('Admin bell payment link',error);}
+    }
+    return notificationJson({success:true,total:Object.values(counts).reduce((a,b)=>a+b,0),counts,items,partial:unavailable.length>0,unavailable_sources:unavailable,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
   }catch(error){
     console.error('adminNotificationBellGet',error);
     return notificationJson({success:false,error:'Admin notifications could not be loaded.'},500);

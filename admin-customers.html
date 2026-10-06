@@ -15538,9 +15538,9 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        }while(!append&&cursor&&result.length<target);
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
        const total=Number(data.total||0);badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
-       summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
+       summary.textContent=data.partial?'Some notifications unavailable: '+(data.unavailable_sources||[]).map(k=>labels[k]||k).join(', '):total?total+' pending items • '+items.length+' shown':'No pending items';
        counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
-       render();
+       render();if(data.partial&&!items.length)list.innerHTML='<div class="admin-bell-empty">Some notification categories could not be loaded. Tap Refresh to retry.</div>';
      }catch(e){if(controller===abort&&(!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}
      finally{clearTimeout(timeout);if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
