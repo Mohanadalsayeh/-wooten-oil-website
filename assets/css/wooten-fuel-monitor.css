@@ -32,3 +32,38 @@
 .fm-dialog .fm-icon-choice input:checked+.fm-icon-tile{background:#eaf2f8;border-color:#21699b;box-shadow:inset 0 0 0 1px #21699b;color:#193d59}
 .fm-dialog .fm-icon-choice input:focus-visible+.fm-icon-tile{outline:2px solid #21699b;outline-offset:2px}
 @media(max-width:440px){.fm-dialog #fmIconChoices{grid-template-columns:repeat(2,minmax(0,1fr))}#fuelMonitorRoot #fmLocationTabs{gap:4px 8px}}
+/* Ver820: approved Clean header station layout. */
+#fuelMonitorRoot .fm-location{padding:0;margin:20px 0;border:1px solid #d5e2ec;border-radius:18px;background:#fff;overflow:hidden;font:14px/1.5 Arial,sans-serif;color:#173850}
+#fuelMonitorRoot .fm-location *{box-sizing:border-box}
+#fuelMonitorRoot .fm-station-header{padding:24px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+#fuelMonitorRoot .fm-station-header h3{font:700 23px/1.25 Arial,sans-serif;margin:0 0 9px;color:#173850}
+#fuelMonitorRoot .fm-station-header p{margin:4px 0;color:#657f95;font-size:14px;line-height:1.5}
+#fuelMonitorRoot .fm-station-kicker{color:#657f95;font-size:11px;letter-spacing:1.5px;font-weight:700;margin-bottom:10px}
+#fuelMonitorRoot .fm-station-status{text-align:right;flex-shrink:0}
+#fuelMonitorRoot .fm-station-status p{font-size:12px}
+#fuelMonitorRoot .fm-station-status .fm-badge{background:#fff3db;color:#925a0c;border-radius:30px;padding:4px 12px;font-size:12px;margin-bottom:6px}
+#fuelMonitorRoot .fm-station-status .fm-ok{background:#e4f5ec;color:#23704a}
+#fuelMonitorRoot .fm-station-meta{display:flex;gap:24px;flex-wrap:wrap;padding:14px 24px;background:#f3f8fc;border-block:1px solid #d5e2ec;font-size:12px;color:#657f95}
+#fuelMonitorRoot .fm-station-meta b{display:block;color:#173850;font-weight:600}
+#fuelMonitorRoot .fm-location>.fm-error{margin:16px 24px}
+#fuelMonitorRoot .fm-location .fm-tanks{padding:22px;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}
+#fuelMonitorRoot .fm-tank-dial{border:1px solid #d5e2ec;border-radius:14px;padding:18px;background:#fff}
+#fuelMonitorRoot .fm-tank-title{display:flex;align-items:center;gap:9px;font:700 15px/1.4 Arial,sans-serif}
+#fuelMonitorRoot .fm-tank-number{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;background:#f3f8fc;color:#657f95;border-radius:9px}
+#fuelMonitorRoot .fm-dial-wrap{margin:14px 0 0}
+#fuelMonitorRoot .fm-dial{width:100%;max-width:200px}
+#fuelMonitorRoot .fm-dial-track{stroke:#e5edf4}
+#fuelMonitorRoot .fm-dial-value{font:600 30px Arial,sans-serif;fill:#173850}
+#fuelMonitorRoot .fm-dial-tick{fill:#657f95}
+#fuelMonitorRoot .fm-dial-quantity{font-size:17px;font-weight:600;margin:3px 0;color:#173850}
+#fuelMonitorRoot .fm-dial-quantity span{font-size:12px;color:#657f95}
+#fuelMonitorRoot .fm-dial-caption{border:0;padding:0;font-size:12px;color:#657f95}
+#fuelMonitorRoot .fm-tank-thresholds{display:flex;justify-content:space-between;gap:8px;border-top:1px solid #d5e2ec;margin-top:16px;padding-top:11px;font-size:12px;color:#657f95}
+#fuelMonitorRoot .fm-tank-thresholds b{display:block;color:#173850;font-weight:600}
+#fuelMonitorRoot .fm-station-actions{padding:16px 22px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-top:1px solid #d5e2ec;background:#f3f8fc}
+#fuelMonitorRoot .fm-station-actions button{border:1px solid #d5e2ec!important;background:#fff!important;color:#173850!important;border-radius:9px!important;padding:11px 14px!important;font:600 12px Arial,sans-serif!important;min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:none;text-decoration:none}
+#fuelMonitorRoot .fm-station-actions button svg{width:16px;height:16px;flex-shrink:0}
+#fuelMonitorRoot .fm-station-actions .fm-add-tank{background:#db1928!important;border-color:#db1928!important;color:#fff!important}
+#fuelMonitorRoot .fm-station-actions .fm-collector-action{margin-left:auto;border-color:transparent!important;background:transparent!important;color:#657f95!important}
+#fuelMonitorRoot .fm-station-actions button:hover{filter:brightness(.96)}
+@media(max-width:540px){#fuelMonitorRoot .fm-station-header{padding:20px;flex-wrap:wrap}#fuelMonitorRoot .fm-station-status{text-align:left}#fuelMonitorRoot .fm-location .fm-tanks{grid-template-columns:1fr;padding:16px}#fuelMonitorRoot .fm-tank-dial{padding:16px}#fuelMonitorRoot .fm-dial{max-width:170px}#fuelMonitorRoot .fm-station-actions{padding:16px}#fuelMonitorRoot .fm-station-actions .fm-collector-action{margin-left:0}}
