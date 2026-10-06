@@ -236,3 +236,7 @@
 
 /* No extra row gap after the last recipient is removed. */
 .fm-recipient-rows:empty{display:none}
+
+/* Match standard admin page heading placement and typography. */
+#fuelMonitorRoot > .fm-heading{align-items:flex-start}
+#fuelMonitorRoot > .fm-heading > div > h2{margin:0 0 8px;color:var(--navy);font-size:24px}
