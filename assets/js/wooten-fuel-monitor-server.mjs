@@ -52,6 +52,10 @@ export async function admin(request,env,{auditStatement,verifyPassword}={}){
   if(request.method!=='POST')return reply({success:false,error:'Use GET or POST.'},405);
   const b=await bodyOf(request),action=b.action,id=b.id||crypto.randomUUID();
   if(!/^[a-zA-Z0-9-]{1,80}$/.test(id))fail('Invalid location.');
+  if(action==='verify_tank_removal'){
+   if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
+   return reply({success:true});
+  }
   if(!['save','pair','delete','acknowledge'].includes(action))fail('Unknown action.');
   const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
   if(action!=='save'&&!row)fail('Location no longer exists.',404);
@@ -60,6 +64,10 @@ export async function admin(request,env,{auditStatement,verifyPassword}={}){
   if(action==='save'){
    if(b.id&&!row)fail('Location no longer exists.',404);
    const c=validateConfig({...b.config,icon:b.config?.icon||(row?JSON.parse(row.config).icon:'fuel')||'fuel'});detail=`Saved location ${c.name}; ${c.tanks.length} tanks.`;
+   if(row){
+    const previous=JSON.parse(row.config).tanks||[],numbers=new Set(c.tanks.map(t=>Number(t.number)));
+    if(previous.some(t=>!numbers.has(Number(t.number)))&&(typeof verifyPassword!=='function'||!await verifyPassword(b.password)))fail('Enter the signed-in admin password before removing saved tanks.',403);
+   }
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_locations(id,config) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config').bind(id,JSON.stringify(c)));
   }
   if(action==='pair'){

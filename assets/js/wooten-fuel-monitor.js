@@ -2,6 +2,7 @@
  const root=document.getElementById('fuelMonitorRoot');if(!root)return;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const actionIcon=name=>'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+({network:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-4h14v4"/>',plus:'<path d="M12 5v14M5 12h14"/>',settings:'<path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',key:'<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>'}[name]||'')+'</svg>';
+ const removalPasswords=new WeakMap();
  const key=()=>document.getElementById('adminKey')?.value.trim()||'';
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';
@@ -79,14 +80,14 @@
   editor.querySelectorAll('.fm-close').forEach(b=>b.onclick=()=>editor.close());
   editor.querySelector('#fmAddTank').onclick=()=>{if(editor.querySelectorAll('.fm-tank-editor').length>=64)return;editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}));countTanks(editor);};
   if(addTank){editor.querySelector('#fmAddTank').click();const row=editor.querySelector('#fmTankEditors').lastElementChild;row?.scrollIntoView({block:'center'});row?.querySelector('[name=number]')?.focus({preventScroll:true});}
-  editor.querySelector('#fmTankEditors').onclick=e=>{if(e.target.closest('.fm-remove')){e.target.closest('fieldset').remove();countTanks(editor);}};
+  editor.querySelector('#fmTankEditors').onclick=e=>{if(e.target.closest('.fm-remove')){confirmTankRemoval(e.target.closest('fieldset'),()=>countTanks(editor));}};
   editor.querySelector('#fmImportHeader')?.addEventListener('click',()=>{const lines=l.reading.site_header.split('\n').map(s=>s.trim()).filter(Boolean);editor.querySelector('[name=name]').value=lines[0]||l.name;editor.querySelector('[name=address]').value=lines.slice(1).join(', ');});
   editor.querySelector('#fmDetect')?.addEventListener('click',()=>{const ids=[...editor.querySelectorAll('.fm-tank-editor [name=number]')].map(el=>Number(el.value));for(const t of l.reading.tanks)if(!ids.includes(t.number))editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}));countTanks(editor);});
   editor.querySelector('.fm-delete')?.addEventListener('click',()=>deleteLocation(l));
   editor.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,c={};for(const name of ['name','phone','address','model','host','port','interval','enabled','portal','email','sms','email_to','sms_to']){const el=form.elements.namedItem(name);c[name]=el.type==='checkbox'?el.checked:el.value;}
    c.icon=form.querySelector('[name=icon]:checked')?.value||'fuel';
    c.tanks=[...form.querySelectorAll('.fm-tank-editor')].map(row=>Object.fromEntries([...row.querySelectorAll('input,select')].map(el=>[el.name,el.type==='checkbox'?el.checked:el.value])));
-   await busy(async()=>{const saved=await api({action:'save',...(editing?{id:editing.id}:{}),config:c});const target=saved.id||editing?.id||'all';editor.close();activeLocation=target;await load();},editor);};
+   await busy(async()=>{const saved=await api({action:'save',...(editing?{id:editing.id}:{}),config:c,password:removalPasswords.get(form)});const target=saved.id||editing?.id||'all';editor.close();activeLocation=target;await load();},editor);};
  }
  function countTanks(editor=dialog){editor.querySelector('#fmTankCount').textContent='('+editor.querySelectorAll('.fm-tank-editor').length+')';}
  let inlineEdit=null,inlineSaving=false;
@@ -135,7 +136,7 @@
   form.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||inlineSaving)return;
    if(b.hasAttribute('data-inline-back')){if(leaveInline())render();}
    if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}).replace('fmFuelTypes','fmInlineFuelTypes'));inlineEdit.dirty=true;count(form.querySelector('[data-inline-tanks]').lastElementChild);form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
-   if(b.classList.contains('fm-remove')){b.closest('fieldset').remove();inlineEdit.dirty=true;count();}
+   if(b.classList.contains('fm-remove')){confirmTankRemoval(b.closest('fieldset'),()=>{if(inlineEdit)inlineEdit.dirty=true;count();});}
    if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}inlineEdit.dirty=true;count(form.querySelector('[data-inline-tanks]').lastElementChild);}
    if(b.hasAttribute('data-inline-import')){const lines=l.reading.site_header.split('\n').map(s=>s.trim()).filter(Boolean);form.elements.name.value=lines[0]||l.name;form.elements.address.value=lines.slice(1).join(', ');inlineEdit.dirty=true;}
    if(b.hasAttribute('data-inline-delete')){if(!leaveInline())return;render();deleteLocation(l);}
@@ -147,12 +148,26 @@
     for(const name of names){const el=form.elements.namedItem(name);config[name]=el.type==='checkbox'?el.checked:el.value;}
     if(section==='location')config.icon=form.querySelector('[name=icon]:checked')?.value||'fuel';
     if(section==='tanks')config.tanks=[...form.querySelectorAll('.fm-tank-editor')].map(row=>Object.fromEntries([...row.querySelectorAll('input,select')].map(el=>[el.name,el.type==='checkbox'?el.checked:el.value])));
-    await api({action:'save',id,config});inlineEdit=null;inlineSaving=false;await load();message('Location changes saved.');
+    await api({action:'save',id,config,password:removalPasswords.get(form)});inlineEdit=null;inlineSaving=false;await load();message('Location changes saved.');
    }catch(err){if(epoch===session){note.textContent=err.message;note.classList.add('fm-error');}}
    finally{inlineSaving=false;controls.forEach((c,i)=>c.disabled=disabled[i]);}
   };
  }
 
+ async function confirmTankRemoval(row,onRemoved){
+  const form=row.closest('form'),number=row.querySelector('[name=number]').value||'(new)';
+  const prompt=document.createElement('dialog');prompt.className='fm-dialog';
+  prompt.innerHTML='<form><header><h2>Remove tank '+esc(number)+'</h2></header><div class="fm-dialog-body"><p>Confirm with the password for '+esc(window.wootenAdminUser?.username||window.wootenAdminUser?.display_name||'the signed-in admin')+'.</p><p>The removal is saved when you click Save changes.</p><label>Current admin password<input name="password" type="password" autocomplete="new-password" required value=""></label><p role="status"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Remove tank</button></footer></form>';
+  document.body.append(prompt);let working=false;
+  const close=()=>{if(working)return;prompt.close();prompt.remove();};
+  prompt.querySelector('[type=button]').onclick=close;
+  prompt.addEventListener('cancel',e=>{e.preventDefault();close();});
+  prompt.querySelector('form').onsubmit=async e=>{e.preventDefault();if(working)return;working=true;const input=prompt.querySelector('input'),password=input.value;input.value='';prompt.querySelectorAll('button').forEach(b=>b.disabled=true);
+   try{await api({action:'verify_tank_removal',password});if(!row.isConnected)throw Error('Reopen tank settings.');removalPasswords.set(form,password);row.remove();onRemoved();working=false;close();}
+   catch(err){prompt.querySelector('[role=status]').textContent=err.message;input.focus();}
+   finally{working=false;prompt.querySelectorAll('button').forEach(b=>b.disabled=false);}
+  };prompt.showModal();prompt.querySelector('input').focus();
+ }
  async function busy(fn,editor=dialog){const buttons=[...editor.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);editor.dataset.busy='1';try{await fn()}catch(e){const m=editor.querySelector('#fmDialogMessage');if(m)m.textContent=e.message;else message(e.message,true)}finally{buttons.forEach(b=>b.disabled=false);delete editor.dataset.busy;}}
  async function deleteLocation(l){if(!confirm('Delete '+l.name+' and its tank settings? The collector will stop.'))return;
   dialog.innerHTML='<form id="fmDeleteForm"><header><h2>Delete location</h2></header><div class="fm-dialog-body"><p>'+esc(l.name)+'</p><p>Signed in as '+esc(window.wootenAdminUser?.display_name||window.wootenAdminUser?.username||'Admin')+'</p><label>Current admin password<input name="password" type="password" autocomplete="new-password" required></label><p id="fmDialogMessage" role="status"></p></div><footer><button class="secondary" type="button" id="fmDeleteCancel">Cancel</button><button type="submit">Delete location</button></footer></form>';
