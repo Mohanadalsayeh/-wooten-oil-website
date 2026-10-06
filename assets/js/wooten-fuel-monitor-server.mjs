@@ -11,14 +11,21 @@ export async function ensure(env){
  `CREATE INDEX IF NOT EXISTS fuel_monitor_alerts_recent ON fuel_monitor_alerts(created_at DESC,id DESC)`];
  for(const s of sql)await env.DB.prepare(s).run();
 }
+export function alertRecipients(value,type){
+ const list=[...new Set(String(value||'').split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean).map(s=>type==='email'?s.toLowerCase():s))];
+ if(list.length>20)fail('Use up to 20 '+(type==='email'?'email addresses':'phone numbers')+'.');
+ const valid=type==='email'?/^[^\s@]+@[^\s@]+\.[^\s@]+$/:/^\+[1-9]\d{7,14}$/;
+ if(list.some(s=>s.length>254||!valid.test(s)))fail(type==='email'?'Enter valid alert email addresses.':'Enter each alert phone number with country code, such as +19015551234.');
+ return list;
+}
 export function validateConfig(input){
- const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:str(input.email_to,200),sms_to:str(input.sms_to,32),tanks:[]};
+ const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:alertRecipients(input.email_to,'email').join(', '),sms_to:alertRecipients(input.sms_to,'sms').join(', '),tanks:[]};
  if(!['fuel','store','truck','building-2','wrench','tractor'].includes(c.icon))fail('Choose an available location icon.');
  if(!c.name)fail('Enter a station name.');
  if(!/^([a-zA-Z0-9][a-zA-Z0-9.-]*)$/.test(c.host)||!Number.isInteger(c.port)||c.port<1||c.port>65535)fail('Enter the local monitor IP/hostname and a valid TCP data port.');
  if(!Number.isInteger(c.interval)||c.interval<60||c.interval>86400)fail('Reading interval must be 60–86400 seconds.');
- if(c.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email_to))fail('Enter an alert email address.');
- if(c.sms&&!/^\+[1-9]\d{7,14}$/.test(c.sms_to))fail('Enter the alert mobile number with country code, such as +19015551234.');
+ if(c.email&&!c.email_to)fail('Add at least one alert email address.');
+ if(c.sms&&!c.sms_to)fail('Add at least one alert phone number.');
  if(!Array.isArray(input.tanks)||input.tanks.length>64)fail('Enter up to 64 tanks.');
  const seen=new Set();
  for(const t of input.tanks){
@@ -144,7 +151,13 @@ export async function dispatch(env,{email,sms}){
   if(row[channel+'_status']!=='pending')continue;
   const claim=await env.DB.prepare(`UPDATE fuel_monitor_alerts SET ${channel}_status='sending' WHERE id=? AND ${channel}_status='pending' RETURNING id`).bind(row.id).first();if(!claim)continue;
   let status='submitted',detail='';
-  try{const r=await (channel==='email'?email(row.email_to,row.message,row.id):sms(row.sms_to,row.message));detail=String(r?.id||r?.sid||'Accepted by provider');}catch(e){status='failed';detail=str(e.message,400);}
+  try{
+   const recipients=alertRecipients(row[channel+'_to'],channel),results=[];let succeeded=0;
+   if(!recipients.length)throw Error('No alert recipients configured.');
+   for(const to of recipients){try{const r=await (channel==='email'?email(to,row.message,row.id):sms(to,row.message));succeeded++;results.push(to+': submitted ('+String(r?.id||r?.sid||'accepted')+')');}catch(e){results.push(to+': failed — '+str(e.message,200));}}
+   status=succeeded===recipients.length?'submitted':succeeded?'partial':'failed';detail=results.join('\n');
+  }catch(e){status='failed';detail=str(e.message,400);}
+
   await env.DB.prepare(`UPDATE fuel_monitor_alerts SET ${channel}_status=?,${channel}_detail=? WHERE id=?`).bind(status,detail,row.id).run();
  }
 }
