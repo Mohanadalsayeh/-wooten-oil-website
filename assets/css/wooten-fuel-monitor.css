@@ -122,3 +122,10 @@
 #fuelMonitorRoot .fm-tank-tabs button[aria-selected=true]{border-left-color:#db1928;color:#173850}
 #fuelMonitorRoot .fm-tank-editor[hidden]{display:none!important}
 @media(max-width:540px){#fuelMonitorRoot .fm-header-actions{padding:0 20px 20px}#fuelMonitorRoot .fm-header-actions button{flex:1 1 auto}}
+/* Ver823: clean tank tab labels and icons, including keyboard focus. */
+#fuelMonitorRoot .fm-inline-form .fm-tank-tabs button{position:relative;display:inline-flex;align-items:center;gap:8px;border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important;text-decoration:none!important;color:#657f95;padding:10px 16px}
+#fuelMonitorRoot .fm-inline-form .fm-tank-tabs button[aria-selected=true]{color:#173850;font-weight:700}
+#fuelMonitorRoot .fm-inline-form .fm-tank-tabs button[aria-selected=true]::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:#db1928}
+#fuelMonitorRoot .fm-inline-form .fm-tank-tabs button:focus:not(:focus-visible){outline:none!important}
+#fuelMonitorRoot .fm-inline-form .fm-tank-tabs button:focus-visible{outline:2px solid #2578bf;outline-offset:2px}
+#fuelMonitorRoot .fm-tank-tabs .fm-location-icon{width:18px;height:18px;flex-shrink:0}
