@@ -14,3 +14,21 @@
 #fuelMonitorRoot .fm-dial-caption{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:#486477;padding-bottom:15px;border-bottom:1px solid #e2ebf2}
 #fuelMonitorRoot .fm-dial-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 #fuelMonitorRoot .fm-tank-dial p{margin:12px 0 0}
+/* Location tabs mirror the saved statement-list navigation. */
+#fuelMonitorRoot #fmLocationTabs{display:flex;flex-wrap:wrap;gap:6px 18px;border-bottom:1px solid #cbdde9;padding:0 0 5px;margin:18px 0 12px}
+#fuelMonitorRoot .fm-location-tab{position:relative;display:inline-flex;align-items:center;gap:9px;padding:10px 12px 10px 16px!important;min-height:44px;max-width:100%;border:0!important;border-radius:0!important;background:transparent!important;color:#637d93!important;font:inherit;font-weight:650;text-decoration:none!important;box-shadow:none!important;text-align:left}
+#fuelMonitorRoot .fm-location-tab span{min-width:0;overflow-wrap:anywhere;text-decoration:none!important}
+#fuelMonitorRoot .fm-location-tab:hover{color:#183b50!important;text-decoration:none!important}
+#fuelMonitorRoot .fm-location-tab[aria-selected=true]{color:#183b50!important}
+#fuelMonitorRoot .fm-location-tab[aria-selected=true]::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:#db2230}
+.fm-location-icon{flex-shrink:0;display:block;width:20px;height:20px}
+.fm-dialog .fm-icon-field{margin:0 0 24px;padding:0;border:0;min-width:0}.fm-dialog .fm-icon-field legend{font-weight:650;margin:0 0 12px;padding:0}
+.fm-dialog #fmIconChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fm-dialog .fm-icon-choice{position:relative;display:block;min-width:0;cursor:pointer}
+.fm-dialog .fm-icon-choice input[type=radio]{position:absolute!important;width:1px!important;min-width:1px!important;max-width:1px!important;height:1px!important;min-height:1px!important;max-height:1px!important;opacity:0;margin:0!important;padding:0!important;border:0!important}
+.fm-dialog .fm-icon-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 6px;min-height:78px;box-sizing:border-box;border:1px solid #d5e2ec;border-radius:9px;background:#fff;text-align:center;font-size:12px;color:#526f87;line-height:1.3}
+.fm-dialog .fm-icon-tile .fm-location-icon{width:23px;height:23px}
+.fm-dialog .fm-icon-choice:hover .fm-icon-tile{background:#f4f8fb;border-color:#9ab7cc}
+.fm-dialog .fm-icon-choice input:checked+.fm-icon-tile{background:#eaf2f8;border-color:#21699b;box-shadow:inset 0 0 0 1px #21699b;color:#193d59}
+.fm-dialog .fm-icon-choice input:focus-visible+.fm-icon-tile{outline:2px solid #21699b;outline-offset:2px}
+@media(max-width:440px){.fm-dialog #fmIconChoices{grid-template-columns:repeat(2,minmax(0,1fr))}#fuelMonitorRoot #fmLocationTabs{gap:4px 8px}}

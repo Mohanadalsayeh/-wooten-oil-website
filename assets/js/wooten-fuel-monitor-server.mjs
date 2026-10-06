@@ -12,7 +12,8 @@ export async function ensure(env){
  for(const s of sql)await env.DB.prepare(s).run();
 }
 export function validateConfig(input){
- const c={name:str(input.name,100),phone:str(input.phone,32),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:str(input.email_to,200),sms_to:str(input.sms_to,32),tanks:[]};
+ const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:str(input.email_to,200),sms_to:str(input.sms_to,32),tanks:[]};
+ if(!['fuel','store','truck','building-2','wrench','tractor'].includes(c.icon))fail('Choose an available location icon.');
  if(!c.name)fail('Enter a station name.');
  if(!/^([a-zA-Z0-9][a-zA-Z0-9.-]*)$/.test(c.host)||!Number.isInteger(c.port)||c.port<1||c.port>65535)fail('Enter the local monitor IP/hostname and a valid TCP data port.');
  if(!Number.isInteger(c.interval)||c.interval<60||c.interval>86400)fail('Reading interval must be 60–86400 seconds.');
@@ -58,7 +59,7 @@ export async function admin(request,env,{auditStatement,verifyPassword}={}){
   const jobs=[];let token='',detail='';
   if(action==='save'){
    if(b.id&&!row)fail('Location no longer exists.',404);
-   const c=validateConfig(b.config||{});detail=`Saved location ${c.name}; ${c.tanks.length} tanks.`;
+   const c=validateConfig({...b.config,icon:b.config?.icon||(row?JSON.parse(row.config).icon:'fuel')||'fuel'});detail=`Saved location ${c.name}; ${c.tanks.length} tanks.`;
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_locations(id,config) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config').bind(id,JSON.stringify(c)));
   }
   if(action==='pair'){
