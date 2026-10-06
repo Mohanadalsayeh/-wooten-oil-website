@@ -266,3 +266,14 @@
 .fm-dialog #fmAddTank,#fuelMonitorRoot [data-inline-add]{background:#de1c28!important;color:#fff!important;border:1px solid #de1c28!important}
 .fm-dialog #fmAddTank:hover,#fuelMonitorRoot [data-inline-add]:hover{background:#c11824!important}
 .fm-dialog #fmAddTank:disabled,#fuelMonitorRoot [data-inline-add]:disabled{opacity:.5;cursor:wait}
+
+#fuelMonitorRoot .fm-health-bad{background:#fff0f1;color:#b32232}
+#fuelMonitorRoot .fm-monitor-panel,#fuelMonitorRoot .fm-history-entry{background:#f5f9fc;border:1px solid #d4e2ed;border-radius:12px;padding:16px;margin:12px 0 20px}
+#fuelMonitorRoot .fm-monitor-panel summary,#fuelMonitorRoot .fm-history-entry summary{font-weight:700;cursor:pointer;overflow-wrap:anywhere}
+#fuelMonitorRoot pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 monospace;margin:8px 0}
+#fuelMonitorRoot .fm-water-reading{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;padding:12px;background:#f2f7fb;border-radius:10px;margin-top:14px}
+#fuelMonitorRoot .fm-water-reading small{flex-basis:100%;color:#647b90}
+#fuelMonitorRoot .fm-history-change{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid #d4e2ed;padding:12px 0}
+#fuelMonitorRoot .fm-history-change>strong{grid-column:1/-1}
+#fuelMonitorRoot .fm-history-change>div{min-width:0}
+@media(max-width:540px){#fuelMonitorRoot .fm-history-change{grid-template-columns:1fr}}

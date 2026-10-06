@@ -12693,7 +12693,7 @@ var worker_default = {
       adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
-    if(url.pathname==='/api/admin/fuel-monitor')return FuelMonitor.admin(request,env,{auditStatement:entry=>adminAuditStatement(env,request,entry.action,'fuel_location',entry.id,entry.detail),verifyPassword:password=>mas90CurrentAdminPasswordMatches(request,env,password)});
+    if(url.pathname==='/api/admin/fuel-monitor')return FuelMonitor.admin(request,env,{actor:adminRequestActor(request,env),auditStatement:entry=>adminAuditStatement(env,request,entry.action,'fuel_location',entry.id,entry.detail),verifyPassword:password=>mas90CurrentAdminPasswordMatches(request,env,password)});
     if(url.pathname==='/api/admin/statements/preview-file-ticket')return StatementPreviewFile.ticket(request,env);
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
