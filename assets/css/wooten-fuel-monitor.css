@@ -282,3 +282,16 @@
 #fuelMonitorRoot .fm-station-actions .fm-collector-action:focus,
 #fuelMonitorRoot .fm-station-actions .fm-collector-action:active{text-decoration:none!important}
 #fuelMonitorRoot .fm-station-actions .fm-collector-action:hover{text-decoration:underline!important;text-underline-offset:3px}
+
+/* Ver855: collector key action is a text link, with no button chrome. */
+body #fuelMonitorRoot button.fm-collector-action,
+body #fuelMonitorRoot button.fm-collector-action:is(:hover,:focus,:active,:disabled){
+ border:0!important;border-radius:0!important;background:transparent!important;
+ box-shadow:none!important;text-decoration:none!important;
+}
+body #fuelMonitorRoot button.fm-collector-action:hover{
+ text-decoration:underline!important;text-underline-offset:3px;
+}
+body #fuelMonitorRoot button.fm-collector-action:focus-visible{
+ outline:2px solid #2578bf;outline-offset:2px;
+}
