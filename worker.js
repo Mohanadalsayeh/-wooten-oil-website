@@ -11954,7 +11954,7 @@ async function adminAccountApplicationDelete({request,env}){
   try{
     if(!accountApplicationAuthorized(request,env))return notificationJson({success:false,error:"Unauthorized."},401);
     const actor=adminRequestActor(request,env);
-    if(!actor.owner){await adminAudit(env,request,"application_delete_denied","account_application","","Regular admin user attempted a Main Admin-only deletion");return notificationJson({success:false,error:"Only the Main Admin can permanently delete account applications."},403);}
+    if(!actor.owner){await adminAudit(env,request,"application_delete_denied","account_application","","Regular admin user attempted a Master Admin-only deletion");return notificationJson({success:false,error:"Only the Master Admin can permanently delete account applications."},403);}
     if(!env.DB)return notificationJson({success:false,error:"Account application database is not configured."},503);
     await ensureAccountApplicationsTable(env);
     const match=new URL(request.url).pathname.match(/^\/api\/admin\/account-applications\/(\d+)$/);
@@ -12509,7 +12509,7 @@ async function adminPortalDatabaseBackupRestore({request,env}){
   try{
     const body=await request.json().catch(()=>({}));
     if(body.confirmed!==true)return notificationJson({success:false,error:"Confirm that you want to replace the live portal database with the selected backup."},400);
-    if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){await adminAudit(env,request,"database_restore_denied","database_backup","","Incorrect Main Admin password");return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);}
+    if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){await adminAudit(env,request,"database_restore_denied","database_backup","","Incorrect Master Admin password");return notificationJson({success:false,error:"The Master Admin password is incorrect."},403);}
     if(!env?.DB||!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Portal database backup storage is not configured."},503);
     const key=String(body.key||"");if(!key.startsWith(PORTAL_DATABASE_BACKUP_PREFIX))return notificationJson({success:false,error:"Choose a valid portal database backup to restore."},400);
     const selected=await env.NOTIFICATION_ATTACHMENTS.head(key);if(!selected)return notificationJson({success:false,error:"The selected portal database backup is no longer available."},404);
@@ -12529,8 +12529,8 @@ async function adminPortalDatabaseBackupSchedule({request,env}){
     const body=await request.json().catch(()=>({}));
     if(body.confirmed!==true||typeof body.enabled!=="boolean")return notificationJson({success:false,error:"Confirm whether automatic portal database backups should be enabled or disabled."},400);
     if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){
-      await adminAudit(env,request,"database_backup_schedule_denied","database_backup","",`Incorrect Main Admin password • requested ${body.enabled?"enabled":"disabled"}`);
-      return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);
+      await adminAudit(env,request,"database_backup_schedule_denied","database_backup","",`Incorrect Master Admin password • requested ${body.enabled?"enabled":"disabled"}`);
+      return notificationJson({success:false,error:"The Master Admin password is incorrect."},403);
     }
     if(!env?.DB)return notificationJson({success:false,error:"Portal database is not configured."},503);
     await ensurePortalDatabaseBackupSettings(env);
@@ -12547,8 +12547,8 @@ async function adminPortalDatabaseBackups({request,env}){
       if(url.searchParams.get("download")==="1"){
         if(request.headers.get("X-Backup-Confirmed")!=="1")return notificationJson({success:false,error:"Confirm that you want to download this portal database backup."},400);
         if(!await mas90MasterPasswordMatches(request.headers.get("X-Main-Admin-Password"),env)){
-          await adminAudit(env,request,"database_backup_download_denied","database_backup","","Incorrect Main Admin password");
-          return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);
+          await adminAudit(env,request,"database_backup_download_denied","database_backup","","Incorrect Master Admin password");
+          return notificationJson({success:false,error:"The Master Admin password is incorrect."},403);
         }
         if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Backup storage is not configured."},503);
         const key=String(url.searchParams.get("key")||"");
@@ -12569,8 +12569,8 @@ async function adminPortalDatabaseBackups({request,env}){
       const body=await request.json().catch(()=>({}));
       if(body.confirmed!==true)return notificationJson({success:false,error:"Confirm that you want to create a portal database backup."},400);
       if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){
-        await adminAudit(env,request,"database_backup_create_denied","database_backup","","Incorrect Main Admin password");
-        return notificationJson({success:false,error:"The Main Admin password is incorrect."},403);
+        await adminAudit(env,request,"database_backup_create_denied","database_backup","","Incorrect Master Admin password");
+        return notificationJson({success:false,error:"The Master Admin password is incorrect."},403);
       }
       if(!env?.NOTIFICATION_ATTACHMENTS)return notificationJson({success:false,error:"Backup storage is not configured."},503);
       const result=await portalBackupCreate(env,{source:"manual",actor:actor.name});
