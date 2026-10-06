@@ -15,8 +15,8 @@
  async function load(){if(creatingLocation||inlineEdit||inlineSaving)return;if(loading||!key()||!allowed())return;loading=true;document.getElementById('fmRefresh').disabled=true;message('Loading locations…');try{const data=await api();if(creatingLocation||inlineEdit||inlineSaving)return;locations=data.locations;alerts=data.alerts;history=data.history||[];render();message(locations.length+' location(s) loaded.');}catch(e){message(e.message,true)}finally{loading=false;document.getElementById('fmRefresh').disabled=false}}
  function fuelBand(tank,volume){
   if(!Number.isFinite(volume))return {name:'No reading',color:'#b7c8d6'};
-  const value=tank.mode==='percent'?volume/Number(tank.capacity)*100:volume;
-  return value<=Number(tank.critical)?{name:'Critical fuel',color:'#de1c28'}:value<=Number(tank.low)?{name:'Low fuel',color:'#ef9636'}:value<=Number(tank.recovery)?{name:'Recovery level',color:'#ef9636'}:{name:'Above recovery',color:'#299a60'};
+  const percent=volume/Number(tank.capacity)*100,lowPercent=tank.mode==='percent'?Number(tank.low):Number(tank.low)/Number(tank.capacity)*100;
+  return percent<lowPercent?{name:'Below threshold',color:'#de1c28'}:percent<50?{name:'Below half',color:'#ef9636'}:percent<75?{name:'Over half',color:'#a0d47c'}:{name:'Over ¾ full',color:'#299a60'};
  }
  function connectionHealth(l){
   if(!l.enabled)return 'Paused';if(!l.paired)return 'Collector setup needed';
@@ -213,11 +213,26 @@
   dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const input=dialog.querySelector('[name=password]'),password=input.value;input.value='';await busy(async()=>{await api({action:'delete',id:l.id,password});dialog.close();await load();});};
  }
 
- async function pair(id){const l=locations.find(x=>x.id===id);if(l.paired&&!confirm('Replace the collector key for '+l.name+'? The old collector key will stop working.'))return;
-  try{const data=await api({action:'pair',id});const config=JSON.stringify({portal_url:location.origin,location_id:id,token:data.token,units:'US gallons'},null,2);
+ function confirmCollectorReplacement(l){
+  return new Promise(resolve=>{
+   const prompt=document.createElement('dialog');prompt.className='fm-dialog fm-remove-confirm';prompt.setAttribute('aria-labelledby','fmKeyTitle');
+   prompt.innerHTML='<form><header><span class="fm-remove-icon">'+actionIcon('shield')+'</span><h2 id="fmKeyTitle">Replace collector key?</h2><p>'+esc(l.name)+'</p></header><div class="fm-dialog-body"><label>Main admin password<input type="password" name="password" autocomplete="new-password" required value="" placeholder="Enter main admin password"></label><div class="fm-remove-note">The old key will stop working immediately. Download the new connection file and replace it on the station computer.</div><p class="fm-error" role="status"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Replace key</button></footer></form>';
+   document.body.append(prompt);let working=false;
+   const close=result=>{if(working)return;prompt.close();prompt.remove();resolve(result);};
+   prompt.querySelector('[type=button]').onclick=()=>close(null);prompt.addEventListener('cancel',e=>{e.preventDefault();close(null);});
+   prompt.querySelector('form').onsubmit=async e=>{e.preventDefault();if(working)return;working=true;const input=prompt.querySelector('input'),password=input.value;input.value='';prompt.querySelectorAll('button').forEach(b=>b.disabled=true);
+    try{const data=await api({action:'pair',id:l.id,password});working=false;close(data);}
+    catch(err){prompt.querySelector('[role=status]').textContent=err.message;input.focus();}
+    finally{working=false;prompt.querySelectorAll('button').forEach(b=>b.disabled=false);}
+   };prompt.showModal();prompt.querySelector('input').focus();
+  });
+ }
+ let pairing=false;
+ async function pair(id){if(pairing)return;const l=locations.find(x=>x.id===id);if(!l)return;pairing=true;
+  try{const data=l.paired?await confirmCollectorReplacement(l):await api({action:'pair',id});if(!data)return;const config=JSON.stringify({portal_url:location.origin,location_id:id,token:data.token,units:'US gallons'},null,2);
    dialog.innerHTML='<header><h2>Connect '+esc(l.name)+'</h2><button type="button" class="secondary fm-close" aria-label="Close">×</button></header><div class="fm-dialog-body fm-connect-body"><ol class="fm-connect-steps"><li><strong>Install the collector</strong><p>Place the Station-Collector folder from the update ZIP on the station computer.</p></li><li><strong>Download the connection file</strong><p>Save collector-config.json beside collector.py. Keep this file private; it permits uploading readings for this location.</p></li><li><strong>Test the connection</strong><p>Run the collector test on the station computer. The portal shows Connected after a valid reading arrives.</p></li></ol><div class="fm-connect-network"><span>Monitor address</span><strong>'+esc(l.host)+':'+l.port+'</strong><p>The station computer must reach this monitor and the internet. No incoming router port forwarding is needed.</p></div><label class="fm-toggle fm-connect-confirm"><input id="fmConfirmUnits" type="checkbox"><span>I confirmed this monitor reports US gallons, inches, and °F.</span></label></div><footer class="fm-connect-footer"><button type="button" id="fmDownload" disabled>Download collector-config.json</button><button type="button" class="secondary fm-close">Done</button></footer>';dialog.showModal();
    dialog.querySelector('#fmConfirmUnits').onchange=e=>{dialog.querySelector('#fmDownload').disabled=!e.target.checked;};dialog.querySelector('#fmDownload').onclick=()=>{const url=URL.createObjectURL(new Blob([config],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='collector-config.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};dialog.querySelectorAll('.fm-close').forEach(b=>b.onclick=()=>dialog.close());await load();
-  }catch(e){message(e.message,true)}
+  }catch(e){message(e.message,true)}finally{pairing=false}
  }
  let lastSimulationClick={id:'',time:0};
  const isMidwayOne=l=>/^midway\s+market\s+(i|1|one)$/i.test(String(l?.name||'').trim());

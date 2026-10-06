@@ -277,3 +277,8 @@
 #fuelMonitorRoot .fm-history-change>strong{grid-column:1/-1}
 #fuelMonitorRoot .fm-history-change>div{min-width:0}
 @media(max-width:540px){#fuelMonitorRoot .fm-history-change{grid-template-columns:1fr}}
+
+#fuelMonitorRoot .fm-station-actions .fm-collector-action,
+#fuelMonitorRoot .fm-station-actions .fm-collector-action:focus,
+#fuelMonitorRoot .fm-station-actions .fm-collector-action:active{text-decoration:none!important}
+#fuelMonitorRoot .fm-station-actions .fm-collector-action:hover{text-decoration:underline!important;text-underline-offset:3px}
