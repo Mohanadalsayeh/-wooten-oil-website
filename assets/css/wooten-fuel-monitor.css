@@ -129,3 +129,28 @@
 #fuelMonitorRoot .fm-inline-form .fm-tank-tabs button:focus:not(:focus-visible){outline:none!important}
 #fuelMonitorRoot .fm-inline-form .fm-tank-tabs button:focus-visible{outline:2px solid #2578bf;outline-offset:2px}
 #fuelMonitorRoot .fm-tank-tabs .fm-location-icon{width:18px;height:18px;flex-shrink:0}
+/* Ver825: create a location in a page tab instead of a modal. */
+#fuelMonitorRoot .fm-new-location-page{display:block;position:static;width:100%;max-width:none;max-height:none;margin:20px 0;overflow:visible;border:1px solid #d5e2ec;border-radius:18px;background:#fff}
+#fuelMonitorRoot .fm-new-location-page form{overflow:visible;min-height:0}
+#fuelMonitorRoot .fm-new-location-page .fm-dialog-body{overflow:visible;max-height:none}
+#fuelMonitorRoot .fm-new-location-page header{border-radius:18px 18px 0 0}
+#fuelMonitorRoot .fm-new-location-page footer{border-radius:0 0 18px 18px}
+
+/* Ver826: compact, consistent station headers in every location view. */
+#fuelMonitorRoot .fm-station-header{padding:18px 22px 10px;min-height:140px;gap:12px;flex-wrap:nowrap}
+#fuelMonitorRoot .fm-station-header>div:first-child{min-width:0;overflow-wrap:anywhere}
+#fuelMonitorRoot .fm-station-header h3{margin-bottom:6px}
+#fuelMonitorRoot .fm-station-kicker{margin-bottom:7px}
+#fuelMonitorRoot .fm-station-header p{margin:2px 0}
+#fuelMonitorRoot .fm-header-actions{padding:0 22px 14px;gap:8px}
+#fuelMonitorRoot .fm-actions-reserved{visibility:hidden;pointer-events:none}
+#fuelMonitorRoot .fm-station-meta{padding:12px 22px}
+@media(max-width:540px){
+ #fuelMonitorRoot .fm-station-header{padding:16px 16px 10px;min-height:158px}
+ #fuelMonitorRoot .fm-station-header h3{font-size:20px}
+ #fuelMonitorRoot .fm-station-kicker{font-size:10px;letter-spacing:1px}
+ #fuelMonitorRoot .fm-station-status{text-align:right}
+ #fuelMonitorRoot .fm-station-status p{max-width:90px}
+ #fuelMonitorRoot .fm-header-actions{padding:0 16px 14px}
+ #fuelMonitorRoot .fm-station-meta{padding:12px 16px}
+}
