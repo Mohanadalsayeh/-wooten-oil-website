@@ -1,3 +1,4 @@
+import * as FuelMonitor from './assets/js/wooten-fuel-monitor-server.mjs';
 import * as StatementLists from './assets/js/wooten-statement-lists-server.mjs';
 import * as StatementManagement from './assets/js/wooten-statement-management-server.mjs';
 // Ver654: authenticated customer fleet views use account-scoped API snapshots.
@@ -11622,13 +11623,14 @@ function adminGeneralAuditDescriptor(request){
 async function recordGeneralAdminActivity(env,request){const item=adminGeneralAuditDescriptor(request);if(item)await adminAudit(env,request,item.action,item.targetType,item.targetId,item.detail);}
 function adminPermissionForPath(path){
   if(path==="/api/admin/open-invoices")return "database";
+  if(path==="/api/admin/fuel-monitor")return "fuel_monitoring";
   if(path.startsWith("/api/admin/fleet/"))return "fleet_cards";
   if(path.startsWith("/api/admin/payment-transactions"))return "payment_transactions";
   if(path.startsWith("/api/admin/audit"))return "admin_activity";
   if(path.startsWith("/api/admin/database-backups"))return "database_backup";
   if(path.startsWith("/api/admin/request-center"))return "customer_requests";
   if(path==="/api/admin/mas90-health")return "mas90_health";
-  if(path==="/api/admin/notification-bell")return ["customer_requests","applications","payment_transactions","fleet_cards","mas90_health"];
+  if(path==="/api/admin/notification-bell")return ["customer_requests","applications","payment_transactions","fleet_cards","mas90_health","fuel_monitoring"];
   if(path.startsWith("/api/admin/users"))return "manage_users";
   if(path.startsWith("/api/admin/credit-collections"))return "collections";
   if(path.includes("mas90-sync"))return "database";
@@ -12105,21 +12107,26 @@ async function adminNotificationBellGet({request,env,actor}){
     const requestsAllowed=adminAccess.has(actor,'customer_requests');
     const applicationsAllowed=adminAccess.has(actor,'applications');
     const paymentsAllowed=adminAccess.has(actor,'payment_transactions');
-    if(!requestsAllowed&&!applicationsAllowed&&!paymentsAllowed&&!adminAccess.has(actor,'fleet_cards')&&!adminAccess.has(actor,'mas90_health'))return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
+    const tanksAllowed=adminAccess.has(actor,'fuel_monitoring');
+    await FuelMonitor.ensure(env);
+    if(!tanksAllowed&&!requestsAllowed&&!applicationsAllowed&&!paymentsAllowed&&!adminAccess.has(actor,'fleet_cards')&&!adminAccess.has(actor,'mas90_health'))return notificationJson({success:false,error:'You do not have permission to view these notifications.'},403);
     await ensureRequestCenterSchema(env);
     await Heartland.ensureSchema(env,heartlandHelpers());
     const params=new URL(request.url).searchParams;
     let cursor=null;
     if(params.get('cursor')){
-      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['profile','fuel','application','payment','sandbox_payment'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
+      try{cursor=JSON.parse(atob(params.get('cursor')));if(typeof cursor.time!=='string'||cursor.time.length>32||!['tank','profile','fuel','application','payment','sandbox_payment'].includes(cursor.type)||!Number.isSafeInteger(cursor.id))throw new Error();}
       catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
     }
     const counts=await env.DB.prepare(`SELECT
+      (SELECT COUNT(*) FROM fuel_monitor_alerts WHERE portal=1 AND acknowledged=0 AND ${tanksAllowed?1:0}=1) AS tank,
       (SELECT COUNT(*) FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS profile,
       (SELECT COUNT(*) FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1) AS fuel,
       (SELECT COUNT(*) FROM account_applications WHERE COALESCE(status,'pending')='pending' AND ${applicationsAllowed?1:0}=1) AS applications,
       (SELECT COUNT(*) FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) + (SELECT COUNT(*) FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND ${paymentsAllowed?1:0}=1) AS payment`).first();
     const query=`SELECT * FROM (
+      SELECT 'tank' AS item_type,id,'Tank '||tank_number AS request_number,message AS name,'' AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM fuel_monitor_alerts WHERE portal=1 AND acknowledged=0 AND ${tanksAllowed?1:0}=1
+      UNION ALL
       SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND ${requestsAllowed?1:0}=1
       UNION ALL
       SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND ${requestsAllowed?1:0}=1
@@ -12135,7 +12142,7 @@ async function adminNotificationBellGet({request,env,actor}){
     const items=rows.slice(0,20),last=items[items.length-1],hasMore=rows.length>20;
     for(const item of items)if(item.item_type==='payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM payment_notification_events WHERE id=?').bind(item.id).first())?.intent_id;}
     for(const item of items)if(item.item_type==='sandbox_payment'){item.intent_id=(await env.DB.prepare('SELECT intent_id FROM sandbox_payment_notifications WHERE id=?').bind(item.id).first())?.intent_id;}
-    return notificationJson({success:true,total:Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0)+Number(counts?.payment||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
+    return notificationJson({success:true,total:Number(counts?.tank||0)+Number(counts?.profile||0)+Number(counts?.fuel||0)+Number(counts?.applications||0)+Number(counts?.payment||0),counts,items,has_more:hasMore,next_cursor:hasMore?btoa(JSON.stringify({time:last.sort_time,type:last.item_type,id:Number(last.id)})):null});
   }catch(error){
     console.error('adminNotificationBellGet',error);
     return notificationJson({success:false,error:'Admin notifications could not be loaded.'},500);
@@ -12671,6 +12678,11 @@ var worker_default = {
     if(url.pathname.startsWith("/api/intevacon-agent/"))return notificationJson({success:false,error:"Legacy Intevacon synchronization has been retired. Use the admin Intevacon API page."},410);
     if(url.pathname==="/api/customer/fleet")return customerApiFleet({request,env,customer:await getCustomerFromSession(request,env)});
     if(url.pathname==="/api/customer/open-invoices")return readInvoices({request,env,customer:await getCustomerFromSession(request,env)});
+    if(url.pathname==='/api/fuel-monitor-agent'){
+      const result=await FuelMonitor.agent(request,env);
+      if(request.method==='POST'&&result.ok)ctx.waitUntil(dispatchFuelMonitorAlerts(env));
+      return result;
+    }
     let adminActor=null;
     if(url.pathname.startsWith("/api/admin/")){
       const authorization=await adminAuthorizeRequest(request,env,url.pathname);
@@ -12679,6 +12691,7 @@ var worker_default = {
       adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
+    if(url.pathname==='/api/admin/fuel-monitor')return FuelMonitor.admin(request,env,{auditStatement:entry=>adminAuditStatement(env,request,entry.action,'fuel_location',entry.id,entry.detail),verifyPassword:password=>mas90CurrentAdminPasswordMatches(request,env,password)});
     if(url.pathname==='/api/admin/statements/preview-file-ticket')return StatementPreviewFile.ticket(request,env);
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
@@ -13282,6 +13295,7 @@ return env.ASSETS.fetch(request);
   },
 
   async scheduled(controller, env, ctx) {
+    ctx.waitUntil(dispatchFuelMonitorAlerts(env));
     // Add this cron alongside the existing payment and hourly triggers.
     if(controller.cron==='* * * * *'){ctx.waitUntil(runPortalPush(env));return;}
     if(controller.cron==='*/2 * * * *'){
@@ -13331,3 +13345,10 @@ export {
   worker_default as default
 };
 //# sourceMappingURL=worker.js.map
+
+async function dispatchFuelMonitorAlerts(env){
+  try{await FuelMonitor.dispatch(env,{
+    email:async(to,message,id)=>{const result=await accountApplicationSendEmail(env,{to,subject:'Wooten Oil tank fuel alert',text:message,html:'<p>'+notificationEscapeHtml(message)+'</p>'});if(!result.sent)throw new Error(result.error||'Email submission failed');return result;},
+    sms:(to,message)=>twilioSendSms(env,to,message)
+  });}catch(error){console.error('Fuel alert dispatch failed',error);}
+}

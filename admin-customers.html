@@ -10,7 +10,7 @@
 <meta name="format-detection" content="telephone=no">
 <script src="assets/js/wooten-table-data-sort.js?v=576"></script>
 <script src="/assets/js/wooten-central-time.js?v=20260911ct1"></script>
-<script src="/assets/js/wooten-admin-access.js?v=655"></script>
+<script src="/assets/js/wooten-admin-access.js?v=816"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wooten Oil Admin</title>
@@ -5769,6 +5769,7 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
  height:52px!important;min-height:52px!important;max-height:52px!important;margin:7px 0 0!important;padding:0 12px!important;line-height:normal!important;
 }
 </style>
+<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=816">
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -5921,6 +5922,7 @@ SOFTWARE.
       <button class="admin-tab" id="admin-tab-btn-payment-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-database" data-admin-tab="payment-database" data-admin-label="Live Customer Payments"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="banknote"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg></span>Live Customer Payments</button>
       <button class="admin-tab" id="admin-tab-btn-invoice-database" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-invoice-database" data-admin-tab="invoice-database" data-admin-label="Live Open Invoices"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="receipt-text"><path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg></span>Live Open Invoices</button>
       <button class="admin-tab" id="admin-tab-btn-payment-transactions" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-payment-transactions" data-admin-tab="payment-transactions" data-admin-label="Online Payment Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="credit-card"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></span>Online Payment Transactions</button>
+      <button class="admin-tab" id="admin-tab-btn-fuel-monitor" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-fuel-monitor" data-admin-tab="fuel-monitor" data-admin-label="Locations &amp; Fuel Monitoring"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>Locations &amp; Fuel Monitoring</button>
       <button class="admin-tab" id="admin-tab-btn-fleet" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-intevacon-api-test" data-admin-tab="fleet" data-admin-label="Fleet Cards &amp; Transactions"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="fuel"><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998a2 2 0 0 0-.59-1.42L18 5"/><path d="M14 21V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16"/><path d="M2 21h13"/><path d="M3 9h11"/></svg></span>Fleet Cards &amp; Transactions</button>
 
       <button class="admin-tab" id="admin-tab-btn-collections" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-collections" data-admin-tab="collections" data-admin-label="Credit &amp; Collections"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="hand-coins"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17"/><path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/><path d="m2 16 6 6"/><circle cx="16" cy="9" r="2.9"/><circle cx="6" cy="5" r="3"/></svg></span>Credit &amp; Collections</button>
@@ -7407,6 +7409,7 @@ SOFTWARE.
   </div>
 
 
+<section class="card admin-tab-panel" id="admin-tab-fuel-monitor" role="tabpanel" aria-labelledby="admin-tab-btn-fuel-monitor" data-admin-panel="fuel-monitor" hidden><div id="fuelMonitorRoot"></div></section>
 <section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-labelledby="admin-tab-btn-fleet" data-admin-panel="intevacon-api-test" hidden>
 
   <h2>Fleet Cards &amp; Transactions</h2>
@@ -7651,6 +7654,7 @@ SOFTWARE.
         <label><input type="checkbox" value="customer_activity"> Customer Activity Dashboard</label>
         <label><input type="checkbox" value="payment_transactions"> Online Payment Transactions</label>
         <label><input type="checkbox" value="fleet_cards"> Fleet Cards &amp; Transactions</label>
+        <label><input type="checkbox" value="fuel_monitoring"> Locations &amp; Fuel Monitoring</label>
         <label><input type="checkbox" value="collections"> Credit &amp; Collections</label>
         <label><input type="checkbox" value="activation"> Account Activation</label>
         <label><input type="checkbox" value="statements"> Statements &amp; Invoices</label>
@@ -15496,9 +15500,9 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
  const key=()=>g('adminKey')?.value.trim()||'';
- const allowed=type=>!!window.WootenAdminAccess?.has(window.wootenAdminUser,type==='fleet'?'fleet_cards':type==='mas90'?'mas90_health':type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
+ const allowed=type=>!!window.WootenAdminAccess?.has(window.wootenAdminUser,type==='tank'?'fuel_monitoring':type==='fleet'?'fleet_cards':type==='mas90'?'mas90_health':type==='application'?'applications':['payment','sandbox_payment'].includes(type)?'payment_transactions':'customer_requests');
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
- const labels={profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
+ const labels={tank:'Tank Fuel Alert',profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
  const time=v=>v?WootenTime.dateTime(v):'';
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
@@ -15510,7 +15514,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  }
  async function load(append=false,force=false,supersede=false){
    const token=key();if(token!==activeKey){controller?.abort();controller=null;flight=null;activeKey=token;clear();}
-   const canRead=allowed('application')||allowed('fuel')||allowed('payment')||allowed('fleet')||allowed('mas90');
+   const canRead=allowed('tank')||allowed('application')||allowed('fuel')||allowed('payment')||allowed('fleet')||allowed('mas90');
    if(!token||!canRead){controller?.abort();controller=null;flight=null;clear();
      summary.textContent=!token?'Admin session unavailable':!window.wootenAdminUser?'Checking admin session…':'Notifications unavailable';
      list.innerHTML='<div class="admin-bell-empty">'+(!token?'Your admin session is not ready. Try Refresh, or sign in again using Logout / Change Key.':!window.wootenAdminUser?'Please wait for sign-in to finish, then try Refresh.':'Your notification permissions could not be confirmed. Try Refresh, or sign in again.')+'</div>';
@@ -15532,14 +15536,14 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
        const total=Number(data.total||0);badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=total?total+' pending items • '+items.length+' shown':'No pending items';
-       counts.innerHTML=[['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
+       counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();
      }catch(e){if((!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}
      finally{clearTimeout(timeout);if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
    })();flight=task;return task;
  }
  window.wootenRefreshAdminNotifications=()=>load(false,true,true);
- function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
+ function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='tank'){g('admin-tab-btn-fuel-monitor')?.click();}else if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true).catch(()=>{summary.textContent='Notifications could not be loaded';list.innerHTML='<div class="admin-bell-empty">Please tap Refresh to try again.</div>';});});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
@@ -16274,6 +16278,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #statementSavedLists #statementSavedListTabs button:is(:hover,:focus,:focus-visible,:active) .statement-list-tab-name{text-decoration:none!important;text-decoration-line:none!important}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=816"></script>
 </body>
 
 </html>

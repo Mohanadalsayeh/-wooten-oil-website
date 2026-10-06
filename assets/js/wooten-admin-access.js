@@ -7,6 +7,7 @@
     customer_activity:'Customer Activity Dashboard',
     payment_transactions:'Payment Transactions',
     fleet_cards:'Fleet Cards & Transactions',
+    fuel_monitoring:'Locations & Fuel Monitoring',
     collections:'Credit & Collections',
     activation:'Account Activation',
     statements:'Statements & Invoices',
@@ -21,7 +22,7 @@
   const tabs=Object.freeze({
     customers:'database',automation:'mas90_health',activity:'customer_activity',
     database:'database','payment-database':'database','invoice-database':'database',
-    fleet:'fleet_cards','intevacon-api-test':'fleet_cards',
+    'fuel-monitor':'fuel_monitoring',fleet:'fleet_cards','intevacon-api-test':'fleet_cards',
     'payment-transactions':'payment_transactions',collections:'collections',activation:'activation',
     documents:'statements',notifications:'notifications',communication:'communication',
     settings:'communications_settings',applications:'applications',requests:'customer_requests',
