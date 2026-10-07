@@ -4300,6 +4300,26 @@ input[type="file"]:focus-visible{
 .admin-user-editor,.admin-user-list-section,.admin-audit-section{margin-top:22px;padding:20px;border:1px solid #d8e2ea;border-radius:15px;background:#f8fafc}.admin-user-editor h3{margin-top:0}.admin-user-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.admin-user-fields input{width:100%}.admin-user-field-hint{display:block;margin-top:6px;color:#65778a;font-size:12px;line-height:1.4}.admin-user-permissions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:17px}.admin-user-permissions label,.admin-user-active{display:flex;align-items:center;gap:9px;margin:0;padding:11px;border:1px solid #d8e2ea;border-radius:10px;background:#fff}.admin-user-permissions input,.admin-user-active input{width:18px;height:18px}.admin-user-active{width:max-content;margin-top:13px}.admin-users-list{display:grid;gap:10px;margin-top:14px}.admin-user-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr) auto;gap:14px;align-items:center;padding:14px;border:1px solid #d8e2ea;border-radius:11px;background:#fff}.admin-user-row strong,.admin-user-row small{display:block}.admin-user-row small{color:#6a7b8c;margin-top:3px}.admin-user-permission-tags{display:flex;flex-wrap:wrap;gap:5px}.admin-user-permission-tags span{padding:4px 7px;border-radius:999px;background:#e8f1f8;color:#245b82;font-size:11px;font-weight:800}.admin-user-disabled{color:#a12626!important}.admin-audit-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}.admin-audit-heading h3{margin:0}.admin-audit-heading button{flex:0 0 auto}.admin-audit-section>p{margin:8px 0 18px;color:#65778a}.admin-audit-section .tablewrap{max-height:390px}.admin-audit-section td{white-space:normal;vertical-align:top}.import-last-update small{display:block;margin-top:3px;color:#65778a;font-weight:700}
 @media(max-width:850px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr 1fr}.admin-user-row{grid-template-columns:1fr}.admin-user-row button{width:100%}}@media(max-width:560px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr}.admin-user-active{width:100%}}
 </style>
+<style id="wooten-admin-user-drawer-v860">
+.admin-user-drawer-shell{padding:0!important;overflow:hidden;background:#f8fafc}
+.admin-user-drawer-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px}
+.admin-user-drawer-bar h3{margin:0;color:#17324d}
+.admin-user-drawer-bar p{margin:5px 0 0;color:#65778a;font-size:13px;line-height:1.45}
+.admin-user-new-button{flex:0 0 auto;min-width:132px}
+.admin-user-drawer-body{padding:20px;border-top:1px solid #d8e2ea;background:#fff}
+.admin-user-drawer-body[hidden]{display:none!important}
+.admin-user-drawer-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.admin-user-drawer-heading h3{margin:3px 0 0}
+.admin-user-drawer-actions{justify-content:flex-end;margin-top:16px}
+.admin-user-drawer-actions .secondary{order:1}
+.admin-user-drawer-actions .primary{order:2}
+@media(max-width:700px){
+  .admin-user-drawer-bar{align-items:stretch;flex-direction:column}
+  .admin-user-new-button{width:100%}
+  .admin-user-drawer-actions{display:grid!important;grid-template-columns:1fr}
+  .admin-user-drawer-actions button{width:100%}
+}
+</style>
 
 <link rel="stylesheet" href="assets/css/wooten-ios-mobile-viewport-fix.css">
 
@@ -7653,28 +7673,38 @@ SOFTWARE.
 
   <div class="card admin-tab-panel" id="admin-tab-users" role="tabpanel" aria-labelledby="admin-tab-btn-users" data-admin-panel="users">
     <div class="admin-page-label">Access Control</div><h2 id="adminAccessTitle">Admin Users &amp; Permissions</h2><p id="adminAccessDescription">Create individual administrator accounts and choose which sections each person can access. Existing access is retained when new permission choices are added. The Master Admin always retains full access.</p>
-    <section class="admin-user-editor"><h3 id="adminUserEditorTitle">Add Admin User</h3><input id="adminUserId" type="hidden">
-      <div class="admin-user-fields"><div><label for="adminUserDisplayName">Full Name</label><input id="adminUserDisplayName" type="text" maxlength="100" placeholder="Employee name"></div><div><label for="adminUserUsername">Username</label><input id="adminUserUsername" type="text" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9._-]+" aria-describedby="adminUserUsernameHint" placeholder="Example: john.smith"><small class="admin-user-field-hint" id="adminUserUsernameHint">Letters and numbers only; period, underscore, and hyphen are allowed. No spaces.</small></div><div><label for="adminUserPassword">Password</label><input id="adminUserPassword" type="password" minlength="8" autocomplete="new-password" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" aria-describedby="adminUserPasswordHint" placeholder="Letter + number, 8+ characters"><small class="admin-user-field-hint" id="adminUserPasswordHint">At least 8 characters with at least one letter and one number.</small></div></div>
-      <div class="admin-user-permissions" role="group" aria-label="Admin permissions">
-        <label><input type="checkbox" value="database"> Database &amp; Imports</label>
-        <label><input type="checkbox" value="mas90_health"> MAS 90 Automation Health</label>
-        <label><input type="checkbox" value="customer_activity"> Customer Activity Dashboard</label>
-        <label><input type="checkbox" value="payment_transactions"> Online Payment Transactions</label>
-        <label><input type="checkbox" value="fleet_cards"> Fleet Cards &amp; Transactions</label>
-        <label><input type="checkbox" value="fuel_monitoring"> Locations &amp; Fuel Monitoring</label>
-        <label><input type="checkbox" value="collections"> Credit &amp; Collections</label>
-        <label><input type="checkbox" value="activation"> Account Activation</label>
-        <label><input type="checkbox" value="statements"> Statements &amp; Invoices</label>
-        <label><input type="checkbox" value="notifications"> Notifications</label>
-        <label><input type="checkbox" value="communication"> Communication History</label>
-        <label><input type="checkbox" value="communications_settings"> Communication Settings</label>
-        <label><input type="checkbox" value="applications"> Account Applications</label>
-        <label><input type="checkbox" value="customer_requests"> Customer Requests</label>
-        <label><input type="checkbox" value="admin_activity"> Recent Admin Activity</label>
-        <label><input type="checkbox" value="database_backup"> Backup &amp; Recovery</label>
+    <section class="admin-user-editor admin-user-drawer-shell">
+      <div class="admin-user-drawer-bar">
+        <div><h3>Create New Admin</h3><p>Create an administrator only when needed. The account form and permissions stay collapsed otherwise.</p></div>
+        <button class="primary admin-user-new-button" id="adminUserOpen" type="button">+ New Admin</button>
       </div>
-      <p class="admin-user-access-note">Dashboard access is included. Only the Master Admin can manage admin users. Creating, downloading, restoring, or scheduling backups still requires the Master Admin password.</p>
-      <label class="admin-user-active"><input id="adminUserActive" type="checkbox" checked> Active — user may sign in</label><div class="actions"><button class="primary" id="adminUserSave" type="button">Create User</button><button class="secondary" id="adminUserCancel" type="button" hidden>Cancel Editing</button></div><div id="adminUserStatus" class="status"></div>
+      <div class="admin-user-drawer-body" id="adminUserDrawerBody" hidden>
+        <div class="admin-user-drawer-heading"><div><div class="admin-page-label">Access Setup</div><h3 id="adminUserEditorTitle">Create New Admin</h3></div></div>
+        <input id="adminUserId" type="hidden">
+        <div class="admin-user-fields"><div><label for="adminUserDisplayName">Full Name</label><input id="adminUserDisplayName" type="text" maxlength="100" placeholder="Employee name"></div><div><label for="adminUserUsername">Username</label><input id="adminUserUsername" type="text" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9._-]+" aria-describedby="adminUserUsernameHint" placeholder="Example: john.smith"><small class="admin-user-field-hint" id="adminUserUsernameHint">Letters and numbers only; period, underscore, and hyphen are allowed. No spaces.</small></div><div><label for="adminUserPassword">Password</label><input id="adminUserPassword" type="password" minlength="8" autocomplete="new-password" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" aria-describedby="adminUserPasswordHint" placeholder="Letter + number, 8+ characters"><small class="admin-user-field-hint" id="adminUserPasswordHint">At least 8 characters with at least one letter and one number.</small></div></div>
+        <div class="admin-user-permissions" role="group" aria-label="Admin permissions">
+          <label><input type="checkbox" value="database"> Database &amp; Imports</label>
+          <label><input type="checkbox" value="mas90_health"> MAS 90 Automation Health</label>
+          <label><input type="checkbox" value="customer_activity"> Customer Activity Dashboard</label>
+          <label><input type="checkbox" value="payment_transactions"> Online Payment Transactions</label>
+          <label><input type="checkbox" value="fleet_cards"> Fleet Cards &amp; Transactions</label>
+          <label><input type="checkbox" value="fuel_monitoring"> Locations &amp; Fuel Monitoring</label>
+          <label><input type="checkbox" value="collections"> Credit &amp; Collections</label>
+          <label><input type="checkbox" value="activation"> Account Activation</label>
+          <label><input type="checkbox" value="statements"> Statements &amp; Invoices</label>
+          <label><input type="checkbox" value="notifications"> Notifications</label>
+          <label><input type="checkbox" value="communication"> Communication History</label>
+          <label><input type="checkbox" value="communications_settings"> Communication Settings</label>
+          <label><input type="checkbox" value="applications"> Account Applications</label>
+          <label><input type="checkbox" value="customer_requests"> Customer Requests</label>
+          <label><input type="checkbox" value="admin_activity"> Recent Admin Activity</label>
+          <label><input type="checkbox" value="database_backup"> Backup &amp; Recovery</label>
+        </div>
+        <p class="admin-user-access-note">Dashboard access is included. Only the Master Admin can manage admin users. Creating, downloading, restoring, or scheduling backups still requires the Master Admin password.</p>
+        <label class="admin-user-active"><input id="adminUserActive" type="checkbox" checked> Active — user may sign in</label>
+        <div class="actions admin-user-drawer-actions"><button class="secondary" id="adminUserCancel" type="button">Cancel</button><button class="primary" id="adminUserSave" type="button">Create User</button></div>
+        <div id="adminUserStatus" class="status"></div>
+      </div>
     </section>
     <section class="admin-user-list-section"><h3>Admin Users</h3><div id="adminUsersList" class="admin-users-list"></div></section>
     <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3></div><p>Latest 100 recorded admin actions, including imports and application reviews.</p>
@@ -14356,7 +14386,7 @@ g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPag
   const labels=WootenAdminAccess.labels;
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
-  function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
+  function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Create New Admin';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=false;const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=true;if(open)open.hidden=false;}function openAdminUserDrawer(){const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=false;if(open)open.hidden=true;get('adminUserCancel').hidden=false;}function startNewAdminUser(){reset();openAdminUserDrawer();get('adminUserDisplayName').focus();}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
   function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';if(!q)return auditEntries;return auditEntries.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=String(row.action_type||'').replaceAll('_',' '),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
   function renderAuditPage(){const filtered=auditHeaderSort.apply(filteredAuditEntries()),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
@@ -14372,8 +14402,8 @@ auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAudit
   window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;loading=false;window.wootenAdminUsers=[];list.innerHTML='';renderAudit([]);auditMessage('');reset();});
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
-  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
-  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('adminAuditRefresh'),()=>load()));window.addEventListener('wooten-admin-page-open',event=>{if(event.detail?.panel==='users')load();});
+  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;openAdminUserDrawer();get('adminUserDisplayName').focus();});
+  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminUserOpen')?.addEventListener('click',startNewAdminUser);get('adminAuditRefresh').addEventListener('click',()=>window.WootenRefreshUI.run(get('adminAuditRefresh'),()=>load()));window.addEventListener('wooten-admin-page-open',event=>{if(event.detail?.panel==='users')load();});
   if(window.wootenAdminUser?.owner)setTimeout(load,0);
 })();
 </script>
@@ -15449,14 +15479,14 @@ if(prev)prev.addEventListener('click',function(){if(customerPage>1){customerPage
   const labels=WootenAdminAccess.labels;
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
-  function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Add Admin User';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=true;}
+  function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Create New Admin';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=false;const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=true;if(open)open.hidden=false;}function openAdminUserDrawer(){const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=false;if(open)open.hidden=true;get('adminUserCancel').hidden=false;}function startNewAdminUser(){reset();openAdminUserDrawer();get('adminUserDisplayName').focus();}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
   function renderAudit(entries){auditBody.innerHTML=entries.length?entries.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">No admin activity recorded yet.</td></tr>';}
   async function load(){if(loading)return;loading=true;auditMessage('');try{const owner=!!window.wootenAdminUser?.owner;if(owner){const usersRes=await fetch('/api/admin/users',{headers:{'X-Admin-Key':key()}}),usersData=await usersRes.json().catch(()=>({}));if(!usersRes.ok||!usersData.success)throw new Error(usersData.error||'Admin users could not be loaded.');render(usersData.users||[]);}const auditRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});let auditData=await auditRes.json().catch(()=>({})),auditOk=auditRes.ok&&auditData.success;if(auditOk&&!(auditData.entries||[]).length){await new Promise(resolve=>setTimeout(resolve,300));const retryRes=await fetch('/api/admin/audit',{headers:{'X-Admin-Key':key()},cache:'no-store'});const retryData=await retryRes.json().catch(()=>({}));if(retryRes.ok&&retryData.success){auditData=retryData;auditOk=true;}}if(!auditOk){renderAudit([]);throw new Error(auditData.error||'Recent Admin Activity could not be loaded.');}renderAudit(auditData.entries||[]);loaded=true;auditMessage('Recent Admin Activity refreshed.',true);}catch(error){auditMessage(error.message||'Recent Admin Activity could not be loaded.',false);}finally{loading=false;}}
   window.loadWootenAdminUsers=load;
   async function save(){if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can create or edit administrator users.',false);return;}const id=Number(get('adminUserId').value||0),permissions=[...document.querySelectorAll('.admin-user-permissions input:checked')].map(input=>input.value),body={id,display_name:get('adminUserDisplayName').value.trim(),username:get('adminUserUsername').value.trim(),password:get('adminUserPassword').value,permissions,active:get('adminUserActive').checked};if(!body.display_name||!body.username){message('Enter the employee name and username.',false);return;}if(!/^[A-Za-z0-9._-]+$/.test(body.username)){message('Username may contain only letters, numbers, periods, underscores, and hyphens. Spaces are not allowed.',false);get('adminUserUsername').focus();return;}if((!id||body.password)&&!(body.password.length>=8&&/[A-Za-z]/.test(body.password)&&/\d/.test(body.password))){message('Password must contain at least 8 characters, including at least one letter and one number.',false);get('adminUserPassword').focus();return;}const button=get('adminUserSave');button.disabled=true;button.textContent='Saving…';try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'X-Admin-Key':key(),'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Admin user could not be saved.');message(id?'Admin user updated.':'Admin user created.',true);reset();await load();}catch(error){message(error.message||'Admin user could not be saved.',false);}finally{button.disabled=false;if(!get('adminUserId').value)button.textContent='Create User';}}
-  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;get('adminUserDisplayName').focus();});
-  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminAuditRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
+  list.addEventListener('click',event=>{const button=event.target.closest('[data-edit-admin-user]');if(!button)return;if(!window.wootenAdminUser?.owner){message('Only Wooten Oil Admin can edit administrator users.',false);return;}const user=(window.wootenAdminUsers||[]).find(item=>Number(item.id)===Number(button.dataset.editAdminUser));if(!user)return;get('adminUserId').value=user.id;get('adminUserDisplayName').value=user.display_name||'';get('adminUserUsername').value=user.username||'';get('adminUserPassword').value='';get('adminUserActive').checked=Number(user.active)!==0;const permissions=new Set(user.permissions||[]);document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=permissions.has(input.value));get('adminUserEditorTitle').textContent='Edit Admin User';get('adminUserSave').textContent='Save Changes';get('adminUserCancel').hidden=false;openAdminUserDrawer();get('adminUserDisplayName').focus();});
+  get('adminUserSave').addEventListener('click',save);get('adminUserCancel').addEventListener('click',reset);get('adminUserOpen')?.addEventListener('click',startNewAdminUser);get('adminAuditRefresh').addEventListener('click',load);get('admin-tab-btn-users').addEventListener('click',()=>{if(!loaded)load();});
   if(window.wootenAdminUser?.owner)setTimeout(load,0);
 })();
 </script>
@@ -19853,5 +19883,41 @@ render();
   #documentSectionSendStatements .statement-balanced-panel #statementListMoveControls{grid-template-columns:minmax(0,1fr)!important}
   #documentSectionSendStatements .statement-balanced-panel #statementMoveList{width:100%!important}
   #documentSectionSendStatements .statement-balanced-panel #statementMoveToList{font-size:16px!important}
+}
+</style>
+
+<style id="wooten-master-data-cleanup-scroll-layout-ver859">
+/* Ver859: Keep Master Admin data-cleanup header/footer fixed; scroll only the middle body. */
+.master-data-cleanup-dialog{
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  max-height:calc(100dvh - 28px)!important;
+}
+.master-data-cleanup-dialog>.mas90-request-head{
+  flex:0 0 auto;
+  position:relative;
+  z-index:2;
+  background:#fff;
+}
+.master-data-cleanup-dialog>.mas90-request-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.master-data-cleanup-dialog>.mas90-request-actions{
+  flex:0 0 auto;
+  position:relative;
+  z-index:2;
+  margin:0;
+  padding:14px 20px 20px;
+  border-top:1px solid #e5ebf0;
+  background:#fff;
+}
+@media(max-width:720px){
+  .master-data-cleanup-dialog>.mas90-request-actions{padding:14px 16px 17px}
 }
 </style>
