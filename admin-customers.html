@@ -7748,6 +7748,16 @@ SOFTWARE.
       <table data-pdf-table-name="Portal Database Backups" data-pdf-empty="true" data-pdf-keep-visible="true"><thead><tr><th>Date</th><th>Type</th><th>Created By</th><th>Tables</th><th>Rows</th><th>File Size</th><th>Action</th></tr></thead><tbody id="portalBackupRows"><tr><td colspan="7" class="portal-backup-empty">Open this page to load backup history.</td></tr></tbody></table>
     </div>
     <div class="db-pagination portal-backup-pagination" id="portalBackupPagination" hidden><button class="secondary" id="portalBackupPrev" type="button">Previous 20</button><div class="db-page-info" id="portalBackupPageInfo">Page 1 of 1</div><button class="secondary" id="portalBackupNext" type="button">Next 20</button></div>
+    <section class="master-data-cleanup" id="masterDataCleanup" hidden>
+      <div class="master-data-cleanup-copy">
+        <div class="admin-page-label">Master Admin</div>
+        <h3>Data Cleanup</h3>
+        <p>Choose which portal history or request records to permanently clear. Nothing is deleted automatically.</p>
+      </div>
+      <button class="danger-db-btn" id="masterDataCleanupOpen" type="button">Choose Data to Delete</button>
+      <div id="masterDataCleanupStatus" class="status" aria-live="polite"></div>
+    </section>
+
     <section class="portal-recovery-guide">
       <h3>Recovery protection</h3>
       <p><strong>Cloudflare D1 Time Travel</strong> remains the fastest way to restore the live database to an earlier point. The downloadable backup is an additional emergency copy containing portal database tables and records.</p>
@@ -7771,6 +7781,30 @@ SOFTWARE.
         <div class="mas90-request-message" id="portalBackupAuthorizationMessage" aria-live="polite"></div>
       </div>
       <div class="mas90-request-actions"><button class="secondary" type="button" data-backup-authorization-close>Cancel</button><button class="primary" id="portalBackupAuthorizationSubmit" type="submit">Authorize</button></div>
+    </form>
+  </div>
+
+  <div class="mas90-request-modal master-data-cleanup-modal" id="masterDataCleanupModal" hidden aria-hidden="true">
+    <div class="mas90-request-modal-backdrop" data-master-cleanup-close></div>
+    <form class="mas90-request-dialog master-data-cleanup-dialog" id="masterDataCleanupForm" role="dialog" aria-modal="true" aria-labelledby="masterDataCleanupTitle" autocomplete="off">
+      <header class="mas90-request-head">
+        <div><h3 id="masterDataCleanupTitle">Choose Data to Delete</h3><p>Master Admin only. Select one or more areas below.</p></div>
+        <button class="mas90-request-close" type="button" data-master-cleanup-close aria-label="Close">&times;</button>
+      </header>
+      <div class="mas90-request-body">
+        <div class="master-data-cleanup-options" id="masterDataCleanupOptions">
+          <label><input type="checkbox" value="statement_runs"><span><strong>Statement Run Report</strong><small>Deletes saved run history and combined run PDFs. Customer statement documents remain.</small></span><b data-cleanup-count="statement_runs">—</b></label>
+          <label><input type="checkbox" value="communication_log"><span><strong>Statements, Invoices &amp; Notifications Log</strong><small>Clears the admin communication history only. Customer documents and notifications remain.</small></span><b data-cleanup-count="communication_log">—</b></label>
+          <label><input type="checkbox" value="customer_messages"><span><strong>Customer Messages Log</strong><small>Clears the portal log view. Original Gmail messages are not deleted.</small></span><b data-cleanup-count="customer_messages">Gmail-backed</b></label>
+          <label><input type="checkbox" value="account_applications"><span><strong>Account Applications</strong><small>Permanently deletes application records and uploaded application documents.</small></span><b data-cleanup-count="account_applications">—</b></label>
+          <label><input type="checkbox" value="customer_requests"><span><strong>Customer Requests</strong><small>Permanently deletes fuel requests and profile-change requests.</small></span><b data-cleanup-count="customer_requests">—</b></label>
+        </div>
+        <div class="master-data-cleanup-warning">This action cannot be undone. Create a portal database backup first if you may need these records later.</div>
+        <div class="mas90-request-field"><label for="masterDataCleanupPassword">Master Admin Password</label><input id="masterDataCleanupPassword" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Enter the Master Admin password"></div>
+        <div class="mas90-request-field"><label for="masterDataCleanupConfirm">Type DELETE to confirm</label><input id="masterDataCleanupConfirm" type="text" autocomplete="off" spellcheck="false" placeholder="DELETE"></div>
+        <div class="mas90-request-message" id="masterDataCleanupMessage" aria-live="polite"></div>
+      </div>
+      <div class="mas90-request-actions"><button class="secondary" type="button" data-master-cleanup-close>Cancel</button><button class="danger-db-btn" id="masterDataCleanupSubmit" type="submit" disabled>Delete Selected Data</button></div>
     </form>
   </div>
 
@@ -16289,6 +16323,32 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
 <script src="assets/js/wooten-fuel-monitor.js?v=857"></script>
+
+<style id="wooten-master-data-cleanup-ver858">
+.master-data-cleanup{margin-top:18px;padding:18px 20px;border:1px solid #f0c7c7;border-radius:14px;background:#fffafa;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.master-data-cleanup[hidden]{display:none!important}.master-data-cleanup-copy{min-width:0;flex:1 1 520px}.master-data-cleanup h3{margin:2px 0 5px;color:#7f1d1d}.master-data-cleanup p{margin:0;color:#66788a;line-height:1.5}.master-data-cleanup .danger-db-btn{min-width:205px}.master-data-cleanup #masterDataCleanupStatus{flex-basis:100%;margin:0}
+.master-data-cleanup-dialog{width:min(780px,96vw)!important}.master-data-cleanup-options{display:grid;gap:10px}.master-data-cleanup-options>label{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:12px;padding:13px 14px;border:1px solid #dce5ed;border-radius:12px;background:#fff;cursor:pointer}.master-data-cleanup-options>label:has(input:checked){border-color:#d98585;background:#fff7f7}.master-data-cleanup-options input{width:18px;height:18px;margin-top:2px}.master-data-cleanup-options span{min-width:0}.master-data-cleanup-options strong{display:block;color:#17324d}.master-data-cleanup-options small{display:block;margin-top:4px;color:#6b7d8f;line-height:1.4}.master-data-cleanup-options b{white-space:nowrap;color:#536b80;font-size:12px;background:#eef3f7;border-radius:999px;padding:4px 8px}.master-data-cleanup-warning{margin:14px 0;padding:11px 12px;border-radius:10px;background:#fff3cd;color:#735700;font-weight:700;font-size:13px;line-height:1.45}.master-data-cleanup-modal .danger-db-btn:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:640px){.master-data-cleanup{padding:16px}.master-data-cleanup .danger-db-btn{width:100%}.master-data-cleanup-options>label{grid-template-columns:auto minmax(0,1fr)}.master-data-cleanup-options b{grid-column:2;justify-self:start}}
+</style>
+<script id="wooten-master-data-cleanup-script-ver858">
+(()=>{
+  const section=document.getElementById('masterDataCleanup'),openBtn=document.getElementById('masterDataCleanupOpen'),modal=document.getElementById('masterDataCleanupModal'),form=document.getElementById('masterDataCleanupForm'),options=document.getElementById('masterDataCleanupOptions'),password=document.getElementById('masterDataCleanupPassword'),confirmInput=document.getElementById('masterDataCleanupConfirm'),submit=document.getElementById('masterDataCleanupSubmit'),message=document.getElementById('masterDataCleanupMessage'),status=document.getElementById('masterDataCleanupStatus');
+  if(!section||!openBtn||!modal||!form)return;
+  const adminKey=()=>String(document.getElementById('adminKey')?.value||sessionStorage.getItem('wootenAdminKey')||'').trim();
+  const selected=()=>[...options.querySelectorAll('input[type="checkbox"]:checked')].map(x=>x.value);
+  const setMsg=(text,ok=false)=>{message.textContent=text||'';message.style.color=ok?'#137246':'#a52b2b';};
+  const updateSubmit=()=>{submit.disabled=selected().length===0||confirmInput.value.trim().toUpperCase()!=='DELETE'||!password.value;};
+  async function api(path,opts={}){const key=adminKey();if(!key)throw new Error('Sign in as the Master Admin first.');const response=await fetch(path,{...opts,headers:{...(opts.headers||{}),'X-Admin-Key':key,'Accept':'application/json'},cache:'no-store'});const data=await response.json().catch(()=>({}));if(!response.ok||data.success===false)throw new Error(data.error||'Data cleanup request failed.');return data;}
+  async function refreshCounts(){try{const data=await api('/api/admin/data-cleanup');for(const [name,value] of Object.entries(data.counts||{})){const el=options.querySelector('[data-cleanup-count="'+CSS.escape(name)+'"]');if(el&&value!==null&&value!==undefined)el.textContent=Number(value).toLocaleString()+' record'+(Number(value)===1?'':'s');}}catch(error){setMsg(error.message||'Cleanup counts could not be loaded.');}}
+  function open(){if(!window.wootenAdminUser?.owner){status.textContent='Only the Master Admin can use Data Cleanup.';status.className='status show error';return;}options.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);password.value='';confirmInput.value='';setMsg('');updateSubmit();modal.hidden=false;modal.setAttribute('aria-hidden','false');refreshCounts();setTimeout(()=>options.querySelector('input')?.focus(),0);}
+  function close(){modal.hidden=true;modal.setAttribute('aria-hidden','true');password.value='';confirmInput.value='';setMsg('');}
+  openBtn.addEventListener('click',open);modal.querySelectorAll('[data-master-cleanup-close]').forEach(x=>x.addEventListener('click',close));options.addEventListener('change',updateSubmit);password.addEventListener('input',updateSubmit);confirmInput.addEventListener('input',updateSubmit);
+  modal.addEventListener('click',event=>{if(event.target===modal.querySelector('.mas90-request-modal-backdrop'))close();});
+  form.addEventListener('submit',async event=>{event.preventDefault();const categories=selected();if(!categories.length)return;submit.disabled=true;submit.textContent='Deleting…';setMsg('');try{const data=await api('/api/admin/data-cleanup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({categories,main_admin_password:password.value,confirmed:true,confirm_text:confirmInput.value.trim().toUpperCase()})});setMsg(data.message||'Selected data deleted.',true);status.textContent=data.message||'Selected data deleted.';status.className='status show success';password.value='';confirmInput.value='';options.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);await refreshCounts();window.dispatchEvent(new CustomEvent('wooten:data-cleanup-complete',{detail:data}));}catch(error){setMsg(error.message||'Selected data could not be deleted.');}finally{submit.textContent='Delete Selected Data';updateSubmit();}});
+  const reveal=()=>{section.hidden=!(window.wootenAdminUser?.owner===true)};reveal();let tries=0;const timer=setInterval(()=>{reveal();if(window.wootenAdminUser||++tries>30)clearInterval(timer);},250);
+})();
+</script>
+
 </body>
 
 </html>

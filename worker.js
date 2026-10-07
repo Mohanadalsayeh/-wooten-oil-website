@@ -5913,6 +5913,7 @@ async function gmailTestMessages({
       listData.messages || [];
 
     const messages = [];
+    const customerMessagesCutoff = await adminCleanupCutoff(env,"customer_messages");
 
     const extractEmail = (value = "") => {
       const text = String(value || "").trim();
@@ -6015,6 +6016,9 @@ async function gmailTestMessages({
       const toValue = header("To");
       const subjectValue = header("Subject");
       const snippetValue = message.snippet || "";
+
+      const messageTime = Date.parse(header("Date") || "");
+      if (customerMessagesCutoff && Number.isFinite(messageTime) && messageTime <= Date.parse(customerMessagesCutoff)) continue;
 
       const fromLower = fromValue.toLowerCase();
       const subjectLower = subjectValue.toLowerCase();
@@ -6271,6 +6275,7 @@ async function backfillStatementTestCommunicationLog(env){
       FROM statement_schedule_runs r,
         json_each(CASE WHEN json_valid(r.detail_json) THEN r.detail_json ELSE '[]' END) j
       WHERE substr(r.run_type,1,5)='test_' AND substr(r.run_key,1,9)<>'testsend:'
+        AND datetime(r.started_at) > datetime(COALESCE((SELECT cutoff_at FROM admin_cleanup_state WHERE category='communication_log'),'0000-01-01'))
         AND j.type='object'
     ) t
     WHERE length(t.account) BETWEEN 1 AND 7 AND t.account NOT GLOB '*[^0-9]*'
@@ -6288,6 +6293,7 @@ async function backfillAdminCommunicationLog(env){
   await ensureCustomerNotificationsTable(env);
   await ensureCustomerDocumentsTable(env);
   await ensureAdminCommunicationLogTable(env);
+  await ensureAdminCleanupState(env);
   await env.DB.prepare(`
     INSERT OR IGNORE INTO admin_communication_log
       (account_number,event_type,title,detail,source_type,source_id,portal_sent,email_sent,sms_sent,email_id,sms_sid,error_text,created_at)
@@ -6301,6 +6307,7 @@ async function backfillAdminCommunicationLog(env){
     FROM portal_notifications n
     LEFT JOIN portal_customer_documents d
       ON n.action_type='customer_documents' AND n.action_id=d.id
+    WHERE datetime(n.created_at) > datetime(COALESCE((SELECT cutoff_at FROM admin_cleanup_state WHERE category='communication_log'),'0000-01-01'))
   `).run();
   await env.DB.prepare(`
     INSERT OR IGNORE INTO admin_communication_log
@@ -6310,10 +6317,11 @@ async function backfillAdminCommunicationLog(env){
       CASE WHEN d.document_type='invoice' THEN 'invoice' ELSE 'statement' END,
       d.title,d.filename,'document',d.id,1,0,0,d.created_at
     FROM portal_customer_documents d
-    WHERE NOT EXISTS (
-      SELECT 1 FROM portal_notifications n
-      WHERE n.action_type='customer_documents' AND n.action_id=d.id
-    )
+    WHERE datetime(d.created_at) > datetime(COALESCE((SELECT cutoff_at FROM admin_cleanup_state WHERE category='communication_log'),'0000-01-01'))
+      AND NOT EXISTS (
+        SELECT 1 FROM portal_notifications n
+        WHERE n.action_type='customer_documents' AND n.action_id=d.id
+      )
   `).run();
   await backfillStatementTestCommunicationLog(env);
 }
@@ -11627,7 +11635,7 @@ function adminPermissionForPath(path){
   if(path.startsWith("/api/admin/fleet/"))return "fleet_cards";
   if(path.startsWith("/api/admin/payment-transactions"))return "payment_transactions";
   if(path.startsWith("/api/admin/audit"))return "admin_activity";
-  if(path.startsWith("/api/admin/database-backups"))return "database_backup";
+  if(path.startsWith("/api/admin/database-backups")||path.startsWith("/api/admin/data-cleanup"))return "database_backup";
   if(path.startsWith("/api/admin/request-center"))return "customer_requests";
   if(path==="/api/admin/mas90-health")return "mas90_health";
   if(path==="/api/admin/notification-bell")return ["customer_requests","applications","payment_transactions","fleet_cards","mas90_health","fuel_monitoring"];
@@ -12151,6 +12159,94 @@ async function adminNotificationBellGet({request,env,actor}){
   }
 }
 __name(adminNotificationBellGet,'adminNotificationBellGet');
+
+
+// Ver858 — Master Admin selective data cleanup.
+async function ensureAdminCleanupState(env){
+  if(!env?.DB)return;
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_cleanup_state (category TEXT PRIMARY KEY,cutoff_at TEXT NOT NULL,updated_by TEXT,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+}
+async function adminCleanupCutoff(env,category){
+  if(!env?.DB)return "";
+  await ensureAdminCleanupState(env);
+  const row=await env.DB.prepare(`SELECT cutoff_at FROM admin_cleanup_state WHERE category=? LIMIT 1`).bind(String(category||"")).first();
+  return String(row?.cutoff_at||"");
+}
+async function adminCleanupSetCutoff(env,category,actor){
+  await ensureAdminCleanupState(env);
+  const now=new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO admin_cleanup_state(category,cutoff_at,updated_by,updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(category) DO UPDATE SET cutoff_at=excluded.cutoff_at,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP`).bind(category,now,String(actor||"Wooten Oil Admin")).run();
+  return now;
+}
+async function adminCleanupSafeCount(env,sql){
+  try{return Number((await env.DB.prepare(sql).first())?.total||0);}catch{return 0;}
+}
+function adminCleanupObjectKeys(row){
+  const keys=new Set();
+  const direct=[row?.combined_working_key,row?.combined_pdf_key,row?.group_combined_pdf_key,row?.tax_document_key,row?.identity_document_key];
+  for(const key of direct)if(String(key||"").trim())keys.add(String(key).trim());
+  for(const field of ["combined_pdf_parts_json","group_combined_pdf_parts_json","combined_working_parts_json"]){
+    try{const value=JSON.parse(String(row?.[field]||"[]"));for(const item of Array.isArray(value)?value:[]){const key=typeof item==="string"?item:item?.key;if(String(key||"").trim())keys.add(String(key).trim());}}catch{}
+  }
+  return [...keys];
+}
+async function adminCleanupDeleteObjects(env,keys){
+  if(!env?.NOTIFICATION_ATTACHMENTS)return 0;
+  let deleted=0;
+  for(const key of [...new Set(keys.filter(Boolean))]){try{await env.NOTIFICATION_ATTACHMENTS.delete(key);deleted++;}catch(error){console.error("Data cleanup object delete failed",key,error);}}
+  return deleted;
+}
+async function adminDataCleanup({request,env}){
+  const actor=adminRequestActor(request,env);
+  if(actor.owner!==true)return notificationJson({success:false,error:"Only the Master Admin can use Data Cleanup."},403);
+  if(!env?.DB)return notificationJson({success:false,error:"Portal database is not configured."},503);
+  await ensureAdminCleanupState(env);
+  await ensureAdminCommunicationLogTable(env);
+  await ensureAccountApplicationsTable(env);
+  await ensureRequestCenterSchema(env);
+  await ensureStatementSchedulingSchema(env);
+  const counts=async()=>({
+    statement_runs:await adminCleanupSafeCount(env,`SELECT COUNT(*) AS total FROM statement_schedule_runs`),
+    communication_log:await adminCleanupSafeCount(env,`SELECT COUNT(*) AS total FROM admin_communication_log`),
+    customer_messages:null,
+    account_applications:await adminCleanupSafeCount(env,`SELECT COUNT(*) AS total FROM account_applications`),
+    customer_requests:(await adminCleanupSafeCount(env,`SELECT COUNT(*) AS total FROM profile_change_requests`))+(await adminCleanupSafeCount(env,`SELECT COUNT(*) AS total FROM fuel_requests`))
+  });
+  if(request.method==="GET")return notificationJson({success:true,counts:await counts()});
+  if(request.method!=="POST")return methodNotAllowed();
+  const body=await request.json().catch(()=>({}));
+  const allowed=new Set(["statement_runs","communication_log","customer_messages","account_applications","customer_requests"]);
+  const categories=[...new Set((Array.isArray(body.categories)?body.categories:[]).map(v=>String(v||"")).filter(v=>allowed.has(v)))];
+  if(!categories.length)return notificationJson({success:false,error:"Choose at least one data area to delete."},400);
+  if(body.confirmed!==true||String(body.confirm_text||"").toUpperCase()!=="DELETE")return notificationJson({success:false,error:"Type DELETE to confirm this permanent cleanup."},400);
+  if(!await mas90MasterPasswordMatches(body.main_admin_password,env)){await adminAudit(env,request,"data_cleanup_denied","database_cleanup","","Incorrect Master Admin password");return notificationJson({success:false,error:"The Master Admin password is incorrect."},403);}
+  const deleted={},fileKeys=[];
+  if(categories.includes("statement_runs")){
+    const rows=(await env.DB.prepare(`SELECT combined_working_key,combined_pdf_key,combined_pdf_parts_json,combined_working_parts_json,group_combined_pdf_key,group_combined_pdf_parts_json FROM statement_schedule_runs`).all())?.results||[];
+    for(const row of rows)fileKeys.push(...adminCleanupObjectKeys(row));
+    deleted.statement_runs=Number((await env.DB.prepare(`DELETE FROM statement_schedule_runs`).run())?.meta?.changes||rows.length||0);
+    try{await env.DB.prepare(`DELETE FROM statement_run_delivery_guard`).run();}catch{}
+  }
+  if(categories.includes("communication_log")){
+    await adminCleanupSetCutoff(env,"communication_log",actor.name);
+    const result=await env.DB.prepare(`DELETE FROM admin_communication_log`).run();deleted.communication_log=Number(result?.meta?.changes||0);
+  }
+  if(categories.includes("customer_messages")){
+    await adminCleanupSetCutoff(env,"customer_messages",actor.name);deleted.customer_messages="portal_view_cleared";
+  }
+  if(categories.includes("account_applications")){
+    const rows=(await env.DB.prepare(`SELECT tax_document_key,identity_document_key FROM account_applications`).all())?.results||[];
+    for(const row of rows)fileKeys.push(...adminCleanupObjectKeys(row));
+    const result=await env.DB.prepare(`DELETE FROM account_applications`).run();deleted.account_applications=Number(result?.meta?.changes||rows.length||0);
+  }
+  if(categories.includes("customer_requests")){
+    const p=await env.DB.prepare(`DELETE FROM profile_change_requests`).run();const f=await env.DB.prepare(`DELETE FROM fuel_requests`).run();deleted.customer_requests=Number(p?.meta?.changes||0)+Number(f?.meta?.changes||0);
+  }
+  const filesDeleted=await adminCleanupDeleteObjects(env,fileKeys);
+  await adminAudit(env,request,"master_data_cleanup","database_cleanup",categories.join(","),`Deleted: ${JSON.stringify(deleted)}; private files: ${filesDeleted}`);
+  return notificationJson({success:true,deleted,files_deleted:filesDeleted,counts:await counts(),message:`Data cleanup completed for ${categories.length} selected area${categories.length===1?"":"s"}.`});
+}
+__name(adminDataCleanup,"adminDataCleanup");
 
 const PORTAL_DATABASE_BACKUP_PREFIX="portal-database-backups/";
 const PORTAL_DATABASE_BACKUP_AUTOMATIC_RETENTION=30;
@@ -12703,6 +12799,7 @@ var worker_default = {
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});
       return methodNotAllowed();
     }
+    if(url.pathname==="/api/admin/data-cleanup")return adminDataCleanup({request,env});
     if(url.pathname==="/api/admin/database-backups/restore"){
       return adminPortalDatabaseBackupRestore({request,env});
     }
