@@ -9,6 +9,7 @@
  let creatingLocation=false;
  let history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all';
  const dialog=document.createElement('dialog');dialog.className='fm-dialog';document.body.append(dialog);
+ window.matchMedia('(min-width:541px)').addEventListener('change',e=>{root.querySelectorAll('.fm-overview-details').forEach(details=>{details.open=e.matches;});});
  root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel alert history</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div><h3>Change history</h3><p>Latest 200 changes across locations. History starts with this update.</p><div id="fmHistory"></div>';
  const message=(s,bad=false)=>{const el=document.getElementById('fmMessage');el.textContent=s;el.className=bad?'fm-error':'fm-note';};
  async function api(body){const token=key(),generation=epoch;const res=await fetch('/api/admin/fuel-monitor',{method:body?'POST':'GET',headers:{'X-Admin-Key':token,'Content-Type':'application/json'},cache:'no-store',...(body?{body:JSON.stringify(body)}:{})});const data=await res.json();if(token!==key()||generation!==epoch)throw Error('Admin session changed. Reopen Fuel Monitoring.');if(!res.ok||!data.success)throw Error(data.error||'Request failed.');return data;}
@@ -30,7 +31,7 @@
  function monitorPanel(l,stale){
   const m=l.reading?.monitor_status;
   const status=!m?'Not retrieved — update the station collector':m.state==='unavailable'?'Unavailable':m.state==='normal'?'All functions normal':'Alarms / warnings reported';
-  return '<details class="fm-monitor-panel" '+(m?.state==='reported'?'open':'')+'><summary>Monitor alarms — '+esc(status)+(stale?' · Last known report':'')+'</summary><p>Read-only report: active or unacknowledged alarms and warnings. Up to 25 entries from the monitor. Portal acknowledgment does not clear monitor alarms.</p>'+(m?'<p>Report time: '+esc(time(m.observed_at))+'</p>':'')+(m?.error?'<p class="fm-error">'+esc(m.error)+'</p>':'')+(m?.report?'<pre>'+esc(m.report)+'</pre>':'')+'</details>';
+  return '<details class="fm-monitor-panel" '+(m?.state==='reported'?'open':'')+'><summary><span class="fm-monitor-title">Monitor alarms</span><span class="fm-monitor-status">'+esc(status)+'</span>'+(stale?'<span class="fm-monitor-stale">Last known report</span>':'')+'</summary><p>Read-only report: active or unacknowledged alarms and warnings. Up to 25 entries from the monitor. Portal acknowledgment does not clear monitor alarms.</p>'+(m?'<p>Report time: '+esc(time(m.observed_at))+'</p>':'')+(m?.error?'<p class="fm-error">'+esc(m.error)+'</p>':'')+(m?.report?'<pre>'+esc(m.report)+'</pre>':'')+'</details>';
  }
  function render(){
   if(activeLocation!=='all'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
@@ -64,7 +65,14 @@
    const header=card.querySelector('.fm-station-header');
    const info=header.firstElementChild;info.classList.add('fm-location-info');
    header.append(actions);
-   if(activeLocation==='all'){actions.classList.add('fm-actions-reserved');actions.setAttribute('aria-hidden','true');actions.inert=true;for(const button of actions.querySelectorAll('button')){button.disabled=true;button.removeAttribute('data-inline-section');button.removeAttribute('data-inline-id');}footer.remove();}
+   if(activeLocation==='all'){
+    actions.classList.add('fm-actions-reserved');actions.setAttribute('aria-hidden','true');actions.inert=true;
+    for(const button of actions.querySelectorAll('button')){button.disabled=true;button.removeAttribute('data-inline-section');button.removeAttribute('data-inline-id');}
+    footer.remove();
+    const page=card.querySelector('.fm-station-page'),details=document.createElement('details'),summary=document.createElement('summary');
+    details.className='fm-overview-details';details.open=window.matchMedia('(min-width:541px)').matches;
+    summary.textContent='View tanks and alarms';page.before(details);details.append(summary,page);
+   }
   }
   const shownHistory=activeLocation==='all'?history:history.filter(h=>h.location_id===activeLocation);
   document.getElementById('fmHistory').innerHTML=shownHistory.length?shownHistory.map(h=>{
