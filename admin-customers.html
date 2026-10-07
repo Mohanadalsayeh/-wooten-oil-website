@@ -4300,10 +4300,18 @@ input[type="file"]:focus-visible{
 .admin-user-editor,.admin-user-list-section,.admin-audit-section{margin-top:22px;padding:20px;border:1px solid #d8e2ea;border-radius:15px;background:#f8fafc}.admin-user-editor h3{margin-top:0}.admin-user-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.admin-user-fields input{width:100%}.admin-user-field-hint{display:block;margin-top:6px;color:#65778a;font-size:12px;line-height:1.4}.admin-user-permissions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:17px}.admin-user-permissions label,.admin-user-active{display:flex;align-items:center;gap:9px;margin:0;padding:11px;border:1px solid #d8e2ea;border-radius:10px;background:#fff}.admin-user-permissions input,.admin-user-active input{width:18px;height:18px}.admin-user-active{width:max-content;margin-top:13px}.admin-users-list{display:grid;gap:10px;margin-top:14px}.admin-user-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr) auto;gap:14px;align-items:center;padding:14px;border:1px solid #d8e2ea;border-radius:11px;background:#fff}.admin-user-row strong,.admin-user-row small{display:block}.admin-user-row small{color:#6a7b8c;margin-top:3px}.admin-user-permission-tags{display:flex;flex-wrap:wrap;gap:5px}.admin-user-permission-tags span{padding:4px 7px;border-radius:999px;background:#e8f1f8;color:#245b82;font-size:11px;font-weight:800}.admin-user-disabled{color:#a12626!important}.admin-audit-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}.admin-audit-heading h3{margin:0}.admin-audit-heading button{flex:0 0 auto}.admin-audit-section>p{margin:8px 0 18px;color:#65778a}.admin-audit-section .tablewrap{max-height:390px}.admin-audit-section td{white-space:normal;vertical-align:top}.import-last-update small{display:block;margin-top:3px;color:#65778a;font-weight:700}
 @media(max-width:850px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr 1fr}.admin-user-row{grid-template-columns:1fr}.admin-user-row button{width:100%}}@media(max-width:560px){.admin-user-fields,.admin-user-permissions{grid-template-columns:1fr}.admin-user-active{width:100%}}
 </style>
-<style id="wooten-notify-recipient-pagination-v862">
-#notifyRecipientPicker .notify-recipient-pagination{margin-top:14px!important;margin-bottom:14px!important}
-#notifyRecipientPicker .notify-recipient-pagination .secondary{margin:0!important}
-#notifyRecipientPicker .notify-recipient-pagination .db-page-info{font-size:13px!important;color:#64748b!important;min-width:120px!important;text-align:center!important;font-weight:400!important}
+<style id="wooten-notify-recipient-pagination-v863">
+#notifyRecipientPicker .notify-recipient-pagination{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18px!important;margin:16px 0 18px!important;padding-top:14px!important;border-top:1px solid #d7e1ea!important}
+#notifyRecipientPicker .notify-recipient-page-summary{color:#526b82!important;font-size:14px!important;font-weight:400!important;white-space:nowrap!important}
+#notifyRecipientPicker .notify-recipient-page-controls{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:8px!important;flex-wrap:wrap!important}
+#notifyRecipientPicker .notify-recipient-page-numbers{display:flex!important;align-items:center!important;gap:8px!important}
+#notifyRecipientPicker .notify-recipient-page-nav,#notifyRecipientPicker .notify-recipient-page-btn{box-sizing:border-box!important;height:46px!important;min-width:46px!important;margin:0!important;padding:0 14px!important;border:1px solid #cbd8e3!important;border-radius:8px!important;background:#fff!important;color:#17324d!important;font:inherit!important;font-size:14px!important;font-weight:700!important;line-height:44px!important;text-align:center!important;cursor:pointer!important;box-shadow:none!important}
+#notifyRecipientPicker .notify-recipient-page-nav{min-width:94px!important}
+#notifyRecipientPicker .notify-recipient-page-btn.is-current{background:#173f63!important;border-color:#173f63!important;color:#fff!important}
+#notifyRecipientPicker .notify-recipient-page-btn:hover:not(.is-current):not(:disabled),#notifyRecipientPicker .notify-recipient-page-nav:hover:not(:disabled){background:#f6f9fc!important;border-color:#9db6ca!important}
+#notifyRecipientPicker .notify-recipient-page-nav:disabled{background:#f8fafc!important;color:#94a3b8!important;cursor:not-allowed!important;opacity:1!important}
+#notifyRecipientPicker .notify-recipient-page-ellipsis{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:30px!important;height:46px!important;color:#64748b!important;font-size:16px!important}
+@media(max-width:720px){#notifyRecipientPicker .notify-recipient-pagination{align-items:flex-start!important;flex-direction:column!important}#notifyRecipientPicker .notify-recipient-page-controls{width:100%!important;justify-content:flex-start!important;overflow-x:auto!important;padding-bottom:2px!important;flex-wrap:nowrap!important}#notifyRecipientPicker .notify-recipient-page-nav{min-width:88px!important}#notifyRecipientPicker .notify-recipient-page-btn{flex:0 0 44px!important;min-width:44px!important;padding:0 10px!important}}
 </style>
 <style id="wooten-admin-user-drawer-v860">
 .admin-user-drawer-shell{padding:0!important;overflow:hidden;background:#f8fafc}
@@ -6882,7 +6890,7 @@ SOFTWARE.
         <div class="notify-recipient-tools notify-recipient-search-row"><label for="notifyRecipientSearch">Find customers in this list<input id="notifyRecipientSearch" type="search" placeholder="Customer number, name or phone"></label><button id="notifyRecipientSearchBtn" type="button" class="secondary">Search</button></div>
         <div class="notify-recipient-tools notify-recipient-selection-row"><button id="notifyRecipientSelect" type="button" class="secondary">Select all in list</button><button id="notifyRecipientClear" type="button" class="secondary">Clear selection</button><strong id="notifyRecipientCount" role="status">0 selected</strong></div>
         <p id="notifyRecipientStatus" role="status"></p><div id="notifyRecipientList"></div>
-        <div class="db-pagination notify-recipient-pagination" aria-label="Notification recipient pages"><button id="notifyRecipientPrev" type="button" class="secondary">Previous 20</button><div class="db-page-info" id="notifyRecipientPage">Page 1 of 1</div><button id="notifyRecipientNext" type="button" class="secondary">Next 20</button></div>
+        <div class="notify-recipient-pagination" aria-label="Notification recipient pages"><div class="notify-recipient-page-summary" id="notifyRecipientPage">Page 1 of 1</div><div class="notify-recipient-page-controls"><button id="notifyRecipientPrev" type="button" class="notify-recipient-page-nav">Previous</button><div class="notify-recipient-page-numbers" id="notifyRecipientPageNumbers" aria-label="Page numbers"></div><button id="notifyRecipientNext" type="button" class="notify-recipient-page-nav">Next</button></div></div>
         <label class="notify-options"><input id="notifyRecipientConsent" type="checkbox">I confirm our Twilio sender is approved for this use and selected customers have agreed to receive these SMS messages.</label>
         <progress id="notifyRecipientProgress" value="0" max="1" hidden></progress><div id="notifyRecipientResults" role="log"></div>
       </div>
@@ -7468,6 +7476,10 @@ SOFTWARE.
         <div class="cards-manual-heading"><span class="cards-manual-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span><h4 id="cardsManualTitle">Manual Sync</h4></div>
         <p>Update the saved cards that customers see in their portal.</p>
         <div class="cards-actions"><button type="button" data-card-sync disabled><span class="fleet-sync-spinner" data-card-spinner aria-hidden="true" hidden></span><span data-card-sync-label>Sync Cards Now</span></button><button type="button" data-card-refresh>Refresh status</button></div>
+        <div class="preview-progress cards-manual-sync-progress" id="fleetCardManualSyncProgress" hidden>
+          <div class="preview-progress-head"><strong>Uploading fleet cards…</strong><span id="fleetCardManualSyncCount">Preparing upload</span></div>
+          <div class="preview-progress-track" id="fleetCardManualSyncTrack" role="progressbar" aria-label="Manual fleet card upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fleetCardManualSyncBar"></span></div>
+        </div>
       </section>
     </div>
     <p data-card-status role="status" aria-live="polite">Loading card service status…</p>
@@ -19069,10 +19081,106 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 <link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=715">
 <link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=709">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
+
+<style id="wooten-fleet-manual-progress-ver864">
+#fleetCardManualSyncProgress{margin-top:14px!important}
+#fleetCardManualSyncProgress .preview-progress-head{align-items:center}
+#fleetCardManualSyncProgress .preview-progress-head span{font-variant-numeric:tabular-nums;white-space:nowrap}
+#fleetCardManualSyncProgress .preview-progress-track{overflow:hidden}
+#fleetCardManualSyncProgress.is-waiting #fleetCardManualSyncBar{width:38%!important;animation:fleetManualProgressWaiting 1.15s ease-in-out infinite alternate}
+@keyframes fleetManualProgressWaiting{from{transform:translateX(-20%)}to{transform:translateX(165%)}}
+@media (prefers-reduced-motion:reduce){#fleetCardManualSyncProgress.is-waiting #fleetCardManualSyncBar{animation:none;width:45%!important;transform:none}}
+</style>
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
 <script src="assets/js/wooten-intevacon-api-test.js?v=716"></script>
 <script src="assets/js/wooten-card-sync.js?v=700"></script>
+<script id="wooten-fleet-manual-progress-controller-ver864">
+(function(){
+  const root=document.getElementById('websiteCardSync');
+  if(!root||root.dataset.manualProgressV864==='1')return;
+  root.dataset.manualProgressV864='1';
+
+  const syncBtn=root.querySelector('[data-card-sync]');
+  const spinner=root.querySelector('[data-card-spinner]');
+  const status=root.querySelector('[data-card-status]');
+  const totalNode=root.querySelector('[data-card-count]');
+  const progress=document.getElementById('fleetCardManualSyncProgress');
+  const count=document.getElementById('fleetCardManualSyncCount');
+  const track=document.getElementById('fleetCardManualSyncTrack');
+  const bar=document.getElementById('fleetCardManualSyncBar');
+  if(!syncBtn||!progress||!count||!track||!bar)return;
+
+  let manualRun=false, hideTimer=0, lastDone=0, lastTotal=0;
+
+  function numberFrom(value){
+    const match=String(value||'').replace(/,/g,'').match(/\b(\d{1,9})\b/);
+    return match?Number(match[1]):0;
+  }
+  function currentTotal(){
+    const n=numberFrom(totalNode&&totalNode.textContent);
+    return Number.isFinite(n)&&n>0?n:0;
+  }
+  function setProgress(done,total,label){
+    done=Math.max(0,Number(done)||0);
+    total=Math.max(0,Number(total)||0);
+    lastDone=done;
+    if(total)lastTotal=total;
+    const max=total||lastTotal||0;
+    const pct=max?Math.min(100,Math.round((done/max)*100)):0;
+    track.setAttribute('aria-valuenow',String(pct));
+    bar.style.width=pct+'%';
+    progress.classList.toggle('is-waiting',!max);
+    count.textContent=label||(max?(done.toLocaleString()+' / '+max.toLocaleString()+' cards'):'Waiting for card count…');
+  }
+  function show(){
+    clearTimeout(hideTimer);
+    manualRun=true;
+    lastDone=0;
+    lastTotal=currentTotal();
+    progress.hidden=false;
+    setProgress(0,lastTotal,lastTotal?('0 / '+lastTotal.toLocaleString()+' cards'):'Preparing upload…');
+  }
+  function finish(){
+    if(!manualRun)return;
+    const total=currentTotal()||lastTotal||lastDone;
+    if(total)setProgress(total,total,total.toLocaleString()+' / '+total.toLocaleString()+' cards');
+    else setProgress(lastDone,lastTotal,'Upload complete');
+    progress.classList.remove('is-waiting');
+    hideTimer=setTimeout(()=>{progress.hidden=true;manualRun=false;bar.style.width='0%';track.setAttribute('aria-valuenow','0');},1100);
+  }
+  function parseStatus(){
+    if(!manualRun||!status)return;
+    const s=(status.textContent||'').trim();
+    if(!s)return;
+    let m=s.replace(/,/g,'').match(/(\d+)\s*(?:of|\/)\s*(\d+)\s*(?:cards?)?/i);
+    if(m){
+      setProgress(Number(m[1]),Number(m[2]));
+      return;
+    }
+    m=s.replace(/,/g,'').match(/(?:uploaded|uploading|saved|processed|received)\D{0,18}(\d+)(?:\D{0,12}(?:cards?))?/i);
+    if(m){
+      const done=Number(m[1]);
+      setProgress(done,lastTotal||currentTotal(),(lastTotal||currentTotal())?(done.toLocaleString()+' / '+(lastTotal||currentTotal()).toLocaleString()+' cards'):(done.toLocaleString()+' cards uploaded'));
+    }
+    if(/\b(?:complete|completed|success|finished|updated)\b/i.test(s) && !/\b(?:in progress|processing|uploading|queued|running)\b/i.test(s)) finish();
+  }
+  function detectEnd(){
+    if(!manualRun)return;
+    const spinning=spinner && !spinner.hidden;
+    const label=(root.querySelector('[data-card-sync-label]')?.textContent||'').trim();
+    const busy=spinning || syncBtn.disabled || /\b(?:syncing|uploading|processing|queued|running)\b/i.test(label);
+    if(!busy && lastDone>0) finish();
+  }
+
+  syncBtn.addEventListener('click',()=>{show();setTimeout(parseStatus,80);},true);
+
+  if(status)new MutationObserver(()=>{parseStatus();detectEnd();}).observe(status,{childList:true,subtree:true,characterData:true,attributes:true});
+  if(totalNode)new MutationObserver(()=>{if(manualRun){lastTotal=currentTotal()||lastTotal;parseStatus();detectEnd();}}).observe(totalNode,{childList:true,subtree:true,characterData:true});
+  if(spinner)new MutationObserver(()=>{if(manualRun)detectEnd();}).observe(spinner,{attributes:true,attributeFilter:['hidden','style','class']});
+  new MutationObserver(()=>{if(manualRun)detectEnd();}).observe(syncBtn,{attributes:true,attributeFilter:['disabled','class']});
+})();
+</script>
 <script src="assets/js/wooten-admin-fleet-cards.js?v=687"></script>
 
 <style id="wooten-statement-history-pages-ver527">
@@ -19612,10 +19720,24 @@ const radio=el('notifyAudienceSelected'),picker=el('notifyRecipientPicker');
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const matching=()=>customers;let matchIndex=-1,highlighted='';
 window.WootenNotifyRecipientCount=()=>radio.checked?chosen.size:0;
+function recipientPageItems(current,total){
+ const values=[];
+ if(total<=5){for(let i=1;i<=total;i++)values.push(i);return values;}
+ if(current<=3)return [1,2,3,'ellipsis',total];
+ if(current>=total-2)return [1,'ellipsis',total-2,total-1,total];
+ return [1,'ellipsis',current-1,current,current+1,'ellipsis2',total];
+}
+function renderRecipientPagination(pages){
+ const summary=el('notifyRecipientPage'),numbers=el('notifyRecipientPageNumbers');
+ if(summary)summary.textContent='Page '+page+' of '+pages;
+ if(!numbers)return;
+ numbers.innerHTML=recipientPageItems(page,pages).map(item=>typeof item==='number'?'<button type="button" class="notify-recipient-page-btn'+(item===page?' is-current':'')+'" data-notify-page="'+item+'" aria-label="Page '+item+'"'+(item===page?' aria-current="page"':'')+'>'+item+'</button>':'<span class="notify-recipient-page-ellipsis" aria-hidden="true">…</span>').join('');
+ numbers.querySelectorAll('[data-notify-page]').forEach(button=>button.addEventListener('click',()=>{if(busy)return;page=Number(button.dataset.notifyPage)||1;render();}));
+}
 function render(){
  const rows=matching(),pages=Math.max(1,Math.ceil(rows.length/20));page=Math.max(1,Math.min(page,pages));
  el('notifyRecipientList').innerHTML=rows.slice((page-1)*20,page*20).map(c=>'<label class="notify-recipient-row'+(highlighted===c.account_number?' notify-recipient-found':'')+'" data-customer-row="'+esc(c.account_number)+'"><input type="checkbox" data-recipient="'+esc(c.account_number)+'" '+(chosen.has(c.account_number)?'checked ':'')+(!c.phone||busy?'disabled ':'')+'><span>'+esc(c.account_name)+'<small>#'+esc(c.account_number)+' · '+esc(c.phone||'No phone number')+'</small></span></label>').join('');
- el('notifyRecipientCount').textContent=chosen.size+' selected';el('notifyRecipientPage').textContent='Page '+page+' of '+pages;
+ el('notifyRecipientCount').textContent=chosen.size+' selected';renderRecipientPagination(pages);
  el('notifyRecipientPrev').disabled=busy||page<=1;el('notifyRecipientNext').disabled=busy||page>=pages;
  el('notifyRecipientSelect').disabled=busy||!rows.some(c=>c.phone);el('notifyRecipientClear').disabled=busy||!chosen.size;
  window.WootenUpdateSmsEstimate?.();
