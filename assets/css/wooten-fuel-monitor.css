@@ -879,3 +879,85 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 @media(max-width:540px){
  #fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-reset-tanks{width:100%;margin-right:0!important}
 }
+
+/* Ver901 — responsive station overview toolbar and disclosure */
+@media (max-width:540px){
+  #fuelMonitorRoot>.fm-heading{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+  #fuelMonitorRoot>.fm-heading>.fm-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;align-items:stretch}
+  #fuelMonitorRoot>.fm-heading>.fm-actions button{display:inline-flex;align-items:center;justify-content:center;min-width:0;width:100%;min-height:49px;padding:10px 8px!important;white-space:nowrap;font-size:14px;line-height:1.2}
+  #fuelMonitorRoot>.fm-heading>.fm-actions #fmRefresh{background:#2ba56f!important;color:#fff!important;border-color:#2ba56f!important}
+  #fuelMonitorRoot>.fm-heading>.fm-actions #fmAdd{background:#d91e2e!important;color:#fff!important;border-color:#d91e2e!important}
+  #fuelMonitorRoot .fm-overview-details{min-width:0}
+  #fuelMonitorRoot .fm-overview-details>summary{
+    display:flex!important;list-style:none!important;position:relative;align-items:center;justify-content:center;
+    width:auto;min-height:54px;margin:14px 16px;padding:12px 42px!important;box-sizing:border-box;
+    border:1px solid #cbdfea;border-radius:12px;background:#eff6fb;color:#173850;
+    font-size:15px;line-height:1.3;font-weight:750;text-align:center;cursor:pointer
+  }
+  #fuelMonitorRoot .fm-overview-details>summary::-webkit-details-marker{display:none}
+  #fuelMonitorRoot .fm-overview-details>summary::before{content:'';position:absolute;left:20px;top:50%;width:9px;height:9px;border-right:2.5px solid #17689a;border-bottom:2.5px solid #17689a;transform:translateY(-70%) rotate(45deg);transition:transform .15s}
+  #fuelMonitorRoot .fm-overview-details[open]>summary::before{transform:translateY(-28%) rotate(225deg)}
+  #fuelMonitorRoot .fm-overview-details[open]>summary{margin-bottom:12px}
+  #fuelMonitorRoot .fm-overview-details>summary:focus-visible{outline:2px solid #2578bf;outline-offset:2px}
+}
+@media (max-width:365px){
+ #fuelMonitorRoot>.fm-heading>.fm-actions{gap:8px}
+ #fuelMonitorRoot>.fm-heading>.fm-actions button{font-size:13px;padding:9px 5px!important}
+}
+@media (prefers-reduced-motion:reduce){#fuelMonitorRoot .fm-overview-details>summary::before{transition:none}}
+
+/* Ver902: mobile fuel schedule and station action button alignment */
+@media (max-width: 600px) {
+  #fuelMonitorRoot .fm-automatic-panel-content .fm-automatic-reading .fm-inline-save {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px!important;
+    align-items:stretch!important;
+    justify-content:stretch!important;
+  }
+  #fuelMonitorRoot .fm-automatic-panel-content .fm-automatic-reading .fm-inline-save button {
+    width:100%!important;
+    min-width:0!important;
+    min-height:48px!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+    white-space:normal!important;
+    justify-content:center!important;
+    text-align:center!important;
+  }
+  #fuelMonitorRoot .fm-station-actions {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:10px!important;
+    padding:14px!important;
+  }
+  #fuelMonitorRoot .fm-station-actions .fm-send-reading,
+  #fuelMonitorRoot .fm-station-actions .fm-collector-action {
+    width:100%!important;
+    min-width:0!important;
+    min-height:48px!important;
+    margin:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    font-size:14px!important;
+    border-radius:10px!important;
+    box-sizing:border-box!important;
+    text-align:center!important;
+  }
+  #fuelMonitorRoot .fm-station-actions .fm-send-reading {
+    background:#21699b!important;
+    border:1px solid #21699b!important;
+    color:#fff!important;
+    opacity:1;
+  }
+  #fuelMonitorRoot .fm-station-actions .fm-send-reading:hover:not(:disabled){background:#195681!important;border-color:#195681!important}
+  #fuelMonitorRoot .fm-station-actions .fm-send-reading:disabled{opacity:.55!important;background:#21699b!important;border-color:#21699b!important}
+  #fuelMonitorRoot .fm-station-actions .fm-collector-action {
+    background:#fff!important;
+    border:1px solid #c9dbe9!important;
+    color:#173850!important;
+    text-decoration:none!important;
+  }
+  #fuelMonitorRoot .fm-station-actions .fm-collector-action:hover {background:#f5f9fc!important;text-decoration:none!important}
+}
