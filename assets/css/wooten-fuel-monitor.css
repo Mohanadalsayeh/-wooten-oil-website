@@ -678,3 +678,66 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 /* Ver889 — notification-to-alert focus */
 #fuelMonitorRoot .fm-alert-card.fm-alert-targeted{border:2px solid #21699b;box-shadow:0 0 0 4px rgba(33,105,155,.16),0 6px 20px rgba(18,52,79,.1);scroll-margin-top:110px}
 #fuelMonitorRoot .fm-alert-card.fm-alert-targeted:focus{outline:none}
+
+/* Ver890 — automatic schedule is a disclosure BELOW the persistent tank gauges */
+#fuelMonitorRoot .fm-automatic-panel{
+  margin:16px 22px 20px;
+  border:1px solid #d4e2ed;
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+}
+#fuelMonitorRoot .fm-automatic-panel>summary{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:56px;
+  padding:14px 16px;
+  cursor:pointer;
+  list-style:none;
+  background:#f4f8fb;
+  color:#173850;
+  font-size:17px;
+  font-weight:800;
+  user-select:none;
+}
+#fuelMonitorRoot .fm-automatic-panel>summary::-webkit-details-marker{display:none}
+#fuelMonitorRoot .fm-automatic-panel>summary:hover{background:#eaf3f9}
+#fuelMonitorRoot .fm-automatic-panel>summary:focus-visible{outline:2px solid #21699b;outline-offset:-3px}
+#fuelMonitorRoot .fm-automatic-chevron{
+  width:10px;height:10px;
+  border-right:2px solid #21699b;
+  border-bottom:2px solid #21699b;
+  transform:rotate(-45deg);
+  transition:transform .15s ease;
+  flex:none;
+}
+#fuelMonitorRoot .fm-automatic-panel[open] .fm-automatic-chevron{transform:rotate(45deg)}
+#fuelMonitorRoot .fm-automatic-title{flex:1;min-width:0}
+#fuelMonitorRoot .fm-automatic-state{
+  padding:4px 10px;
+  border-radius:999px;
+  background:#e5eef5;
+  font-size:12px;
+  font-weight:800;
+  color:#536e83;
+  white-space:nowrap;
+}
+#fuelMonitorRoot .fm-automatic-state[data-enabled=true]{
+  color:#1a6a41;background:#dff5e8;
+}
+#fuelMonitorRoot .fm-automatic-panel-content{border-top:1px solid #d4e2ed}
+#fuelMonitorRoot .fm-automatic-panel-content .fm-automatic-reading{padding:18px 20px 20px}
+#fuelMonitorRoot .fm-auto-day-field.is-disabled,
+#fuelMonitorRoot .fm-auto-time.is-disabled{opacity:.5}
+#fuelMonitorRoot .fm-auto-day-field.is-disabled label,
+#fuelMonitorRoot .fm-auto-time.is-disabled label{cursor:default}
+#fuelMonitorRoot .fm-automatic-panel-content:empty{display:none}
+@media(max-width:640px){
+ #fuelMonitorRoot .fm-automatic-panel{margin:12px 14px 16px}
+ #fuelMonitorRoot .fm-automatic-panel>summary{padding:12px;font-size:15px}
+ #fuelMonitorRoot .fm-automatic-panel-content .fm-automatic-reading{padding:14px 12px}
+}
+@media(prefers-reduced-motion:reduce){
+ #fuelMonitorRoot .fm-automatic-chevron{transition:none}
+}
