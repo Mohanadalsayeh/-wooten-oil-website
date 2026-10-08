@@ -39,7 +39,7 @@
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
-  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'↗'};
+  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-gauge" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M6.2 13.2 4.8 12.4M8.5 10.4 7.4 9M12 9V7M15.5 10.4 16.6 9M17.8 13.2l1.4-.8"/><path d="m12 16 4-4"/><circle cx="12" cy="16" r="1.4"/></svg>'};
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){

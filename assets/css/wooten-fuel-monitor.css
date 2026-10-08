@@ -420,8 +420,8 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   background:#21699b !important;
   border-color:#21699b !important;
   color:#fff !important;
-  outline:2px solid #21699b !important;
-  outline-offset:3px;
+  outline:none !important;
+  box-shadow:none !important;
 }
 #fuelMonitorRoot .fm-send-reading:active:not(:disabled){
   background:#14476b !important;
@@ -566,4 +566,20 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   #fuelMonitorRoot .fm-alert-pagination .db-numbered-pages{justify-content:flex-start}
   #fuelMonitorRoot .fm-alert-pagination .db-pagination-controls{justify-content:space-between}
   #fuelMonitorRoot .fm-alert-pagination .db-pagination-controls button{flex:1}
+}
+
+/* Ver881 — selected Fuel Reading gauge icon */
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol{
+  background:#21699b;
+  color:#fff;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol .fm-fuel-reading-gauge{
+  width:28px;
+  height:28px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
 }
