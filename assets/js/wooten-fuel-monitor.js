@@ -10,7 +10,7 @@
  let history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all';
  const dialog=document.createElement('dialog');dialog.className='fm-dialog';document.body.append(dialog);
  window.matchMedia('(min-width:541px)').addEventListener('change',e=>{root.querySelectorAll('.fm-overview-details').forEach(details=>{details.open=e.matches;});});
- root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel alert history</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div><details class="fm-history-tree" id="fmHistoryTree"><summary><span class="fm-history-tree-icon" aria-hidden="true"></span><span>Change history</span><span class="fm-history-tree-count" id="fmHistoryTreeCount">0 changes</span></summary><div class="fm-history-tree-body"><p>Latest 50 changes across locations. History starts with this update.</p><div id="fmHistory"></div></div></details>';
+ root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel alert history</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div>';
  const message=(s,bad=false)=>{const el=document.getElementById('fmMessage');el.textContent=s;el.className=bad?'fm-error':'fm-note';};
  async function api(body){const token=key(),generation=epoch;const res=await fetch('/api/admin/fuel-monitor',{method:body?'POST':'GET',headers:{'X-Admin-Key':token,'Content-Type':'application/json'},cache:'no-store',...(body?{body:JSON.stringify(body)}:{})});const data=await res.json();if(token!==key()||generation!==epoch)throw Error('Admin session changed. Reopen Fuel Monitoring.');if(!res.ok||!data.success)throw Error(data.error||'Request failed.');return data;}
  async function load(){if(creatingLocation||inlineEdit||inlineSaving)return;if(loading||!key()||!allowed())return;loading=true;document.getElementById('fmRefresh').disabled=true;message('Loading locations…');try{const data=await api();if(creatingLocation||inlineEdit||inlineSaving)return;locations=data.locations;alerts=data.alerts;history=data.history||[];render();message(locations.length+' location(s) loaded.');}catch(e){message(e.message,true)}finally{loading=false;document.getElementById('fmRefresh').disabled=false}}
@@ -133,15 +133,6 @@
     summary.textContent='View tanks and alarms';page.before(details);details.append(summary,page);
    }
   }
-  const filteredHistory=activeLocation==='all'?history:history.filter(h=>h.location_id===activeLocation);
-  const shownHistory=filteredHistory.slice(0,50);
-  const historyCount=document.getElementById('fmHistoryTreeCount');
-  if(historyCount)historyCount.textContent=shownHistory.length+' change'+(shownHistory.length===1?'':'s');
-  document.getElementById('fmHistory').innerHTML=shownHistory.length?shownHistory.map(h=>{
-   let changes=[];try{changes=JSON.parse(h.changes)}catch{}
-   const value=v=>v==null?'Not set':typeof v==='object'?JSON.stringify(v,null,2):String(v);
-   return '<details class="fm-history-entry"><summary>'+esc(h.location_name)+' · '+esc(({save:'Settings saved',pair:'Collector key replaced',delete:'Location deleted',send_reading:'Fuel reading sent'})[h.action]||h.action)+'</summary><p>'+esc(time(h.created_at))+' · '+esc(h.actor)+'</p>'+changes.map(c=>'<div class="fm-history-change"><strong>'+esc(c.field.replaceAll('_',' '))+'</strong><div><span>Before</span><pre>'+esc(value(c.before))+'</pre></div><div><span>After</span><pre>'+esc(value(c.after))+'</pre></div></div>').join('')+'</details>';
-  }).join(''):'<p>No location changes recorded yet.</p>';
   document.getElementById('fmAlerts').innerHTML=shownAlerts.length?shownAlerts.map(renderPortalAlert).join(''):'<p>No fuel alerts recorded.</p>';
  }
  function compactIconPicker(container,selected){

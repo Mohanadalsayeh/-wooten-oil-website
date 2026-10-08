@@ -7748,7 +7748,7 @@ SOFTWARE.
       </div>
     </section>
     <section class="admin-user-list-section"><h3>Admin Users</h3><div id="adminUsersList" class="admin-users-list"></div></section>
-    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3></div><p>Latest 100 recorded admin actions, including imports and application reviews.</p>
+    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3></div><p>Latest 100 recorded admin actions, fuel-monitoring changes, and fuel alerts.</p>
 <div class="admin-activity-search-row">
   <div class="admin-activity-filter-field">
     <label class="admin-activity-search-label" for="adminActivityFilter">Filter By</label>
@@ -7758,6 +7758,8 @@ SOFTWARE.
       <option value="action">Action</option>
       <option value="details">Details</option>
       <option value="date">Date / Time</option>
+      <option value="fuel_changes">Fuel Monitoring Changes</option>
+      <option value="alerts">Fuel Alerts</option>
     </select>
   </div>
   <div class="admin-activity-search-field">
@@ -14425,13 +14427,14 @@ g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPag
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus'),auditPager=get('adminActivityPagination'),auditPagerSummary=get('adminActivityPaginationSummary'),auditPageIndicator=get('adminActivityPageIndicator'),auditPrev=get('adminActivityPrev'),auditNext=get('adminActivityNext'),auditSearch=get('adminActivitySearch'),auditSearchClear=get('adminActivitySearchClear'),auditFilter=get('adminActivityFilter');let loaded=false,loading=false,auditPage=1,auditEntries=[];const auditPageSize=20;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const labels=WootenAdminAccess.labels;
+  function auditActionLabel(row){const type=String(row?.action_type||'');if(type==='fuel_monitor_change')return 'Fuel Monitoring Change';if(type==='fuel_alert')return 'Fuel Alert';return type.replaceAll('_',' ');}
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Create New Admin';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=false;const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=true;if(open)open.hidden=false;}function openAdminUserDrawer(){const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=false;if(open)open.hidden=true;get('adminUserCancel').hidden=false;}function startNewAdminUser(){reset();openAdminUserDrawer();get('adminUserDisplayName').focus();}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
-  function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';if(!q)return auditEntries;return auditEntries.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=String(row.action_type||'').replaceAll('_',' '),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
-  function renderAuditPage(){const filtered=auditHeaderSort.apply(filteredAuditEntries()),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(String(row.action_type||'').replaceAll('_',' '))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
-  const auditHeaderSort=WootenTableDataSort.register(auditBody.closest('table'),[r=>Date.parse(r.created_at)||0,'actor_name',r=>String(r.action_type||'').replaceAll('_',' '),r=>r.detail||r.target_id||''],()=>{auditPage=1;renderAuditPage();});
+  function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';let source=auditEntries;if(filter==='alerts')source=source.filter(row=>String(row.target_type||'')==='fuel_alert');else if(filter==='fuel_changes')source=source.filter(row=>String(row.target_type||'')==='fuel_monitor_change');if(!q)return source;return source.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=auditActionLabel(row),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
+  function renderAuditPage(){const filtered=auditHeaderSort.apply(filteredAuditEntries()),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(auditActionLabel(row))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
+  const auditHeaderSort=WootenTableDataSort.register(auditBody.closest('table'),[r=>Date.parse(r.created_at)||0,'actor_name',r=>auditActionLabel(r),r=>r.detail||r.target_id||''],()=>{auditPage=1;renderAuditPage();});
   function renderAudit(entries){auditEntries=Array.isArray(entries)?entries:[];auditPage=1;renderAuditPage();}
   auditPrev.wootenGoToPage = target => { auditPage=target;renderAuditPage(); };
 auditPrev?.addEventListener('click',()=>{if(auditPage>1){auditPage--;renderAuditPage();}});
@@ -16393,7 +16396,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=876"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=877"></script>
 
 <style id="wooten-master-data-cleanup-ver858">
 .master-data-cleanup{margin-top:18px;padding:18px 20px;border:1px solid #f0c7c7;border-radius:14px;background:#fffafa;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}

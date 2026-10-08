@@ -11719,7 +11719,70 @@ async function adminUsersApi({request,env}){
     await adminAudit(env,request,id?"admin_user_updated":"admin_user_created","admin_user",String(userId),`${displayName} (${username})`);return notificationJson({success:true,id:userId});
   }catch(error){console.error("adminUsersApi failed",error);const technicalDetail=String(error?.message||error||"").replace(/\s+/g," ").trim().slice(0,240);const errorText=technicalDetail.toLowerCase();const duplicate=errorText.includes("unique")||errorText.includes("constraint failed")&&errorText.includes("username");return notificationJson({success:false,error:duplicate?"That username is already in use.":`The admin user could not be saved.${technicalDetail?` Technical detail: ${technicalDetail}`:""}`},duplicate?409:500);}
 }
-async function adminAuditGet({request,env}){try{await ensureAdminAuditV2(env);const rows=await env.DB.prepare(`SELECT id,actor_name,action_type,target_type,target_id,detail,created_at FROM admin_audit_log_v2 ORDER BY created_at DESC,id DESC LIMIT 100`).all();return notificationJson({success:true,entries:rows?.results||[],storage_version:2});}catch(error){console.error("adminAuditGet failed",error);return notificationJson({success:false,error:"Admin activity could not be loaded. "+String(error?.message||error)},500);}}
+function adminFuelHistoryDetail(row){
+  const prefix=String(row?.location_name||'Fuel location');
+  const action=String(row?.action||'change').replaceAll('_',' ');
+  let changes=[];
+  try{const parsed=JSON.parse(row?.changes||'[]');if(Array.isArray(parsed))changes=parsed;}catch{}
+  const format=value=>{
+    if(value==null)return '—';
+    if(typeof value==='object'){try{return JSON.stringify(value)}catch{return '[value]'}}
+    return String(value);
+  };
+  const parts=changes.slice(0,8).map(change=>`${String(change?.field||'setting').replaceAll('_',' ')}: ${format(change?.before)} → ${format(change?.after)}`);
+  return `${prefix} · ${action}${parts.length?' · '+parts.join('; '):''}`.slice(0,2000);
+}
+async function adminAuditGet({request,env}){
+  try{
+    await ensureAdminAuditV2(env);
+    const regular=(await env.DB.prepare(`SELECT id,actor_name,action_type,target_type,target_id,detail,created_at FROM admin_audit_log_v2 ORDER BY created_at DESC,id DESC LIMIT 100`).all())?.results||[];
+    const combined=[...regular];
+
+    try{
+      const changes=(await env.DB.prepare(`SELECT id,location_id,location_name,actor,action,changes,created_at FROM fuel_monitor_history ORDER BY created_at DESC,id DESC LIMIT 100`).all())?.results||[];
+      for(const row of changes){
+        combined.push({
+          id:`fuel-change-${row.id}`,
+          actor_name:String(row.actor||'Fuel Monitor'),
+          action_type:'fuel_monitor_change',
+          target_type:'fuel_monitor_change',
+          target_id:String(row.location_id||''),
+          detail:adminFuelHistoryDetail(row),
+          created_at:row.created_at
+        });
+      }
+    }catch(error){console.warn('Fuel-monitor change history could not be merged into Recent Admin Activity',error);}
+
+    try{
+      const alerts=(await env.DB.prepare(`SELECT id,location_id,tank_number,level,message,acknowledged,email_status,sms_status,created_at FROM fuel_monitor_alerts ORDER BY created_at DESC,id DESC LIMIT 100`).all())?.results||[];
+      for(const row of alerts){
+        const level=String(row.level||'alert').toUpperCase();
+        const tank=Number(row.tank_number)>0?` · Tank ${row.tank_number}`:'';
+        const channels=`Email: ${row.email_status||'off'} · SMS: ${row.sms_status||'off'}`;
+        const ack=Number(row.acknowledged)?' · Acknowledged':'';
+        combined.push({
+          id:`fuel-alert-${row.id}`,
+          actor_name:'Fuel Monitor',
+          action_type:'fuel_alert',
+          target_type:'fuel_alert',
+          target_id:String(row.location_id||''),
+          detail:`${level}${tank} · ${String(row.message||'').replace(/\s+/g,' ').trim()} · ${channels}${ack}`.slice(0,2000),
+          created_at:row.created_at
+        });
+      }
+    }catch(error){console.warn('Fuel-monitor alerts could not be merged into Recent Admin Activity',error);}
+
+    combined.sort((a,b)=>{
+      const ta=Date.parse(a.created_at||'')||0,tb=Date.parse(b.created_at||'')||0;
+      if(tb!==ta)return tb-ta;
+      return String(b.id||'').localeCompare(String(a.id||''));
+    });
+    return notificationJson({success:true,entries:combined.slice(0,100),storage_version:3});
+  }catch(error){
+    console.error("adminAuditGet failed",error);
+    return notificationJson({success:false,error:"Admin activity could not be loaded. "+String(error?.message||error)},500);
+  }
+}
 
 async function adminCustomerActivityGet({request,env}){
   try{
