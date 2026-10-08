@@ -15616,6 +15616,11 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .admin-bell-item .admin-bell-time{display:block;font-size:11px;color:#8293a3;margin-top:8px}
 .admin-bell-fuel-item strong{color:#17324d}
 .admin-bell-fuel-item .admin-bell-dot{background:#ea9610}
+/* Acknowledged tank alerts remain visible as Seen, without an unread red dot. */
+#adminNotificationMenu .admin-bell-seen-item{background:#f7f9fb}
+#adminNotificationMenu .admin-bell-seen-item .admin-bell-dot{background:#b2c0cc}
+#adminNotificationMenu .admin-bell-seen-label{display:inline-block;width:max-content;margin:5px 0 0;padding:3px 8px;border-radius:999px;background:#e8eef3;color:#576f81;font-size:11px;font-weight:800;font-style:normal;line-height:1.4}
+
 </style>
 <script id="wooten-admin-notification-bell-script">
 (()=>{
@@ -15651,7 +15656,8 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
    const scroll=list.scrollTop;
    list.innerHTML=items.length?items.map(x=>{
      const tank=x.item_type==='tank',compact=tank?compactFuelNotice(x):null;
-     return '<button class="admin-bell-item'+(tank?' admin-bell-fuel-item':'')+'" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'" data-bell-location="'+esc(tank?x.account||'':'')+'"'+(tank?' aria-label="Open '+esc(compact.title)+' at '+esc(compact.body.split('\n')[0])+'"':'')+'><span class="admin-bell-dot"></span><span><strong>'+(tank?esc(compact.title):esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||''))+'</strong><span'+(tank?' class="admin-bell-fuel-lines"':'')+'>'+(tank?esc(compact.body):esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):''))+'</span><small class="admin-bell-time">'+esc(time(x.created_at))+'</small></span></button>';
+     const seen=tank&&Number(x.seen)===1;
+     return '<button class="admin-bell-item'+(tank?' admin-bell-fuel-item':'')+(seen?' admin-bell-seen-item':'')+'" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'" data-bell-location="'+esc(tank?x.account||'':'')+'"'+(tank?' aria-label="Open '+esc(compact.title)+' at '+esc(compact.body.split('\n')[0])+(seen?' — Seen':'')+'"':'')+'><span class="admin-bell-dot"></span><span><strong>'+(tank?esc(compact.title):esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||''))+'</strong>'+(seen?'<em class="admin-bell-seen-label">Seen</em>':'')+'<span'+(tank?' class="admin-bell-fuel-lines"':'')+'>'+(tank?esc(compact.body):esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):''))+'</span><small class="admin-bell-time">'+esc(time(x.created_at))+'</small></span></button>';
    }).join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
    list.scrollTop=scroll;more.hidden=!nextCursor;
  }
@@ -15680,7 +15686,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        }while(!append&&cursor&&result.length<target);
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
        const total=Number(data.total||0);badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
-       summary.textContent=data.partial?'Some notifications unavailable: '+(data.unavailable_sources||[]).map(k=>labels[k]||k).join(', '):total?total+' pending items • '+items.length+' shown':'No pending items';
+       summary.textContent=data.partial?'Some notifications unavailable: '+(data.unavailable_sources||[]).map(k=>labels[k]||k).join(', '):total?total+' new items • '+items.length+' shown':items.length?'All caught up • '+items.length+' shown':'No notifications';
        counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();if(data.partial&&!items.length)list.innerHTML='<div class="admin-bell-empty">Some notification categories could not be loaded. Tap Refresh to retry.</div>';
      }catch(e){if(controller===abort&&(!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}

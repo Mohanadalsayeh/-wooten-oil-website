@@ -12191,19 +12191,21 @@ async function adminNotificationBellGet({request,env,actor}){
       catch{return notificationJson({success:false,error:'Invalid notification page. Refresh the list and try again.'},400);}
     }
     const sources=[
-      {type:'tank',key:'tank',allowed:tanksAllowed,sql:`SELECT 'tank' AS item_type,id,CASE level WHEN 'low' THEN 'LOW FUEL ALERT' WHEN 'critical' THEN 'CRITICAL FUEL ALERT' WHEN 'normal' THEN 'FUEL RECOVERED' WHEN 'reading' THEN 'FUEL READING' WHEN 'scheduled_reading' THEN 'FUEL READING' ELSE 'FUEL ALERT' END AS request_number,message AS name,location_id AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM fuel_monitor_alerts WHERE portal=1 AND acknowledged=0 AND 1=1`},
-      {type:'profile',key:'profile',allowed:requestsAllowed,sql:`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND 1=1`},
-      {type:'fuel',key:'fuel',allowed:requestsAllowed,sql:`SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND 1=1`},
-      {type:'application',key:'applications',allowed:applicationsAllowed,sql:`SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM account_applications WHERE COALESCE(status,'pending')='pending' AND 1=1`},
-      {type:'payment',key:'payment',allowed:paymentsAllowed,sql:`SELECT 'payment',id,reference,customer_name||' — USD '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND 1=1`},
-      {type:'sandbox_payment',key:'payment',allowed:paymentsAllowed,sql:`SELECT 'sandbox_payment',id,reference,customer_name||' — '||title||' — '||currency||' '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND 1=1`},
+      {type:'tank',key:'tank',allowed:tanksAllowed,sql:`SELECT 'tank' AS item_type,id,CASE level WHEN 'low' THEN 'LOW FUEL ALERT' WHEN 'critical' THEN 'CRITICAL FUEL ALERT' WHEN 'normal' THEN 'FUEL RECOVERED' WHEN 'reading' THEN 'FUEL READING' WHEN 'scheduled_reading' THEN 'FUEL READING' ELSE 'FUEL ALERT' END AS request_number,message AS name,location_id AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time,acknowledged AS seen FROM fuel_monitor_alerts WHERE portal=1 AND 1=1`},
+      {type:'profile',key:'profile',allowed:requestsAllowed,sql:`SELECT 'profile' AS item_type,id,request_number,account_name AS name,account_number AS account,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') AS sort_time,0 AS seen FROM profile_change_requests WHERE COALESCE(status,'pending')='pending' AND 1=1`},
+      {type:'fuel',key:'fuel',allowed:requestsAllowed,sql:`SELECT 'fuel',rowid,request_number,customer_name,customer_account_number,received_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',received_at),'') ,0 FROM fuel_requests WHERE COALESCE(decision_status,'pending')='pending' AND 1=1`},
+      {type:'application',key:'applications',allowed:applicationsAllowed,sql:`SELECT 'application',id,application_number,COALESCE(NULLIF(business_name,''),full_name),'',created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') ,0 FROM account_applications WHERE COALESCE(status,'pending')='pending' AND 1=1`},
+      {type:'payment',key:'payment',allowed:paymentsAllowed,sql:`SELECT 'payment',id,reference,customer_name||' — USD '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') ,0 FROM payment_notification_events WHERE activated=1 AND admin_read=0 AND 1=1`},
+      {type:'sandbox_payment',key:'payment',allowed:paymentsAllowed,sql:`SELECT 'sandbox_payment',id,reference,customer_name||' — '||title||' — '||currency||' '||printf('%.2f',amount_cents/100.0),account_number,created_at,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',created_at),'') ,0 FROM sandbox_payment_notifications WHERE activated=1 AND admin_read=0 AND 1=1`},
     ];
     const counts={},rows=[],unavailable=[];let loaded=0;
     for(const source of sources){
       if(!source.allowed)continue;
       try{
-        const cte='WITH notices(item_type,id,request_number,name,account,created_at,sort_time) AS ('+source.sql+') ';
-        const count=await env.DB.prepare(cte+'SELECT COUNT(*) AS total FROM notices').first();
+        const cte='WITH notices(item_type,id,request_number,name,account,created_at,sort_time,seen) AS ('+source.sql+') ';
+        // Acknowledged tank notices stay on the bell list as Seen, but they do not
+        // count as unread and must not keep the bell's red notification badge lit.
+        const count=await env.DB.prepare(cte+(source.type==='tank'?'SELECT COUNT(*) AS total FROM notices WHERE seen=0':'SELECT COUNT(*) AS total FROM notices')).first();
         const statement=env.DB.prepare(cte+'SELECT * FROM notices '+(cursor?'WHERE (sort_time,item_type,id) < (?,?,?) ':'')+'ORDER BY sort_time DESC,item_type DESC,id DESC LIMIT 21');
         const result=(await (cursor?statement.bind(cursor.time,cursor.type,cursor.id):statement).all()).results||[];
         rows.push(...result);counts[source.key]=(counts[source.key]||0)+Number(count?.total||0);loaded++;
