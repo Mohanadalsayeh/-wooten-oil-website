@@ -397,9 +397,45 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 }
 
 /* Ver867 manual reading / alert presentation */
-#fuelMonitorRoot .fm-send-reading{background:#1f6fa8;color:#fff;border-color:#1f6fa8}
-#fuelMonitorRoot .fm-send-reading:hover:not(:disabled),
-#fuelMonitorRoot .fm-send-reading:focus-visible:not(:disabled){background:#185d8d;border-color:#185d8d;color:#fff}
-#fuelMonitorRoot .fm-send-reading:disabled{opacity:.45;cursor:not-allowed}
+
+
+
 #fuelMonitorRoot .fm-alert-reading{border-color:#cbdde9;background:#f6fafc}
 #fuelMonitorRoot .fm-alert-reading>div>strong{color:#173d5d}
+
+/* Ver875: Send fuel reading matches Rename list button in all states */
+#fuelMonitorRoot .fm-send-reading{
+  background:#21699b !important;
+  color:#fff !important;
+  border:1px solid #21699b !important;
+  box-shadow:none !important;
+}
+#fuelMonitorRoot .fm-send-reading:hover:not(:disabled){
+  background:#195681 !important;
+  border-color:#195681 !important;
+  color:#fff !important;
+}
+#fuelMonitorRoot .fm-send-reading:focus,
+#fuelMonitorRoot .fm-send-reading:focus-visible{
+  background:#21699b !important;
+  border-color:#21699b !important;
+  color:#fff !important;
+  outline:2px solid #21699b !important;
+  outline-offset:3px;
+}
+#fuelMonitorRoot .fm-send-reading:active:not(:disabled){
+  background:#14476b !important;
+  border-color:#14476b !important;
+  color:#fff !important;
+}
+#fuelMonitorRoot .fm-send-reading:disabled{
+  background:#21699b !important;
+  border-color:#21699b !important;
+  color:#fff !important;
+  opacity:.55 !important;
+  cursor:not-allowed;
+}
+#fuelMonitorRoot .fm-send-reading svg,
+#fuelMonitorRoot .fm-send-reading span{
+  color:inherit !important;
+}
