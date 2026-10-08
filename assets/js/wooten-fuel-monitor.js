@@ -33,6 +33,63 @@
   const status=!m?'Not retrieved — update the station collector':m.state==='unavailable'?'Unavailable':m.state==='normal'?'All functions normal':'Alarms / warnings reported';
   return '<details class="fm-monitor-panel"><summary><span class="fm-monitor-title">Monitor alarms</span><span class="fm-monitor-status">'+esc(status)+'</span>'+(stale?'<span class="fm-monitor-stale">Last known report</span>':'')+'</summary><p>Read-only report: active or unacknowledged alarms and warnings. Up to 25 entries from the monitor. Portal acknowledgment does not clear monitor alarms.</p>'+(m?'<p>Report time: '+esc(time(m.observed_at))+'</p>':'')+(m?.error?'<p class="fm-error">'+esc(m.error)+'</p>':'')+(m?.report?'<pre>'+esc(m.report)+'</pre>':'')+'</details>';
  }
+
+ function alertTone(level){
+  if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
+  if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
+  if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
+  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'↗'};
+  return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
+ }
+ function parseAlertSnapshot(message){
+  const result={headline:'',tanks:[],reading:''};
+  const lines=String(message||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  result.headline=lines.shift()||'';
+  for(const line of lines){
+   const tank=line.match(/^Tank\s+(\d+)\s+\((.+?)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\(([\d.]+)%\)\s+—\s+(.+?)\.?$/i);
+   if(tank){
+    result.tanks.push({number:tank[1],product:tank[2],volume:tank[3],percent:tank[4],status:tank[5].replace(/\.$/,'')});
+    continue;
+   }
+   if(/^Reading\s+/i.test(line))result.reading=line.replace(/^Reading\s+/i,'').replace(/\.$/,'');
+  }
+  return result;
+ }
+ function alertStatusClass(status){
+  const s=String(status||'').toLowerCase();
+  if(s.includes('delivery')||s.includes('critical'))return 'critical';
+  if(s.includes('low'))return 'low';
+  if(s.includes('normal')||s.includes('recover'))return 'normal';
+  return 'neutral';
+ }
+ function renderPortalAlert(a){
+  const meta=alertTone(a.level),snapshot=parseAlertSnapshot(a.message);
+  const location=locations.find(l=>l.id===a.location_id);
+  const locationName=location?.name||snapshot.headline.split(' — ')[0]||'Fuel location';
+  const triggerTank=Number(a.tank_number)||0;
+  const rows=snapshot.tanks.length?snapshot.tanks.map(t=>{
+   const cls=alertStatusClass(t.status),trigger=Number(t.number)===triggerTank&&a.level!=='reading';
+   return '<div class="fm-alert-tank-row '+cls+(trigger?' is-trigger':'')+'"><span class="fm-alert-tank-no">T'+esc(t.number)+'</span><span class="fm-alert-tank-product">'+esc(t.product)+'</span><strong>'+esc(t.volume)+' gal</strong><span>'+esc(t.percent)+'%</span><b>'+esc(t.status)+'</b></div>';
+  }).join(''):'';
+  const delivery= snapshot.tanks.find(t=>/delivery/i.test(t.status));
+  const triggerText=a.level==='critical'
+   ?(delivery?'Delivery needed — immediate attention required.':'Fuel is at or below the critical threshold.')
+   :a.level==='low'?'Fuel is below the configured low threshold.'
+   :a.level==='normal'?'Fuel has reached the configured recovery level.'
+   :a.level==='reading'?'Current readings for all configured tanks.':'Fuel monitoring event.';
+  const deliveryStatus='<div class="fm-alert-channel-status"><span>Email: '+esc(a.email_status)+'</span><span>SMS: '+esc(a.sms_status)+'</span></div>';
+  const action=!a.acknowledged&&locations.some(l=>l.id===a.location_id)
+   ?'<button class="secondary fm-alert-ack" type="button" data-ack="'+a.id+'" data-location="'+esc(a.location_id)+'" title="Mark reviewed. For Low/Critical tank alerts, silence further Low/Critical alerts until the tank reaches its Recovery level.">Acknowledge</button>'
+   :'<span class="fm-alert-acknowledged">Acknowledged</span>';
+  return '<article class="fm-alert-card '+meta.tone+'">'
+   +'<div class="fm-alert-banner"><span class="fm-alert-symbol">'+meta.icon+'</span><div><strong>'+meta.label+'</strong><p>'+esc(locationName)+'</p></div><time>'+esc(time(a.created_at))+'</time></div>'
+   +'<div class="fm-alert-card-body"><div class="fm-alert-summary"><div><span>Alert</span><strong>'+esc(triggerText)+'</strong></div>'+(snapshot.reading?'<div><span>Reading time</span><strong>'+esc(time(snapshot.reading))+'</strong></div>':'')+'</div>'
+   +(rows?'<div class="fm-alert-tanks">'+rows+'</div>':'<p class="fm-alert-legacy">'+esc(a.message)+'</p>')
+   +'<div class="fm-alert-card-foot">'+deliveryStatus+action+'</div>'
+   +(['failed','partial'].includes(a.email_status)?'<p class="fm-error">Email: '+esc(a.email_detail)+'</p>':'')
+   +(['failed','partial'].includes(a.sms_status)?'<p class="fm-error">SMS: '+esc(a.sms_detail)+'</p>':'')
+   +'</div></article>';
+ }
  function render(){
   if(activeLocation!=='all'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
   const tabs=document.getElementById('fmLocationTabs');tabs.replaceChildren();
@@ -85,7 +142,7 @@
    const value=v=>v==null?'Not set':typeof v==='object'?JSON.stringify(v,null,2):String(v);
    return '<details class="fm-history-entry"><summary>'+esc(h.location_name)+' · '+esc(({save:'Settings saved',pair:'Collector key replaced',delete:'Location deleted',send_reading:'Fuel reading sent'})[h.action]||h.action)+'</summary><p>'+esc(time(h.created_at))+' · '+esc(h.actor)+'</p>'+changes.map(c=>'<div class="fm-history-change"><strong>'+esc(c.field.replaceAll('_',' '))+'</strong><div><span>Before</span><pre>'+esc(value(c.before))+'</pre></div><div><span>After</span><pre>'+esc(value(c.after))+'</pre></div></div>').join('')+'</details>';
   }).join(''):'<p>No location changes recorded yet.</p>';
-  document.getElementById('fmAlerts').innerHTML=shownAlerts.length?shownAlerts.map(a=>'<article class="fm-alert '+(a.level==='reading'?'fm-alert-reading':'')+'"><div><strong>'+esc(a.level==='reading'?'FUEL READING':a.level.toUpperCase())+'</strong><p>'+esc(a.message)+'</p><small>'+esc(time(a.created_at))+' · Email: '+esc(a.email_status)+' · SMS: '+esc(a.sms_status)+'</small>'+(['failed','partial'].includes(a.email_status)?'<p class="fm-error">Email: '+esc(a.email_detail)+'</p>':'')+(['failed','partial'].includes(a.sms_status)?'<p class="fm-error">SMS: '+esc(a.sms_detail)+'</p>':'')+'</div>'+(!a.acknowledged&&locations.some(l=>l.id===a.location_id)?'<button class="secondary" type="button" data-ack="'+a.id+'" data-location="'+esc(a.location_id)+'">Acknowledge</button>':'<span>Acknowledged</span>')+'</article>').join(''):'<p>No fuel alerts recorded.</p>';
+  document.getElementById('fmAlerts').innerHTML=shownAlerts.length?shownAlerts.map(renderPortalAlert).join(''):'<p>No fuel alerts recorded.</p>';
  }
  function compactIconPicker(container,selected){
   WootenLocationIcons.picker(container,selected);

@@ -439,3 +439,70 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm-send-reading span{
   color:inherit !important;
 }
+
+/* Ver876 — Fuel alert portal cards inspired by the agreed email alert design */
+#fuelMonitorRoot #fmAlerts{display:grid;gap:16px}
+#fuelMonitorRoot .fm-alert-card{
+  overflow:hidden;border:1px solid #d7e2ea;border-radius:14px;background:#fff;
+}
+#fuelMonitorRoot .fm-alert-banner{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;
+  padding:16px 18px;border-bottom:1px solid #dfe8ef;
+}
+#fuelMonitorRoot .fm-alert-symbol{
+  width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:12px;font-size:24px;font-weight:900;
+}
+#fuelMonitorRoot .fm-alert-banner strong{display:block;font-size:18px;line-height:1.15}
+#fuelMonitorRoot .fm-alert-banner p{margin:4px 0 0;font-size:14px;font-weight:700}
+#fuelMonitorRoot .fm-alert-banner time{color:#60768a;font-size:12px;font-weight:700;text-align:right;white-space:nowrap}
+#fuelMonitorRoot .fm-alert-card.critical .fm-alert-banner{background:#fff0f1;color:#ca1326;border-bottom-color:#ffc5cb}
+#fuelMonitorRoot .fm-alert-card.critical .fm-alert-symbol{background:#e3182d;color:#fff}
+#fuelMonitorRoot .fm-alert-card.low .fm-alert-banner{background:#fff7e2;color:#a45d00;border-bottom-color:#f4d89a}
+#fuelMonitorRoot .fm-alert-card.low .fm-alert-symbol{background:#ef9700;color:#fff}
+#fuelMonitorRoot .fm-alert-card.normal .fm-alert-banner{background:#eaf8ef;color:#17633f;border-bottom-color:#bfe8cf}
+#fuelMonitorRoot .fm-alert-card.normal .fm-alert-symbol{background:#1cab64;color:#fff}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-banner{background:#eef6fb;color:#173d5d;border-bottom-color:#cbdfea}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol{background:#21699b;color:#fff}
+#fuelMonitorRoot .fm-alert-card-body{padding:16px 18px 18px}
+#fuelMonitorRoot .fm-alert-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;margin-bottom:13px}
+#fuelMonitorRoot .fm-alert-summary>div{min-width:0}
+#fuelMonitorRoot .fm-alert-summary span{display:block;color:#6a7e91;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+#fuelMonitorRoot .fm-alert-summary strong{display:block;margin-top:3px;color:#17324d;font-size:14px}
+#fuelMonitorRoot .fm-alert-tanks{border:1px solid #d9e4ec;border-radius:11px;overflow:hidden}
+#fuelMonitorRoot .fm-alert-tank-row{
+  display:grid;grid-template-columns:50px minmax(180px,1.4fr) minmax(100px,.7fr) 74px minmax(130px,.8fr);
+  align-items:center;gap:8px;min-height:48px;padding:7px 10px;border-bottom:1px solid #e7edf2;
+  color:#17324d;font-size:13px;
+}
+#fuelMonitorRoot .fm-alert-tank-row:last-child{border-bottom:0}
+#fuelMonitorRoot .fm-alert-tank-no{font-weight:900;color:#6b7f92}
+#fuelMonitorRoot .fm-alert-tank-product{font-weight:800}
+#fuelMonitorRoot .fm-alert-tank-row>b{justify-self:stretch;padding:7px 9px;border-radius:8px;text-align:center;white-space:nowrap}
+#fuelMonitorRoot .fm-alert-tank-row.normal>b{background:#e5f7ec;color:#13733d}
+#fuelMonitorRoot .fm-alert-tank-row.low>b{background:#fff0c7;color:#9f5e00}
+#fuelMonitorRoot .fm-alert-tank-row.critical>b{background:#ffe0e3;color:#c51829}
+#fuelMonitorRoot .fm-alert-tank-row.neutral>b{background:#edf2f6;color:#61768a}
+#fuelMonitorRoot .fm-alert-tank-row.is-trigger{box-shadow:inset 4px 0 0 currentColor}
+#fuelMonitorRoot .fm-alert-tank-row.low.is-trigger{background:#fffaf0;color:#9f5e00}
+#fuelMonitorRoot .fm-alert-tank-row.critical.is-trigger{background:#fff4f5;color:#c51829}
+#fuelMonitorRoot .fm-alert-card-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:13px;border-top:1px solid #e4ebf1;
+}
+#fuelMonitorRoot .fm-alert-channel-status{display:flex;flex-wrap:wrap;gap:8px}
+#fuelMonitorRoot .fm-alert-channel-status span{
+  padding:5px 8px;border-radius:999px;background:#edf3f7;color:#536a7d;font-size:11px;font-weight:800;
+}
+#fuelMonitorRoot .fm-alert-ack{min-width:118px}
+#fuelMonitorRoot .fm-alert-acknowledged{color:#516a7e;font-weight:800;font-size:13px}
+#fuelMonitorRoot .fm-alert-legacy{white-space:pre-line;color:#536b80}
+@media(max-width:760px){
+ #fuelMonitorRoot .fm-alert-banner{grid-template-columns:auto minmax(0,1fr);padding:14px}
+ #fuelMonitorRoot .fm-alert-banner time{grid-column:2;text-align:left}
+ #fuelMonitorRoot .fm-alert-card-body{padding:14px}
+ #fuelMonitorRoot .fm-alert-summary{grid-template-columns:1fr}
+ #fuelMonitorRoot .fm-alert-tanks{overflow-x:auto}
+ #fuelMonitorRoot .fm-alert-tank-row{min-width:680px}
+ #fuelMonitorRoot .fm-alert-card-foot{align-items:stretch;flex-direction:column}
+ #fuelMonitorRoot .fm-alert-ack{width:100%}
+}
