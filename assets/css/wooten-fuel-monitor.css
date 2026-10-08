@@ -674,3 +674,7 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm-auto-note{font-size:13px;line-height:1.5;color:#526b80}
 #fuelMonitorRoot .fm-auto-last{margin:15px 0;padding:11px 13px;border:1px solid #dce7ed;border-radius:10px;background:#f2f7fa;color:#536b80;font-weight:650;font-size:13px}
 @media(max-width:640px){#fuelMonitorRoot .fm-auto-days{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Ver889 — notification-to-alert focus */
+#fuelMonitorRoot .fm-alert-card.fm-alert-targeted{border:2px solid #21699b;box-shadow:0 0 0 4px rgba(33,105,155,.16),0 6px 20px rgba(18,52,79,.1);scroll-margin-top:110px}
+#fuelMonitorRoot .fm-alert-card.fm-alert-targeted:focus{outline:none}

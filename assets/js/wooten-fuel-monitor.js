@@ -7,6 +7,7 @@
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';
  let creatingLocation=false;
+ let focusedFuelAlert=null,scrollToFuelAlert=0;
  let history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all',alertPage=1;
  const ALERTS_PER_PAGE=20;
  const dialog=document.createElement('dialog');dialog.className='fm-dialog';document.body.append(dialog);
@@ -14,7 +15,7 @@
  root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel alert history</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div><div id="fmAlertPagination" class="db-pagination fm-alert-pagination" hidden><div class="db-page-info" id="fmAlertPageInfo">Page 1 of 1</div><div class="db-numbered-pages" id="fmAlertPageNumbers" aria-label="Fuel alert pages"></div><div class="db-pagination-controls"><button class="secondary" id="fmAlertPrev" type="button">Previous</button><button class="secondary" id="fmAlertNext" type="button">Next</button></div></div>';
  const message=(s,bad=false)=>{const el=document.getElementById('fmMessage');el.textContent=s;el.className=bad?'fm-error':'fm-note';};
  async function api(body){const token=key(),generation=epoch;const res=await fetch('/api/admin/fuel-monitor',{method:body?'POST':'GET',headers:{'X-Admin-Key':token,'Content-Type':'application/json'},cache:'no-store',...(body?{body:JSON.stringify(body)}:{})});const data=await res.json();if(token!==key()||generation!==epoch)throw Error('Admin session changed. Reopen Fuel Monitoring.');if(!res.ok||!data.success)throw Error(data.error||'Request failed.');return data;}
- async function load(){if(creatingLocation||inlineEdit||inlineSaving)return;if(loading||!key()||!allowed())return;loading=true;document.getElementById('fmRefresh').disabled=true;message('Loading locations…');try{const data=await api();if(creatingLocation||inlineEdit||inlineSaving)return;locations=data.locations;alerts=data.alerts;history=data.history||[];render();message(locations.length+' location(s) loaded.');}catch(e){message(e.message,true)}finally{loading=false;document.getElementById('fmRefresh').disabled=false}}
+ async function load(){if(creatingLocation||inlineEdit||inlineSaving)return;if(loading||!key()||!allowed())return;loading=true;document.getElementById('fmRefresh').disabled=true;message('Loading locations…');try{const data=await api();if(creatingLocation||inlineEdit||inlineSaving)return;locations=data.locations;alerts=data.alerts;if(focusedFuelAlert&&locations.some(l=>String(l.id)===String(focusedFuelAlert.location_id))&&!alerts.some(a=>Number(a.id)===Number(focusedFuelAlert.id))){alerts.push(focusedFuelAlert);alerts.sort((a,b)=>Number(b.id)-Number(a.id));}history=data.history||[];render();message(locations.length+' location(s) loaded.');}catch(e){message(e.message,true)}finally{loading=false;document.getElementById('fmRefresh').disabled=false}}
  function fuelBand(tank,volume){
   if(!Number.isFinite(volume))return {name:'No reading',color:'#b7c8d6'};
   const percent=volume/Number(tank.capacity)*100,lowPercent=tank.mode==='percent'?Number(tank.low):Number(tank.low)/Number(tank.capacity)*100;
@@ -82,7 +83,7 @@
   const action=!a.acknowledged&&locations.some(l=>l.id===a.location_id)
    ?'<button class="secondary fm-alert-ack" type="button" data-ack="'+a.id+'" data-location="'+esc(a.location_id)+'" title="Mark reviewed. For Low/Critical tank alerts, silence further Low/Critical alerts until the tank reaches its Recovery level.">Acknowledge</button>'
    :'<span class="fm-alert-acknowledged">Acknowledged</span>';
-  return '<article class="fm-alert-card '+meta.tone+'">'
+  return '<article class="fm-alert-card '+meta.tone+'" data-fuel-alert-id="'+esc(a.id)+'" tabindex="-1">'
    +'<div class="fm-alert-banner"><span class="fm-alert-symbol">'+meta.icon+'</span><div><strong>'+meta.label+'</strong><p>'+esc(locationName)+'</p></div><time>'+esc(time(a.created_at))+'</time></div>'
    +'<div class="fm-alert-card-body"><div class="fm-alert-summary"><div><span>Alert</span><strong>'+esc(triggerText)+'</strong></div>'+(snapshot.reading?'<div><span>Reading time</span><strong>'+esc(time(snapshot.reading))+'</strong></div>':'')+'</div>'
    +(rows?'<div class="fm-alert-tanks">'+rows+'</div>':'<p class="fm-alert-legacy">'+esc(a.message)+'</p>')
@@ -176,6 +177,17 @@
    }
   }
   document.getElementById('fmAlerts').innerHTML=shownAlerts.length?shownAlerts.map(renderPortalAlert).join(''):'<p>No fuel alerts recorded.</p>';
+  if(focusedFuelAlert){
+   const highlighted=[...root.querySelectorAll('[data-fuel-alert-id]')].find(node=>Number(node.dataset.fuelAlertId)===Number(focusedFuelAlert.id));
+   if(highlighted){
+    highlighted.classList.add('fm-alert-targeted');
+    if(scrollToFuelAlert===Number(focusedFuelAlert.id)){
+     scrollToFuelAlert=0;
+     highlighted.focus({preventScroll:true});
+     requestAnimationFrame(()=>highlighted.scrollIntoView({behavior:'smooth',block:'center'}));
+    }
+   }
+  }
   renderAlertPagination(filteredAlerts.length,alertPages);
  }
  function compactIconPicker(container,selected){
@@ -548,11 +560,42 @@ function openAutomaticReadingSchedule(id){
   middle.querySelector('[name=enabled]')?.focus({preventScroll:true});
 }
 
- root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.autoReading){openAutomaticReadingSchedule(b.dataset.autoReading);return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
+ root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.autoReading){openAutomaticReadingSchedule(b.dataset.autoReading);return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  document.getElementById('fmAdd').onclick=()=>{if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline()){render();openEdit();}};document.getElementById('fmRefresh').onclick=()=>{if(leaveInline())load();};
+ // Jump from a notification to the precise historical alert, not just the tab.
+ // The target fetch also supports alerts older than the usual most-recent-100 list.
+ let fuelAlertJumpSeq=0;
+ async function openSpecificFuelAlert({alertId,locationId}={}){
+  const id=Number(alertId),location=String(locationId||'');
+  if(!Number.isSafeInteger(id)||id<1||!location||!allowed()||!key())return;
+  const sequence=++fuelAlertJumpSeq,token=key();
+  try{
+   const response=await fetch('/api/admin/fuel-monitor?alert_id='+encodeURIComponent(id),{headers:{'X-Admin-Key':token},cache:'no-store'});
+   const data=await response.json();
+   if(token!==key()||sequence!==fuelAlertJumpSeq)return;
+   if(!response.ok||!data.success)throw Error(data.error||'Fuel alert could not be loaded.');
+   const target=data.target_alert;
+   if(!target||Number(target.id)!==id||String(target.location_id)!==location)throw Error('That fuel alert is no longer available.');
+   if(!data.locations.some(l=>String(l.id)===location))throw Error('The location for this alert no longer exists.');
+   if(creatingLocation||inlineEdit){if(!leaveInline())return;creatingLocation=false;inlineEdit=null;}
+   locations=data.locations;
+   focusedFuelAlert=target;
+   scrollToFuelAlert=id;
+   alerts=[...(data.alerts||[])];
+   if(!alerts.some(a=>Number(a.id)===id))alerts.push(target);
+   alerts.sort((a,b)=>Number(b.id)-Number(a.id));
+   activeLocation=location;
+   const position=alerts.filter(a=>String(a.location_id)===location).findIndex(a=>Number(a.id)===id);
+   alertPage=Math.floor(Math.max(0,position)/ALERTS_PER_PAGE)+1;
+   render();
+   if(!root.querySelector('[data-fuel-alert-id="'+id+'"]'))throw Error('The selected alert could not be displayed.');
+   message('Showing the selected fuel alert in '+(locations.find(l=>String(l.id)===location)?.name||'this location')+'.');
+  }catch(error){if(sequence===fuelAlertJumpSeq)message(error.message,true);}
+ }
+ window.addEventListener('wooten-open-fuel-alert-notification',event=>{openSpecificFuelAlert(event.detail);});
  window.addEventListener('wooten-admin-page-open',e=>{if(e.detail?.panel==='fuel-monitor')load()});
- window.addEventListener('wooten-admin-auth-changed',()=>{epoch++;creatingLocation=false;inlineEdit=null;inlineSaving=false;locations=[];alerts=[];history=[];activeLocation='all';dialog.close();render();if(!document.getElementById('admin-tab-fuel-monitor').hidden)load()});
+ window.addEventListener('wooten-admin-auth-changed',()=>{focusedFuelAlert=null;scrollToFuelAlert=0;epoch++;creatingLocation=false;inlineEdit=null;inlineSaving=false;locations=[];alerts=[];history=[];activeLocation='all';dialog.close();render();if(!document.getElementById('admin-tab-fuel-monitor').hidden)load()});
  setInterval(()=>{if(!document.hidden&&!document.getElementById('admin-tab-fuel-monitor').hidden&&!dialog.open)load()},60000);
  if(!document.getElementById('admin-tab-fuel-monitor').hidden)load();
 })();

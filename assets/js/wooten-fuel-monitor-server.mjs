@@ -137,7 +137,15 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    });
    const alerts=(await env.DB.prepare('SELECT * FROM fuel_monitor_alerts ORDER BY id DESC LIMIT 100').all()).results;
    const history=(await env.DB.prepare('SELECT * FROM fuel_monitor_history ORDER BY id DESC LIMIT 200').all()).results;
-   return reply({success:true,locations,alerts,history});
+   // The bell can link to an exact alert even when it is older than the most
+   // recent 100 alerts shown in the main history list.
+   const requestedAlert=new URL(request.url).searchParams.get('alert_id');
+   let target_alert=null;
+   if(requestedAlert!==null){
+    if(!/^[1-9]\d{0,14}$/.test(requestedAlert)||!Number.isSafeInteger(Number(requestedAlert)))fail('Invalid fuel alert ID.',400);
+    target_alert=await env.DB.prepare('SELECT * FROM fuel_monitor_alerts WHERE id=?').bind(Number(requestedAlert)).first()||null;
+   }
+   return reply({success:true,locations,alerts,history,target_alert});
   }
   if(request.method!=='POST')return reply({success:false,error:'Use GET or POST.'},405);
   const b=await bodyOf(request),action=b.action,id=b.id||crypto.randomUUID();

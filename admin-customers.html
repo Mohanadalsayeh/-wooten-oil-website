@@ -5802,7 +5802,7 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
  height:52px!important;min-height:52px!important;max-height:52px!important;margin:7px 0 0!important;padding:0 12px!important;line-height:normal!important;
 }
 </style>
-<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=888">
+<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=889">
 
 <style id="wooten-feature-menu-icons">
 #admin-tab-btn-fuel-monitor .admin-nav-icon{background:#eaf2fa;color:#236b9b;border-radius:4px;box-shadow:0 0 0 7px #eaf2fa}
@@ -15611,6 +15611,12 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </div>
 
 
+<style id="wooten-bell-fuel-alert-889">
+.admin-bell-item .admin-bell-fuel-lines{white-space:pre-line;color:#344f64;line-height:1.5;font-size:12px;overflow-wrap:anywhere}
+.admin-bell-item .admin-bell-time{display:block;font-size:11px;color:#8293a3;margin-top:8px}
+.admin-bell-fuel-item strong{color:#17324d}
+.admin-bell-fuel-item .admin-bell-dot{background:#ea9610}
+</style>
 <script id="wooten-admin-notification-bell-script">
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
@@ -15619,12 +15625,34 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const labels={tank:'Tank Fuel Alert',profile:'Profile Change Request',fuel:'Fuel Delivery Request',application:'Account Application',payment:'Payment Received',sandbox_payment:'Sandbox Payment'};
  const time=v=>{if(!v)return '';try{if(window.WootenTime?.dateTime)return window.WootenTime.dateTime(v);const date=new Date(v);return Number.isNaN(date.getTime())?String(v):date.toLocaleString('en-US',{timeZone:'America/Chicago'});}catch{return String(v);}};
+ // Use the actual inventory snapshot stored in each fuel alert. Never substitute
+ // the latest tank readings for the values at the time the alert was generated.
+ function compactFuelNotice(notice){
+   const rows=String(notice.name||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+   const first=rows.shift()||'';
+   const location=first.split(' — ')[0]?.trim()||'Fuel location';
+   const tanks=[];
+   for(const line of rows){
+     const match=line.match(/^Tank\s+(\d+)\s+\((.+)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\([\d.]+%\)\s+—\s+(.+?)\.?$/i);
+     if(!match)continue;
+     const fuel=match[2].trim(),status=match[4].replace(/\.$/,'').trim();
+     const name=/off[- ]?road|farm diesel/i.test(fuel)?'Off-Road':/road diesel/i.test(fuel)?'Road Diesel':/premium/i.test(fuel)?'Premium':/regular/i.test(fuel)?'Regular':fuel;
+     const flag=/delivery needed/i.test(status)?' — DN':/critical/i.test(status)?' — CRITICAL':/\blow\b/i.test(status)?' — LOW':'';
+     tanks.push(name+': '+match[3]+' gal'+flag);
+   }
+   const title=String(notice.request_number||'FUEL ALERT');
+   // Old notifications may have only the triggering tank; don't invent readings.
+   return {title,body:location+(tanks.length?'\n\n'+tanks.join('\n'):first?'\n\n'+first:'')};
+ }
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
  function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
-   list.innerHTML=items.length?items.map(x=>'<button class="admin-bell-item" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'"><span class="admin-bell-dot"></span><span><strong>'+esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||'')+'</strong><span>'+esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):'')+(time(x.created_at)?' • '+esc(time(x.created_at)):'')+'</span></span></button>').join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
+   list.innerHTML=items.length?items.map(x=>{
+     const tank=x.item_type==='tank',compact=tank?compactFuelNotice(x):null;
+     return '<button class="admin-bell-item'+(tank?' admin-bell-fuel-item':'')+'" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'" data-bell-location="'+esc(tank?x.account||'':'')+'"'+(tank?' aria-label="Open '+esc(compact.title)+' at '+esc(compact.body.split('\n')[0])+'"':'')+'><span class="admin-bell-dot"></span><span><strong>'+(tank?esc(compact.title):esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||''))+'</strong><span'+(tank?' class="admin-bell-fuel-lines"':'')+'>'+(tank?esc(compact.body):esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):''))+'</span><small class="admin-bell-time">'+esc(time(x.created_at))+'</small></span></button>';
+   }).join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
    list.scrollTop=scroll;more.hidden=!nextCursor;
  }
  async function load(append=false,force=false,supersede=false){
@@ -15660,11 +15688,11 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
    })();flight=task;return task;
  }
  window.wootenRefreshAdminNotifications=()=>load(false,true,true);
- function openTarget(type,id,noticeId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='tank'){g('admin-tab-btn-fuel-monitor')?.click();}else if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
+ function openTarget(type,id,noticeId,locationId){if(!allowed(type))return;menu.hidden=true;bell.setAttribute('aria-expanded','false');if(type==='tank'){g('admin-tab-btn-fuel-monitor')?.click();if(noticeId&&locationId)window.dispatchEvent(new CustomEvent('wooten-open-fuel-alert-notification',{detail:{alertId:Number(noticeId),locationId}}));}else if(type==='payment'||type==='sandbox_payment'){g('admin-tab-btn-payment-transactions')?.click();if(id)window.dispatchEvent(new CustomEvent('wooten-open-payment-notification',{detail:{id,sandboxId:type==='sandbox_payment'?Number(noticeId):null}}));}else if(type==='application'){g('admin-tab-btn-applications')?.click();setTimeout(()=>{if(g('applicationStatusFilter'))g('applicationStatusFilter').value='pending';g('applicationLoad')?.click();},80);}else if(type==='profile'||type==='fuel'){if(g('requestCenterType'))g('requestCenterType').value=type;if(g('requestCenterStatusFilter'))g('requestCenterStatusFilter').value='pending';g('admin-tab-btn-requests')?.click();}}
  bell.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;bell.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)load(false,true,true).catch(()=>{summary.textContent='Notifications could not be loaded';list.innerHTML='<div class="admin-bell-empty">Please tap Refresh to try again.</div>';});});
  refresh?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();load(false,true,true);});
  more.addEventListener('click',e=>{e.stopPropagation();load(true,true);});
- menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId,item.dataset.noticeId);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
+ menu.addEventListener('click',e=>{const item=e.target.closest('[data-bell-type]');if(item){openTarget(item.dataset.bellType,item.dataset.paymentId,item.dataset.noticeId,item.dataset.bellLocation);return;}const c=e.target.closest('[data-bell-count]');if(c)openTarget(c.dataset.bellCount==='applications'?'application':c.dataset.bellCount);});
  document.addEventListener('click',e=>{if(!menu.hidden&&!e.target.closest('.admin-bell-shell')){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){menu.hidden=true;bell.setAttribute('aria-expanded','false');}});
  window.addEventListener('wooten-admin-auth-changed',()=>{controller?.abort();controller=null;flight=null;clear();load(false,true);});
@@ -16396,7 +16424,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=888"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=889"></script>
 
 <style id="wooten-master-data-cleanup-ver858">
 .master-data-cleanup{margin-top:18px;padding:18px 20px;border:1px solid #f0c7c7;border-radius:14px;background:#fffafa;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
