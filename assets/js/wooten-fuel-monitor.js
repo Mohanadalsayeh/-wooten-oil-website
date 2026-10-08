@@ -137,7 +137,8 @@
   editor.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,c={};for(const name of ['name','phone','address','model','host','port','interval','enabled','portal','email','sms','email_to','sms_to']){const el=form.elements.namedItem(name);c[name]=el.type==='checkbox'?el.checked:el.value;}
    c.icon=form.querySelector('[name=icon]:checked')?.value||'fuel';
    c.tanks=[...form.querySelectorAll('.fm-tank-editor')].map(row=>Object.fromEntries([...row.querySelectorAll('input,select')].map(el=>[el.name,el.type==='checkbox'?el.checked:el.value])));
-   await busy(async()=>{const saved=await api({action:'save',...(editing?{id:editing.id}:{}),config:c,password:removalPasswords.get(form)});const target=saved.id||editing?.id||'all';editor.close();activeLocation=target;await load();},editor);};
+   const wasNew=!editing;
+   await busy(async()=>{const saved=await api({action:'save',...(editing?{id:editing.id}:{}),config:c,password:removalPasswords.get(form)});const target=saved.id||editing?.id||'all';editor.close();activeLocation=target;await load();if(wasNew&&target!=='all')await pair(target);},editor);};
  }
  function countTanks(editor=dialog){editor.querySelector('#fmTankCount').textContent='('+editor.querySelectorAll('.fm-tank-editor').length+')';}
  let inlineEdit=null,inlineSaving=false;
@@ -270,13 +271,21 @@
   const location=locations.find(x=>x.id===id);if(!location)return;
   const emails=String(location.email_to||'').split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean);
   const phones=String(location.sms_to||'').split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean);
-  const channels=['Portal notification',...(emails.length?[`Email (${emails.length})`]:[]),...(phones.length?[`SMS (${phones.length})`]:[])];
-  if(!confirm(`Send the current fuel reading for ${location.name}?\n\n${channels.join(' • ')}\n\nAll configured tank readings will be included.`))return;
+  const portalEnabled=location.portal!==false;
+  const emailEnabled=!!location.email&&emails.length>0;
+  const smsEnabled=!!location.sms&&phones.length>0;
+  const channels=[
+   ...(portalEnabled?['Portal notification']:[]),
+   ...(emailEnabled?[`Email (${emails.length})`]:[]),
+   ...(smsEnabled?[`SMS (${phones.length})`]:[])
+  ];
+  if(!channels.length){message('No fuel-reading delivery option is enabled for this location.',true);return;}
+  if(!confirm(`Send the current fuel reading for ${location.name}?\n\nEnabled delivery: ${channels.join(' • ')}\n\nAll configured tank readings will be included.`))return;
   const buttons=[...root.querySelectorAll('[data-send-reading="'+CSS.escape(id)+'"]')];buttons.forEach(x=>x.disabled=true);
   message('Sending current fuel reading…');
   try{
    await api({action:'send_reading',id});
-   message('Fuel reading queued for portal, email, and SMS delivery.');
+   message('Fuel reading queued for '+channels.join(', ')+'.');
    await load();
    window.wootenRefreshAdminNotifications?.();
   }catch(err){message(err.message,true)}

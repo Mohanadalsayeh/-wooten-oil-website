@@ -83,6 +83,42 @@ function allTankMessage(config,reading,{headline='',triggerTank=null,triggerLeve
  lines.push(`Reading ${reading?.observed_at||''}.`);
  return lines.join('\n');
 }
+
+function inferredTankCapacity(readingTank){
+ const volume=Number(readingTank?.volume),ullage=Number(readingTank?.ullage);
+ let raw=Number.isFinite(volume)&&Number.isFinite(ullage)&&ullage>=0?volume+ullage:NaN;
+ if(!Number.isFinite(raw)||raw<=0)return null;
+ // TLS-350 volume + ullage commonly reflects calibrated usable volume with a small
+ // variance around the nominal tank size. Snap to the nearest 1,000 gallons when
+ // the difference is within 7.5%; otherwise preserve the measured total.
+ const rounded=Math.round(raw/1000)*1000;
+ if(rounded>=1000&&Math.abs(raw-rounded)/rounded<=0.075)return rounded;
+ return Math.round(raw);
+}
+function addDetectedTanks(config,readingTanks){
+ const existing=new Set((config.tanks||[]).map(t=>Number(t.number))),added=[];
+ for(const r of readingTanks||[]){
+  const number=Number(r.number);
+  if(existing.has(number))continue;
+  const capacity=inferredTankCapacity(r);
+  if(!Number.isFinite(capacity)||capacity<=0)continue;
+  const tank={
+   number,
+   fuel:str(r.fuel,80)||`Tank ${number}`,
+   capacity,
+   mode:'percent',
+   low:20,
+   critical:10,
+   recovery:25,
+   // Newly detected tanks begin with alerts off so detection itself cannot create
+   // an unexpected notification before the admin reviews thresholds.
+   alerts:false
+  };
+  config.tanks.push(tank);existing.add(number);added.push(tank);
+ }
+ config.tanks.sort((a,b)=>Number(a.number)-Number(b.number));
+ return added;
+}
 function locationView(row){return {id:row.id,...JSON.parse(row.config),paired:!!row.token_hash,reading:row.reading?JSON.parse(row.reading):null,last_observed:row.last_observed,last_contact:row.last_contact,error:row.error};}
 async function bodyOf(request){const raw=await request.text();if(raw.length>100000)fail('Request too large.',413);try{return JSON.parse(raw)}catch{fail('Invalid JSON.')}}
 export async function admin(request,env,{auditStatement,verifyPassword,verifyMasterPassword,actor}={}){
@@ -136,11 +172,22 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(action==='send_reading'){
    const config=JSON.parse(row.config),reading=row.reading?JSON.parse(row.reading):null;
    if(!reading?.tanks?.length)fail('No saved fuel reading is available for this location yet.',409);
-   if(!config.email_to&&!config.sms_to&&!config.portal)fail('Add an alert email, mobile number, or portal notification setting before sending a fuel reading.',409);
+   const portalEnabled=config.portal!==false;
+   const emailEnabled=!!config.email&&!!String(config.email_to||'').trim();
+   const smsEnabled=!!config.sms&&!!String(config.sms_to||'').trim();
+   if(!portalEnabled&&!emailEnabled&&!smsEnabled)fail('No fuel-reading delivery option is enabled for this location.',409);
    const message=allTankMessage(config,reading,{headline:`${config.name} — Manual fuel reading`});
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
-    .bind(id,0,'reading',message,1,config.email_to,config.sms_to,config.email_to?'pending':'off',config.sms_to?'pending':'off'));
-   detail=`Sent current fuel reading for ${config.name}.`;
+    .bind(
+      id,0,'reading',message,
+      portalEnabled?1:0,
+      emailEnabled?config.email_to:'',
+      smsEnabled?config.sms_to:'',
+      emailEnabled?'pending':'off',
+      smsEnabled?'pending':'off'
+    ));
+   const channels=[portalEnabled?'portal':null,emailEnabled?'email':null,smsEnabled?'sms':null].filter(Boolean).join(', ');
+   detail=`Sent current fuel reading for ${config.name} via ${channels}.`;
   }
   if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
   if(action!=='acknowledge')jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,action==='save'?str(b.config.name,100):JSON.parse(row.config).name,str(actor?.name||'Admin',160),action,JSON.stringify(changes.length?changes:[{field:action,before:null,after:detail}])));
@@ -155,7 +202,7 @@ export async function agent(request,env){
   const token=request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
   const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
   if(!row?.token_hash||!token||await digest(token)!==row.token_hash)fail('Collector authentication failed.',401);
-  const config=JSON.parse(row.config);
+  let config=JSON.parse(row.config);
   if(request.method==='GET')return reply({success:true,config:{host:config.host,port:config.port,interval:config.interval,enabled:config.enabled}});
   if(request.method!=='POST')fail('Use GET or POST.',405);
   const b=await bodyOf(request);if(!config.enabled)fail('Monitoring is paused.',409);
@@ -174,6 +221,7 @@ export async function agent(request,env){
    for(const k of ['tc_volume','ullage','height','water','temperature'])if(t[k]!=null){const v=Number(t[k]);if(!Number.isFinite(v))fail('Invalid '+k);clean[k]=v;}
    return clean;
   });
+  const autoAdded=addDetectedTanks(config,tanks);
   const reading={observed_at:new Date(at).toISOString(),units:'US gallons',site_header:str(b.site_header,1000),report_time:str(b.report_time,80),tanks};
   if(b.monitor_status!=null){
    const status=b.monitor_status;
@@ -184,6 +232,11 @@ export async function agent(request,env){
   }
   const states=new Map((await env.DB.prepare('SELECT tank_number,level FROM fuel_monitor_states WHERE location_id=?').bind(id).all()).results.map(s=>[s.tank_number,s.level]));
   const jobs=[];
+  if(autoAdded.length){
+   jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(config),id));
+   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)')
+    .bind(id,config.name,'Station collector','auto_detect_tanks',JSON.stringify(autoAdded.map(t=>({field:'tank '+t.number,before:null,after:{number:t.number,fuel:t.fuel,capacity:t.capacity,mode:t.mode,alerts:t.alerts}})))));
+  }
   for(const tank of config.tanks){
    const r=tanks.find(t=>t.number===tank.number);if(!r)continue;
    // Never treat a missing tank as zero gallons. Ignore implausible readings for alerts.
