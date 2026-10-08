@@ -177,7 +177,7 @@
     const dial='<div class="fm-dial-wrap"><svg class="fm-dial" viewBox="0 0 220 148" role="img" aria-label="Tank '+t.number+': '+esc(valid?displayedPercent+' full; '+status:'no reading available')+'"><path class="fm-dial-track" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke-width="16" stroke-linecap="round"/>'+(valid&&percent>0?'<path class="fm-dial-fill" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke="'+band.color+'" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="'+percent+' 100"/>':'')+'<text class="fm-dial-value" x="110" y="96" text-anchor="middle">'+displayedPercent+'</text><text class="fm-dial-tick" x="22" y="139" text-anchor="middle">0</text><text class="fm-dial-tick" x="198" y="139" text-anchor="middle">100%</text></svg></div>';
     return '<div class="fm-tank fm-tank-dial"><div class="fm-tank-title"><span class="fm-tank-number" aria-label="Tank '+t.number+'">'+t.number+'</span><strong>'+esc(t.fuel)+'</strong></div>'+dial+'<div class="fm-dial-quantity">'+(valid?volume.toLocaleString('en-US'):'—')+' <span>/ '+capacity.toLocaleString('en-US')+' gal</span></div><div class="fm-dial-caption" style="color:'+band.color+'">'+esc(status)+'</div><div class="fm-tank-thresholds"><span>Low threshold<b>'+t.low+(t.mode==='percent'?'%':' gal')+'</b></span><span>Critical alert<b>'+t.critical+(t.mode==='percent'?'%':' gal')+'</b></span></div>'+(t.alerts?'':'<p>Tank alerts off</p>')+(valid?'<div class="fm-water-reading"><span>Water level</span><strong>'+esc(r.water==null?'Not reported':r.water+' in')+'</strong><small>'+esc(stale||l.error||!l.enabled?'Last known reading':'From monitor')+'</small></div><p>Ullage: '+esc(r.ullage??'—')+' gal · Temp: '+esc(r.temperature??'—')+' °F</p>':'')+'</div>';
 
-   }).join(''):'<p>Add tanks or review detected tanks after the first reading.</p>')+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length?'disabled title="No fuel reading available yet"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
+   }).join(''):(l.paired?'<div class="fm-tank-redetect-pending"><strong>Waiting for tank re-detection</strong><p>The next PC2 collector reading will automatically add detected tanks. Your location and collector JSON/key remain unchanged. Review capacities and enable alerts afterward.</p></div>':'<p>Add tanks or review detected tanks after the first reading.</p>'))+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length||!l.tanks.length?'disabled title="Waiting for tanks and a fresh fuel reading"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
   }).join(''):'<div class="fm-empty">No locations yet. Add your first gas station to set up its tanks and monitoring.</div>';
   for(const card of root.querySelectorAll('.fm-location')){
    const footer=card.querySelector('.fm-station-actions');
@@ -303,7 +303,7 @@
   if(section==='tanks')content='<p>Use the same tank numbers as the monitor. These settings affect portal monitoring only.</p>'+(l.reading?.tanks?.length?'<button type="button" data-inline-detect>Add detected tanks</button>':'')+'<datalist id="fmInlineFuelTypes"><option>Regular Unleaded (87)</option><option>Premium Unleaded (93)</option><option>Road Diesel</option><option>Off-Road Diesel</option><option>Kerosene</option></datalist><div class="fm-tank-tabs" role="tablist" aria-label="Tank settings" data-tank-tabs></div><div data-inline-tanks>'+l.tanks.map(t=>tankRow(t).replace('fmFuelTypes','fmInlineFuelTypes')).join('')+'</div><p>Critical must be below Low. Recovery must be above Low.</p><details class="fm-inline-alerts"><summary>Alert delivery</summary><div class="fm-delivery-methods">'+toggle('portal','Portal notification',l.portal)+toggle('email','Email alert',l.email)+toggle('sms','SMS alert',l.sms)+'</div><div class="fm-grid">'+recipientFields('email_to','Alert email addresses',l.email_to,'email')+recipientFields('sms_to','Alert mobile numbers',l.sms_to,'tel')+'</div><p>Delivery settings apply to this location’s tank alerts.</p></details>';
   const readOnlyConnection=section==='connection'&&!connectionUnlocked;
   const controls=readOnlyConnection?'<button type="button" data-inline-back>Close</button><button class="fm-connection-edit" type="button" data-inline-unlock>'+actionIcon('settings')+'Edit</button>':'<button type="button" data-inline-back>Cancel</button><button type="submit">Save changes</button>';
-  middle.innerHTML='<form class="fm-inline-form"><div class="fm-inline-heading"><h3>'+titles[section]+'</h3>'+(readOnlyConnection?'<span class="fm-connection-readonly-label">Read only</span>':'')+(section==='tanks'?'<button type="button" data-inline-add>'+actionIcon('plus')+'Add tank</button>':'')+'</div>'+content+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save">'+(section==='location'?'<button class="fm-delete" type="button" data-inline-delete>Delete location</button>':'')+controls+'</div></form>';
+  middle.innerHTML='<form class="fm-inline-form"><div class="fm-inline-heading"><h3>'+titles[section]+'</h3>'+(readOnlyConnection?'<span class="fm-connection-readonly-label">Read only</span>':'')+(section==='tanks'?'<button type="button" data-inline-add>'+actionIcon('plus')+'Add tank</button>':'')+'</div>'+content+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save">'+(section==='location'?'<button class="fm-delete" type="button" data-inline-delete>Delete location</button>':'')+(section==='tanks'?'<button class="fm-reset-tanks" type="button" data-inline-reset-tanks '+(!l.paired||!l.tanks.length?'disabled title="Pair a collector and configure tanks before resetting"':'')+'>Reset / Re-detect Tanks</button>':'')+controls+'</div></form>';
   card.querySelectorAll('[data-inline-section]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inlineSection===section)));
   const form=middle.querySelector('form');let activeTank=null;
   // Compare editable values to the state when THIS section opened, not to input events.
@@ -382,6 +382,7 @@
    }
    if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}).replace('fmFuelTypes','fmInlineFuelTypes'));count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
    if(b.classList.contains('fm-remove')){confirmTankRemoval(b.closest('fieldset'),()=>{count();updateInlineSave();});}
+   if(b.hasAttribute('data-inline-reset-tanks')){await resetTankConfigurations(l);return;}
    if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();}
    if(b.hasAttribute('data-inline-import')){const lines=l.reading.site_header.split('\n').map(s=>s.trim()).filter(Boolean);form.elements.name.value=lines[0]||l.name;form.elements.address.value=lines.slice(1).join(', ');updateInlineSave();}
    if(b.hasAttribute('data-inline-delete')){if(!leaveInline())return;render();deleteLocation(l);}
@@ -439,6 +440,44 @@
   };prompt.showModal();prompt.querySelector('input').focus();
  }
  async function busy(fn,editor=dialog){const buttons=[...editor.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);editor.dataset.busy='1';try{await fn()}catch(e){const m=editor.querySelector('#fmDialogMessage');if(m)m.textContent=e.message;else message(e.message,true)}finally{buttons.forEach(b=>b.disabled=false);delete editor.dataset.busy;}}
+ async function resetTankConfigurations(l){
+  if(!l.paired){message('Connect the collector before resetting tank definitions.',true);return;}
+  if(!l.tanks.length){message('No configured tanks to reset. Wait for the next collector reading.',true);return;}
+  const prompt=document.createElement('dialog');
+  prompt.className='fm-dialog fm-remove-confirm fm-reset-confirm-dialog';
+  prompt.setAttribute('aria-labelledby','fmResetTanksTitle');
+  prompt.innerHTML='<form><header><span class="fm-remove-icon">'+actionIcon('shield')+'</span><h2 id="fmResetTanksTitle">Reset / Re-detect Tanks?</h2><p>'+esc(l.name)+'</p></header><div class="fm-dialog-body"><div class="fm-remove-note">This clears all <strong>'+l.tanks.length+'</strong> saved tank definitions, capacity and threshold settings, and their acknowledgement mutes. Your location, PC2 collector JSON/key, recent readings, previous alert history, and automatic sending schedule remain unchanged.<br><br>The next valid collector upload will re-detect the tanks and estimate their capacities. <strong>Alerts on newly detected tanks will be OFF</strong> until you review and enable them.</div><label>Master Admin password<input name="password" type="password" autocomplete="new-password" required placeholder="Enter Master Admin password"></label><label>Type RESET to confirm<input name="confirmation" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="RESET" required></label><p class="fm-error" role="status" aria-live="polite"></p></div><footer><button class="secondary" type="button">Cancel</button><button class="fm-reset-confirm-button" type="submit" disabled>Reset tanks</button></footer></form>';
+  document.body.append(prompt);
+  let working=false;
+  const close=()=>{if(working)return;prompt.close();prompt.remove();};
+  const form=prompt.querySelector('form'),input=form.elements.confirmation,submit=form.querySelector('[type=submit]');
+  input.addEventListener('input',()=>{submit.disabled=input.value.trim()!=='RESET'||working;});
+  form.querySelector('button[type=button]').onclick=close;
+  prompt.addEventListener('cancel',e=>{e.preventDefault();close();});
+  form.onsubmit=async e=>{
+   e.preventDefault();if(working||input.value.trim()!=='RESET')return;
+   working=true;
+   const password=form.elements.password.value;
+   form.elements.password.value='';
+   form.querySelectorAll('button').forEach(btn=>btn.disabled=true);
+   try{
+    const result=await api({action:'reset_tanks',id:l.id,password,confirmation:'RESET'});
+    working=false;
+    close();
+    inlineEdit=null;
+    inlineSaving=false;
+    await load();
+    message(result.reset_count+' tank configuration(s) reset. Waiting for PC2’s next reading to automatically re-detect tanks. Your collector key is unchanged.');
+   }catch(err){
+    form.querySelector('[role=status]').textContent=err.message;
+    form.elements.password.focus();
+   }finally{
+    working=false;
+    if(form.isConnected){form.querySelector('button[type=button]').disabled=false;submit.disabled=input.value.trim()!=='RESET';}
+   }
+  };
+  prompt.showModal();form.elements.password.focus();
+ }
  async function deleteLocation(l){
   // Use the same centered password-confirmation dialog as Remove tank.
   // The server still verifies the signed-in admin password before deleting.

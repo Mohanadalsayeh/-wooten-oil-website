@@ -154,10 +154,48 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
   }
-  if(!['save','pair','delete','acknowledge','send_reading','schedule_save'].includes(action))fail('Unknown action.');
+  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','verify_connection_edit','reset_tanks'].includes(action))fail('Unknown action.');
   const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
   if(action!=='save'&&!row)fail('Location no longer exists.',404);
   if(row?.lock_until>Date.now())fail('A reading is being saved. Try again in a few seconds.',409);
+  if(action==='verify_connection_edit'){
+   if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('The Master Admin password is incorrect.',403);
+   return reply({success:true});
+  }
+  if(action==='reset_tanks'){
+   // Reset tank definitions ONLY. Never rotate the collector key or delete the
+   // location, cached inventory, existing alert history, or sending schedule.
+   if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('The Master Admin password is incorrect.',403);
+   if(b.confirmation!=='RESET')fail('Type RESET to confirm tank re-detection.',400);
+   if(!row.token_hash)fail('Connect the station collector before re-detecting tanks.',409);
+   if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
+   const now=Date.now();
+   // Coordinate with the station collector: an upload already in progress must
+   // finish first, and uploads starting during this reset can retry normally.
+   const lock=await env.DB.prepare('UPDATE fuel_monitor_locations SET lock_until=? WHERE id=? AND lock_until<? RETURNING id').bind(now+30000,id,now).first();
+   if(!lock)fail('The station collector is updating this location. Try again in a few seconds.',409);
+   try{
+    const latest=await env.DB.prepare('SELECT config,token_hash FROM fuel_monitor_locations WHERE id=?').bind(id).first();
+    if(!latest?.token_hash)fail('This location no longer has a paired collector.',409);
+    const config=JSON.parse(latest.config);
+    const previous=Array.isArray(config.tanks)?config.tanks:[];
+    if(!previous.length)fail('No configured tanks to reset. Wait for the next collector reading.',409);
+    const next={...config,tanks:[]};
+    const detail=`Reset ${previous.length} tank configurations for ${config.name}; awaiting collector re-detection. Collector key and location retained.`;
+    const changeDetails=[{field:'tank_configuration',before:previous,after:[]}];
+    const audit=await auditStatement({action:'fuel_monitor_reset_tanks',id,detail});
+    await env.DB.batch([
+     env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(next),id),
+     env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
+     env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
+     env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,config.name,str(actor?.name||'Admin',160),'reset_tanks',JSON.stringify(changeDetails)),
+     audit
+    ]);
+    return reply({success:true,id,reset_count:previous.length,redetect_pending:true});
+   }finally{
+    await env.DB.prepare('UPDATE fuel_monitor_locations SET lock_until=0 WHERE id=?').bind(id).run();
+   }
+  }
   const jobs=[];let token='',detail='',changes=[];
   if(action==='schedule_save'){
    const schedule=validateAutomaticReadingSchedule(b.schedule);
@@ -173,7 +211,10 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(b.id&&!row)fail('Location no longer exists.',404);
    const c=validateConfig({...b.config,icon:b.config?.icon||(row?JSON.parse(row.config).icon:'fuel')||'fuel'});detail=`Saved location ${c.name}; ${c.tanks.length} tanks.`;
    if(row){
-    const previous=JSON.parse(row.config).tanks||[],numbers=new Set(c.tanks.map(t=>Number(t.number)));
+    const oldConfig=JSON.parse(row.config),previous=oldConfig.tanks||[],numbers=new Set(c.tanks.map(t=>Number(t.number)));
+    const connectionFields=['model','host','port','interval','enabled'];
+    const connectionChanged=connectionFields.some(field=>JSON.stringify(oldConfig[field])!==JSON.stringify(c[field]));
+    if(connectionChanged&&(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password)))fail('Enter the Master Admin password to change Veeder-Root connection settings.',403);
     if(previous.some(t=>!numbers.has(Number(t.number)))&&(typeof verifyPassword!=='function'||!await verifyPassword(b.password)))fail('Enter the signed-in admin password before removing saved tanks.',403);
    }
    const before=row?JSON.parse(row.config):{};
@@ -211,6 +252,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   }
   if(action==='send_reading'){
    const config=JSON.parse(row.config),reading=row.reading?JSON.parse(row.reading):null;
+   if(!config.tanks?.length)fail('Tank re-detection is pending. Wait for the next collector reading.',409);
    if(!reading?.tanks?.length)fail('No saved fuel reading is available for this location yet.',409);
    const portalEnabled=config.portal!==false;
    const emailEnabled=!!config.email&&!!String(config.email_to||'').trim();
@@ -250,7 +292,10 @@ export async function agent(request,env){
   if(!Number.isFinite(at)||at>now+60000||at<now-600000)fail('Reading is stale or collector clock is incorrect.');
   const claimed=await env.DB.prepare('UPDATE fuel_monitor_locations SET lock_until=? WHERE id=? AND lock_until<? RETURNING id').bind(now+30000,id,now).first();
   if(!claimed)fail('A reading is already being saved.',409);locked=true;
-  const current=await env.DB.prepare('SELECT last_observed FROM fuel_monitor_locations WHERE id=?').bind(id).first();
+  const current=await env.DB.prepare('SELECT last_observed,config FROM fuel_monitor_locations WHERE id=?').bind(id).first();
+  if(!current?.config)fail('Location no longer exists.',404);
+  config=JSON.parse(current.config);
+  if(!config.enabled)fail('Monitoring is paused.',409);
   if(current?.last_observed&&at<=Date.parse(current.last_observed))return reply({success:true,ignored:true});
   if(b.error){await env.DB.prepare('UPDATE fuel_monitor_locations SET error=?,last_contact=? WHERE id=?').bind(str(b.error,500),new Date(now).toISOString(),id).run();return reply({success:true});}
   if(b.units!=='US gallons'||!Array.isArray(b.tanks)||!b.tanks.length||b.tanks.length>64)fail('Expected a complete inventory report in US gallons.');
@@ -343,6 +388,10 @@ export async function sendScheduledReadings(env,now=new Date()){
   if(!automaticReadingDue(schedule,at))continue;
   try{
    const config=JSON.parse(schedule.config);
+   if(!config.tanks?.length){
+    await env.DB.prepare('UPDATE fuel_monitor_schedules SET last_status=? WHERE location_id=?').bind('Waiting for tank re-detection',schedule.location_id).run();
+    continue;
+   }
    const reading=schedule.reading?JSON.parse(schedule.reading):null;
    const latest=Date.parse(schedule.last_observed||reading?.observed_at||'');
    // Do not send outdated readings as though they were current.

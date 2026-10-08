@@ -846,3 +846,36 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   fill:#21699b!important;
   stroke:none!important;
 }
+
+/* Ver898: guarded Reset / Re-detect Tanks action. */
+#fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-reset-tanks{
+  margin-right:auto!important;
+  border:1px solid #c88b47!important;
+  background:#fff9f0!important;
+  color:#865000!important;
+  font-weight:700!important;
+  min-height:44px;
+}
+#fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-reset-tanks:hover:not(:disabled){
+  background:#fff0d9!important;
+  border-color:#ab6d27!important;
+}
+#fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-reset-tanks:disabled{opacity:.45!important;cursor:not-allowed!important}
+.fm-reset-confirm-dialog .fm-remove-icon{color:#a66a08;background:#fff3dd}
+.fm-reset-confirm-dialog .fm-dialog-body label{margin-top:16px}
+.fm-reset-confirm-dialog .fm-reset-confirm-button{color:#fff;background:#ba6225;border:1px solid #ba6225}
+.fm-reset-confirm-dialog .fm-reset-confirm-button:disabled{opacity:.5;cursor:not-allowed}
+#fuelMonitorRoot .fm-tank-redetect-pending{
+  grid-column:1/-1;
+  margin:4px 0;
+  padding:17px 20px;
+  border:1px solid #c9dce9;
+  border-radius:12px;
+  background:#f0f7fc;
+  color:#173850;
+}
+#fuelMonitorRoot .fm-tank-redetect-pending strong{display:block;font-size:15px}
+#fuelMonitorRoot .fm-tank-redetect-pending p{margin:6px 0 0;color:#597388;font-size:13px;line-height:1.5}
+@media(max-width:540px){
+ #fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-reset-tanks{width:100%;margin-right:0!important}
+}
