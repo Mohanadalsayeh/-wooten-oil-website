@@ -636,10 +636,23 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   fill:#fff;stroke:none;
 }
 
-/* Ver884: disabled Save changes reflects unchanged form state, not a pending save. */
-#fuelMonitorRoot .fm-inline-form .fm-inline-save button[type=submit]:disabled{
- opacity:.45!important;cursor:not-allowed!important;box-shadow:none!important;
+/* Ver887: crisp vector fuel pump plus three-bar reading chart (approved icon option #2). */
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol svg.fm-fuel-reading-pump{
+  display:block!important;
+  width:34px!important;
+  height:34px!important;
+  max-width:none!important;
+  max-height:none!important;
+  flex:0 0 auto!important;
+  color:#fff!important;
+  stroke:currentColor!important;
+  fill:none!important;
+  overflow:visible!important;
 }
-#fuelMonitorRoot .fm-inline-form .fm-inline-save button[type=submit]:disabled:hover{
- background:#db1928!important;border-color:#db1928!important;
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol svg.fm-fuel-reading-pump g{
+  stroke:#fff!important;
+  stroke-width:3.4px!important;
+  fill:none!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
 }
