@@ -13461,7 +13461,10 @@ return env.ASSETS.fetch(request);
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(dispatchFuelMonitorAlerts(env));
+    ctx.waitUntil((async()=>{
+      try{await FuelMonitor.sendScheduledReadings(env);}catch(error){console.error('Automatic fuel reading scheduler failed',error);}
+      await dispatchFuelMonitorAlerts(env);
+    })());
     // Add this cron alongside the existing payment and hourly triggers.
     if(controller.cron==='* * * * *'){ctx.waitUntil(runPortalPush(env));return;}
     if(controller.cron==='*/2 * * * *'){
@@ -13537,7 +13540,8 @@ function fuelMonitorEmailContent(message,context={}){
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
   const delivery=fuelMonitorDeliveryTanks(reading);
   const level=String(alert.level||'reading').toLowerCase();
-  const manual=level==='reading';
+  const manual=level==='reading'||level==='scheduled_reading';
+  const scheduled=level==='scheduled_reading';
   const critical=level==='critical';
   const low=level==='low';
   const recovered=level==='normal';
@@ -13618,7 +13622,7 @@ function fuelMonitorEmailContent(message,context={}){
      </td></tr>`
     :`<tr><td style="padding:16px 24px">
       <div style="padding:14px 16px;border:1px solid ${theme.border};background:${theme.soft};border-radius:10px;color:#173d5d">
-       <strong>Manual fuel reading</strong><br><span style="font-size:13px">Current readings for all configured tanks were sent from the Wooten Oil portal.</span>
+       <strong>${scheduled?'Automatic fuel reading':'Manual fuel reading'}</strong><br><span style="font-size:13px">${scheduled?'Scheduled fuel reading with the latest available tank values.':'Current readings for all configured tanks were sent from the Wooten Oil portal.'}</span>
       </div>
      </td></tr>`;
 

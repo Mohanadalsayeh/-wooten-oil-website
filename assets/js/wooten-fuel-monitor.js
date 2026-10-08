@@ -39,7 +39,7 @@
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
-  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-pump" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fuel pump with reading chart" focusable="false"><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 41V9a3 3 0 0 1 3-3h16a3 3 0 0 1 3 3v32"/><rect x="14" y="12" width="12" height="10" rx="1.1"/><path d="M6 41h28"/><path d="M15 35v-4m5 4v-7m5 7v-10"/><path d="M31 13c4 0 6 3 6 7v11c0 3 1 5 4 5 2.5 0 3.5-1.8 3.5-4.5V20c0-2-1-3.5-2.5-5l-2-2"/></g></svg>'};
+  if(level==='reading'||level==='scheduled_reading')return {label:level==='scheduled_reading'?'AUTOMATIC FUEL READING':'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-pump" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fuel pump with reading chart" focusable="false"><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 41V9a3 3 0 0 1 3-3h16a3 3 0 0 1 3 3v32"/><rect x="14" y="12" width="12" height="10" rx="1.1"/><path d="M6 41h28"/><path d="M15 35v-4m5 4v-7m5 7v-10"/><path d="M31 13c4 0 6 3 6 7v11c0 3 1 5 4 5 2.5 0 3.5-1.8 3.5-4.5V20c0-2-1-3.5-2.5-5l-2-2"/></g></svg>'};
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){
@@ -69,7 +69,7 @@
   const locationName=location?.name||snapshot.headline.split(' — ')[0]||'Fuel location';
   const triggerTank=Number(a.tank_number)||0;
   const rows=snapshot.tanks.length?snapshot.tanks.map(t=>{
-   const cls=alertStatusClass(t.status),trigger=Number(t.number)===triggerTank&&a.level!=='reading';
+   const cls=alertStatusClass(t.status),trigger=Number(t.number)===triggerTank&&a.level!=='reading'&&a.level!=='scheduled_reading';
    return '<div class="fm-alert-tank-row '+cls+(trigger?' is-trigger':'')+'"><span class="fm-alert-tank-no">T'+esc(t.number)+'</span><span class="fm-alert-tank-product">'+esc(t.product)+'</span><strong>'+esc(t.volume)+' gal</strong><span>'+esc(t.percent)+'%</span><b>'+esc(t.status)+'</b></div>';
   }).join(''):'';
   const delivery= snapshot.tanks.find(t=>/delivery/i.test(t.status));
@@ -77,7 +77,7 @@
    ?(delivery?'Delivery needed — immediate attention required.':'Fuel is at or below the critical threshold.')
    :a.level==='low'?'Fuel is below the configured low threshold.'
    :a.level==='normal'?'Fuel has reached the configured recovery level.'
-   :a.level==='reading'?'Current readings for all configured tanks.':'Fuel monitoring event.';
+   :a.level==='reading'||a.level==='scheduled_reading'?'Current readings for all configured tanks.':'Fuel monitoring event.';
   const deliveryStatus='<div class="fm-alert-channel-status"><span>Email: '+esc(a.email_status)+'</span><span>SMS: '+esc(a.sms_status)+'</span></div>';
   const action=!a.acknowledged&&locations.some(l=>l.id===a.location_id)
    ?'<button class="secondary fm-alert-ack" type="button" data-ack="'+a.id+'" data-location="'+esc(a.location_id)+'" title="Mark reviewed. For Low/Critical tank alerts, silence further Low/Critical alerts until the tank reaches its Recovery level.">Acknowledge</button>'
@@ -154,7 +154,7 @@
     const dial='<div class="fm-dial-wrap"><svg class="fm-dial" viewBox="0 0 220 148" role="img" aria-label="Tank '+t.number+': '+esc(valid?displayedPercent+' full; '+status:'no reading available')+'"><path class="fm-dial-track" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke-width="16" stroke-linecap="round"/>'+(valid&&percent>0?'<path class="fm-dial-fill" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke="'+band.color+'" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="'+percent+' 100"/>':'')+'<text class="fm-dial-value" x="110" y="96" text-anchor="middle">'+displayedPercent+'</text><text class="fm-dial-tick" x="22" y="139" text-anchor="middle">0</text><text class="fm-dial-tick" x="198" y="139" text-anchor="middle">100%</text></svg></div>';
     return '<div class="fm-tank fm-tank-dial"><div class="fm-tank-title"><span class="fm-tank-number" aria-label="Tank '+t.number+'">'+t.number+'</span><strong>'+esc(t.fuel)+'</strong></div>'+dial+'<div class="fm-dial-quantity">'+(valid?volume.toLocaleString('en-US'):'—')+' <span>/ '+capacity.toLocaleString('en-US')+' gal</span></div><div class="fm-dial-caption" style="color:'+band.color+'">'+esc(status)+'</div><div class="fm-tank-thresholds"><span>Low threshold<b>'+t.low+(t.mode==='percent'?'%':' gal')+'</b></span><span>Critical alert<b>'+t.critical+(t.mode==='percent'?'%':' gal')+'</b></span></div>'+(t.alerts?'':'<p>Tank alerts off</p>')+(valid?'<div class="fm-water-reading"><span>Water level</span><strong>'+esc(r.water==null?'Not reported':r.water+' in')+'</strong><small>'+esc(stale||l.error||!l.enabled?'Last known reading':'From monitor')+'</small></div><p>Ullage: '+esc(r.ullage??'—')+' gal · Temp: '+esc(r.temperature??'—')+' °F</p>':'')+'</div>';
 
-   }).join(''):'<p>Add tanks or review detected tanks after the first reading.</p>')+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length?'disabled title="No fuel reading available yet"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
+   }).join(''):'<p>Add tanks or review detected tanks after the first reading.</p>')+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-auto-reading-button" data-auto-reading="'+esc(l.id)+'">'+actionIcon('settings')+'Automatic sending</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length?'disabled title="No fuel reading available yet"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
   }).join(''):'<div class="fm-empty">No locations yet. Add your first gas station to set up its tanks and monitoring.</div>';
   for(const card of root.querySelectorAll('.fm-location')){
    const footer=card.querySelector('.fm-station-actions');
@@ -166,6 +166,7 @@
    if(activeLocation==='all'){
     const send=footer.querySelector('[data-send-reading]');
     if(send)send.remove();
+    footer.querySelector('[data-auto-reading]')?.remove();
     actions.classList.add('fm-actions-reserved');actions.setAttribute('aria-hidden','true');actions.inert=true;
     for(const button of actions.querySelectorAll('button')){button.disabled=true;button.removeAttribute('data-inline-section');button.removeAttribute('data-inline-id');}
     footer.remove();
@@ -499,7 +500,55 @@
   }
  }
 
- root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
+function openAutomaticReadingSchedule(id){
+  if(activeLocation==='all'||!leaveInline())return;
+  render();
+  const l=locations.find(x=>x.id===id);if(!l)return;
+  const card=[...root.querySelectorAll('.fm-location')].find(x=>x.dataset.station===id);
+  if(!card)return;
+  const middle=card.querySelector('.fm-station-page');
+  inlineEdit={id,section:'auto_reading',dirty:false};
+  const saved=l.auto_reading||{enabled:false,days:[0,1,2,3,4,5,6],time:'08:00'};
+  const selected=new Set(saved.days||[]),all=selected.size===7;
+  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  middle.innerHTML='<form class="fm-inline-form fm-automatic-reading" id="fmAutomaticReadingForm">'
+   +'<div class="fm-inline-heading"><h3>Automatic fuel reading</h3></div>'
+   +'<p>Send the latest tank readings automatically on the selected days at the selected time. Uses this location’s existing Portal, Email and SMS delivery settings.</p>'
+   +'<label class="fm-toggle fm-auto-switch"><input name="enabled" type="checkbox" '+(saved.enabled?'checked':'')+'><span>Enable automatic fuel readings</span></label>'
+   +'<fieldset class="fm-auto-day-field"><legend>Sending days</legend>'
+   +'<div class="fm-auto-day-mode"><label><input type="radio" name="mode" value="all" '+(all?'checked':'')+'>All days</label><label><input type="radio" name="mode" value="custom" '+(!all?'checked':'')+'>Choose days</label></div>'
+   +'<div class="fm-auto-days">'+labels.map((day,i)=>'<label><input type="checkbox" name="weekday" value="'+i+'" '+(selected.has(i)?'checked':'')+'><span>'+day+'</span></label>').join('')+'</div></fieldset>'
+   +'<div class="fm-auto-time"><label for="fmAutoTime">Send time (Central Time — CDT/CST)</label><input type="time" id="fmAutoTime" name="send_time" value="'+esc(saved.time||'08:00')+'" required></div>'
+   +'<p class="fm-auto-note">The scheduled report includes all configured tanks. It uses the latest reading uploaded by the station collector. If that reading is stale, the report waits rather than sending outdated fuel levels.</p>'
+   +'<div class="fm-auto-last">'+(saved.last_sent_at?'Last scheduled send: '+esc(time(saved.last_sent_at)):'No scheduled report sent yet')+(saved.last_status?' · '+esc(saved.last_status):'')+'</div>'
+   +'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" data-auto-cancel>Cancel</button><button type="submit" disabled>Save schedule</button></div></form>';
+  const form=middle.querySelector('form'),mode=()=>form.elements.mode.value;
+  const current=()=>({enabled:form.elements.enabled.checked,time:form.elements.send_time.value,days:mode()==='all'?[0,1,2,3,4,5,6]:[...form.querySelectorAll('[name=weekday]:checked')].map(x=>Number(x.value)).sort((a,b)=>a-b)});
+  const original=JSON.stringify({enabled:!!saved.enabled,time:saved.time||'08:00',days:[...(saved.days||[0,1,2,3,4,5,6])].sort((a,b)=>a-b)});
+  function changed(){const dirty=JSON.stringify(current())!==original;inlineEdit.dirty=dirty;form.querySelector('[type=submit]').disabled=!dirty||inlineSaving;return dirty;}
+  function syncDays(){form.querySelectorAll('[name=weekday]').forEach(x=>x.disabled=mode()==='all');changed();}
+  syncDays();
+  form.addEventListener('input',changed);
+  form.addEventListener('change',e=>{
+   if(e.target.name==='mode')syncDays();
+   if(e.target.name==='weekday'&&mode()==='custom'&&form.querySelectorAll('[name=weekday]:checked').length===7){form.querySelector('[name=mode][value=all]').checked=true;syncDays();}
+   changed();
+  });
+  form.querySelector('[data-auto-cancel]').onclick=()=>{if(leaveInline())render();};
+  form.onsubmit=async e=>{
+   e.preventDefault();if(inlineSaving||!changed())return;
+   const schedule=current();
+   if(!schedule.days.length){form.querySelector('.fm-inline-message').textContent='Choose at least one sending day.';return;}
+   if(!form.elements.send_time.checkValidity()){form.elements.send_time.reportValidity();return;}
+   inlineSaving=true;form.querySelector('[type=submit]').disabled=true;
+   form.querySelector('.fm-inline-message').textContent='Saving automatic sending schedule…';
+   try{await api({action:'schedule_save',id,schedule});inlineSaving=false;inlineEdit=null;await load();message('Automatic fuel reading schedule saved.');}
+   catch(error){form.querySelector('.fm-inline-message').textContent=error.message;inlineSaving=false;changed();}
+  };
+  middle.querySelector('[name=enabled]')?.focus({preventScroll:true});
+}
+
+ root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.autoReading){openAutomaticReadingSchedule(b.dataset.autoReading);return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  document.getElementById('fmAdd').onclick=()=>{if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline()){render();openEdit();}};document.getElementById('fmRefresh').onclick=()=>{if(leaveInline())load();};
  window.addEventListener('wooten-admin-page-open',e=>{if(e.detail?.panel==='fuel-monitor')load()});
