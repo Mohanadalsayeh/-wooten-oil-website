@@ -805,3 +805,44 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   fill:#fff!important;
   stroke:none!important;
 }
+
+/* Ver897: match Automatic Fuel Reading typography to Monitor alarms. */
+#fuelMonitorRoot .fm-automatic-panel > summary,
+#fuelMonitorRoot .fm-automatic-panel .fm-automatic-title {
+  font-family:Arial,sans-serif;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.35;
+}
+/* Ver897: approved icon #5 from the ten-icon selection — document with a fuel drop.
+   A true vector with solid silhouettes, optimized to stay legible on a 42px tile. */
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol svg.fm-fuel-reading-report {
+  display:block!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  flex:0 0 34px!important;
+  overflow:visible!important;
+  shape-rendering:geometricPrecision;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol .fm-report-paper {
+  fill:#fff!important;
+  stroke:none!important;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol .fm-report-fold {
+  fill:none!important;
+  stroke:#21699b!important;
+  stroke-width:2.6!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol .fm-report-lines {
+  fill:none!important;
+  stroke:#21699b!important;
+  stroke-width:2.7!important;
+  stroke-linecap:round!important;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol .fm-report-droplet {
+  fill:#21699b!important;
+  stroke:none!important;
+}

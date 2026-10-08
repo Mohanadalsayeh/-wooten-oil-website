@@ -62,7 +62,7 @@
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
-  if(level==='reading'||level==='scheduled_reading')return {label:level==='scheduled_reading'?'AUTOMATIC FUEL READING':'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-speedometer" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fuel level gauge" focusable="false"><circle cx="24" cy="24" r="18"/><path d="M24 11v4M13 17l3 3M35 17l-3 3M10.5 28h4M37.5 28h-4"/><path class="fm-speedometer-needle" d="M24 26 32 18"/><circle class="fm-speedometer-hub" cx="24" cy="26" r="3.2"/></svg>'};
+  if(level==='reading'||level==='scheduled_reading')return {label:level==='scheduled_reading'?'AUTOMATIC FUEL READING':'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-report" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path class="fm-report-paper" d="M10 3h20l10 10v30a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path class="fm-report-fold" d="M30 3v10h10"/><path class="fm-report-lines" d="M14 15h10M14 21h12M14 27h10"/><path class="fm-report-droplet" d="M31.4 26C29.5 29 25 34 25 37a6.4 6.4 0 0 0 12.8 0c0-3-4.5-8-6.4-11Z"/></svg>'};
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){
