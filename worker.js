@@ -13516,7 +13516,7 @@ function fuelMonitorEmailContent(message,context={}){
     <tr><td style="padding:14px 24px 22px"><table role="presentation" width="100%"><tr><td style="font-size:11px;color:#66798b;line-height:1.5">This is an automated message from the Wooten Oil fuel monitoring system.<br>Please do not reply to this email. For assistance, contact <strong>support@wootenoil.com</strong>.</td>
     <td align="right"><a href="https://wootenoil.com/admin-customers#fuel-monitor" style="display:inline-block;background:#e3182d;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:800">View in Portal →</a></td></tr></table></td></tr>
   </table></td></tr></table></body></html>`;
-  const subject=`Wooten Oil ${manual?'Fuel Reading':'Fuel Monitoring Alert'} — ${location.name||'Location'}`;
+  const subject=`${manual?'Fuel Reading':'Fuel Monitoring Alert'} — ${location.name||'Location'}`;
   return {subject,html};
 }
 function fuelMonitorSmsContent(message,context={}){

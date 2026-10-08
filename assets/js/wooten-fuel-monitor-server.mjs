@@ -8,6 +8,7 @@ export async function ensure(env){
  `CREATE TABLE IF NOT EXISTS fuel_monitor_history(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,location_name TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,changes TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_locations(id TEXT PRIMARY KEY,config TEXT NOT NULL,token_hash TEXT,reading TEXT,last_observed TEXT,last_contact TEXT,error TEXT,lock_until INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_states(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,PRIMARY KEY(location_id,tank_number))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_mutes(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,acknowledged_alert_id INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,message TEXT NOT NULL,portal INTEGER NOT NULL DEFAULT 1,acknowledged INTEGER NOT NULL DEFAULT 0,email_to TEXT,sms_to TEXT,email_status TEXT NOT NULL,sms_status TEXT NOT NULL,email_detail TEXT,sms_detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE INDEX IF NOT EXISTS fuel_monitor_alerts_recent ON fuel_monitor_alerts(created_at DESC,id DESC)`];
  for(const s of sql)await env.DB.prepare(s).run();
@@ -162,12 +163,24 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(action==='delete'){
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    detail=`Deleted location ${JSON.parse(row.config).name} and its tank readings. Alert history retained.`;
-   jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),env.DB.prepare('DELETE FROM fuel_monitor_locations WHERE id=?').bind(id));
+   jobs.push(
+    env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
+    env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
+    env.DB.prepare('DELETE FROM fuel_monitor_locations WHERE id=?').bind(id)
+   );
    jobs.push(env.DB.prepare("UPDATE fuel_monitor_alerts SET acknowledged=1,email_status=CASE WHEN email_status='pending' THEN 'cancelled' ELSE email_status END,sms_status=CASE WHEN sms_status='pending' THEN 'cancelled' ELSE sms_status END WHERE location_id=?").bind(id));
   }
   if(action==='acknowledge'){
    if(!Number.isSafeInteger(b.alert_id))fail('Choose an alert.');
-   jobs.push(env.DB.prepare('UPDATE fuel_monitor_alerts SET acknowledged=1 WHERE id=? AND location_id=?').bind(b.alert_id,id));detail='Acknowledged fuel alert '+b.alert_id;
+   const alert=await env.DB.prepare('SELECT id,tank_number,level FROM fuel_monitor_alerts WHERE id=? AND location_id=?').bind(b.alert_id,id).first();
+   if(!alert)fail('Fuel alert no longer exists.',404);
+   jobs.push(env.DB.prepare('UPDATE fuel_monitor_alerts SET acknowledged=1 WHERE id=? AND location_id=?').bind(b.alert_id,id));
+   if(Number(alert.tank_number)>0&&['low','critical'].includes(String(alert.level))){
+    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_mutes(location_id,tank_number,acknowledged_alert_id) VALUES(?,?,?) ON CONFLICT(location_id,tank_number) DO UPDATE SET acknowledged_alert_id=excluded.acknowledged_alert_id,created_at=CURRENT_TIMESTAMP').bind(id,Number(alert.tank_number),b.alert_id));
+    detail=`Acknowledged fuel alert ${b.alert_id}; Tank ${alert.tank_number} Low/Critical alerts muted until recovery.`;
+   }else{
+    detail='Acknowledged fuel alert '+b.alert_id;
+   }
   }
   if(action==='send_reading'){
    const config=JSON.parse(row.config),reading=row.reading?JSON.parse(row.reading):null;
@@ -231,6 +244,7 @@ export async function agent(request,env){
    if(status.state==='reported'&&!reading.monitor_status.report)fail('Missing monitor report.');
   }
   const states=new Map((await env.DB.prepare('SELECT tank_number,level FROM fuel_monitor_states WHERE location_id=?').bind(id).all()).results.map(s=>[s.tank_number,s.level]));
+  const mutedTanks=new Set((await env.DB.prepare('SELECT tank_number FROM fuel_monitor_mutes WHERE location_id=?').bind(id).all()).results.map(s=>Number(s.tank_number)));
   const jobs=[];
   if(autoAdded.length){
    jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(config),id));
@@ -242,11 +256,24 @@ export async function agent(request,env){
    // Never treat a missing tank as zero gallons. Ignore implausible readings for alerts.
    if(r.volume>tank.capacity*1.05)continue;
    const previous=states.get(tank.number)||'normal',level=tank.alerts?levelFor(tank,r.volume,previous):'normal';
+   const muted=mutedTanks.has(Number(tank.number));
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_states(location_id,tank_number,level) VALUES(?,?,?) ON CONFLICT(location_id,tank_number) DO UPDATE SET level=excluded.level').bind(id,tank.number,level));
+
+   // Acknowledging a Low/Critical alert mutes further Low/Critical notifications for
+   // this tank until the reading reaches the configured Recovery level. Recovery
+   // itself is still allowed to create the normal "fuel recovered" notification,
+   // and it automatically re-arms the tank for the next Low/Critical cycle.
+   if(muted&&level==='normal'){
+    jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=? AND tank_number=?').bind(id,tank.number));
+   }
+
    if(level!==previous){
-    const triggerText=`${config.name} — Tank ${tank.number} (${tank.fuel}): ${level==='normal'?'fuel recovered':level+' fuel'}. ${r.volume.toLocaleString('en-US')} US gallons (${(r.volume/tank.capacity*100).toFixed(1)}%).`;
-    const message=allTankMessage(config,reading,{headline:triggerText,triggerTank:tank.number,triggerLevel:level});
-    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,tank.number,level,message,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
+    const suppressLowCritical=muted&&(level==='low'||level==='critical');
+    if(!suppressLowCritical){
+     const triggerText=`${config.name} — Tank ${tank.number} (${tank.fuel}): ${level==='normal'?'fuel recovered':level+' fuel'}. ${r.volume.toLocaleString('en-US')} US gallons (${(r.volume/tank.capacity*100).toFixed(1)}%).`;
+     const message=allTankMessage(config,reading,{headline:triggerText,triggerTank:tank.number,triggerLevel:level});
+     jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,tank.number,level,message,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
+    }
    }
   }
   jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET reading=?,last_observed=?,last_contact=?,error=NULL WHERE id=?').bind(JSON.stringify(reading),reading.observed_at,new Date(now).toISOString(),id));
