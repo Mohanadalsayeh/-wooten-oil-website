@@ -292,7 +292,14 @@
   inlineEdit={id,section,dirty:false};
   const titles={tanks:'Tank settings',location:'Location details',connection:'Veeder-Root connection'};
   let content='';
-  if(section==='location')content='<fieldset class="fm-icon-field"><legend>Location tab icon</legend><div id="fmInlineIcons"></div></fieldset><div class="fm-grid">'+field('name','Station name',l.name,'text','required maxlength="100"')+field('phone','Station phone',l.phone,'tel')+field('address','Street address / location',l.address,'text','maxlength="300"')+'</div>'+(l.reading?.site_header?'<div class="fm-detected"><h3>Station header from monitor</h3><pre>'+esc(l.reading.site_header)+'</pre><button type="button" data-inline-import>Use header name & address</button></div>':'');
+  if(section==='location')content='<fieldset class="fm-icon-field"><legend>Location tab icon</legend><div id="fmInlineIcons"></div></fieldset>'
+   +'<div class="fm-grid">'+field('name','Station name',l.name,'text','required maxlength="100"')+field('phone','Station phone',l.phone,'tel')+field('address','Street address / location',l.address,'text','maxlength="300"')+'</div>'
+   +(l.reading?.site_header?'<div class="fm-detected"><h3>Station header from monitor</h3><pre>'+esc(l.reading.site_header)+'</pre><button type="button" data-inline-import>Use header name & address</button></div>':'')
+   +'<section class="fm-location-alert-delivery" aria-label="Alert delivery"><h3>Alert delivery</h3>'
+   +'<p>Choose how fuel alerts and automatic fuel readings are delivered. The station phone above is contact information; SMS is sent only to the alert mobile numbers below.</p>'
+   +'<div class="fm-delivery-methods">'+toggle('portal','Portal notification',l.portal)+toggle('email','Email alert',l.email)+toggle('sms','SMS alert',l.sms)+'</div>'
+   +'<div class="fm-grid">'+recipientFields('email_to','Alert email addresses',l.email_to,'email')+recipientFields('sms_to','Alert mobile numbers',l.sms_to,'tel')+'</div>'
+   +'<p>Use + Add email or + Add phone number to include additional recipients. These settings apply to this location only.</p></section>';
   if(section==='connection'){
    const notes='<p>A station computer collects readings and sends them securely to the portal. It must reach both the monitor and the internet.</p><p>Use the inventory data port, not the web login or configuration port. Read-only TLS-350 display-format collector. US gallons, inches, and °F.</p>';
    const display=(label,value)=>'<div class="fm-connection-value"><span>'+label+'</span><strong>'+esc(value)+'</strong></div>';
@@ -318,7 +325,9 @@
   const inlineSnapshot=()=>{
    if(section==='location')return JSON.stringify({
     name:inlineField(form,'name'),phone:inlineField(form,'phone'),address:inlineField(form,'address'),
-    icon:form.querySelector('[name=icon]:checked')?.value||'fuel'
+    icon:form.querySelector('[name=icon]:checked')?.value||'fuel',
+    portal:inlineField(form,'portal'),email:inlineField(form,'email'),sms:inlineField(form,'sms'),
+    email_to:inlineField(form,'email_to'),sms_to:inlineField(form,'sms_to')
    });
    if(section==='connection')return JSON.stringify({
     model:inlineField(form,'model'),host:inlineField(form,'host'),port:inlineField(form,'port'),
@@ -390,7 +399,7 @@
   form.onsubmit=async e=>{e.preventDefault();if(inlineSaving||readOnlyConnection||!updateInlineSave())return;if(section==='tanks'&&!validTanks())return;const invalid=[...form.querySelectorAll('input,select')].find(el=>!el.checkValidity());if(invalid){const row=invalid.closest('.fm-tank-editor');if(row)count(row);const details=invalid.closest('details');if(details)details.open=true;invalid.reportValidity();return;}inlineSaving=true;const session=epoch;const controls=[...root.querySelectorAll('button,input,select')];const disabled=controls.map(c=>c.disabled);controls.forEach(c=>c.disabled=true);const note=form.querySelector('.fm-inline-message');note.textContent='Saving changes…';
    try{
     const latest=await api();const current=latest.locations.find(x=>x.id===id);if(!current)throw Error('This location no longer exists. Refresh locations.');const config={...current};
-    const names=section==='location'?['name','phone','address']:section==='connection'?['model','host','port','interval','enabled']:['portal','email','sms','email_to','sms_to'];
+    const names=section==='location'?['name','phone','address','portal','email','sms','email_to','sms_to']:section==='connection'?['model','host','port','interval','enabled']:['portal','email','sms','email_to','sms_to'];
     for(const name of names){const el=form.elements.namedItem(name);config[name]=el.type==='checkbox'?el.checked:el.value;}
     if(section==='location')config.icon=form.querySelector('[name=icon]:checked')?.value||'fuel';
     if(section==='tanks')config.tanks=[...form.querySelectorAll('.fm-tank-editor')].map(row=>Object.fromEntries([...row.querySelectorAll('input,select')].map(el=>[el.name,el.type==='checkbox'?el.checked:el.value])));
