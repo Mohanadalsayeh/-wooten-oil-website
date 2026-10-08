@@ -8,6 +8,28 @@
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';
  let creatingLocation=false;
  let focusedFuelAlert=null,scrollToFuelAlert=0;
+ // The bell's blue target highlight is temporary, not a permanent selected state.
+ let fuelAlertHighlightUntil=0,fuelAlertHighlightTimer=0;
+ function clearFuelAlertHighlight(){
+  if(fuelAlertHighlightTimer){clearTimeout(fuelAlertHighlightTimer);fuelAlertHighlightTimer=0;}
+  fuelAlertHighlightUntil=0;
+  root.querySelectorAll('.fm-alert-targeted').forEach(card=>{
+   card.classList.remove('fm-alert-targeted');
+   if(document.activeElement===card)card.blur();
+  });
+ }
+ function startFuelAlertHighlight(){
+  clearFuelAlertHighlight();
+  fuelAlertHighlightUntil=Date.now()+5000;
+  fuelAlertHighlightTimer=setTimeout(()=>{
+   fuelAlertHighlightTimer=0;
+   fuelAlertHighlightUntil=0;
+   root.querySelectorAll('.fm-alert-targeted').forEach(card=>{
+    card.classList.remove('fm-alert-targeted');
+    if(document.activeElement===card)card.blur();
+   });
+  },5000);
+ }
  let history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all',alertPage=1;
  const ALERTS_PER_PAGE=20;
  const dialog=document.createElement('dialog');dialog.className='fm-dialog';document.body.append(dialog);
@@ -193,7 +215,7 @@
    }
   }
   document.getElementById('fmAlerts').innerHTML=shownAlerts.length?shownAlerts.map(renderPortalAlert).join(''):'<p>No fuel alerts recorded.</p>';
-  if(focusedFuelAlert){
+  if(focusedFuelAlert&&Date.now()<fuelAlertHighlightUntil){
    const highlighted=[...root.querySelectorAll('[data-fuel-alert-id]')].find(node=>Number(node.dataset.fuelAlertId)===Number(focusedFuelAlert.id));
    if(highlighted){
     highlighted.classList.add('fm-alert-targeted');
@@ -635,7 +657,7 @@ root.addEventListener('click',e=>{
  }
 });
 
- root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
+ root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  document.getElementById('fmAdd').onclick=()=>{if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline()){render();openEdit();}};document.getElementById('fmRefresh').onclick=()=>{if(leaveInline())load();};
  // Jump from a notification to the precise historical alert, not just the tab.
@@ -657,6 +679,7 @@ root.addEventListener('click',e=>{
    locations=data.locations;
    focusedFuelAlert=target;
    scrollToFuelAlert=id;
+   startFuelAlertHighlight();
    alerts=[...(data.alerts||[])];
    if(!alerts.some(a=>Number(a.id)===id))alerts.push(target);
    alerts.sort((a,b)=>Number(b.id)-Number(a.id));
@@ -666,11 +689,11 @@ root.addEventListener('click',e=>{
    render();
    if(!root.querySelector('[data-fuel-alert-id="'+id+'"]'))throw Error('The selected alert could not be displayed.');
    message('Showing the selected fuel alert in '+(locations.find(l=>String(l.id)===location)?.name||'this location')+'.');
-  }catch(error){if(sequence===fuelAlertJumpSeq)message(error.message,true);}
+  }catch(error){if(sequence===fuelAlertJumpSeq){clearFuelAlertHighlight();message(error.message,true);}}
  }
  window.addEventListener('wooten-open-fuel-alert-notification',event=>{openSpecificFuelAlert(event.detail);});
  window.addEventListener('wooten-admin-page-open',e=>{if(e.detail?.panel==='fuel-monitor')load()});
- window.addEventListener('wooten-admin-auth-changed',()=>{focusedFuelAlert=null;scrollToFuelAlert=0;epoch++;creatingLocation=false;inlineEdit=null;inlineSaving=false;locations=[];alerts=[];history=[];activeLocation='all';dialog.close();render();if(!document.getElementById('admin-tab-fuel-monitor').hidden)load()});
+ window.addEventListener('wooten-admin-auth-changed',()=>{clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;epoch++;creatingLocation=false;inlineEdit=null;inlineSaving=false;locations=[];alerts=[];history=[];activeLocation='all';dialog.close();render();if(!document.getElementById('admin-tab-fuel-monitor').hidden)load()});
  setInterval(()=>{if(!document.hidden&&!document.getElementById('admin-tab-fuel-monitor').hidden&&!dialog.open)load()},60000);
  if(!document.getElementById('admin-tab-fuel-monitor').hidden)load();
 })();
