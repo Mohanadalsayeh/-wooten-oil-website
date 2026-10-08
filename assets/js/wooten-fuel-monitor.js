@@ -39,7 +39,7 @@
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
-  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-gauge" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M6.2 13.2 4.8 12.4M8.5 10.4 7.4 9M12 9V7M15.5 10.4 16.6 9M17.8 13.2l1.4-.8"/><path d="m12 16 4-4"/><circle cx="12" cy="16" r="1.4"/></svg>'};
+  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-gauge" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" shape-rendering="geometricPrecision"><path class="fm-gauge-arc" d="M8 35a16 16 0 0 1 32 0"/><path class="fm-gauge-ticks" d="m12 27-3-1.2m8.5-6.3-2-2.6M24 18v-3m6.5 4.5 2-2.6M36 27l3-1.2"/><path class="fm-gauge-needle" d="m24 34 9-12"/><circle class="fm-gauge-center" cx="24" cy="34" r="3.4"/></svg>'};
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){
@@ -154,7 +154,7 @@
     const dial='<div class="fm-dial-wrap"><svg class="fm-dial" viewBox="0 0 220 148" role="img" aria-label="Tank '+t.number+': '+esc(valid?displayedPercent+' full; '+status:'no reading available')+'"><path class="fm-dial-track" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke-width="16" stroke-linecap="round"/>'+(valid&&percent>0?'<path class="fm-dial-fill" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke="'+band.color+'" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="'+percent+' 100"/>':'')+'<text class="fm-dial-value" x="110" y="96" text-anchor="middle">'+displayedPercent+'</text><text class="fm-dial-tick" x="22" y="139" text-anchor="middle">0</text><text class="fm-dial-tick" x="198" y="139" text-anchor="middle">100%</text></svg></div>';
     return '<div class="fm-tank fm-tank-dial"><div class="fm-tank-title"><span class="fm-tank-number" aria-label="Tank '+t.number+'">'+t.number+'</span><strong>'+esc(t.fuel)+'</strong></div>'+dial+'<div class="fm-dial-quantity">'+(valid?volume.toLocaleString('en-US'):'—')+' <span>/ '+capacity.toLocaleString('en-US')+' gal</span></div><div class="fm-dial-caption" style="color:'+band.color+'">'+esc(status)+'</div><div class="fm-tank-thresholds"><span>Low threshold<b>'+t.low+(t.mode==='percent'?'%':' gal')+'</b></span><span>Critical alert<b>'+t.critical+(t.mode==='percent'?'%':' gal')+'</b></span></div>'+(t.alerts?'':'<p>Tank alerts off</p>')+(valid?'<div class="fm-water-reading"><span>Water level</span><strong>'+esc(r.water==null?'Not reported':r.water+' in')+'</strong><small>'+esc(stale||l.error||!l.enabled?'Last known reading':'From monitor')+'</small></div><p>Ullage: '+esc(r.ullage??'—')+' gal · Temp: '+esc(r.temperature??'—')+' °F</p>':'')+'</div>';
 
-   }).join(''):'<p>Add tanks or review detected tanks after the first reading.</p>')+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Edit Veeder-Root connection</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length?'disabled title="No fuel reading available yet"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
+   }).join(''):'<p>Add tanks or review detected tanks after the first reading.</p>')+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length?'disabled title="No fuel reading available yet"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
   }).join(''):'<div class="fm-empty">No locations yet. Add your first gas station to set up its tanks and monitoring.</div>';
   for(const card of root.querySelectorAll('.fm-location')){
    const footer=card.querySelector('.fm-station-actions');
@@ -233,17 +233,26 @@
  function countTanks(editor=dialog){editor.querySelector('#fmTankCount').textContent='('+editor.querySelectorAll('.fm-tank-editor').length+')';}
  let inlineEdit=null,inlineSaving=false;
  function leaveInline(){if(inlineSaving)return false;if(inlineEdit?.dirty&&!confirm('Discard unsaved changes?'))return false;inlineEdit=null;return true;}
- function openInline(id,section){
+ function openInline(id,section,connectionPassword=''){
   if(activeLocation==='all'||!leaveInline())return;
   render();const l=locations.find(x=>x.id===id);if(!l)return;
   const card=[...root.querySelectorAll('.fm-location')].find(x=>x.dataset.station===id),middle=card.querySelector('.fm-station-page');
+  const connectionUnlocked=section==='connection'&&Boolean(connectionPassword);
   inlineEdit={id,section,dirty:false};
   const titles={tanks:'Tank settings',location:'Location details',connection:'Veeder-Root connection'};
   let content='';
   if(section==='location')content='<fieldset class="fm-icon-field"><legend>Location tab icon</legend><div id="fmInlineIcons"></div></fieldset><div class="fm-grid">'+field('name','Station name',l.name,'text','required maxlength="100"')+field('phone','Station phone',l.phone,'tel')+field('address','Street address / location',l.address,'text','maxlength="300"')+'</div>'+(l.reading?.site_header?'<div class="fm-detected"><h3>Station header from monitor</h3><pre>'+esc(l.reading.site_header)+'</pre><button type="button" data-inline-import>Use header name & address</button></div>':'');
-  if(section==='connection')content='<div class="fm-grid">'+modelField(l.model,'fmInlineModelChoices')+field('host','Local monitor IP / hostname',l.host,'text','required')+field('port','TCP data port',l.port,'number','required min="1" max="65535"')+field('interval','Read every (seconds)',l.interval,'number','required min="60" max="86400"')+toggle('enabled','Enable monitoring',l.enabled)+'</div><p>A station computer collects readings and sends them securely to the portal. It must reach both the monitor and the internet.</p><p>Use the inventory data port, not the web login or configuration port. Read-only TLS-350 display-format collector. US gallons, inches, and °F.</p>';
+  if(section==='connection'){
+   const notes='<p>A station computer collects readings and sends them securely to the portal. It must reach both the monitor and the internet.</p><p>Use the inventory data port, not the web login or configuration port. Read-only TLS-350 display-format collector. US gallons, inches, and °F.</p>';
+   const display=(label,value)=>'<div class="fm-connection-value"><span>'+label+'</span><strong>'+esc(value)+'</strong></div>';
+   content=connectionUnlocked
+    ?'<p class="fm-connection-unlocked-note">Master Admin authorization verified. Review your changes before saving.</p><div class="fm-grid">'+modelField(l.model,'fmInlineModelChoices')+field('host','Local monitor IP / hostname',l.host,'text','required')+field('port','TCP data port',l.port,'number','required min="1" max="65535"')+field('interval','Read every (seconds)',l.interval,'number','required min="60" max="86400"')+toggle('enabled','Enable monitoring',l.enabled)+'</div>'+notes
+    :'<div class="fm-connection-readonly-note">'+actionIcon('shield')+' Connection settings are read-only. Select <strong>Edit</strong> and enter the Master Admin password to make changes.</div><div class="fm-grid fm-connection-readonly">'+display('Monitor model',l.model)+display('Local monitor IP / hostname',l.host)+display('TCP data port',l.port)+display('Read every (seconds)',l.interval)+display('Monitoring status',l.enabled?'Enabled':'Paused')+'</div>'+notes;
+  }
   if(section==='tanks')content='<p>Use the same tank numbers as the monitor. These settings affect portal monitoring only.</p>'+(l.reading?.tanks?.length?'<button type="button" data-inline-detect>Add detected tanks</button>':'')+'<datalist id="fmInlineFuelTypes"><option>Regular Unleaded (87)</option><option>Premium Unleaded (93)</option><option>Road Diesel</option><option>Off-Road Diesel</option><option>Kerosene</option></datalist><div class="fm-tank-tabs" role="tablist" aria-label="Tank settings" data-tank-tabs></div><div data-inline-tanks>'+l.tanks.map(t=>tankRow(t).replace('fmFuelTypes','fmInlineFuelTypes')).join('')+'</div><p>Critical must be below Low. Recovery must be above Low.</p><details class="fm-inline-alerts"><summary>Alert delivery</summary><div class="fm-delivery-methods">'+toggle('portal','Portal notification',l.portal)+toggle('email','Email alert',l.email)+toggle('sms','SMS alert',l.sms)+'</div><div class="fm-grid">'+recipientFields('email_to','Alert email addresses',l.email_to,'email')+recipientFields('sms_to','Alert mobile numbers',l.sms_to,'tel')+'</div><p>Delivery settings apply to this location’s tank alerts.</p></details>';
-  middle.innerHTML='<form class="fm-inline-form"><div class="fm-inline-heading"><h3>'+titles[section]+'</h3>'+(section==='tanks'?'<button type="button" data-inline-add>'+actionIcon('plus')+'Add tank</button>':'')+'</div>'+content+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save">'+(section==='location'?'<button class="fm-delete" type="button" data-inline-delete>Delete location</button>':'')+'<button type="button" data-inline-back>Cancel</button><button type="submit">Save changes</button></div></form>';
+  const readOnlyConnection=section==='connection'&&!connectionUnlocked;
+  const controls=readOnlyConnection?'<button type="button" data-inline-back>Close</button><button class="fm-connection-edit" type="button" data-inline-unlock>'+actionIcon('settings')+'Edit</button>':'<button type="button" data-inline-back>Cancel</button><button type="submit">Save changes</button>';
+  middle.innerHTML='<form class="fm-inline-form"><div class="fm-inline-heading"><h3>'+titles[section]+'</h3>'+(readOnlyConnection?'<span class="fm-connection-readonly-label">Read only</span>':'')+(section==='tanks'?'<button type="button" data-inline-add>'+actionIcon('plus')+'Add tank</button>':'')+'</div>'+content+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save">'+(section==='location'?'<button class="fm-delete" type="button" data-inline-delete>Delete location</button>':'')+controls+'</div></form>';
   card.querySelectorAll('[data-inline-section]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inlineSection===section)));
   const form=middle.querySelector('form');let activeTank=null;
   const count=(preferred)=>{
@@ -275,25 +284,55 @@
   setupRecipients(form);
   if(section==='location'){form.classList.add('fm-location-details');compactIconPicker(form.querySelector('#fmInlineIcons'),l.icon||'fuel');}
   form.addEventListener('input',()=>{form.querySelectorAll('input,select').forEach(el=>el.setCustomValidity(''));if(inlineEdit)inlineEdit.dirty=true});form.addEventListener('change',()=>{if(inlineEdit)inlineEdit.dirty=true});
-  form.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||inlineSaving)return;
+  form.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||inlineSaving)return;
    if(b.hasAttribute('data-inline-back')){if(leaveInline())render();}
+   if(b.hasAttribute('data-inline-unlock')){
+    const password=await requestConnectionEditPassword(l);
+    if(password&&inlineEdit?.id===id&&inlineEdit.section===section)openInline(id,'connection',password);
+    return;
+   }
    if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}).replace('fmFuelTypes','fmInlineFuelTypes'));inlineEdit.dirty=true;count(form.querySelector('[data-inline-tanks]').lastElementChild);form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
    if(b.classList.contains('fm-remove')){confirmTankRemoval(b.closest('fieldset'),()=>{if(inlineEdit)inlineEdit.dirty=true;count();});}
    if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}inlineEdit.dirty=true;count(form.querySelector('[data-inline-tanks]').lastElementChild);}
    if(b.hasAttribute('data-inline-import')){const lines=l.reading.site_header.split('\n').map(s=>s.trim()).filter(Boolean);form.elements.name.value=lines[0]||l.name;form.elements.address.value=lines.slice(1).join(', ');inlineEdit.dirty=true;}
    if(b.hasAttribute('data-inline-delete')){if(!leaveInline())return;render();deleteLocation(l);}
   });
-  form.onsubmit=async e=>{e.preventDefault();if(inlineSaving)return;if(section==='tanks'&&!validTanks())return;const invalid=[...form.querySelectorAll('input,select')].find(el=>!el.checkValidity());if(invalid){const row=invalid.closest('.fm-tank-editor');if(row)count(row);const details=invalid.closest('details');if(details)details.open=true;invalid.reportValidity();return;}inlineSaving=true;const session=epoch;const controls=[...root.querySelectorAll('button,input,select')];const disabled=controls.map(c=>c.disabled);controls.forEach(c=>c.disabled=true);const note=form.querySelector('.fm-inline-message');note.textContent='Saving changes…';
+  form.onsubmit=async e=>{e.preventDefault();if(inlineSaving||readOnlyConnection)return;if(section==='tanks'&&!validTanks())return;const invalid=[...form.querySelectorAll('input,select')].find(el=>!el.checkValidity());if(invalid){const row=invalid.closest('.fm-tank-editor');if(row)count(row);const details=invalid.closest('details');if(details)details.open=true;invalid.reportValidity();return;}inlineSaving=true;const session=epoch;const controls=[...root.querySelectorAll('button,input,select')];const disabled=controls.map(c=>c.disabled);controls.forEach(c=>c.disabled=true);const note=form.querySelector('.fm-inline-message');note.textContent='Saving changes…';
    try{
     const latest=await api();const current=latest.locations.find(x=>x.id===id);if(!current)throw Error('This location no longer exists. Refresh locations.');const config={...current};
     const names=section==='location'?['name','phone','address']:section==='connection'?['model','host','port','interval','enabled']:['portal','email','sms','email_to','sms_to'];
     for(const name of names){const el=form.elements.namedItem(name);config[name]=el.type==='checkbox'?el.checked:el.value;}
     if(section==='location')config.icon=form.querySelector('[name=icon]:checked')?.value||'fuel';
     if(section==='tanks')config.tanks=[...form.querySelectorAll('.fm-tank-editor')].map(row=>Object.fromEntries([...row.querySelectorAll('input,select')].map(el=>[el.name,el.type==='checkbox'?el.checked:el.value])));
-    await api({action:'save',id,config,password:removalPasswords.get(form)});inlineEdit=null;inlineSaving=false;await load();message('Location changes saved.');
+    await api({action:'save',id,config,password:connectionUnlocked?connectionPassword:removalPasswords.get(form)});inlineEdit=null;inlineSaving=false;await load();message('Location changes saved.');
    }catch(err){if(epoch===session){note.textContent=err.message;note.classList.add('fm-error');}}
    finally{inlineSaving=false;controls.forEach((c,i)=>c.disabled=disabled[i]);}
   };
+ }
+
+
+ function requestConnectionEditPassword(l){
+  return new Promise(resolve=>{
+   const prompt=document.createElement('dialog');prompt.className='fm-dialog fm-remove-confirm';
+   prompt.setAttribute('aria-labelledby','fmConnectionAuthTitle');
+   prompt.innerHTML='<form><header><span class="fm-remove-icon">'+actionIcon('shield')+'</span><h2 id="fmConnectionAuthTitle">Edit Veeder-Root connection?</h2><p>'+esc(l.name)+'</p></header><div class="fm-dialog-body"><p>Only someone with the Master Admin password can change the monitor IP, port, polling interval, or monitoring status.</p><label>Master Admin password<input name="password" type="password" autocomplete="off" required placeholder="Enter Master Admin password"></label><p class="fm-error" role="status"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Unlock editing</button></footer></form>';
+   document.body.append(prompt);
+   let working=false;
+   const close=value=>{if(working)return;prompt.close();prompt.remove();resolve(value);};
+   prompt.querySelector('button[type=button]').onclick=()=>close(null);
+   prompt.addEventListener('cancel',e=>{e.preventDefault();close(null);});
+   prompt.querySelector('form').onsubmit=async e=>{
+    e.preventDefault();if(working)return;working=true;
+    const input=prompt.querySelector('input[name=password]'),password=input.value;
+    input.value='';prompt.querySelectorAll('button').forEach(b=>b.disabled=true);
+    try{
+     await api({action:'verify_connection_edit',id:l.id,password});
+     working=false;close(password);
+    }catch(err){prompt.querySelector('[role=status]').textContent=err.message;input.focus();}
+    finally{working=false;prompt.querySelectorAll('button').forEach(b=>b.disabled=false);}
+   };
+   prompt.showModal();prompt.querySelector('input').focus();
+  });
  }
 
  async function confirmTankRemoval(row,onRemoved){

@@ -139,16 +139,25 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
   }
-  if(!['save','pair','delete','acknowledge','send_reading'].includes(action))fail('Unknown action.');
+  if(!['save','pair','delete','acknowledge','send_reading','verify_connection_edit'].includes(action))fail('Unknown action.');
   const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
   if(action!=='save'&&!row)fail('Location no longer exists.',404);
   if(row?.lock_until>Date.now())fail('A reading is being saved. Try again in a few seconds.',409);
+  if(action==='verify_connection_edit'){
+   if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('The Master Admin password is incorrect.',403);
+   return reply({success:true});
+  }
   const jobs=[];let token='',detail='',changes=[];
   if(action==='save'){
    if(b.id&&!row)fail('Location no longer exists.',404);
    const c=validateConfig({...b.config,icon:b.config?.icon||(row?JSON.parse(row.config).icon:'fuel')||'fuel'});detail=`Saved location ${c.name}; ${c.tanks.length} tanks.`;
    if(row){
-    const previous=JSON.parse(row.config).tanks||[],numbers=new Set(c.tanks.map(t=>Number(t.number)));
+    const oldConfig=JSON.parse(row.config),previous=oldConfig.tanks||[],numbers=new Set(c.tanks.map(t=>Number(t.number)));
+    // Always check on the server, including a full-config POST made without the UI.
+    // New locations are allowed; changing existing connection fields requires Master Admin.
+    const connectionFields=['model','host','port','interval','enabled'];
+    const connectionChanged=connectionFields.some(field=>JSON.stringify(oldConfig[field])!==JSON.stringify(c[field]));
+    if(connectionChanged&&(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password)))fail('Enter the Master Admin password to change Veeder-Root connection settings.',403);
     if(previous.some(t=>!numbers.has(Number(t.number)))&&(typeof verifyPassword!=='function'||!await verifyPassword(b.password)))fail('Enter the signed-in admin password before removing saved tanks.',403);
    }
    const before=row?JSON.parse(row.config):{};

@@ -583,3 +583,55 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   stroke-linecap:round;
   stroke-linejoin:round;
 }
+
+/* Ver882: Read-only Veeder-Root connection summary and Master Admin edit gate */
+#fuelMonitorRoot .fm-connection-readonly-note{
+ display:flex;align-items:center;gap:9px;padding:12px 14px;border:1px solid #cbdbe8;
+ border-radius:10px;background:#f1f7fb;color:#365b77;font-size:13px;line-height:1.5;
+}
+#fuelMonitorRoot .fm-connection-readonly-note svg{width:19px;height:19px;flex:0 0 auto}
+#fuelMonitorRoot .fm-connection-readonly-label{
+ padding:5px 11px;border-radius:99px;background:#e9f0f5;color:#496780;font-weight:800;font-size:12px;
+}
+#fuelMonitorRoot .fm-connection-value{
+ min-width:0;display:flex;flex-direction:column;gap:10px;
+}
+#fuelMonitorRoot .fm-connection-value>span{color:#173850;font-weight:700;font-size:14px}
+#fuelMonitorRoot .fm-connection-value>strong{
+ display:flex;align-items:center;min-height:58px;padding:12px 16px;border:1px solid #cedde8;
+ border-radius:12px;background:#f7fafc;color:#173850;font-weight:800;font-size:15px;overflow-wrap:anywhere;
+}
+#fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-connection-edit{
+ background:#21699b!important;border-color:#21699b!important;color:#fff!important;min-width:112px;
+}
+#fuelMonitorRoot .fm-inline-form .fm-inline-save .fm-connection-edit:hover{
+ background:#195681!important;border-color:#195681!important;
+}
+#fuelMonitorRoot .fm-connection-unlocked-note{
+ padding:11px 14px;border:1px solid #cbdbe8;border-radius:10px;background:#f1f7fb;color:#365b77;font-size:13px;
+}
+@media(max-width:600px){#fuelMonitorRoot .fm-connection-readonly-note{align-items:flex-start}}
+
+/* Ver883: crisp, resolution-independent fuel-reading gauge icon (option 1). */
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol .fm-fuel-reading-gauge{
+  display:block!important;
+  width:33px!important;
+  height:33px!important;
+  max-width:none;
+  flex-shrink:0;
+  fill:none!important;
+  stroke:none!important;
+  overflow:visible;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-gauge-arc{
+  fill:none;stroke:#fff;stroke-width:3.7;stroke-linecap:round;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-gauge-ticks{
+  fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-gauge-needle{
+  fill:none;stroke:#fff;stroke-width:3.6;stroke-linecap:round;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-gauge-center{
+  fill:#fff;stroke:none;
+}
