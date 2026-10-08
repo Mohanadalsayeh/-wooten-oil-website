@@ -39,7 +39,7 @@
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
-  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-gauge" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" shape-rendering="geometricPrecision"><path class="fm-gauge-arc" d="M8 35a16 16 0 0 1 32 0"/><path class="fm-gauge-ticks" d="m12 27-3-1.2m8.5-6.3-2-2.6M24 18v-3m6.5 4.5 2-2.6M36 27l3-1.2"/><path class="fm-gauge-needle" d="m24 34 9-12"/><circle class="fm-gauge-center" cx="24" cy="34" r="3.4"/></svg>'};
+  if(level==='reading')return {label:'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-gauge" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"><path d="M10 34a14 14 0 0 1 28 0"/><path d="M15.5 25.5 14 23"/><path d="M24 21v-3"/><path d="M32.5 25.5 34 23"/><path d="M24 34 32 25"/></g><circle cx="24" cy="34" r="3.6" fill="currentColor"/></svg>'};
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){
@@ -388,10 +388,39 @@
   };prompt.showModal();prompt.querySelector('input').focus();
  }
  async function busy(fn,editor=dialog){const buttons=[...editor.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);editor.dataset.busy='1';try{await fn()}catch(e){const m=editor.querySelector('#fmDialogMessage');if(m)m.textContent=e.message;else message(e.message,true)}finally{buttons.forEach(b=>b.disabled=false);delete editor.dataset.busy;}}
- async function deleteLocation(l){if(!confirm('Delete '+l.name+' and its tank settings? The collector will stop.'))return;
-  dialog.innerHTML='<form id="fmDeleteForm"><header><h2>Delete location</h2></header><div class="fm-dialog-body"><p>'+esc(l.name)+'</p><p>Signed in as '+esc(window.wootenAdminUser?.display_name||window.wootenAdminUser?.username||'Admin')+'</p><label>Current admin password<input name="password" type="password" autocomplete="new-password" required></label><p id="fmDialogMessage" role="status"></p></div><footer><button class="secondary" type="button" id="fmDeleteCancel">Cancel</button><button type="submit">Delete location</button></footer></form>';
-  dialog.querySelector('#fmDeleteCancel').onclick=()=>dialog.close();if(!dialog.open)dialog.showModal();dialog.querySelector('[name=password]').focus();
-  dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const input=dialog.querySelector('[name=password]'),password=input.value;input.value='';await busy(async()=>{await api({action:'delete',id:l.id,password});dialog.close();await load();});};
+ async function deleteLocation(l){
+  // Use the same centered password-confirmation dialog as Remove tank.
+  // The server still verifies the signed-in admin password before deleting.
+  const prompt=document.createElement('dialog');
+  prompt.className='fm-dialog fm-remove-confirm';
+  prompt.setAttribute('aria-labelledby','fmDeleteLocationTitle');
+  prompt.innerHTML='<form id="fmDeleteForm"><header><span class="fm-remove-icon">'+actionIcon('shield')+'</span><h2 id="fmDeleteLocationTitle">Delete location?</h2><p>'+esc(l.name)+'<br>Confirm with the password for '+esc(window.wootenAdminUser?.username||window.wootenAdminUser?.display_name||'the signed-in admin')+'.</p></header><div class="fm-dialog-body"><label>Current admin password<input name="password" type="password" autocomplete="new-password" placeholder="Enter password" required value=""></label><div class="fm-remove-note">This will permanently delete the location and its tank settings. The station collector will no longer be able to upload to this location.</div><p class="fm-error" role="status" aria-live="polite"></p></div><footer><button class="secondary" type="button">Cancel</button><button type="submit">Delete location</button></footer></form>';
+  document.body.append(prompt);
+  let working=false;
+  const close=()=>{if(working)return;prompt.close();prompt.remove();};
+  prompt.querySelector('[type=button]').onclick=close;
+  prompt.addEventListener('cancel',e=>{e.preventDefault();close();});
+  prompt.querySelector('form').onsubmit=async e=>{
+   e.preventDefault();if(working)return;
+   working=true;
+   const input=prompt.querySelector('[name=password]'),password=input.value;
+   input.value='';prompt.querySelectorAll('button').forEach(b=>b.disabled=true);
+   try{
+    await api({action:'delete',id:l.id,password});
+    working=false;close();
+    // The legacy location editor may be open behind this confirmation.
+    if(dialog.open)dialog.close();
+    await load();
+   }catch(err){
+    if(prompt.isConnected){prompt.querySelector('[role=status]').textContent=err.message;input.focus();}
+    else message(err.message,true);
+   }finally{
+    working=false;
+    if(prompt.isConnected)prompt.querySelectorAll('button').forEach(b=>b.disabled=false);
+   }
+  };
+  prompt.showModal();
+  prompt.querySelector('[name=password]').focus();
  }
 
  function confirmCollectorReplacement(l){
