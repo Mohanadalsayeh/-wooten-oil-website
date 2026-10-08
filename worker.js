@@ -13535,51 +13535,177 @@ function fuelMonitorFmt(value,digits=0){
 function fuelMonitorEmailContent(message,context={}){
   const location=context.location||{},reading=context.reading||{},alert=context.alert||{};
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
-  const delivery=fuelMonitorDeliveryTanks(reading),manual=String(alert.level||'')==='reading';
-  const title=manual?'Fuel Reading':'Fuel Monitoring Alert';
+  const delivery=fuelMonitorDeliveryTanks(reading);
+  const level=String(alert.level||'reading').toLowerCase();
+  const manual=level==='reading';
+  const critical=level==='critical';
+  const low=level==='low';
+  const recovered=level==='normal';
   const created=context.last_observed||reading.observed_at||alert.created_at||new Date().toISOString();
-  let rows='',triggerStatus='';
+
+  const theme=critical
+    ?{accent:'#d71920',soft:'#fff0f1',border:'#ffabb2',headline:'CRITICAL FUEL ALERT',summary:'One or more tanks at '+(location.name||'this location')+' require attention.'}
+    :low
+      ?{accent:'#e66f00',soft:'#fff7e8',border:'#f5a338',headline:'LOW FUEL ALERT',summary:'One or more tanks at '+(location.name||'this location')+' are below the low threshold.'}
+      :recovered
+        ?{accent:'#18864b',soft:'#ecf8f1',border:'#9fd8b7',headline:'FUEL RECOVERED',summary:'The monitored tank has reached its recovery level.'}
+        :{accent:'#21699b',soft:'#eef6fb',border:'#b9d4e6',headline:'FUEL READING',summary:'Current readings for all configured tanks.'};
+
+  let rows='',triggerTank=null,triggerReading=null,triggerStatus='';
   for(const tank of tanks){
     const r=readings.find(x=>Number(x.number)===Number(tank.number));if(!r)continue;
     const status=fuelMonitorTankStatus(tank,r,delivery);
     const capacity=Number(tank.capacity),volume=Number(r.volume),pct=capacity>0?volume/capacity*100:NaN;
-    const tone=status.tone==='red'?{bg:'#fff0f0',fg:'#cf1828',dot:'#e3182d'}:status.tone==='orange'?{bg:'#fff8df',fg:'#a96500',dot:'#f5a000'}:status.tone==='green'?{bg:'#eaf8ef',fg:'#16733c',dot:'#1eb46a'}:{bg:'#f2f5f7',fg:'#66788a',dot:'#9aabba'};
-    rows+=`<tr>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:center;font-weight:700">${notificationEscapeHtml(tank.number)}</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 9px;font-weight:700">${notificationEscapeHtml(tank.fuel)}</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${fuelMonitorFmt(volume)} gal</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${fuelMonitorFmt(capacity)} gal</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${Number.isFinite(pct)?pct.toFixed(1)+'%':'—'}</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${fuelMonitorFmt(r.ullage)} gal</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${r.water==null?'—':fuelMonitorFmt(r.water,2)+' in'}</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${r.temperature==null?'—':fuelMonitorFmt(r.temperature,2)+' °F'}</td>
-      <td style="border:1px solid #dbe5ec;padding:10px 9px;background:${tone.bg};color:${tone.fg};font-weight:800;white-space:nowrap"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${tone.dot};margin-right:7px;vertical-align:-1px"></span>${notificationEscapeHtml(status.label)}</td>
+    const tone=status.tone==='red'
+      ?{bg:'#ffe7ea',fg:'#c8182a',dot:'#df1428'}
+      :status.tone==='orange'
+        ?{bg:'#fff2d0',fg:'#ae6500',dot:'#f3a000'}
+        :status.tone==='green'
+          ?{bg:'#e8f8ee',fg:'#16713b',dot:'#18ad61'}
+          :{bg:'#f2f5f7',fg:'#66788a',dot:'#9aabba'};
+    const isTrigger=Number(alert.tank_number)===Number(tank.number)&&!manual;
+    if(isTrigger){triggerTank=tank;triggerReading=r;triggerStatus=status.label;}
+    rows+=`<tr${isTrigger?` style="background:${theme.soft}"`:''}>
+      <td style="border:1px solid #d7e2ea;padding:10px 7px;text-align:center;font-weight:800;color:#17324d">${notificationEscapeHtml(tank.number)}</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 8px;font-weight:700;color:#17324d">${notificationEscapeHtml(tank.fuel)}</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 7px;text-align:right;color:#17324d">${fuelMonitorFmt(volume)} gal</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 7px;text-align:right;color:#17324d">${fuelMonitorFmt(capacity)} gal</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 7px;text-align:right;color:#17324d">${Number.isFinite(pct)?pct.toFixed(1)+'%':'—'}</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 7px;text-align:right;color:#17324d">${r.water==null?'—':fuelMonitorFmt(r.water,2)+' in'}</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 7px;text-align:right;color:#17324d">${r.temperature==null?'—':fuelMonitorFmt(r.temperature,2)+' °F'}</td>
+      <td style="border:1px solid #d7e2ea;padding:10px 8px;background:${tone.bg};color:${tone.fg};font-weight:900;white-space:nowrap"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${tone.dot};margin-right:7px;vertical-align:-1px"></span>${notificationEscapeHtml(status.label)}</td>
     </tr>`;
-    if(Number(alert.tank_number)===Number(tank.number)&&!manual)triggerStatus=status.label;
   }
-  const locationLine=[location.address,location.phone].filter(Boolean).join(' · ');
-  const alertBox=manual
-   ? `<div style="margin:16px 0 0;padding:14px 16px;border:1px solid #cbdce9;background:#f3f8fc;border-radius:10px;color:#173d5d"><strong>Manual fuel reading</strong><br><span style="font-size:13px">Current readings for all configured tanks were sent from the Wooten Oil portal.</span></div>`
-   : `<div style="margin:16px 0 0;padding:14px 16px;border:1px solid #ff9ca4;background:#fff0f1;border-radius:10px;color:#cf1828"><strong style="font-size:17px">Tank ${notificationEscapeHtml(alert.tank_number)} — ${notificationEscapeHtml(triggerStatus||String(alert.level||'Alert').toUpperCase())}</strong><br><span style="font-size:13px">${notificationEscapeHtml(String(message||'').split('\n')[0])}</span></div>`;
-  const html=`<!doctype html><html><body style="margin:0;background:#eef3f7;font-family:Arial,Helvetica,sans-serif;color:#17324d">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f7;padding:18px 8px"><tr><td align="center">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:920px;background:#fff;border:1px solid #d8e2ea;border-radius:12px;overflow:hidden">
-    <tr><td style="padding:20px 24px;border-bottom:3px solid #e3182d">
-      <table role="presentation" width="100%"><tr><td><div style="font-size:24px;font-weight:900;color:#113f6f">WOOTEN OIL CO., INC.</div><div style="font-size:10px;letter-spacing:2px;color:#66798b;margin-top:3px">FUELING OUR COMMUNITIES SINCE 1939</div></td>
-      <td align="right"><div style="font-size:18px;font-weight:800;color:#173d5d">${title}</div><div style="font-size:12px;color:#6c7e90">Veeder-Root TLS-350</div></td></tr></table>
-    </td></tr>
-    <tr><td style="padding:12px 24px 14px"><table role="presentation" width="100%"><tr><td style="font-size:13px;color:#536b80">Location: <strong style="color:#17324d">${notificationEscapeHtml(location.name||'Fuel location')}</strong>${locationLine?' ('+notificationEscapeHtml(locationLine)+')':''}</td><td align="right" style="font-size:12px;color:#536b80">${notificationEscapeHtml(created)}</td></tr></table></td></tr>
-    <tr><td style="padding:0 24px 2px;overflow-x:auto">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:#315b7a;color:#fff"><th style="padding:11px 8px">Tank</th><th style="padding:11px 8px;text-align:left">Product</th><th style="padding:11px 8px">Volume</th><th style="padding:11px 8px">Capacity</th><th style="padding:11px 8px">% Full</th><th style="padding:11px 8px">Ullage</th><th style="padding:11px 8px">Water</th><th style="padding:11px 8px">Temperature</th><th style="padding:11px 8px;text-align:left">Status</th></tr></thead>
-        <tbody>${rows||'<tr><td colspan="9" style="padding:16px;text-align:center;color:#6b7d90">No tank readings available.</td></tr>'}</tbody>
+
+  const locationAddress=String(location.address||'').trim();
+  const triggerProduct=triggerTank?.fuel||'';
+  const triggerTitle=triggerTank?`Tank ${triggerTank.number} — ${triggerProduct}`:'Fuel Monitoring';
+  const triggerDescription=critical
+    ?(/delivery needed/i.test(triggerStatus)?'Fuel has reached the delivery-needed threshold.':'Fuel is at or below the critical threshold.')
+    :low?'Fuel level is below the low threshold.'
+    :recovered?'Fuel has reached the recovery level.'
+    :'Current readings for all configured tanks were sent from the Wooten Oil portal.';
+
+  const otherAttention=tanks.some(t=>{
+    if(triggerTank&&Number(t.number)===Number(triggerTank.number))return false;
+    const r=readings.find(x=>Number(x.number)===Number(t.number));if(!r)return false;
+    return fuelMonitorTankStatus(t,r,delivery).tone!=='green';
+  });
+
+  const infoBox=critical
+    ?`<tr><td style="padding:0 24px 16px">
+       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #b7d5ef;background:#eef7ff;border-radius:10px">
+         <tr><td style="width:54px;padding:14px 0 14px 16px;vertical-align:top"><div style="width:30px;height:30px;border-radius:50%;background:#1f6fa8;color:#fff;text-align:center;line-height:30px;font-size:20px;font-weight:900">i</div></td>
+         <td style="padding:14px 16px 14px 10px;color:#173d5d;line-height:1.45"><strong style="font-size:15px">Please arrange a delivery soon to avoid a runout.</strong><br><span style="font-size:13px">${otherAttention?'Review the other tank statuses above for additional conditions.':'All other tanks are operating within normal levels.'}</span></td></tr>
+       </table>
+      </td></tr>`
+    :'';
+
+  const alertPanel=!manual
+    ?`<tr><td style="padding:16px 24px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid ${theme.border};background:${theme.soft};border-radius:10px">
+       <tr>
+        <td style="width:90px;padding:18px 0 18px 20px;vertical-align:middle">
+          <div style="width:54px;height:54px;border-radius:9px;background:${theme.accent};color:#fff;text-align:center;line-height:54px;font-size:30px;font-weight:900">⛽</div>
+        </td>
+        <td style="padding:16px 20px 16px 10px;border-left:2px solid ${theme.accent}">
+          <div style="font-size:17px;font-weight:800;color:#173d5d">${notificationEscapeHtml(triggerTitle)}</div>
+          <div style="font-size:27px;line-height:1.1;font-weight:900;color:${theme.accent};margin-top:4px">${theme.headline}</div>
+          <div style="font-size:14px;color:#173d5d;margin-top:5px">${notificationEscapeHtml(triggerDescription)}</div>
+        </td>
+       </tr>
       </table>
-      ${alertBox}
+     </td></tr>`
+    :`<tr><td style="padding:16px 24px">
+      <div style="padding:14px 16px;border:1px solid ${theme.border};background:${theme.soft};border-radius:10px;color:#173d5d">
+       <strong>Manual fuel reading</strong><br><span style="font-size:13px">Current readings for all configured tanks were sent from the Wooten Oil portal.</span>
+      </div>
+     </td></tr>`;
+
+  const html=`<!doctype html><html><body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#17324d">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;padding:18px 8px"><tr><td align="center">
+   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:820px;background:#fff;border:1px solid #d8e3eb;border-radius:12px;overflow:hidden">
+    <tr><td style="padding:18px 24px 14px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+       <td style="vertical-align:middle">
+        <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+         <td><div style="width:50px;height:50px;border-radius:10px;background:#e3182d;color:#fff;text-align:center;line-height:50px;font-size:24px;font-weight:900">WO</div></td>
+         <td style="padding-left:12px"><div style="font-size:22px;font-weight:900;color:#113f6f;white-space:nowrap">WOOTEN OIL CO., INC.</div><div style="font-size:9px;letter-spacing:2px;color:#66798b;margin-top:4px">FUELING OUR COMMUNITIES SINCE 1939</div></td>
+        </tr></table>
+       </td>
+       <td align="right" style="vertical-align:middle"><div style="font-size:15px;font-weight:900;color:#173d5d">Fuel Monitoring Alert</div><div style="font-size:12px;color:#6c7e90;margin-top:2px">Veeder-Root TLS-350</div></td>
+      </tr></table>
+      <div style="height:3px;background:#e3182d;margin-top:14px"></div>
     </td></tr>
-    <tr><td style="padding:14px 24px 22px"><table role="presentation" width="100%"><tr><td style="font-size:11px;color:#66798b;line-height:1.5">This is an automated message from the Wooten Oil fuel monitoring system.<br>Please do not reply to this email. For assistance, contact <strong>support@wootenoil.com</strong>.</td>
-    <td align="right"><a href="https://wootenoil.com/admin-customers#fuel-monitor" style="display:inline-block;background:#e3182d;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:800">View in Portal →</a></td></tr></table></td></tr>
-  </table></td></tr></table></body></html>`;
-  const subject=`${manual?'Fuel Reading':'Fuel Monitoring Alert'} — ${location.name||'Location'}`;
+
+    ${manual?'':`<tr><td style="padding:0 24px 16px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid ${theme.border};background:${theme.soft};border-radius:10px">
+       <tr>
+        <td style="width:90px;padding:18px 0 18px 20px;vertical-align:middle"><div style="width:58px;height:58px;border-radius:50%;background:${theme.accent};color:#fff;text-align:center;line-height:58px;font-size:34px;font-weight:900">!</div></td>
+        <td style="padding:18px 20px;border-left:2px solid ${theme.accent}">
+          <div style="font-size:30px;line-height:1.05;font-weight:900;color:${theme.accent}">${theme.headline}</div>
+          <div style="font-size:15px;color:#173d5d;margin-top:7px">${notificationEscapeHtml(theme.summary)}</div>
+        </td>
+       </tr>
+      </table>
+     </td></tr>`}
+
+    <tr><td style="padding:0 24px 16px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+       <td style="width:50%;vertical-align:top;padding-right:16px">
+        <div style="font-size:12px;font-weight:900;color:#173d5d">Location</div>
+        <div style="font-size:16px;font-weight:900;color:#17324d;margin-top:2px">${notificationEscapeHtml(location.name||'Fuel location')}</div>
+        ${locationAddress?`<div style="font-size:13px;color:#49657b;margin-top:2px">${notificationEscapeHtml(locationAddress)}</div>`:''}
+       </td>
+       <td style="width:50%;vertical-align:top;border-left:1px solid #cfdce6;padding-left:20px">
+        <div style="font-size:12px;font-weight:900;color:#173d5d">Reading Time</div>
+        <div style="font-size:14px;color:#17324d;margin-top:4px">${notificationEscapeHtml(created)}</div>
+       </td>
+      </tr></table>
+    </td></tr>
+
+    <tr><td style="padding:0 24px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:11px">
+       <thead><tr style="background:#315b7a;color:#fff">
+        <th style="padding:10px 6px">Tank</th>
+        <th style="padding:10px 7px;text-align:left">Product</th>
+        <th style="padding:10px 6px">Volume<br>(gal)</th>
+        <th style="padding:10px 6px">Capacity<br>(gal)</th>
+        <th style="padding:10px 6px">% Full</th>
+        <th style="padding:10px 6px">Water<br>(in)</th>
+        <th style="padding:10px 6px">Temperature<br>(°F)</th>
+        <th style="padding:10px 7px;text-align:left">Status</th>
+       </tr></thead>
+       <tbody>${rows||'<tr><td colspan="8" style="padding:16px;text-align:center;color:#6b7d90">No tank readings available.</td></tr>'}</tbody>
+      </table>
+    </td></tr>
+
+    ${alertPanel}
+    ${infoBox}
+
+    <tr><td style="padding:4px 24px 20px">
+      <div style="height:1px;background:#cfdce6;margin-bottom:14px"></div>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+       <td style="font-size:10px;color:#66798b;line-height:1.5">
+        This is an automated message from the Wooten Oil fuel monitoring system.<br>
+        Please do not reply to this email. For assistance, contact <strong style="color:#126aa2">support@wootenoil.com</strong>.
+       </td>
+       <td align="right" style="padding-left:16px">
+        <a href="https://wootenoil.com/admin-customers#fuel-monitor" style="display:inline-block;background:#e3182d;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:900;white-space:nowrap">View in Portal →</a>
+       </td>
+      </tr></table>
+    </td></tr>
+   </table>
+  </td></tr></table></body></html>`;
+
+  const subject=critical
+    ?`Critical Fuel Alert — ${location.name||'Location'}`
+    :low
+      ?`Low Fuel Alert — ${location.name||'Location'}`
+      :recovered
+        ?`Fuel Recovered — ${location.name||'Location'}`
+        :`Fuel Reading — ${location.name||'Location'}`;
+
   return {subject,html};
 }
 function fuelMonitorSmsContent(message,context={}){
