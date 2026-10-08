@@ -62,7 +62,7 @@
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
-  if(level==='reading'||level==='scheduled_reading')return {label:level==='scheduled_reading'?'AUTOMATIC FUEL READING':'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-pump" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fuel pump with reading chart" focusable="false"><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 41V9a3 3 0 0 1 3-3h16a3 3 0 0 1 3 3v32"/><rect x="14" y="12" width="12" height="10" rx="1.1"/><path d="M6 41h28"/><path d="M15 35v-4m5 4v-7m5 7v-10"/><path d="M31 13c4 0 6 3 6 7v11c0 3 1 5 4 5 2.5 0 3.5-1.8 3.5-4.5V20c0-2-1-3.5-2.5-5l-2-2"/></g></svg>'};
+  if(level==='reading'||level==='scheduled_reading')return {label:level==='scheduled_reading'?'AUTOMATIC FUEL READING':'FUEL READING',tone:'reading',icon:'<svg class="fm-fuel-reading-speedometer" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fuel level gauge" focusable="false"><circle cx="24" cy="24" r="18"/><path d="M24 11v4M13 17l3 3M35 17l-3 3M10.5 28h4M37.5 28h-4"/><path class="fm-speedometer-needle" d="M24 26 32 18"/><circle class="fm-speedometer-hub" cx="24" cy="26" r="3.2"/></svg>'};
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){

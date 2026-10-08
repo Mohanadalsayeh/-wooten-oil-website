@@ -781,3 +781,27 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 @media(prefers-reduced-motion:reduce){
   #fuelMonitorRoot .fm-monitor-panel > summary::before{transition:none}
 }
+
+/* Ver896: icon #2 from the 10-option Fuel Reading set: round speedometer.
+   Pure inline SVG with bold, clean strokes for sharp rendering on HiDPI and phones. */
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol svg.fm-fuel-reading-speedometer{
+  display:block!important;
+  width:34px!important;
+  height:34px!important;
+  max-width:none!important;
+  max-height:none!important;
+  flex:none!important;
+  overflow:visible!important;
+  fill:none!important;
+  stroke:#fff!important;
+  stroke-width:3.3px!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol svg.fm-fuel-reading-speedometer .fm-speedometer-needle{
+  stroke-width:4.3px!important;
+}
+#fuelMonitorRoot .fm-alert-card.reading .fm-alert-symbol svg.fm-fuel-reading-speedometer .fm-speedometer-hub{
+  fill:#fff!important;
+  stroke:none!important;
+}
