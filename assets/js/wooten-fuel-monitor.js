@@ -7,10 +7,11 @@
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';
  let creatingLocation=false;
- let history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all';
+ let history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all',alertPage=1;
+ const ALERTS_PER_PAGE=20;
  const dialog=document.createElement('dialog');dialog.className='fm-dialog';document.body.append(dialog);
  window.matchMedia('(min-width:541px)').addEventListener('change',e=>{root.querySelectorAll('.fm-overview-details').forEach(details=>{details.open=e.matches;});});
- root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel alert history</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div>';
+ root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel alert history</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div><div id="fmAlertPagination" class="db-pagination fm-alert-pagination" hidden><div class="db-page-info" id="fmAlertPageInfo">Page 1 of 1</div><div class="db-numbered-pages" id="fmAlertPageNumbers" aria-label="Fuel alert pages"></div><div class="db-pagination-controls"><button class="secondary" id="fmAlertPrev" type="button">Previous</button><button class="secondary" id="fmAlertNext" type="button">Next</button></div></div>';
  const message=(s,bad=false)=>{const el=document.getElementById('fmMessage');el.textContent=s;el.className=bad?'fm-error':'fm-note';};
  async function api(body){const token=key(),generation=epoch;const res=await fetch('/api/admin/fuel-monitor',{method:body?'POST':'GET',headers:{'X-Admin-Key':token,'Content-Type':'application/json'},cache:'no-store',...(body?{body:JSON.stringify(body)}:{})});const data=await res.json();if(token!==key()||generation!==epoch)throw Error('Admin session changed. Reopen Fuel Monitoring.');if(!res.ok||!data.success)throw Error(data.error||'Request failed.');return data;}
  async function load(){if(creatingLocation||inlineEdit||inlineSaving)return;if(loading||!key()||!allowed())return;loading=true;document.getElementById('fmRefresh').disabled=true;message('Loading locations…');try{const data=await api();if(creatingLocation||inlineEdit||inlineSaving)return;locations=data.locations;alerts=data.alerts;history=data.history||[];render();message(locations.length+' location(s) loaded.');}catch(e){message(e.message,true)}finally{loading=false;document.getElementById('fmRefresh').disabled=false}}
@@ -90,6 +91,41 @@
    +(['failed','partial'].includes(a.sms_status)?'<p class="fm-error">SMS: '+esc(a.sms_detail)+'</p>':'')
    +'</div></article>';
  }
+ function renderAlertPagination(total,pages){
+  const wrap=document.getElementById('fmAlertPagination');
+  const prev=document.getElementById('fmAlertPrev');
+  const next=document.getElementById('fmAlertNext');
+  const info=document.getElementById('fmAlertPageInfo');
+  const nums=document.getElementById('fmAlertPageNumbers');
+  if(!wrap||!prev||!next||!info||!nums)return;
+  if(total<=ALERTS_PER_PAGE){
+   wrap.hidden=true;
+   nums.innerHTML='';
+   return;
+  }
+  wrap.hidden=false;
+  info.textContent='Page '+alertPage+' of '+pages;
+  prev.disabled=alertPage<=1;
+  next.disabled=alertPage>=pages;
+
+  const parts=[];
+  const add=n=>parts.push(
+   '<button type="button" class="db-page-number'+(n===alertPage?' active':'')+
+   '" data-alert-page="'+n+'" '+(n===alertPage?'aria-current="page"':'')+'>'+n+'</button>'
+  );
+
+  if(pages<=7){
+   for(let n=1;n<=pages;n++)add(n);
+  }else{
+   add(1);
+   if(alertPage>4)parts.push('<span class="db-page-ellipsis" aria-hidden="true">…</span>');
+   const start=Math.max(2,alertPage-1),end=Math.min(pages-1,alertPage+1);
+   for(let n=start;n<=end;n++)add(n);
+   if(alertPage<pages-3)parts.push('<span class="db-page-ellipsis" aria-hidden="true">…</span>');
+   add(pages);
+  }
+  nums.innerHTML=parts.join('');
+ }
  function render(){
   if(activeLocation!=='all'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
   const tabs=document.getElementById('fmLocationTabs');tabs.replaceChildren();
@@ -97,7 +133,12 @@
   for(const l of views){const button=document.createElement('button');button.type='button';button.className='fm-location-tab';button.id='fm-location-tab-'+l.id;button.dataset.locationTab=l.id;button.setAttribute('role','tab');button.setAttribute('aria-controls','fmLocations');button.setAttribute('aria-selected',String(activeLocation===l.id));button.tabIndex=activeLocation===l.id?0:-1;const text=document.createElement('span');text.textContent=l.name;button.append(WootenLocationIcons.icon(l.icon||'fuel'),text);tabs.append(button)}
   document.getElementById('fmLocations').setAttribute('aria-labelledby','fm-location-tab-'+activeLocation);
   const shownLocations=activeLocation==='all'?locations:locations.filter(l=>l.id===activeLocation);
-  const shownAlerts=activeLocation==='all'?alerts:alerts.filter(a=>a.location_id===activeLocation);
+  const filteredAlerts=activeLocation==='all'?alerts:alerts.filter(a=>a.location_id===activeLocation);
+  const alertPages=Math.max(1,Math.ceil(filteredAlerts.length/ALERTS_PER_PAGE));
+  if(alertPage>alertPages)alertPage=alertPages;
+  if(alertPage<1)alertPage=1;
+  const alertStart=(alertPage-1)*ALERTS_PER_PAGE;
+  const shownAlerts=filteredAlerts.slice(alertStart,alertStart+ALERTS_PER_PAGE);
 
   document.getElementById('fmLocations').innerHTML=shownLocations.length?shownLocations.map(l=>{
    const stale=!l.last_observed||Date.now()-Date.parse(l.last_observed)>Math.max(180,l.interval*2)*1000;
@@ -134,6 +175,7 @@
    }
   }
   document.getElementById('fmAlerts').innerHTML=shownAlerts.length?shownAlerts.map(renderPortalAlert).join(''):'<p>No fuel alerts recorded.</p>';
+  renderAlertPagination(filteredAlerts.length,alertPages);
  }
  function compactIconPicker(container,selected){
   WootenLocationIcons.picker(container,selected);
@@ -351,7 +393,7 @@
   }
  }
 
- root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
+ root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  document.getElementById('fmAdd').onclick=()=>{if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline()){render();openEdit();}};document.getElementById('fmRefresh').onclick=()=>{if(leaveInline())load();};
  window.addEventListener('wooten-admin-page-open',e=>{if(e.detail?.panel==='fuel-monitor')load()});

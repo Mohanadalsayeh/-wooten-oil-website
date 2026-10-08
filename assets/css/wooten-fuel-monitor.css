@@ -506,3 +506,64 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
  #fuelMonitorRoot .fm-alert-card-foot{align-items:stretch;flex-direction:column}
  #fuelMonitorRoot .fm-alert-ack{width:100%}
 }
+
+/* Ver879 — Fuel Alert History pagination */
+#fuelMonitorRoot .fm-alert-pagination{
+  display:grid;
+  grid-template-columns:minmax(120px,1fr) auto minmax(190px,1fr);
+  align-items:center;
+  gap:14px;
+  margin-top:16px;
+}
+#fuelMonitorRoot .fm-alert-pagination[hidden]{display:none!important}
+#fuelMonitorRoot .fm-alert-pagination>.db-page-info{justify-self:start}
+#fuelMonitorRoot .fm-alert-pagination .db-numbered-pages{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+#fuelMonitorRoot .fm-alert-pagination .db-pagination-controls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+}
+#fuelMonitorRoot .fm-alert-pagination .db-page-number{
+  min-width:38px;
+  height:38px;
+  padding:0 10px;
+  border:1px solid #cbd8e3;
+  border-radius:8px;
+  background:#fff;
+  color:#17324d;
+  font:inherit;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+#fuelMonitorRoot .fm-alert-pagination .db-page-number:hover:not(.active),
+#fuelMonitorRoot .fm-alert-pagination .db-page-number:focus-visible:not(.active){
+  background:#f2f7fa;
+  border-color:#9dbad3;
+  outline:none;
+}
+#fuelMonitorRoot .fm-alert-pagination .db-page-number.active{
+  background:#173d5d;
+  color:#fff;
+  border-color:#173d5d;
+  cursor:default;
+}
+#fuelMonitorRoot .fm-alert-pagination .db-page-ellipsis{
+  padding:0 3px;
+  color:#667b8e;
+  font-weight:800;
+}
+@media(max-width:760px){
+  #fuelMonitorRoot .fm-alert-pagination{grid-template-columns:1fr}
+  #fuelMonitorRoot .fm-alert-pagination>.db-page-info{justify-self:start}
+  #fuelMonitorRoot .fm-alert-pagination .db-numbered-pages{justify-content:flex-start}
+  #fuelMonitorRoot .fm-alert-pagination .db-pagination-controls{justify-content:space-between}
+  #fuelMonitorRoot .fm-alert-pagination .db-pagination-controls button{flex:1}
+}
