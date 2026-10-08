@@ -13583,15 +13583,42 @@ function fuelMonitorEmailContent(message,context={}){
   return {subject,html};
 }
 function fuelMonitorSmsContent(message,context={}){
-  const location=context.location||{},reading=context.reading||{},alert=context.alert||{},manual=String(alert.level||'')==='reading';
+  const location=context.location||{},reading=context.reading||{},alert=context.alert||{};
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[],delivery=fuelMonitorDeliveryTanks(reading);
-  const parts=[];
+  const level=String(alert.level||'reading').toLowerCase();
+
+  const shortFuelName=value=>{
+    const fuel=String(value||'').trim();
+    if(/regular/i.test(fuel))return 'Regular';
+    if(/premium/i.test(fuel))return 'Premium';
+    if(/off[- ]?road|farm diesel/i.test(fuel))return 'Off-Road';
+    if(/road diesel/i.test(fuel))return 'Road Diesel';
+    return fuel.replace(/\s*\([^)]*\)\s*/g,' ').trim()||'Tank';
+  };
+
+  const heading=level==='critical'
+    ?'CRITICAL FUEL ALERT'
+    :level==='low'
+      ?'LOW FUEL ALERT'
+      :level==='normal'
+        ?'FUEL RECOVERED'
+        :'FUEL READING';
+
+  const lines=[heading,location.name||'Location',''];
+
   for(const tank of tanks){
-    const r=readings.find(x=>Number(x.number)===Number(tank.number));if(!r)continue;
-    const status=fuelMonitorTankStatus(tank,r,delivery),capacity=Number(tank.capacity),volume=Number(r.volume),pct=capacity>0?(volume/capacity*100).toFixed(1):'—';
-    parts.push(`T${tank.number} ${tank.fuel}: ${fuelMonitorFmt(volume)} gal (${pct}%) ${status.label}`);
+    const r=readings.find(x=>Number(x.number)===Number(tank.number));
+    if(!r)continue;
+    const status=fuelMonitorTankStatus(tank,r,delivery);
+    let suffix='';
+    if(/delivery needed/i.test(status.label))suffix=' — DN';
+    else if(/critical/i.test(status.label))suffix=' — CRITICAL';
+    else if(/low/i.test(status.label))suffix=' — LOW';
+    lines.push(`${shortFuelName(tank.fuel)}: ${fuelMonitorFmt(r.volume)} gal${suffix}`);
   }
-  return `Wooten Oil ${manual?'Fuel Reading':'Fuel Alert'} — ${location.name||'Location'}\n${parts.join('\n')}\nView: https://wootenoil.com/admin-customers#fuel-monitor`;
+
+  lines.push('','View details in','https://wootenoil.com/admin-customers#fuel-monitor');
+  return lines.join('\n');
 }
 async function dispatchFuelMonitorAlerts(env){
   try{await FuelMonitor.dispatch(env,{
