@@ -12789,7 +12789,11 @@ var worker_default = {
       adminActor=authorization.actor;
       ctx.waitUntil(recordGeneralAdminActivity(env,request));
     }
-    if(url.pathname==='/api/admin/fuel-monitor')return FuelMonitor.admin(request,env,{verifyMasterPassword:password=>mas90MasterPasswordMatches(password,env),actor:adminRequestActor(request,env),auditStatement:entry=>adminAuditStatement(env,request,entry.action,'fuel_location',entry.id,entry.detail),verifyPassword:password=>mas90CurrentAdminPasswordMatches(request,env,password)});
+    if(url.pathname==='/api/admin/fuel-monitor'){
+      const response=await FuelMonitor.admin(request,env,{verifyMasterPassword:password=>mas90MasterPasswordMatches(password,env),actor:adminRequestActor(request,env),auditStatement:entry=>adminAuditStatement(env,request,entry.action,'fuel_location',entry.id,entry.detail),verifyPassword:password=>mas90CurrentAdminPasswordMatches(request,env,password)});
+      if(request.method==='POST'&&response.ok)ctx.waitUntil(dispatchFuelMonitorAlerts(env));
+      return response;
+    }
     if(url.pathname==='/api/admin/statements/preview-file-ticket')return StatementPreviewFile.ticket(request,env);
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
@@ -13445,9 +13449,90 @@ export {
 };
 //# sourceMappingURL=worker.js.map
 
+function fuelMonitorDeliveryTanks(reading){
+  const set=new Set(),report=String(reading?.monitor_status?.report||'');
+  for(const line of report.split(/\r?\n/)){
+    const match=line.match(/\bT\s*(\d{1,2})\b.*\bDELIVERY\s+NEEDED\b/i);
+    if(match)set.add(Number(match[1]));
+  }
+  return set;
+}
+function fuelMonitorTankStatus(tank,readingTank,deliverySet){
+  if(!readingTank)return {label:'No reading',tone:'gray'};
+  if(deliverySet.has(Number(tank.number)))return {label:'DELIVERY NEEDED',tone:'red'};
+  const capacity=Number(tank.capacity),volume=Number(readingTank.volume);
+  const value=tank.mode==='percent'?(volume/capacity*100):volume;
+  if(value<=Number(tank.critical))return {label:'Critical',tone:'red'};
+  if(value<=Number(tank.low))return {label:'Low',tone:'orange'};
+  return {label:'Normal',tone:'green'};
+}
+function fuelMonitorFmt(value,digits=0){
+  const n=Number(value);return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
+}
+function fuelMonitorEmailContent(message,context={}){
+  const location=context.location||{},reading=context.reading||{},alert=context.alert||{};
+  const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
+  const delivery=fuelMonitorDeliveryTanks(reading),manual=String(alert.level||'')==='reading';
+  const title=manual?'Fuel Reading':'Fuel Monitoring Alert';
+  const created=context.last_observed||reading.observed_at||alert.created_at||new Date().toISOString();
+  let rows='',triggerStatus='';
+  for(const tank of tanks){
+    const r=readings.find(x=>Number(x.number)===Number(tank.number));if(!r)continue;
+    const status=fuelMonitorTankStatus(tank,r,delivery);
+    const capacity=Number(tank.capacity),volume=Number(r.volume),pct=capacity>0?volume/capacity*100:NaN;
+    const tone=status.tone==='red'?{bg:'#fff0f0',fg:'#cf1828',dot:'#e3182d'}:status.tone==='orange'?{bg:'#fff8df',fg:'#a96500',dot:'#f5a000'}:status.tone==='green'?{bg:'#eaf8ef',fg:'#16733c',dot:'#1eb46a'}:{bg:'#f2f5f7',fg:'#66788a',dot:'#9aabba'};
+    rows+=`<tr>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:center;font-weight:700">${notificationEscapeHtml(tank.number)}</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 9px;font-weight:700">${notificationEscapeHtml(tank.fuel)}</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${fuelMonitorFmt(volume)} gal</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${fuelMonitorFmt(capacity)} gal</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${Number.isFinite(pct)?pct.toFixed(1)+'%':'—'}</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${fuelMonitorFmt(r.ullage)} gal</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${r.water==null?'—':fuelMonitorFmt(r.water,2)+' in'}</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 8px;text-align:right">${r.temperature==null?'—':fuelMonitorFmt(r.temperature,2)+' °F'}</td>
+      <td style="border:1px solid #dbe5ec;padding:10px 9px;background:${tone.bg};color:${tone.fg};font-weight:800;white-space:nowrap"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${tone.dot};margin-right:7px;vertical-align:-1px"></span>${notificationEscapeHtml(status.label)}</td>
+    </tr>`;
+    if(Number(alert.tank_number)===Number(tank.number)&&!manual)triggerStatus=status.label;
+  }
+  const locationLine=[location.address,location.phone].filter(Boolean).join(' · ');
+  const alertBox=manual
+   ? `<div style="margin:16px 0 0;padding:14px 16px;border:1px solid #cbdce9;background:#f3f8fc;border-radius:10px;color:#173d5d"><strong>Manual fuel reading</strong><br><span style="font-size:13px">Current readings for all configured tanks were sent from the Wooten Oil portal.</span></div>`
+   : `<div style="margin:16px 0 0;padding:14px 16px;border:1px solid #ff9ca4;background:#fff0f1;border-radius:10px;color:#cf1828"><strong style="font-size:17px">Tank ${notificationEscapeHtml(alert.tank_number)} — ${notificationEscapeHtml(triggerStatus||String(alert.level||'Alert').toUpperCase())}</strong><br><span style="font-size:13px">${notificationEscapeHtml(String(message||'').split('\n')[0])}</span></div>`;
+  const html=`<!doctype html><html><body style="margin:0;background:#eef3f7;font-family:Arial,Helvetica,sans-serif;color:#17324d">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f7;padding:18px 8px"><tr><td align="center">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:920px;background:#fff;border:1px solid #d8e2ea;border-radius:12px;overflow:hidden">
+    <tr><td style="padding:20px 24px;border-bottom:3px solid #e3182d">
+      <table role="presentation" width="100%"><tr><td><div style="font-size:24px;font-weight:900;color:#113f6f">WOOTEN OIL CO., INC.</div><div style="font-size:10px;letter-spacing:2px;color:#66798b;margin-top:3px">FUELING OUR COMMUNITIES SINCE 1939</div></td>
+      <td align="right"><div style="font-size:18px;font-weight:800;color:#173d5d">${title}</div><div style="font-size:12px;color:#6c7e90">Veeder-Root TLS-350</div></td></tr></table>
+    </td></tr>
+    <tr><td style="padding:12px 24px 14px"><table role="presentation" width="100%"><tr><td style="font-size:13px;color:#536b80">Location: <strong style="color:#17324d">${notificationEscapeHtml(location.name||'Fuel location')}</strong>${locationLine?' ('+notificationEscapeHtml(locationLine)+')':''}</td><td align="right" style="font-size:12px;color:#536b80">${notificationEscapeHtml(created)}</td></tr></table></td></tr>
+    <tr><td style="padding:0 24px 2px;overflow-x:auto">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#315b7a;color:#fff"><th style="padding:11px 8px">Tank</th><th style="padding:11px 8px;text-align:left">Product</th><th style="padding:11px 8px">Volume</th><th style="padding:11px 8px">Capacity</th><th style="padding:11px 8px">% Full</th><th style="padding:11px 8px">Ullage</th><th style="padding:11px 8px">Water</th><th style="padding:11px 8px">Temperature</th><th style="padding:11px 8px;text-align:left">Status</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="9" style="padding:16px;text-align:center;color:#6b7d90">No tank readings available.</td></tr>'}</tbody>
+      </table>
+      ${alertBox}
+    </td></tr>
+    <tr><td style="padding:14px 24px 22px"><table role="presentation" width="100%"><tr><td style="font-size:11px;color:#66798b;line-height:1.5">This is an automated message from the Wooten Oil fuel monitoring system.<br>Please do not reply to this email. For assistance, contact <strong>support@wootenoil.com</strong>.</td>
+    <td align="right"><a href="https://wootenoil.com/admin-customers#fuel-monitor" style="display:inline-block;background:#e3182d;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:800">View in Portal →</a></td></tr></table></td></tr>
+  </table></td></tr></table></body></html>`;
+  const subject=`Wooten Oil ${manual?'Fuel Reading':'Fuel Monitoring Alert'} — ${location.name||'Location'}`;
+  return {subject,html};
+}
+function fuelMonitorSmsContent(message,context={}){
+  const location=context.location||{},reading=context.reading||{},alert=context.alert||{},manual=String(alert.level||'')==='reading';
+  const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[],delivery=fuelMonitorDeliveryTanks(reading);
+  const parts=[];
+  for(const tank of tanks){
+    const r=readings.find(x=>Number(x.number)===Number(tank.number));if(!r)continue;
+    const status=fuelMonitorTankStatus(tank,r,delivery),capacity=Number(tank.capacity),volume=Number(r.volume),pct=capacity>0?(volume/capacity*100).toFixed(1):'—';
+    parts.push(`T${tank.number} ${tank.fuel}: ${fuelMonitorFmt(volume)} gal (${pct}%) ${status.label}`);
+  }
+  return `Wooten Oil ${manual?'Fuel Reading':'Fuel Alert'} — ${location.name||'Location'}\n${parts.join('\n')}\nView: https://wootenoil.com/admin-customers#fuel-monitor`;
+}
 async function dispatchFuelMonitorAlerts(env){
   try{await FuelMonitor.dispatch(env,{
-    email:async(to,message,id)=>{const result=await accountApplicationSendEmail(env,{to,subject:'Wooten Oil tank fuel alert',text:message,html:'<p>'+notificationEscapeHtml(message)+'</p>'});if(!result.sent)throw new Error(result.error||'Email submission failed');return result;},
-    sms:(to,message)=>twilioSendSms(env,to,message)
+    email:async(to,message,id,context)=>{const content=fuelMonitorEmailContent(message,context);const result=await accountApplicationSendEmail(env,{to,subject:content.subject,text:message,html:content.html});if(!result.sent)throw new Error(result.error||'Email submission failed');return result;},
+    sms:(to,message,context)=>twilioSendSms(env,to,fuelMonitorSmsContent(message,context))
   });}catch(error){console.error('Fuel alert dispatch failed',error);}
 }

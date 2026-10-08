@@ -46,6 +46,43 @@ export function levelFor(tank,volume,previous='normal'){
  if(previous!=='normal'&&value<tank.recovery)return previous;
  return 'normal';
 }
+
+function configuredTankLevel(configTank,readingTank,previous='normal'){
+ if(!configTank||!readingTank||!Number.isFinite(Number(readingTank.volume)))return 'unknown';
+ return levelFor(configTank,Number(readingTank.volume),previous);
+}
+function monitorDeliveryNeededTanks(reading){
+ const found=new Set(),report=String(reading?.monitor_status?.report||'');
+ for(const line of report.split(/\r?\n/)){
+  const match=line.match(/\bT\s*(\d{1,2})\b.*\bDELIVERY\s+NEEDED\b/i);
+  if(match)found.add(Number(match[1]));
+ }
+ return found;
+}
+function tankStatusLabel(configTank,readingTank,previous='normal',deliverySet=new Set()){
+ if(!readingTank)return 'No reading';
+ if(deliverySet.has(Number(configTank?.number)))return 'DELIVERY NEEDED';
+ const level=configuredTankLevel(configTank,readingTank,previous);
+ if(level==='critical')return 'Critical';
+ if(level==='low')return 'Low';
+ if(level==='normal')return 'Normal';
+ return 'No reading';
+}
+function allTankMessage(config,reading,{headline='',triggerTank=null,triggerLevel='reading'}={}){
+ const delivery=monitorDeliveryNeededTanks(reading),lines=[];
+ const prefix=headline||`${config.name} — Fuel reading`;
+ lines.push(prefix);
+ for(const tank of config.tanks||[]){
+  const r=reading?.tanks?.find(x=>Number(x.number)===Number(tank.number));
+  if(!r)continue;
+  const status=tankStatusLabel(tank,r,'normal',delivery);
+  const pct=Number(tank.capacity)>0?(Number(r.volume)/Number(tank.capacity)*100).toFixed(1):'—';
+  lines.push(`Tank ${tank.number} (${tank.fuel}): ${Number(r.volume).toLocaleString('en-US')} US gallons (${pct}%) — ${status}.`);
+ }
+ if(triggerTank!=null&&triggerLevel!=='reading')lines.push(`Alert source: Tank ${triggerTank} — ${String(triggerLevel).toUpperCase()}.`);
+ lines.push(`Reading ${reading?.observed_at||''}.`);
+ return lines.join('\n');
+}
 function locationView(row){return {id:row.id,...JSON.parse(row.config),paired:!!row.token_hash,reading:row.reading?JSON.parse(row.reading):null,last_observed:row.last_observed,last_contact:row.last_contact,error:row.error};}
 async function bodyOf(request){const raw=await request.text();if(raw.length>100000)fail('Request too large.',413);try{return JSON.parse(raw)}catch{fail('Invalid JSON.')}}
 export async function admin(request,env,{auditStatement,verifyPassword,verifyMasterPassword,actor}={}){
@@ -65,7 +102,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
   }
-  if(!['save','pair','delete','acknowledge'].includes(action))fail('Unknown action.');
+  if(!['save','pair','delete','acknowledge','send_reading'].includes(action))fail('Unknown action.');
   const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
   if(action!=='save'&&!row)fail('Location no longer exists.',404);
   if(row?.lock_until>Date.now())fail('A reading is being saved. Try again in a few seconds.',409);
@@ -95,6 +132,15 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(action==='acknowledge'){
    if(!Number.isSafeInteger(b.alert_id))fail('Choose an alert.');
    jobs.push(env.DB.prepare('UPDATE fuel_monitor_alerts SET acknowledged=1 WHERE id=? AND location_id=?').bind(b.alert_id,id));detail='Acknowledged fuel alert '+b.alert_id;
+  }
+  if(action==='send_reading'){
+   const config=JSON.parse(row.config),reading=row.reading?JSON.parse(row.reading):null;
+   if(!reading?.tanks?.length)fail('No saved fuel reading is available for this location yet.',409);
+   if(!config.email_to&&!config.sms_to&&!config.portal)fail('Add an alert email, mobile number, or portal notification setting before sending a fuel reading.',409);
+   const message=allTankMessage(config,reading,{headline:`${config.name} — Manual fuel reading`});
+   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
+    .bind(id,0,'reading',message,1,config.email_to,config.sms_to,config.email_to?'pending':'off',config.sms_to?'pending':'off'));
+   detail=`Sent current fuel reading for ${config.name}.`;
   }
   if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
   if(action!=='acknowledge')jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,action==='save'?str(b.config.name,100):JSON.parse(row.config).name,str(actor?.name||'Admin',160),action,JSON.stringify(changes.length?changes:[{field:action,before:null,after:detail}])));
@@ -145,7 +191,8 @@ export async function agent(request,env){
    const previous=states.get(tank.number)||'normal',level=tank.alerts?levelFor(tank,r.volume,previous):'normal';
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_states(location_id,tank_number,level) VALUES(?,?,?) ON CONFLICT(location_id,tank_number) DO UPDATE SET level=excluded.level').bind(id,tank.number,level));
    if(level!==previous){
-    const message=`${config.name} — Tank ${tank.number} (${tank.fuel}): ${level==='normal'?'fuel recovered':level+' fuel'}. ${r.volume.toLocaleString('en-US')} US gallons (${(r.volume/tank.capacity*100).toFixed(1)}%). Reading ${reading.observed_at}.`;
+    const triggerText=`${config.name} — Tank ${tank.number} (${tank.fuel}): ${level==='normal'?'fuel recovered':level+' fuel'}. ${r.volume.toLocaleString('en-US')} US gallons (${(r.volume/tank.capacity*100).toFixed(1)}%).`;
+    const message=allTankMessage(config,reading,{headline:triggerText,triggerTank:tank.number,triggerLevel:level});
     jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,tank.number,level,message,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
    }
   }
@@ -167,7 +214,13 @@ export async function dispatch(env,{email,sms}){
   try{
    const recipients=alertRecipients(row[channel+'_to'],channel),results=[];let succeeded=0;
    if(!recipients.length)throw Error('No alert recipients configured.');
-   for(const to of recipients){try{const r=await (channel==='email'?email(to,row.message,row.id):sms(to,row.message));succeeded++;results.push(to+': submitted ('+String(r?.id||r?.sid||'accepted')+')');}catch(e){results.push(to+': failed — '+str(e.message,200));}}
+   const locationRow=await env.DB.prepare('SELECT config,reading,last_observed,last_contact FROM fuel_monitor_locations WHERE id=?').bind(row.location_id).first();
+   const context={alert:row,location:null,reading:null,last_observed:locationRow?.last_observed||'',last_contact:locationRow?.last_contact||''};
+   if(locationRow){
+    try{context.location=JSON.parse(locationRow.config||'null')}catch{}
+    try{context.reading=JSON.parse(locationRow.reading||'null')}catch{}
+   }
+   for(const to of recipients){try{const r=await (channel==='email'?email(to,row.message,row.id,context):sms(to,row.message,context));succeeded++;results.push(to+': submitted ('+String(r?.id||r?.sid||'accepted')+')');}catch(e){results.push(to+': failed — '+str(e.message,200));}}
    status=succeeded===recipients.length?'submitted':succeeded?'partial':'failed';detail=results.join('\n');
   }catch(e){status='failed';detail=str(e.message,400);}
 
