@@ -31,7 +31,7 @@
  function monitorPanel(l,stale){
   const m=l.reading?.monitor_status;
   const status=!m?'Not retrieved — update the station collector':m.state==='unavailable'?'Unavailable':m.state==='normal'?'All functions normal':'Alarms / warnings reported';
-  return '<details class="fm-monitor-panel" '+(m?.state==='reported'?'open':'')+'><summary><span class="fm-monitor-title">Monitor alarms</span><span class="fm-monitor-status">'+esc(status)+'</span>'+(stale?'<span class="fm-monitor-stale">Last known report</span>':'')+'</summary><p>Read-only report: active or unacknowledged alarms and warnings. Up to 25 entries from the monitor. Portal acknowledgment does not clear monitor alarms.</p>'+(m?'<p>Report time: '+esc(time(m.observed_at))+'</p>':'')+(m?.error?'<p class="fm-error">'+esc(m.error)+'</p>':'')+(m?.report?'<pre>'+esc(m.report)+'</pre>':'')+'</details>';
+  return '<details class="fm-monitor-panel"><summary><span class="fm-monitor-title">Monitor alarms</span><span class="fm-monitor-status">'+esc(status)+'</span>'+(stale?'<span class="fm-monitor-stale">Last known report</span>':'')+'</summary><p>Read-only report: active or unacknowledged alarms and warnings. Up to 25 entries from the monitor. Portal acknowledgment does not clear monitor alarms.</p>'+(m?'<p>Report time: '+esc(time(m.observed_at))+'</p>':'')+(m?.error?'<p class="fm-error">'+esc(m.error)+'</p>':'')+(m?.report?'<pre>'+esc(m.report)+'</pre>':'')+'</details>';
  }
  function render(){
   if(activeLocation!=='all'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
@@ -67,7 +67,7 @@
    header.append(actions);
    if(activeLocation==='all'){
     const send=footer.querySelector('[data-send-reading]');
-    if(send){send.classList.add('fm-send-reading-overview');header.append(send);}
+    if(send)send.remove();
     actions.classList.add('fm-actions-reserved');actions.setAttribute('aria-hidden','true');actions.inert=true;
     for(const button of actions.querySelectorAll('button')){button.disabled=true;button.removeAttribute('data-inline-section');button.removeAttribute('data-inline-id');}
     footer.remove();
