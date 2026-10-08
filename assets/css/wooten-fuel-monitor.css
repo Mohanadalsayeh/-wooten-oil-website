@@ -741,3 +741,43 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 @media(prefers-reduced-motion:reduce){
  #fuelMonitorRoot .fm-automatic-chevron{transition:none}
 }
+
+/* Ver895: match the full-width Monitor alarms panel and share its chevron style. */
+#fuelMonitorRoot .fm-station-page > .fm-automatic-panel {
+  display:block;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  margin:12px 0 20px;
+}
+/* Use the same CSS-chevron as Automatic Fuel Reading, not the native disclosure triangle. */
+#fuelMonitorRoot .fm-monitor-panel > summary {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  list-style:none;
+}
+#fuelMonitorRoot .fm-monitor-panel > summary::-webkit-details-marker {display:none}
+#fuelMonitorRoot .fm-monitor-panel > summary::before {
+  content:"";
+  display:block;
+  flex:0 0 10px;
+  width:10px;
+  height:10px;
+  box-sizing:border-box;
+  border-right:2px solid #21699b;
+  border-bottom:2px solid #21699b;
+  transform:rotate(-45deg);
+  transition:transform .15s ease;
+}
+#fuelMonitorRoot .fm-monitor-panel[open] > summary::before {transform:rotate(45deg)}
+#fuelMonitorRoot .fm-monitor-panel .fm-monitor-status {margin-left:0}
+@media(max-width:640px){
+  #fuelMonitorRoot .fm-station-page > .fm-automatic-panel {margin:12px 0 18px}
+  #fuelMonitorRoot .fm-monitor-panel .fm-monitor-status {margin-left:0}
+}
+@media(prefers-reduced-motion:reduce){
+  #fuelMonitorRoot .fm-monitor-panel > summary::before{transition:none}
+}
