@@ -635,3 +635,11 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm-alert-card.reading .fm-gauge-center{
   fill:#fff;stroke:none;
 }
+
+/* Ver884: disabled Save changes reflects unchanged form state, not a pending save. */
+#fuelMonitorRoot .fm-inline-form .fm-inline-save button[type=submit]:disabled{
+ opacity:.45!important;cursor:not-allowed!important;box-shadow:none!important;
+}
+#fuelMonitorRoot .fm-inline-form .fm-inline-save button[type=submit]:disabled:hover{
+ background:#db1928!important;border-color:#db1928!important;
+}

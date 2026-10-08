@@ -255,6 +255,41 @@
   middle.innerHTML='<form class="fm-inline-form"><div class="fm-inline-heading"><h3>'+titles[section]+'</h3>'+(readOnlyConnection?'<span class="fm-connection-readonly-label">Read only</span>':'')+(section==='tanks'?'<button type="button" data-inline-add>'+actionIcon('plus')+'Add tank</button>':'')+'</div>'+content+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save">'+(section==='location'?'<button class="fm-delete" type="button" data-inline-delete>Delete location</button>':'')+controls+'</div></form>';
   card.querySelectorAll('[data-inline-section]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inlineSection===section)));
   const form=middle.querySelector('form');let activeTank=null;
+  // Compare editable values to the state when THIS section opened, not to input events.
+  // This also handles changing a value and then restoring the original value.
+  const inlineField=(container,name)=>{
+   const el=container.querySelector('[name="'+name+'"]');
+   if(!el)return null;
+   if(el.type==='checkbox')return el.checked;
+   const value=el.value.trim();
+   return el.type==='number'&&value!==''&&Number.isFinite(Number(value))?Number(value):value;
+  };
+  const inlineSnapshot=()=>{
+   if(section==='location')return JSON.stringify({
+    name:inlineField(form,'name'),phone:inlineField(form,'phone'),address:inlineField(form,'address'),
+    icon:form.querySelector('[name=icon]:checked')?.value||'fuel'
+   });
+   if(section==='connection')return JSON.stringify({
+    model:inlineField(form,'model'),host:inlineField(form,'host'),port:inlineField(form,'port'),
+    interval:inlineField(form,'interval'),enabled:inlineField(form,'enabled')
+   });
+   const tanks=[...form.querySelectorAll('.fm-tank-editor')].map(row=>({
+    number:inlineField(row,'number'),fuel:inlineField(row,'fuel'),
+    capacity:inlineField(row,'capacity'),mode:inlineField(row,'mode'),
+    low:inlineField(row,'low'),critical:inlineField(row,'critical'),
+    recovery:inlineField(row,'recovery'),alerts:inlineField(row,'alerts')
+   }));
+   return JSON.stringify({tanks,portal:inlineField(form,'portal'),email:inlineField(form,'email'),
+    sms:inlineField(form,'sms'),email_to:inlineField(form,'email_to'),sms_to:inlineField(form,'sms_to')});
+  };
+  let inlineOriginal='';
+  const updateInlineSave=()=>{
+   const changed=inlineSnapshot()!==inlineOriginal;
+   if(inlineEdit?.id===id&&inlineEdit.section===section)inlineEdit.dirty=changed;
+   const save=form.querySelector('button[type=submit]');
+   if(save)save.disabled=!changed||inlineSaving;
+   return changed;
+  };
   const count=(preferred)=>{
    const rows=[...form.querySelectorAll('.fm-tank-editor')],c=form.querySelector('[data-inline-count]');if(c)c.textContent='('+rows.length+')';
    const tabs=form.querySelector('[data-tank-tabs]');if(!tabs)return;
@@ -283,7 +318,10 @@
   }
   setupRecipients(form);
   if(section==='location'){form.classList.add('fm-location-details');compactIconPicker(form.querySelector('#fmInlineIcons'),l.icon||'fuel');}
-  form.addEventListener('input',()=>{form.querySelectorAll('input,select').forEach(el=>el.setCustomValidity(''));if(inlineEdit)inlineEdit.dirty=true});form.addEventListener('change',()=>{if(inlineEdit)inlineEdit.dirty=true});
+  inlineOriginal=inlineSnapshot();
+  updateInlineSave(); // Save changes starts disabled in Tanks, Location, and unlocked Veeder-Root.
+  form.addEventListener('input',()=>{form.querySelectorAll('input,select').forEach(el=>el.setCustomValidity(''));updateInlineSave()});
+  form.addEventListener('change',updateInlineSave);
   form.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||inlineSaving)return;
    if(b.hasAttribute('data-inline-back')){if(leaveInline())render();}
    if(b.hasAttribute('data-inline-unlock')){
@@ -291,13 +329,13 @@
     if(password&&inlineEdit?.id===id&&inlineEdit.section===section)openInline(id,'connection',password);
     return;
    }
-   if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}).replace('fmFuelTypes','fmInlineFuelTypes'));inlineEdit.dirty=true;count(form.querySelector('[data-inline-tanks]').lastElementChild);form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
-   if(b.classList.contains('fm-remove')){confirmTankRemoval(b.closest('fieldset'),()=>{if(inlineEdit)inlineEdit.dirty=true;count();});}
-   if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}inlineEdit.dirty=true;count(form.querySelector('[data-inline-tanks]').lastElementChild);}
-   if(b.hasAttribute('data-inline-import')){const lines=l.reading.site_header.split('\n').map(s=>s.trim()).filter(Boolean);form.elements.name.value=lines[0]||l.name;form.elements.address.value=lines.slice(1).join(', ');inlineEdit.dirty=true;}
+   if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}).replace('fmFuelTypes','fmInlineFuelTypes'));count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
+   if(b.classList.contains('fm-remove')){confirmTankRemoval(b.closest('fieldset'),()=>{count();updateInlineSave();});}
+   if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();}
+   if(b.hasAttribute('data-inline-import')){const lines=l.reading.site_header.split('\n').map(s=>s.trim()).filter(Boolean);form.elements.name.value=lines[0]||l.name;form.elements.address.value=lines.slice(1).join(', ');updateInlineSave();}
    if(b.hasAttribute('data-inline-delete')){if(!leaveInline())return;render();deleteLocation(l);}
   });
-  form.onsubmit=async e=>{e.preventDefault();if(inlineSaving||readOnlyConnection)return;if(section==='tanks'&&!validTanks())return;const invalid=[...form.querySelectorAll('input,select')].find(el=>!el.checkValidity());if(invalid){const row=invalid.closest('.fm-tank-editor');if(row)count(row);const details=invalid.closest('details');if(details)details.open=true;invalid.reportValidity();return;}inlineSaving=true;const session=epoch;const controls=[...root.querySelectorAll('button,input,select')];const disabled=controls.map(c=>c.disabled);controls.forEach(c=>c.disabled=true);const note=form.querySelector('.fm-inline-message');note.textContent='Saving changes…';
+  form.onsubmit=async e=>{e.preventDefault();if(inlineSaving||readOnlyConnection||!updateInlineSave())return;if(section==='tanks'&&!validTanks())return;const invalid=[...form.querySelectorAll('input,select')].find(el=>!el.checkValidity());if(invalid){const row=invalid.closest('.fm-tank-editor');if(row)count(row);const details=invalid.closest('details');if(details)details.open=true;invalid.reportValidity();return;}inlineSaving=true;const session=epoch;const controls=[...root.querySelectorAll('button,input,select')];const disabled=controls.map(c=>c.disabled);controls.forEach(c=>c.disabled=true);const note=form.querySelector('.fm-inline-message');note.textContent='Saving changes…';
    try{
     const latest=await api();const current=latest.locations.find(x=>x.id===id);if(!current)throw Error('This location no longer exists. Refresh locations.');const config={...current};
     const names=section==='location'?['name','phone','address']:section==='connection'?['model','host','port','interval','enabled']:['portal','email','sms','email_to','sms_to'];
