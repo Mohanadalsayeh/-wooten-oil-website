@@ -13,6 +13,7 @@ export async function ensure(env){
  `CREATE INDEX IF NOT EXISTS fuel_monitor_alerts_recent ON fuel_monitor_alerts(created_at DESC,id DESC)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_schedules(location_id TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 0,days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',send_time TEXT NOT NULL DEFAULT '08:00',last_sent_at TEXT,last_sent_date TEXT,last_status TEXT)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_scheduled_runs(location_id TEXT NOT NULL,local_date TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,local_date))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_connection_states(location_id TEXT PRIMARY KEY,state TEXT NOT NULL DEFAULT 'healthy',changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_deleted_locations(id TEXT PRIMARY KEY,config TEXT NOT NULL,token_hash TEXT,reading TEXT,last_observed TEXT,last_contact TEXT,error TEXT,created_at TEXT,deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,reassigned_to TEXT)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_collector_aliases(original_id TEXT PRIMARY KEY,target_id TEXT NOT NULL,token_hash TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`];
  for(const s of sql)await env.DB.prepare(s).run();
@@ -424,8 +425,48 @@ export function automaticReadingDue(schedule,at){
  const due=Number(match[1])*60+Number(match[2]);
  return at.minute>=due&&at.minute-due<=15;
 }
+// Scan all active paired locations, independent of the automatic-report schedule.
+// Each transition is claimed in D1 so a frequent cron never repeats a loss alert.
+export async function checkCollectorConnections(env,now=new Date()){
+ await ensure(env);
+ const records=(await env.DB.prepare('SELECT id,config,token_hash,last_observed,created_at FROM fuel_monitor_locations').all()).results||[];
+ let events=0;
+ for(const record of records){
+  try{
+   const config=JSON.parse(record.config||'{}');
+   if(!config.enabled||!record.token_hash)continue;
+   const last=Date.parse(record.last_observed||record.created_at||'');
+   if(!Number.isFinite(last))continue;
+   const lost=now.getTime()-last>=15*60*1000;
+   const next=lost?'lost':'healthy';
+   // A missing state defaults to healthy; a currently stale station creates one loss alert.
+   await env.DB.prepare("INSERT INTO fuel_monitor_connection_states(location_id,state) VALUES(?,'healthy') ON CONFLICT(location_id) DO NOTHING").bind(record.id).run();
+   const claimed=await env.DB.prepare("UPDATE fuel_monitor_connection_states SET state=?,changed_at=CURRENT_TIMESTAMP WHERE location_id=? AND state<>? RETURNING location_id").bind(next,record.id,next).first();
+   if(!claimed)continue;
+   const level=lost?'connection_lost':'connection_restored';
+   const ageMinutes=Math.max(0,Math.floor((now.getTime()-last)/60000));
+   const message=lost
+    ?`${config.name} — CONNECTION LOST. No fresh tank readings for ${ageMinutes} minutes. Last successful reading: ${record.last_observed||'Never received'}. The displayed tank levels are last known values, not live.`
+    :`${config.name} — CONNECTION RESTORED. Fresh fuel readings have resumed at ${record.last_observed}.`;
+   const mail=!!config.email&&!!String(config.email_to||'').trim();
+   const sms=!!config.sms&&!!String(config.sms_to||'').trim();
+   try{
+    await env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
+     .bind(record.id,0,level,message,1,mail?config.email_to:'',sms?config.sms_to:'',mail?'pending':'off',sms?'pending':'off').run();
+    events++;
+   }catch(error){
+    // Allow next cron to retry if an alert could not be recorded.
+    await env.DB.prepare('UPDATE fuel_monitor_connection_states SET state=? WHERE location_id=?').bind(lost?'healthy':'lost',record.id).run();
+    throw error;
+   }
+  }catch(error){console.error('Collector health check failed',record.id,error);}
+ }
+ return events;
+}
+
 export async function sendScheduledReadings(env,now=new Date()){
  await ensure(env);
+ await checkCollectorConnections(env,now);
  const at=centralScheduleParts(now);
  const schedules=(await env.DB.prepare('SELECT s.location_id,s.enabled,s.days,s.send_time,l.config,l.reading,l.last_observed,l.error,l.token_hash FROM fuel_monitor_schedules s JOIN fuel_monitor_locations l ON l.id=s.location_id WHERE s.enabled=1').all()).results||[];
  let queued=0;

@@ -961,3 +961,13 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   }
   #fuelMonitorRoot .fm-station-actions .fm-collector-action:hover {background:#f5f9fc!important;text-decoration:none!important}
 }
+
+/* Stale reading warning, visible above tank gauges */
+#fuelMonitorRoot .fm-stale-warning{display:flex;flex-direction:column;gap:5px;margin:14px 0;padding:15px 17px;border:1px solid #efbe75;border-left:4px solid #d97706;border-radius:12px;background:#fffaed;color:#75430a}
+#fuelMonitorRoot .fm-stale-warning strong{font-size:15px;color:#9a3412}
+#fuelMonitorRoot .fm-stale-warning span{font-size:13px;line-height:1.5}
+
+/* Ver905: Last-known readings show a neutral gauge whenever monitor is not Online. */
+#fuelMonitorRoot .fm-tank.fm-gauge-disconnected .fm-dial-fill{stroke:#9aa9b7!important}
+#fuelMonitorRoot .fm-tank.fm-gauge-disconnected .fm-dial-value{fill:#687b8e}
+#fuelMonitorRoot .fm-tank.fm-gauge-disconnected .fm-dial-caption{color:#687b8e!important}
