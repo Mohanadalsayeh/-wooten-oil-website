@@ -5859,7 +5859,7 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
     card.classList.add('wooten-bell-target');
     // Start counting only after the target has been rendered, not when notification is clicked.
     card.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
-    timer=setTimeout(function(){card.classList.remove('wooten-bell-target');if(active===card)active=null;},5000);
+    timer=setTimeout(function(){card.classList.remove('wooten-bell-target');if(active===card)active=null;},3000);
   };
 })();
 </script>

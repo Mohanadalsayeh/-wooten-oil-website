@@ -3473,6 +3473,30 @@ body #customer-login #customerPaymentHistory #paymentHistoryRefresh.payment-hist
 <script src="assets/js/wooten-customer-back-to-top.js?v=493"></script>
 <script defer src="assets/js/wooten-push.js?v=669"></script>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
+
+<!-- Ver918: customer search and adjacent selection fields share a consistent 56px baseline. -->
+<style id="wooten-customer-search-select-alignment-v918">
+#customerDocuments .customer-documents-tools,
+#customerPaymentHistory .payment-history-tools,
+#customerFuelHistory .fuel-history-tools{align-items:end!important;}
+#customerDocuments .customer-documents-tools>select,
+#customerPaymentHistory .payment-history-tools>select,
+#customerFuelHistory .fuel-history-sort-wrap select{
+  box-sizing:border-box!important;
+  height:56px!important;
+  min-height:56px!important;
+  max-height:56px!important;
+  margin:0!important;
+  align-self:end!important;
+}
+#customerFuelHistory .fuel-history-sort-wrap{align-self:end!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;min-width:0!important;}
+#customerFuelHistory .fuel-history-sort-wrap>span{flex:none!important;}
+@media(max-width:700px){
+  #customerDocuments .customer-documents-tools,
+  #customerPaymentHistory .payment-history-tools,
+  #customerFuelHistory .fuel-history-tools{align-items:stretch!important;}
+}
+</style>
 </body>
 <style id="wooten-customer-close-and-login-hover-ver347">
 /* Close controls must override ordinary navigation-item hover fills. */
