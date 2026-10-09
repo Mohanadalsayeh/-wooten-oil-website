@@ -971,3 +971,19 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm-tank.fm-gauge-disconnected .fm-dial-fill{stroke:#9aa9b7!important}
 #fuelMonitorRoot .fm-tank.fm-gauge-disconnected .fm-dial-value{fill:#687b8e}
 #fuelMonitorRoot .fm-tank.fm-gauge-disconnected .fm-dial-caption{color:#687b8e!important}
+
+/* Ver906: small semantic icons beside location loading/status messages */
+#fuelMonitorRoot #fmMessage.fm-status-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:20px}
+#fuelMonitorRoot .fm-status-icon{width:16px;height:16px;flex:0 0 16px;display:inline-flex;align-items:center;justify-content:center;color:#397aab}
+#fuelMonitorRoot .fm-status-icon svg{display:block;width:16px;height:16px}
+#fuelMonitorRoot #fmMessage[data-status=success] .fm-status-icon{color:#18834c}
+#fuelMonitorRoot #fmMessage[data-status=warning] .fm-status-icon{color:#c47b0c}
+#fuelMonitorRoot #fmMessage[data-status=error] .fm-status-icon{color:#c22d40}
+
+/* Ver907: archive/restore icon and disabled empty deleted-locations control */
+#fuelMonitorRoot #fmRecovery{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+#fuelMonitorRoot #fmRecovery svg{flex:0 0 auto}
+#fuelMonitorRoot #fmRecovery .fm-deleted-count{font-size:12px;font-weight:800;padding:3px 7px;border-radius:999px;background:#dce5ed;color:#23445e;min-width:22px;text-align:center}
+#fuelMonitorRoot #fmRecovery:disabled{background:#eef1f4!important;color:#9aa7b4!important;border-color:#e0e5e9!important;opacity:1!important;cursor:not-allowed;box-shadow:none!important}
+#fuelMonitorRoot #fmRecovery:disabled .fm-deleted-count{background:#e3e8ec;color:#9aa7b4}
+#fuelMonitorRoot #fmRecovery:not(:disabled):hover{background:#dbe5ee}
