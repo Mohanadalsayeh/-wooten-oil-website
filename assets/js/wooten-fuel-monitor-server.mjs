@@ -46,10 +46,14 @@ export function validateConfig(input){
  return c;
 }
 export function levelFor(tank,volume,previous='normal'){
+ // Latch critical until the actual recovery threshold. Do not downgrade to low
+ // during partial deliveries or noisy readings. Low may escalate to critical.
  const value=tank.mode==='percent'?volume/tank.capacity*100:volume;
+ if(!Number.isFinite(value))return previous;
+ if(previous==='critical'&&value<tank.recovery)return 'critical';
  if(value<=tank.critical)return 'critical';
+ if(previous==='low'&&value<tank.recovery)return 'low';
  if(value<=tank.low)return 'low';
- if(previous!=='normal'&&value<tank.recovery)return previous;
  return 'normal';
 }
 
@@ -373,7 +377,9 @@ export async function agent(request,env){
    const r=tanks.find(t=>t.number===tank.number);if(!r)continue;
    // Never treat a missing tank as zero gallons. Ignore implausible readings for alerts.
    if(r.volume>tank.capacity*1.05)continue;
-   const previous=states.get(tank.number)||'normal',level=tank.alerts?levelFor(tank,r.volume,previous):'normal';
+   const previous=states.get(tank.number)||'normal';
+   // Disabling alerts must not create a fabricated recovery event.
+   const level=tank.alerts?levelFor(tank,r.volume,previous):'normal';
    const muted=mutedTanks.has(Number(tank.number));
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_states(location_id,tank_number,level) VALUES(?,?,?) ON CONFLICT(location_id,tank_number) DO UPDATE SET level=excluded.level').bind(id,tank.number,level));
 
@@ -381,14 +387,15 @@ export async function agent(request,env){
    // this tank until the reading reaches the configured Recovery level. Recovery
    // itself is still allowed to create the normal "fuel recovered" notification,
    // and it automatically re-arms the tank for the next Low/Critical cycle.
-   if(muted&&level==='normal'){
+   if(muted&&level==='normal'&&tank.alerts){
     jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=? AND tank_number=?').bind(id,tank.number));
    }
 
-   if(level!==previous){
-    const suppressLowCritical=muted&&(level==='low'||level==='critical');
+   if(tank.alerts&&level!==previous){
+    const suppressLowCritical=muted&&level==='low'; // Critical escalation must reach administrators even after Low acknowledgment.
     if(!suppressLowCritical){
-     const triggerText=`${config.name} — Tank ${tank.number} (${tank.fuel}): ${level==='normal'?'fuel recovered':level+' fuel'}. ${r.volume.toLocaleString('en-US')} US gallons (${(r.volume/tank.capacity*100).toFixed(1)}%).`;
+     const eventTitle=level==='normal'?'FUEL RECOVERED':level==='critical'?'CRITICAL FUEL ALERT':'LOW FUEL ALERT';
+     const triggerText=`${eventTitle} — ${config.name} — Tank ${tank.number}: ${tank.fuel} — ${r.volume.toLocaleString('en-US')} gal (${(r.volume/tank.capacity*100).toFixed(1)}%).`;
      const message=allTankMessage(config,reading,{headline:triggerText,triggerTank:tank.number,triggerLevel:level});
      jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,tank.number,level,message,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
     }

@@ -267,7 +267,38 @@
  const modelField=(value,listId)=>field('model','Monitor model',value,'text','required list="'+listId+'" autocomplete="off"')+'<datalist id="'+listId+'"><option value="TLS-350">Veeder-Root</option><option value="TLS-450PLUS">Veeder-Root</option><option value="TLS4">Veeder-Root</option><option value="TLS4B">Veeder-Root</option><option value="EVO 200">Franklin Fueling Systems</option><option value="EVO 400">Franklin Fueling Systems</option><option value="EVO 600">Franklin Fueling Systems</option><option value="EVO 6000">Franklin Fueling Systems</option><option value="EVO ONE">Franklin Fueling Systems</option></datalist>';
  const toggle=(name,label,on)=>'<label class="fm-toggle"><input type="checkbox" role="switch" name="'+name+'" '+(on?'checked':'')+'><span>'+label+'</span></label>';
  function unitField(name,label,value,unit,attrs){return '<label>'+label+'<span class="fm-unit-field"><span class="fm-unit-prefix">'+unit+'</span><input name="'+name+'" type="number" value="'+esc(value)+'" aria-label="'+label+' ('+unit+')" '+attrs+'></span></label>';}
- document.addEventListener('change',e=>{if(!e.target.matches('.fm-tank-editor select[name=mode]'))return;const row=e.target.closest('.fm-tank-editor'),unit=e.target.value==='percent'?'%':'gal';for(const name of ['low','critical','recovery']){const input=row.querySelector('[name='+name+']');input.previousElementSibling.textContent=unit;input.setAttribute('aria-label',({low:'Low fuel',critical:'Critical fuel',recovery:'Recovery level'})[name]+' ('+unit+')');}});
+ // Keep each threshold's actual fuel quantity unchanged when switching display units.
+ document.addEventListener('change',e=>{
+  if(!e.target.matches('.fm-tank-editor select[name=mode]'))return;
+  const row=e.target.closest('.fm-tank-editor'),select=e.target;
+  const previous=row.dataset.thresholdMode||'gallons',next=select.value;
+  if(previous===next)return;
+  const capacity=Number(row.querySelector('[name=capacity]').value);
+  if(!Number.isFinite(capacity)||capacity<=0){
+   select.value=previous;
+   const input=row.querySelector('[name=capacity]');
+   input.setCustomValidity('Enter a valid tank capacity before changing threshold units.');
+   input.reportValidity();
+   input.addEventListener('input',()=>input.setCustomValidity(''),{once:true});
+   return;
+  }
+  const unit=next==='percent'?'%':'gal';
+  for(const name of ['low','critical','recovery']){
+   const input=row.querySelector('[name='+name+']');
+   // Empty values remain empty; no implied threshold is introduced.
+   if(input.value.trim()!==''){
+    const value=Number(input.value);
+    if(Number.isFinite(value)){
+     const converted=previous==='percent'?value*capacity/100:value*100/capacity;
+     input.value=String(Number(converted.toFixed(6)));
+    }
+   }
+   input.previousElementSibling.textContent=unit;
+   input.setAttribute('aria-label',({low:'Low fuel',critical:'Critical fuel',recovery:'Recovery level'})[name]+' ('+unit+')');
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+  row.dataset.thresholdMode=next;
+ });
  // Veeder-Root display-format headers often begin with a report timestamp.
  function parseMonitorStationHeader(header){
   const lines=String(header||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
@@ -276,7 +307,7 @@
   while(lines.length&&isDateTime(lines[0]))lines.shift();
   return {name:lines[0]||'',address:lines.slice(1).join(', ')};
  }
- function tankRow(t={}){return '<fieldset class="fm-tank-editor"><legend>Tank settings</legend><div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)+'</div><button class="secondary fm-remove" type="button">Remove tank</button></fieldset>';}
+ function tankRow(t={}){return '<fieldset class="fm-tank-editor" data-threshold-mode="' + (t.mode==='percent'?'percent':'gallons') + '"><legend>Tank settings</legend><div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)+'</div><button class="secondary fm-remove" type="button">Remove tank</button></fieldset>';}
  function startLocationTab(){
   creatingLocation=true;
   const tabs=document.getElementById('fmLocationTabs');tabs.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-selected','false');b.tabIndex=-1;});
