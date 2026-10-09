@@ -1,4 +1,4 @@
-/* Wooten Oil System Health Center v912: read-only checks; never assumes healthy from missing data. */
+/* Wooten Oil System Health Center v913: read-only checks; never assumes healthy from missing data. */
 (()=>{'use strict';
 const page=document.getElementById('admin-tab-system-health');if(!page)return;
 const get=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,7 +23,34 @@ check('fuel','fuel_monitoring','/api/admin/fuel-monitor',d=>{const loc=Array.isA
 const tone=off?'bad':delay?'warn':active?'good':'unknown';set('fuel',tone,off?'Connection issue':delay?'Delayed readings':active?'Online':'Not configured',active+' monitored location(s) • '+off+' offline/waiting • '+delay+' delayed',null);if(!active)unknown=true;});
 check('twilio','communications_settings','/api/admin/twilio/status',d=>{set('twilio',d.connected?'good':'bad',d.connected?'Connected':'Check failed',d.connected?'Twilio account authenticated.':'Twilio test did not authenticate.');if(!d.connected)issues.push({tone:'bad',title:'Twilio SMS connectivity',message:'Twilio authentication or messaging checks failed.',panel:'settings'});});
 check('bell','notifications','/api/admin/notification-bell',d=>{const count=Number(d.total)||0;set('bell',count?'warn':'good',count?count+' notification(s)':'No pending notifications','Open the notification bell for customer activity and delivery events.');if(count)issues.push({tone:'info',title:'Admin Notification Bell',message:count+' pending notification(s). Review in the bell menu.',panel:'notifications'});});
-set('fleet','unknown','Not checked','No consolidated fleet API health check is connected yet. Open Fleet Cards to verify.');set('payments','unknown','Not checked','No payment processor health check is connected yet. Open Transactions to review.');
+check('fleet','fleet_cards','/api/admin/fleet/schedule',d=>{
+ const c=d.config||{},st=d.status||{},h=d.history||{},completed=st.completedAt;
+ const age=Date.now()-Date.parse(completed),interval=Math.max(30,Number(c.intervalSeconds)||300)*1000;
+ const enabled=c.enabled===true;const error=String(st.error||h.error||'').trim();
+ let tone='unknown',label='Awaiting first pull';
+ if(!enabled){label='Automatic sync off';tone='warn';}
+ else if(d.running){tone='warn';label='Pull in progress';}
+ else if(error){tone='bad';label='Sync error';}
+ else if(!completed||!Number.isFinite(age)){tone='warn';label='Awaiting first pull';}
+ else if(age>Math.max(15*60000,interval*3)){tone='warn';label='Sync overdue';}
+ else {tone='good';label='Sync current';}
+ const detail=(enabled?'Automatic updates every '+Math.round(interval/1000)+' seconds. ':'Automatic updates paused. ')+(completed?'Last successful pull: '+time(completed)+'. ':'No successful pull recorded. ')+(st.count!=null?'Last batch: '+Number(st.count).toLocaleString()+' transactions. ':'')+(error?'Reported error: '+error:'');
+ set('fleet',tone,label,detail,completed?time(completed):'');
+ if(tone==='bad'||tone==='warn'&&enabled&&!d.running)issues.push({tone:tone==='bad'?'bad':'warn',title:'Intevacon Fleet API: '+label,message:error||'Review the last successful pull and automatic schedule.',panel:'fleet',when:completed});
+ if(tone==='unknown')unknown=true;
+});
+check('payments','payment_transactions','/api/admin/payment-transactions?page=1&page_size=1',d=>{
+ const transactions=Array.isArray(d.transactions)?d.transactions:[];
+ const tx=transactions[0],count=Number(d.total||0),summary=d.summary||{};
+ const recent=tx?.created_at||tx?.completed_at;
+ const review=Number(summary.review||0),pending=Number(summary.pending||0);
+ const label=review?'Review needed':count?'Records available':'No transactions';
+ const tone=review?'warn':'unknown';
+ const detail='Payment history is accessible; processor connectivity and live credentials are not tested. '+count.toLocaleString()+' recorded transaction(s).'+(pending?' '+pending+' pending.':'')+(review?' '+review+' needing review.':'')+(recent?' Most recent: '+time(recent)+'.':'');
+ set('payments',tone,label,detail,recent?time(recent):'');
+ if(review)issues.push({tone:'warn',title:'Online Payments: review needed',message:review+' recorded transaction(s) require review; check the payment transaction history.',panel:'payment-transactions'});
+ unknown=true; // Reading transaction records must never be interpreted as confirming processor availability.
+});
 renderCards();try{await Promise.all(jobs);}finally{clearTimeout(timeout);if(mySeq!==seq||token!==key())return;busy=false;get('shRefresh').disabled=false;get('shRefresh').textContent='Refresh Health';get('shUpdated').textContent='Last checked '+time(new Date())+' • Read-only operational overview';renderCards();renderAlerts(issues,unknown);}}
 page.addEventListener('click',e=>{const b=e.target.closest('[data-sh-open]');if(!b)return;const target=b.dataset.shOpen;const tab=document.querySelector(`.admin-tab[data-admin-tab="${target}"]:not([hidden])`);if(tab)tab.click();else if(target==='notifications')get('adminNotificationBell')?.click();});
 get('shRefresh').addEventListener('click',refresh);
