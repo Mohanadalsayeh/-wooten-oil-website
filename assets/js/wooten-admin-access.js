@@ -20,7 +20,7 @@
     database_backup:'Backup & Recovery'
   });
   const tabs=Object.freeze({
-    customers:'database',automation:'mas90_health',activity:'customer_activity',
+    customers:'database',automation:'mas90_health','system-health':'mas90_health',activity:'customer_activity',
     database:'database','payment-database':'database','invoice-database':'database',
     'fuel-monitor':'fuel_monitoring',fleet:'fleet_cards','intevacon-api-test':'fleet_cards',
     'payment-transactions':'payment_transactions',collections:'collections',activation:'activation',

@@ -5863,6 +5863,15 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
   };
 })();
 </script>
+<style id="wooten-system-health-ver912">
+#admin-tab-system-health .sh-heading,#admin-tab-system-health .sh-alert-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#admin-tab-system-health .sh-heading h2{margin:8px 0 6px}#admin-tab-system-health .sh-heading p,#admin-tab-system-health .sh-alert-heading p{color:#637e99;margin:0 0 12px}
+#shUpdated,#admin-tab-system-health .sh-disclaimer{color:#627d94;font-size:13px;margin:15px 0}
+#shCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:20px 0 30px}
+.sh-card{border:1px solid #d5e2ec;border-radius:14px;padding:18px;background:white;min-width:0}.sh-card-head{display:flex;gap:10px;align-items:center;justify-content:space-between}.sh-card h3{font-size:17px;color:#092f50;margin:0}.sh-card p{font-size:13px;color:#617e94;margin:10px 0}.sh-card small{display:block;color:#738699;font-size:12px;line-height:1.5;margin:9px 0}.sh-pill{font-size:12px;font-weight:700;padding:5px 9px;border-radius:100px;background:#eef2f7;color:#475569;white-space:nowrap}.sh-pill.good{color:#06724e;background:#e5f5ed}.sh-pill.warn{color:#a65a00;background:#fff2db}.sh-pill.bad{color:#b91c1c;background:#fff0f0}.sh-pill.unknown{color:#58697f;background:#edf1f5}.sh-open{font-size:13px;color:#175d8e;text-decoration:underline;cursor:pointer;border:0;background:transparent;padding:4px 0}
+#admin-tab-system-health .sh-alert-heading{border-top:1px solid #e0e9f0;padding-top:24px}.sh-alert-heading h3{margin:0 0 5px;color:#092f50}.sh-alert-count{font-weight:700;color:#526f86}.sh-alert-row{border:1px solid #dce6ef;border-radius:12px;padding:14px;margin:9px 0;display:flex;gap:12px;align-items:flex-start}.sh-alert-icon{font-weight:700;font-size:18px}.sh-alert-row.bad .sh-alert-icon{color:#c32932}.sh-alert-row.warn .sh-alert-icon{color:#b66b0a}.sh-alert-row.info .sh-alert-icon{color:#3974a7}.sh-alert-text{min-width:0;flex:1}.sh-alert-text strong{color:#092f50}.sh-alert-text p{color:#536d81;font-size:13px;margin:4px 0}.sh-alert-text small{color:#718499;font-size:12px}
+@media(max-width:650px){#admin-tab-system-health .sh-heading button{width:100%}}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -6007,6 +6016,7 @@ SOFTWARE.
       <div class="admin-sidebar-scroll-region" tabindex="0" aria-label="Administration menu choices">
       <div class="admin-nav-group">Overview</div>
       <button class="admin-tab" id="admin-tab-btn-dashboard" type="button" role="tab" aria-selected="true" aria-controls="admin-tab-dashboard" data-admin-tab="dashboard" data-admin-label="Overview"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="layout-dashboard"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>Dashboard</button>
+      <button class="admin-tab" id="admin-tab-btn-system-health" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-system-health" data-admin-tab="system-health" data-admin-label="System Health Center"><span class="admin-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span>System Health Center</button>
       <div class="admin-nav-group">Customers</div>
       <button class="admin-tab" id="admin-tab-btn-customers" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-customers" data-admin-tab="customers" data-admin-label="Customer Database"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="database"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></span>Database</button>
       <button class="admin-tab" id="admin-tab-btn-automation" type="button" role="tab" aria-selected="false" aria-controls="admin-tab-automation" data-admin-tab="automation" data-admin-label="MAS 90 Health"><span class="admin-nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-menu-icon="heart-pulse"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>MAS 90 Health</button>
@@ -6059,6 +6069,14 @@ SOFTWARE.
     </div>
   </div>
 
+  <div class="card admin-tab-panel" id="admin-tab-system-health" role="tabpanel" aria-labelledby="admin-tab-btn-system-health" data-admin-panel="system-health">
+    <div class="sh-heading"><div><div class="admin-page-label">Operations &amp; Alerts</div><h2>System Health Center</h2><p>Live service checks and consolidated operational alerts. Unknown is never counted as healthy.</p></div><button type="button" class="secondary" id="shRefresh">Refresh Health</button></div>
+    <p id="shUpdated" role="status">Open this page to check connected systems.</p>
+    <div class="sh-grid" id="shCards" aria-live="polite"></div>
+    <div class="sh-alert-heading"><div><h3>Centralized Alert Center</h3><p>Current issues from MAS 90 and fuel monitoring, alongside the existing admin notification feed.</p></div><div class="sh-alert-count" id="shAlertCount">—</div></div>
+    <div id="shAlerts" class="sh-alert-list" aria-live="polite"><p>Checking alerts…</p></div>
+    <p class="sh-disclaimer">This overview is read-only. Resolve issues in their corresponding system pages. Alerts already managed by the notification bell remain available there.</p>
+  </div>
   <div class="card admin-tab-panel mas90-health-panel" id="admin-tab-automation" role="tabpanel" aria-labelledby="admin-tab-btn-automation" data-admin-panel="automation">
     <div class="mas90-health-heading">
       <div>
@@ -16525,7 +16543,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=910"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=907"></script>
 
 <style id="wooten-master-data-cleanup-ver858">
 .master-data-cleanup{margin-top:18px;padding:18px 20px;border:1px solid #f0c7c7;border-radius:14px;background:#fffafa;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
@@ -16554,6 +16572,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 
 <link rel="stylesheet" href="assets/css/wooten-status-icons.css?v=908">
 <script defer src="assets/js/wooten-status-icons.js?v=908"></script>
+<script src="assets/js/wooten-system-health.js?v=912" defer></script>
 </body>
 
 </html>
