@@ -12,7 +12,9 @@ export async function ensure(env){
  `CREATE TABLE IF NOT EXISTS fuel_monitor_alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,message TEXT NOT NULL,portal INTEGER NOT NULL DEFAULT 1,acknowledged INTEGER NOT NULL DEFAULT 0,email_to TEXT,sms_to TEXT,email_status TEXT NOT NULL,sms_status TEXT NOT NULL,email_detail TEXT,sms_detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE INDEX IF NOT EXISTS fuel_monitor_alerts_recent ON fuel_monitor_alerts(created_at DESC,id DESC)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_schedules(location_id TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 0,days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',send_time TEXT NOT NULL DEFAULT '08:00',last_sent_at TEXT,last_sent_date TEXT,last_status TEXT)`,
- `CREATE TABLE IF NOT EXISTS fuel_monitor_scheduled_runs(location_id TEXT NOT NULL,local_date TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,local_date))`];
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_scheduled_runs(location_id TEXT NOT NULL,local_date TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,local_date))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_deleted_locations(id TEXT PRIMARY KEY,config TEXT NOT NULL,token_hash TEXT,reading TEXT,last_observed TEXT,last_contact TEXT,error TEXT,created_at TEXT,deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,reassigned_to TEXT)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_collector_aliases(original_id TEXT PRIMARY KEY,target_id TEXT NOT NULL,token_hash TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`];
  for(const s of sql)await env.DB.prepare(s).run();
 }
 export function alertRecipients(value,type){
@@ -145,7 +147,8 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     if(!/^[1-9]\d{0,14}$/.test(requestedAlert)||!Number.isSafeInteger(Number(requestedAlert)))fail('Invalid fuel alert ID.',400);
     target_alert=await env.DB.prepare('SELECT * FROM fuel_monitor_alerts WHERE id=?').bind(Number(requestedAlert)).first()||null;
    }
-   return reply({success:true,locations,alerts,history,target_alert});
+   const deleted_locations=(await env.DB.prepare('SELECT id,config,deleted_at,reassigned_to,token_hash FROM fuel_monitor_deleted_locations ORDER BY deleted_at DESC LIMIT 100').all()).results.map(r=>({id:r.id,name:JSON.parse(r.config).name,deleted_at:r.deleted_at,reassigned_to:r.reassigned_to,paired:!!r.token_hash}));
+   return reply({success:true,locations,alerts,history,target_alert,deleted_locations});
   }
   if(request.method!=='POST')return reply({success:false,error:'Use GET or POST.'},405);
   const b=await bodyOf(request),action=b.action,id=b.id||crypto.randomUUID();
@@ -154,7 +157,43 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
   }
-  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','verify_connection_edit','reset_tanks'].includes(action))fail('Unknown action.');
+  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','verify_connection_edit','reset_tanks','restore_location','reconnect_collector'].includes(action))fail('Unknown action.');
+  if(action==='restore_location'||action==='reconnect_collector'){
+   if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('The Master Admin password is incorrect.',403);
+   if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
+   const archived=await env.DB.prepare('SELECT * FROM fuel_monitor_deleted_locations WHERE id=?').bind(id).first();
+   if(!archived)fail('Deleted location not found.',404);
+   if(archived.reassigned_to)fail('This collector was already reconnected to another location.',409);
+   if(action==='restore_location'){
+    if(await env.DB.prepare('SELECT id FROM fuel_monitor_locations WHERE id=?').bind(id).first())fail('A location with this ID already exists.',409);
+    await env.DB.batch([
+     env.DB.prepare('INSERT INTO fuel_monitor_locations(id,config,token_hash,reading,last_observed,last_contact,error,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,archived.config,archived.token_hash,archived.reading,archived.last_observed,archived.last_contact,archived.error,archived.created_at),
+     env.DB.prepare('DELETE FROM fuel_monitor_deleted_locations WHERE id=?').bind(id),
+     env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,JSON.parse(archived.config).name,str(actor?.name||'Master Admin',160),'restore_location','[]'),
+     await auditStatement({action:'fuel_monitor_restore_location',id,detail:'Restored deleted fuel monitoring location with original collector identity'})
+    ]);
+    return reply({success:true,id,restored:true});
+   }
+   const target=str(b.target_id,80);
+   if(!target||target===id)fail('Choose a different existing location.',400);
+   const replacement=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(target).first();
+   if(!replacement)fail('Replacement location not found.',404);
+   if(replacement.token_hash||replacement.last_observed)fail('The replacement location must be unused and not paired with another collector.',409);
+   if(!archived.token_hash)fail('The deleted location has no collector credential to reconnect.',409);
+   const archiveConfig=JSON.parse(archived.config),newConfig=JSON.parse(replacement.config);
+   // Keep the new location's identity/contact settings, but copy the gauge
+   // connection and existing tank configuration from the archived source.
+   for(const key of ['model','host','port','interval','enabled'])newConfig[key]=archiveConfig[key];
+   if(!newConfig.tanks?.length)newConfig.tanks=archiveConfig.tanks||[];
+   await env.DB.batch([
+    env.DB.prepare('UPDATE fuel_monitor_locations SET config=?,token_hash=? WHERE id=? AND token_hash IS NULL').bind(JSON.stringify(newConfig),archived.token_hash,target),
+    env.DB.prepare('INSERT INTO fuel_monitor_collector_aliases(original_id,target_id,token_hash) VALUES(?,?,?)').bind(id,target,archived.token_hash),
+    env.DB.prepare('UPDATE fuel_monitor_deleted_locations SET reassigned_to=? WHERE id=?').bind(target,id),
+    env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(target,newConfig.name,str(actor?.name||'Master Admin',160),'reconnect_collector',JSON.stringify([{field:'original_location_id',before:id,after:target}])),
+    await auditStatement({action:'fuel_monitor_reconnect_collector',id:target,detail:`Reconnected archived collector ${id} to replacement location ${target}`})
+   ]);
+   return reply({success:true,id:target,reconnected:true});
+  }
   const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
   if(action!=='save'&&!row)fail('Location no longer exists.',404);
   if(row?.lock_until>Date.now())fail('A reading is being saved. Try again in a few seconds.',409);
@@ -228,12 +267,10 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   }
   if(action==='delete'){
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
-   detail=`Deleted location ${JSON.parse(row.config).name} and its tank readings. Alert history retained.`;
+   if(await env.DB.prepare('SELECT id FROM fuel_monitor_deleted_locations WHERE id=?').bind(id).first())fail('This location is already archived.',409);
+   detail=`Archived location ${JSON.parse(row.config).name}. The collector identity is preserved for recovery.`;
    jobs.push(
-    env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
-    env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
-    env.DB.prepare('DELETE FROM fuel_monitor_schedules WHERE location_id=?').bind(id),
-    env.DB.prepare('DELETE FROM fuel_monitor_scheduled_runs WHERE location_id=?').bind(id),
+    env.DB.prepare('INSERT INTO fuel_monitor_deleted_locations(id,config,token_hash,reading,last_observed,last_contact,error,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,row.config,row.token_hash,row.reading,row.last_observed,row.last_contact,row.error,row.created_at),
     env.DB.prepare('DELETE FROM fuel_monitor_locations WHERE id=?').bind(id)
    );
    jobs.push(env.DB.prepare("UPDATE fuel_monitor_alerts SET acknowledged=1,email_status=CASE WHEN email_status='pending' THEN 'cancelled' ELSE email_status END,sms_status=CASE WHEN sms_status='pending' THEN 'cancelled' ELSE sms_status END WHERE location_id=?").bind(id));
@@ -282,8 +319,16 @@ export async function agent(request,env){
  try{
   await ensure(env);const u=new URL(request.url);id=u.searchParams.get('location')||'';
   const token=request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
-  const row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
-  if(!row?.token_hash||!token||await digest(token)!==row.token_hash)fail('Collector authentication failed.',401);
+  let row=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(id).first();
+  const hashed=token?await digest(token):'';
+  if(!row){
+   const alias=await env.DB.prepare('SELECT * FROM fuel_monitor_collector_aliases WHERE original_id=?').bind(id).first();
+   if(alias&&hashed===alias.token_hash){
+    const target=await env.DB.prepare('SELECT * FROM fuel_monitor_locations WHERE id=?').bind(alias.target_id).first();
+    if(target&&target.token_hash===alias.token_hash){id=alias.target_id;row=target;}
+   }
+  }
+  if(!row?.token_hash||!token||hashed!==row.token_hash)fail('Collector authentication failed.',401);
   let config=JSON.parse(row.config);
   if(request.method==='GET')return reply({success:true,config:{host:config.host,port:config.port,interval:config.interval,enabled:config.enabled}});
   if(request.method!=='POST')fail('Use GET or POST.',405);
