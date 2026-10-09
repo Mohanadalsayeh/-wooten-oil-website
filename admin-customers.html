@@ -5869,6 +5869,20 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
 #shUpdated,#admin-tab-system-health .sh-disclaimer{color:#627d94;font-size:13px;margin:15px 0}
 #shCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:20px 0 30px}
 .sh-card{border:1px solid #d5e2ec;border-radius:14px;padding:18px;background:white;min-width:0}.sh-card-head{display:flex;gap:10px;align-items:center;justify-content:space-between}.sh-card h3{font-size:17px;color:#092f50;margin:0}.sh-card p{font-size:13px;color:#617e94;margin:10px 0}.sh-card small{display:block;color:#738699;font-size:12px;line-height:1.5;margin:9px 0}.sh-pill{font-size:12px;font-weight:700;padding:5px 9px;border-radius:100px;background:#eef2f7;color:#475569;white-space:nowrap}.sh-pill.good{color:#06724e;background:#e5f5ed}.sh-pill.warn{color:#a65a00;background:#fff2db}.sh-pill.bad{color:#b91c1c;background:#fff0f0}.sh-pill.unknown{color:#58697f;background:#edf1f5}.sh-open{font-size:13px;color:#175d8e;text-decoration:underline;cursor:pointer;border:0;background:transparent;padding:4px 0}
+/* System Health links: text-only, underline on hover/focus. */
+#admin-tab-system-health button.sh-open,
+#admin-tab-system-health button.sh-open:hover,
+#admin-tab-system-health button.sh-open:focus,
+#admin-tab-system-health button.sh-open:active{
+  appearance:none!important;-webkit-appearance:none!important;
+  background:transparent!important;border:0!important;border-radius:0!important;
+  box-shadow:none!important;outline-offset:3px;
+  color:#175d8e!important;padding:0!important;width:auto!important;min-height:0!important;
+  font:inherit;font-size:13px!important;font-weight:400!important;
+  text-decoration:none!important;cursor:pointer;
+}
+#admin-tab-system-health button.sh-open:hover,
+#admin-tab-system-health button.sh-open:focus-visible{text-decoration:underline!important;text-underline-offset:3px}
 #admin-tab-system-health .sh-alert-heading{border-top:1px solid #e0e9f0;padding-top:24px}.sh-alert-heading h3{margin:0 0 5px;color:#092f50}.sh-alert-count{font-weight:700;color:#526f86}.sh-alert-row{border:1px solid #dce6ef;border-radius:12px;padding:14px;margin:9px 0;display:flex;gap:12px;align-items:flex-start}.sh-alert-icon{font-weight:700;font-size:18px}.sh-alert-row.bad .sh-alert-icon{color:#c32932}.sh-alert-row.warn .sh-alert-icon{color:#b66b0a}.sh-alert-row.info .sh-alert-icon{color:#3974a7}.sh-alert-text{min-width:0;flex:1}.sh-alert-text strong{color:#092f50}.sh-alert-text p{color:#536d81;font-size:13px;margin:4px 0}.sh-alert-text small{color:#718499;font-size:12px}
 @media(max-width:650px){#admin-tab-system-health .sh-heading button{width:100%}}
 </style>
