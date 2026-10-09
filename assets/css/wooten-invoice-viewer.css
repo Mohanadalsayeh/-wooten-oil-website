@@ -189,3 +189,23 @@ body .wooten-fleet button.fleet-transaction-link{display:inline!important;min-he
 body .wooten-fleet button.fleet-transaction-link:hover{text-decoration:underline!important;text-underline-offset:3px}
 body .wooten-fleet a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;pointer-events:none!important;cursor:default!important}
 @media(max-width:600px){body .fleet-transaction-dialog .fleet-detail-fields{grid-template-columns:1fr}}
+
+/* Ver916: Admin Customer Invoices modal, aligned native portal fields. */
+body .iv-admin-invoices .iv-tools{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;gap:14px;align-items:end}
+body .iv-admin-invoices .iv-tools>label{min-width:0}
+body .iv-admin-invoices .iv-tools .iv-search-inline{display:block;min-width:0}
+body .iv-admin-invoices .iv-tools .iv-search-inline input{width:100%}
+body .iv-admin-invoices .iv-body{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+body .iv-admin-invoices .iv-tools,body .iv-admin-invoices .iv-status,body .iv-admin-invoices .iv-table-toolbar,body .iv-admin-invoices .iv-pages{flex:0 0 auto}
+body .iv-admin-invoices .iv-status{margin:16px 0 4px;min-height:0}
+body .iv-admin-invoices .iv-table-toolbar{margin:6px 0 12px}
+body .iv-admin-invoices .iv-table-wrap{flex:1 1 auto;min-height:120px;overflow:auto}
+body .iv-admin-invoices .iv-pages{margin-top:12px}
+@media(max-width:760px){
+ body .iv-admin-invoices .iv-tools{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+ body .iv-admin-invoices .iv-tools>label:first-child{grid-column:1/-1}
+ body .iv-admin-invoices .iv-tools>label:nth-child(2){grid-column:1/2}
+ body .iv-admin-invoices .iv-tools>[data-refresh]{grid-column:2/3;min-width:0}
+ body .iv-admin-invoices .iv-table-toolbar{align-items:flex-start}
+}
+@media(max-width:440px){body .iv-admin-invoices .iv-tools{gap:10px}body .iv-admin-invoices .iv-tools>label:nth-child(2){grid-column:1/-1}body .iv-admin-invoices .iv-tools>[data-refresh]{grid-column:1/-1}body .iv-admin-invoices .iv-table-toolbar{flex-wrap:wrap}}

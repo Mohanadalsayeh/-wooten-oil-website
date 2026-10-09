@@ -32,6 +32,7 @@ if(!admin){
 document.body.append(list,detail);
 const q=(root,selector)=>root.querySelector(selector);
 const form=q(list,'form'),search=form.elements.search,sort=form.elements.sort,body=q(list,'tbody');
+if(admin){list.classList.add('iv-admin-invoices');q(list,'[data-search]').remove();}
 let page=1,pages=1,selected='',customerName='',listSerial=0,detailSerial=0,listAbort,detailAbort,listBusy=false,searchTimer,listAction='load';
 let invoicePdfUrls=[],appliedSearch=null,originalInvoice=null;
 if(admin)q(detail,'[data-original]').addEventListener('click',event=>{if(originalInvoice&&!event.currentTarget.disabled)window.WootenOriginalInvoice?.open(originalInvoice,event.currentTarget);});
@@ -43,8 +44,7 @@ function syncListControls(){
  const refresh=q(list,'[data-refresh]'),searchButton=q(list,'[data-search]');
  refresh.textContent=listBusy&&listAction==='refresh'?'Refreshing...':'Refresh';
  refresh.setAttribute('aria-busy',String(listBusy&&listAction==='refresh'));
- searchButton.textContent=listBusy&&listAction==='search'?'Searching...':'Search';
- searchButton.setAttribute('aria-busy',String(listBusy&&listAction==='search'));
+ if(searchButton){searchButton.textContent=listBusy&&listAction==='search'?'Searching...':'Search';searchButton.setAttribute('aria-busy',String(listBusy&&listAction==='search'));}
  q(list,'[data-export]').disabled=listBusy||exporting||!matchedTotal;
  form.querySelectorAll('button').forEach(e=>e.disabled=listBusy||exporting);
  search.disabled=exporting;sort.disabled=exporting;
@@ -184,8 +184,12 @@ q(detail,'[data-print]').addEventListener('click',()=>{
 for(const dialog of [list,detail])dialog.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>dialog.close()));
 list.addEventListener('close',()=>{appliedSearch=null;++listSerial;exportAbort?.abort();exporting=false;matchedTotal=0;q(q(list,'[data-export]'),'span').textContent='Export PDF';listAbort?.abort();clearTimeout(searchTimer);body.replaceChildren();message(list,'');q(list,'[data-account]').textContent='';q(list,'[data-updated]').textContent='';listBusy=false;body.setAttribute('aria-busy','false');syncListControls();if(detail.open)detail.close();if(listTrigger?.isConnected)listTrigger.focus({preventScroll:true});});
 detail.addEventListener('close',()=>{originalInvoice=null;window.WootenOriginalInvoice?.close();if(admin)q(detail,'[data-original]').disabled=true;q(detail,'[data-print]').disabled=true;++detailSerial;detailAbort?.abort();q(detail,'[data-detail-content]').replaceChildren();q(detail,'[data-invoice-meta]').textContent='';message(detail,'');q(detail,'[data-updated]').textContent='';q(detail,'#ivDetailTitle').textContent='Invoice';syncListControls();if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
-form.addEventListener('submit',e=>{e.preventDefault();if(listBusy||exporting||search.value.trim()===appliedSearch)return;page=1;load('search');});
-search.addEventListener('input',()=>{if(search.value||!appliedSearch||!list.open)return;page=1;load('search');});
+form.addEventListener('submit',e=>{e.preventDefault();if((listBusy&&!admin)||exporting||search.value.trim()===(appliedSearch??''))return;page=1;load('search');});
+search.addEventListener('input',()=>{
+ if(!list.open)return;
+ if(admin){clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(!exporting&&search.value.trim()!==(appliedSearch??'')){page=1;load('search');}},420);return;}
+ if(search.value||!appliedSearch)return;page=1;load('search');
+});
 sort.addEventListener('change',()=>{headerSort.clear();page=1;load('sort');});
 q(list,'[data-refresh]').addEventListener('click',()=>load('refresh'));
 q(list,'[data-prev]').addEventListener('click',()=>{if(!listBusy&&page>1){page--;load();}});
