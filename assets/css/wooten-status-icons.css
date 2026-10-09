@@ -1,0 +1,7 @@
+/* Consistent small message icons in admin portal (Ver908) */
+.wo-status-iconized{display:flex!important;align-items:flex-start;gap:8px}
+.wo-status-iconized .wo-status-icon{width:15px;height:15px;min-width:15px;margin-top:2px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wo-status-iconized[data-wo-status-kind="info"] .wo-status-icon{color:#2563a6}
+.wo-status-iconized[data-wo-status-kind="success"] .wo-status-icon{color:#168553}
+.wo-status-iconized[data-wo-status-kind="warning"] .wo-status-icon{color:#bc7a15}
+.wo-status-iconized[data-wo-status-kind="error"] .wo-status-icon{color:#c3333b}
