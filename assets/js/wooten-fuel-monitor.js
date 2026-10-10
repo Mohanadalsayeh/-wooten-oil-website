@@ -1,7 +1,7 @@
 (()=>{'use strict';
  const root=document.getElementById('fuelMonitorRoot');if(!root)return;
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const actionIcon=name=>'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+({send:'<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>',shield:'<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/><path d="m9 12 2 2 4-4"/>',network:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-4h14v4"/>',plus:'<path d="M12 5v14M5 12h14"/>',settings:'<path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',key:'<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>'}[name]||'')+'</svg>';
+ const actionIcon=name=>'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+({send:'<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>',shield:'<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/><path d="m9 12 2 2 4-4"/>',analytics:'<path d="M3 3v18h18"/><path d="m7 16 4-5 3 2 5-7"/>',network:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-4h14v4"/>',plus:'<path d="M12 5v14M5 12h14"/>',settings:'<path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',key:'<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>'}[name]||'')+'</svg>';
  const removalPasswords=new WeakMap();
  const key=()=>document.getElementById('adminKey')?.value.trim()||'';
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
@@ -20,7 +20,7 @@
  }
  function startFuelAlertHighlight(){
   clearFuelAlertHighlight();
-  fuelAlertHighlightUntil=Date.now()+5000;
+  fuelAlertHighlightUntil=Date.now()+3000;
   fuelAlertHighlightTimer=setTimeout(()=>{
    fuelAlertHighlightTimer=0;
    fuelAlertHighlightUntil=0;
@@ -28,7 +28,7 @@
     card.classList.remove('fm-alert-targeted');
     if(document.activeElement===card)card.blur();
    });
-  },5000);
+  },3000);
  }
  let deletedLocations=[],history=[],locations=[],alerts=[],editing=null,loading=false,epoch=0,activeLocation='all',alertPage=1;
  const ALERTS_PER_PAGE=20;
@@ -193,12 +193,12 @@
     const dial='<div class="fm-dial-wrap"><svg class="fm-dial" viewBox="0 0 220 148" role="img" aria-label="Tank '+t.number+': '+esc(valid?displayedPercent+' full; '+status:'no reading available')+'"><path class="fm-dial-track" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke-width="16" stroke-linecap="round"/>'+(valid&&percent>0?'<path class="fm-dial-fill" d="M22 108 A88 88 0 0 1 198 108" fill="none" stroke="'+dialColor+'" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="'+percent+' 100"/>':'')+'<text class="fm-dial-value" x="110" y="96" text-anchor="middle">'+displayedPercent+'</text><text class="fm-dial-tick" x="22" y="139" text-anchor="middle">0</text><text class="fm-dial-tick" x="198" y="139" text-anchor="middle">100%</text></svg></div>';
     return '<div class="fm-tank fm-tank-dial'+(gaugeDisconnected?' fm-gauge-disconnected':'')+'"><div class="fm-tank-title"><span class="fm-tank-number" aria-label="Tank '+t.number+'">'+t.number+'</span><strong>'+esc(t.fuel)+'</strong></div>'+dial+'<div class="fm-dial-quantity">'+(valid?volume.toLocaleString('en-US'):'—')+' <span>/ '+capacity.toLocaleString('en-US')+' gal</span></div><div class="fm-dial-caption" style="color:'+dialColor+'">'+esc(status)+'</div><div class="fm-tank-thresholds"><span>Low threshold<b>'+t.low+(t.mode==='percent'?'%':' gal')+'</b></span><span>Critical alert<b>'+t.critical+(t.mode==='percent'?'%':' gal')+'</b></span></div>'+(t.alerts?'':'<p>Tank alerts off</p>')+(valid?'<div class="fm-water-reading"><span>Water level</span><strong>'+esc(r.water==null?'Not reported':r.water+' in')+'</strong><small>'+esc(stale||l.error||!l.enabled?'Last known reading':'From monitor')+'</small></div><p>Ullage: '+esc(r.ullage??'—')+' gal · Temp: '+esc(r.temperature??'—')+' °F</p>':'')+'</div>';
 
-   }).join(''):(l.paired?'<div class="fm-tank-redetect-pending"><strong>Waiting for tank re-detection</strong><p>The next PC2 collector reading will automatically add detected tanks. Your location and collector JSON/key remain unchanged. Review capacities and enable alerts afterward.</p></div>':'<p>Add tanks or review detected tanks after the first reading.</p>'))+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length||!l.tanks.length?'disabled title="Waiting for tanks and a fresh fuel reading"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
+   }).join(''):(l.paired?'<div class="fm-tank-redetect-pending"><strong>Waiting for tank re-detection</strong><p>The next PC2 collector reading will automatically add detected tanks. Your location and collector JSON/key remain unchanged. Review capacities and enable alerts afterward.</p></div>':'<p>Add tanks or review detected tanks after the first reading.</p>'))+ '</div></div><div class="fm-station-actions"><button type="button" class="fm-add-tank" data-inline-id="'+esc(l.id)+'" data-inline-section="tanks">'+actionIcon('plus')+'Add/Edit tank</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="location">'+actionIcon('settings')+'Edit location</button><button type="button" data-inline-id="'+esc(l.id)+'" data-inline-section="connection">'+actionIcon('network')+'Veeder-Root connection</button><button type="button" class="fm-analytics-button" data-fuel-analytics="'+esc(l.id)+'">'+actionIcon('analytics')+'Fuel Usage Analytics</button><button type="button" class="fm-send-reading" data-send-reading="'+esc(l.id)+'" '+(!l.reading?.tanks?.length||!l.tanks.length?'disabled title="Waiting for tanks and a fresh fuel reading"':'')+'>'+actionIcon('send')+'<span data-send-reading-label>Send fuel reading</span></button><button type="button" class="fm-collector-action" data-pair="'+esc(l.id)+'">'+actionIcon('key')+(l.paired?'Replace collector key':'Connect collector')+'</button></div></article>';
   }).join(''):'<div class="fm-empty">No locations yet. Add your first gas station to set up its tanks and monitoring.</div>';
   for(const card of root.querySelectorAll('.fm-location')){
    const footer=card.querySelector('.fm-station-actions');
    const actions=document.createElement('div');actions.className='fm-header-actions';
-   for(const button of [...footer.querySelectorAll('[data-inline-section]')])actions.append(button);
+   for(const button of [...footer.querySelectorAll('[data-inline-section], [data-fuel-analytics]')])actions.append(button);
    const header=card.querySelector('.fm-station-header');
    const info=header.firstElementChild;info.classList.add('fm-location-info');
    header.append(actions);
@@ -813,6 +813,23 @@ root.addEventListener('click',e=>{
   }catch(error){if(sequence===fuelAlertJumpSeq){clearFuelAlertHighlight();message(error.message,true);}}
  }
  window.addEventListener('wooten-open-fuel-alert-notification',event=>{openSpecificFuelAlert(event.detail);});
+ // SMS/email links provide both the alert ID and the location. Preserve the
+ // target through login, which intentionally resets the visible tab to Dashboard.
+ let pendingDeepLink=window.wootenPendingFuelDeepLink||null;
+ let deepLinkBusy=false;
+ async function consumeFuelDeepLink(){
+  if(!pendingDeepLink||deepLinkBusy||!allowed()||!key())return;
+  deepLinkBusy=true;
+  try{
+   document.getElementById('admin-tab-btn-fuel-monitor')?.click();
+   await openSpecificFuelAlert(pendingDeepLink);
+   pendingDeepLink=null;
+   window.wootenPendingFuelDeepLink=null;
+  }finally{deepLinkBusy=false;}
+ }
+ window.addEventListener('wooten-admin-auth-changed',()=>setTimeout(consumeFuelDeepLink,250));
+ setTimeout(consumeFuelDeepLink,350);
+
  window.addEventListener('wooten-admin-page-open',e=>{if(e.detail?.panel==='fuel-monitor')load()});
  window.addEventListener('wooten-admin-auth-changed',()=>{clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;epoch++;creatingLocation=false;inlineEdit=null;inlineSaving=false;locations=[];alerts=[];history=[];activeLocation='all';dialog.close();render();if(!document.getElementById('admin-tab-fuel-monitor').hidden)load()});
  // While paired locations have no configured tanks, check quietly every 10 seconds.

@@ -13537,6 +13537,13 @@ function fuelMonitorTankStatus(tank,readingTank,deliverySet){
 function fuelMonitorFmt(value,digits=0){
   const n=Number(value);return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
 }
+function fuelMonitorAlertDeepLink(context={}){
+  const alert=context.alert||{};
+  const id=Number(alert.id);
+  const location=String(alert.location_id||'');
+  if(!Number.isSafeInteger(id)||id<1||!/^[a-zA-Z0-9-]{1,80}$/.test(location))return 'https://wootenoil.com/admin-customers#fuel-monitor';
+  return 'https://wootenoil.com/admin-customers#fuel-monitor?alert='+encodeURIComponent(id)+'&location='+encodeURIComponent(location);
+}
 function fuelMonitorEmailContent(message,context={}){
   const location=context.location||{},reading=context.reading||{},alert=context.alert||{};
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
@@ -13697,7 +13704,7 @@ function fuelMonitorEmailContent(message,context={}){
         Please do not reply to this email. For assistance, contact <strong style="color:#126aa2">support@wootenoil.com</strong>.
        </td>
        <td align="right" style="padding-left:16px">
-        <a href="https://wootenoil.com/admin-customers#fuel-monitor" style="display:inline-block;background:#e3182d;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:900;white-space:nowrap">View in Portal →</a>
+        <a href="${fuelMonitorAlertDeepLink(context)}" style="display:inline-block;background:#e3182d;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:900;white-space:nowrap">View in Portal →</a>
        </td>
       </tr></table>
     </td></tr>
@@ -13749,12 +13756,12 @@ function fuelMonitorSmsContent(message,context={}){
     lines.push(`${shortFuelName(tank.fuel)}: ${fuelMonitorFmt(r.volume)} gal${suffix}`);
   }
 
-  lines.push('','View details in','https://wootenoil.com/admin-customers#fuel-monitor');
+  lines.push('','View details in',fuelMonitorAlertDeepLink(context));
   return lines.join('\n');
 }
 async function dispatchFuelMonitorAlerts(env){
   try{await FuelMonitor.dispatch(env,{
-    email:async(to,message,id,context)=>{const content=fuelMonitorEmailContent(message,context);const result=await accountApplicationSendEmail(env,{to,subject:content.subject,text:message,html:content.html});if(!result.sent)throw new Error(result.error||'Email submission failed');return result;},
+    email:async(to,message,id,context)=>{const content=fuelMonitorEmailContent(message,context);const result=await accountApplicationSendEmail(env,{to,subject:content.subject,text:message+"\n\nView alert: "+fuelMonitorAlertDeepLink(context),html:content.html});if(!result.sent)throw new Error(result.error||'Email submission failed');return result;},
     sms:(to,message,context)=>twilioSendSms(env,to,fuelMonitorSmsContent(message,context))
   });}catch(error){console.error('Fuel alert dispatch failed',error);}
 }

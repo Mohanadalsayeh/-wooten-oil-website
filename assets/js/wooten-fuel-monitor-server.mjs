@@ -7,6 +7,9 @@ export async function ensure(env){
  const sql=[
  `CREATE TABLE IF NOT EXISTS fuel_monitor_history(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,location_name TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,changes TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_locations(id TEXT PRIMARY KEY,config TEXT NOT NULL,token_hash TEXT,reading TEXT,last_observed TEXT,last_contact TEXT,error TEXT,lock_until INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_tank_readings(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,observed_at TEXT NOT NULL,volume REAL NOT NULL,PRIMARY KEY(location_id,tank_number,observed_at))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_tank_reading_details(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,observed_at TEXT NOT NULL,water REAL,temperature REAL,PRIMARY KEY(location_id,tank_number,observed_at))`,
+ `CREATE INDEX IF NOT EXISTS fuel_monitor_tank_readings_recent ON fuel_monitor_tank_readings(location_id,observed_at)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_states(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_mutes(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,acknowledged_alert_id INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,message TEXT NOT NULL,portal INTEGER NOT NULL DEFAULT 1,acknowledged INTEGER NOT NULL DEFAULT 0,email_to TEXT,sms_to TEXT,email_status TEXT NOT NULL,sms_status TEXT NOT NULL,email_detail TEXT,sms_detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -136,6 +139,55 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return reply({success:false,error:'Unauthorized'},401);
   await ensure(env);
   if(request.method==='GET'){
+   const exportId=new URL(request.url).searchParams.get('reading_export_id');
+   if(exportId!==null){
+    if(!/^[a-zA-Z0-9-]{1,80}$/.test(exportId))fail('Invalid location.',400);
+    const location=await env.DB.prepare('SELECT config FROM fuel_monitor_locations WHERE id=?').bind(exportId).first();
+    if(!location)fail('Location not found.',404);
+    const config=JSON.parse(location.config);
+    const offset=Math.min(2000000,Math.max(0,Number(new URL(request.url).searchParams.get('offset')||0)||0));
+    const limit=3000;
+    const rows=(await env.DB.prepare(`SELECT r.observed_at,r.tank_number,r.volume,d.water,d.temperature
+       FROM fuel_monitor_tank_readings r LEFT JOIN fuel_monitor_tank_reading_details d
+       ON d.location_id=r.location_id AND d.tank_number=r.tank_number AND d.observed_at=r.observed_at
+       WHERE r.location_id=? ORDER BY r.observed_at ASC,r.tank_number ASC LIMIT ? OFFSET ?`)
+       .bind(exportId,limit,offset).all()).results||[];
+    return reply({success:true,location_name:config.name,location_id:exportId,interval:config.interval,tanks:config.tanks.map(t=>({number:t.number,fuel:t.fuel})),rows,next_offset:rows.length===limit?offset+limit:null});
+   }
+   const analyticsId=new URL(request.url).searchParams.get('analytics_id');
+   if(analyticsId!==null){
+    if(!/^[a-zA-Z0-9-]{1,80}$/.test(analyticsId))fail('Invalid location.',400);
+    const location=await env.DB.prepare('SELECT config FROM fuel_monitor_locations WHERE id=?').bind(analyticsId).first();
+    if(!location)fail('Location not found.',404);
+    const config=JSON.parse(location.config);
+    const cutoff=new Date(Date.now()-90*86400000).toISOString();
+    const tanks=[];
+    for(const tank of config.tanks||[]){
+     const capacity=Number(tank.capacity);
+     if(!(capacity>0))continue;
+     // Calculate each interval in the database; never transmit raw historical inventory to the browser.
+     // Positive changes are deliveries/adjustments, not negative consumption. Long gaps and
+     // sudden implausible drops are excluded from the usage estimate.
+     const rows=(await env.DB.prepare(`WITH seq AS (
+      SELECT observed_at,volume,
+       LAG(volume) OVER (ORDER BY observed_at) AS previous_volume,
+       LAG(observed_at) OVER (ORDER BY observed_at) AS previous_at
+      FROM fuel_monitor_tank_readings
+      WHERE location_id=? AND tank_number=? AND observed_at>=?
+     ) SELECT substr(observed_at,1,10) AS day,
+      ROUND(SUM(CASE WHEN previous_volume IS NOT NULL
+         AND (julianday(observed_at)-julianday(previous_at))*1440 BETWEEN 0.01 AND 45
+         AND previous_volume-volume >= 2 AND previous_volume-volume <= ?
+         THEN previous_volume-volume ELSE 0 END),1) AS gallons,
+      SUM(CASE WHEN previous_volume IS NOT NULL AND (julianday(observed_at)-julianday(previous_at))*1440 BETWEEN 0.01 AND 45 THEN 1 ELSE 0 END) AS valid_intervals,
+      SUM(CASE WHEN previous_volume IS NOT NULL AND volume-previous_volume> ? THEN 1 ELSE 0 END) AS delivery_indicators,
+      SUM(CASE WHEN previous_volume IS NOT NULL AND previous_volume-volume > ? THEN 1 ELSE 0 END) AS excluded_drops,
+      COUNT(*) AS sample_count
+      FROM seq GROUP BY day ORDER BY day`).bind(analyticsId,Number(tank.number),cutoff,capacity*.25,Math.max(20,capacity*.01),capacity*.25).all()).results||[];
+     tanks.push({number:Number(tank.number),fuel:tank.fuel,capacity,days:rows});
+    }
+    return reply({success:true,location_id:analyticsId,location_name:config.name,tanks,history_since:cutoff,method:'Inventory decreases over consecutive valid observations; apparent deliveries, gaps over 45 minutes, minor gauge noise and implausible drops are excluded. This is an estimate, not metered sales.'});
+   }
    const scheduleRows=(await env.DB.prepare('SELECT * FROM fuel_monitor_schedules').all()).results||[];
    const byId=new Map(scheduleRows.map(s=>[s.location_id,s]));
    const locations=(await env.DB.prepare('SELECT * FROM fuel_monitor_locations ORDER BY created_at,id').all()).results.map(row=>{
@@ -401,6 +453,8 @@ export async function agent(request,env){
     }
    }
   }
+  for(const t of tanks)jobs.push(env.DB.prepare('INSERT OR IGNORE INTO fuel_monitor_tank_readings(location_id,tank_number,observed_at,volume) VALUES(?,?,?,?)').bind(id,t.number,reading.observed_at,t.volume));
+  for(const t of tanks)jobs.push(env.DB.prepare('INSERT OR IGNORE INTO fuel_monitor_tank_reading_details(location_id,tank_number,observed_at,water,temperature) VALUES(?,?,?,?,?)').bind(id,t.number,reading.observed_at,t.water??null,t.temperature??null));
   jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET reading=?,last_observed=?,last_contact=?,error=NULL WHERE id=?').bind(JSON.stringify(reading),reading.observed_at,new Date(now).toISOString(),id));
   await env.DB.batch(jobs);return reply({success:true});
  }catch(e){console.error('fuel monitor collector',e);return reply({success:false,error:e.status?e.message:'Reading could not be stored.'},e.status||500)}

@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+(function(){
+  function capture(){
+    const hash=window.location.hash;
+    const match=/^#fuel-monitor\?(.+)$/.exec(hash);
+    if(!match)return;
+    const params=new URLSearchParams(match[1]);
+    const id=params.get('alert'),location=params.get('location');
+    if(!/^[1-9]\d{0,14}$/.test(id||'')||!Number.isSafeInteger(Number(id))||!/^[a-zA-Z0-9-]{1,80}$/.test(location||''))return;
+    window.wootenPendingFuelDeepLink={alertId:Number(id),locationId:location};
+  }
+  capture();window.addEventListener('hashchange',capture);
+})();
+</script>
 <script src="assets/js/wooten-admin-explicit-search.js?v=802"></script>
 <style>
 .schedule-report-search-row:has(>.wooten-explicit-search-button){grid-template-columns:minmax(0,1fr) auto auto}
@@ -5802,7 +5816,7 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
  height:52px!important;min-height:52px!important;max-height:52px!important;margin:7px 0 0!important;padding:0 12px!important;line-height:normal!important;
 }
 </style>
-<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=907">
+<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=926">
 
 <style id="wooten-feature-menu-icons">
 #admin-tab-btn-fuel-monitor .admin-nav-icon{background:#eaf2fa;color:#236b9b;border-radius:4px;box-shadow:0 0 0 7px #eaf2fa}
@@ -16557,7 +16571,9 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=907"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=925"></script>
+<script src="assets/js/wooten-fuel-excel.js?v=927"></script>
+<script src="assets/js/wooten-fuel-analytics.js?v=927"></script>
 
 <style id="wooten-master-data-cleanup-ver858">
 .master-data-cleanup{margin-top:18px;padding:18px 20px;border:1px solid #f0c7c7;border-radius:14px;background:#fffafa;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}

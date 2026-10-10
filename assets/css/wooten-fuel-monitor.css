@@ -987,3 +987,43 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot #fmRecovery:disabled{background:#eef1f4!important;color:#9aa7b4!important;border-color:#e0e5e9!important;opacity:1!important;cursor:not-allowed;box-shadow:none!important}
 #fuelMonitorRoot #fmRecovery:disabled .fm-deleted-count{background:#e3e8ec;color:#9aa7b4}
 #fuelMonitorRoot #fmRecovery:not(:disabled):hover{background:#dbe5ee}
+
+/* Ver924: keep deleted-location icon, text and count as a compact centered group. */
+#fuelMonitorRoot>.fm-heading>.fm-actions #fmRecovery{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;flex-wrap:nowrap!important;text-align:center!important}
+#fuelMonitorRoot>.fm-heading>.fm-actions #fmRecovery>svg{display:block;flex:0 0 18px!important;width:18px;height:18px;margin:0!important}
+#fuelMonitorRoot>.fm-heading>.fm-actions #fmRecovery>span{flex:0 0 auto!important;margin:0!important}
+#fuelMonitorRoot>.fm-heading>.fm-actions #fmRecovery>.fm-deleted-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;box-sizing:border-box}
+/* Ver926: location-specific fuel usage analytics */
+#fuelMonitorRoot .fm-header-actions .fm-analytics-button,#fuelMonitorRoot .fm-station-actions .fm-analytics-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #b8d2e7;background:#edf6fc;color:#17476e;font-weight:700}
+.fm-analytics-dialog{padding:0;border:1px solid #d1dfeb;border-radius:18px;width:min(980px,calc(100vw - 26px));max-height:92vh;color:#153650;background:#fff;box-shadow:0 20px 80px #10283e55}
+.fm-analytics-dialog::backdrop{background:#12253b80}
+.fm-analytics-panel{display:flex;flex-direction:column;max-height:92vh}
+.fm-analytics-panel header{display:flex;justify-content:space-between;align-items:flex-start;padding:22px 25px;border-bottom:1px solid #d8e4ef;gap:18px}
+.fm-analytics-panel header h2{margin:5px 0;color:#102f4d;font-size:25px}
+.fm-analytics-panel header p{color:#63819b;margin:0}
+.fm-analytics-eyebrow{font-size:11px;letter-spacing:.08em;color:#7890a5;font-weight:750}
+.fm-analytics-close{border:1px solid #d0dfea;background:#edf2f7;color:#163b5b;border-radius:12px;padding:9px 15px;cursor:pointer}
+.fm-analytics-content{padding:20px 25px 25px;overflow-y:auto}
+.fm-analytics-filters{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fm-analytics-filters label{font-weight:700;font-size:14px;color:#214363}
+.fm-analytics-filters select{display:block;width:100%;min-height:54px;box-sizing:border-box;border:1px solid #c9daea;background:white;color:#142f4c;border-radius:11px;margin-top:7px;padding:0 12px;font:inherit}
+.fm-analytics-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
+.fm-analytics-kpis>div{background:#f1f6fa;padding:17px;border-radius:12px;display:flex;flex-direction:column;gap:8px}
+.fm-analytics-kpis small{color:#617e98}.fm-analytics-kpis strong{font-size:22px;color:#163958;font-variant-numeric:tabular-nums}
+.fm-analytics-quality{color:#276c50;font-size:13px}.fm-analytics-quality.warn{color:#a76a14}
+.fm-analytics-content h3{font-size:17px;margin:22px 0 10px;color:#153650}
+.fm-analytics-chart{height:285px;border:1px solid #dfebf3;border-radius:12px;padding:12px;box-sizing:border-box;overflow:hidden}
+.fm-analytics-chart svg{width:100%;height:100%}
+.fm-analytics-table-wrap{overflow-x:auto}.fm-analytics-table-wrap table{width:100%;border-collapse:collapse;font-size:14px}
+.fm-analytics-table-wrap th{text-align:left;background:#eef3f8;color:#153650;padding:12px;border-bottom:1px solid #d7e3ef}
+.fm-analytics-table-wrap td{padding:13px 12px;border-bottom:1px solid #e1eaf2;font-variant-numeric:tabular-nums}
+.fm-analytics-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+.fm-analytics-explain{font-size:12px;color:#68819a;line-height:1.6}
+.fm-analytics-panel footer{display:flex;justify-content:flex-end;padding:13px 25px;border-top:1px solid #d8e4ef}
+@media(max-width:620px){.fm-analytics-panel header{padding:16px}.fm-analytics-content{padding:16px}.fm-analytics-kpis{grid-template-columns:1fr 1fr}.fm-analytics-kpis>div:last-child{grid-column:span 2}.fm-analytics-filters{grid-template-columns:1fr}.fm-analytics-chart{height:215px}.fm-analytics-panel header h2{font-size:21px}}
+
+#fuelMonitorRoot .fm-header-actions .fm-analytics-button{background:#edf6fc!important;border-color:#b8d2e7!important;color:#17476e!important}
+#fuelMonitorRoot .fm-header-actions .fm-analytics-button:hover{background:#e2f1fc!important}
+.fm-analytics-panel footer{gap:12px;align-items:center;flex-wrap:wrap}
+.fm-analytics-panel .fm-analytics-excel{border:1px solid #208456;background:#effaf2;color:#17643f;border-radius:8px;padding:10px 15px;font-weight:700;cursor:pointer}
+.fm-analytics-panel .fm-analytics-excel:disabled{opacity:.55;cursor:wait}
