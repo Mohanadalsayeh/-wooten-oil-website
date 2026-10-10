@@ -1098,3 +1098,31 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   .fm-analytics-panel>header{padding:16px!important;}
   .fm-analytics-panel>footer{padding:12px 16px!important;}
 }
+
+/* Ver931 — analytics table: keep meaningful column widths on narrow phones.
+   Horizontal movement happens inside the table wrapper only. */
+.fm-analytics-panel .fm-analytics-table-wrap{display:block;max-width:100%;overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;border:1px solid #d7e3ef;border-radius:10px}
+.fm-analytics-panel .fm-analytics-table-wrap table{min-width:690px!important;width:100%!important;table-layout:fixed!important;border-collapse:collapse!important}
+.fm-analytics-panel .fm-analytics-table-wrap th,
+.fm-analytics-panel .fm-analytics-table-wrap td{box-sizing:border-box!important;overflow:visible!important;text-overflow:clip!important;vertical-align:middle!important;white-space:nowrap!important;font-size:13px!important;line-height:1.4!important}
+.fm-analytics-panel .fm-analytics-table-wrap th{position:relative!important;padding:13px 20px 13px 12px!important;text-align:left!important;letter-spacing:0!important;word-break:normal!important;overflow-wrap:normal!important}
+.fm-analytics-panel .fm-analytics-table-wrap th:nth-child(1),
+.fm-analytics-panel .fm-analytics-table-wrap td:nth-child(1){width:37%!important}
+.fm-analytics-panel .fm-analytics-table-wrap th:nth-child(2),
+.fm-analytics-panel .fm-analytics-table-wrap td:nth-child(2){width:22%!important}
+.fm-analytics-panel .fm-analytics-table-wrap th:nth-child(3),
+.fm-analytics-panel .fm-analytics-table-wrap td:nth-child(3){width:22%!important}
+.fm-analytics-panel .fm-analytics-table-wrap th:nth-child(4),
+.fm-analytics-panel .fm-analytics-table-wrap td:nth-child(4){width:19%!important}
+.fm-analytics-panel .fm-analytics-table-wrap td{padding:13px 12px!important}
+.fm-analytics-panel .fm-analytics-table-wrap th::before,
+.fm-analytics-panel .fm-analytics-table-wrap th::after{display:none!important}
+/* Footer buttons match each other and stay in one fixed footer. */
+.fm-analytics-panel>footer{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-end!important;gap:12px!important;flex-wrap:nowrap!important}
+.fm-analytics-panel>footer .fm-analytics-excel{width:auto!important;flex:0 1 auto!important;min-width:0!important;min-height:46px!important;margin:0!important}
+.fm-analytics-panel>footer .fm-analytics-done{width:auto!important;min-width:112px!important;min-height:46px!important;flex:0 0 auto!important;margin:0!important;text-align:center!important}
+@media(max-width:620px){
+ .fm-analytics-panel>footer{flex-direction:column!important;align-items:stretch!important;gap:9px!important;padding:12px 16px!important}
+ .fm-analytics-panel>footer .fm-analytics-excel,
+ .fm-analytics-panel>footer .fm-analytics-done{width:100%!important;flex:0 0 auto!important;min-width:0!important;min-height:44px!important;margin:0!important}
+}
