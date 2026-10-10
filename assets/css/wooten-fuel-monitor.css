@@ -1027,3 +1027,33 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 .fm-analytics-panel footer{gap:12px;align-items:center;flex-wrap:wrap}
 .fm-analytics-panel .fm-analytics-excel{border:1px solid #208456;background:#effaf2;color:#17643f;border-radius:8px;padding:10px 15px;font-weight:700;cursor:pointer}
 .fm-analytics-panel .fm-analytics-excel:disabled{opacity:.55;cursor:wait}
+
+/* Ver928 — mobile deleted locations: keep icon, label and count centered together. */
+#fuelMonitorRoot #fmRecovery{justify-content:center!important;align-items:center!important;gap:8px!important;text-align:center!important;white-space:nowrap!important}
+#fuelMonitorRoot #fmRecovery .fm-deleted-count{margin:0!important;position:static!important;float:none!important;flex:0 0 auto!important}
+#fuelMonitorRoot #fmRecovery svg{margin:0!important;position:static!important;flex:0 0 18px!important;width:18px;height:18px}
+@media(max-width:540px){
+  #fuelMonitorRoot>.fm-heading>.fm-actions #fmRecovery{grid-column:1/-1!important;justify-self:stretch!important;width:100%!important;min-width:0;padding:11px 16px!important;justify-content:center!important}
+}
+
+/* Ver928 — reuse the portal's compact, consistent input/select treatment. */
+.fm-analytics-panel .fm-analytics-filters select{
+  -webkit-appearance:none;appearance:none;
+  height:48px!important;min-height:48px!important;margin-top:7px;
+  padding:0 42px 0 13px!important;border:1px solid #c3d4e2!important;
+  border-radius:10px!important;background-color:#fff!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23183b50' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px;
+  color:#183b50!important;font:inherit;font-weight:500!important;
+}
+.fm-analytics-panel .fm-analytics-filters select:focus{outline:2px solid #a5cbe9;outline-offset:1px}
+.fm-analytics-panel .fm-analytics-filters label{display:flex;flex-direction:column;gap:0;font-size:14px;font-weight:600;color:#214363}
+/* A compact footer: primary export on the left, Done on the right. */
+.fm-analytics-panel footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:12px;padding:14px 24px;background:#f6f9fc}
+.fm-analytics-panel footer .fm-analytics-excel{min-height:44px;max-width:100%;padding:10px 15px;border-radius:10px;white-space:normal;text-align:center}
+.fm-analytics-panel footer .fm-analytics-done{min-height:44px;padding:10px 22px;border-radius:10px;flex:0 0 auto}
+@media(max-width:620px){
+ .fm-analytics-panel footer{padding:12px 16px;gap:10px;flex-wrap:wrap}
+ .fm-analytics-panel footer .fm-analytics-excel{width:100%;flex:1 0 100%;padding:11px 10px}
+ .fm-analytics-panel footer .fm-analytics-done{margin-left:auto;min-width:96px}
+}
