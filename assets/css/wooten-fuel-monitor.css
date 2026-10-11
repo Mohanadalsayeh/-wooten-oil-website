@@ -1244,3 +1244,36 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button:hover:not(:disabled){background:#deedf8!important;border-color:#91bddc!important;}
 #fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button:focus-visible{outline:2px solid #21699b!important;outline-offset:3px;}
 @media(max-width:540px){#fuelMonitorRoot .fm-automatic-panel-content .fm-schedule-add-row{margin-top:10px;}#fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button{min-width:0!important;width:auto!important;}}
+
+/* Ver949: schedule card layout, preserving existing edit/save actions */
+#fuelMonitorRoot .fm949-schedules{padding:3px 0 2px;color:#173850}
+#fuelMonitorRoot .fm949-explanation{font-size:13px;margin:8px 0 14px;line-height:1.55}
+#fuelMonitorRoot .fm949-schedule-list{display:grid;gap:10px}
+#fuelMonitorRoot .fm949-schedule-card{display:flex;align-items:center;gap:14px;min-width:0;border:1px solid #d4e3ef;border-radius:13px;padding:14px;background:#fff}
+#fuelMonitorRoot .fm949-schedule-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:11px;background:#eff6fb;color:#1d628e;flex:0 0 42px}
+#fuelMonitorRoot .fm949-schedule-info{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+#fuelMonitorRoot .fm949-schedule-info strong{font-size:15px;color:#133955}
+#fuelMonitorRoot .fm949-repeat{font-size:12px;color:#667f94}
+#fuelMonitorRoot .fm949-schedule-sub{font-size:13px;color:#25465e;overflow-wrap:anywhere}
+#fuelMonitorRoot .fm949-schedule-info small{font-size:12px;color:#667f94;overflow-wrap:anywhere}
+#fuelMonitorRoot .fm949-enabled{color:#a45a16;font-weight:700}#fuelMonitorRoot .fm949-enabled.is-on{color:#25774f}
+#fuelMonitorRoot .fm949-schedule-actions{display:flex;gap:8px;flex-shrink:0}
+#fuelMonitorRoot .fm949-create-options{margin-top:16px;border-top:1px solid #deebf4;padding-top:14px}
+#fuelMonitorRoot .fm949-create-heading{font-size:14px;font-weight:700;color:#143b58;margin-bottom:10px}
+#fuelMonitorRoot .fm949-create-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#fuelMonitorRoot .fm949-create-choice{display:flex;align-items:center;gap:10px;min-width:0;min-height:70px;padding:12px!important;text-align:left;border:1px solid #c9dce9!important;border-radius:12px!important;background:#fff!important;color:#173850!important}
+#fuelMonitorRoot .fm949-create-choice:hover:not(:disabled),#fuelMonitorRoot .fm949-create-choice:focus-visible{background:#edf6fc!important;border-color:#8fbad5!important}
+#fuelMonitorRoot .fm949-create-choice:disabled{opacity:.48}
+#fuelMonitorRoot .fm949-create-choice>span:nth-child(2){display:flex;flex-direction:column;min-width:0;flex:1;gap:2px}
+#fuelMonitorRoot .fm949-create-choice strong{font-size:13px}#fuelMonitorRoot .fm949-create-choice small{font-size:11px;line-height:1.35;color:#668095}
+#fuelMonitorRoot .fm949-choice-icon{font-size:23px;color:#1d6496}
+#fuelMonitorRoot .fm949-empty{text-align:center;border:1px dashed #afcde2;border-radius:14px;background:#f8fbfe;padding:23px 12px}
+#fuelMonitorRoot .fm949-empty-icon{font-size:29px;color:#1e6497}
+#fuelMonitorRoot .fm949-empty strong{display:block;font-size:16px;margin:7px 0}
+#fuelMonitorRoot .fm949-empty p{font-size:13px;margin:4px 0 15px}
+#fuelMonitorRoot .fm949-first-add{background:#1978df!important;color:white!important;border:1px solid #1978df!important;border-radius:9px!important;padding:10px 16px!important}
+#fuelMonitorRoot .fm949-editor:not(:empty){margin-top:16px;padding:16px;border:1px solid #ccdfed;border-radius:13px;background:#fbfdff}
+#fuelMonitorRoot .fm949-editor form{margin-top:0;border-top:0;padding-top:0}
+#fuelMonitorRoot .fm949-copy-select label{display:grid;gap:8px}
+@media(max-width:800px){#fuelMonitorRoot .fm949-create-grid{grid-template-columns:1fr}}
+@media(max-width:540px){#fuelMonitorRoot .fm949-schedule-card{flex-wrap:wrap;gap:10px}#fuelMonitorRoot .fm949-schedule-actions{width:100%;justify-content:flex-end}#fuelMonitorRoot .fm949-create-choice{min-height:58px}}
