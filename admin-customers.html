@@ -5914,6 +5914,24 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
   text-transform:none!important;
 }
 </style>
+<style id="fm-locations-dropdown-ver989">
+#fmLocationTabs .fm-locations-dropdown{position:relative;display:inline-flex;align-items:stretch;flex:0 0 auto;min-width:0}
+#fmLocationTabs .fm-locations-trigger{display:inline-flex;align-items:center;gap:9px;white-space:nowrap;font:inherit;color:#173d5b;cursor:pointer}
+#fmLocationTabs .fm-locations-trigger[aria-selected="true"]{color:#17324d;font-weight:700}
+#fmLocationTabs .fm-locations-menu{position:absolute;left:0;right:auto;top:calc(100% + 6px);width:min(420px,calc(100vw - 36px));max-width:calc(100vw - 36px);min-width:290px;padding:12px 16px;border:1px solid #d5e2ec;border-radius:12px;background:#fff;box-shadow:0 10px 28px rgba(20,50,76,.13);z-index:220;box-sizing:border-box}
+#fmLocationTabs .fm-locations-menu[hidden]{display:none!important}
+#fmLocationTabs .fm-locations-menu-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#657b90;text-transform:uppercase;font-size:12px;padding:7px 5px 12px}
+#fmLocationTabs .fm-locations-menu-heading span{padding:5px 10px;border-radius:18px;background:#edf3f7;color:#506a80;font-weight:600;text-transform:none}
+#fmLocationTabs .fm-locations-menu-row{display:flex;align-items:center;gap:4px;border-bottom:1px solid #e1e9f0;min-width:0}
+#fmLocationTabs .fm-locations-menu-row button,#fmLocationTabs .fm-locations-menu-add{background:transparent!important;border:0!important;box-shadow:none!important;color:#173d5b!important;text-align:left;min-height:52px;padding:10px 7px!important;border-radius:7px;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
+#fmLocationTabs .fm-locations-menu-row button:hover,#fmLocationTabs .fm-locations-menu-row button:focus-visible,#fmLocationTabs .fm-locations-menu-add:hover{background:#f0f6fa!important}
+#fmLocationTabs .fm-locations-menu-name{flex:1;min-width:0;overflow-wrap:anywhere}
+#fmLocationTabs .fm-locations-menu-name svg{flex:0 0 20px;color:#478c78}
+#fmLocationTabs .fm-locations-menu-action{flex:0 0 38px;justify-content:center}
+#fmLocationTabs .fm-locations-menu-row .fm-locations-delete{color:#d7192a!important}
+#fmLocationTabs .fm-locations-menu-add{color:#246aa1!important;width:100%;margin-top:7px}
+@media(max-width:540px){#fmLocationTabs .fm-locations-dropdown{width:auto!important;max-width:100%!important}#fmLocationTabs .fm-locations-menu{position:fixed!important;top:auto!important;left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;min-width:0!important;max-width:calc(100vw - 24px)!important;transform:none!important}#fmLocationTabs .fm-locations-menu-row button{min-width:0!important}}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -16626,7 +16644,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=984"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=989"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
