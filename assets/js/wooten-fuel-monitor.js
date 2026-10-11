@@ -728,10 +728,11 @@ function openAutomaticReadingSchedule(id){
  `;document.head.appendChild(style);}
  const saved=l.auto_reading?.schedules||[];
  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+ const calendarOrder=[1,2,3,4,5,6,0];
  const scheduleDays=s=>{
-  if(s.repeat==='daily')return 'Sunday through Saturday';
+  if(s.repeat==='daily')return 'Monday through Sunday';
   if(s.repeat==='weekly'){
-   const days=[...new Set((Array.isArray(s.days)?s.days:[]).map(Number))].filter(n=>Number.isInteger(n)&&n>=0&&n<=6).sort((a,b)=>a-b);
+   const days=[...new Set((Array.isArray(s.days)?s.days:[]).map(Number))].filter(n=>Number.isInteger(n)&&n>=0&&n<=6).sort((a,b)=>calendarOrder.indexOf(a)-calendarOrder.indexOf(b));
    return days.length?days.map(n=>labels[n]).join(', '):'No weekdays selected';
   }
   if(s.repeat==='dates')return (Array.isArray(s.dates)?s.dates:[]).join(', ')||'No dates selected';
@@ -750,7 +751,7 @@ function openAutomaticReadingSchedule(id){
   editor=nextId?middle.querySelector('[data-row-editor="'+CSS.escape(String(nextId))+'"]'):addEditor;
   editingId=nextId;inlineEdit.dirty=false;
   const legacyDates=s.repeat==='dates';
-  editor.innerHTML='<form class="fm-inline-form fm-automatic-reading fm950-inline-form"><h4>'+(s.id?'Edit schedule':'Add schedule')+'</h4><label class="fm-toggle"><input name="enabled" type="checkbox" '+(s.enabled?'checked':'')+'><span>Enabled</span></label><div class="fm940-fields"><label>Time (Central)<input name="send_time" type="time" required value="'+esc(s.time)+'"></label><label>Repeat<select name="repeat"><option value="daily">Daily</option><option value="weekly">Selected weekdays</option>'+(legacyDates?'<option value="dates">Existing selected dates</option>':'')+'</select></label><label>Schedule Action<select name="schedule_action"><option value="upload">Read & Upload Only</option><option value="send">Read, Upload & Send</option></select></label></div><fieldset class="fm940-weekdays fm962-weekday-circles" hidden><legend>Select weekdays</legend><div class="fm962-days">'+labels.map((name,i)=>'<label class="fm962-day"><input type="checkbox" name="weekday" value="'+i+'" '+((s.days||[]).includes(i)?'checked':'')+'><span class="fm962-circle">'+(['Su','M','Tu','W','Th','F','Sa'][i])+'</span></label>').join('')+'</div></fieldset>'+(legacyDates?'<p class="fm950-legacy-date-note">Existing dates are preserved when you save. Choose Daily or Selected weekdays to change the repeat type.</p>':'')+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" class="secondary" data-schedule-cancel>Cancel</button><button type="submit">Save schedule</button></div></form>';
+  editor.innerHTML='<form class="fm-inline-form fm-automatic-reading fm950-inline-form"><h4>'+(s.id?'Edit schedule':'Add schedule')+'</h4><label class="fm-toggle"><input name="enabled" type="checkbox" '+(s.enabled?'checked':'')+'><span>Enabled</span></label><div class="fm940-fields"><label>Time (Central)<input name="send_time" type="time" required value="'+esc(s.time)+'"></label><label>Repeat<select name="repeat"><option value="daily">Daily</option><option value="weekly">Selected weekdays</option>'+(legacyDates?'<option value="dates">Existing selected dates</option>':'')+'</select></label><label>Schedule Action<select name="schedule_action"><option value="upload">Read & Upload Only</option><option value="send">Read, Upload & Send</option></select></label></div><fieldset class="fm940-weekdays fm962-weekday-circles" hidden><legend>Select weekdays</legend><div class="fm962-days">'+calendarOrder.map(i=>'<label class="fm962-day"><input type="checkbox" name="weekday" value="'+i+'" '+((s.days||[]).includes(i)?'checked':'')+'><span class="fm962-circle">'+(['Su','M','Tu','W','Th','F','Sa'][i])+'</span></label>').join('')+'</div></fieldset>'+(legacyDates?'<p class="fm950-legacy-date-note">Existing dates are preserved when you save. Choose Daily or Selected weekdays to change the repeat type.</p>':'')+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" class="secondary" data-schedule-cancel>Cancel</button><button type="submit">Save schedule</button></div></form>';
   const form=editor.querySelector('form');form.elements.repeat.value=s.repeat;form.elements.schedule_action.value=s.action;
   const sync=()=>{form.querySelector('.fm940-weekdays').hidden=form.elements.repeat.value!=='weekly';};form.elements.repeat.onchange=sync;sync();
   const editingContainer=editor;
