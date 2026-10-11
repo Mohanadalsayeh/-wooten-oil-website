@@ -688,22 +688,22 @@ function openAutomaticReadingSchedule(id){
  const panel=card?.querySelector('[data-auto-reading-panel]'),middle=panel?.querySelector('.fm-automatic-panel-content');
  if(!l||!middle)return;panel.open=true;inlineEdit={id,section:'auto_reading',dirty:false};
  if(!document.getElementById('fm959-auto-reading-style')){const style=document.createElement('style');style.id='fm959-auto-reading-style';style.textContent=`
-  #fuelMonitorRoot .fm950-schedule-list{display:block}
-  #fuelMonitorRoot .fm957-schedule-item{border-top:1px solid #d8e6f1;padding:18px 0 0;margin:0}
-  #fuelMonitorRoot .fm957-schedule-item:first-child{border-top:0;padding-top:10px}
-  #fuelMonitorRoot .fm959-schedule-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start;border:0!important;border-radius:0!important;background:transparent!important;padding:0 10px 18px 10px;box-shadow:none!important}
-  #fuelMonitorRoot .fm957-row-editor{padding:0 10px 18px 54px}
-  #fuelMonitorRoot .fm957-row-editor:not(:empty){border-top:1px solid #d8e6f1;padding-top:18px;margin-top:4px}
-  #fuelMonitorRoot .fm949-schedule-actions{display:flex;gap:10px}
+  #fuelMonitorRoot .fm950-schedule-list{display:block!important;gap:0!important;margin:0!important;padding:0!important}
+  #fuelMonitorRoot .fm957-schedule-item{margin:0!important;padding:0!important;border:0!important;border-bottom:1px solid #d8e6f1!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}
+  #fuelMonitorRoot .fm957-schedule-item:first-child{border-top:0!important}
+  #fuelMonitorRoot .fm959-schedule-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;border:0!important;border-radius:0!important;background:transparent!important;padding:15px 10px!important;margin:0!important;min-height:0!important;box-shadow:none!important}
+  #fuelMonitorRoot .fm957-row-editor:empty{display:none!important;padding:0!important;margin:0!important;border:0!important}
+  #fuelMonitorRoot .fm957-row-editor:not(:empty){padding:14px 12px 16px!important;border-top:1px solid #d8e6f1!important;margin:0!important;background:#f3f8fc}
+  #fuelMonitorRoot .fm949-schedule-actions{display:flex;gap:10px;align-items:center}
   #fuelMonitorRoot .fm949-schedule-info strong{display:block}
-  #fuelMonitorRoot .fm949-schedule-info small{display:block;margin-top:6px}
-  #fuelMonitorRoot .fm-schedule-add-row{margin:26px 0 10px;padding-left:10px}
+  #fuelMonitorRoot .fm949-schedule-info small{display:block;margin-top:4px}
+  #fuelMonitorRoot .fm-schedule-add-row{margin:18px 0 12px!important;padding-left:10px}
   @media (max-width:780px){
-    #fuelMonitorRoot .fm959-schedule-row{grid-template-columns:auto 1fr;grid-template-areas:'icon info' 'actions actions';padding:0 0 16px 0}
+    #fuelMonitorRoot .fm959-schedule-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:'icon info' 'actions actions';padding:13px 4px!important}
     #fuelMonitorRoot .fm949-schedule-icon{grid-area:icon}
     #fuelMonitorRoot .fm949-schedule-info{grid-area:info}
     #fuelMonitorRoot .fm949-schedule-actions{grid-area:actions;padding-left:54px}
-    #fuelMonitorRoot .fm957-row-editor{padding:0 0 18px 0}
+    #fuelMonitorRoot .fm957-row-editor:not(:empty){padding:14px 8px!important}
   }
  `;document.head.appendChild(style);}
  const saved=l.auto_reading?.schedules||[];
