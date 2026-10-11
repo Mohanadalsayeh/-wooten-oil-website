@@ -15835,7 +15835,9 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        if(!append){
          const noticeIds=new Set(items.map(x=>String(x.item_type)+':'+String(x.id)));
          const hasNewNotice=priorNoticeIds!==null&&[...noticeIds].some(id=>!priorNoticeIds.has(id));
-         if(priorUnread!==null&&(hasNewNotice||total>priorUnread))ringForNewNotifications();
+         // Ring once on initial authenticated load when notifications are already unread;
+         // subsequent loads ring only for newly arrived notices.
+         if((priorUnread===null&&total>0)||(priorUnread!==null&&(hasNewNotice||total>priorUnread)))ringForNewNotifications();
          priorNoticeIds=noticeIds;
          priorUnread=total;
        }
