@@ -16771,8 +16771,8 @@ let lastLoadError=false;
 const key=()=>get('adminKey')?.value.trim()||'';
 const badge=s=>s==='success'?'✓':s==='issues'?'!':s==='pending'?'◷':'?';
 function render(){
- const cards=get('fm977Cards');cards.innerHTML=items.map((x,i)=>`<div class="fm977-card"><button class="fm977-card-head" type="button" data-idx="${i}" aria-expanded="false"><span class="fm977-card-indicator" aria-hidden="true">${badge(x.status)}</span><span class="fm977-card-main"><strong>${esc(x.location)}</strong><small class="fm997-meta"><span>${esc(fmt(x.at))}${x.kind==='manual'?' · Manual send':''}</span><span class="fm997-result">${esc(x.status==='success'?'Submitted / saved':x.status==='issues'?'Delivery issue':x.status==='pending'?'Delivery pending':'Delivery not verified')}</span></small></span><span aria-hidden="true">⌄</span></button><div class="fm977-card-detail" hidden></div></div>`).join('');
- cards.querySelectorAll('button[data-idx]').forEach(btn=>btn.addEventListener('click',async()=>{const detail=btn.nextElementSibling;if(!detail.hidden){detail.hidden=true;btn.setAttribute('aria-expanded','false');return;}detail.hidden=false;btn.setAttribute('aria-expanded','true');detail.textContent='Loading delivery details…';const x=items[Number(btn.dataset.idx)];try{const q=new URLSearchParams(x.kind==='manual'?{delivery_activity:'detail',alert_id:String(x.alert_id)}:{delivery_activity:'detail',schedule_id:x.schedule_id,date:x.date});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Unable to load details');const a=d.delivery;detail.innerHTML=`<div class="fm977-detail-grid"><div><span>Reading / run</span><strong>${esc(x.reading)}</strong></div><div><span>Email</span><strong>${esc(a?.email||'Unknown')}</strong></div><div><span>SMS</span><strong>${esc(a?.sms||'Unknown')}</strong></div></div><div>Portal: ${esc(a?(a.portal?'Saved':'Off'):'Unknown')} · ${esc(x.kind==='manual'?'Manual fuel reading':x.action==='send'?'Read, Upload & Send':'Read & Upload Only')}</div>${a?.email_detail?'<p>Email: '+esc(a.email_detail)+'</p>':''}${a?.sms_detail?'<p>SMS: '+esc(a.sms_detail)+'</p>':''}`;}catch(e){detail.textContent=e.message;}}));
+ const cards=get('fm977Cards');cards.innerHTML=items.map((x,i)=>`<div class="fm977-card"><div class="fm977-card-head" role="button" tabindex="0" data-idx="${i}" aria-expanded="false"><span class="fm977-card-indicator" aria-hidden="true">${badge(x.status)}</span><span class="fm977-card-main"><strong>${esc(x.location)}</strong><small class="fm997-meta"><span>${esc(fmt(x.at))}${x.kind==='manual'?' · Manual send':''}</span><span class="fm997-result">${esc(x.status==='success'?'Submitted / saved':x.status==='issues'?'Delivery issue':x.status==='pending'?'Delivery pending':'Delivery not verified')}</span></small></span><span aria-hidden="true">⌄</span></div><div class="fm977-card-detail" hidden></div></div>`).join('');
+ cards.querySelectorAll('.fm977-card-head[data-idx]').forEach(btn=>{btn.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();btn.click();}});btn.addEventListener('click',async()=>{const detail=btn.nextElementSibling;if(!detail.hidden){detail.hidden=true;btn.setAttribute('aria-expanded','false');return;}detail.hidden=false;btn.setAttribute('aria-expanded','true');detail.textContent='Loading delivery details…';const x=items[Number(btn.dataset.idx)];try{const q=new URLSearchParams(x.kind==='manual'?{delivery_activity:'detail',alert_id:String(x.alert_id)}:{delivery_activity:'detail',schedule_id:x.schedule_id,date:x.date});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Unable to load details');const a=d.delivery;detail.innerHTML=`<div class="fm977-detail-grid"><div><span>Reading / run</span><strong>${esc(x.reading)}</strong></div><div><span>Email</span><strong>${esc(a?.email||'Unknown')}</strong></div><div><span>SMS</span><strong>${esc(a?.sms||'Unknown')}</strong></div></div><div>Portal: ${esc(a?(a.portal?'Saved':'Off'):'Unknown')} · ${esc(x.kind==='manual'?'Manual fuel reading':x.action==='send'?'Read, Upload & Send':'Read & Upload Only')}</div>${a?.email_detail?'<p>Email: '+esc(a.email_detail)+'</p>':''}${a?.sms_detail?'<p>SMS: '+esc(a.sms_detail)+'</p>':''}`;}catch(e){detail.textContent=e.message;}});});
  get('fm977More').hidden=next===null;get('fm977PageInfo').textContent=`Showing ${items.length} of ${loadedTotal} report activities`;
 }
 let loadedTotal=0;
@@ -16940,6 +16940,27 @@ window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;lastLoadEr
     min-height:44px!important;
     margin:0!important;
   }
+}
+</style>
+<style id="fm998-activity-card-structure">
+/* Activity summary is not a generic portal button: avoid inherited fixed button sizes. */
+#admin-tab-fuel-monitor #fm977Cards .fm977-card {height:auto!important;max-height:none!important;overflow:hidden!important;}
+#admin-tab-fuel-monitor #fm977Cards div.fm977-card-head {
+ display:grid!important;grid-template-columns:26px minmax(0,1fr) 18px!important;
+ align-items:center!important;gap:10px!important;width:100%!important;
+ height:auto!important;min-height:82px!important;max-height:none!important;
+ padding:12px 13px!important;margin:0!important;box-sizing:border-box!important;
+ cursor:pointer!important;background:#fff!important;color:#173d5b!important;
+ text-align:left!important;white-space:normal!important;overflow:visible!important;
+}
+#admin-tab-fuel-monitor #fm977Cards div.fm977-card-head:hover {background:#f4f8fc!important;}
+#admin-tab-fuel-monitor #fm977Cards div.fm977-card-head:focus-visible {outline:2px solid #5089b8;outline-offset:-3px;}
+#admin-tab-fuel-monitor #fm977Cards .fm977-card-main {display:block!important;min-width:0!important;height:auto!important;overflow:visible!important;}
+#admin-tab-fuel-monitor #fm977Cards .fm977-card-main strong {display:block!important;margin:0!important;line-height:1.45!important;white-space:normal!important;overflow:visible!important;}
+#admin-tab-fuel-monitor #fm977Cards .fm997-meta {display:block!important;margin:3px 0 0!important;line-height:1.5!important;height:auto!important;max-height:none!important;overflow:visible!important;white-space:normal!important;}
+#admin-tab-fuel-monitor #fm977Cards .fm997-meta span {display:block!important;line-height:1.5!important;height:auto!important;max-height:none!important;white-space:normal!important;overflow:visible!important;}
+@media(max-width:600px){
+ #admin-tab-fuel-monitor #fm977Cards div.fm977-card-head {min-height:0!important;padding:12px 10px!important;}
 }
 </style>
 <style id="fm997-mobile-activity-record-layout">
