@@ -6101,6 +6101,13 @@ SOFTWARE.
     <div class="sh-heading"><div><div class="admin-page-label">Operations &amp; Alerts</div><h2>System Health Center</h2><p>Live service checks and consolidated operational alerts. Unknown is never counted as healthy.</p></div><button type="button" class="secondary" id="shRefresh">Refresh Health</button></div>
     <p id="shUpdated" role="status">Open this page to check connected systems.</p>
     <div class="sh-grid" id="shCards" aria-live="polite"></div>
+    <section class="sh974-section" id="shFuelDeliverySection" aria-label="Fuel Reading Delivery Health">
+      <div class="sh974-head"><div><h3>Fuel Reading Delivery Health</h3><p>Scheduled tank readings and email/SMS processing by location · Central Time</p></div><button type="button" class="secondary" id="sh974Refresh">Refresh Delivery Health</button></div>
+      <p class="sh974-info" id="sh974Message" role="status">Checking scheduled delivery activity…</p>
+      <div class="sh974-summary" id="sh974Summary"></div>
+      <div class="sh974-scroll"><table class="sh974-table"><thead><tr><th>Location / Schedule</th><th>Reading</th><th>Portal</th><th>Email</th><th>SMS</th><th>Last run (CT)</th></tr></thead><tbody id="sh974Rows"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+      <p class="sh974-foot">Submitted means the provider accepted the message, not that the receiver got it. Earlier notifications without a schedule ID display Unknown. Retry is withheld for uncertain outcomes to prevent duplicate messages.</p>
+    </section>
     <div class="sh-alert-heading"><div><h3>Centralized Alert Center</h3><p>Current issues from MAS 90 and fuel monitoring, alongside the existing admin notification feed.</p></div><div class="sh-alert-count" id="shAlertCount">—</div></div>
     <div id="shAlerts" class="sh-alert-list" aria-live="polite"><p>Checking alerts…</p></div>
     <p class="sh-disclaimer">This overview is read-only. Resolve issues in their corresponding system pages. Alerts already managed by the notification bell remain available there.</p>
@@ -16633,6 +16640,49 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 
 <link rel="stylesheet" href="assets/css/wooten-status-icons.css?v=917">
 <script defer src="assets/js/wooten-status-icons.js?v=917"></script>
+
+<style id="sh974-styles">
+#admin-tab-system-health .sh974-section{margin:22px 0 26px;border-top:1px solid #dce7f0;border-bottom:1px solid #dce7f0;padding:20px 0}
+#admin-tab-system-health .sh974-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#admin-tab-system-health .sh974-head h3{margin:0 0 5px;color:#133b59}
+#admin-tab-system-health .sh974-head p,.sh974-info,.sh974-foot{font-size:12px;color:#647b90}
+#admin-tab-system-health .sh974-summary{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+#admin-tab-system-health .sh974-stat{border:1px solid #d5e3ed;border-radius:9px;padding:9px 12px;background:#f6f9fc;font-size:13px}
+#admin-tab-system-health .sh974-stat strong{margin-left:7px}
+#admin-tab-system-health .sh974-scroll{overflow-x:auto}
+#admin-tab-system-health .sh974-table{width:100%;min-width:720px;border-collapse:collapse;font-size:12px}
+#admin-tab-system-health .sh974-table th,#admin-tab-system-health .sh974-table td{padding:12px 8px;text-align:left;border-bottom:1px solid #e1eaf1;vertical-align:top;white-space:normal}
+#admin-tab-system-health .sh974-table th{color:#637b91;background:#f4f8fb}
+#admin-tab-system-health .sh974-table td strong{display:block;color:#173850}
+#admin-tab-system-health .sh974-table td small{display:block;color:#72869a;margin-top:3px;overflow-wrap:anywhere}
+#admin-tab-system-health .sh974-pill{display:inline-block;padding:4px 7px;border-radius:7px;background:#edf3f7;color:#47657c;font-size:11px;font-weight:700}
+#admin-tab-system-health .sh974-pill.good{background:#e6f6ee;color:#176844}
+#admin-tab-system-health .sh974-pill.bad{background:#fce8e8;color:#a12532}
+#admin-tab-system-health .sh974-pill.wait{background:#fff2d8;color:#8a570d}
+@media(max-width:650px){#admin-tab-system-health #sh974Refresh{width:100%}}
+</style>
+<script id="sh974-script">
+(()=>{'use strict';
+const panel=document.getElementById('admin-tab-system-health');if(!panel)return;
+const rows=document.getElementById('sh974Rows'),summary=document.getElementById('sh974Summary'),message=document.getElementById('sh974Message');
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const date=v=>{if(!v)return '—';let value=String(v);if(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(value))value=value.replace(' ','T')+'Z';const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d):'—';};
+const pill=value=>{const v=String(value||'unknown').toLowerCase();let tone=['submitted','saved','completed','sent','off'].includes(v)?'good':['failed','partial','unknown','interrupted'].includes(v)?'bad':'wait';if(v==='unknown'||v==='not_recorded'||v==='disabled')tone='wait';return '<span class="sh974-pill '+tone+'">'+esc(value||'Unknown')+'</span>';};
+let working=false;async function load(){if(working)return;const key=document.getElementById('adminKey')?.value.trim();if(!key){message.textContent='Sign in to load delivery health.';return;}working=true;message.textContent='Loading scheduled delivery information…';try{
+ const r=await fetch('/api/admin/fuel-monitor?delivery_health=1',{headers:{'X-Admin-Key':key},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Delivery health is unavailable.');
+ const data=d.schedules||[];
+ rows.innerHTML=data.length?data.map(x=>'<tr><td><strong>'+esc(x.location)+'</strong><small>'+esc(x.time)+' CT · '+esc(x.action==='send'?'Read, Upload & Send':'Read & Upload Only')+(x.enabled?'':' · Disabled')+'</small></td><td>'+pill(x.reading)+(x.last_status?'<small>'+esc(x.last_status)+'</small>':'')+'</td><td>'+pill(x.action==='send'?x.portal:x.reading)+'</td><td>'+pill(x.action==='send'?x.email:'Off')+(x.email_detail?'<small>'+esc(x.email_detail)+'</small>':'')+'</td><td>'+pill(x.action==='send'?x.sms:'Off')+(x.sms_detail?'<small>'+esc(x.sms_detail)+'</small>':'')+'</td><td>'+esc(date(x.last_run_at))+'</td></tr>').join(''):'<tr><td colspan="6">No schedules configured.</td></tr>';
+ const counts={total:data.length,waiting:data.filter(x=>x.enabled&&!x.last_run_at).length,failed:data.filter(x=>['failed','partial'].includes(x.email)||['failed','partial'].includes(x.sms)).length,submitted:data.filter(x=>x.delivery_linked&&(x.email==='submitted'||x.sms==='submitted')).length};
+ summary.innerHTML=[['Schedules',counts.total],['Awaiting first run',counts.waiting],['Delivery issues',counts.failed],['Provider submissions',counts.submitted]].map(([name,n])=>'<div class="sh974-stat">'+esc(name)+'<strong>'+n+'</strong></div>').join('');
+ message.textContent='Last checked: '+date(d.server_time)+' Central. Unknown means the outcome cannot be verified; it is not counted as success.';
+ }catch(e){message.textContent=e.message;rows.innerHTML='<tr><td colspan="6">Unable to retrieve delivery health.</td></tr>';}finally{working=false;}}
+ document.getElementById('sh974Refresh')?.addEventListener('click',load);
+ document.getElementById('shRefresh')?.addEventListener('click',load);
+ document.getElementById('admin-tab-btn-system-health')?.addEventListener('click',()=>setTimeout(load,0));
+ window.addEventListener('wooten-admin-auth-changed',()=>{if(!panel.hidden)load();});
+ if(!panel.hidden)setTimeout(load,500);
+})();
+</script>
 <script src="assets/js/wooten-system-health.js?v=912" defer></script>
 <script src="assets/js/wooten-bell-side-tilt.js?v=921" defer></script>
 </body>
