@@ -16683,6 +16683,27 @@ let working=false;async function load(){if(working)return;const key=document.get
  if(!panel.hidden)setTimeout(load,500);
 })();
 </script>
+<script id="wooten-sh-admin-bell-link-ver975">
+/* System Health notification shortcut must use the ADMIN bell, not customer notifications. */
+(()=>{
+  const panel=document.getElementById('admin-tab-system-health');
+  const bell=document.getElementById('adminNotificationBell');
+  if(!panel||!bell)return;
+  panel.addEventListener('click',event=>{
+    const target=event.target instanceof Element?event.target.closest('button,a,[role="button"]'):null;
+    if(!target||!panel.contains(target)||target===bell)return;
+    // Only the System Health notification shortcut, not fuel or MAS 90 links.
+    const label=(target.textContent||'').replace(/\s+/g,' ').trim();
+    const destination=[target.getAttribute('data-admin-open'),target.getAttribute('href'),target.getAttribute('aria-label')].filter(Boolean).join(' ');
+    const notificationShortcut=/\bnotifications?\b/i.test(label)&&(/\b(open|view|show|admin|bell|notifications?)\b/i.test(label)||/notif/i.test(destination));
+    const notificationDestination=/\b(customer[-_ ]?notification|admin[-_ ]?notification|notification[-_ ]?bell)\b/i.test(destination);
+    if(!notificationShortcut&&!notificationDestination)return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if(bell.getAttribute('aria-expanded')!=='true')bell.click();
+  },true);
+})();
+</script>
 <script src="assets/js/wooten-system-health.js?v=912" defer></script>
 <script src="assets/js/wooten-bell-side-tilt.js?v=921" defer></script>
 </body>
