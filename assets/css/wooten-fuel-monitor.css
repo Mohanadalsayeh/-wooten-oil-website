@@ -1301,3 +1301,42 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm950-schedule-list .fm949-schedule-card:not(:last-child){border-bottom:1px solid #d6e4ef!important;}
 #fuelMonitorRoot .fm950-schedules .fm-schedule-add-row{margin-top:26px!important;padding:8px 16px 4px!important;}
 @media(max-width:540px){#fuelMonitorRoot .fm950-schedule-list .fm949-schedule-card{padding:14px 8px!important;}#fuelMonitorRoot .fm950-schedules .fm-schedule-add-row{margin-top:22px!important;padding-left:8px!important;}}
+
+/* Ver952: open, full-width thin horizontal separators instead of bordered panels. */
+#fuelMonitorRoot .fm-station-page > .fm-monitor-panel,
+#fuelMonitorRoot .fm-station-page > .fm-automatic-panel {
+  display:block;
+  width:100%;max-width:100%;min-width:0;
+  margin:16px 0 22px!important;
+  padding:0!important;
+  border:0!important;
+  border-top:1px solid #c5daea!important;
+  border-bottom:1px solid #c5daea!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  overflow:visible;
+}
+#fuelMonitorRoot .fm-monitor-panel > summary,
+#fuelMonitorRoot .fm-automatic-panel > summary {
+  min-height:56px;
+  padding:14px 16px!important;
+  margin:0;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#fuelMonitorRoot .fm-monitor-panel > summary:hover,
+#fuelMonitorRoot .fm-automatic-panel > summary:hover {background:#f3f8fc!important;}
+#fuelMonitorRoot .fm-monitor-panel[open] > summary,
+#fuelMonitorRoot .fm-automatic-panel[open] > summary {border-bottom:1px solid #d8e6f0!important;}
+#fuelMonitorRoot .fm-automatic-panel-content {border:0!important;background:transparent!important;}
+#fuelMonitorRoot .fm-monitor-panel > :not(summary) {margin-left:16px;margin-right:16px;}
+#fuelMonitorRoot .fm-monitor-panel > :last-child:not(summary){margin-bottom:16px;}
+@media(max-width:540px){
+  #fuelMonitorRoot .fm-station-page > .fm-monitor-panel,
+  #fuelMonitorRoot .fm-station-page > .fm-automatic-panel{margin:12px 0 18px!important;}
+  #fuelMonitorRoot .fm-monitor-panel > summary,
+  #fuelMonitorRoot .fm-automatic-panel > summary{padding:12px 10px!important;}
+}
