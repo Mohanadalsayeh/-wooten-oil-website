@@ -333,7 +333,8 @@ const mobileDropdownStyle=document.createElement('style');
   form.querySelectorAll('.fm-recipients').forEach(group=>{
    const hidden=group.querySelector('input[type=hidden]'),rows=group.querySelector('.fm-recipient-rows'),type=group.dataset.recipientType;
    const channel=hidden.name==='email_to'?'email':hidden.name==='sms_to'?'sms':'';
-   const toggleControl=channel?form.elements.namedItem(channel):null;
+   const formControls=(form.elements || form.querySelector('form')?.elements);
+   const toggleControl=channel?formControls?.namedItem(channel):null;
    const addButton=group.querySelector('.fm-recipient-add');
    const syncDisabled=()=>{
     const disabled=!!(toggleControl && !toggleControl.checked);
