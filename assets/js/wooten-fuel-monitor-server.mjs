@@ -313,7 +313,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     await env.DB.prepare('UPDATE fuel_monitor_locations SET lock_until=0 WHERE id=?').bind(id).run();
    }
   }
-  const jobs=[];let token='',detail='',changes=[];
+  const jobs=[];let token='',detail='',changes=[],cloneSummary=null;
    if(action==='schedule_save'){
     const schedule=validateMultiSchedule(b.schedule);
     const config=JSON.parse(row.config);
@@ -343,10 +343,16 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     if(!destination)fail('Destination location not found.',404);
     const mode=b.mode==='replace'?'replace':'append';
     const source=JSON.parse(row.config),dest=JSON.parse(destination.config);
+    cloneSummary={added_schedules:0,skipped_schedules:0,added_emails:0,added_phones:0,receiver_settings_updated:false};
     if(receiver){
      const emails=alertRecipients(source.email_to,'email'),phones=alertRecipients(source.sms_to,'sms');
+     const existingEmails=alertRecipients(dest.email_to,'email');
      const mergedEmails=mode==='replace'?emails:alertRecipients([dest.email_to,...emails].filter(Boolean).join(','),'email');
+     const existingPhones=alertRecipients(dest.sms_to,'sms');
      const mergedPhones=mode==='replace'?phones:alertRecipients([dest.sms_to,...phones].filter(Boolean).join(','),'sms');
+     cloneSummary.added_emails=mergedEmails.filter(e=>!existingEmails.includes(e)).length;
+     cloneSummary.added_phones=mergedPhones.filter(p=>!existingPhones.includes(p)).length;
+     cloneSummary.receiver_settings_updated=true;
      // Only delivery toggles and receiver lists; NEVER copy machine, tanks, station identity or phone.
      dest.email_to=mergedEmails.join(', ');dest.sms_to=mergedPhones.join(', ');
      if(mode==='replace'){dest.portal=source.portal;dest.email=source.email;dest.sms=source.sms;}
@@ -355,10 +361,13 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     if(schedules){
      const sourceSchedules=(await env.DB.prepare('SELECT * FROM fuel_monitor_schedule_items WHERE location_id=?').bind(id).all()).results||[];
      if(mode==='replace')jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_schedule_items WHERE location_id=?').bind(target));
-     const present=mode==='append'?(await env.DB.prepare('SELECT repeat_type,days,dates,send_time,schedule_action FROM fuel_monitor_schedule_items WHERE location_id=?').bind(target).all()).results||[]:[];
-     const signatures=new Set(present.map(s=>[s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action].join('|')));
+     const present=mode==='append'?(await env.DB.prepare('SELECT send_time FROM fuel_monitor_schedule_items WHERE location_id=?').bind(target).all()).results||[]:[];
+     const occupiedTimes=new Set(present.map(s=>String(s.send_time)));
      for(const s of sourceSchedules){
-      const sig=[s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action].join('|');if(signatures.has(sig))continue;signatures.add(sig);
+      const clock=String(s.send_time);
+      if(occupiedTimes.has(clock)){cloneSummary.skipped_schedules++;continue;}
+      occupiedTimes.add(clock);
+      cloneSummary.added_schedules++;
       // New cloned schedules start DISABLED until the receiving location is reviewed.
       jobs.push(env.DB.prepare("INSERT INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_status) VALUES(?,?,0,?,?,?,?,?,'Cloned — review and enable')").bind(crypto.randomUUID(),target,s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action));
      }
@@ -432,7 +441,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
   if(action!=='acknowledge')jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,action==='save'?str(b.config.name,100):JSON.parse(row.config).name,str(actor?.name||'Admin',160),action,JSON.stringify(changes.length?changes:[{field:action,before:null,after:detail}])));
   jobs.push(await auditStatement({action:'fuel_monitor_'+action,id,detail}));await env.DB.batch(jobs);
-  return reply({success:true,id,...(token?{token}: {})});
+  return reply({success:true,id,...(token?{token}: {}),...(cloneSummary?{clone_summary:cloneSummary}:{})});
  }catch(e){console.error('fuel monitor admin',e);return reply({success:false,error:e.status?e.message:'Fuel monitoring could not be saved. Please retry.'},e.status||500)}
 }
 export async function agent(request,env){
