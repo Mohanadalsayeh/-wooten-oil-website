@@ -5816,7 +5816,7 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
  height:52px!important;min-height:52px!important;max-height:52px!important;margin:7px 0 0!important;padding:0 12px!important;line-height:normal!important;
 }
 </style>
-<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=935">
+<link rel="stylesheet" href="assets/css/wooten-fuel-monitor.css?v=939">
 
 <style id="wooten-feature-menu-icons">
 #admin-tab-btn-fuel-monitor .admin-nav-icon{background:#eaf2fa;color:#236b9b;border-radius:4px;box-shadow:0 0 0 7px #eaf2fa}
@@ -15747,6 +15747,13 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #adminNotificationMenu .admin-bell-seen-label{display:inline-block;width:max-content;margin:5px 0 0;padding:3px 8px;border-radius:999px;background:#e8eef3;color:#576f81;font-size:11px;font-weight:800;font-style:normal;line-height:1.4}
 
 </style>
+<style id="wooten-admin-new-notification-motion">
+@keyframes wootenAdminBellRing {0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-15deg)}45%{transform:rotate(12deg)}60%{transform:rotate(-10deg)}75%{transform:rotate(6deg)}90%{transform:rotate(-3deg)}}
+@keyframes wootenAdminBadgePulse {0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(201,31,43,0)}25%,65%{transform:scale(1.16);box-shadow:0 0 0 8px rgba(201,31,43,.12)}}
+#adminNotificationBell.wooten-new-notification-ring svg{transform-origin:50% 15%;animation:wootenAdminBellRing 1.8s ease-in-out 1}
+#adminNotificationBell.wooten-new-notification-ring #adminNotificationBadge{animation:wootenAdminBadgePulse 1.8s ease-in-out 1}
+@media(prefers-reduced-motion:reduce){#adminNotificationBell.wooten-new-notification-ring svg,#adminNotificationBell.wooten-new-notification-ring #adminNotificationBadge{animation:none}}
+</style>
 <script id="wooten-admin-notification-bell-script">
 (()=>{
  const g=id=>document.getElementById(id),bell=g('adminNotificationBell'),badge=g('adminNotificationBadge'),menu=g('adminNotificationMenu'),list=g('adminNotificationList'),counts=g('adminNotificationCounts'),summary=g('adminNotificationSummary'),refresh=g('adminNotificationRefresh');if(!bell||!menu)return;
@@ -15775,8 +15782,18 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
    return {title,body:location+(tanks.length?'\n\n'+tanks.join('\n'):first?'\n\n'+first:'')};
  }
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
+ let priorUnread=null,ringTimer=null;
+ function ringForNewNotifications(){
+   if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+   bell.classList.remove('wooten-new-notification-ring');
+   void bell.offsetWidth;
+   bell.classList.add('wooten-new-notification-ring');
+   clearTimeout(ringTimer);
+   ringTimer=setTimeout(()=>bell.classList.remove('wooten-new-notification-ring'),1900);
+ }
+
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
- function clear(){refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
+ function clear(){priorUnread=null;clearTimeout(ringTimer);bell.classList.remove('wooten-new-notification-ring');refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
    list.innerHTML=items.length?items.map(x=>{
@@ -15810,7 +15827,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
          result.push(...(data.items||[]));cursor=data.next_cursor||null;
        }while(!append&&cursor&&result.length<target);
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
-       const total=Number(data.total||0);badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
+       const total=Number(data.total||0);if(priorUnread!==null&&total>priorUnread)ringForNewNotifications();priorUnread=total;badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=data.partial?'Some notifications unavailable: '+(data.unavailable_sources||[]).map(k=>labels[k]||k).join(', '):total?total+' new items • '+items.length+' shown':items.length?'All caught up • '+items.length+' shown':'No notifications';
        counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();if(data.partial&&!items.length)list.innerHTML='<div class="admin-bell-empty">Some notification categories could not be loaded. Tap Refresh to retry.</div>';
@@ -16571,7 +16588,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=925"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=936"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 

@@ -810,25 +810,46 @@ root.addEventListener('click',e=>{
    render();
    if(!root.querySelector('[data-fuel-alert-id="'+id+'"]'))throw Error('The selected alert could not be displayed.');
    message('Showing the selected fuel alert in '+(locations.find(l=>String(l.id)===location)?.name||'this location')+'.');
-  }catch(error){if(sequence===fuelAlertJumpSeq){clearFuelAlertHighlight();message(error.message,true);}}
+   return true;
+  }catch(error){if(sequence===fuelAlertJumpSeq){clearFuelAlertHighlight();message(error.message,true);}return false;}
  }
  window.addEventListener('wooten-open-fuel-alert-notification',event=>{openSpecificFuelAlert(event.detail);});
  // SMS/email links provide both the alert ID and the location. Preserve the
  // target through login, which intentionally resets the visible tab to Dashboard.
  let pendingDeepLink=window.wootenPendingFuelDeepLink||null;
  let deepLinkBusy=false;
+ let deepLinkRetries=0;
  async function consumeFuelDeepLink(){
+  // A previously authenticated admin may take longer than the old one-shot
+  // 350ms timer to restore access on a fresh SMS-link navigation.
+  pendingDeepLink=window.wootenPendingFuelDeepLink||pendingDeepLink;
   if(!pendingDeepLink||deepLinkBusy||!allowed()||!key())return;
   deepLinkBusy=true;
   try{
    document.getElementById('admin-tab-btn-fuel-monitor')?.click();
-   await openSpecificFuelAlert(pendingDeepLink);
-   pendingDeepLink=null;
-   window.wootenPendingFuelDeepLink=null;
+   const opened=await openSpecificFuelAlert(pendingDeepLink);
+   if(opened){
+    pendingDeepLink=null;
+    window.wootenPendingFuelDeepLink=null;
+   }
   }finally{deepLinkBusy=false;}
  }
- window.addEventListener('wooten-admin-auth-changed',()=>setTimeout(consumeFuelDeepLink,250));
- setTimeout(consumeFuelDeepLink,350);
+ function retryFuelDeepLink(){
+  if(!pendingDeepLink&&!window.wootenPendingFuelDeepLink)return;
+  consumeFuelDeepLink();
+ }
+ window.addEventListener('wooten-admin-auth-changed',()=>setTimeout(retryFuelDeepLink,250));
+ window.addEventListener('hashchange',()=>setTimeout(retryFuelDeepLink,0));
+ window.addEventListener('pageshow',()=>setTimeout(retryFuelDeepLink,0));
+ window.addEventListener('focus',retryFuelDeepLink);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)retryFuelDeepLink()});
+ setTimeout(retryFuelDeepLink,350);
+ const fuelDeepLinkStartupRetry=setInterval(()=>{
+  if(++deepLinkRetries>60||(!pendingDeepLink&&!window.wootenPendingFuelDeepLink)){
+   clearInterval(fuelDeepLinkStartupRetry);return;
+  }
+  retryFuelDeepLink();
+ },500);
 
  window.addEventListener('wooten-admin-page-open',e=>{if(e.detail?.panel==='fuel-monitor')load()});
  window.addEventListener('wooten-admin-auth-changed',()=>{clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;epoch++;creatingLocation=false;inlineEdit=null;inlineSaving=false;locations=[];alerts=[];history=[];activeLocation='all';dialog.close();render();if(!document.getElementById('admin-tab-fuel-monitor').hidden)load()});
