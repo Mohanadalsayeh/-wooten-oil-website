@@ -707,6 +707,7 @@ function openAutomaticReadingSchedule(id){
   #fuelMonitorRoot .fm962-day input:focus-visible + .fm962-circle{outline:2px solid #173850;outline-offset:2px}
   #fuelMonitorRoot .fm950-editor .fm-inline-save{display:flex;justify-content:flex-end;gap:14px}
   #fuelMonitorRoot .fm950-editor .fm-inline-save > button{min-width:160px}
+  #fuelMonitorRoot .fm950-editor button[type=submit]:disabled{opacity:.46!important;cursor:not-allowed!important;filter:grayscale(.25)}
   @media (max-width:780px){
     #fuelMonitorRoot .fm959-schedule-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:'icon info' 'actions actions';padding:13px 4px!important}
     #fuelMonitorRoot .fm949-schedule-icon{grid-area:icon}
@@ -753,10 +754,30 @@ function openAutomaticReadingSchedule(id){
   const form=editor.querySelector('form');form.elements.repeat.value=s.repeat;form.elements.schedule_action.value=s.action;
   const sync=()=>{form.querySelector('.fm940-weekdays').hidden=form.elements.repeat.value!=='weekly';};form.elements.repeat.onchange=sync;sync();
   const editingContainer=editor;
-  form.addEventListener('input',()=>{inlineEdit.dirty=true;});
-  form.addEventListener('change',()=>{inlineEdit.dirty=true;});
+  const scheduleValues=()=>({
+   enabled:form.elements.enabled.checked,
+   time:form.elements.send_time.value,
+   repeat:form.elements.repeat.value,
+   action:form.elements.schedule_action.value,
+   days:form.elements.repeat.value==='weekly'?[...form.querySelectorAll('[name=weekday]:checked')].map(el=>Number(el.value)).sort((a,b)=>a-b):[],
+   dates:form.elements.repeat.value==='dates'?[...(s.dates||[])].sort():[]
+  });
+  const originalValues=s.id?JSON.stringify({
+   enabled:!!s.enabled,time:s.time,repeat:s.repeat,action:s.action,
+   days:s.repeat==='weekly'?[...(s.days||[])].map(Number).sort((a,b)=>a-b):[],
+   dates:s.repeat==='dates'?[...(s.dates||[])].sort():[]
+  }):null;
+  const saveButton=form.querySelector('[type=submit]');
+  const updateSaveState=()=>{
+   const changed=originalValues===null||JSON.stringify(scheduleValues())!==originalValues;
+   inlineEdit.dirty=changed&&originalValues!==null;
+   saveButton.disabled=inlineSaving||!changed;
+  };
+  form.addEventListener('input',updateSaveState);
+  form.addEventListener('change',updateSaveState);
+  updateSaveState();
   form.querySelector('[data-schedule-cancel]').onclick=()=>{editingContainer.replaceChildren();editingId=null;inlineEdit.dirty=false;};
-  form.onsubmit=async event=>{event.preventDefault();if(inlineSaving)return;
+  form.onsubmit=async event=>{event.preventDefault();updateSaveState();if(inlineSaving||saveButton.disabled)return;
    const days=[...form.querySelectorAll('[name=weekday]:checked')].map(el=>Number(el.value));
    const dates=form.elements.repeat.value==='dates'?(s.dates||[]):[];
    const schedule={enabled:form.elements.enabled.checked,repeat:form.elements.repeat.value,days,dates,time:form.elements.send_time.value,action:form.elements.schedule_action.value};
@@ -764,7 +785,7 @@ function openAutomaticReadingSchedule(id){
    if(duplicate){const warning=form.querySelector('.fm-inline-message');warning.textContent='A schedule at '+schedule.time+' CT already exists. Choose a different time.';warning.classList.add('fm-error');form.elements.send_time.setCustomValidity('This time is already scheduled for this location.');form.elements.send_time.reportValidity();form.elements.send_time.addEventListener('input',()=>{form.elements.send_time.setCustomValidity('');warning.textContent='';},{once:true});return;}
    inlineSaving=true;form.querySelector('[type=submit]').disabled=true;
    try{await api({action:'schedule_save',id,...(s.id?{schedule_id:s.id}:{}),schedule});inlineSaving=false;inlineEdit=null;await load();openAutomaticReadingSchedule(id);message('Schedule saved.');}
-   catch(err){form.querySelector('.fm-inline-message').textContent=err.message;inlineSaving=false;form.querySelector('[type=submit]').disabled=false;}
+   catch(err){form.querySelector('.fm-inline-message').textContent=err.message;inlineSaving=false;updateSaveState();}
   };
  }
  middle.querySelectorAll('[data-new-schedule]').forEach(btn=>btn.onclick=()=>{edit();(editor||addEditor).scrollIntoView({behavior:'smooth',block:'nearest'});});
