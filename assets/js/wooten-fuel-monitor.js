@@ -689,17 +689,26 @@ function openAutomaticReadingSchedule(id){
  if(!l||!middle)return;panel.open=true;inlineEdit={id,section:'auto_reading',dirty:false};
  const saved=l.auto_reading?.schedules||[];
  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
- const row=s=>'<div class="fm949-schedule-card"><div class="fm949-schedule-icon" aria-hidden="true">'+(s.action==='send'?actionIcon('send'):fuelScheduleIcon('save-data'))+'</div><div class="fm949-schedule-info"><strong>'+esc(s.time)+' CT</strong><span class="fm949-repeat">'+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'</span><div class="fm949-schedule-sub">'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · <span class="fm949-enabled '+(s.enabled?'is-on':'')+'">'+(s.enabled?'Enabled':'Disabled')+'</span></div><small>'+esc(s.last_status||'Not run yet')+'</small></div><div class="fm949-schedule-actions"><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div>';
+ const row=s=>'<div class="fm949-schedule-card"><div class="fm949-schedule-icon" aria-hidden="true">'+(s.action==='send'?actionIcon('send'):fuelScheduleIcon('save-data'))+'</div><div class="fm949-schedule-info"><strong>'+esc(s.time)+' CT</strong><span class="fm949-repeat">'+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'</span><div class="fm949-schedule-sub">'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · <span class="fm949-enabled '+(s.enabled?'is-on':'')+'">'+(s.enabled?'Enabled':'Disabled')+'</span></div><small>'+esc(s.last_status||'Not run yet')+'</small></div><div class="fm949-schedule-actions"><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div><div class="fm957-row-editor" data-row-editor="'+esc(s.id)+'"></div></div>';
  middle.innerHTML='<div class="fm940-schedules fm950-schedules"><p class="fm949-explanation">Each schedule waits for a fresh collector upload before its scheduled action runs.</p>'+
   (saved.length?'<div class="fm950-schedule-list">'+saved.map(row).join('')+'</div>':'<div class="fm950-empty">No schedules configured yet.</div>')+
   '<div class="fm-schedule-add-row"><button type="button" class="fm-add-schedule-button" data-new-schedule>'+actionIcon('plus')+'Add schedule</button></div></div><div class="fm940-editor fm950-editor"></div>';
- const editor=middle.querySelector('.fm940-editor');
+ const addEditor=middle.querySelector('.fm940-editor');
+ let editor=addEditor,editingId=null;
  function edit(s){s=s||{enabled:true,repeat:'daily',days:[0,1,2,3,4,5,6],dates:[],time:'08:00',action:'upload'};
+  const nextId=s.id||null;
+  if(editor.querySelector('form')&&inlineEdit?.dirty&&!confirm('Discard unsaved schedule changes?'))return;
+  editor.replaceChildren();
+  editor=nextId?middle.querySelector('[data-row-editor="'+CSS.escape(String(nextId))+'"]'):addEditor;
+  editingId=nextId;inlineEdit.dirty=false;
   const legacyDates=s.repeat==='dates';
   editor.innerHTML='<form class="fm-inline-form fm-automatic-reading fm950-inline-form"><h4>'+(s.id?'Edit schedule':'Add schedule')+'</h4><label class="fm-toggle"><input name="enabled" type="checkbox" '+(s.enabled?'checked':'')+'><span>Enabled</span></label><div class="fm940-fields"><label>Time (Central)<input name="send_time" type="time" required value="'+esc(s.time)+'"></label><label>Repeat<select name="repeat"><option value="daily">Daily</option><option value="weekly">Selected weekdays</option>'+(legacyDates?'<option value="dates">Existing selected dates</option>':'')+'</select></label><label>Schedule Action<select name="schedule_action"><option value="upload">Read & Upload Only</option><option value="send">Read, Upload & Send</option></select></label></div><fieldset class="fm940-weekdays fm956-weekday-tiles" hidden><legend>Select weekdays</legend><div class="fm956-days">'+labels.map((name,i)=>'<label class="fm956-day"><input type="checkbox" name="weekday" value="'+i+'" '+((s.days||[]).includes(i)?'checked':'')+'><span class="fm956-day-content"><span class="fm956-check" aria-hidden="true">✓</span><span>'+name.slice(0,3)+'</span></span></label>').join('')+'</div></fieldset>'+(legacyDates?'<p class="fm950-legacy-date-note">Existing dates are preserved when you save. Choose Daily or Selected weekdays to change the repeat type.</p>':'')+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" class="secondary" data-schedule-cancel>Cancel</button><button type="submit">Save schedule</button></div></form>';
   const form=editor.querySelector('form');form.elements.repeat.value=s.repeat;form.elements.schedule_action.value=s.action;
   const sync=()=>{form.querySelector('.fm940-weekdays').hidden=form.elements.repeat.value!=='weekly';};form.elements.repeat.onchange=sync;sync();
-  form.querySelector('[data-schedule-cancel]').onclick=()=>editor.replaceChildren();
+  const editingContainer=editor;
+  form.addEventListener('input',()=>{inlineEdit.dirty=true;});
+  form.addEventListener('change',()=>{inlineEdit.dirty=true;});
+  form.querySelector('[data-schedule-cancel]').onclick=()=>{editingContainer.replaceChildren();editingId=null;inlineEdit.dirty=false;};
   form.onsubmit=async event=>{event.preventDefault();if(inlineSaving)return;
    const days=[...form.querySelectorAll('[name=weekday]:checked')].map(el=>Number(el.value));
    const dates=form.elements.repeat.value==='dates'?(s.dates||[]):[];
@@ -712,8 +721,20 @@ function openAutomaticReadingSchedule(id){
   };
  }
  middle.querySelectorAll('[data-new-schedule]').forEach(btn=>btn.onclick=()=>{edit();editor.scrollIntoView({behavior:'smooth',block:'nearest'});});
- middle.querySelectorAll('[data-edit-schedule]').forEach(btn=>btn.onclick=()=>edit(saved.find(s=>s.id===btn.dataset.editSchedule)));
- middle.querySelectorAll('[data-remove-schedule]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Remove this schedule?'))return;try{await api({action:'schedule_remove',id,schedule_id:btn.dataset.removeSchedule});inlineEdit=null;await load();openAutomaticReadingSchedule(id);}catch(err){message(err.message,true)}});
+ middle.querySelectorAll('[data-edit-schedule]').forEach(btn=>btn.onclick=()=>{if(editingId===btn.dataset.editSchedule){if(inlineEdit.dirty&&!confirm('Discard unsaved schedule changes?'))return;editor.replaceChildren();editingId=null;inlineEdit.dirty=false;return;}edit(saved.find(s=>s.id===btn.dataset.editSchedule));});
+ middle.querySelectorAll('[data-remove-schedule]').forEach(btn=>btn.onclick=async()=>{
+  const target=saved.find(s=>String(s.id)===btn.dataset.removeSchedule);if(!target)return;
+  if(inlineEdit?.dirty&&!confirm('Discard unsaved schedule changes?'))return;
+  const prompt=document.createElement('dialog');prompt.className='fm-dialog fm-remove-confirm fm957-remove-confirm';
+  prompt.innerHTML='<form><header><h2>Remove Fuel Reading Schedule?</h2></header><div class="fm-dialog-body"><p>Remove this schedule from '+esc(l.name)+'?</p><div class="fm957-remove-details"><strong>'+esc(target.time)+' CT</strong><span>'+esc(target.repeat==='daily'?'Daily':target.repeat==='weekly'?'Selected weekdays':'Selected dates')+' · '+esc(target.action==='send'?'Read, Upload & Send':'Read & Upload Only')+'</span></div><p>Other schedules and previously saved fuel readings will remain unchanged.</p><p class="fm-error" role="status"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit" class="fm957-remove-danger">Confirm Remove</button></footer></form>';
+  document.body.append(prompt);let working=false;
+  const close=()=>{if(working)return;prompt.close();prompt.remove();};
+  prompt.querySelector('[type=button]').onclick=close;prompt.addEventListener('cancel',e=>{e.preventDefault();close();});
+  prompt.querySelector('form').onsubmit=async e=>{e.preventDefault();if(working)return;working=true;prompt.querySelectorAll('button').forEach(b=>b.disabled=true);
+   try{await api({action:'schedule_remove',id,schedule_id:target.id});working=false;close();inlineEdit=null;await load();openAutomaticReadingSchedule(id);message('Schedule removed.');}
+   catch(err){working=false;prompt.querySelector('[role=status]').textContent=err.message;prompt.querySelectorAll('button').forEach(b=>b.disabled=false);}
+  };prompt.showModal();
+ });
 }
 
 async function cloneLocationSettings(id){

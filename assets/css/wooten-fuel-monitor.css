@@ -1377,3 +1377,13 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm956-day input:focus-visible+.fm956-day-content{outline:3px solid #174c7e;outline-offset:3px}
 #fuelMonitorRoot .fm956-day:hover .fm956-day-content{border-color:#187be9}
 @media(max-width:650px){#fuelMonitorRoot .fm956-days{gap:5px}#fuelMonitorRoot .fm956-weekday-tiles{padding:10px 7px}#fuelMonitorRoot .fm956-day-content{min-height:55px;padding:7px 2px;font-size:11px;gap:5px}}
+
+/* Ver957: expanded schedule editor stays with its selected row. */
+#fuelMonitorRoot .fm957-schedule-entry{min-width:0}
+#fuelMonitorRoot .fm957-row-editor:not(:empty){padding:0 22px 18px;background:#f5f9fc;border-top:1px solid #d8e4ef}
+#fuelMonitorRoot .fm957-row-editor .fm950-inline-form{padding-top:18px}
+#fuelMonitorRoot .fm957-row-editor .fm940-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.fm957-remove-confirm .fm957-remove-details{display:flex;flex-direction:column;gap:6px;border:1px solid #d9e5ef;border-radius:10px;background:#f4f8fc;padding:14px}
+.fm957-remove-confirm .fm957-remove-details span{color:#647b90;font-size:13px}
+.fm957-remove-confirm .fm957-remove-danger{background:#d8192a;color:#fff}
+@media(max-width:740px){#fuelMonitorRoot .fm957-row-editor{padding:0 12px 16px!important}#fuelMonitorRoot .fm957-row-editor .fm940-fields{grid-template-columns:1fr}}
