@@ -6101,7 +6101,6 @@ SOFTWARE.
     <div class="sh-heading"><div><div class="admin-page-label">Operations &amp; Alerts</div><h2>System Health Center</h2><p>Live service checks and consolidated operational alerts. Unknown is never counted as healthy.</p></div><button type="button" class="secondary" id="shRefresh">Refresh Health</button></div>
     <p id="shUpdated" role="status">Open this page to check connected systems.</p>
     <div class="sh-grid" id="shCards" aria-live="polite"></div>
-    <div class="sh977-shortcut"><span>Fuel delivery activity is now in <strong>Locations &amp; Fuel Monitoring</strong>.</span><button type="button" class="secondary" id="sh977OpenActivity">Open Delivery Activity →</button></div>
     <div class="sh-alert-heading"><div><h3>Centralized Alert Center</h3><p>Current issues from MAS 90 and fuel monitoring, alongside the existing admin notification feed.</p></div><div class="sh-alert-count" id="shAlertCount">—</div></div>
     <div id="shAlerts" class="sh-alert-list" aria-live="polite"><p>Checking alerts…</p></div>
     <p class="sh-disclaimer">This overview is read-only. Resolve issues in their corresponding system pages. Alerts already managed by the notification bell remain available there.</p>
@@ -16655,7 +16654,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm977-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:15px 0}
 .fm977-stat{border:1px solid #dbe5ed;border-radius:10px;background:#f8fafc;padding:12px;text-align:center}.fm977-stat strong{display:block;font-size:23px;color:#1a465f}.fm977-stat span{font-size:12px;color:#59748a}
 .fm977-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.fm977-controls label{font-size:12px;color:#47617a}.fm977-controls select{padding:8px 10px;border-radius:7px;border:1px solid #cbd8e3;background:#fff;color:#153d57;min-width:112px}
-.fm977-cards{display:grid;gap:9px}.fm977-card{border:1px solid #dbe5ed;border-radius:10px;overflow:hidden;background:#fff}.fm977-card-head{display:flex;gap:12px;align-items:center;width:100%;border:0;background:#fff!important;text-align:left;padding:13px;color:#1c3e56;cursor:pointer;box-sizing:border-box}.fm977-card-head:hover,.fm977-card-head:focus-visible{background:#f4f8fc!important}.fm977-card-indicator{font-size:20px}.fm977-card-main{flex:1;min-width:0}.fm977-card-main strong{display:block;font-size:14px}.fm977-card-main small{display:block;font-size:12px;color:#687d8e;line-height:1.5}.fm977-card-detail{border-top:1px solid #e2eaf0;padding:12px;background:#f9fbfd;font-size:12px;color:#25475c}.fm977-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0}.fm977-detail-grid span{display:block;color:#687d8e;font-size:11px}.fm977-detail-grid strong{display:block;overflow-wrap:anywhere}.fm977-footer{margin:13px 0}.fm977-note{line-height:1.5}.sh977-shortcut{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0;padding:12px;background:#f5f9fc;border:1px solid #dce6ee;border-radius:9px;font-size:13px;color:#38576d}
+.fm977-cards{display:grid;gap:9px}.fm977-card{border:1px solid #dbe5ed;border-radius:10px;overflow:hidden;background:#fff}.fm977-card-head{display:flex;gap:12px;align-items:center;width:100%;border:0;background:#fff!important;text-align:left;padding:13px;color:#1c3e56;cursor:pointer;box-sizing:border-box}.fm977-card-head:hover,.fm977-card-head:focus-visible{background:#f4f8fc!important}.fm977-card-indicator{font-size:20px}.fm977-card-main{flex:1;min-width:0}.fm977-card-main strong{display:block;font-size:14px}.fm977-card-main small{display:block;font-size:12px;color:#687d8e;line-height:1.5}.fm977-card-detail{border-top:1px solid #e2eaf0;padding:12px;background:#f9fbfd;font-size:12px;color:#25475c}.fm977-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0}.fm977-detail-grid span{display:block;color:#687d8e;font-size:11px}.fm977-detail-grid strong{display:block;overflow-wrap:anywhere}.fm977-footer{margin:13px 0}.fm977-note{line-height:1.5}
 @media(max-width:600px){.fm977-section{padding:12px}.fm977-header h3{font-size:17px}.fm977-controls select{min-width:0;max-width:100%}.fm977-stat{padding:8px 4px}.fm977-stat strong{font-size:20px}.fm977-stat span{font-size:11px}.fm977-card-head{padding:11px 8px;gap:8px}.fm977-detail-grid{gap:5px}}
 </style>
 <script id="fm977-script">
@@ -16677,7 +16676,37 @@ let loadedTotal=0;
 async function load(more=false){if(working)return;if(!key()){get('fm977Message').textContent='Sign in to view scheduled report activity.';return;}working=true;if(!more){offset=0;items=[];}get('fm977Message').textContent='Loading scheduled report activity…';try{const q=new URLSearchParams({delivery_activity:'list',days:get('fm977Range').value,filter:get('fm977Filter').value,offset:String(offset)});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Activity unavailable');items=items.concat(d.items||[]);next=d.next_offset;loadedTotal=d.total||0;offset=next??offset;loaded=true;render();get('fm977Stats').innerHTML=[['Displayed',items.length],['Pending',items.filter(x=>x.status==='pending').length],['Issues',items.filter(x=>x.status==='issues').length]].map(([label,n])=>`<div class="fm977-stat"><strong>${n}</strong><span>${label}</span></div>`).join('');get('fm977Message').textContent=items.length?'Recent scheduled runs. Details load on demand.':'No scheduled reports for this period and filter.';}catch(e){get('fm977Message').textContent=e.message;}finally{working=false;}}
 get('fm977Refresh')?.addEventListener('click',()=>load());get('fm977More')?.addEventListener('click',()=>{if(next!==null)load(true)});['fm977Range','fm977Filter'].forEach(id=>get(id)?.addEventListener('change',()=>load()));
 window.addEventListener('wooten:fuel-activity-tab',()=>{mountActivity();if(!loaded)load()});
-get('sh977OpenActivity')?.addEventListener('click',()=>{get('admin-tab-btn-fuel-monitor')?.click();setTimeout(()=>{mountActivity();get('fm-location-tab-activity')?.click();},300)});
+})();
+</script>
+<script id="wooten-sh-open-fuel-activity-ver980">
+/* The System Health Center's Open Fuel Monitoring shortcut opens the activity tab. */
+(()=>{
+  const health=document.getElementById('admin-tab-system-health');
+  if(!health)return;
+  function openActivity(){
+    const adminTab=document.getElementById('admin-tab-btn-fuel-monitor');
+    if(adminTab)adminTab.click();
+    // Fuel location tabs are rebuilt asynchronously after monitoring loads.
+    let tries=0;
+    const choose=()=>{
+      if(!document.getElementById('admin-tab-fuel-monitor')?.classList.contains('active') && !document.getElementById('admin-tab-fuel-monitor')?.classList.contains('is-active')){
+        // Wait for the regular admin-tab navigation handler to finish.
+      }
+      const tab=document.getElementById('fm-location-tab-activity');
+      if(tab){tab.click();return;}
+      if(++tries<30)setTimeout(choose,100);
+    };
+    setTimeout(choose,0);
+  }
+  health.addEventListener('click',event=>{
+    const target=event.target instanceof Element?event.target.closest('button,a,[role="button"]'):null;
+    if(!target||!health.contains(target))return;
+    const label=(target.textContent||'').replace(/\s+/g,' ').trim();
+    if(!/^Open Fuel Monitoring(?:\s*[→\-›])?$/i.test(label))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openActivity();
+  },true);
 })();
 </script>
 <script id="wooten-sh-admin-bell-link-ver975">
