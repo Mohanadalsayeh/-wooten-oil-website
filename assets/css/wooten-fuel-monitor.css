@@ -1277,3 +1277,17 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm949-copy-select label{display:grid;gap:8px}
 @media(max-width:800px){#fuelMonitorRoot .fm949-create-grid{grid-template-columns:1fr}}
 @media(max-width:540px){#fuelMonitorRoot .fm949-schedule-card{flex-wrap:wrap;gap:10px}#fuelMonitorRoot .fm949-schedule-actions{width:100%;justify-content:flex-end}#fuelMonitorRoot .fm949-create-choice{min-height:58px}}
+
+/* Ver950: compact inline scheduling form */
+#fuelMonitorRoot .fm950-schedules{padding:3px 0 0}
+#fuelMonitorRoot .fm950-schedule-list{display:grid;gap:10px}
+#fuelMonitorRoot .fm950-empty{padding:14px;border:1px dashed #c4d6e5;border-radius:10px;color:#627e93;background:#f7fbfe}
+#fuelMonitorRoot .fm950-editor:not(:empty){margin-top:14px;padding:18px;border:1px solid #d4e2ed;border-radius:12px;background:#fff}
+#fuelMonitorRoot .fm950-inline-form{border:0;margin:0;padding:0}
+#fuelMonitorRoot .fm950-inline-form h4{margin:0 0 14px;color:#173850}
+#fuelMonitorRoot .fm950-inline-form .fm940-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#fuelMonitorRoot .fm950-inline-form .fm940-fields>label{min-width:0}
+#fuelMonitorRoot .fm950-legacy-date-note{font-size:12px;color:#647b90;margin:10px 0}
+#fuelMonitorRoot .fm950-editor .fm-inline-save{justify-content:flex-end}
+#fuelMonitorRoot .fm950-editor .fm940-weekdays[hidden]{display:none!important}
+@media(max-width:740px){#fuelMonitorRoot .fm950-inline-form .fm940-fields{grid-template-columns:1fr}}
