@@ -5914,6 +5914,14 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
   text-transform:none!important;
 }
 </style>
+<style id="fm-locations-layer-ver991">
+/* Keep the station management dropdown above the station header and Edit Location control. */
+#fuelMonitorRoot #fmLocationTabs{position:relative!important;z-index:60!important;overflow:visible!important;isolation:isolate}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-dropdown{z-index:61!important}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-menu{z-index:62!important}
+#fuelMonitorRoot #fmLocations{position:relative;z-index:1}
+#fuelMonitorRoot #fm977Section{position:relative;z-index:1}
+</style>
 <style id="fm-locations-dropdown-ver989">
 #fmLocationTabs .fm-locations-dropdown{position:relative;display:inline-flex;align-items:stretch;flex:0 0 auto;min-width:0}
 #fmLocationTabs .fm-locations-trigger{display:inline-flex;align-items:center;gap:9px;white-space:nowrap;font:inherit;color:#173d5b;cursor:pointer}
@@ -16644,7 +16652,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=989"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=992"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
