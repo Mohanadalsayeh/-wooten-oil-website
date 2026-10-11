@@ -701,6 +701,8 @@ function openAutomaticReadingSchedule(id){
    const days=[...form.querySelectorAll('[name=weekday]:checked')].map(el=>Number(el.value));
    const dates=form.elements.repeat.value==='dates'?(s.dates||[]):[];
    const schedule={enabled:form.elements.enabled.checked,repeat:form.elements.repeat.value,days,dates,time:form.elements.send_time.value,action:form.elements.schedule_action.value};
+   const duplicate=saved.find(item=>String(item.id)!==String(s.id||'')&&item.time===schedule.time);
+   if(duplicate){const warning=form.querySelector('.fm-inline-message');warning.textContent='A schedule at '+schedule.time+' CT already exists. Choose a different time.';warning.classList.add('fm-error');form.elements.send_time.setCustomValidity('This time is already scheduled for this location.');form.elements.send_time.reportValidity();form.elements.send_time.addEventListener('input',()=>{form.elements.send_time.setCustomValidity('');warning.textContent='';},{once:true});return;}
    inlineSaving=true;form.querySelector('[type=submit]').disabled=true;
    try{await api({action:'schedule_save',id,...(s.id?{schedule_id:s.id}:{}),schedule});inlineSaving=false;inlineEdit=null;await load();openAutomaticReadingSchedule(id);message('Schedule saved.');}
    catch(err){form.querySelector('.fm-inline-message').textContent=err.message;inlineSaving=false;form.querySelector('[type=submit]').disabled=false;}

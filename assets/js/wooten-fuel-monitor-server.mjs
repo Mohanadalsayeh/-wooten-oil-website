@@ -322,6 +322,10 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     if(!/^[a-zA-Z0-9-]{1,90}$/.test(sid))fail('Invalid schedule.');
     const existing=await env.DB.prepare('SELECT location_id FROM fuel_monitor_schedule_items WHERE id=?').bind(sid).first();
     if(existing&&existing.location_id!==id)fail('Schedule belongs to a different location.',409);
+    // A location may have only one schedule at any Central clock time, even
+    // when repeat days/actions differ. Guard at the server before writing.
+    const duplicate=await env.DB.prepare('SELECT id FROM fuel_monitor_schedule_items WHERE location_id=? AND send_time=? AND id<>? LIMIT 1').bind(id,schedule.time,sid).first();
+    if(duplicate)fail('A schedule at '+schedule.time+' Central already exists for this location. Choose a different time.',409);
     detail='Saved automatic fuel schedule at '+schedule.time+' Central for '+config.name+'.';
     jobs.push(env.DB.prepare(`INSERT INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_status) VALUES(?,?,?,?,?,?,?,?,'Scheduled') ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,repeat_type=excluded.repeat_type,days=excluded.days,dates=excluded.dates,send_time=excluded.send_time,schedule_action=excluded.schedule_action,last_status='Updated'`).bind(sid,id,schedule.enabled?1:0,schedule.repeat,schedule.days.join(','),schedule.dates.join(','),schedule.time,schedule.action));
    }

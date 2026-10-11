@@ -1291,3 +1291,13 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm950-editor .fm-inline-save{justify-content:flex-end}
 #fuelMonitorRoot .fm950-editor .fm940-weekdays[hidden]{display:none!important}
 @media(max-width:740px){#fuelMonitorRoot .fm950-inline-form .fm940-fields{grid-template-columns:1fr}}
+
+/* Ver951: minimal schedule separators; more breathing room before Add Schedule. */
+#fuelMonitorRoot .fm950-schedule-list{display:block;}
+#fuelMonitorRoot .fm950-schedule-list .fm949-schedule-card{
+  border:0!important;border-radius:0!important;background:transparent!important;
+  padding:18px 16px!important;margin:0!important;box-shadow:none!important;
+}
+#fuelMonitorRoot .fm950-schedule-list .fm949-schedule-card:not(:last-child){border-bottom:1px solid #d6e4ef!important;}
+#fuelMonitorRoot .fm950-schedules .fm-schedule-add-row{margin-top:26px!important;padding:8px 16px 4px!important;}
+@media(max-width:540px){#fuelMonitorRoot .fm950-schedule-list .fm949-schedule-card{padding:14px 8px!important;}#fuelMonitorRoot .fm950-schedules .fm-schedule-add-row{margin-top:22px!important;padding-left:8px!important;}}
