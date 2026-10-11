@@ -5941,45 +5941,59 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
 @media(max-width:540px){#fmLocationTabs .fm-locations-dropdown{width:auto!important;max-width:100%!important}#fmLocationTabs .fm-locations-menu{position:fixed!important;top:auto!important;left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;min-width:0!important;max-width:calc(100vw - 24px)!important;transform:none!important}#fmLocationTabs .fm-locations-menu-row button{min-width:0!important}}
 </style>
 
-<style id="wooten-statement-period-mobile-ver1012">
-/* Responsive improvements confined to Statement Cycles Periods; no schedule logic changes. */
-@media (max-width: 600px) {
+<style id="wooten-statement-period-mobile-ver1013">
+/* Width-only correction. Keep the original height and vertical spacing of period inputs. */
+@media (max-width:600px) {
   body#wooten-admin-page #documentSectionStatementPeriods,
-  body#wooten-admin-page #statementCyclePeriods {
-    min-width:0!important;max-width:100%!important;box-sizing:border-box!important;
+  body#wooten-admin-page #statementCyclePeriods,
+  body#wooten-admin-page #statementCyclePeriods .sm-period-setup {
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
   }
   body#wooten-admin-page #statementCyclePeriods fieldset {
-    min-width:0!important;max-width:100%!important;box-sizing:border-box!important;
-    padding:16px 12px 14px!important;margin:18px 0 0!important;
-    border-radius:12px!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
   }
   body#wooten-admin-page #statementCyclePeriods fieldset legend {
-    max-width:calc(100% - 10px)!important;box-sizing:border-box!important;
-    margin:0 0 2px!important;padding:0 8px!important;
-    white-space:normal!important;line-height:1.25!important;
+    max-width:100%!important;
+    white-space:normal!important;
   }
   body#wooten-admin-page #statementCyclePeriods fieldset label,
   body#wooten-admin-page #statementCyclePeriods .sm-period-setup label {
-    min-width:0!important;max-width:100%!important;box-sizing:border-box!important;
-    line-height:1.35!important;
+    display:block!important;
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
   }
-  body#wooten-admin-page #statementCyclePeriods input:not([type=checkbox]):not([type=radio]),
-  body#wooten-admin-page #statementCyclePeriods select {
-    display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;
-    box-sizing:border-box!important;height:48px!important;min-height:48px!important;
-    margin-top:6px!important;margin-bottom:10px!important;
-    padding:8px 12px!important;font-size:16px!important;
+  body#wooten-admin-page #statementCyclePeriods fieldset input:not([type=checkbox]):not([type=radio]),
+  body#wooten-admin-page #statementCyclePeriods fieldset select,
+  body#wooten-admin-page #statementCyclePeriods .sm-period-setup input:not([type=checkbox]):not([type=radio]),
+  body#wooten-admin-page #statementCyclePeriods .sm-period-setup select {
+    box-sizing:border-box!important;
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin-left:0!important;
+    margin-right:0!important;
   }
-  body#wooten-admin-page #statementCyclePeriods fieldset > label {margin-bottom:10px!important}
-  body#wooten-admin-page #statementCyclePeriods .sm-period-setup {
-    min-width:0!important;max-width:100%!important;gap:12px!important;
-  }
-  body#wooten-admin-page #statementCyclePeriods button {
-    max-width:100%!important;box-sizing:border-box!important;
-  }
-  body#wooten-admin-page #statementCyclePeriods p,
-  body#wooten-admin-page #statementCyclePeriods small {
-    overflow-wrap:break-word!important;line-height:1.5!important;
+}
+</style>
+<style id="wooten-statement-period-height-ver1014">
+/* Match period date and time controls to the 52px Statement date field, without changing their widths. */
+@media (max-width:600px) {
+  body#wooten-admin-page #statementCyclePeriods fieldset input:not([type=checkbox]):not([type=radio]),
+  body#wooten-admin-page #statementCyclePeriods fieldset select {
+    box-sizing:border-box!important;
+    height:52px!important;
+    min-height:52px!important;
+    max-height:52px!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    line-height:normal!important;
   }
 }
 </style>
@@ -6181,7 +6195,7 @@ SOFTWARE.
   </div>
 
   <div class="card admin-tab-panel" id="admin-tab-system-health" role="tabpanel" aria-labelledby="admin-tab-btn-system-health" data-admin-panel="system-health">
-    <div class="sh-heading"><div><div class="admin-page-label">Operations &amp; Alerts</div><h2 class="sh-refresh-heading"><button type="button" id="shRefresh" class="sh-title-refresh" aria-label="Refresh System Health Center" title="Refresh system health"><svg class="sh-title-refresh-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.8 9a7 7 0 0 1 12.3-2L20 12"/><path d="M4 12l1.9 5a7 7 0 0 0 12.3-2"/></svg><span class="sh-title-refresh-text">System Health Center</span></button></h2><p>Live service checks and consolidated operational alerts. Unknown is never counted as healthy.</p></div></div>
+    <div class="sh-heading"><div><div class="admin-page-label">Operations &amp; Alerts</div><h2 class="sh-refresh-heading"><button type="button" id="shTitleRefresh" class="sh-title-refresh" aria-label="Refresh System Health Center" title="Refresh system health"><svg class="sh-title-refresh-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.8 9a7 7 0 0 1 12.3-2L20 12"/><path d="M4 12l1.9 5a7 7 0 0 0 12.3-2"/></svg><span class="sh-title-refresh-text">System Health Center</span></button></h2><button type="button" id="shRefresh" hidden tabindex="-1" aria-hidden="true">Refresh Health</button><p>Live service checks and consolidated operational alerts. Unknown is never counted as healthy.</p></div></div>
     <p id="shUpdated" role="status">Open this page to check connected systems.</p>
     <div class="sh-grid" id="shCards" aria-live="polite"></div>
     <div class="sh-alert-heading"><div><h3>Centralized Alert Center</h3><p>Current issues from MAS 90 and fuel monitoring, alongside the existing admin notification feed.</p></div><div class="sh-alert-count" id="shAlertCount">—</div></div>
@@ -16712,7 +16726,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1001"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1016"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
@@ -17164,8 +17178,8 @@ window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;lastLoadEr
 </style>
 <style id="system-health-clickable-title-refresh-ver1005">
 #admin-tab-system-health .sh-refresh-heading{margin:8px 0 6px;}
-#admin-tab-system-health #shRefresh.sh-title-refresh,
-#admin-tab-system-health #shRefresh.sh-title-refresh:is(:hover,:focus,:focus-visible,:active,:disabled){
+#admin-tab-system-health #shTitleRefresh.sh-title-refresh,
+#admin-tab-system-health #shTitleRefresh.sh-title-refresh:is(:hover,:focus,:focus-visible,:active,:disabled){
  display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;
  gap:12px!important;vertical-align:middle!important;width:auto!important;min-width:0!important;
  max-width:100%!important;height:auto!important;min-height:0!important;
@@ -17175,21 +17189,50 @@ window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;lastLoadEr
  line-height:inherit!important;text-align:left!important;white-space:normal!important;
  transform:none!important;opacity:1!important;cursor:pointer!important;-webkit-tap-highlight-color:transparent;
 }
-#admin-tab-system-health #shRefresh .sh-title-refresh-text{display:inline;color:inherit;font:inherit;text-decoration:none;overflow-wrap:normal;}
-@media(hover:hover) and (pointer:fine){#admin-tab-system-health #shRefresh:hover:not(:disabled) .sh-title-refresh-text{text-decoration:underline;text-underline-offset:3px;}}
-#admin-tab-system-health #shRefresh:focus-visible{outline:2px solid #417fa8!important;outline-offset:4px!important;border-radius:3px!important;}
-#admin-tab-system-health #shRefresh .sh-title-refresh-icon{width:24px;height:24px;min-width:24px;flex:0 0 24px;display:block;color:#245e87;transform-origin:center;}
-#admin-tab-system-health #shRefresh:is([aria-busy="true"],.sh-is-refreshing) .sh-title-refresh-icon{animation:shTitleRefreshSpin .85s linear infinite;}
+#admin-tab-system-health #shTitleRefresh .sh-title-refresh-text{display:inline;color:inherit;font:inherit;text-decoration:none;overflow-wrap:normal;}
+@media(hover:hover) and (pointer:fine){#admin-tab-system-health #shTitleRefresh:hover:not(:disabled) .sh-title-refresh-text{text-decoration:underline;text-underline-offset:3px;}}
+#admin-tab-system-health #shTitleRefresh:focus-visible{outline:2px solid #417fa8!important;outline-offset:4px!important;border-radius:3px!important;}
+#admin-tab-system-health #shTitleRefresh .sh-title-refresh-icon{width:24px;height:24px;min-width:24px;flex:0 0 24px;display:block;color:#245e87;transform-origin:center;}
+#admin-tab-system-health #shTitleRefresh:is([aria-busy="true"],.sh-is-refreshing) .sh-title-refresh-icon{animation:shTitleRefreshSpin .85s linear infinite;}
 @keyframes shTitleRefreshSpin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){#admin-tab-system-health #shRefresh:is([aria-busy="true"],.sh-is-refreshing) .sh-title-refresh-icon{animation:none;}}
-</style>
-<script id="system-health-title-refresh-status-ver1005">
-(()=>{const button=document.getElementById('shRefresh'),updated=document.getElementById('shUpdated');if(!button||!updated)return;
- let fallback=0;
- function end(){button.classList.remove('sh-is-refreshing');if(fallback){clearTimeout(fallback);fallback=0;}}
- button.addEventListener('click',()=>{if(button.classList.contains('sh-is-refreshing')||button.disabled)return;button.classList.add('sh-is-refreshing');fallback=setTimeout(end,30000);});
- new MutationObserver(()=>{if(button.classList.contains('sh-is-refreshing'))end();}).observe(updated,{childList:true,characterData:true,subtree:true});
- new MutationObserver(()=>{if(button.disabled)button.classList.add('sh-is-refreshing');else if(button.classList.contains('sh-is-refreshing')&&!fallback)end();}).observe(button,{attributes:true,attributeFilter:['disabled']});
+@media(prefers-reduced-motion:reduce){#admin-tab-system-health #shTitleRefresh:is([aria-busy="true"],.sh-is-refreshing) .sh-title-refresh-icon{animation:none;}}
+#admin-tab-system-health #shRefresh[hidden]{display:none!important}\n</style>
+<script id="system-health-title-refresh-status-ver1015">
+(()=>{
+ const title=document.getElementById('shTitleRefresh');
+ const refresh=document.getElementById('shRefresh');
+ const updated=document.getElementById('shUpdated');
+ if(!title||!refresh||!updated)return;
+ const label=title.querySelector('.sh-title-refresh-text');
+ let pending=false, timer=0, initial=''; 
+ function render(){
+  const active=pending||refresh.disabled||refresh.getAttribute('aria-busy')==='true';
+  title.setAttribute('aria-busy',String(active));
+  title.disabled=active;
+  title.classList.toggle('sh-is-refreshing',active);
+  if(label)label.textContent=active?'System Health Center...':'System Health Center';
+ }
+ function done(){
+  pending=false;
+  if(timer){clearTimeout(timer);timer=0;}
+  render();
+ }
+ title.addEventListener('click',()=>{
+  if(pending||refresh.disabled||refresh.getAttribute('aria-busy')==='true')return;
+  pending=true;
+  render();
+  refresh.click();
+  timer=setTimeout(done,30000);
+ });
+ new MutationObserver(()=>{
+  if(pending && updated.textContent!==initial)done();
+ }).observe(updated,{childList:true,characterData:true,subtree:true});
+ new MutationObserver(()=>{
+  if(pending && !refresh.disabled && refresh.getAttribute('aria-busy')!=='true' && updated.textContent!==initial)done();
+  else render();
+ }).observe(refresh,{attributes:true,attributeFilter:['disabled','aria-busy']});
+ initial=updated.textContent;
+ render();
 })();
 </script>
 <style id="live-customer-title-refresh-ver1006">
@@ -17326,6 +17369,26 @@ title.addEventListener('click',()=>{if(requested||working())return;requested=tru
 new MutationObserver(sync).observe(refresh,{attributes:true,attributeFilter:['disabled','aria-busy']});
 if(apply)new MutationObserver(sync).observe(apply,{attributes:true,attributeFilter:['disabled']});
 if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(table,{childList:true,subtree:true});sync();
+})();
+</script>
+<script id="wooten-shared-title-loading-ver1016">
+(()=>{
+ const headingIds=["scheduleRefresh", "mas90HealthRefresh", "portalBackupRefresh", "dbTitleRefresh", "livePaymentTitleRefresh", "invoiceDbTitleRefresh", "ptTitleRefresh", "adminFleetCardTitleRefresh", "collectionsTitleRefresh"];
+ function init(id){
+  const button=document.getElementById(id);
+  if(!button)return;
+  const label=button.querySelector('span[class$="-title-refresh-text"]');
+  if(!label)return;
+  const original=label.textContent.trim().replace(/(?:\.\.\.|…)+$/,'').trim();
+  const paint=()=>{
+   const busy=button.getAttribute('aria-busy')==='true'||button.classList.contains('is-refreshing');
+   const wanted=original+(busy?'...':'');
+   if(label.textContent!==wanted)label.textContent=wanted;
+  };
+  new MutationObserver(paint).observe(button,{attributes:true,attributeFilter:['aria-busy','class']});
+  paint();
+ }
+ headingIds.forEach(init);
 })();
 </script>
 </body>
