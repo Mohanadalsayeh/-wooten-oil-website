@@ -694,6 +694,7 @@ function openAutomaticReadingSchedule(id){
   #fuelMonitorRoot .fm959-schedule-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;border:0!important;border-radius:0!important;background:transparent!important;padding:15px 10px!important;margin:0!important;min-height:0!important;box-shadow:none!important}
   #fuelMonitorRoot .fm957-row-editor:empty{display:none!important;padding:0!important;margin:0!important;border:0!important}
   #fuelMonitorRoot .fm957-row-editor:not(:empty){padding:14px 12px 16px!important;border-top:1px solid #d8e6f1!important;margin:0!important;background:#f3f8fc}
+    #fuelMonitorRoot .fm961-schedule-days{font-size:12px;line-height:1.45;color:#486982;margin:4px 0 3px;overflow-wrap:anywhere}
   #fuelMonitorRoot .fm949-schedule-actions{display:flex;gap:10px;align-items:center}
   #fuelMonitorRoot .fm949-schedule-info strong{display:block}
   #fuelMonitorRoot .fm949-schedule-info small{display:block;margin-top:4px}
@@ -708,7 +709,16 @@ function openAutomaticReadingSchedule(id){
  `;document.head.appendChild(style);}
  const saved=l.auto_reading?.schedules||[];
  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
- const row=s=>'<div class="fm957-schedule-item" data-schedule-item="'+esc(s.id)+'"><div class="fm949-schedule-card fm959-schedule-row"><div class="fm949-schedule-icon" aria-hidden="true">'+(s.action==='send'?actionIcon('send'):fuelScheduleIcon('save-data'))+'</div><div class="fm949-schedule-info"><strong>'+esc(s.time)+' CT</strong><span class="fm949-repeat">'+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'</span><div class="fm949-schedule-sub">'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · <span class="fm949-enabled '+(s.enabled?'is-on':'')+'">'+(s.enabled?'Enabled':'Disabled')+'</span></div><small>'+esc(s.last_status||'Not run yet')+'</small></div><div class="fm949-schedule-actions"><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div><div class="fm957-row-editor" data-row-editor="'+esc(s.id)+'"></div></div>';
+ const scheduleDays=s=>{
+  if(s.repeat==='daily')return 'Sunday through Saturday';
+  if(s.repeat==='weekly'){
+   const days=[...new Set((Array.isArray(s.days)?s.days:[]).map(Number))].filter(n=>Number.isInteger(n)&&n>=0&&n<=6).sort((a,b)=>a-b);
+   return days.length?days.map(n=>labels[n]).join(', '):'No weekdays selected';
+  }
+  if(s.repeat==='dates')return (Array.isArray(s.dates)?s.dates:[]).join(', ')||'No dates selected';
+  return 'Repeat not configured';
+ };
+ const row=s=>'<div class="fm957-schedule-item" data-schedule-item="'+esc(s.id)+'"><div class="fm949-schedule-card fm959-schedule-row"><div class="fm949-schedule-icon" aria-hidden="true">'+(s.action==='send'?actionIcon('send'):fuelScheduleIcon('save-data'))+'</div><div class="fm949-schedule-info"><strong>'+esc(s.time)+' CT</strong><span class="fm949-repeat">'+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'</span><div class="fm961-schedule-days">'+esc(scheduleDays(s))+'</div><div class="fm949-schedule-sub">'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · <span class="fm949-enabled '+(s.enabled?'is-on':'')+'">'+(s.enabled?'Enabled':'Disabled')+'</span></div><small>'+esc(s.last_status||'Not run yet')+'</small></div><div class="fm949-schedule-actions"><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div><div class="fm957-row-editor" data-row-editor="'+esc(s.id)+'"></div></div>';
  middle.innerHTML='<div class="fm940-schedules fm950-schedules"><p class="fm949-explanation">Each schedule waits for a fresh collector upload before its scheduled action runs.</p>'+
   (saved.length?'<div class="fm950-schedule-list">'+saved.map(row).join('')+'</div>':'<div class="fm950-empty">No schedules configured yet.</div>')+
   '<div class="fm-schedule-add-row"><button type="button" class="fm-add-schedule-button" data-new-schedule>'+actionIcon('plus')+'Add schedule</button></div></div><div class="fm940-editor fm950-editor"></div>';
