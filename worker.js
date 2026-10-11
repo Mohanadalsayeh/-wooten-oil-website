@@ -11754,9 +11754,11 @@ async function adminAuditGet({request,env}){
     }catch(error){console.warn('Fuel-monitor change history could not be merged into Recent Admin Activity',error);}
 
     try{
-      const alerts=(await env.DB.prepare(`SELECT id,location_id,tank_number,level,message,acknowledged,email_status,sms_status,created_at FROM fuel_monitor_alerts ORDER BY created_at DESC,id DESC LIMIT 100`).all())?.results||[];
+      const alerts=(await env.DB.prepare(`SELECT a.id,a.location_id,a.tank_number,a.level,a.message,a.acknowledged,a.email_status,a.sms_status,a.created_at,l.config AS location_config FROM fuel_monitor_alerts a LEFT JOIN fuel_monitor_locations l ON l.id=a.location_id ORDER BY a.created_at DESC,a.id DESC LIMIT 100`).all())?.results||[];
       for(const row of alerts){
         const level=String(row.level||'alert').toUpperCase();
+        let locationName=String(row.location_id||'Fuel location');
+        try{locationName=JSON.parse(row.location_config||'{}').name||locationName;}catch{}
         const tank=Number(row.tank_number)>0?` · Tank ${row.tank_number}`:'';
         const channels=`Email: ${row.email_status||'off'} · SMS: ${row.sms_status||'off'}`;
         const ack=Number(row.acknowledged)?' · Acknowledged':'';
@@ -11766,7 +11768,7 @@ async function adminAuditGet({request,env}){
           action_type:'fuel_alert',
           target_type:'fuel_alert',
           target_id:String(row.location_id||''),
-          detail:`${level}${tank} · ${String(row.message||'').replace(/\s+/g,' ').trim()} · ${channels}${ack}`.slice(0,2000),
+          detail:`${level} · ${locationName}${tank} · ${String(row.message||'').replace(/\s+/g,' ').trim()} · ${channels}${ack}`.slice(0,2000),
           created_at:row.created_at
         });
       }

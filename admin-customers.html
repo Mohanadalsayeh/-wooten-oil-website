@@ -6101,13 +6101,7 @@ SOFTWARE.
     <div class="sh-heading"><div><div class="admin-page-label">Operations &amp; Alerts</div><h2>System Health Center</h2><p>Live service checks and consolidated operational alerts. Unknown is never counted as healthy.</p></div><button type="button" class="secondary" id="shRefresh">Refresh Health</button></div>
     <p id="shUpdated" role="status">Open this page to check connected systems.</p>
     <div class="sh-grid" id="shCards" aria-live="polite"></div>
-    <section class="sh974-section" id="shFuelDeliverySection" aria-label="Fuel Reading Delivery Health">
-      <div class="sh974-head"><div><h3>Fuel Reading Delivery Health</h3><p>Scheduled tank readings and email/SMS processing by location · Central Time</p></div><button type="button" class="secondary" id="sh974Refresh">Refresh Delivery Health</button></div>
-      <p class="sh974-info" id="sh974Message" role="status">Checking scheduled delivery activity…</p>
-      <div class="sh974-summary" id="sh974Summary"></div>
-      <div class="sh974-scroll"><table class="sh974-table"><thead><tr><th>Location / Schedule</th><th>Reading</th><th>Portal</th><th>Email</th><th>SMS</th><th>Last run (CT)</th></tr></thead><tbody id="sh974Rows"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
-      <p class="sh974-foot">Submitted means the provider accepted the message, not that the receiver got it. Earlier notifications without a schedule ID display Unknown. Retry is withheld for uncertain outcomes to prevent duplicate messages.</p>
-    </section>
+    <div class="sh977-shortcut"><span>Fuel delivery activity is now in <strong>Locations &amp; Fuel Monitoring</strong>.</span><button type="button" class="secondary" id="sh977OpenActivity">Open Delivery Activity →</button></div>
     <div class="sh-alert-heading"><div><h3>Centralized Alert Center</h3><p>Current issues from MAS 90 and fuel monitoring, alongside the existing admin notification feed.</p></div><div class="sh-alert-count" id="shAlertCount">—</div></div>
     <div id="shAlerts" class="sh-alert-list" aria-live="polite"><p>Checking alerts…</p></div>
     <p class="sh-disclaimer">This overview is read-only. Resolve issues in their corresponding system pages. Alerts already managed by the notification bell remain available there.</p>
@@ -7556,7 +7550,16 @@ SOFTWARE.
   </div>
 
 
-<section class="card admin-tab-panel" id="admin-tab-fuel-monitor" role="tabpanel" aria-labelledby="admin-tab-btn-fuel-monitor" data-admin-panel="fuel-monitor" hidden><div id="fuelMonitorRoot"></div></section>
+<section class="card admin-tab-panel" id="admin-tab-fuel-monitor" role="tabpanel" aria-labelledby="admin-tab-btn-fuel-monitor" data-admin-panel="fuel-monitor" hidden><div id="fuelMonitorRoot"></div>
+<section class="fm977-section" id="fm977Section" aria-label="Scheduled Report Activity">
+ <div class="fm977-header"><div><h3>Scheduled Report Activity</h3><p>Recent scheduled reports across all locations · Central Time</p></div><button type="button" class="secondary" id="fm977Refresh">Refresh</button></div>
+ <div class="fm977-stats" id="fm977Stats"></div>
+ <div class="fm977-controls"><label for="fm977Range">Show activity</label><select id="fm977Range"><option value="1">24 Hours</option><option value="7">7 Days</option><option value="30">30 Days</option></select><label for="fm977Filter">Status</label><select id="fm977Filter"><option value="all">All</option><option value="success">Successful</option><option value="issues">Issues / Pending</option></select></div>
+ <p id="fm977Message" class="fm977-message" role="status">Open Locations &amp; Fuel Monitoring to view activity.</p>
+ <div id="fm977Cards" class="fm977-cards"></div>
+ <div class="fm977-footer"><span id="fm977PageInfo"></span><button type="button" class="secondary" id="fm977More" hidden>Load 20 more</button></div>
+ <p class="fm977-note">Submitted means accepted by the provider, not confirmed received. Details load only when expanded. Older unlinked deliveries are shown as unknown, not success.</p>
+</section></section>
 <section class="card admin-tab-panel" id="admin-tab-intevacon-api-test" role="tabpanel" aria-labelledby="admin-tab-btn-fleet" data-admin-panel="intevacon-api-test" hidden>
 
   <h2>Fleet Cards &amp; Transactions</h2>
@@ -7831,7 +7834,7 @@ SOFTWARE.
       </div>
     </section>
     <section class="admin-user-list-section"><h3>Admin Users</h3><div id="adminUsersList" class="admin-users-list"></div></section>
-    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3></div><p>Latest 100 recorded admin actions, fuel-monitoring changes, and fuel alerts.</p>
+    <section class="admin-audit-section"><div class="admin-audit-heading"><h3>Recent Admin Activity</h3></div><p>Latest 100 recorded admin actions, including fuel-monitoring settings, fuel readings, and alerts.</p>
 <div class="admin-activity-search-row">
   <div class="admin-activity-filter-field">
     <label class="admin-activity-search-label" for="adminActivityFilter">Filter By</label>
@@ -7841,6 +7844,7 @@ SOFTWARE.
       <option value="action">Action</option>
       <option value="details">Details</option>
       <option value="date">Date / Time</option>
+      <option value="fuel_all">Fuel Monitoring Activity</option>
       <option value="fuel_changes">Fuel Monitoring Changes</option>
       <option value="alerts">Fuel Alerts</option>
     </select>
@@ -14534,12 +14538,12 @@ g('requestCenterPrev').addEventListener('click',()=>{if(page>1){changeRequestPag
   const get=id=>document.getElementById(id),list=get('adminUsersList'),auditBody=get('adminAuditBody'),status=get('adminUserStatus'),auditStatus=get('adminAuditStatus'),auditPager=get('adminActivityPagination'),auditPagerSummary=get('adminActivityPaginationSummary'),auditPageIndicator=get('adminActivityPageIndicator'),auditPrev=get('adminActivityPrev'),auditNext=get('adminActivityNext'),auditSearch=get('adminActivitySearch'),auditSearchClear=get('adminActivitySearchClear'),auditFilter=get('adminActivityFilter');let loaded=false,loading=false,auditPage=1,auditEntries=[];const auditPageSize=20;
   const key=()=>get('adminKey')?.value||'';const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const labels=WootenAdminAccess.labels;
-  function auditActionLabel(row){const type=String(row?.action_type||'');if(type==='fuel_monitor_change')return 'Fuel Monitoring Change';if(type==='fuel_alert')return 'Fuel Alert';return type.replaceAll('_',' ');}
+  function auditActionLabel(row){const type=String(row?.action_type||'');if(type==='fuel_monitor_change')return 'Fuel Monitoring Change';if(type==='fuel_alert'){const level=String(row?.detail||'').split(' · ')[0].trim();const name={'READING':'Fuel Reading','SCHEDULED_READING':'Scheduled Fuel Reading','LOW':'Low Fuel Alert','CRITICAL':'Critical Fuel Alert','NORMAL':'Fuel Restored','DISCONNECTED':'Collector Disconnected','CONNECTED':'Collector Connected','RESTORED':'Collector Restored'}[level];return name||'Fuel Alert';}return type.replaceAll('_',' ');}
   function message(text,ok=true){status.textContent=text||'';status.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function auditMessage(text,ok=true){auditStatus.textContent=text||'';auditStatus.className='status'+(text?' show '+(ok?'ok':'bad'):'');}
   function reset(){get('adminUserId').value='';get('adminUserDisplayName').value='';get('adminUserUsername').value='';get('adminUserPassword').value='';get('adminUserActive').checked=true;document.querySelectorAll('.admin-user-permissions input').forEach(input=>input.checked=false);get('adminUserEditorTitle').textContent='Create New Admin';get('adminUserSave').textContent='Create User';get('adminUserCancel').hidden=false;const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=true;if(open)open.hidden=false;}function openAdminUserDrawer(){const body=get('adminUserDrawerBody'),open=get('adminUserOpen');if(body)body.hidden=false;if(open)open.hidden=true;get('adminUserCancel').hidden=false;}function startNewAdminUser(){reset();openAdminUserDrawer();get('adminUserDisplayName').focus();}
   function render(users){window.wootenAdminUsers=users;list.innerHTML=users.length?users.map(user=>'<div class="admin-user-row"><div><strong>'+esc(user.display_name)+'</strong><small>@'+esc(user.username)+(Number(user.active)?'':' • <span class="admin-user-disabled">Disabled</span>')+'</small></div><div class="admin-user-permission-tags">'+(user.permissions||[]).map(p=>'<span>'+esc(labels[p]||p)+'</span>').join('')+'</div><button class="secondary" type="button" data-edit-admin-user="'+Number(user.id)+'">Edit User</button></div>').join(''):'<div class="application-empty">No individual admin users have been created yet.</div>';}
-  function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';let source=auditEntries;if(filter==='alerts')source=source.filter(row=>String(row.target_type||'')==='fuel_alert');else if(filter==='fuel_changes')source=source.filter(row=>String(row.target_type||'')==='fuel_monitor_change');if(!q)return source;return source.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=auditActionLabel(row),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
+  function filteredAuditEntries(){const q=(auditSearch?.value||'').trim().toLowerCase(),filter=auditFilter?.value||'all';let source=auditEntries;if(filter==='fuel_all')source=source.filter(row=>['fuel_alert','fuel_monitor_change'].includes(String(row.target_type||''))||String(row.action_type||'').startsWith('fuel_monitor_'));else if(filter==='alerts')source=source.filter(row=>String(row.target_type||'')==='fuel_alert');else if(filter==='fuel_changes')source=source.filter(row=>String(row.target_type||'')==='fuel_monitor_change');if(!q)return source;return source.filter(row=>{const created=WootenTime.dateTime(row.created_at||''),admin=String(row.actor_name||''),action=auditActionLabel(row),details=String(row.detail||row.target_id||'');const fields={date:[created],admin:[admin],action:[action],details:[details],all:[created,admin,action,details]};return (fields[filter]||fields.all).some(v=>String(v).toLowerCase().includes(q));});}
   function renderAuditPage(){const filtered=auditHeaderSort.apply(filteredAuditEntries()),total=filtered.length,pages=Math.max(1,Math.ceil(total/auditPageSize));auditPage=Math.min(Math.max(1,auditPage),pages);const start=(auditPage-1)*auditPageSize,rows=filtered.slice(start,start+auditPageSize);auditBody.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(WootenTime.dateTime(row.created_at||''))+'</td><td><strong>'+esc(row.actor_name)+'</strong></td><td>'+esc(auditActionLabel(row))+'</td><td>'+esc(row.detail||row.target_id||'—')+'</td></tr>').join(''):'<tr><td colspan="4">'+((auditSearch?.value||'').trim()?'No matching admin activity found.':'No admin activity recorded yet.')+'</td></tr>';if(auditPager)auditPager.hidden=!total;if(auditPagerSummary)auditPagerSummary.textContent=total?'Showing '+(start+1)+'–'+Math.min(start+auditPageSize,total)+' of '+total:'Showing 0–0 of 0';if(auditPageIndicator)auditPageIndicator.textContent='Page '+auditPage+' of '+pages;if(auditPrev)auditPrev.disabled=auditPage<=1;if(auditNext)auditNext.disabled=auditPage>=pages;}
   const auditHeaderSort=WootenTableDataSort.register(auditBody.closest('table'),[r=>Date.parse(r.created_at)||0,'actor_name',r=>auditActionLabel(r),r=>r.detail||r.target_id||''],()=>{auditPage=1;renderAuditPage();});
   function renderAudit(entries){auditEntries=Array.isArray(entries)?entries:[];auditPage=1;renderAuditPage();}
@@ -16641,46 +16645,34 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <link rel="stylesheet" href="assets/css/wooten-status-icons.css?v=917">
 <script defer src="assets/js/wooten-status-icons.js?v=917"></script>
 
-<style id="sh974-styles">
-#admin-tab-system-health .sh974-section{margin:22px 0 26px;border-top:1px solid #dce7f0;border-bottom:1px solid #dce7f0;padding:20px 0}
-#admin-tab-system-health .sh974-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-#admin-tab-system-health .sh974-head h3{margin:0 0 5px;color:#133b59}
-#admin-tab-system-health .sh974-head p,.sh974-info,.sh974-foot{font-size:12px;color:#647b90}
-#admin-tab-system-health .sh974-summary{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
-#admin-tab-system-health .sh974-stat{border:1px solid #d5e3ed;border-radius:9px;padding:9px 12px;background:#f6f9fc;font-size:13px}
-#admin-tab-system-health .sh974-stat strong{margin-left:7px}
-#admin-tab-system-health .sh974-scroll{overflow-x:auto}
-#admin-tab-system-health .sh974-table{width:100%;min-width:720px;border-collapse:collapse;font-size:12px}
-#admin-tab-system-health .sh974-table th,#admin-tab-system-health .sh974-table td{padding:12px 8px;text-align:left;border-bottom:1px solid #e1eaf1;vertical-align:top;white-space:normal}
-#admin-tab-system-health .sh974-table th{color:#637b91;background:#f4f8fb}
-#admin-tab-system-health .sh974-table td strong{display:block;color:#173850}
-#admin-tab-system-health .sh974-table td small{display:block;color:#72869a;margin-top:3px;overflow-wrap:anywhere}
-#admin-tab-system-health .sh974-pill{display:inline-block;padding:4px 7px;border-radius:7px;background:#edf3f7;color:#47657c;font-size:11px;font-weight:700}
-#admin-tab-system-health .sh974-pill.good{background:#e6f6ee;color:#176844}
-#admin-tab-system-health .sh974-pill.bad{background:#fce8e8;color:#a12532}
-#admin-tab-system-health .sh974-pill.wait{background:#fff2d8;color:#8a570d}
-@media(max-width:650px){#admin-tab-system-health #sh974Refresh{width:100%}}
+<style id="fm977-styles">
+.fm977-section{margin:25px 0 8px;padding:18px;border:1px solid #dce6ee;border-radius:13px;background:#fff;max-width:100%;box-sizing:border-box}
+.fm977-header,.fm977-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.fm977-header h3{color:#163b59;margin:0;font-size:19px}.fm977-header p,.fm977-note,.fm977-message{font-size:12px;color:#687e91;margin:6px 0}
+.fm977-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:15px 0}
+.fm977-stat{border:1px solid #dbe5ed;border-radius:10px;background:#f8fafc;padding:12px;text-align:center}.fm977-stat strong{display:block;font-size:23px;color:#1a465f}.fm977-stat span{font-size:12px;color:#59748a}
+.fm977-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.fm977-controls label{font-size:12px;color:#47617a}.fm977-controls select{padding:8px 10px;border-radius:7px;border:1px solid #cbd8e3;background:#fff;color:#153d57;min-width:112px}
+.fm977-cards{display:grid;gap:9px}.fm977-card{border:1px solid #dbe5ed;border-radius:10px;overflow:hidden;background:#fff}.fm977-card-head{display:flex;gap:12px;align-items:center;width:100%;border:0;background:#fff!important;text-align:left;padding:13px;color:#1c3e56;cursor:pointer;box-sizing:border-box}.fm977-card-head:hover,.fm977-card-head:focus-visible{background:#f4f8fc!important}.fm977-card-indicator{font-size:20px}.fm977-card-main{flex:1;min-width:0}.fm977-card-main strong{display:block;font-size:14px}.fm977-card-main small{display:block;font-size:12px;color:#687d8e;line-height:1.5}.fm977-card-detail{border-top:1px solid #e2eaf0;padding:12px;background:#f9fbfd;font-size:12px;color:#25475c}.fm977-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0}.fm977-detail-grid span{display:block;color:#687d8e;font-size:11px}.fm977-detail-grid strong{display:block;overflow-wrap:anywhere}.fm977-footer{margin:13px 0}.fm977-note{line-height:1.5}.sh977-shortcut{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0;padding:12px;background:#f5f9fc;border:1px solid #dce6ee;border-radius:9px;font-size:13px;color:#38576d}
+@media(max-width:600px){.fm977-section{padding:12px}.fm977-header h3{font-size:17px}.fm977-controls select{min-width:0;max-width:100%}.fm977-stat{padding:8px 4px}.fm977-stat strong{font-size:20px}.fm977-stat span{font-size:11px}.fm977-card-head{padding:11px 8px;gap:8px}.fm977-detail-grid{gap:5px}}
 </style>
-<script id="sh974-script">
+<script id="fm977-script">
 (()=>{'use strict';
-const panel=document.getElementById('admin-tab-system-health');if(!panel)return;
-const rows=document.getElementById('sh974Rows'),summary=document.getElementById('sh974Summary'),message=document.getElementById('sh974Message');
+const get=id=>document.getElementById(id),panel=get('admin-tab-fuel-monitor');if(!panel)return;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const date=v=>{if(!v)return '—';let value=String(v);if(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(value))value=value.replace(' ','T')+'Z';const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d):'—';};
-const pill=value=>{const v=String(value||'unknown').toLowerCase();let tone=['submitted','saved','completed','sent','off'].includes(v)?'good':['failed','partial','unknown','interrupted'].includes(v)?'bad':'wait';if(v==='unknown'||v==='not_recorded'||v==='disabled')tone='wait';return '<span class="sh974-pill '+tone+'">'+esc(value||'Unknown')+'</span>';};
-let working=false;async function load(){if(working)return;const key=document.getElementById('adminKey')?.value.trim();if(!key){message.textContent='Sign in to load delivery health.';return;}working=true;message.textContent='Loading scheduled delivery information…';try{
- const r=await fetch('/api/admin/fuel-monitor?delivery_health=1',{headers:{'X-Admin-Key':key},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Delivery health is unavailable.');
- const data=d.schedules||[];
- rows.innerHTML=data.length?data.map(x=>'<tr><td><strong>'+esc(x.location)+'</strong><small>'+esc(x.time)+' CT · '+esc(x.action==='send'?'Read, Upload & Send':'Read & Upload Only')+(x.enabled?'':' · Disabled')+'</small></td><td>'+pill(x.reading)+(x.last_status?'<small>'+esc(x.last_status)+'</small>':'')+'</td><td>'+pill(x.action==='send'?x.portal:x.reading)+'</td><td>'+pill(x.action==='send'?x.email:'Off')+(x.email_detail?'<small>'+esc(x.email_detail)+'</small>':'')+'</td><td>'+pill(x.action==='send'?x.sms:'Off')+(x.sms_detail?'<small>'+esc(x.sms_detail)+'</small>':'')+'</td><td>'+esc(date(x.last_run_at))+'</td></tr>').join(''):'<tr><td colspan="6">No schedules configured.</td></tr>';
- const counts={total:data.length,waiting:data.filter(x=>x.enabled&&!x.last_run_at).length,failed:data.filter(x=>['failed','partial'].includes(x.email)||['failed','partial'].includes(x.sms)).length,submitted:data.filter(x=>x.delivery_linked&&(x.email==='submitted'||x.sms==='submitted')).length};
- summary.innerHTML=[['Schedules',counts.total],['Awaiting first run',counts.waiting],['Delivery issues',counts.failed],['Provider submissions',counts.submitted]].map(([name,n])=>'<div class="sh974-stat">'+esc(name)+'<strong>'+n+'</strong></div>').join('');
- message.textContent='Last checked: '+date(d.server_time)+' Central. Unknown means the outcome cannot be verified; it is not counted as success.';
- }catch(e){message.textContent=e.message;rows.innerHTML='<tr><td colspan="6">Unable to retrieve delivery health.</td></tr>';}finally{working=false;}}
- document.getElementById('sh974Refresh')?.addEventListener('click',load);
- document.getElementById('shRefresh')?.addEventListener('click',load);
- document.getElementById('admin-tab-btn-system-health')?.addEventListener('click',()=>setTimeout(load,0));
- window.addEventListener('wooten-admin-auth-changed',()=>{if(!panel.hidden)load();});
- if(!panel.hidden)setTimeout(load,500);
+const fmt=v=>{if(!v)return '—';let s=String(v);if(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(s))s=s.replace(' ','T')+'Z';const d=new Date(s);return isNaN(d)?'—':new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d)};
+let offset=0,loaded=false,working=false,next=null,items=[];
+const key=()=>get('adminKey')?.value.trim()||'';
+const badge=s=>s==='success'?'✓':s==='issues'?'!':s==='pending'?'◷':'?';
+function render(){
+ const cards=get('fm977Cards');cards.innerHTML=items.map((x,i)=>`<div class="fm977-card"><button class="fm977-card-head" type="button" data-idx="${i}" aria-expanded="false"><span class="fm977-card-indicator" aria-hidden="true">${badge(x.status)}</span><span class="fm977-card-main"><strong>${esc(x.location)}</strong><small>${esc(fmt(x.at))} · ${esc(x.status==='success'?'Submitted / saved':x.status==='issues'?'Delivery issue':x.status==='pending'?'Delivery pending':'Delivery not verified')}</small></span><span aria-hidden="true">⌄</span></button><div class="fm977-card-detail" hidden></div></div>`).join('');
+ cards.querySelectorAll('button[data-idx]').forEach(btn=>btn.addEventListener('click',async()=>{const detail=btn.nextElementSibling;if(!detail.hidden){detail.hidden=true;btn.setAttribute('aria-expanded','false');return;}detail.hidden=false;btn.setAttribute('aria-expanded','true');detail.textContent='Loading delivery details…';const x=items[Number(btn.dataset.idx)];try{const q=new URLSearchParams({delivery_activity:'detail',schedule_id:x.schedule_id,date:x.date});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Unable to load details');const a=d.delivery;detail.innerHTML=`<div class="fm977-detail-grid"><div><span>Reading / run</span><strong>${esc(x.reading)}</strong></div><div><span>Email</span><strong>${esc(a?.email||'Unknown')}</strong></div><div><span>SMS</span><strong>${esc(a?.sms||'Unknown')}</strong></div></div><div>Portal: ${esc(a?(a.portal?'Saved':'Off'):'Unknown')} · ${esc(x.action==='send'?'Read, Upload & Send':'Read & Upload Only')}</div>${a?.email_detail?'<p>Email: '+esc(a.email_detail)+'</p>':''}${a?.sms_detail?'<p>SMS: '+esc(a.sms_detail)+'</p>':''}`;}catch(e){detail.textContent=e.message;}}));
+ get('fm977More').hidden=next===null;get('fm977PageInfo').textContent=`Showing ${items.length} of ${loadedTotal} recorded runs`;
+}
+let loadedTotal=0;
+async function load(more=false){if(working)return;if(!key()){get('fm977Message').textContent='Sign in to view scheduled report activity.';return;}working=true;if(!more){offset=0;items=[];}get('fm977Message').textContent='Loading scheduled report activity…';try{const q=new URLSearchParams({delivery_activity:'list',days:get('fm977Range').value,filter:get('fm977Filter').value,offset:String(offset)});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Activity unavailable');items=items.concat(d.items||[]);next=d.next_offset;loadedTotal=d.total||0;offset=next??offset;loaded=true;render();get('fm977Stats').innerHTML=[['Displayed',items.length],['Pending',items.filter(x=>x.status==='pending').length],['Issues',items.filter(x=>x.status==='issues').length]].map(([label,n])=>`<div class="fm977-stat"><strong>${n}</strong><span>${label}</span></div>`).join('');get('fm977Message').textContent=items.length?'Recent scheduled runs. Details load on demand.':'No scheduled reports for this period and filter.';}catch(e){get('fm977Message').textContent=e.message;}finally{working=false;}}
+get('fm977Refresh')?.addEventListener('click',()=>load());get('fm977More')?.addEventListener('click',()=>{if(next!==null)load(true)});['fm977Range','fm977Filter'].forEach(id=>get(id)?.addEventListener('change',()=>load()));
+get('admin-tab-btn-fuel-monitor')?.addEventListener('click',()=>{if(!loaded)setTimeout(()=>load(),120)});
+get('sh977OpenActivity')?.addEventListener('click',()=>{get('admin-tab-btn-fuel-monitor')?.click();setTimeout(()=>{get('fm977Section')?.scrollIntoView({behavior:'smooth',block:'start'});load()},300)});
 })();
 </script>
 <script id="wooten-sh-admin-bell-link-ver975">

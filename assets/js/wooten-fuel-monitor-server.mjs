@@ -160,6 +160,34 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return reply({success:false,error:'Unauthorized'},401);
   await ensure(env);
   if(request.method==='GET'){
+   // Ver977: paginated delivery activity. Never query raw tank samples for this feed.
+   const deliveryMode=new URL(request.url).searchParams.get('delivery_activity');
+   if(deliveryMode==='list'||deliveryMode==='detail'){
+    const q=new URL(request.url).searchParams;
+    const period=['1','7','30'].includes(q.get('days'))?Number(q.get('days')):1;
+    const cutoff=new Date(Date.now()-period*86400000).toISOString().slice(0,19).replace('T',' ');
+    if(deliveryMode==='detail'){
+     const sid=q.get('schedule_id')||'',localDate=q.get('date')||'';
+     if(!/^[a-zA-Z0-9-]{1,90}$/.test(sid)||!/^\d{4}-\d{2}-\d{2}$/.test(localDate))fail('Invalid delivery activity record.');
+     const run=await env.DB.prepare('SELECT schedule_id,local_date,created_at,status FROM fuel_monitor_schedule_runs WHERE schedule_id=? AND local_date=?').bind(sid,localDate).first();
+     if(!run)fail('Scheduled run not found.',404);
+     const a=await env.DB.prepare(`SELECT id,created_at,portal,email_status,sms_status,email_detail,sms_detail,email_to,sms_to FROM fuel_monitor_alerts
+       WHERE schedule_id=? AND created_at>=datetime(?,'-1 minute') AND created_at<=datetime(?,'+15 minutes') ORDER BY id ASC LIMIT 1`).bind(sid,run.created_at,run.created_at).first();
+     return reply({success:true,run,delivery:a?{id:a.id,created_at:a.created_at,portal:!!a.portal,email:a.email_status,sms:a.sms_status,email_detail:a.email_detail||'',sms_detail:a.sms_detail||'',email_receivers:!!a.email_to,sms_receivers:!!a.sms_to}:null,note:'Submitted means accepted by provider, not confirmed delivered.'});
+    }
+    const offset=Math.min(100000,Math.max(0,Number(q.get('offset'))||0));
+    const filter=['all','success','issues'].includes(q.get('filter'))?q.get('filter'):'all';
+    const base=`FROM fuel_monitor_schedule_runs r LEFT JOIN fuel_monitor_schedule_items s ON s.id=r.schedule_id LEFT JOIN fuel_monitor_locations l ON l.id=s.location_id
+      LEFT JOIN fuel_monitor_alerts a ON a.id=(SELECT z.id FROM fuel_monitor_alerts z WHERE z.schedule_id=r.schedule_id AND z.created_at>=datetime(r.created_at,'-1 minute') AND z.created_at<=datetime(r.created_at,'+15 minutes') ORDER BY z.id ASC LIMIT 1)
+      WHERE r.created_at>=?`;
+    const state=`CASE WHEN a.id IS NULL THEN 'unknown' WHEN lower(coalesce(a.email_status,'')) IN ('failed','partial','unknown') OR lower(coalesce(a.sms_status,'')) IN ('failed','partial','unknown') THEN 'issues' WHEN lower(coalesce(a.email_status,'')) IN ('pending','sending') OR lower(coalesce(a.sms_status,'')) IN ('pending','sending') THEN 'pending' ELSE 'success' END`;
+    const where=filter==='success'?` AND ${state}='success'`:filter==='issues'?` AND ${state} IN ('issues','pending','unknown')`:'';
+    const count=await env.DB.prepare(`SELECT COUNT(*) AS n ${base}${where}`).bind(cutoff).first();
+    const rows=(await env.DB.prepare(`SELECT r.schedule_id,r.local_date,r.created_at,r.status,s.send_time,s.schedule_action,l.config,
+        a.id AS alert_id,a.email_status,a.sms_status,a.portal,${state} AS outcome ${base}${where} ORDER BY r.created_at DESC,r.schedule_id DESC LIMIT 20 OFFSET ?`).bind(cutoff,offset).all()).results||[];
+    const items=rows.map(r=>{let config={};try{config=JSON.parse(r.config||'{}')}catch{}return {schedule_id:r.schedule_id,date:r.local_date,at:r.created_at,location:config.name||'Archived / unavailable location',time:r.send_time||'',action:r.schedule_action||'',status:r.outcome,email:r.email_status||'unknown',sms:r.sms_status||'unknown',reading:r.status||'queued',portal:r.alert_id?(r.portal?'saved':'off'):'unknown',has_delivery:!!r.alert_id};});
+    return reply({success:true,items,total:Number(count?.n||0),next_offset:offset+items.length<Number(count?.n||0)?offset+items.length:null,server_time:new Date().toISOString(),note:'Delivery activity includes scheduled runs only; inventory readings are not duplicated.'});
+   }
    if(new URL(request.url).searchParams.get('delivery_health')==='1'){
     const schedules=(await env.DB.prepare(`SELECT s.id,s.location_id,s.enabled,s.days,s.dates,s.repeat_type,s.send_time,s.schedule_action,s.last_run_at,s.last_status,l.config,l.last_observed
        FROM fuel_monitor_schedule_items s JOIN fuel_monitor_locations l ON l.id=s.location_id ORDER BY s.send_time,s.id`).all()).results||[];
