@@ -16661,7 +16661,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=994"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=995"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
@@ -16845,6 +16845,103 @@ window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;lastLoadEr
 </script>
 <script src="assets/js/wooten-system-health.js?v=912" defer></script>
 <script src="assets/js/wooten-bell-side-tilt.js?v=921" defer></script>
+
+<style id="fm-mobile-navigation-ver995">
+/* Keep both permanent tabs aligned and give the Locations dropdown its own full-width row. */
+@media (max-width:540px) {
+  #fuelMonitorRoot #fmLocationTabs {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    align-items:stretch!important;
+    gap:0!important;
+    width:100%!important;
+    overflow:visible!important;
+    position:relative!important;
+    z-index:80!important;
+  }
+  #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab {
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:52px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:8px!important;
+    padding:10px 8px!important;
+    line-height:1.3!important;
+    white-space:normal!important;
+    text-align:left!important;
+    box-sizing:border-box!important;
+  }
+  #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab svg {
+    flex:0 0 20px!important;
+  }
+  #fuelMonitorRoot #fmLocationTabs .fm-locations-dropdown {
+    grid-column:1/-1!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    position:relative!important;
+    display:block!important;
+    z-index:90!important;
+  }
+  #fuelMonitorRoot #fmLocationTabs .fm-locations-trigger {
+    width:100%!important;
+    min-height:50px!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    justify-content:flex-start!important;
+    align-items:center!important;
+    padding:10px 13px!important;
+    white-space:nowrap!important;
+  }
+  #fuelMonitorRoot #fmLocationTabs .fm-locations-menu {
+    position:absolute!important;
+    left:0!important;
+    right:auto!important;
+    top:calc(100% + 4px)!important;
+    bottom:auto!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    max-height:min(65vh,480px)!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    transform:none!important;
+    margin:0!important;
+    z-index:200!important;
+    box-sizing:border-box!important;
+  }
+  #fuelMonitorRoot #fmLocationTabs .fm-locations-menu[hidden] { display:none!important; }
+}
+</style>
+
+<style id="fm-mobile-refresh-ver996">
+@media (max-width:540px) {
+  #fuelMonitorRoot .fm-heading .fm-actions {
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    width:100%!important;
+    gap:10px!important;
+  }
+  #fuelMonitorRoot .fm-heading .fm-actions #fmRefresh {
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    flex:0 0 auto!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    min-height:44px!important;
+    margin:0!important;
+  }
+}
+</style>
 </body>
 
 </html>
