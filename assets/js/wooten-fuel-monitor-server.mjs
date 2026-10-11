@@ -18,8 +18,19 @@ export async function ensure(env){
  `CREATE TABLE IF NOT EXISTS fuel_monitor_scheduled_runs(location_id TEXT NOT NULL,local_date TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,local_date))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_connection_states(location_id TEXT PRIMARY KEY,state TEXT NOT NULL DEFAULT 'healthy',changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_deleted_locations(id TEXT PRIMARY KEY,config TEXT NOT NULL,token_hash TEXT,reading TEXT,last_observed TEXT,last_contact TEXT,error TEXT,created_at TEXT,deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,reassigned_to TEXT)`,
- `CREATE TABLE IF NOT EXISTS fuel_monitor_collector_aliases(original_id TEXT PRIMARY KEY,target_id TEXT NOT NULL,token_hash TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`];
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_collector_aliases(original_id TEXT PRIMARY KEY,target_id TEXT NOT NULL,token_hash TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_schedule_items(id TEXT PRIMARY KEY,location_id TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,repeat_type TEXT NOT NULL DEFAULT 'weekly',days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',dates TEXT NOT NULL DEFAULT '',send_time TEXT NOT NULL DEFAULT '08:00',schedule_action TEXT NOT NULL DEFAULT 'send',last_run_at TEXT,last_status TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+ `CREATE INDEX IF NOT EXISTS idx_fuel_monitor_schedule_items_location ON fuel_monitor_schedule_items(location_id)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_schedule_runs(schedule_id TEXT NOT NULL,local_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'queued',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(schedule_id,local_date))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_archived_schedules(id TEXT PRIMARY KEY,location_id TEXT NOT NULL,enabled INTEGER NOT NULL,repeat_type TEXT NOT NULL,days TEXT NOT NULL,dates TEXT NOT NULL,send_time TEXT NOT NULL,schedule_action TEXT NOT NULL,last_run_at TEXT,last_status TEXT,created_at TEXT)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_schema_marks(mark TEXT PRIMARY KEY)`];
  for(const s of sql)await env.DB.prepare(s).run();
+ // Legacy single-time schedules are imported exactly once; subsequent edits cannot revive them.
+ const migrated=await env.DB.prepare("INSERT INTO fuel_monitor_schema_marks(mark) VALUES('multi_schedule_v940') ON CONFLICT(mark) DO NOTHING RETURNING mark").first();
+ if(migrated){
+  await env.DB.prepare("INSERT OR IGNORE INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_run_at,last_status) SELECT 'legacy-'||location_id,location_id,enabled,'weekly',days,'',send_time,'send',last_sent_at,COALESCE(last_status,'') FROM fuel_monitor_schedules WHERE location_id IN (SELECT id FROM fuel_monitor_locations)").run();
+ }
+
 }
 export function alertRecipients(value,type){
  const list=[...new Set(String(value||'').split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean).map(s=>type==='email'?s.toLowerCase():s))];
@@ -188,11 +199,11 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     }
     return reply({success:true,location_id:analyticsId,location_name:config.name,tanks,history_since:cutoff,method:'Inventory decreases over consecutive valid observations; apparent deliveries, gaps over 45 minutes, minor gauge noise and implausible drops are excluded. This is an estimate, not metered sales.'});
    }
-   const scheduleRows=(await env.DB.prepare('SELECT * FROM fuel_monitor_schedules').all()).results||[];
-   const byId=new Map(scheduleRows.map(s=>[s.location_id,s]));
+   const scheduleRows=(await env.DB.prepare('SELECT * FROM fuel_monitor_schedule_items ORDER BY send_time,id').all()).results||[];
+   const byId=new Map();for(const s of scheduleRows){if(!byId.has(s.location_id))byId.set(s.location_id,[]);byId.get(s.location_id).push(publicSchedule(s));}
    const locations=(await env.DB.prepare('SELECT * FROM fuel_monitor_locations ORDER BY created_at,id').all()).results.map(row=>{
-    const s=byId.get(row.id);
-    return {...locationView(row),auto_reading:s?{enabled:!!s.enabled,days:String(s.days||'').split(',').map(Number).filter(Number.isInteger),time:s.send_time,last_sent_at:s.last_sent_at,last_sent_date:s.last_sent_date,last_status:s.last_status}:{enabled:false,days:[0,1,2,3,4,5,6],time:'08:00',last_sent_at:null,last_status:null}};
+    const schedules=byId.get(row.id)||[];
+    return {...locationView(row),auto_reading:{enabled:schedules.some(x=>x.enabled),schedules}};
    });
    const alerts=(await env.DB.prepare('SELECT * FROM fuel_monitor_alerts ORDER BY id DESC LIMIT 100').all()).results;
    const history=(await env.DB.prepare('SELECT * FROM fuel_monitor_history ORDER BY id DESC LIMIT 200').all()).results;
@@ -214,7 +225,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
   }
-  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','verify_connection_edit','reset_tanks','restore_location','reconnect_collector'].includes(action))fail('Unknown action.');
+  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','schedule_remove','clone_settings','verify_connection_edit','reset_tanks','restore_location','reconnect_collector'].includes(action))fail('Unknown action.');
   if(action==='restore_location'||action==='reconnect_collector'){
    if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('The Master Admin password is incorrect.',403);
    if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
@@ -225,7 +236,9 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     if(await env.DB.prepare('SELECT id FROM fuel_monitor_locations WHERE id=?').bind(id).first())fail('A location with this ID already exists.',409);
     await env.DB.batch([
      env.DB.prepare('INSERT INTO fuel_monitor_locations(id,config,token_hash,reading,last_observed,last_contact,error,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,archived.config,archived.token_hash,archived.reading,archived.last_observed,archived.last_contact,archived.error,archived.created_at),
-     env.DB.prepare('DELETE FROM fuel_monitor_deleted_locations WHERE id=?').bind(id),
+     env.DB.prepare("INSERT OR IGNORE INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_run_at,last_status,created_at) SELECT id,location_id,0,repeat_type,days,dates,send_time,schedule_action,last_run_at,'Restored — review and enable',COALESCE(created_at,CURRENT_TIMESTAMP) FROM fuel_monitor_archived_schedules WHERE location_id=?").bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_archived_schedules WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_deleted_locations WHERE id=?').bind(id),
      env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,JSON.parse(archived.config).name,str(actor?.name||'Master Admin',160),'restore_location','[]'),
      await auditStatement({action:'fuel_monitor_restore_location',id,detail:'Restored deleted fuel monitoring location with original collector identity'})
     ]);
@@ -293,16 +306,53 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    }
   }
   const jobs=[];let token='',detail='',changes=[];
-  if(action==='schedule_save'){
-   const schedule=validateAutomaticReadingSchedule(b.schedule);
-   const old=await env.DB.prepare('SELECT enabled,days,send_time FROM fuel_monitor_schedules WHERE location_id=?').bind(id).first();
-   const config=JSON.parse(row.config);
-   if(schedule.enabled&&!(config.portal||config.email&&config.email_to||config.sms&&config.sms_to))fail('Enable a portal, email, or SMS sending option for this location first.',409);
-   const before=old?{enabled:!!old.enabled,days:String(old.days).split(',').map(Number),time:old.send_time}:{enabled:false,days:[0,1,2,3,4,5,6],time:'08:00'};
-   detail=`Automatic fuel reading schedule ${schedule.enabled?'enabled':'disabled'} for ${config.name}: ${schedule.days.join(',')} at ${schedule.time} Central Time.`;
-   changes=[{field:'automatic_fuel_reading_schedule',before,after:schedule}];
-   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_schedules(location_id,enabled,days,send_time,last_status) VALUES(?,?,?,?,?) ON CONFLICT(location_id) DO UPDATE SET enabled=excluded.enabled,days=excluded.days,send_time=excluded.send_time,last_status=excluded.last_status').bind(id,schedule.enabled?1:0,schedule.days.join(','),schedule.time,schedule.enabled?'Scheduled':'Disabled'));
-  }
+   if(action==='schedule_save'){
+    const schedule=validateMultiSchedule(b.schedule);
+    const config=JSON.parse(row.config);
+    if(schedule.enabled&&schedule.action==='send'&&!(config.portal||config.email&&config.email_to||config.sms&&config.sms_to))fail('Enable a report delivery option for this location first.',409);
+    const sid=str(b.schedule_id,90)||crypto.randomUUID();
+    if(!/^[a-zA-Z0-9-]{1,90}$/.test(sid))fail('Invalid schedule.');
+    const existing=await env.DB.prepare('SELECT location_id FROM fuel_monitor_schedule_items WHERE id=?').bind(sid).first();
+    if(existing&&existing.location_id!==id)fail('Schedule belongs to a different location.',409);
+    detail='Saved automatic fuel schedule at '+schedule.time+' Central for '+config.name+'.';
+    jobs.push(env.DB.prepare(`INSERT INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_status) VALUES(?,?,?,?,?,?,?,?,'Scheduled') ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,repeat_type=excluded.repeat_type,days=excluded.days,dates=excluded.dates,send_time=excluded.send_time,schedule_action=excluded.schedule_action,last_status='Updated'`).bind(sid,id,schedule.enabled?1:0,schedule.repeat,schedule.days.join(','),schedule.dates.join(','),schedule.time,schedule.action));
+   }
+   if(action==='schedule_remove'){
+    const sid=str(b.schedule_id,90),existing=await env.DB.prepare('SELECT id FROM fuel_monitor_schedule_items WHERE id=? AND location_id=?').bind(sid,id).first();
+    if(!existing)fail('Schedule not found.',404);
+    detail='Removed fuel reading schedule '+sid;
+    jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_schedule_items WHERE id=? AND location_id=?').bind(sid,id));
+   }
+   if(action==='clone_settings'){
+    const target=str(b.target_id,80),receiver= b.clone_receivers===true,schedules=b.clone_schedules===true;
+    if(!receiver&&!schedules)fail('Choose schedules or receivers to clone.');
+    if(!target||target===id)fail('Choose another destination location.');
+    const destination=await env.DB.prepare('SELECT config FROM fuel_monitor_locations WHERE id=?').bind(target).first();
+    if(!destination)fail('Destination location not found.',404);
+    const mode=b.mode==='replace'?'replace':'append';
+    const source=JSON.parse(row.config),dest=JSON.parse(destination.config);
+    if(receiver){
+     const emails=alertRecipients(source.email_to,'email'),phones=alertRecipients(source.sms_to,'sms');
+     const mergedEmails=mode==='replace'?emails:alertRecipients([dest.email_to,...emails].filter(Boolean).join(','),'email');
+     const mergedPhones=mode==='replace'?phones:alertRecipients([dest.sms_to,...phones].filter(Boolean).join(','),'sms');
+     // Only delivery toggles and receiver lists; NEVER copy machine, tanks, station identity or phone.
+     dest.email_to=mergedEmails.join(', ');dest.sms_to=mergedPhones.join(', ');
+     if(mode==='replace'){dest.portal=source.portal;dest.email=source.email;dest.sms=source.sms;}
+     jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(dest),target));
+    }
+    if(schedules){
+     const sourceSchedules=(await env.DB.prepare('SELECT * FROM fuel_monitor_schedule_items WHERE location_id=?').bind(id).all()).results||[];
+     if(mode==='replace')jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_schedule_items WHERE location_id=?').bind(target));
+     const present=mode==='append'?(await env.DB.prepare('SELECT repeat_type,days,dates,send_time,schedule_action FROM fuel_monitor_schedule_items WHERE location_id=?').bind(target).all()).results||[]:[];
+     const signatures=new Set(present.map(s=>[s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action].join('|')));
+     for(const s of sourceSchedules){
+      const sig=[s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action].join('|');if(signatures.has(sig))continue;signatures.add(sig);
+      // New cloned schedules start DISABLED until the receiving location is reviewed.
+      jobs.push(env.DB.prepare("INSERT INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_status) VALUES(?,?,0,?,?,?,?,?,'Cloned — review and enable')").bind(crypto.randomUUID(),target,s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action));
+     }
+    }
+    detail='Cloned '+[receiver?'receiver settings':null,schedules?'schedules':null].filter(Boolean).join(' and ')+' to '+dest.name+' ('+mode+'). No location, tank, Veeder-Root, or collector configuration copied.';
+   }
   if(action==='save'){
    if(b.id&&!row)fail('Location no longer exists.',404);
    const c=validateConfig({...b.config,icon:b.config?.icon||(row?JSON.parse(row.config).icon:'fuel')||'fuel'});detail=`Saved location ${c.name}; ${c.tanks.length} tanks.`;
@@ -327,7 +377,9 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(await env.DB.prepare('SELECT id FROM fuel_monitor_deleted_locations WHERE id=?').bind(id).first())fail('This location is already archived.',409);
    detail=`Archived location ${JSON.parse(row.config).name}. The collector identity is preserved for recovery.`;
    jobs.push(
-    env.DB.prepare('INSERT INTO fuel_monitor_deleted_locations(id,config,token_hash,reading,last_observed,last_contact,error,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,row.config,row.token_hash,row.reading,row.last_observed,row.last_contact,row.error,row.created_at),
+    env.DB.prepare('INSERT OR REPLACE INTO fuel_monitor_archived_schedules(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_run_at,last_status,created_at) SELECT id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_run_at,last_status,created_at FROM fuel_monitor_schedule_items WHERE location_id=?').bind(id),
+     env.DB.prepare('DELETE FROM fuel_monitor_schedule_items WHERE location_id=?').bind(id),
+     env.DB.prepare('INSERT INTO fuel_monitor_deleted_locations(id,config,token_hash,reading,last_observed,last_contact,error,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,row.config,row.token_hash,row.reading,row.last_observed,row.last_contact,row.error,row.created_at),
     env.DB.prepare('DELETE FROM fuel_monitor_locations WHERE id=?').bind(id)
    );
    jobs.push(env.DB.prepare("UPDATE fuel_monitor_alerts SET acknowledged=1,email_status=CASE WHEN email_status='pending' THEN 'cancelled' ELSE email_status END,sms_status=CASE WHEN sms_status='pending' THEN 'cancelled' ELSE sms_status END WHERE location_id=?").bind(id));
@@ -462,6 +514,18 @@ export async function agent(request,env){
 }
 // Central-time scheduled fuel-reading delivery uses the most recent station reading;
 // the Worker never connects directly to a TLS-350 device.
+function publicSchedule(s){return {id:s.id,enabled:!!s.enabled,repeat:s.repeat_type,days:String(s.days||'').split(',').filter(Boolean).map(Number),dates:String(s.dates||'').split(',').filter(Boolean),time:s.send_time,action:s.schedule_action,last_run_at:s.last_run_at,last_status:s.last_status};}
+export function validateMultiSchedule(input){
+ if(!input||typeof input!=='object'||Array.isArray(input))fail('Enter a valid schedule.');
+ const repeat=['daily','weekly','dates'].includes(input.repeat)?input.repeat:'weekly';
+ const days=Array.isArray(input.days)?[...new Set(input.days.map(Number))].sort((a,b)=>a-b):[];
+ if(days.some(x=>!Number.isInteger(x)||x<0||x>6)||(repeat==='weekly'&&!days.length))fail('Choose valid weekdays.');
+ const dates=Array.isArray(input.dates)?[...new Set(input.dates.map(x=>String(x)))].sort():[];
+ if(dates.length>100||dates.some(s=>!/^\d{4}-\d{2}-\d{2}$/.test(s)||!Number.isFinite(Date.parse(s+'T12:00:00Z'))||new Date(s+'T12:00:00Z').toISOString().slice(0,10)!==s)||(repeat==='dates'&&!dates.length))fail('Choose valid calendar dates.');
+ const time=String(input.time||'');if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time))fail('Choose a valid Central time.');
+ const action=['upload','send'].includes(input.action)?input.action:null;if(!action)fail('Choose a schedule action.');
+ return {enabled:input.enabled===true,repeat,days:repeat==='daily'?[0,1,2,3,4,5,6]:repeat==='weekly'?days:[],dates:repeat==='dates'?dates:[],time,action};
+}
 export function validateAutomaticReadingSchedule(input){
  if(!input||typeof input!=='object')fail('Enter the automatic reading schedule.');
  if(typeof input.enabled!=='boolean')fail('Choose whether automatic sending is enabled.');
@@ -479,12 +543,10 @@ export function centralScheduleParts(date){
 }
 export function automaticReadingDue(schedule,at){
  if(!schedule||!Number(schedule.enabled))return false;
- const days=String(schedule.days||'').split(',').map(Number);
- if(!days.includes(at.weekday))return false;
- const match=/^(\d{2}):(\d{2})$/.exec(schedule.send_time||'');
- if(!match)return false;
- const due=Number(match[1])*60+Number(match[2]);
- return at.minute>=due&&at.minute-due<=15;
+ if(schedule.repeat_type==='dates'&&!String(schedule.dates||'').split(',').includes(at.date))return false;
+ if(schedule.repeat_type==='weekly'&&!String(schedule.days||'').split(',').map(Number).includes(at.weekday))return false;
+ const match=/^(\d{2}):(\d{2})$/.exec(schedule.send_time||'');if(!match)return false;
+ const due=Number(match[1])*60+Number(match[2]);return at.minute>=due&&at.minute-due<=15;
 }
 // Scan all active paired locations, independent of the automatic-report schedule.
 // Each transition is claimed in D1 so a frequent cron never repeats a loss alert.
@@ -526,49 +588,38 @@ export async function checkCollectorConnections(env,now=new Date()){
 }
 
 export async function sendScheduledReadings(env,now=new Date()){
- await ensure(env);
- await checkCollectorConnections(env,now);
+ await ensure(env);await checkCollectorConnections(env,now);
  const at=centralScheduleParts(now);
- const schedules=(await env.DB.prepare('SELECT s.location_id,s.enabled,s.days,s.send_time,l.config,l.reading,l.last_observed,l.error,l.token_hash FROM fuel_monitor_schedules s JOIN fuel_monitor_locations l ON l.id=s.location_id WHERE s.enabled=1').all()).results||[];
+ const schedules=(await env.DB.prepare('SELECT s.*,l.config,l.reading,l.last_observed,l.error,l.token_hash FROM fuel_monitor_schedule_items s JOIN fuel_monitor_locations l ON l.id=s.location_id WHERE s.enabled=1').all()).results||[];
  let queued=0;
- for(const schedule of schedules){
-  if(!automaticReadingDue(schedule,at))continue;
+ for(const schedule of schedules){if(!automaticReadingDue(schedule,at))continue;
   try{
-   const config=JSON.parse(schedule.config);
-   if(!config.tanks?.length){
-    await env.DB.prepare('UPDATE fuel_monitor_schedules SET last_status=? WHERE location_id=?').bind('Waiting for tank re-detection',schedule.location_id).run();
-    continue;
-   }
-   const reading=schedule.reading?JSON.parse(schedule.reading):null;
+   const config=JSON.parse(schedule.config),reading=schedule.reading?JSON.parse(schedule.reading):null;
    const latest=Date.parse(schedule.last_observed||reading?.observed_at||'');
-   // Do not send outdated readings as though they were current.
-   const maxAgeMs=Math.max(600,Math.min(Number(config.interval)||300,86400)*2)*1000;
-   if(!config.enabled||!schedule.token_hash||schedule.error||!reading?.tanks?.length||!Number.isFinite(latest)||now.getTime()-latest>maxAgeMs||latest>now.getTime()+60000){
-    await env.DB.prepare('UPDATE fuel_monitor_schedules SET last_status=? WHERE location_id=?').bind('Waiting for a fresh collector reading',schedule.location_id).run();
-    continue;
+   const [hour,minute]=schedule.send_time.split(':').map(Number),minutesPassed=at.minute-hour*60-minute;
+   // The collector reads independently; a schedule is fulfilled only by a reading observed
+   // AFTER the scheduled time. Never relabel old cached inventory as a fresh reading.
+   const dueAt=now.getTime()-minutesPassed*60000;
+   const fresh=Number.isFinite(latest)&&latest>=dueAt-60000&&latest<=now.getTime()+60000&&!!reading?.tanks?.length;
+   if(!config.enabled||!schedule.token_hash||schedule.error||!config.tanks?.length||!fresh){
+    await env.DB.prepare('UPDATE fuel_monitor_schedule_items SET last_status=? WHERE id=?').bind('Waiting for a post-schedule collector reading',schedule.id).run();continue;
    }
-   const portalEnabled=!!config.portal;
-   const emailEnabled=!!config.email&&!!String(config.email_to||'').trim();
-   const smsEnabled=!!config.sms&&!!String(config.sms_to||'').trim();
-   if(!portalEnabled&&!emailEnabled&&!smsEnabled){
-    await env.DB.prepare('UPDATE fuel_monitor_schedules SET last_status=? WHERE location_id=?').bind('No sending options enabled',schedule.location_id).run();
-    continue;
+   if(schedule.action==='send'&&!(config.portal||config.email&&config.email_to||config.sms&&config.sms_to)){
+    await env.DB.prepare('UPDATE fuel_monitor_schedule_items SET last_status=? WHERE id=?').bind('No delivery methods enabled',schedule.id).run();continue;
    }
-   // One authoritative atomic claim for each location and Central calendar day.
-   const claimed=await env.DB.prepare('INSERT INTO fuel_monitor_scheduled_runs(location_id,local_date) VALUES(?,?) ON CONFLICT(location_id,local_date) DO NOTHING RETURNING location_id').bind(schedule.location_id,at.date).first();
+   const claimed=await env.DB.prepare('INSERT INTO fuel_monitor_schedule_runs(schedule_id,local_date) VALUES(?,?) ON CONFLICT(schedule_id,local_date) DO NOTHING RETURNING schedule_id').bind(schedule.id,at.date).first();
    if(!claimed)continue;
-   const message=allTankMessage(config,reading,{headline:`${config.name} — Automatic fuel reading`});
    try{
-    await env.DB.batch([
-     env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(schedule.location_id,0,'scheduled_reading',message,portalEnabled?1:0,emailEnabled?config.email_to:'',smsEnabled?config.sms_to:'',emailEnabled?'pending':'off',smsEnabled?'pending':'off'),
-     env.DB.prepare('UPDATE fuel_monitor_schedules SET last_sent_at=?,last_sent_date=?,last_status=? WHERE location_id=?').bind(now.toISOString(),at.date,'Queued for configured delivery methods',schedule.location_id)
-    ]);
-    queued++;
-   }catch(error){
-    await env.DB.prepare('DELETE FROM fuel_monitor_scheduled_runs WHERE location_id=? AND local_date=?').bind(schedule.location_id,at.date).run();
-    throw error;
-   }
-  }catch(error){console.error('Scheduled fuel reading failed',schedule.location_id,error);}
+    const jobs=[];
+    if(schedule.schedule_action==='send'){
+     const email=!!config.email&&!!String(config.email_to||'').trim(),sms=!!config.sms&&!!String(config.sms_to||'').trim();
+     const message=allTankMessage(config,reading,{headline:`${config.name} — Automatic fuel reading`});
+     jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(schedule.location_id,0,'scheduled_reading',message,config.portal?1:0,email?config.email_to:'',sms?config.sms_to:'',email?'pending':'off',sms?'pending':'off'));
+    }
+    jobs.push(env.DB.prepare("UPDATE fuel_monitor_schedule_items SET last_run_at=?,last_status=? WHERE id=?").bind(now.toISOString(),schedule.schedule_action==='send'?'Queued for delivery':'Fresh reading saved to portal; no report sent',schedule.id));
+    await env.DB.batch(jobs);queued++;
+   }catch(err){await env.DB.prepare('DELETE FROM fuel_monitor_schedule_runs WHERE schedule_id=? AND local_date=?').bind(schedule.id,at.date).run();throw err;}
+  }catch(e){console.error('Scheduled fuel reading failed',schedule.id,e);}
  }
  return queued;
 }

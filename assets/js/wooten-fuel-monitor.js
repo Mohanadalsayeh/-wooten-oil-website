@@ -197,6 +197,8 @@
   }).join(''):'<div class="fm-empty">No locations yet. Add your first gas station to set up its tanks and monitoring.</div>';
   for(const card of root.querySelectorAll('.fm-location')){
    const footer=card.querySelector('.fm-station-actions');
+    const clone=document.createElement('button');clone.type='button';clone.className='secondary fm-clone-location';clone.dataset.cloneLocation=card.dataset.station;clone.textContent='Clone';
+    card.querySelector('.fm-station-header')?.append(clone);
    const actions=document.createElement('div');actions.className='fm-header-actions';
    for(const button of [...footer.querySelectorAll('[data-inline-section], [data-fuel-analytics]')])actions.append(button);
    const header=card.querySelector('.fm-station-header');
@@ -547,7 +549,7 @@
   const prompt=document.createElement('dialog');
   prompt.className='fm-dialog fm-remove-confirm';
   prompt.setAttribute('aria-labelledby','fmDeleteLocationTitle');
-  prompt.innerHTML='<form id="fmDeleteForm"><header><span class="fm-remove-icon">'+actionIcon('shield')+'</span><h2 id="fmDeleteLocationTitle">Delete location?</h2><p>'+esc(l.name)+'<br>Confirm with the password for '+esc(window.wootenAdminUser?.username||window.wootenAdminUser?.display_name||'the signed-in admin')+'.</p></header><div class="fm-dialog-body"><label>Current admin password<input name="password" type="password" autocomplete="new-password" placeholder="Enter password" required value=""></label><div class="fm-remove-note">The location will be hidden and archived. Its collector key and settings can be restored by the Master Admin without visiting PC2.</div><p class="fm-error" role="status" aria-live="polite"></p></div><footer><button class="secondary" type="button">Cancel</button><button type="submit">Delete location</button></footer></form>';
+  prompt.innerHTML='<form id="fmDeleteForm"><header><span class="fm-remove-icon">'+actionIcon('shield')+'</span><h2 id="fmDeleteLocationTitle">Delete location?</h2><p>'+esc(l.name)+'<br>Confirm with the password for '+esc(window.wootenAdminUser?.username||window.wootenAdminUser?.display_name||'the signed-in admin')+'.</p></header><div class="fm-dialog-body"><label>Current admin password<input name="password" type="password" autocomplete="new-password" placeholder="Enter password" required value=""></label><div class="fm-remove-note">The location will be hidden and archived. Its collector settings, receivers, and schedules can be restored. Restored schedules remain disabled until reviewed.</div><p class="fm-error" role="status" aria-live="polite"></p></div><footer><button class="secondary" type="button">Cancel</button><button type="submit">Delete location</button></footer></form>';
   document.body.append(prompt);
   let working=false;
   const close=()=>{if(working)return;prompt.close();prompt.remove();};
@@ -653,91 +655,44 @@
  }
 
 function openAutomaticReadingSchedule(id){
-  if(activeLocation==='all'||inlineSaving)return;
-  if(inlineEdit){
-   if(!leaveInline())return;
-   render();
-  }
-  const l=locations.find(x=>x.id===id);
-  const card=[...root.querySelectorAll('.fm-location')].find(x=>x.dataset.station===id);
-  const panel=card?.querySelector('[data-auto-reading-panel]');
-  const middle=panel?.querySelector('.fm-automatic-panel-content');
-  if(!l||!middle)return;
-  panel.open=true;
-  inlineEdit={id,section:'auto_reading',dirty:false};
-  const saved=l.auto_reading||{enabled:false,days:[0,1,2,3,4,5,6],time:'08:00'};
-  const selected=new Set(saved.days||[]),all=selected.size===7;
-  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  middle.innerHTML='<form class="fm-inline-form fm-automatic-reading" id="fmAutomaticReadingForm">'
-   +'<p>Send the latest tank readings automatically on the selected days at the selected time. Uses this location’s existing Portal, Email and SMS delivery settings.</p>'
-   +'<label class="fm-toggle fm-auto-switch"><input name="enabled" type="checkbox" '+(saved.enabled?'checked':'')+'><span>Enable automatic fuel readings</span></label>'
-   +'<fieldset class="fm-auto-day-field"><legend>Sending days</legend>'
-   +'<div class="fm-auto-day-mode"><label><input type="radio" name="mode" value="all" '+(all?'checked':'')+'>All days</label><label><input type="radio" name="mode" value="custom" '+(!all?'checked':'')+'>Choose days</label></div>'
-   +'<div class="fm-auto-days">'+labels.map((day,i)=>'<label><input type="checkbox" name="weekday" value="'+i+'" '+(selected.has(i)?'checked':'')+'><span>'+day+'</span></label>').join('')+'</div></fieldset>'
-   +'<div class="fm-auto-time"><label for="fmAutoTime">Send time (Central Time — CDT/CST)</label><input type="time" id="fmAutoTime" name="send_time" value="'+esc(saved.time||'08:00')+'" required></div>'
-   +'<p class="fm-auto-note">The scheduled report includes all configured tanks. It uses the latest reading uploaded by the station collector. If that reading is stale, the report waits rather than sending outdated fuel levels.</p>'
-   +'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" data-auto-cancel>Cancel</button><button type="submit" disabled>Save schedule</button></div></form>';
-  const form=middle.querySelector('form');
-  const mode=()=>form.elements.mode.value;
-  const current=()=>{
-   let days=mode()==='all'?[0,1,2,3,4,5,6]:[...form.querySelectorAll('[name=weekday]:checked')].map(x=>Number(x.value)).sort((a,b)=>a-b);
-   // Keep a valid stored day set even if the user turns scheduling off after deselecting all weekdays.
-   if(!form.elements.enabled.checked&&!days.length)days=[...(saved.days?.length?saved.days:[0,1,2,3,4,5,6])];
-   return {enabled:form.elements.enabled.checked,time:form.elements.send_time.value,days};
+ if(activeLocation==='all'||inlineSaving)return;
+ if(inlineEdit){if(!leaveInline())return;render();}
+ const l=locations.find(x=>x.id===id),card=[...root.querySelectorAll('.fm-location')].find(x=>x.dataset.station===id);
+ const panel=card?.querySelector('[data-auto-reading-panel]'),middle=panel?.querySelector('.fm-automatic-panel-content');
+ if(!l||!middle)return;panel.open=true;inlineEdit={id,section:'auto_reading',dirty:false};
+ const saved=l.auto_reading?.schedules||[];
+ const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+ const row=s=>'<div class="fm940-schedule-row"><div><strong>'+esc(s.time)+' CT</strong> · '+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'<br><small>'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · '+(s.enabled?'Enabled':'Disabled')+' · '+esc(s.last_status||'Not run yet')+'</small></div><div><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div>';
+ middle.innerHTML='<div class="fm940-schedules"><p>Each time is tracked independently. Portal readings are recorded by the station collector; a schedule waits for a fresh upload after its due time.</p>'+ (saved.length?saved.map(row).join(''):'<p>No schedules configured.</p>')+'<button type="button" data-new-schedule>Add schedule</button></div><div class="fm940-editor"></div>';
+ const editor=middle.querySelector('.fm940-editor');
+ function edit(s){s=s||{enabled:true,repeat:'daily',days:[0,1,2,3,4,5,6],dates:[],time:'08:00',action:'upload'};
+  editor.innerHTML='<form class="fm-inline-form fm-automatic-reading"><h4>'+(s.id?'Edit schedule':'Add schedule')+'</h4><label class="fm-toggle"><input name="enabled" type="checkbox" '+(s.enabled?'checked':'')+'><span>Enabled</span></label><div class="fm940-fields"><label>Time (Central)<input name="send_time" type="time" required value="'+esc(s.time)+'"></label><label>Repeat<select name="repeat"><option value="daily">Daily</option><option value="weekly">Selected weekdays</option><option value="dates">Selected dates</option></select></label><label>Schedule Action<select name="schedule_action"><option value="upload">Read & Upload Only</option><option value="send">Read, Upload & Send</option></select></label></div><fieldset class="fm940-weekdays"><legend>Weekdays</legend>'+labels.map((name,i)=>'<label><input type="checkbox" name="weekday" value="'+i+'" '+((s.days||[]).includes(i)?'checked':'')+'>'+name+'</label>').join('')+'</fieldset><label class="fm940-dates">Selected dates (YYYY-MM-DD, comma separated)<textarea name="dates" rows="2" placeholder="2026-10-12, 2026-10-15">'+esc((s.dates||[]).join(', '))+'</textarea></label><p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" class="secondary" data-schedule-cancel>Cancel</button><button type="submit">Save schedule</button></div></form>';
+  const form=editor.querySelector('form');form.elements.repeat.value=s.repeat;form.elements.schedule_action.value=s.action;
+  const sync=()=>{form.querySelector('.fm940-weekdays').hidden=form.elements.repeat.value!=='weekly';form.querySelector('.fm940-dates').hidden=form.elements.repeat.value!=='dates';};form.elements.repeat.onchange=sync;sync();
+  form.querySelector('[data-schedule-cancel]').onclick=()=>editor.replaceChildren();
+  form.onsubmit=async event=>{event.preventDefault();if(inlineSaving)return;
+   const days=[...form.querySelectorAll('[name=weekday]:checked')].map(el=>Number(el.value));
+   const dates=form.elements.dates.value.split(/[,;\n]+/).map(v=>v.trim()).filter(Boolean);
+   const schedule={enabled:form.elements.enabled.checked,repeat:form.elements.repeat.value,days,dates,time:form.elements.send_time.value,action:form.elements.schedule_action.value};
+   inlineSaving=true;form.querySelector('[type=submit]').disabled=true;
+   try{await api({action:'schedule_save',id,...(s.id?{schedule_id:s.id}:{}),schedule});inlineSaving=false;inlineEdit=null;await load();openAutomaticReadingSchedule(id);message('Schedule saved.');}
+   catch(err){form.querySelector('.fm-inline-message').textContent=err.message;inlineSaving=false;form.querySelector('[type=submit]').disabled=false;}
   };
-  const original=JSON.stringify({enabled:!!saved.enabled,time:saved.time||'08:00',days:[...(saved.days||[0,1,2,3,4,5,6])].sort((a,b)=>a-b)});
-  function changed(){
-   const dirty=JSON.stringify(current())!==original;
-   if(inlineEdit?.id===id&&inlineEdit.section==='auto_reading')inlineEdit.dirty=dirty;
-   form.querySelector('[type=submit]').disabled=!dirty||inlineSaving;
-   return dirty;
-  }
-  function syncControls(){
-   const enabled=form.elements.enabled.checked;
-   form.querySelector('.fm-auto-day-field').disabled=!enabled;
-   form.querySelector('.fm-auto-day-field').classList.toggle('is-disabled',!enabled);
-   form.querySelector('.fm-auto-time').classList.toggle('is-disabled',!enabled);
-   form.querySelectorAll('[name=mode]').forEach(el=>el.disabled=!enabled);
-   form.querySelectorAll('[name=weekday]').forEach(el=>el.disabled=!enabled||mode()==='all');
-   form.elements.send_time.disabled=!enabled;
-   changed();
-  }
-  syncControls();
-  form.addEventListener('input',changed);
-  form.addEventListener('change',e=>{
-   if(e.target.name==='mode'||e.target.name==='enabled')syncControls();
-   if(e.target.name==='weekday'&&mode()==='custom'&&form.querySelectorAll('[name=weekday]:checked').length===7){
-    form.querySelector('[name=mode][value=all]').checked=true;
-    syncControls();
-   }
-   changed();
-  });
-  form.querySelector('[data-auto-cancel]').onclick=()=>{
-   if(!leaveInline())return;
-   panel.open=false;
-   middle.replaceChildren();
-   panel.querySelector('summary')?.focus({preventScroll:true});
-  };
-  form.onsubmit=async e=>{
-   e.preventDefault();if(inlineSaving||!changed())return;
-   const schedule=current();
-   if(!schedule.days.length){form.querySelector('.fm-inline-message').textContent='Choose at least one sending day.';return;}
-   if(schedule.enabled&&!form.elements.send_time.checkValidity()){form.elements.send_time.reportValidity();return;}
-   inlineSaving=true;
-   form.querySelector('[type=submit]').disabled=true;
-   form.querySelector('.fm-inline-message').textContent='Saving automatic sending schedule…';
-   try{
-    await api({action:'schedule_save',id,schedule});
-    inlineSaving=false;inlineEdit=null;
-    await load();
-    message('Automatic fuel reading schedule saved.');
-    openAutomaticReadingSchedule(id);
-   }catch(error){
-    form.querySelector('.fm-inline-message').textContent=error.message;
-    inlineSaving=false;changed();
-   }
-  };
-  middle.querySelector('[name=enabled]')?.focus({preventScroll:true});
+ }
+ middle.querySelector('[data-new-schedule]').onclick=()=>edit();
+ middle.querySelectorAll('[data-edit-schedule]').forEach(btn=>btn.onclick=()=>edit(saved.find(s=>s.id===btn.dataset.editSchedule)));
+ middle.querySelectorAll('[data-remove-schedule]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Remove this schedule?'))return;try{await api({action:'schedule_remove',id,schedule_id:btn.dataset.removeSchedule});inlineEdit=null;await load();openAutomaticReadingSchedule(id);}catch(err){message(err.message,true)}});
+}
+
+async function cloneLocationSettings(id){
+ const source=locations.find(l=>l.id===id),targets=locations.filter(l=>l.id!==id);
+ if(!source||!targets.length){message('Add another location before cloning settings.',true);return;}
+ const d=document.createElement('dialog');d.className='fm-dialog fm-remove-confirm';
+ d.innerHTML='<form><header><h2>Clone Location Settings</h2><p>From '+esc(source.name)+'</p></header><div class="fm-dialog-body"><label>Copy to location<select name="target">'+targets.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('')+'</select></label><label><input type="checkbox" name="receivers" checked> Clone receiver phone numbers, emails, and delivery preferences</label><label><input type="checkbox" name="schedules" checked> Clone fuel reading schedules</label><label>Destination settings<select name="mode"><option value="append">Add, keeping existing settings</option><option value="replace">Replace selected settings</option></select></label><p>Never copies tanks, location identity, address, station phone, Veeder-Root settings, network details, collector keys, or reading history. Cloned schedules start disabled for review.</p><p role="status" class="fm-error"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Clone selected settings</button></footer></form>';
+ document.body.append(d);const close=()=>{d.close();d.remove();};d.querySelector('button[type=button]').onclick=close;
+ d.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target;if(!f.elements.receivers.checked&&!f.elements.schedules.checked){f.querySelector('[role=status]').textContent='Select something to clone.';return;}if(!confirm('Clone selected settings to the destination? '+(f.elements.mode.value==='replace'?'Selected existing settings will be replaced.':'Existing settings will remain.')))return;
+  const submit=f.querySelector('[type=submit]');submit.disabled=true;try{await api({action:'clone_settings',id,target_id:f.elements.target.value,clone_receivers:f.elements.receivers.checked,clone_schedules:f.elements.schedules.checked,mode:f.elements.mode.value});close();await load();message('Selected settings cloned. Review the destination schedules before enabling.');}catch(err){f.querySelector('[role=status]').textContent=err.message;submit.disabled=false;}
+ };d.showModal();
 }
 
 // The disclosure header expands beneath (not instead of) the tank gauges.
@@ -758,14 +713,14 @@ root.addEventListener('click',e=>{
  }
 });
 
- root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.inlineSection){if(activeLocation==='all'){if(!leaveInline())return;activeLocation=b.dataset.inlineId;render();}openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
+ root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.cloneLocation){await cloneLocationSettings(b.dataset.cloneLocation);return;}if(b.dataset.inlineSection){if(activeLocation==='all'){if(!leaveInline())return;activeLocation=b.dataset.inlineId;render();}openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  async function showDeletedLocations(){
   let list=deletedLocations;
   if(!list.length){message('There are no deleted locations to restore.');return;}
   const d=document.createElement('dialog');d.className='fm-dialog fm-remove-confirm';
   const options=locations.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('');
-  d.innerHTML='<form><header><h2>Restore / Reconnect Collector</h2><p>Recover a deleted location without changing PC2 or its collector JSON.</p></header><div class="fm-dialog-body"><label>Deleted location<select name="source">'+list.map(l=>'<option value="'+esc(l.id)+'" '+(l.reassigned_to?'disabled':'')+'>'+esc(l.name)+(l.reassigned_to?' — already reconnected':'')+'</option>').join('')+'</select></label><label>Master Admin password<input name="password" type="password" required autocomplete="current-password"></label><label>Reconnect to a new location (optional)<select name="target"><option value="">Restore the original location</option>'+options+'</select></label><p>Restore keeps the original location ID and collector key. Reconnect requires a new, unused, unpaired location and keeps PC2’s original JSON working.</p><p role="status" class="fm-error"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Restore / Reconnect</button></footer></form>';
+  d.innerHTML='<form><header><h2>Restore / Reconnect Collector</h2><p>Recover a deleted location without changing PC2 or its collector JSON.</p></header><div class="fm-dialog-body"><label>Deleted location<select name="source">'+list.map(l=>'<option value="'+esc(l.id)+'" '+(l.reassigned_to?'disabled':'')+'>'+esc(l.name)+(l.reassigned_to?' — already reconnected':'')+'</option>').join('')+'</select></label><label>Master Admin password<input name="password" type="password" required autocomplete="current-password"></label><label>Reconnect to a new location (optional)<select name="target"><option value="">Restore the original location</option>'+options+'</select></label><p>Restore keeps the original location ID, collector key, receivers, and schedules (disabled until reviewed). Reconnect requires a new, unused, unpaired location and keeps PC2’s original JSON working.</p><p role="status" class="fm-error"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Restore / Reconnect</button></footer></form>';
   document.body.append(d);
   d.querySelector('[type=button]').onclick=()=>{d.close();d.remove()};
   d.addEventListener('close',()=>d.remove());

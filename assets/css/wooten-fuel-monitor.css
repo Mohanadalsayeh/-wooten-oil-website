@@ -1189,3 +1189,10 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   #fuelMonitorRoot .fm-tank-dial .fm-tank-thresholds {gap:7px;font-size:11px;}
   #fuelMonitorRoot .fm-tank-dial .fm-water-reading {font-size:11px;}
 }
+
+/* Ver940: scheduling and cloning */
+.fm940-schedule-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #d9e5ef;border-radius:10px;padding:12px;margin:8px 0;background:#fff;flex-wrap:wrap}
+.fm940-schedule-row>div:last-child{display:flex;gap:6px}.fm940-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fm940-fields label,.fm940-dates{display:flex;flex-direction:column;gap:6px}.fm940-weekdays{border:1px solid #d9e5ef;border-radius:9px;margin:12px 0;padding:10px}.fm940-weekdays label{display:inline-flex;align-items:center;margin:5px 12px 5px 0;gap:5px}
+.fm940-editor form{margin-top:14px;border-top:1px solid #d9e5ef;padding-top:12px}.fm-clone-location{align-self:flex-start;margin:4px 0}
+@media(max-width:760px){.fm940-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.fm940-fields{grid-template-columns:1fr}}
