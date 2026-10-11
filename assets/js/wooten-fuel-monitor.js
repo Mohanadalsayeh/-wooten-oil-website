@@ -51,6 +51,11 @@
   const percent=volume/Number(tank.capacity)*100,lowPercent=tank.mode==='percent'?Number(tank.low):Number(tank.low)/Number(tank.capacity)*100;
   return percent<lowPercent?{name:'Below threshold',color:'#de1c28'}:percent<50?{name:'Below half',color:'#ef9636'}:percent<75?{name:'Over half',color:'#a0d47c'}:{name:'Over ¾ full',color:'#299a60'};
  }
+ // Remove appended Veeder-Root inventory column headings from the display only.
+ // The original saved location address stays intact for manual review/editing.
+ function displayStationAddress(value){
+  return String(value||'').replace(/[\s,;|–—-]+TANK\s+PRODUCT\s+VOLUME\b[\s\S]*$/i,'').trim();
+ }
  function connectionHealth(l){
   if(!l.enabled)return 'Paused';if(!l.paired)return 'Collector setup needed';
   const contact=Date.parse(l.last_contact),reading=Date.parse(l.last_observed),now=Date.now();
@@ -181,7 +186,7 @@
    const gaugeDisconnected=state!=='Online'; // Offline, Delayed, Paused or collector unavailable: keep values, gray the gauges.
    const lost15=!!l.enabled&&!!l.paired&&Number.isFinite(Date.parse(l.last_observed))&&(Date.now()-Date.parse(l.last_observed)>=900000);
    const staleWarning=lost15?'<div class="fm-stale-warning" role="status"><strong>Stale Reading — Tank values are outdated</strong><span>Last successful reading: '+esc(time(l.last_observed))+'. Tank gauges show the last known values, not live readings.</span></div>':'';
-   return '<article class="fm-location" data-station="'+esc(l.id)+'"><div class="fm-station-header"><div><h3>'+esc(l.name)+'</h3><p>'+esc(l.address||'Address not entered')+'</p><p>'+esc(l.phone)+'</p></div><div class="fm-station-status"><span class="fm-badge '+(state==='Online'?'fm-ok':state==='Offline'||l.error?'fm-health-bad':'')+'">'+state+'</span><p>'+l.tanks.length+' configured tanks</p></div></div><div class="fm-station-meta"><span>Last reading<b>'+esc(time(l.last_observed))+'</b></span><span>Last contact<b>'+esc(time(l.last_contact))+'</b></span></div>' +'<div class="fm-station-page">'+staleWarning+(l.error?'<p class="fm-error">'+esc(l.error)+'</p>':'')+monitorPanel(l,stale||!!l.error||!l.enabled)+'<div class="fm-tanks">'+(l.tanks.length?l.tanks.map(t=>{
+   return '<article class="fm-location" data-station="'+esc(l.id)+'"><div class="fm-station-header"><div><h3>'+esc(l.name)+'</h3><p>'+esc(displayStationAddress(l.address)||'Address not entered')+'</p><p>'+esc(l.phone)+'</p></div><div class="fm-station-status"><span class="fm-badge '+(state==='Online'?'fm-ok':state==='Offline'||l.error?'fm-health-bad':'')+'">'+state+'</span><p>'+l.tanks.length+' configured tanks</p></div></div><div class="fm-station-meta"><span>Last reading<b>'+esc(time(l.last_observed))+'</b></span><span>Last contact<b>'+esc(time(l.last_contact))+'</b></span></div>' +'<div class="fm-station-page">'+staleWarning+(l.error?'<p class="fm-error">'+esc(l.error)+'</p>':'')+monitorPanel(l,stale||!!l.error||!l.enabled)+'<div class="fm-tanks">'+(l.tanks.length?l.tanks.map(t=>{
     const r=l.reading?.tanks.find(x=>x.number===t.number),capacity=Number(t.capacity),volume=r?Number(r.volume):NaN;
     const valid=!!r&&Number.isFinite(volume)&&volume>=0&&Number.isFinite(capacity)&&capacity>0;
     const rawPercent=valid?volume/capacity*100:null,percent=valid?Math.min(100,rawPercent):null;

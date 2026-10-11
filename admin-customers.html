@@ -5974,7 +5974,7 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
           <div class="admin-bell-menu" id="adminNotificationMenu" hidden>
             <div class="admin-bell-menu-head"><div><strong>Admin Notifications</strong><span id="adminNotificationSummary">Pending customer activity</span></div><div class="admin-bell-menu-actions"><button type="button" id="adminNotificationRefresh" aria-label="Refresh notifications"><svg class="admin-bell-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 8A8 8 0 0 0 6.2 5.2L4 7.5"></path><path d="M4 3.5v4h4"></path><path d="M4.5 16A8 8 0 0 0 17.8 18.8L20 16.5"></path><path d="M20 20.5v-4h-4"></path></svg></button><button type="button" id="adminNotificationClose" aria-label="Close admin notifications">&times;</button></div></div>
             <div class="admin-bell-counts" id="adminNotificationCounts"></div>
-            <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div><div class="admin-bell-footer"><span>Wooten Oil Admin</span><span aria-hidden="true">•</span><span>Auto-refreshes every 60 seconds</span></div>
+            <div class="admin-bell-list" id="adminNotificationList"><div class="admin-bell-empty">Sign in to load notifications.</div></div><div class="admin-bell-footer"><span>Wooten Oil Admin</span><span aria-hidden="true">•</span><span>Auto-refreshes every 15 seconds</span></div>
           </div>
         </div>
         <button class="secondary admin-access-btn" id="adminAccessOpenBtn" type="button">Logout / Change Key</button>
@@ -15782,7 +15782,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
    return {title,body:location+(tanks.length?'\n\n'+tanks.join('\n'):first?'\n\n'+first:'')};
  }
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
- let priorUnread=null,ringTimer=null;
+ let priorUnread=null,priorNoticeIds=null,ringTimer=null;
  function ringForNewNotifications(){
    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
    bell.classList.remove('wooten-new-notification-ring');
@@ -15793,7 +15793,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  }
 
  const more=document.createElement('button');more.type='button';more.className='admin-bell-load-more';more.textContent='Load More';more.hidden=true;more.setAttribute('aria-label','Load more pending notifications');list.after(more);
- function clear(){priorUnread=null;clearTimeout(ringTimer);bell.classList.remove('wooten-new-notification-ring');refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
+ function clear(){priorUnread=null;priorNoticeIds=null;clearTimeout(ringTimer);bell.classList.remove('wooten-new-notification-ring');refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;items=[];nextCursor=null;badge.hidden=true;badge.dataset.unreadCount='0';delete badge.dataset.notificationLoaded;badge.textContent='';counts.innerHTML='';summary.textContent='Sign in to load notifications';list.innerHTML='<div class="admin-bell-empty">Sign in to load notifications.</div>';more.hidden=true;}
  function render(){
    const scroll=list.scrollTop;
    list.innerHTML=items.length?items.map(x=>{
@@ -15827,7 +15827,19 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
          result.push(...(data.items||[]));cursor=data.next_cursor||null;
        }while(!append&&cursor&&result.length<target);
        const unique=new Map((append?items.concat(result):result).map(x=>[x.item_type+':'+x.id,x]));items=[...unique.values()];nextCursor=cursor;
-       const total=Number(data.total||0);if(priorUnread!==null&&total>priorUnread)ringForNewNotifications();priorUnread=total;badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
+       const total=Number(data.total||0);
+       // Detect a newly arrived notice by its stable type+ID even if the unread
+       // total remains unchanged (e.g. one item was acknowledged meanwhile).
+       // First successful load establishes a baseline, so opening the portal
+       // with old notifications does not ring unexpectedly.
+       if(!append){
+         const noticeIds=new Set(items.map(x=>String(x.item_type)+':'+String(x.id)));
+         const hasNewNotice=priorNoticeIds!==null&&[...noticeIds].some(id=>!priorNoticeIds.has(id));
+         if(priorUnread!==null&&(hasNewNotice||total>priorUnread))ringForNewNotifications();
+         priorNoticeIds=noticeIds;
+         priorUnread=total;
+       }
+       badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=data.partial?'Some notifications unavailable: '+(data.unavailable_sources||[]).map(k=>labels[k]||k).join(', '):total?total+' new items • '+items.length+' shown':items.length?'All caught up • '+items.length+' shown':'No notifications';
        counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
        render();if(data.partial&&!items.length)list.innerHTML='<div class="admin-bell-empty">Some notification categories could not be loaded. Tap Refresh to retry.</div>';
@@ -15863,7 +15875,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  window.addEventListener('wooten-payment-notification-read',()=>load(false,true));
  for(const event of ['focus','pageshow','online'])window.addEventListener(event,()=>{if(!document.hidden)load(false,true,true);});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(false,true,true);});
- setInterval(()=>{if(!document.hidden)load();},60000);
+ setInterval(()=>{if(!document.hidden)load();},15000);
  load(false,true);
 })();
 </script>
@@ -16588,7 +16600,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=944"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=946"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
