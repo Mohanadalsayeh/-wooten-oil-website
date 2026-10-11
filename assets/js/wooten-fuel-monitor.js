@@ -709,16 +709,32 @@ function openAutomaticReadingSchedule(id){
   #fuelMonitorRoot .fm957-row-editor:not(:empty){padding:14px 12px 16px!important;border-top:1px solid #d8e6f1!important;margin:0!important;background:#f3f8fc}
     #fuelMonitorRoot .fm961-schedule-days{font-size:12px;line-height:1.45;color:#486982;margin:4px 0 3px;overflow-wrap:anywhere}
   #fuelMonitorRoot .fm949-schedule-actions{display:flex;gap:10px;align-items:center}
-  #fuelMonitorRoot .fm949-schedule-actions .fm-schedule-remove,
-  #fuelMonitorRoot .fm949-schedule-actions .fm-schedule-remove:hover,
-  #fuelMonitorRoot .fm949-schedule-actions .fm-schedule-remove:active,
-  #fuelMonitorRoot .fm949-schedule-actions .fm-schedule-remove:focus,
-  #fuelMonitorRoot .fm949-schedule-actions .fm-schedule-remove:focus-visible{
-    background:#dc192b!important;border:1px solid #dc192b!important;color:#fff!important;
-    box-shadow:none!important;transform:none!important;filter:none!important;
+  /* Ver970: identical remove-button treatment in row and confirmation dialog. */
+  #fuelMonitorRoot .fm949-schedule-actions button.fm-schedule-remove,
+  #fuelMonitorRoot .fm949-schedule-actions button.fm-schedule-remove:hover,
+  #fuelMonitorRoot .fm949-schedule-actions button.fm-schedule-remove:focus,
+  #fuelMonitorRoot .fm949-schedule-actions button.fm-schedule-remove:focus-visible,
+  #fuelMonitorRoot .fm949-schedule-actions button.fm-schedule-remove:active,
+  .fm-dialog.fm957-remove-confirm button.fm957-remove-danger,
+  .fm-dialog.fm957-remove-confirm button.fm957-remove-danger:hover,
+  .fm-dialog.fm957-remove-confirm button.fm957-remove-danger:focus,
+  .fm-dialog.fm957-remove-confirm button.fm957-remove-danger:focus-visible,
+  .fm-dialog.fm957-remove-confirm button.fm957-remove-danger:active{
+    background:#d8192a!important;
+    border:1px solid #d8192a!important;
+    color:#fff!important;
+    opacity:1!important;
+    filter:none!important;
+    transform:none!important;
+    box-shadow:none!important;
+    text-shadow:none!important;
+    transition:none!important;
   }
-  #fuelMonitorRoot .fm949-schedule-actions .fm-schedule-remove:disabled{background:#dc192b!important;color:#fff!important;opacity:.55!important;cursor:not-allowed!important;}
-
+  #fuelMonitorRoot .fm949-schedule-actions button.fm-schedule-remove:disabled,
+  .fm-dialog.fm957-remove-confirm button.fm957-remove-danger:disabled{
+    background:#d8192a!important;border-color:#d8192a!important;color:#fff!important;
+    opacity:.55!important;filter:none!important;box-shadow:none!important;transform:none!important;
+  }
   #fuelMonitorRoot .fm949-schedule-info strong{display:block}
   #fuelMonitorRoot .fm949-schedule-info small{display:block;margin-top:4px}
   #fuelMonitorRoot .fm-schedule-add-row{margin:18px 0 12px!important;padding-left:10px}
