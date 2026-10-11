@@ -192,10 +192,23 @@ const mobileDropdownStyle=document.createElement('style');
   nums.innerHTML=parts.join('');
  }
  function render(){
-  if(activeLocation!=='all'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
+  if(activeLocation!=='all'&&activeLocation!=='activity'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
   const tabs=document.getElementById('fmLocationTabs');tabs.replaceChildren();
-  const views=[{id:'all',name:'All locations',icon:'fuel'},...locations];
+  const views=[{id:'all',name:'All locations',icon:'fuel'},{id:'activity',name:'Fuel Monitoring Activity',icon:'history'},...locations];
   for(const l of views){const button=document.createElement('button');button.type='button';button.className='fm-location-tab';button.id='fm-location-tab-'+l.id;button.dataset.locationTab=l.id;button.setAttribute('role','tab');button.setAttribute('aria-controls','fmLocations');button.setAttribute('aria-selected',String(activeLocation===l.id));button.tabIndex=activeLocation===l.id?0:-1;const text=document.createElement('span');text.textContent=l.name;button.append(WootenLocationIcons.icon(l.icon||'fuel'),text);tabs.append(button)}
+  const activityPane=document.getElementById('fm977Section');
+  const fuelLocations=document.getElementById('fmLocations');
+  const alertPanel=document.getElementById('fmAlerts');
+  const alertHeading=alertPanel?.previousElementSibling?.previousElementSibling;
+  const alertDescription=alertPanel?.previousElementSibling;
+  const activitySelected=activeLocation==='activity';
+  if(activityPane)activityPane.hidden=!activitySelected;
+  fuelLocations.hidden=activitySelected;
+  if(alertHeading?.tagName==='H3')alertHeading.hidden=activitySelected;
+  if(alertDescription?.tagName==='P')alertDescription.hidden=activitySelected;
+  if(alertPanel)alertPanel.hidden=activitySelected;
+  const alertPagination=document.getElementById('fmAlertPagination');
+  if(activitySelected){if(alertPagination)alertPagination.hidden=true;window.dispatchEvent(new Event('wooten:fuel-activity-tab'));return;}
   document.getElementById('fmLocations').setAttribute('aria-labelledby','fm-location-tab-'+activeLocation);
   const shownLocations=activeLocation==='all'?locations:locations.filter(l=>l.id===activeLocation);
   const filteredAlerts=activeLocation==='all'?alerts:alerts.filter(a=>a.location_id===activeLocation);

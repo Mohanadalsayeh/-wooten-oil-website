@@ -16613,7 +16613,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=972"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=978"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
@@ -16646,6 +16646,9 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script defer src="assets/js/wooten-status-icons.js?v=917"></script>
 
 <style id="fm977-styles">
+#fuelMonitorRoot .fm977-section[hidden],#fuelMonitorRoot #fmLocations[hidden],#fuelMonitorRoot #fmAlerts[hidden],#fuelMonitorRoot h3[hidden],#fuelMonitorRoot p[hidden]{display:none!important}
+#fuelMonitorRoot .fm977-section{margin:16px 0 10px}
+
 .fm977-section{margin:25px 0 8px;padding:18px;border:1px solid #dce6ee;border-radius:13px;background:#fff;max-width:100%;box-sizing:border-box}
 .fm977-header,.fm977-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .fm977-header h3{color:#163b59;margin:0;font-size:19px}.fm977-header p,.fm977-note,.fm977-message{font-size:12px;color:#687e91;margin:6px 0}
@@ -16658,6 +16661,8 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 <script id="fm977-script">
 (()=>{'use strict';
 const get=id=>document.getElementById(id),panel=get('admin-tab-fuel-monitor');if(!panel)return;
+function mountActivity(){const tabs=get('fmLocationTabs'),section=get('fm977Section');if(tabs&&section&&section.parentElement!==get('fuelMonitorRoot')){tabs.insertAdjacentElement('afterend',section);section.hidden=true;section.setAttribute('role','tabpanel');section.setAttribute('aria-labelledby','fm-location-tab-activity');}}
+mountActivity();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=v=>{if(!v)return '—';let s=String(v);if(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(s))s=s.replace(' ','T')+'Z';const d=new Date(s);return isNaN(d)?'—':new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d)};
 let offset=0,loaded=false,working=false,next=null,items=[];
@@ -16671,8 +16676,8 @@ function render(){
 let loadedTotal=0;
 async function load(more=false){if(working)return;if(!key()){get('fm977Message').textContent='Sign in to view scheduled report activity.';return;}working=true;if(!more){offset=0;items=[];}get('fm977Message').textContent='Loading scheduled report activity…';try{const q=new URLSearchParams({delivery_activity:'list',days:get('fm977Range').value,filter:get('fm977Filter').value,offset:String(offset)});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Activity unavailable');items=items.concat(d.items||[]);next=d.next_offset;loadedTotal=d.total||0;offset=next??offset;loaded=true;render();get('fm977Stats').innerHTML=[['Displayed',items.length],['Pending',items.filter(x=>x.status==='pending').length],['Issues',items.filter(x=>x.status==='issues').length]].map(([label,n])=>`<div class="fm977-stat"><strong>${n}</strong><span>${label}</span></div>`).join('');get('fm977Message').textContent=items.length?'Recent scheduled runs. Details load on demand.':'No scheduled reports for this period and filter.';}catch(e){get('fm977Message').textContent=e.message;}finally{working=false;}}
 get('fm977Refresh')?.addEventListener('click',()=>load());get('fm977More')?.addEventListener('click',()=>{if(next!==null)load(true)});['fm977Range','fm977Filter'].forEach(id=>get(id)?.addEventListener('change',()=>load()));
-get('admin-tab-btn-fuel-monitor')?.addEventListener('click',()=>{if(!loaded)setTimeout(()=>load(),120)});
-get('sh977OpenActivity')?.addEventListener('click',()=>{get('admin-tab-btn-fuel-monitor')?.click();setTimeout(()=>{get('fm977Section')?.scrollIntoView({behavior:'smooth',block:'start'});load()},300)});
+window.addEventListener('wooten:fuel-activity-tab',()=>{mountActivity();if(!loaded)load()});
+get('sh977OpenActivity')?.addEventListener('click',()=>{get('admin-tab-btn-fuel-monitor')?.click();setTimeout(()=>{mountActivity();get('fm-location-tab-activity')?.click();},300)});
 })();
 </script>
 <script id="wooten-sh-admin-bell-link-ver975">
