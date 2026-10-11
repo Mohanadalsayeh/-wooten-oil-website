@@ -1340,3 +1340,25 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   #fuelMonitorRoot .fm-monitor-panel > summary,
   #fuelMonitorRoot .fm-automatic-panel > summary{padding:12px 10px!important;}
 }
+
+/* Ver954: subtle schedule guidance and breathing room below Add Schedule. */
+#fuelMonitorRoot .fm-automatic-panel-content .fm949-explanation {
+  position:relative;
+  margin:14px 20px 14px 24px!important;
+  padding-left:26px!important;
+  line-height:1.6;
+}
+#fuelMonitorRoot .fm-automatic-panel-content .fm949-explanation::before {
+  content:'i';position:absolute;left:0;top:2px;
+  display:inline-flex;align-items:center;justify-content:center;
+  height:16px;width:16px;box-sizing:border-box;
+  border:1.5px solid #3179aa;border-radius:50%;
+  color:#3179aa;font:bold 11px/1 Arial,sans-serif;
+}
+#fuelMonitorRoot .fm950-schedules .fm-schedule-add-row {
+  padding-bottom:23px!important;
+}
+@media(max-width:540px){
+  #fuelMonitorRoot .fm-automatic-panel-content .fm949-explanation{margin-left:16px!important;margin-right:12px!important;}
+  #fuelMonitorRoot .fm950-schedules .fm-schedule-add-row{padding-bottom:20px!important;}
+}
