@@ -722,9 +722,9 @@
 (function(){
 const ids=['collectionsRefresh','exceptionalRefresh','scheduleRefresh','adminAuditRefresh','portalBackupRefresh','dbRefreshBtn','livePaymentRefreshBtn','refreshInboxBtn','twilioRefreshLookupResults','mas90HealthRefresh','ptRefresh','ptDetailRefresh'];
 const pending=new WeakSet();
-function render(b){const label=pending.has(b)?'Refreshing...':'Refresh';if(b.textContent!==label||b.children.length)b.textContent=label;}
+function render(b){if(b.querySelector('[class$="-title-refresh-text"]'))return;const label=pending.has(b)?'Refreshing...':'Refresh';if(b.textContent!==label||b.children.length)b.textContent=label;}
 window.WootenRefreshUI={async run(b,task){if(!b||pending.has(b))return;pending.add(b);b.disabled=true;b.setAttribute('aria-busy','true');render(b);try{return await task();}finally{pending.delete(b);b.disabled=false;b.removeAttribute('aria-busy');render(b);}}};
-function init(){ids.forEach(id=>{const b=document.getElementById(id);if(!b)return;if(!b.hasAttribute('aria-label'))b.setAttribute('aria-label',b.textContent.trim());render(b);new MutationObserver(()=>render(b)).observe(b,{childList:true,subtree:true,characterData:true});});}
+function init(){ids.forEach(id=>{const b=document.getElementById(id);if(!b||b.querySelector('[class$="-title-refresh-text"]'))return;if(!b.hasAttribute('aria-label'))b.setAttribute('aria-label',b.textContent.trim());render(b);new MutationObserver(()=>render(b)).observe(b,{childList:true,subtree:true,characterData:true});});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
