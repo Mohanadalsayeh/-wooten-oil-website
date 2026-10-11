@@ -926,7 +926,7 @@ root.addEventListener('click',e=>{
  async function showDeletedLocations(){
   let list=deletedLocations;
   if(!list.length){message('There are no deleted locations to restore.');return;}
-  const d=document.createElement('dialog');d.className='fm-dialog fm-remove-confirm';
+  const d=document.createElement('dialog');d.className='fm-dialog fm-remove-confirm fm-restore-dialog';
   const options=locations.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('');
   d.innerHTML='<form><header><h2>Restore / Reconnect Collector</h2><p>Recover a deleted location without changing PC2 or its collector JSON.</p></header><div class="fm-dialog-body"><label>Deleted location<select name="source">'+list.map(l=>'<option value="'+esc(l.id)+'" '+(l.reassigned_to?'disabled':'')+'>'+esc(l.name)+(l.reassigned_to?' — already reconnected':'')+'</option>').join('')+'</select></label><label>Master Admin password<input name="password" type="password" required autocomplete="current-password"></label><label>Reconnect to a new location (optional)<select name="target"><option value="">Restore the original location</option>'+options+'</select></label><p>Restore keeps the original location ID, collector key, receivers, and schedules (disabled until reviewed). Reconnect requires a new, unused, unpaired location and keeps PC2’s original JSON working.</p><p role="status" class="fm-error"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Restore / Reconnect</button></footer></form>';
   document.body.append(d);

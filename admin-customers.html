@@ -16652,7 +16652,16 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=993"></script>
+<style id="wooten-restore-field-spacing-ver994">
+/* Restore / Reconnect only: separate labels and their controls clearly. */
+.fm-restore-dialog .fm-dialog-body > label{display:flex!important;flex-direction:column!important;gap:9px!important;margin:0 0 23px!important;line-height:1.35!important}
+.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:20px!important}
+.fm-restore-dialog .fm-dialog-body > label > input,
+.fm-restore-dialog .fm-dialog-body > label > select{display:block!important;width:100%!important;box-sizing:border-box!important;margin:0!important;min-height:50px!important}
+.fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
+@media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
+</style>
+<script src="assets/js/wooten-fuel-monitor.js?v=994"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
