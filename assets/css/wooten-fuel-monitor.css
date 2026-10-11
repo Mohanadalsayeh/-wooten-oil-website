@@ -1362,3 +1362,18 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   #fuelMonitorRoot .fm-automatic-panel-content .fm949-explanation{margin-left:16px!important;margin-right:12px!important;}
   #fuelMonitorRoot .fm950-schedules .fm-schedule-add-row{padding-bottom:20px!important;}
 }
+
+/* Ver956: visual weekday selector, scoped exclusively to fuel schedule editor. */
+#fuelMonitorRoot .fm956-weekday-tiles{min-width:0;padding:12px 14px 14px;border:1px solid #d4e2ed;border-radius:12px;margin-top:16px}
+#fuelMonitorRoot .fm956-weekday-tiles legend{padding:0 6px;color:#173850;font-weight:700}
+#fuelMonitorRoot .fm956-weekday-tiles[hidden]{display:none!important}
+#fuelMonitorRoot .fm956-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+#fuelMonitorRoot .fm956-day{display:block;position:relative;min-width:0;cursor:pointer;margin:0}
+#fuelMonitorRoot .fm956-day input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#fuelMonitorRoot .fm956-day-content{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;min-height:66px;padding:10px 5px;border:1px solid #cbdbe8;background:#eef3f8;color:#294861;border-radius:10px;font-size:13px;font-weight:700;transition:background .15s,border-color .15s,color .15s}
+#fuelMonitorRoot .fm956-check{display:flex;align-items:center;justify-content:center;border-radius:50%;height:18px;width:18px;font-size:12px;color:white;background:#afc0d1}
+#fuelMonitorRoot .fm956-day input:checked+.fm956-day-content{background:#187be9;border-color:#187be9;color:#fff}
+#fuelMonitorRoot .fm956-day input:checked+.fm956-day-content .fm956-check{background:#fff;color:#187be9}
+#fuelMonitorRoot .fm956-day input:focus-visible+.fm956-day-content{outline:3px solid #174c7e;outline-offset:3px}
+#fuelMonitorRoot .fm956-day:hover .fm956-day-content{border-color:#187be9}
+@media(max-width:650px){#fuelMonitorRoot .fm956-days{gap:5px}#fuelMonitorRoot .fm956-weekday-tiles{padding:10px 7px}#fuelMonitorRoot .fm956-day-content{min-height:55px;padding:7px 2px;font-size:11px;gap:5px}}
