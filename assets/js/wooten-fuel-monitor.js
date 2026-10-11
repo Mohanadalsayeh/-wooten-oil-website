@@ -699,12 +699,30 @@ function openAutomaticReadingSchedule(id){
   #fuelMonitorRoot .fm949-schedule-info strong{display:block}
   #fuelMonitorRoot .fm949-schedule-info small{display:block;margin-top:4px}
   #fuelMonitorRoot .fm-schedule-add-row{margin:18px 0 12px!important;padding-left:10px}
+  #fuelMonitorRoot .fm962-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:center}
+  #fuelMonitorRoot .fm962-day{display:flex;justify-content:center;position:relative}
+  #fuelMonitorRoot .fm962-day input{position:absolute;opacity:0;pointer-events:none}
+  #fuelMonitorRoot .fm962-circle{width:42px;height:42px;border-radius:999px;border:1.5px solid #b8d0e3;background:#fff;color:#173850;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s ease}
+  #fuelMonitorRoot .fm962-day input:checked + .fm962-circle{background:#1d72e8;border-color:#1d72e8;color:#fff;box-shadow:0 2px 8px rgba(29,114,232,.18)}
+  #fuelMonitorRoot .fm962-day input:focus-visible + .fm962-circle{outline:2px solid #173850;outline-offset:2px}
+  #fuelMonitorRoot .fm950-editor .fm-inline-save{display:flex;justify-content:flex-end;gap:14px}
+  #fuelMonitorRoot .fm950-editor .fm-inline-save > button{min-width:160px}
   @media (max-width:780px){
     #fuelMonitorRoot .fm959-schedule-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:'icon info' 'actions actions';padding:13px 4px!important}
     #fuelMonitorRoot .fm949-schedule-icon{grid-area:icon}
     #fuelMonitorRoot .fm949-schedule-info{grid-area:info}
     #fuelMonitorRoot .fm949-schedule-actions{grid-area:actions;padding-left:54px}
     #fuelMonitorRoot .fm957-row-editor:not(:empty){padding:14px 8px!important}
+    #fuelMonitorRoot .fm950-editor{padding-left:0!important;padding-right:0!important}
+    #fuelMonitorRoot .fm950-inline-form{padding:0 2px!important}
+    #fuelMonitorRoot .fm950-inline-form .fm940-fields{display:grid;grid-template-columns:1fr!important;gap:16px}
+    #fuelMonitorRoot .fm950-inline-form .fm940-fields label{min-width:0}
+    #fuelMonitorRoot .fm940-weekdays{padding:14px 12px 12px!important}
+    #fuelMonitorRoot .fm940-weekdays legend{padding:0 8px!important}
+    #fuelMonitorRoot .fm962-days{gap:6px}
+    #fuelMonitorRoot .fm962-circle{width:38px;height:38px;font-size:12px}
+    #fuelMonitorRoot .fm950-editor .fm-inline-save{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    #fuelMonitorRoot .fm950-editor .fm-inline-save > button{width:100%;min-width:0}
   }
  `;document.head.appendChild(style);}
  const saved=l.auto_reading?.schedules||[];
@@ -731,7 +749,7 @@ function openAutomaticReadingSchedule(id){
   editor=nextId?middle.querySelector('[data-row-editor="'+CSS.escape(String(nextId))+'"]'):addEditor;
   editingId=nextId;inlineEdit.dirty=false;
   const legacyDates=s.repeat==='dates';
-  editor.innerHTML='<form class="fm-inline-form fm-automatic-reading fm950-inline-form"><h4>'+(s.id?'Edit schedule':'Add schedule')+'</h4><label class="fm-toggle"><input name="enabled" type="checkbox" '+(s.enabled?'checked':'')+'><span>Enabled</span></label><div class="fm940-fields"><label>Time (Central)<input name="send_time" type="time" required value="'+esc(s.time)+'"></label><label>Repeat<select name="repeat"><option value="daily">Daily</option><option value="weekly">Selected weekdays</option>'+(legacyDates?'<option value="dates">Existing selected dates</option>':'')+'</select></label><label>Schedule Action<select name="schedule_action"><option value="upload">Read & Upload Only</option><option value="send">Read, Upload & Send</option></select></label></div><fieldset class="fm940-weekdays fm956-weekday-tiles" hidden><legend>Select weekdays</legend><div class="fm956-days">'+labels.map((name,i)=>'<label class="fm956-day"><input type="checkbox" name="weekday" value="'+i+'" '+((s.days||[]).includes(i)?'checked':'')+'><span class="fm956-day-content"><span class="fm956-check" aria-hidden="true">✓</span><span>'+name.slice(0,3)+'</span></span></label>').join('')+'</div></fieldset>'+(legacyDates?'<p class="fm950-legacy-date-note">Existing dates are preserved when you save. Choose Daily or Selected weekdays to change the repeat type.</p>':'')+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" class="secondary" data-schedule-cancel>Cancel</button><button type="submit">Save schedule</button></div></form>';
+  editor.innerHTML='<form class="fm-inline-form fm-automatic-reading fm950-inline-form"><h4>'+(s.id?'Edit schedule':'Add schedule')+'</h4><label class="fm-toggle"><input name="enabled" type="checkbox" '+(s.enabled?'checked':'')+'><span>Enabled</span></label><div class="fm940-fields"><label>Time (Central)<input name="send_time" type="time" required value="'+esc(s.time)+'"></label><label>Repeat<select name="repeat"><option value="daily">Daily</option><option value="weekly">Selected weekdays</option>'+(legacyDates?'<option value="dates">Existing selected dates</option>':'')+'</select></label><label>Schedule Action<select name="schedule_action"><option value="upload">Read & Upload Only</option><option value="send">Read, Upload & Send</option></select></label></div><fieldset class="fm940-weekdays fm962-weekday-circles" hidden><legend>Select weekdays</legend><div class="fm962-days">'+labels.map((name,i)=>'<label class="fm962-day"><input type="checkbox" name="weekday" value="'+i+'" '+((s.days||[]).includes(i)?'checked':'')+'><span class="fm962-circle">'+(['Su','M','Tu','W','Th','F','Sa'][i])+'</span></label>').join('')+'</div></fieldset>'+(legacyDates?'<p class="fm950-legacy-date-note">Existing dates are preserved when you save. Choose Daily or Selected weekdays to change the repeat type.</p>':'')+'<p class="fm-inline-message" role="status"></p><div class="fm-inline-save"><button type="button" class="secondary" data-schedule-cancel>Cancel</button><button type="submit">Save schedule</button></div></form>';
   const form=editor.querySelector('form');form.elements.repeat.value=s.repeat;form.elements.schedule_action.value=s.action;
   const sync=()=>{form.querySelector('.fm940-weekdays').hidden=form.elements.repeat.value!=='weekly';};form.elements.repeat.onchange=sync;sync();
   const editingContainer=editor;
