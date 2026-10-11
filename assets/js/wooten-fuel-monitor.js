@@ -197,13 +197,32 @@
   }).join(''):'<div class="fm-empty">No locations yet. Add your first gas station to set up its tanks and monitoring.</div>';
   for(const card of root.querySelectorAll('.fm-location')){
    const footer=card.querySelector('.fm-station-actions');
-    const clone=document.createElement('button');clone.type='button';clone.className='secondary fm-clone-location';clone.dataset.cloneLocation=card.dataset.station;clone.textContent='Clone';
-    card.querySelector('.fm-station-header')?.append(clone);
+
    const actions=document.createElement('div');actions.className='fm-header-actions';
    for(const button of [...footer.querySelectorAll('[data-inline-section], [data-fuel-analytics]')])actions.append(button);
    const header=card.querySelector('.fm-station-header');
    const info=header.firstElementChild;info.classList.add('fm-location-info');
    header.append(actions);
+    // Location actions stay separate from the All Locations overview.
+    if(activeLocation!=='all'){
+      const edit=actions.querySelector('[data-inline-section="location"]');
+      if(edit){
+        const wrap=document.createElement('div');wrap.className='fm-edit-dropdown';
+        const trigger=document.createElement('button');trigger.type='button';trigger.className=edit.className+' fm-edit-dropdown-trigger';
+        trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-haspopup','true');
+        trigger.innerHTML=actionIcon('settings')+'Edit Location <span class="fm-edit-chevron" aria-hidden="true">⌄</span>';
+        const menu=document.createElement('div');menu.className='fm-edit-dropdown-menu';menu.hidden=true;
+        menu.innerHTML='<button type="button" data-inline-id="'+esc(card.dataset.station)+'" data-inline-section="location">'+actionIcon('settings')+'Edit Current Location</button>'+
+          '<button type="button" data-clone-location="'+esc(card.dataset.station)+'">'+actionIcon('settings')+'Clone to Another Location</button>';
+        trigger.addEventListener('click',()=>{
+          const opening=menu.hidden;
+          root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;m.parentElement?.querySelector('.fm-edit-dropdown-trigger')?.setAttribute('aria-expanded','false');});
+          menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
+        });
+        edit.replaceWith(wrap);wrap.append(trigger,menu);
+      }
+    }
+
    if(activeLocation!=='all'){
     const loc=locations.find(l=>String(l.id)===String(card.dataset.station));
     const page=card.querySelector('.fm-station-page'),gauges=page?.querySelector('.fm-tanks');
@@ -687,8 +706,8 @@ function openAutomaticReadingSchedule(id){
 async function cloneLocationSettings(id){
  const source=locations.find(l=>l.id===id),targets=locations.filter(l=>l.id!==id);
  if(!source||!targets.length){message('Add another location before cloning settings.',true);return;}
- const d=document.createElement('dialog');d.className='fm-dialog fm-remove-confirm';
- d.innerHTML='<form><header><h2>Clone Location Settings</h2><p>From '+esc(source.name)+'</p></header><div class="fm-dialog-body"><label>Copy to location<select name="target">'+targets.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('')+'</select></label><label><input type="checkbox" name="receivers" checked> Clone receiver phone numbers, emails, and delivery preferences</label><label><input type="checkbox" name="schedules" checked> Clone fuel reading schedules</label><label>Destination settings<select name="mode"><option value="append">Add, keeping existing settings</option><option value="replace">Replace selected settings</option></select></label><p>Never copies tanks, location identity, address, station phone, Veeder-Root settings, network details, collector keys, or reading history. Cloned schedules start disabled for review.</p><p role="status" class="fm-error"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Clone selected settings</button></footer></form>';
+ const d=document.createElement('dialog');d.className='fm-dialog fm-remove-confirm fm-clone-dialog';
+ d.innerHTML='<form><header><h2>Clone Location Settings</h2><p>From '+esc(source.name)+'</p></header><div class="fm-dialog-body"><label>Copy to location<select name="target">'+targets.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('')+'</select></label><div class="fm-clone-choices"><label class="fm-clone-option"><input type="checkbox" name="receivers" checked><span>Clone receiver phone numbers, emails, and delivery preferences</span></label><label class="fm-clone-option"><input type="checkbox" name="schedules" checked><span>Clone fuel reading schedules</span></label></div><label>Destination settings<select name="mode"><option value="append">Add, keeping existing settings</option><option value="replace">Replace selected settings</option></select></label><p>Never copies tanks, location identity, address, station phone, Veeder-Root settings, network details, collector keys, or reading history. Cloned schedules start disabled for review.</p><p role="status" class="fm-error"></p></div><footer><button type="button" class="secondary">Cancel</button><button type="submit">Clone selected settings</button></footer></form>';
  document.body.append(d);const close=()=>{d.close();d.remove();};d.querySelector('button[type=button]').onclick=close;
  d.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.target;if(!f.elements.receivers.checked&&!f.elements.schedules.checked){f.querySelector('[role=status]').textContent='Select something to clone.';return;}if(!confirm('Clone selected settings to the destination? '+(f.elements.mode.value==='replace'?'Selected existing settings will be replaced.':'Existing settings will remain.')))return;
   const submit=f.querySelector('[type=submit]');submit.disabled=true;try{await api({action:'clone_settings',id,target_id:f.elements.target.value,clone_receivers:f.elements.receivers.checked,clone_schedules:f.elements.schedules.checked,mode:f.elements.mode.value});close();await load();message('Selected settings cloned. Review the destination schedules before enabling.');}catch(err){f.querySelector('[role=status]').textContent=err.message;submit.disabled=false;}
@@ -713,6 +732,7 @@ root.addEventListener('click',e=>{
  }
 });
 
+  document.addEventListener('click',e=>{if(e.target.closest('.fm-edit-dropdown'))return;root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;m.parentElement?.querySelector('.fm-edit-dropdown-trigger')?.setAttribute('aria-expanded','false');});});
  root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.cloneLocation){await cloneLocationSettings(b.dataset.cloneLocation);return;}if(b.dataset.inlineSection){if(activeLocation==='all'){if(!leaveInline())return;activeLocation=b.dataset.inlineId;render();}openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();document.getElementById('fm-location-tab-'+activeLocation)?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  async function showDeletedLocations(){

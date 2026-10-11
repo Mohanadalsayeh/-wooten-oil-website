@@ -13465,6 +13465,7 @@ return env.ASSETS.fetch(request);
   async scheduled(controller, env, ctx) {
     ctx.waitUntil((async()=>{
       try{await FuelMonitor.sendScheduledReadings(env);}catch(error){console.error('Automatic fuel reading scheduler failed',error);}
+      if(new Date().getUTCMinutes()===17){try{await FuelMonitor.compactFuelHistory(env);}catch(error){console.error('Fuel history compaction failed; detailed data retained',error);}}
       await dispatchFuelMonitorAlerts(env);
     })());
     // Add this cron alongside the existing payment and hourly triggers.

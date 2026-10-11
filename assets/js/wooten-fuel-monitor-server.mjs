@@ -23,7 +23,10 @@ export async function ensure(env){
  `CREATE INDEX IF NOT EXISTS idx_fuel_monitor_schedule_items_location ON fuel_monitor_schedule_items(location_id)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_schedule_runs(schedule_id TEXT NOT NULL,local_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'queued',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(schedule_id,local_date))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_archived_schedules(id TEXT PRIMARY KEY,location_id TEXT NOT NULL,enabled INTEGER NOT NULL,repeat_type TEXT NOT NULL,days TEXT NOT NULL,dates TEXT NOT NULL,send_time TEXT NOT NULL,schedule_action TEXT NOT NULL,last_run_at TEXT,last_status TEXT,created_at TEXT)`,
- `CREATE TABLE IF NOT EXISTS fuel_monitor_schema_marks(mark TEXT PRIMARY KEY)`];
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_schema_marks(mark TEXT PRIMARY KEY)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_saved_snapshots(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,observed_at TEXT NOT NULL,volume REAL NOT NULL,water REAL,temperature REAL,schedule_id TEXT NOT NULL,PRIMARY KEY(location_id,tank_number,observed_at))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_hourly_usage(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,hour_key TEXT NOT NULL,gallons REAL NOT NULL DEFAULT 0,valid_intervals INTEGER NOT NULL DEFAULT 0,delivery_indicators INTEGER NOT NULL DEFAULT 0,excluded_drops INTEGER NOT NULL DEFAULT 0,sample_count INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(location_id,tank_number,hour_key))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_daily_usage(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,day TEXT NOT NULL,gallons REAL NOT NULL DEFAULT 0,valid_intervals INTEGER NOT NULL DEFAULT 0,delivery_indicators INTEGER NOT NULL DEFAULT 0,excluded_drops INTEGER NOT NULL DEFAULT 0,sample_count INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(location_id,tank_number,day))`];
  for(const s of sql)await env.DB.prepare(s).run();
  // Legacy single-time schedules are imported exactly once; subsequent edits cannot revive them.
  const migrated=await env.DB.prepare("INSERT INTO fuel_monitor_schema_marks(mark) VALUES('multi_schedule_v940') ON CONFLICT(mark) DO NOTHING RETURNING mark").first();
@@ -158,9 +161,8 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     const config=JSON.parse(location.config);
     const offset=Math.min(2000000,Math.max(0,Number(new URL(request.url).searchParams.get('offset')||0)||0));
     const limit=3000;
-    const rows=(await env.DB.prepare(`SELECT r.observed_at,r.tank_number,r.volume,d.water,d.temperature
-       FROM fuel_monitor_tank_readings r LEFT JOIN fuel_monitor_tank_reading_details d
-       ON d.location_id=r.location_id AND d.tank_number=r.tank_number AND d.observed_at=r.observed_at
+    const rows=(await env.DB.prepare(`SELECT r.observed_at,r.tank_number,r.volume,r.water,r.temperature
+       FROM (SELECT a.location_id,a.tank_number,a.observed_at,a.volume,b.water,b.temperature FROM fuel_monitor_tank_readings a LEFT JOIN fuel_monitor_tank_reading_details b ON b.location_id=a.location_id AND b.tank_number=a.tank_number AND b.observed_at=a.observed_at UNION ALL SELECT h.location_id,h.tank_number,h.observed_at,h.volume,h.water,h.temperature FROM fuel_monitor_saved_snapshots h WHERE NOT EXISTS (SELECT 1 FROM fuel_monitor_tank_readings d WHERE d.location_id=h.location_id AND d.tank_number=h.tank_number AND d.observed_at=h.observed_at)) r
        WHERE r.location_id=? ORDER BY r.observed_at ASC,r.tank_number ASC LIMIT ? OFFSET ?`)
        .bind(exportId,limit,offset).all()).results||[];
     return reply({success:true,location_name:config.name,location_id:exportId,interval:config.interval,tanks:config.tanks.map(t=>({number:t.number,fuel:t.fuel})),rows,next_offset:rows.length===limit?offset+limit:null});
@@ -195,7 +197,13 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
       SUM(CASE WHEN previous_volume IS NOT NULL AND previous_volume-volume > ? THEN 1 ELSE 0 END) AS excluded_drops,
       COUNT(*) AS sample_count
       FROM seq GROUP BY day ORDER BY day`).bind(analyticsId,Number(tank.number),cutoff,capacity*.25,Math.max(20,capacity*.01),capacity*.25).all()).results||[];
-     tanks.push({number:Number(tank.number),fuel:tank.fuel,capacity,days:rows});
+     // Pre-aggregated UTC days are immutable once their source detail is retired.
+     const summary=(await env.DB.prepare('SELECT day,gallons,valid_intervals,delivery_indicators,excluded_drops,sample_count FROM fuel_monitor_daily_usage WHERE location_id=? AND tank_number=? AND day>=? ORDER BY day').bind(analyticsId,Number(tank.number),cutoff.slice(0,10)).all()).results||[];
+     const combined=new Map(summary.map(r=>[r.day,r]));
+     for(const r of rows){const existing=combined.get(r.day);if(existing){ // A cleanup boundary day is owned by its finalized rollup.
+       continue;
+      }combined.set(r.day,r);}
+     tanks.push({number:Number(tank.number),fuel:tank.fuel,capacity,days:[...combined.values()].sort((a,b)=>String(a.day).localeCompare(String(b.day)))});
     }
     return reply({success:true,location_id:analyticsId,location_name:config.name,tanks,history_since:cutoff,method:'Inventory decreases over consecutive valid observations; apparent deliveries, gaps over 45 minutes, minor gauge noise and implausible drops are excluded. This is an estimate, not metered sales.'});
    }
@@ -587,6 +595,55 @@ export async function checkCollectorConnections(env,now=new Date()){
  return events;
 }
 
+// Retire at most one completed UTC calendar day per invocation, only AFTER durable
+// hourly/daily rollups are saved. Historical snapshots live in a separate table.
+// Never purge the current seven days or a day that cannot be summarized.
+export async function compactFuelHistory(env,now=new Date()){
+ await ensure(env);
+ const cutoff=new Date(now.getTime()-7*86400000).toISOString().slice(0,10);
+ const candidate=await env.DB.prepare("SELECT substr(observed_at,1,10) AS day FROM fuel_monitor_tank_readings WHERE observed_at<? ORDER BY observed_at LIMIT 1").bind(cutoff).first();
+ if(!candidate?.day||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(candidate.day))return {compacted:false};
+ const day=candidate.day;
+ const groups=(await env.DB.prepare("SELECT location_id,tank_number,COUNT(*) AS n FROM fuel_monitor_tank_readings WHERE observed_at>=? AND observed_at<? GROUP BY location_id,tank_number").bind(day,day+'T24:00:00').all()).results||[];
+ let finished=0;
+ for(const group of groups){
+  const loc=await env.DB.prepare('SELECT config FROM fuel_monitor_locations WHERE id=?').bind(group.location_id).first();
+  // Deleted locations have no current gauge configuration: retain their raw history.
+  if(!loc)continue;
+  const config=JSON.parse(loc.config),tank=(config.tanks||[]).find(t=>Number(t.number)===Number(group.tank_number));
+  if(!tank||!Number.isFinite(Number(tank.capacity))||Number(tank.capacity)<=0)continue;
+  const cap=Number(tank.capacity);
+  // An hour’s deltas only include consecutive readings at most 45 minutes apart.
+  const hourly=(await env.DB.prepare(`WITH seq AS (
+   SELECT observed_at,volume,LAG(volume) OVER (ORDER BY observed_at) previous_volume,
+    LAG(observed_at) OVER (ORDER BY observed_at) previous_at
+   FROM fuel_monitor_tank_readings WHERE location_id=? AND tank_number=? AND substr(observed_at,1,10)=?
+  ) SELECT substr(observed_at,1,13) AS hour_key,
+   ROUND(SUM(CASE WHEN previous_volume IS NOT NULL AND (julianday(observed_at)-julianday(previous_at))*1440 BETWEEN 0.01 AND 45
+    AND previous_volume-volume>=2 AND previous_volume-volume<=? THEN previous_volume-volume ELSE 0 END),1) gallons,
+   SUM(CASE WHEN previous_volume IS NOT NULL AND (julianday(observed_at)-julianday(previous_at))*1440 BETWEEN 0.01 AND 45 THEN 1 ELSE 0 END) valid_intervals,
+   SUM(CASE WHEN previous_volume IS NOT NULL AND volume-previous_volume>? THEN 1 ELSE 0 END) delivery_indicators,
+   SUM(CASE WHEN previous_volume IS NOT NULL AND previous_volume-volume>? THEN 1 ELSE 0 END) excluded_drops,
+   COUNT(*) sample_count FROM seq GROUP BY substr(observed_at,1,13) ORDER BY hour_key`)
+    .bind(group.location_id,Number(group.tank_number),day,cap*.25,Math.max(20,cap*.01),cap*.25).all()).results||[];
+  if(!hourly.length||hourly.reduce((n,h)=>n+Number(h.sample_count||0),0)!==Number(group.n))continue;
+  const jobs=hourly.map(h=>env.DB.prepare(`INSERT OR IGNORE INTO fuel_monitor_hourly_usage(location_id,tank_number,hour_key,gallons,valid_intervals,delivery_indicators,excluded_drops,sample_count) VALUES(?,?,?,?,?,?,?,?)`)
+   .bind(group.location_id,Number(group.tank_number),h.hour_key,Number(h.gallons||0),Number(h.valid_intervals||0),Number(h.delivery_indicators||0),Number(h.excluded_drops||0),Number(h.sample_count||0)));
+  const sum=k=>hourly.reduce((n,h)=>n+Number(h[k]||0),0);
+  jobs.push(env.DB.prepare('INSERT OR IGNORE INTO fuel_monitor_daily_usage(location_id,tank_number,day,gallons,valid_intervals,delivery_indicators,excluded_drops,sample_count) VALUES(?,?,?,?,?,?,?,?)')
+   .bind(group.location_id,Number(group.tank_number),day,Number(sum('gallons').toFixed(1)),sum('valid_intervals'),sum('delivery_indicators'),sum('excluded_drops'),sum('sample_count')));
+  await env.DB.batch(jobs);
+  const recorded=await env.DB.prepare('SELECT sample_count FROM fuel_monitor_daily_usage WHERE location_id=? AND tank_number=? AND day=?').bind(group.location_id,Number(group.tank_number),day).first();
+  if(Number(recorded?.sample_count)!==Number(group.n))continue;
+  // A successful rollup is mandatory before deleting associated detail.
+  await env.DB.batch([
+   env.DB.prepare('DELETE FROM fuel_monitor_tank_reading_details WHERE location_id=? AND tank_number=? AND substr(observed_at,1,10)=?').bind(group.location_id,Number(group.tank_number),day),
+   env.DB.prepare('DELETE FROM fuel_monitor_tank_readings WHERE location_id=? AND tank_number=? AND substr(observed_at,1,10)=?').bind(group.location_id,Number(group.tank_number),day)
+  ]);finished++;
+ }
+ return {compacted:finished>0,day,groups:finished};
+}
+
 export async function sendScheduledReadings(env,now=new Date()){
  await ensure(env);await checkCollectorConnections(env,now);
  const at=centralScheduleParts(now);
@@ -604,13 +661,17 @@ export async function sendScheduledReadings(env,now=new Date()){
    if(!config.enabled||!schedule.token_hash||schedule.error||!config.tanks?.length||!fresh){
     await env.DB.prepare('UPDATE fuel_monitor_schedule_items SET last_status=? WHERE id=?').bind('Waiting for a post-schedule collector reading',schedule.id).run();continue;
    }
-   if(schedule.action==='send'&&!(config.portal||config.email&&config.email_to||config.sms&&config.sms_to)){
+   if(schedule.schedule_action==='send'&&!(config.portal||config.email&&config.email_to||config.sms&&config.sms_to)){
     await env.DB.prepare('UPDATE fuel_monitor_schedule_items SET last_status=? WHERE id=?').bind('No delivery methods enabled',schedule.id).run();continue;
    }
    const claimed=await env.DB.prepare('INSERT INTO fuel_monitor_schedule_runs(schedule_id,local_date) VALUES(?,?) ON CONFLICT(schedule_id,local_date) DO NOTHING RETURNING schedule_id').bind(schedule.id,at.date).first();
    if(!claimed)continue;
    try{
     const jobs=[];
+    // Preserve each scheduled tank snapshot independently from seven-day raw retention.
+    for(const t of reading.tanks){if(!Number.isFinite(Number(t.volume)))continue;
+     jobs.push(env.DB.prepare('INSERT OR IGNORE INTO fuel_monitor_saved_snapshots(location_id,tank_number,observed_at,volume,water,temperature,schedule_id) VALUES(?,?,?,?,?,?,?)').bind(schedule.location_id,Number(t.number),reading.observed_at,Number(t.volume),t.water??null,t.temperature??null,schedule.id));
+    }
     if(schedule.schedule_action==='send'){
      const email=!!config.email&&!!String(config.email_to||'').trim(),sms=!!config.sms&&!!String(config.sms_to||'').trim();
      const message=allTankMessage(config,reading,{headline:`${config.name} — Automatic fuel reading`});
