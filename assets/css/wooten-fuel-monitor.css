@@ -1222,34 +1222,25 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 .fm-edit-dropdown-menu button:hover,.fm-edit-dropdown-menu button:focus-visible{background:#ecf4fb;color:#0e497a}
 @media(max-width:540px){.fm-edit-dropdown-menu{left:auto;right:0;min-width:min(270px,calc(100vw - 40px))}}
 
+/* Ver947: clear Edit Location dropdown, matching existing Wooten Oil portal colors. */
+#fuelMonitorRoot .fm-edit-dropdown{position:relative;z-index:80;min-width:0;isolation:isolate}
+#fuelMonitorRoot .fm-edit-dropdown-trigger{display:inline-flex!important;justify-content:center;align-items:center;gap:9px!important;white-space:nowrap!important;min-height:46px}
+#fuelMonitorRoot .fm-edit-dropdown-trigger .fm-edit-chevron{width:18px!important;height:18px!important;margin-left:9px;flex:0 0 18px;transition:transform .18s ease;stroke:currentColor}
+#fuelMonitorRoot .fm-edit-dropdown-trigger[aria-expanded=true]{border-color:#8fb3d0!important;background:#edf6fc!important;box-shadow:0 0 0 2px rgba(32,102,155,.10)!important}
+#fuelMonitorRoot .fm-edit-dropdown-trigger[aria-expanded=true] .fm-edit-chevron{transform:rotate(180deg)}
+#fuelMonitorRoot .fm-edit-dropdown-menu{top:calc(100% + 8px);min-width:285px;max-width:min(340px,calc(100vw - 32px));padding:7px!important;border:1.5px solid #90b2ce!important;border-radius:12px!important;background:#fff!important;box-shadow:0 16px 36px rgba(15,45,74,.23)!important;z-index:500!important}
+#fuelMonitorRoot .fm-edit-dropdown-menu[hidden]{display:none!important}
+#fuelMonitorRoot .fm-edit-dropdown-menu button{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:12px!important;min-height:49px!important;width:100%!important;padding:12px 13px!important;border:0!important;border-radius:8px!important;box-shadow:none!important;background:#fff!important;color:#173850!important;font-weight:650!important;text-align:left!important;line-height:1.35!important;white-space:normal!important}
+#fuelMonitorRoot .fm-edit-dropdown-menu button+button{border-top:1px solid #e2eaf2!important}
+#fuelMonitorRoot .fm-edit-dropdown-menu button:hover,#fuelMonitorRoot .fm-edit-dropdown-menu button:focus-visible{background:#eaf3fb!important;color:#124a76!important;outline:0}
+#fuelMonitorRoot .fm-edit-dropdown-menu button svg{flex:0 0 17px;width:17px;height:17px}
+@media(max-width:540px){#fuelMonitorRoot .fm-edit-dropdown{width:100%}#fuelMonitorRoot .fm-edit-dropdown-trigger{width:100%!important}#fuelMonitorRoot .fm-edit-dropdown-menu{min-width:min(285px,calc(100vw - 32px));left:auto;right:0}}
+@media(prefers-reduced-motion:reduce){#fuelMonitorRoot .fm-edit-dropdown-trigger .fm-edit-chevron{transition:none}}
 
-/* Ver944: keep station headers aligned consistently across locations on desktop. */
-@media(min-width:541px){
-  #fuelMonitorRoot .fm-station-header{
-    align-items:start;
-    grid-template-rows:auto auto;
-    min-height:146px;
-  }
-  #fuelMonitorRoot .fm-location-info{
-    grid-column:1;
-    grid-row:1 / 3;
-    align-self:start;
-    display:flex;
-    flex-direction:column;
-    justify-content:flex-start;
-    min-height:96px;
-  }
-  #fuelMonitorRoot .fm-station-status{
-    grid-column:2;
-    grid-row:1;
-    align-self:start;
-    justify-self:end;
-    margin-top:0;
-  }
-  #fuelMonitorRoot .fm-station-header .fm-header-actions{
-    grid-column:2;
-    grid-row:2;
-    align-self:start;
-    margin-top:0;
-  }
-}
+/* Ver948: match the existing portal controls for adding a fuel-reading schedule. */
+#fuelMonitorRoot .fm-automatic-panel-content .fm-schedule-add-row{display:flex;align-items:center;justify-content:flex-start;margin:12px 0 0;padding:0 0 2px;}
+#fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;width:auto!important;min-width:160px!important;min-height:44px!important;padding:10px 17px!important;margin:0!important;border:1px solid #bfd5e5!important;border-radius:10px!important;background:#edf6fc!important;color:#17476e!important;font:700 13px/1.2 Arial,sans-serif!important;white-space:nowrap!important;box-shadow:none!important;cursor:pointer;}
+#fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button svg{width:17px;height:17px;flex-shrink:0;}
+#fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button:hover:not(:disabled){background:#deedf8!important;border-color:#91bddc!important;}
+#fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button:focus-visible{outline:2px solid #21699b!important;outline-offset:3px;}
+@media(max-width:540px){#fuelMonitorRoot .fm-automatic-panel-content .fm-schedule-add-row{margin-top:10px;}#fuelMonitorRoot .fm-automatic-panel-content .fm-add-schedule-button{min-width:0!important;width:auto!important;}}
