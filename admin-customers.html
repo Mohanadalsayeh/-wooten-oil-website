@@ -5900,6 +5900,20 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
 #admin-tab-system-health .sh-alert-heading{border-top:1px solid #e0e9f0;padding-top:24px}.sh-alert-heading h3{margin:0 0 5px;color:#092f50}.sh-alert-count{font-weight:700;color:#526f86}.sh-alert-row{border:1px solid #dce6ef;border-radius:12px;padding:14px;margin:9px 0;display:flex;gap:12px;align-items:flex-start}.sh-alert-icon{font-weight:700;font-size:18px}.sh-alert-row.bad .sh-alert-icon{color:#c32932}.sh-alert-row.warn .sh-alert-icon{color:#b66b0a}.sh-alert-row.info .sh-alert-icon{color:#3974a7}.sh-alert-text{min-width:0;flex:1}.sh-alert-text strong{color:#092f50}.sh-alert-text p{color:#536d81;font-size:13px;margin:4px 0}.sh-alert-text small{color:#718499;font-size:12px}
 @media(max-width:650px){#admin-tab-system-health .sh-heading button{width:100%}}
 </style>
+
+<style id="fm987-edit-location-font-match">
+/* Keep the Edit Location dropdown trigger typography consistent with Veeder-Root connection. */
+#fuelMonitorRoot .fm-header-actions .fm-edit-dropdown-trigger,
+#fuelMonitorRoot .fm-header-actions .fm-edit-dropdown-trigger > span {
+  font-family:inherit!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  font-style:normal!important;
+  letter-spacing:normal!important;
+  line-height:1.35!important;
+  text-transform:none!important;
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -16668,6 +16682,35 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 #fuelMonitorRoot .fm977-card-head:focus-visible{outline:2px solid #5089b8;outline-offset:-3px}
 #fuelMonitorRoot .fm977-message{min-height:18px;line-height:1.5}
 @media(max-width:600px){#fuelMonitorRoot .fm977-section{padding:12px 10px}#fuelMonitorRoot .fm977-header,#fuelMonitorRoot .fm977-footer{display:flex;flex-direction:column;align-items:stretch;gap:10px}#fuelMonitorRoot .fm977-header button,#fuelMonitorRoot .fm977-footer button{width:100%;min-width:0;min-height:44px}#fuelMonitorRoot .fm977-controls{grid-template-columns:1fr;gap:8px}#fuelMonitorRoot .fm977-controls label[for="fm977Filter"]{grid-column:auto}#fuelMonitorRoot .fm977-controls label{grid-row:auto}#fuelMonitorRoot .fm977-controls select{grid-row:auto;font-size:13px}#fuelMonitorRoot .fm977-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#fuelMonitorRoot .fm977-card-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:flex-start;gap:10px;padding:12px 10px;min-height:auto!important}#fuelMonitorRoot .fm977-card-indicator{line-height:1;margin-top:2px}#fuelMonitorRoot .fm977-card-main{min-width:0}#fuelMonitorRoot .fm977-card-main strong{font-size:14px;line-height:1.35;word-break:break-word}#fuelMonitorRoot .fm977-card-main small{font-size:12px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;word-break:break-word}#fuelMonitorRoot .fm977-card-head > span:last-child{font-size:16px;line-height:1;margin-top:4px}#fuelMonitorRoot .fm977-detail-grid{grid-template-columns:1fr;gap:8px}}
+/* Ver986: Activity cards must grow with wrapped text on narrow iPhones.
+   Some shared portal button rules assign a fixed height; override those only here. */
+#admin-tab-fuel-monitor #fm977Cards .fm977-card{height:auto!important;min-height:0!important;max-height:none!important;overflow:hidden!important}
+#admin-tab-fuel-monitor #fm977Cards button.fm977-card-head{
+  height:auto!important;min-height:72px!important;max-height:none!important;
+  padding:13px 12px!important;line-height:normal!important;
+  white-space:normal!important;overflow:visible!important;
+  align-items:center!important;box-sizing:border-box!important;
+}
+#admin-tab-fuel-monitor #fm977Cards .fm977-card-main{
+  min-width:0!important;white-space:normal!important;overflow:visible!important;
+}
+#admin-tab-fuel-monitor #fm977Cards .fm977-card-main strong,
+#admin-tab-fuel-monitor #fm977Cards .fm977-card-main small{
+  position:static!important;white-space:normal!important;
+  overflow:visible!important;overflow-wrap:anywhere!important;
+  text-overflow:clip!important;height:auto!important;max-height:none!important;
+}
+#admin-tab-fuel-monitor #fm977Cards .fm977-card-main small{margin-top:3px!important;line-height:1.5!important}
+@media(max-width:600px){
+ #admin-tab-fuel-monitor #fm977Cards button.fm977-card-head{
+  display:grid!important;grid-template-columns:24px minmax(0,1fr) 18px!important;
+  column-gap:10px!important;align-items:center!important;
+  min-height:80px!important;padding:14px 12px!important;
+ }
+ #admin-tab-fuel-monitor #fm977Cards .fm977-card-indicator{align-self:center!important;margin:0!important}
+ #admin-tab-fuel-monitor #fm977Cards .fm977-card-main{align-self:center!important}
+ #admin-tab-fuel-monitor #fm977Cards .fm977-card-head>span:last-child{align-self:center!important;margin:0!important}
+}
 </style>
 <script id="fm977-script">
 (()=>{'use strict';
