@@ -16612,7 +16612,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script defer src="assets/js/wooten-update-notice.js?v=800"></script>
 <script src="assets/js/wooten-location-icons.js?v=819"></script>
-<script src="assets/js/wooten-fuel-monitor.js?v=981"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=983"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
@@ -19186,7 +19186,9 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #twilioRefreshLookupResults,
 #mas90HealthRefresh,
 #ptRefresh,
-#ptDetailRefresh{
+#ptDetailRefresh,
+#fmRefresh,
+#fm977Refresh{
   background:#35a96f!important;
   border-color:#35a96f!important;
   color:#fff!important;
@@ -19206,7 +19208,9 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #twilioRefreshLookupResults:not(:disabled):is(:hover,:focus-visible,:active),
 #mas90HealthRefresh:not(:disabled):is(:hover,:focus-visible,:active),
 #ptRefresh:not(:disabled):is(:hover,:focus-visible,:active),
-#ptDetailRefresh:not(:disabled):is(:hover,:focus-visible,:active){
+#ptDetailRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#fmRefresh:not(:disabled):is(:hover,:focus-visible,:active),
+#fm977Refresh:not(:disabled):is(:hover,:focus-visible,:active){
   background:#289960!important;
   border-color:#289960!important;
   color:#fff!important;
@@ -19225,7 +19229,9 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 #twilioRefreshLookupResults:disabled,
 #mas90HealthRefresh:disabled,
 #ptRefresh:disabled,
-#ptDetailRefresh:disabled{opacity:.55!important}
+#ptDetailRefresh:disabled,
+#fmRefresh:disabled,
+#fm977Refresh:disabled{opacity:.55!important}
 </style>
 <style id="wooten-table-action-vertical-spacing-ver371">
 /* Preserve breathing room between report text/status panels and table actions. */
