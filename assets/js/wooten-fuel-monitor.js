@@ -687,9 +687,28 @@ function openAutomaticReadingSchedule(id){
  const l=locations.find(x=>x.id===id),card=[...root.querySelectorAll('.fm-location')].find(x=>x.dataset.station===id);
  const panel=card?.querySelector('[data-auto-reading-panel]'),middle=panel?.querySelector('.fm-automatic-panel-content');
  if(!l||!middle)return;panel.open=true;inlineEdit={id,section:'auto_reading',dirty:false};
+ if(!document.getElementById('fm959-auto-reading-style')){const style=document.createElement('style');style.id='fm959-auto-reading-style';style.textContent=`
+  #fuelMonitorRoot .fm950-schedule-list{display:block}
+  #fuelMonitorRoot .fm957-schedule-item{border-top:1px solid #d8e6f1;padding:18px 0 0;margin:0}
+  #fuelMonitorRoot .fm957-schedule-item:first-child{border-top:0;padding-top:10px}
+  #fuelMonitorRoot .fm959-schedule-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start;border:0!important;border-radius:0!important;background:transparent!important;padding:0 10px 18px 10px;box-shadow:none!important}
+  #fuelMonitorRoot .fm957-row-editor{padding:0 10px 18px 54px}
+  #fuelMonitorRoot .fm957-row-editor:not(:empty){border-top:1px solid #d8e6f1;padding-top:18px;margin-top:4px}
+  #fuelMonitorRoot .fm949-schedule-actions{display:flex;gap:10px}
+  #fuelMonitorRoot .fm949-schedule-info strong{display:block}
+  #fuelMonitorRoot .fm949-schedule-info small{display:block;margin-top:6px}
+  #fuelMonitorRoot .fm-schedule-add-row{margin:26px 0 10px;padding-left:10px}
+  @media (max-width:780px){
+    #fuelMonitorRoot .fm959-schedule-row{grid-template-columns:auto 1fr;grid-template-areas:'icon info' 'actions actions';padding:0 0 16px 0}
+    #fuelMonitorRoot .fm949-schedule-icon{grid-area:icon}
+    #fuelMonitorRoot .fm949-schedule-info{grid-area:info}
+    #fuelMonitorRoot .fm949-schedule-actions{grid-area:actions;padding-left:54px}
+    #fuelMonitorRoot .fm957-row-editor{padding:0 0 18px 0}
+  }
+ `;document.head.appendChild(style);}
  const saved=l.auto_reading?.schedules||[];
  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
- const row=s=>'<div class="fm949-schedule-card"><div class="fm949-schedule-icon" aria-hidden="true">'+(s.action==='send'?actionIcon('send'):fuelScheduleIcon('save-data'))+'</div><div class="fm949-schedule-info"><strong>'+esc(s.time)+' CT</strong><span class="fm949-repeat">'+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'</span><div class="fm949-schedule-sub">'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · <span class="fm949-enabled '+(s.enabled?'is-on':'')+'">'+(s.enabled?'Enabled':'Disabled')+'</span></div><small>'+esc(s.last_status||'Not run yet')+'</small></div><div class="fm949-schedule-actions"><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div><div class="fm957-row-editor" data-row-editor="'+esc(s.id)+'"></div></div>';
+ const row=s=>'<div class="fm957-schedule-item" data-schedule-item="'+esc(s.id)+'"><div class="fm949-schedule-card fm959-schedule-row"><div class="fm949-schedule-icon" aria-hidden="true">'+(s.action==='send'?actionIcon('send'):fuelScheduleIcon('save-data'))+'</div><div class="fm949-schedule-info"><strong>'+esc(s.time)+' CT</strong><span class="fm949-repeat">'+esc(s.repeat==='dates'?'Selected dates':s.repeat==='daily'?'Daily':'Selected weekdays')+'</span><div class="fm949-schedule-sub">'+esc(s.action==='send'?'Read, Upload & Send':'Read & Upload Only')+' · <span class="fm949-enabled '+(s.enabled?'is-on':'')+'">'+(s.enabled?'Enabled':'Disabled')+'</span></div><small>'+esc(s.last_status||'Not run yet')+'</small></div><div class="fm949-schedule-actions"><button type="button" class="secondary" data-edit-schedule="'+esc(s.id)+'">Edit</button><button type="button" class="secondary" data-remove-schedule="'+esc(s.id)+'">Remove</button></div></div><div class="fm957-row-editor" data-row-editor="'+esc(s.id)+'"></div></div>';
  middle.innerHTML='<div class="fm940-schedules fm950-schedules"><p class="fm949-explanation">Each schedule waits for a fresh collector upload before its scheduled action runs.</p>'+
   (saved.length?'<div class="fm950-schedule-list">'+saved.map(row).join('')+'</div>':'<div class="fm950-empty">No schedules configured yet.</div>')+
   '<div class="fm-schedule-add-row"><button type="button" class="fm-add-schedule-button" data-new-schedule>'+actionIcon('plus')+'Add schedule</button></div></div><div class="fm940-editor fm950-editor"></div>';
@@ -720,8 +739,8 @@ function openAutomaticReadingSchedule(id){
    catch(err){form.querySelector('.fm-inline-message').textContent=err.message;inlineSaving=false;form.querySelector('[type=submit]').disabled=false;}
   };
  }
- middle.querySelectorAll('[data-new-schedule]').forEach(btn=>btn.onclick=()=>{edit();editor.scrollIntoView({behavior:'smooth',block:'nearest'});});
- middle.querySelectorAll('[data-edit-schedule]').forEach(btn=>btn.onclick=()=>{if(editingId===btn.dataset.editSchedule){if(inlineEdit.dirty&&!confirm('Discard unsaved schedule changes?'))return;editor.replaceChildren();editingId=null;inlineEdit.dirty=false;return;}edit(saved.find(s=>s.id===btn.dataset.editSchedule));});
+ middle.querySelectorAll('[data-new-schedule]').forEach(btn=>btn.onclick=()=>{edit();(editor||addEditor).scrollIntoView({behavior:'smooth',block:'nearest'});});
+ middle.querySelectorAll('[data-edit-schedule]').forEach(btn=>btn.onclick=()=>{if(editingId===btn.dataset.editSchedule){if(inlineEdit.dirty&&!confirm('Discard unsaved schedule changes?'))return;editor.replaceChildren();editingId=null;inlineEdit.dirty=false;return;}const target=saved.find(s=>String(s.id)===String(btn.dataset.editSchedule));edit(target);(editor||addEditor).scrollIntoView({behavior:'smooth',block:'nearest'});});
  middle.querySelectorAll('[data-remove-schedule]').forEach(btn=>btn.onclick=async()=>{
   const target=saved.find(s=>String(s.id)===btn.dataset.removeSchedule);if(!target)return;
   if(inlineEdit?.dirty&&!confirm('Discard unsaved schedule changes?'))return;
