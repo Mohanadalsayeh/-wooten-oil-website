@@ -167,6 +167,13 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     const period=['1','7','30'].includes(q.get('days'))?Number(q.get('days')):1;
     const cutoff=new Date(Date.now()-period*86400000).toISOString().slice(0,19).replace('T',' ');
     if(deliveryMode==='detail'){
+     const manualId=q.get('alert_id');
+     if(manualId!==null){
+      if(!/^[1-9]\d{0,15}$/.test(manualId))fail('Invalid manual delivery record.');
+      const a=await env.DB.prepare("SELECT id,created_at,portal,email_status,sms_status,email_detail,sms_detail,email_to,sms_to,level FROM fuel_monitor_alerts WHERE id=? AND level='reading' AND schedule_id IS NULL").bind(Number(manualId)).first();
+      if(!a)fail('Manual fuel delivery not found.',404);
+      return reply({success:true,delivery:{id:a.id,created_at:a.created_at,portal:!!a.portal,email:a.email_status,sms:a.sms_status,email_detail:a.email_detail||'',sms_detail:a.sms_detail||'',email_receivers:!!a.email_to,sms_receivers:!!a.sms_to},note:'Submitted indicates provider acceptance, not confirmed receipt.'});
+     }
      const sid=q.get('schedule_id')||'',localDate=q.get('date')||'';
      if(!/^[a-zA-Z0-9-]{1,90}$/.test(sid)||!/^\d{4}-\d{2}-\d{2}$/.test(localDate))fail('Invalid delivery activity record.');
      const run=await env.DB.prepare('SELECT schedule_id,local_date,created_at,status FROM fuel_monitor_schedule_runs WHERE schedule_id=? AND local_date=?').bind(sid,localDate).first();
@@ -177,16 +184,40 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     }
     const offset=Math.min(100000,Math.max(0,Number(q.get('offset'))||0));
     const filter=['all','success','issues'].includes(q.get('filter'))?q.get('filter'):'all';
-    const base=`FROM fuel_monitor_schedule_runs r LEFT JOIN fuel_monitor_schedule_items s ON s.id=r.schedule_id LEFT JOIN fuel_monitor_locations l ON l.id=s.location_id
+    // Combine scheduled runs and manually requested sends. Read only metadata; never copy or scan tank samples.
+    const union=`
+      SELECT 'scheduled' AS kind,r.schedule_id AS schedule_id,r.local_date AS local_date,r.created_at AS at,
+        r.status AS reading,s.schedule_action AS action,l.config AS config,
+        a.id AS alert_id,a.email_status AS email_status,a.sms_status AS sms_status,a.portal AS portal
+      FROM fuel_monitor_schedule_runs r
+      LEFT JOIN fuel_monitor_schedule_items s ON s.id=r.schedule_id
+      LEFT JOIN fuel_monitor_locations l ON l.id=s.location_id
       LEFT JOIN fuel_monitor_alerts a ON a.id=(SELECT z.id FROM fuel_monitor_alerts z WHERE z.schedule_id=r.schedule_id AND z.created_at>=datetime(r.created_at,'-1 minute') AND z.created_at<=datetime(r.created_at,'+15 minutes') ORDER BY z.id ASC LIMIT 1)
-      WHERE r.created_at>=?`;
-    const state=`CASE WHEN a.id IS NULL THEN 'unknown' WHEN lower(coalesce(a.email_status,'')) IN ('failed','partial','unknown') OR lower(coalesce(a.sms_status,'')) IN ('failed','partial','unknown') THEN 'issues' WHEN lower(coalesce(a.email_status,'')) IN ('pending','sending') OR lower(coalesce(a.sms_status,'')) IN ('pending','sending') THEN 'pending' ELSE 'success' END`;
-    const where=filter==='success'?` AND ${state}='success'`:filter==='issues'?` AND ${state} IN ('issues','pending','unknown')`:'';
-    const count=await env.DB.prepare(`SELECT COUNT(*) AS n ${base}${where}`).bind(cutoff).first();
-    const rows=(await env.DB.prepare(`SELECT r.schedule_id,r.local_date,r.created_at,r.status,s.send_time,s.schedule_action,l.config,
-        a.id AS alert_id,a.email_status,a.sms_status,a.portal,${state} AS outcome ${base}${where} ORDER BY r.created_at DESC,r.schedule_id DESC LIMIT 20 OFFSET ?`).bind(cutoff,offset).all()).results||[];
-    const items=rows.map(r=>{let config={};try{config=JSON.parse(r.config||'{}')}catch{}return {schedule_id:r.schedule_id,date:r.local_date,at:r.created_at,location:config.name||'Archived / unavailable location',time:r.send_time||'',action:r.schedule_action||'',status:r.outcome,email:r.email_status||'unknown',sms:r.sms_status||'unknown',reading:r.status||'queued',portal:r.alert_id?(r.portal?'saved':'off'):'unknown',has_delivery:!!r.alert_id};});
-    return reply({success:true,items,total:Number(count?.n||0),next_offset:offset+items.length<Number(count?.n||0)?offset+items.length:null,server_time:new Date().toISOString(),note:'Delivery activity includes scheduled runs only; inventory readings are not duplicated.'});
+      WHERE r.created_at>=?
+      UNION ALL
+      SELECT 'manual' AS kind,NULL AS schedule_id,NULL AS local_date,a.created_at AS at,
+        'sent' AS reading,'manual' AS action,l.config AS config,
+        a.id AS alert_id,a.email_status AS email_status,a.sms_status AS sms_status,a.portal AS portal
+      FROM fuel_monitor_alerts a
+      LEFT JOIN fuel_monitor_locations l ON l.id=a.location_id
+      WHERE a.created_at>=? AND a.level='reading' AND a.schedule_id IS NULL`;
+    const outcome=`CASE
+      WHEN kind='scheduled' AND action<>'send' THEN 'success'
+      WHEN alert_id IS NULL THEN 'unknown'
+      WHEN lower(coalesce(email_status,'')) IN ('failed','partial','unknown') OR lower(coalesce(sms_status,'')) IN ('failed','partial','unknown') THEN 'issues'
+      WHEN lower(coalesce(email_status,'')) IN ('pending','sending') OR lower(coalesce(sms_status,'')) IN ('pending','sending') THEN 'pending'
+      ELSE 'success' END`;
+    const filterCondition=filter==='success'?` WHERE outcome='success'`:filter==='issues'?` WHERE outcome IN ('issues','pending','unknown')`:'';
+    const derived=`FROM (SELECT u.*,${outcome} AS outcome FROM (${union}) u) v ${filterCondition}`;
+    const count=await env.DB.prepare(`SELECT COUNT(*) AS n ${derived}`).bind(cutoff,cutoff).first();
+    const rows=(await env.DB.prepare(`SELECT * ${derived} ORDER BY at DESC,alert_id DESC LIMIT 20 OFFSET ?`).bind(cutoff,cutoff,offset).all()).results||[];
+    const items=rows.map(r=>{let config={};try{config=JSON.parse(r.config||'{}')}catch{}return {
+      kind:r.kind,alert_id:r.alert_id||null,schedule_id:r.schedule_id||null,date:r.local_date||null,
+      at:r.at,location:config.name||'Archived / unavailable location',action:r.action||'',status:r.outcome,
+      email:r.email_status||'unknown',sms:r.sms_status||'unknown',reading:r.kind==='manual'?'sent':r.action==='send'?'saved':'saved',
+      portal:r.alert_id?(r.portal?'saved':'off'):'unknown',has_delivery:!!r.alert_id
+    };});
+    return reply({success:true,items,total:Number(count?.n||0),next_offset:offset+items.length<Number(count?.n||0)?offset+items.length:null,server_time:new Date().toISOString(),note:'Includes scheduled report runs and manual fuel-reading sends; no tank samples duplicated.'});
    }
    if(new URL(request.url).searchParams.get('delivery_health')==='1'){
     const schedules=(await env.DB.prepare(`SELECT s.id,s.location_id,s.enabled,s.days,s.dates,s.repeat_type,s.send_time,s.schedule_action,s.last_run_at,s.last_status,l.config,l.last_observed
