@@ -38,6 +38,7 @@ const removalPasswords=new WeakMap();
  const dialog=document.createElement('dialog');dialog.className='fm-dialog';document.body.append(dialog);
  window.matchMedia('(min-width:541px)').addEventListener('change',e=>{root.querySelectorAll('.fm-overview-details').forEach(details=>{details.open=e.matches;});});
  root.innerHTML='<div class="fm-heading"><div><div class="admin-page-label">Location Monitoring</div><h2>Locations & Fuel Monitoring</h2><p>Tank inventory, connection status, and fuel alerts across your stations.</p></div><div class="fm-actions"><button type="button" class="secondary" id="fmRefresh">Refresh</button><button type="button" id="fmAdd">Add location</button><button type="button" class="secondary fm-deleted-locations" id="fmRecovery" disabled aria-label="Deleted Locations (0)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M9 13h6M12 13v5m0 0-2.5-2.5M12 18l2.5-2.5"/></svg><span>Deleted Locations</span><span class="fm-deleted-count" id="fmDeletedCount">0</span></button></div></div><p id="fmMessage" role="status"></p><div id="fmLocationTabs" role="tablist" aria-label="Gas station locations"></div><div id="fmLocations" role="tabpanel" aria-label="Location tanks"></div><h3>Fuel Alert History</h3><p>Submitted means the email/SMS provider accepted the message; it does not confirm delivery. Latest 100 events.</p><div id="fmAlerts"></div><div id="fmAlertPagination" class="db-pagination fm-alert-pagination" hidden><div class="db-page-info" id="fmAlertPageInfo">Page 1 of 1</div><div class="db-numbered-pages" id="fmAlertPageNumbers" aria-label="Fuel alert pages"></div><div class="db-pagination-controls"><button class="secondary" id="fmAlertPrev" type="button">Previous</button><button class="secondary" id="fmAlertNext" type="button">Next</button></div></div>';
+ const recipientStyle=document.createElement('style');recipientStyle.textContent='.fm-recipient-disabled{opacity:.64;transition:opacity .15s ease}.fm-recipient-disabled .fm-recipient-row input,.fm-recipient-disabled .fm-recipient-add,.fm-recipient-disabled .fm-recipient-row button{background:#eff3f7!important;border-color:#d6e0e9!important;color:#8192a3!important;cursor:not-allowed!important}.fm-recipient-disabled .fm-recipient-row input{opacity:1!important;-webkit-text-fill-color:#8192a3!important}.fm-recipient-disabled .fm-recipient-add{box-shadow:none!important}';document.head.appendChild(recipientStyle);
  const message=(s,bad=false,kind='info')=>{const el=document.getElementById('fmMessage');if(!el)return;el.replaceChildren();el.className=bad?'fm-error fm-status-line':'fm-note fm-status-line';const type=bad?'error':kind;el.dataset.status=type;const shapes={info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',success:'<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>',warning:'<path d="M10.3 3.6a2 2 0 0 1 3.4 0l8 14a2 2 0 0 1-1.7 3H4a2 2 0 0 1-1.7-3z"/><path d="M12 9v4M12 17h.01"/>',error:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>'};const icon=document.createElement('span');icon.className='fm-status-icon';icon.setAttribute('aria-hidden','true');icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(shapes[type]||shapes.info)+'</svg>';const label=document.createElement('span');label.textContent=s;el.append(icon,label);};
  async function api(body){const token=key(),generation=epoch;const res=await fetch('/api/admin/fuel-monitor',{method:body?'POST':'GET',headers:{'X-Admin-Key':token,'Content-Type':'application/json'},cache:'no-store',...(body?{body:JSON.stringify(body)}:{})});const data=await res.json();if(token!==key()||generation!==epoch)throw Error('Admin session changed. Reopen Fuel Monitoring.');if(!res.ok||!data.success)throw Error(data.error||'Request failed.');return data;}
  function updateDeletedLocationButton(){
@@ -287,13 +288,25 @@ const removalPasswords=new WeakMap();
  function setupRecipients(form){
   form.querySelectorAll('.fm-recipients').forEach(group=>{
    const hidden=group.querySelector('input[type=hidden]'),rows=group.querySelector('.fm-recipient-rows'),type=group.dataset.recipientType;
+   const channel=hidden.name==='email_to'?'email':hidden.name==='sms_to'?'sms':'';
+   const toggleControl=channel?form.elements.namedItem(channel):null;
+   const addButton=group.querySelector('.fm-recipient-add');
+   const syncDisabled=()=>{
+    const disabled=!!(toggleControl && !toggleControl.checked);
+    group.classList.toggle('fm-recipient-disabled',disabled);
+    rows.querySelectorAll('input,button').forEach(el=>{el.disabled=disabled;});
+    if(addButton)addButton.disabled=disabled;
+   };
    const update=()=>{hidden.value=[...rows.querySelectorAll('input')].map(x=>x.value.trim()).filter(Boolean).join(', ');hidden.dispatchEvent(new Event('input',{bubbles:true}));};
-   const add=(value='')=>{const row=document.createElement('div');row.className='fm-recipient-row';row.innerHTML='<input type="'+type+'" aria-label="'+(type==='email'?'Alert email address':'Alert phone number')+'" '+(type==='tel'?'pattern="\\+[1-9][0-9]{7,14}" placeholder="+19015551234"':'placeholder="name@example.com"')+'><button type="button" class="secondary" aria-label="Remove recipient">×</button>';row.querySelector('input').value=value;row.querySelector('input').oninput=update;row.querySelector('button').onclick=()=>{row.remove();update();};rows.append(row);return row;};
+   const add=(value='')=>{const row=document.createElement('div');row.className='fm-recipient-row';row.innerHTML='<input type="'+type+'" aria-label="'+(type==='email'?'Alert email address':'Alert phone number')+'" '+(type==='tel'?'pattern="\\+[1-9][0-9]{7,14}" placeholder="+19015551234"':'placeholder="name@example.com"')+'><button type="button" class="secondary" aria-label="Remove recipient">×</button>';row.querySelector('input').value=value;row.querySelector('input').oninput=update;row.querySelector('button').onclick=()=>{row.remove();update();};rows.append(row);syncDisabled();return row;};
    (hidden.value.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean)).forEach(add);if(!rows.children.length)add();
-   group.querySelector('.fm-recipient-add').onclick=()=>{if(rows.children.length>=20)return;add().querySelector('input').focus();};
+   if(addButton)addButton.onclick=()=>{if(rows.children.length>=20)return;const row=add();const input=row.querySelector('input');if(input&&!input.disabled)input.focus();};
+   if(toggleControl)toggleControl.addEventListener('change',syncDisabled);
+   syncDisabled();
   });
  }
- const modelField=(value,listId)=>field('model','Monitor model',value,'text','required list="'+listId+'" autocomplete="off"')+'<datalist id="'+listId+'"><option value="TLS-350">Veeder-Root</option><option value="TLS-450PLUS">Veeder-Root</option><option value="TLS4">Veeder-Root</option><option value="TLS4B">Veeder-Root</option><option value="EVO 200">Franklin Fueling Systems</option><option value="EVO 400">Franklin Fueling Systems</option><option value="EVO 600">Franklin Fueling Systems</option><option value="EVO 6000">Franklin Fueling Systems</option><option value="EVO ONE">Franklin Fueling Systems</option></datalist>';
+ 
+const modelField=(value,listId)=>field('model','Monitor model',value,'text','required list="'+listId+'" autocomplete="off"')+'<datalist id="'+listId+'"><option value="TLS-350">Veeder-Root</option><option value="TLS-450PLUS">Veeder-Root</option><option value="TLS4">Veeder-Root</option><option value="TLS4B">Veeder-Root</option><option value="EVO 200">Franklin Fueling Systems</option><option value="EVO 400">Franklin Fueling Systems</option><option value="EVO 600">Franklin Fueling Systems</option><option value="EVO 6000">Franklin Fueling Systems</option><option value="EVO ONE">Franklin Fueling Systems</option></datalist>';
  const toggle=(name,label,on)=>'<label class="fm-toggle"><input type="checkbox" role="switch" name="'+name+'" '+(on?'checked':'')+'><span>'+label+'</span></label>';
  function unitField(name,label,value,unit,attrs){return '<label>'+label+'<span class="fm-unit-field"><span class="fm-unit-prefix">'+unit+'</span><input name="'+name+'" type="number" value="'+esc(value)+'" aria-label="'+label+' ('+unit+')" '+attrs+'></span></label>';}
  // Keep each threshold's actual fuel quantity unchanged when switching display units.
@@ -728,7 +741,7 @@ function openAutomaticReadingSchedule(id){
     #fuelMonitorRoot .fm950-editor .fm-inline-save > button{width:100%;min-width:0}
   }
  `;document.head.appendChild(style);}
- const saved=l.auto_reading?.schedules||[];
+ const saved=[...(l.auto_reading?.schedules||[])].sort((a,b)=>String(a.time||'').localeCompare(String(b.time||''),'en',{numeric:true})||String(a.id||'').localeCompare(String(b.id||'')));
  const labels=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
  const calendarOrder=[1,2,3,4,5,6,0];
  const scheduleDays=s=>{
