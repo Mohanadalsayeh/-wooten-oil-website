@@ -5,7 +5,28 @@
  const originalActionIcon=actionIcon;
   const saveDataIcon='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8l-4-4H6Z"/><path d="M8 4v6h8V4"/><path d="M12 13v5m-2-2 2 2 2-2"/></svg>';
   const fuelScheduleIcon=name=>name==='save-data'?saveDataIcon:originalActionIcon(name);
-const removalPasswords=new WeakMap();
+const mobileDropdownStyle=document.createElement('style');
+ mobileDropdownStyle.id='fm972-mobile-edit-dropdown';
+ mobileDropdownStyle.textContent=`
+ @media(max-width:540px){
+   #fuelMonitorRoot .fm-edit-dropdown{width:100%!important;min-width:0!important;max-width:100%!important}
+   #fuelMonitorRoot .fm-edit-dropdown-trigger{width:100%!important;min-width:0!important}
+   #fuelMonitorRoot .fm-edit-dropdown-menu{
+     box-sizing:border-box!important;
+     left:0!important;right:auto!important;
+     width:100%!important;min-width:0!important;max-width:100%!important;
+     top:calc(100% + 6px)!important;
+     overflow:hidden!important;margin:0!important;
+   }
+   #fuelMonitorRoot .fm-edit-dropdown-menu button{
+     width:100%!important;min-width:0!important;
+     overflow-wrap:break-word!important;word-break:normal!important;
+     padding:12px 10px!important;gap:9px!important;
+   }
+   #fuelMonitorRoot .fm-edit-dropdown-menu button span{min-width:0!important;overflow-wrap:break-word!important}
+ }`;
+ document.head.appendChild(mobileDropdownStyle);
+ const removalPasswords=new WeakMap();
  const key=()=>document.getElementById('adminKey')?.value.trim()||'';
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';

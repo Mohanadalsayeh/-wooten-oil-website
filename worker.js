@@ -13465,7 +13465,6 @@ return env.ASSETS.fetch(request);
   async scheduled(controller, env, ctx) {
     ctx.waitUntil((async()=>{
       try{await FuelMonitor.sendScheduledReadings(env);}catch(error){console.error('Automatic fuel reading scheduler failed',error);}
-      if(new Date().getUTCMinutes()===17){try{await FuelMonitor.compactFuelHistory(env);}catch(error){console.error('Fuel history compaction failed; detailed data retained',error);}}
       await dispatchFuelMonitorAlerts(env);
     })());
     // Add this cron alongside the existing payment and hourly triggers.
@@ -13736,7 +13735,9 @@ function fuelMonitorSmsContent(message,context={}){
     return fuel.replace(/\s*\([^)]*\)\s*/g,' ').trim()||'Tank';
   };
 
-  const heading=level==='critical'
+  const heading=level==='connection_lost'?'CONNECTION LOST'
+    :level==='connection_restored'?'CONNECTION RESTORED'
+    :level==='critical'
     ?'CRITICAL FUEL ALERT'
     :level==='low'
       ?'LOW FUEL ALERT'
@@ -13744,7 +13745,21 @@ function fuelMonitorSmsContent(message,context={}){
         ?'FUEL RECOVERED'
         :'FUEL READING';
 
-  const lines=[heading,location.name||'Location',''];
+  // Alert creation time (UTC in D1) displayed in the station's Central Time zone.
+  // Do not use the cached reading timestamp for connection-loss/recovery events.
+  const rawTime=String(alert.created_at||'').trim();
+  const isoTime=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(rawTime)
+    ?rawTime.replace(' ','T')+'Z':rawTime;
+  const eventTime=isoTime?new Date(isoTime):new Date(NaN);
+  let eventTimeText='';
+  if(Number.isFinite(eventTime.getTime())){
+    const pieces=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
+      timeZone:'America/Chicago',weekday:'short',month:'short',day:'numeric',
+      hour:'numeric',minute:'2-digit',hour12:true
+    }).formatToParts(eventTime).map(p=>[p.type,p.value]));
+    eventTimeText=`${pieces.weekday}, ${pieces.month} ${pieces.day} at ${pieces.hour}:${pieces.minute} ${pieces.dayPeriod}`;
+  }
+  const lines=[heading,location.name||'Location',...(eventTimeText?[eventTimeText]:[]),''];
 
   for(const tank of tanks){
     const r=readings.find(x=>Number(x.number)===Number(tank.number));
