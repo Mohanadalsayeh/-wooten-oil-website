@@ -323,12 +323,39 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
   }
-  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','schedule_remove','clone_settings','verify_connection_edit','reset_tanks','restore_location','reconnect_collector'].includes(action))fail('Unknown action.');
-  if(action==='restore_location'||action==='reconnect_collector'){
+  if(!['save','pair','delete','acknowledge','send_reading','schedule_save','schedule_remove','clone_settings','verify_connection_edit','reset_tanks','restore_location','reconnect_collector','purge_deleted_location'].includes(action))fail('Unknown action.');
+  if(action==='restore_location'||action==='reconnect_collector'||action==='purge_deleted_location'){
    if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('The Master Admin password is incorrect.',403);
    if(typeof auditStatement!=='function')fail('Admin tracking is unavailable.',503);
    const archived=await env.DB.prepare('SELECT * FROM fuel_monitor_deleted_locations WHERE id=?').bind(id).first();
    if(!archived)fail('Deleted location not found.',404);
+   if(action==='purge_deleted_location'){
+    if(b.confirmation!=='DELETE_PERMANENTLY')fail('Confirm permanent deletion.',400);
+    const archivedName=JSON.parse(archived.config).name;
+    const statements=[
+      env.DB.prepare('DELETE FROM fuel_monitor_tank_readings WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_tank_reading_details WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_alerts WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_schedules WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_scheduled_runs WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_schedule_runs WHERE schedule_id IN (SELECT id FROM fuel_monitor_schedule_items WHERE location_id=?)').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_schedule_items WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_archived_schedules WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_connection_states WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_saved_snapshots WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_hourly_usage WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_daily_usage WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_history WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_deleted_locations WHERE id=?').bind(id),
+      await auditStatement({action:'fuel_monitor_permanently_deleted',id,detail:`Permanently removed archived fuel location ${archivedName}`})
+    ];
+    // Preserve an existing collector alias after reassignment so PC2 continues working.
+    if(!archived.reassigned_to)statements.splice(statements.length-1,0,env.DB.prepare('DELETE FROM fuel_monitor_collector_aliases WHERE original_id=?').bind(id));
+    await env.DB.batch(statements);
+    return reply({success:true,deleted:true,id});
+   }
    if(archived.reassigned_to)fail('This collector was already reconnected to another location.',409);
    if(action==='restore_location'){
     if(await env.DB.prepare('SELECT id FROM fuel_monitor_locations WHERE id=?').bind(id).first())fail('A location with this ID already exists.',409);
