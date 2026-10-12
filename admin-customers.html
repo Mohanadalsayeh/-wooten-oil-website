@@ -21375,3 +21375,49 @@ render();
   .master-data-cleanup-dialog>.mas90-request-actions{padding:14px 16px 17px}
 }
 </style>
+
+
+<!-- Ver1029: mobile-only approved administration dashboard layout. -->
+<style id="wooten-mobile-admin-layout-ver1029">
+@media(max-width:720px){
+ body#wooten-admin-page{background:#eef5fb!important}
+ body#wooten-admin-page .wrap{padding:0 12px 28px!important}
+ body#wooten-admin-page .admin-mobile-bar{margin:0 -12px 0!important;min-height:72px!important;padding:calc(10px + env(safe-area-inset-top)) 17px 10px!important;background:linear-gradient(120deg,#0b2b4f,#123d68)!important;border:0!important;box-shadow:0 5px 16px #0c32501c!important;color:#fff!important}
+ body#wooten-admin-page .admin-mobile-menu-btn{order:2!important;border:1px solid #ffffff55!important;background:#ffffff18!important;color:white!important;border-radius:12px!important;font-size:13px!important}
+ body#wooten-admin-page .admin-mobile-title{order:1!important;color:#fff!important;font-size:0!important;display:flex!important;align-items:center!important;gap:10px!important;overflow:visible!important}
+ body#wooten-admin-page .admin-mobile-title::before{content:'WO';display:grid;place-items:center;flex:0 0 37px;width:37px;height:37px;background:#c8212c;border-radius:10px;color:white;font:900 15px Inter,'Segoe UI',Arial,sans-serif;letter-spacing:-.03em}
+ body#wooten-admin-page .admin-mobile-title::after{content:'WOOTEN OIL';font:900 19px Inter,'Segoe UI',Arial,sans-serif;letter-spacing:.025em;color:#fff}
+ body#wooten-admin-page .admin-content-heading{display:none!important}
+ body#wooten-admin-page #admin-tab-dashboard{padding:0!important;margin:0!important;overflow:visible!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-grid{display:flex!important;flex-direction:column!important;gap:12px!important;padding:0 0 18px!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-welcome{order:-3!important;display:block!important;margin:0 -12px 4px!important;padding:29px 23px 24px!important;border-radius:0!important;background:linear-gradient(135deg,#f7fbff,#e0edf8)!important;color:#102a51!important;box-shadow:none!important;border-bottom:1px solid #d8e4ef!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-welcome::before{content:'Good afternoon,';display:block;color:#5e7390;font-size:15px;font-weight:600;margin-bottom:7px}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-welcome h2{font-size:29px!important;line-height:1.15!important;color:#092750!important;font-weight:900!important;margin:0 0 12px!important;letter-spacing:-.035em!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-welcome p{color:#617895!important;font-size:15px!important;line-height:1.5!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-date{color:#617895!important;font-size:12px!important;margin-top:18px!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card{position:relative!important;display:grid!important;grid-template-columns:64px minmax(0,1fr) 25px!important;column-gap:14px!important;align-content:center!important;align-items:center!important;min-height:110px!important;padding:16px 13px!important;border:1px solid #e3eaf2!important;border-radius:17px!important;background:white!important;box-shadow:0 6px 20px #173c5d14!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card[hidden]{display:none!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card-icon{grid-column:1!important;grid-row:1/4!important;width:62px!important;height:62px!important;margin:0!important;border-radius:50%!important;background:#e7f2fc!important;color:#173e6a!important;display:grid!important;place-items:center!important;font-size:23px!important;font-weight:900!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card h3{grid-column:2!important;margin:0 0 5px!important;font:800 17px/1.25 Inter,'Segoe UI',Arial,sans-serif!important;color:#0a2752!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card p{grid-column:2!important;margin:0!important;color:#687d98!important;font-size:12.5px!important;line-height:1.42!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card .admin-dashboard-link{grid-column:3!important;grid-row:1/4!important;display:grid!important;place-items:center!important;width:25px!important;height:38px!important;font-size:0!important;line-height:0!important;color:#cf202d!important;overflow:hidden!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card .admin-dashboard-link::after{content:'›';font:400 36px/1 Arial,sans-serif!important;color:#d21727!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card .mas90-health-dashboard-state{grid-column:2!important;grid-row:auto!important;font-size:11px!important;color:#657994!important;margin-top:5px!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card:nth-child(2) .admin-dashboard-card-icon{background:#ffeded!important;color:#bb1e2c!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card:nth-child(4) .admin-dashboard-card-icon{background:#e5effa!important}
+ body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-card:nth-child(5) .admin-dashboard-card-icon{background:#fff3d9!important;color:#be7c0c!important}
+ body#wooten-admin-page #adminSidebar{width:min(90vw,350px)!important;background:#f0f5fb!important;padding:calc(14px + env(safe-area-inset-top)) 12px 0!important}
+ body#wooten-admin-page>#adminSidebar .admin-tabs{border:1px solid #e1e9f3!important;background:#fff!important;border-radius:19px!important;box-shadow:0 12px 32px #112c4a16!important}
+ body#wooten-admin-page>#adminSidebar .admin-sidebar-brand{color:#092e55!important;border-bottom:1px solid #e0e9f3!important;font-size:18px!important;letter-spacing:.035em!important}
+ body#wooten-admin-page>#adminSidebar .admin-tab{font-weight:800!important;font-size:15px!important;line-height:1.3!important;min-height:52px!important;border-radius:13px!important;letter-spacing:-.015em!important}
+ body#wooten-admin-page>#adminSidebar .admin-tab[aria-selected=true]{background:#e8f2fb!important;box-shadow:inset 4px 0 #d51d2b!important}
+ body#wooten-admin-page>#adminSidebar .admin-nav-group{font-size:11px!important;letter-spacing:.11em!important;color:#637d9c!important}
+}
+</style>
+<script id="wooten-mobile-admin-layout-ver1029-js">
+(function(){
+ var hour=(new Date()).getHours();
+ var greeting=hour<12?'Good morning,':hour<17?'Good afternoon,':'Good evening,';
+ var css=document.createElement('style');css.textContent='@media(max-width:720px){body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-welcome::before{content:"'+greeting+'"}}';document.head.appendChild(css);
+})();
+</script>
