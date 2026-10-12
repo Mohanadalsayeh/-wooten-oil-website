@@ -16149,7 +16149,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
        }
        badge.dataset.unreadCount=String(total);badge.dataset.notificationLoaded='true';badge.textContent=total>99?'99+':String(total);badge.hidden=!total;
        summary.textContent=data.partial?'Some notifications unavailable: '+(data.unavailable_sources||[]).map(k=>labels[k]||k).join(', '):total?total+' new items • '+items.length+' shown':items.length?'All caught up • '+items.length+' shown':'No notifications';
-       counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+l+'</button>').join('');
+       counts.innerHTML=[['tank','Tanks'],['profile','Profile'],['fuel','Fuel'],['applications','Applications'],['payment','Payments']].filter(([k])=>allowed(k==='applications'?'application':k)).map(([k,l])=>'<button type="button" class="admin-bell-count" data-bell-count="'+k+'" aria-label="'+l+' notifications"><strong>'+Number(data.counts?.[k]||0)+'</strong>'+(k==='applications'?'Apps':l)+'</button>').join('');
        render();if(data.partial&&!items.length)list.innerHTML='<div class="admin-bell-empty">Some notification categories could not be loaded. Tap Refresh to retry.</div>';
      }catch(e){if(controller===abort&&(!abort.signal.aborted||timedOut)&&token===key()){summary.textContent='Refresh failed — try again';if(!items.length)list.innerHTML='<div class="admin-bell-empty">'+esc(timedOut?'Notifications took too long to load. Check your connection and tap Refresh.':e.message||'Notifications could not be loaded.')+'</div>';}}
      finally{clearTimeout(timeout);if(controller===abort){flight=null;controller=null;refresh.disabled=false;refresh.classList.remove('is-loading');refresh.removeAttribute('aria-busy');more.disabled=false;more.textContent='Load More';}}
@@ -17921,6 +17921,44 @@ if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(ta
   }, true);
 })();
 </script>
+
+<style id="wooten-admin-bell-five-compact-categories-ver1046">
+/* Exactly five compact category tiles in the existing menu width. */
+body#wooten-admin-page #adminNotificationMenu .admin-bell-counts{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:4px!important;
+  padding:8px 9px!important;
+  min-width:0!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-count{
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  padding:7px 1px!important;
+  border-radius:9px!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  line-height:1.25!important;
+  white-space:nowrap!important;
+  text-align:center!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-count strong{
+  display:block!important;
+  font-size:16px!important;
+  font-weight:500!important;
+  line-height:1.25!important;
+  margin:0 0 2px!important;
+}
+@media(max-width:400px){
+  body#wooten-admin-page #adminNotificationMenu .admin-bell-counts{
+    gap:3px!important;padding:7px 6px!important;
+  }
+  body#wooten-admin-page #adminNotificationMenu .admin-bell-count{
+    font-size:9px!important;padding:6px 0!important;
+  }
+}
+</style>
 </body>
 
 </html>
