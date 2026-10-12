@@ -6009,6 +6009,25 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
  body#wooten-admin-page #statementCyclePeriods fieldset input[type=time] { box-sizing:border-box!important; width:100%!important; max-width:100%!important; min-width:0!important; margin-inline:0!important; }
 }
 </style>
+
+<style id="wooten-statement-cycle-vertical-center-ver1026">
+/* Vertically center cycle period field values inside the 52px controls, especially on iPhone Safari. */
+body#wooten-admin-page #statementCyclePeriods fieldset input:not([type=checkbox]):not([type=radio]),
+body#wooten-admin-page #statementCyclePeriods fieldset select {
+  height:52px!important;
+  min-height:52px!important;
+  max-height:52px!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
+  line-height:52px!important;
+}
+body#wooten-admin-page #statementCyclePeriods fieldset input[type=date]::-webkit-date-and-time-value,
+body#wooten-admin-page #statementCyclePeriods fieldset input[type=time]::-webkit-date-and-time-value {
+  min-height:52px!important;
+  display:flex!important;
+  align-items:center!important;
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
