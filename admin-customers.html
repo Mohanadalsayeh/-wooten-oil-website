@@ -17415,6 +17415,89 @@ if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(ta
  headingIds.forEach(init);
 })();
 </script>
+<script id="wooten-automatic-heading-loading-ver1021">
+(()=>{
+ // Observe the actual data-loading controls, including refreshes not initiated by clicking the heading.
+ // A control which starts out disabled (until first load) is not treated as an active request.
+ const pairs=[
+  ['shTitleRefresh','shRefresh'],
+  ['mas90HealthRefresh','mas90HealthRefresh'],
+  ['scheduleRefresh','scheduleRefresh'],
+  ['portalBackupRefresh','portalBackupRefresh'],
+  ['dbTitleRefresh','dbRefreshBtn','dbLoadBtn'],
+  ['livePaymentTitleRefresh','livePaymentRefreshBtn','livePaymentLoadBtn'],
+  ['invoiceDbTitleRefresh','invoiceDbRefresh','invoiceDbLoad'],
+  ['ptTitleRefresh','ptRefresh'],
+  ['adminFleetCardTitleRefresh','adminFleetCardRefresh'],
+  ['collectionsTitleRefresh','collectionsRefresh','collectionsApply']
+ ];
+ function watch(ids){
+  const heading=document.getElementById(ids[0]);
+  if(!heading)return;
+  const sources=ids.slice(1).map(id=>document.getElementById(id)).filter(Boolean);
+  const label=heading.querySelector('span[class$="-title-refresh-text"]');
+  if(!label)return;
+  const original=label.textContent.trim().replace(/(?:\.\.\.|…)+$/,'').trim();
+  // Remember the initial disabled state so unloaded tables do not animate indefinitely.
+  const states=sources.map(x=>({el:x,disabled:x.disabled,busy:x.getAttribute('aria-busy')==='true'}));
+  let automatic=false;
+  function paint(){
+   const headingBusy=heading.getAttribute('aria-busy')==='true';
+   const busy=automatic||headingBusy;
+   heading.classList.toggle('wooten-auto-loading',busy);
+   const wanted=original+(busy?'...':'');
+   if(label.textContent!==wanted)label.textContent=wanted;
+  }
+  function changed(){
+   let nowWorking=false,finished=false;
+   states.forEach(state=>{
+    const disabled=state.el.disabled;
+    const busy=state.el.getAttribute('aria-busy')==='true';
+    if((disabled&&!state.disabled)||(busy&&!state.busy))nowWorking=true;
+    if((!disabled&&state.disabled)||(!busy&&state.busy))finished=true;
+    state.disabled=disabled;state.busy=busy;
+   });
+   if(nowWorking)automatic=true;
+   if(finished&&!states.some(x=>x.busy||x.disabled))automatic=false;
+   // If the request stopped but a Load button remains permanently disabled, do not hold the animation.
+   if(finished&&!states.some(x=>x.busy) && !nowWorking)automatic=false;
+   paint();
+  }
+  sources.forEach(el=>new MutationObserver(changed).observe(el,{attributes:true,attributeFilter:['disabled','aria-busy']}));
+  new MutationObserver(paint).observe(heading,{attributes:true,attributeFilter:['aria-busy']});
+  paint();
+ }
+ pairs.forEach(watch);
+})();
+</script>
+<style id="wooten-automatic-heading-loading-style-ver1021">
+/* Same Option #2 two-arrow icon and animation for automatic refresh as for a manual click. */
+#admin-tab-system-health .wooten-auto-loading .sh-title-refresh-icon,
+#admin-tab-automation .wooten-auto-loading .mas90-title-refresh-icon,
+#documentSectionStatementRunReport .wooten-auto-loading .statement-title-refresh-icon,
+#admin-tab-backup .wooten-auto-loading .backup-title-refresh-icon,
+#admin-tab-database .wooten-auto-loading .db-title-refresh-icon,
+#admin-tab-payment-database .wooten-auto-loading .live-payment-title-refresh-icon,
+#admin-tab-invoice-database .wooten-auto-loading .invoice-title-refresh-icon,
+#admin-tab-payment-transactions .wooten-auto-loading .pt-title-refresh-icon,
+#adminFleetCardInventory .wooten-auto-loading .fleet-cards-title-refresh-icon,
+#admin-tab-collections .wooten-auto-loading .collections-title-refresh-icon{
+ animation:wootenSharedAutoSpin .85s linear infinite!important;
+}
+@keyframes wootenSharedAutoSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+ #admin-tab-system-health .wooten-auto-loading svg,
+ #admin-tab-automation .wooten-auto-loading svg,
+ #documentSectionStatementRunReport .wooten-auto-loading svg,
+ #admin-tab-backup .wooten-auto-loading svg,
+ #admin-tab-database .wooten-auto-loading svg,
+ #admin-tab-payment-database .wooten-auto-loading svg,
+ #admin-tab-invoice-database .wooten-auto-loading svg,
+ #admin-tab-payment-transactions .wooten-auto-loading svg,
+ #adminFleetCardInventory .wooten-auto-loading svg,
+ #admin-tab-collections .wooten-auto-loading svg{animation-duration:2.5s!important}
+}
+</style>
 </body>
 
 </html>
