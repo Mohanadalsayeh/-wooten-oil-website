@@ -17908,45 +17908,6 @@ if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(ta
  body#wooten-admin-page .mas90-remote-request-actions{grid-column:1/-1!important;grid-row:6!important;margin-top:12px!important}
 }
 </style>
-
-<style id="wooten-refresh-windows-1041">
-@keyframes wootenRefreshReliable1041{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90HealthRefresh,#scheduleRefresh,#portalBackupRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh) > svg[class*="refresh-icon"]{
-  transform-origin:50% 50%!important;transform-box:view-box!important;
-}
-body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90HealthRefresh,#scheduleRefresh,#portalBackupRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh]):is([aria-busy="true"],.is-refreshing,.sh-is-refreshing,.wooten-auto-loading,.wooten-refresh-spin-active,.wooten-refresh-manual-1041) > svg[class*="refresh-icon"]{
- animation:wootenRefreshReliable1041 .85s linear infinite!important;animation-play-state:running!important;
-}
-</style>
-<script id="wooten-refresh-windows-1041-script">
-(()=>{
- const ids=['fmRefresh','fm977Refresh','shTitleRefresh','mas90HealthRefresh','scheduleRefresh','portalBackupRefresh','dbTitleRefresh','livePaymentTitleRefresh','invoiceDbTitleRefresh','ptTitleRefresh','adminFleetCardTitleRefresh','collectionsTitleRefresh'];
- const wired=new WeakSet();
- function wire(button){
-  if(wired.has(button))return;wired.add(button);
-  // Capture the user's click without changing the original refresh handler.
-  // Keep the state visible briefly even if a fast request finishes between frames.
-  let started=0, minTimer=0;
-  button.addEventListener('click',()=>{
-   started=Date.now();
-   button.classList.add('wooten-refresh-manual-1041');
-   clearTimeout(minTimer);
-   minTimer=setTimeout(()=>{
-    if(button.getAttribute('aria-busy')==='true'||button.classList.contains('is-refreshing')||button.classList.contains('wooten-auto-loading'))return;
-    button.classList.remove('wooten-refresh-manual-1041');
-   },850);
-  },true);
-  const observer=new MutationObserver(()=>{
-   const busy=button.getAttribute('aria-busy')==='true'||button.classList.contains('is-refreshing')||button.classList.contains('wooten-auto-loading');
-   if(!busy&&Date.now()-started>=850)button.classList.remove('wooten-refresh-manual-1041');
-  });
-  observer.observe(button,{attributes:true,attributeFilter:['aria-busy','class']});
- }
- function scan(){for(const id of ids){const el=document.getElementById(id);if(el)wire(el)}}
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan,{once:true});else scan();
- const root=document.getElementById('fuelMonitorRoot');if(root)new MutationObserver(scan).observe(root,{childList:true,subtree:true});
-})();
-</script>
 </body>
 
 </html>
