@@ -21775,28 +21775,32 @@ body#wooten-admin-page #fm977Section #fm977Refresh .fm977-title-refresh-icon {
 }
 </style>
 
-<style id="wooten-admin-notification-viewport-height-ver1045">
-/* Shorten only the notifications dropdown; keep its header, filters and footer visible. */
+<style id="wooten-admin-notification-viewport-height-ver1047">
+/* Fill the usable space below the bell, stopping clear of the bottom edge. */
 body#wooten-admin-page #adminNotificationMenu:not([hidden]) {
   display:flex!important;
   flex-direction:column!important;
   box-sizing:border-box!important;
-  height:auto!important;
-  max-height:min(520px, calc(100dvh - 88px))!important;
+  height:calc(100dvh - 165px)!important;
+  max-height:calc(100dvh - 165px)!important;
+  min-height:0!important;
   overflow:hidden!important;
 }
 body#wooten-admin-page #adminNotificationMenu .admin-bell-list {
   flex:1 1 auto!important;
   min-height:0!important;
+  max-height:none!important;
   overflow-y:auto!important;
   overscroll-behavior:contain;
 }
 body#wooten-admin-page #adminNotificationMenu :is(.admin-bell-menu-head,.admin-bell-counts,.admin-bell-load-more,.admin-bell-footer){
   flex:0 0 auto!important;
 }
+/* On phones/tablets the menu is fixed 72px from the viewport top. */
 @media(max-width:1024px){
   body#wooten-admin-page #adminNotificationMenu:not([hidden]){
-    max-height:min(500px, calc(100dvh - 88px))!important;
+    height:calc(100dvh - 88px)!important;
+    max-height:calc(100dvh - 88px)!important;
   }
 }
 </style>
