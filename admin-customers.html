@@ -11921,6 +11921,24 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
     window.dispatchEvent(new CustomEvent("wooten-admin-page-open",{detail:{panel:activePanel}}));
   }
 
+  // The WOOTEN OIL mobile brand is a shortcut to the admin Overview page.
+  if(mobileTitle){
+    mobileTitle.setAttribute("role","button");
+    mobileTitle.setAttribute("tabindex","0");
+    mobileTitle.setAttribute("aria-label","Wooten Oil — Open admin Overview");
+    mobileTitle.setAttribute("title","Go to Overview");
+    const openOverview=()=>{
+      showAdminPage("dashboard");
+      window.scrollTo({top:0,behavior:"auto"});
+    };
+    mobileTitle.addEventListener("click",openOverview);
+    mobileTitle.addEventListener("keydown",event=>{
+      if(event.key==="Enter"||event.key===" "){
+        event.preventDefault();openOverview();
+      }
+    });
+  }
+
   tabs.forEach((tab,index)=>{
     tab.addEventListener("click",()=>showAdminPage(tab.dataset.adminTab));
     tab.addEventListener("keydown",e=>{
@@ -21387,6 +21405,8 @@ render();
  body#wooten-admin-page .admin-mobile-title{order:1!important;color:#fff!important;font-size:0!important;display:flex!important;align-items:center!important;gap:10px!important;overflow:visible!important}
  body#wooten-admin-page .admin-mobile-title::before{content:'WO';display:grid;place-items:center;flex:0 0 37px;width:37px;height:37px;background:#c8212c;border-radius:10px;color:white;font:900 15px Inter,'Segoe UI',Arial,sans-serif;letter-spacing:-.03em}
  body#wooten-admin-page .admin-mobile-title::after{content:'WOOTEN OIL';font:900 19px Inter,'Segoe UI',Arial,sans-serif;letter-spacing:.025em;color:#fff}
+ body#wooten-admin-page .admin-mobile-title[role=button]{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+ body#wooten-admin-page .admin-mobile-title[role=button]:focus-visible{outline:2px solid #fff;outline-offset:5px;border-radius:5px}
  body#wooten-admin-page .admin-content-heading{display:none!important}
  body#wooten-admin-page #admin-tab-dashboard{padding:0!important;margin:0!important;overflow:visible!important}
  body#wooten-admin-page #admin-tab-dashboard .admin-dashboard-grid{display:flex!important;flex-direction:column!important;gap:12px!important;padding:0 0 18px!important}
