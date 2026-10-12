@@ -17735,6 +17735,155 @@ if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(ta
  body#wooten-admin-page > #adminSidebar .admin-tab{font-size:15px!important;gap:9px!important;padding-inline:9px!important;}
 }
 </style>
+
+<style id="wooten-refresh-menu-unifier-ver1031">
+.wooten-refresh-title-shell{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;flex-wrap:wrap!important;width:100%!important;max-width:100%!important}
+#fmRefresh.wooten-title-text-only,
+#scheduleRefresh.wooten-title-text-only,
+#mas90HealthRefresh.wooten-title-text-only,
+#portalBackupRefresh.wooten-title-text-only,
+#shTitleRefresh.wooten-title-text-only,
+#dbTitleRefresh.wooten-title-text-only,
+#livePaymentTitleRefresh.wooten-title-text-only,
+#invoiceDbTitleRefresh.wooten-title-text-only,
+#ptTitleRefresh.wooten-title-text-only,
+#adminFleetCardTitleRefresh.wooten-title-text-only{display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:0!important;width:auto!important;min-width:0!important;max-width:calc(100% - 220px)!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#17324d!important;font:inherit!important;font-weight:inherit!important;letter-spacing:inherit!important;line-height:inherit!important;text-align:left!important;white-space:normal!important;transform:none!important;opacity:1!important;cursor:default!important;pointer-events:none!important;-webkit-tap-highlight-color:transparent!important;text-decoration:none!important}
+#fmRefresh.wooten-title-text-only:focus,
+#scheduleRefresh.wooten-title-text-only:focus,
+#mas90HealthRefresh.wooten-title-text-only:focus,
+#portalBackupRefresh.wooten-title-text-only:focus,
+#shTitleRefresh.wooten-title-text-only:focus,
+#dbTitleRefresh.wooten-title-text-only:focus,
+#livePaymentTitleRefresh.wooten-title-text-only:focus,
+#invoiceDbTitleRefresh.wooten-title-text-only:focus,
+#ptTitleRefresh.wooten-title-text-only:focus,
+#adminFleetCardTitleRefresh.wooten-title-text-only:focus{outline:0!important}
+#fmRefresh.wooten-title-text-only .fm-title-refresh-icon,
+#scheduleRefresh.wooten-title-text-only .statement-title-refresh-icon,
+#mas90HealthRefresh.wooten-title-text-only .mas90-title-refresh-icon,
+#portalBackupRefresh.wooten-title-text-only .backup-title-refresh-icon,
+#shTitleRefresh.wooten-title-text-only .sh-title-refresh-icon,
+#dbTitleRefresh.wooten-title-text-only .db-title-refresh-icon,
+#livePaymentTitleRefresh.wooten-title-text-only .live-payment-title-refresh-icon,
+#invoiceDbTitleRefresh.wooten-title-text-only .invoice-title-refresh-icon,
+#ptTitleRefresh.wooten-title-text-only .pt-title-refresh-icon,
+#adminFleetCardTitleRefresh.wooten-title-text-only .fleet-cards-title-refresh-icon{display:none!important}
+#fmRefresh.wooten-title-text-only .fm-title-refresh-text,
+#scheduleRefresh.wooten-title-text-only .statement-title-refresh-text,
+#mas90HealthRefresh.wooten-title-text-only .mas90-title-refresh-text,
+#portalBackupRefresh.wooten-title-text-only .backup-title-refresh-text,
+#shTitleRefresh.wooten-title-text-only .sh-title-refresh-text,
+#dbTitleRefresh.wooten-title-text-only .db-title-refresh-text,
+#livePaymentTitleRefresh.wooten-title-text-only .live-payment-title-refresh-text,
+#invoiceDbTitleRefresh.wooten-title-text-only .invoice-title-refresh-text,
+#ptTitleRefresh.wooten-title-text-only .pt-title-refresh-text,
+#adminFleetCardTitleRefresh.wooten-title-text-only .fleet-cards-title-refresh-text{text-decoration:none!important}
+.wooten-refresh-menu{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;max-width:100%}
+.wooten-refresh-menu-button{appearance:none;border:1px solid #1e63be;background:#1f6fd6;color:#fff;border-radius:10px;min-height:42px;height:42px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font:inherit;font-weight:800;letter-spacing:.01em;cursor:pointer;box-shadow:0 6px 18px rgba(31,111,214,.18);white-space:nowrap}
+.wooten-refresh-menu-button:hover,.wooten-refresh-menu-button:focus-visible{background:#185fb9;border-color:#185fb9}
+.wooten-refresh-menu-button:focus-visible{outline:2px solid rgba(31,111,214,.28);outline-offset:2px}
+.wooten-refresh-menu-button::before{content:'↻';font-size:17px;line-height:1}
+.wooten-refresh-menu-button::after{content:'▾';font-size:12px;line-height:1;opacity:.95}
+.wooten-refresh-menu.is-busy .wooten-refresh-menu-button{background:#245e87;border-color:#245e87;box-shadow:0 6px 18px rgba(36,94,135,.16)}
+.wooten-refresh-menu-panel{position:absolute;top:calc(100% + 8px);right:0;z-index:1400;display:none;min-width:210px;padding:8px;background:#fff;border:1px solid #d4e0ea;border-radius:12px;box-shadow:0 16px 42px rgba(16,43,69,.18)}
+.wooten-refresh-menu.is-open .wooten-refresh-menu-panel{display:block}
+.wooten-refresh-menu-item{appearance:none;width:100%;border:0;background:transparent;border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;color:#17324d;font:inherit;font-weight:700;cursor:pointer;text-align:left}
+.wooten-refresh-menu-item::before{content:'↻';font-size:16px;line-height:1;color:#1f6fd6}
+.wooten-refresh-menu-item:hover,.wooten-refresh-menu-item:focus-visible{background:#eef5ff;color:#17324d;outline:0}
+@media(max-width:680px){
+  .wooten-refresh-title-shell{align-items:flex-start}
+  #fmRefresh.wooten-title-text-only,
+  #scheduleRefresh.wooten-title-text-only,
+  #mas90HealthRefresh.wooten-title-text-only,
+  #portalBackupRefresh.wooten-title-text-only,
+  #shTitleRefresh.wooten-title-text-only,
+  #dbTitleRefresh.wooten-title-text-only,
+  #livePaymentTitleRefresh.wooten-title-text-only,
+  #invoiceDbTitleRefresh.wooten-title-text-only,
+  #ptTitleRefresh.wooten-title-text-only,
+  #adminFleetCardTitleRefresh.wooten-title-text-only{max-width:100%!important}
+  .wooten-refresh-menu{width:auto;align-self:flex-start}
+  .wooten-refresh-menu-panel{left:0;right:auto}
+}
+</style>
+
+<script id="wooten-refresh-menu-unifier-script-ver1031">
+(()=>{
+  const selectors=[
+    '#fmRefresh',
+    '#scheduleRefresh',
+    '#mas90HealthRefresh',
+    '#portalBackupRefresh',
+    '#shTitleRefresh',
+    '#dbTitleRefresh',
+    '#livePaymentTitleRefresh',
+    '#invoiceDbTitleRefresh',
+    '#ptTitleRefresh',
+    '#adminFleetCardTitleRefresh'
+  ];
+  const selectorText=selectors.join(',');
+  const titleTextSelector='[class$="-title-refresh-text"]';
+  function isBusy(btn){
+    if(!btn) return false;
+    return btn.getAttribute('aria-busy')==='true' || btn.classList.contains('is-refreshing') || btn.classList.contains('sh-is-refreshing');
+  }
+  function closeOpenMenus(except){
+    document.querySelectorAll('.wooten-refresh-menu.is-open').forEach(menu=>{ if(menu!==except){ menu.classList.remove('is-open'); const btn=menu.querySelector('.wooten-refresh-menu-button'); if(btn) btn.setAttribute('aria-expanded','false'); }});
+  }
+  function enhance(btn){
+    if(!btn || btn.dataset.wootenRefreshMenuApplied==='1') return;
+    const holder=btn.parentElement;
+    if(!holder) return;
+    btn.dataset.wootenRefreshMenuApplied='1';
+    btn.classList.add('wooten-title-text-only');
+    let shell=holder.querySelector(':scope > .wooten-refresh-title-shell');
+    if(!shell){
+      shell=document.createElement('div');
+      shell.className='wooten-refresh-title-shell';
+      holder.insertBefore(shell, btn);
+    }
+    shell.appendChild(btn);
+    const menu=document.createElement('div');
+    menu.className='wooten-refresh-menu';
+    menu.innerHTML='<button type="button" class="wooten-refresh-menu-button" aria-haspopup="menu" aria-expanded="false">Refresh Data</button><div class="wooten-refresh-menu-panel" role="menu"><button type="button" class="wooten-refresh-menu-item" role="menuitem">Refresh Data</button></div>';
+    shell.appendChild(menu);
+    const trigger=menu.querySelector('.wooten-refresh-menu-button');
+    const item=menu.querySelector('.wooten-refresh-menu-item');
+    const close=()=>{menu.classList.remove('is-open'); trigger.setAttribute('aria-expanded','false');};
+    trigger.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation(); const open=!menu.classList.contains('is-open'); closeOpenMenus(menu); menu.classList.toggle('is-open',open); trigger.setAttribute('aria-expanded',String(open));});
+    item.addEventListener('click',ev=>{ev.preventDefault(); close(); try{btn.click();}catch(_){}});
+    menu.addEventListener('keydown',ev=>{ if(ev.key==='Escape'){ close(); trigger.focus(); } });
+    const sync=()=>{
+      const busy=isBusy(btn);
+      menu.classList.toggle('is-busy',busy);
+      trigger.textContent=busy?'Refreshing...':'Refresh Data';
+      item.textContent=busy?'Refreshing...':'Refresh Data';
+    };
+    new MutationObserver(sync).observe(btn,{attributes:true,attributeFilter:['aria-busy','class','disabled']});
+    sync();
+  }
+  function scan(root=document){
+    root.querySelectorAll(selectorText).forEach(enhance);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>scan());
+  else scan();
+  const mo=new MutationObserver(muts=>{
+    for(const m of muts){
+      if(m.type==='childList'){
+        m.addedNodes.forEach(node=>{
+          if(node.nodeType!==1) return;
+          if(node.matches && node.matches(selectorText)) enhance(node);
+          if(node.querySelectorAll) scan(node);
+        });
+      }
+    }
+  });
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+  document.addEventListener('click',ev=>{ if(!ev.target.closest('.wooten-refresh-menu')) closeOpenMenus(); });
+  document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') closeOpenMenus(); });
+})();
+</script>
+
 </body>
 
 </html>
