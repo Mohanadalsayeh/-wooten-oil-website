@@ -17798,6 +17798,21 @@ if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(ta
  body#wooten-admin-page .mas90-remote-request-actions{grid-column:1!important;width:100%!important}
 }
 </style>
+
+<style id="wooten-mas90-mobile-heading-side-by-side-ver1035">
+/* Keep icon and both heading lines together; preserve full-width results below. */
+@media(max-width:720px){
+ body#wooten-admin-page .mas90-remote-request{display:grid!important;grid-template-columns:48px minmax(0,1fr)!important;column-gap:14px!important;row-gap:4px!important;align-items:start!important}
+ body#wooten-admin-page .mas90-remote-request-copy{display:contents!important}
+ body#wooten-admin-page .mas90-remote-request-icon{grid-column:1!important;grid-row:1 / span 2!important;align-self:start!important;margin:0!important}
+ body#wooten-admin-page .mas90-remote-request-kicker{grid-column:2!important;grid-row:1!important;min-width:0!important;align-self:end!important;margin:0!important}
+ body#wooten-admin-page .mas90-remote-request h3{grid-column:2!important;grid-row:2!important;min-width:0!important;width:100%!important;max-width:100%!important;align-self:start!important;margin:0!important;overflow-wrap:break-word!important}
+ body#wooten-admin-page .mas90-remote-request p{grid-column:1/-1!important;grid-row:3!important;margin-top:10px!important}
+ body#wooten-admin-page .mas90-remote-request-status{grid-column:1/-1!important;grid-row:4!important}
+ body#wooten-admin-page .mas90-remote-request-progress{grid-column:1/-1!important;grid-row:5!important}
+ body#wooten-admin-page .mas90-remote-request-actions{grid-column:1/-1!important;grid-row:6!important;margin-top:12px!important}
+}
+</style>
 </body>
 
 </html>
