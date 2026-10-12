@@ -12062,13 +12062,6 @@ prevBtn.addEventListener("click",()=>{if(page>1){page--;loadDatabase({silent:tru
     window.dispatchEvent(new CustomEvent("wooten-admin-page-open",{detail:{panel:activePanel}}));
   }
 
-  // The original sidebar brand remains a plain div with unchanged styling.
-  // Clicking it opens the existing Dashboard without creating a hyperlink.
-  document.querySelector("#adminSidebar .admin-sidebar-brand")?.addEventListener("click",()=>{
-    showAdminPage("dashboard");
-    window.scrollTo({top:0,behavior:"auto"});
-  });
-
   // The WOOTEN OIL mobile brand is a shortcut to the admin Overview page.
   if(mobileTitle){
     mobileTitle.setAttribute("role","button");
@@ -17915,6 +17908,19 @@ if(table)new MutationObserver(()=>{if(requested&&!working())sync();}).observe(ta
  body#wooten-admin-page .mas90-remote-request-actions{grid-column:1/-1!important;grid-row:6!important;margin-top:12px!important}
 }
 </style>
+<script id="wooten-sidebar-brand-dashboard-click-ver1044">
+/* Keep the Ver1040 logo's exact markup and styling. Use the existing Dashboard tab's click path. */
+(function(){
+  document.addEventListener('click', function(event){
+    var logo=event.target && event.target.closest && event.target.closest('#adminSidebar .admin-sidebar-brand');
+    if(!logo) return;
+    var dashboard=document.getElementById('admin-tab-btn-dashboard');
+    if(!dashboard) return;
+    dashboard.click();
+    window.scrollTo(0,0);
+  }, true);
+})();
+</script>
 </body>
 
 </html>
