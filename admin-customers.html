@@ -6088,6 +6088,66 @@ body#wooten-admin-page svg:is(.fm-title-refresh-icon,.fm977-title-refresh-icon,.
  }
 }
 </style>
+<style id="wooten-heading-spin-windows-ver1037">
+/* Keep the existing 18px icons. Use the same animation on Windows and mobile. */
+@keyframes wootenHeadingSpin1037{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+body#wooten-admin-page .wooten-refresh-spin-active > svg[class*="title-refresh-icon"]{
+ animation:wootenHeadingSpin1037 .9s linear infinite!important;
+ transform-origin:center center!important;
+ transform-box:fill-box!important;
+ will-change:transform;
+}
+body#wooten-admin-page .wooten-refresh-spin-active > svg.fm-title-refresh-icon,
+body#wooten-admin-page .wooten-refresh-spin-active > svg.fm977-title-refresh-icon{
+ animation:wootenHeadingSpin1037 .9s linear infinite!important;
+ transform-origin:center center!important;
+ transform-box:fill-box!important;
+}
+</style>
+<script id="wooten-heading-spin-windows-ver1037">
+(()=>{
+ const pairs=[
+  ['fmRefresh'],['fm977Refresh'],['shTitleRefresh','shRefresh'],
+  ['mas90HealthRefresh'],['scheduleRefresh'],['portalBackupRefresh'],
+  ['dbTitleRefresh','dbRefreshBtn','dbLoadBtn'],
+  ['livePaymentTitleRefresh','livePaymentRefreshBtn','livePaymentLoadBtn'],
+  ['invoiceDbTitleRefresh','invoiceDbRefresh','invoiceDbLoad'],
+  ['ptTitleRefresh','ptRefresh'],['adminFleetCardTitleRefresh','adminFleetCardRefresh'],
+  ['collectionsTitleRefresh','collectionsRefresh','collectionsApply']
+ ];
+ function attach(ids){
+  const title=document.getElementById(ids[0]);
+  if(!title||title.dataset.wootenSpin1037==='1')return;
+  const icon=title.querySelector('svg[class*="title-refresh-icon"]');
+  if(!icon)return;
+  title.dataset.wootenSpin1037='1';
+  const sources=ids.slice(1).map(id=>document.getElementById(id)).filter(Boolean);
+  const previous=new Map(sources.map(el=>[el,{disabled:el.disabled,busy:el.getAttribute('aria-busy')==='true'}]));
+  let detected=false;
+  function sync(){
+   let started=false,ended=false;
+   for(const el of sources){
+    const old=previous.get(el),now={disabled:el.disabled,busy:el.getAttribute('aria-busy')==='true'};
+    if((!old.disabled&&now.disabled)||(!old.busy&&now.busy))started=true;
+    if((old.disabled&&!now.disabled)||(old.busy&&!now.busy))ended=true;
+    previous.set(el,now);
+   }
+   if(started)detected=true;
+   if(ended&&!started)detected=false;
+   const active=title.getAttribute('aria-busy')==='true'||title.classList.contains('is-refreshing')||title.classList.contains('sh-is-refreshing')||title.classList.contains('wooten-auto-loading')||detected;
+   title.classList.toggle('wooten-refresh-spin-active',active);
+  }
+  new MutationObserver(sync).observe(title,{attributes:true,attributeFilter:['aria-busy','class']});
+  for(const el of sources)if(el!==title)new MutationObserver(sync).observe(el,{attributes:true,attributeFilter:['aria-busy','disabled']});
+  sync();
+ }
+ function scan(){pairs.forEach(attach)}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan,{once:true});else scan();
+ // The fuel-monitor header is inserted after page initialization.
+ const target=document.getElementById('fuelMonitorRoot');
+ if(target)new MutationObserver(scan).observe(target,{childList:true});
+})();
+</script>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
