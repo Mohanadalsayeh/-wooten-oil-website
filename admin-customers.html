@@ -6170,95 +6170,6 @@ body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90Health
   animation-play-state:running!important;transform-origin:center center!important;transform-box:view-box!important;
 }
 </style>
-<style id="wooten-primary-heading-alignment-ver1039">
-/* Consistent header hierarchy for admin sections; no functional changes. */
-body#wooten-admin-page .admin-tab-panel .admin-page-label,
-body#wooten-admin-page #fuelMonitorRoot .admin-page-label {
-  display:flex!important;
-  align-items:center!important;
-  gap:9px!important;
-  min-height:18px!important;
-  width:fit-content!important;
-  margin:0 0 12px!important;
-  padding:0!important;
-  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
-  font-size:12px!important;
-  font-weight:700!important;
-  line-height:18px!important;
-  letter-spacing:.065em!important;
-  text-transform:uppercase!important;
-}
-body#wooten-admin-page .admin-tab-panel .admin-page-label::before,
-body#wooten-admin-page #fuelMonitorRoot .admin-page-label::before{
-  width:7px!important;height:7px!important;
-  min-width:7px!important;flex:0 0 7px!important;
-  margin:0!important;
-}
-/* Main headings only, not nested report/table headings. */
-body#wooten-admin-page .admin-tab-panel :is(.documents-form-heading,.sh-heading,.fm-heading,.pt-heading,.mas90-health-heading,.collections-heading,.backup-heading) h2,
-body#wooten-admin-page .admin-tab-panel .admin-page-label + h2,
-body#wooten-admin-page .admin-tab-panel .admin-page-label + h3,
-body#wooten-admin-page #fuelMonitorRoot .fm-heading h2{
-  margin:0 0 12px!important;
-  padding:0!important;
-  color:#17324d!important;
-  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
-  font-size:26px!important;
-  font-weight:750!important;
-  font-style:normal!important;
-  line-height:1.25!important;
-  letter-spacing:-.02em!important;
-}
-/* Same typography across the existing twelve refresh titles. */
-body#wooten-admin-page :is(
- #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
- #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
- #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
-){
-  display:inline-flex!important;align-items:center!important;
-  justify-content:flex-start!important;
-  gap:11px!important;
-  margin:0!important;padding:0!important;
-  color:#17324d!important;
-  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
-  font-size:26px!important;
-  font-weight:750!important;
-  line-height:1.25!important;
-  letter-spacing:-.02em!important;
-  text-align:left!important;
-  white-space:normal!important;
-}
-body#wooten-admin-page :is(
- #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
- #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
- #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
-) > svg[class*="refresh-icon"]{
-  display:block!important;
-  box-sizing:border-box!important;
-  width:18px!important;height:18px!important;
-  min-width:18px!important;min-height:18px!important;
-  max-width:18px!important;max-height:18px!important;
-  flex:0 0 18px!important;
-  margin:0!important;
-  transform-origin:center center!important;
-}
-body#wooten-admin-page :is(
- #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
- #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
- #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
-) > span[class*="refresh-text"]{margin:0!important;padding:0!important;line-height:inherit!important;}
-@media(max-width:720px){
-  body#wooten-admin-page .admin-tab-panel :is(.documents-form-heading,.sh-heading,.fm-heading,.pt-heading,.mas90-health-heading,.collections-heading,.backup-heading) h2,
-  body#wooten-admin-page .admin-tab-panel .admin-page-label + h2,
-  body#wooten-admin-page .admin-tab-panel .admin-page-label + h3,
-  body#wooten-admin-page #fuelMonitorRoot .fm-heading h2{font-size:23px!important;}
-  body#wooten-admin-page :is(
-   #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
-   #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
-   #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
-  ){font-size:23px!important;gap:10px!important;}
-}
-</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -21705,4 +21616,110 @@ render();
 </script>
 
 
+<style id="wooten-primary-heading-alignment-ver1039">
+/* Consistent header hierarchy for admin sections; no functional changes. */
+body#wooten-admin-page .admin-tab-panel .admin-page-label,
+body#wooten-admin-page #fuelMonitorRoot .admin-page-label {
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-height:18px!important;
+  width:fit-content!important;
+  margin:0 0 12px!important;
+  padding:0!important;
+  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:18px!important;
+  letter-spacing:.065em!important;
+  text-transform:uppercase!important;
+}
+body#wooten-admin-page .admin-tab-panel .admin-page-label::before,
+body#wooten-admin-page #fuelMonitorRoot .admin-page-label::before{
+  width:7px!important;height:7px!important;
+  min-width:7px!important;flex:0 0 7px!important;
+  margin:0!important;
+}
+/* Main headings only, not nested report/table headings. */
+body#wooten-admin-page .admin-tab-panel :is(.documents-form-heading,.sh-heading,.fm-heading,.pt-heading,.mas90-health-heading,.collections-heading,.backup-heading) h2,
+body#wooten-admin-page .admin-tab-panel .admin-page-label + h2,
+body#wooten-admin-page .admin-tab-panel .admin-page-label + h3,
+body#wooten-admin-page #fuelMonitorRoot .fm-heading h2{
+  margin:0 0 12px!important;
+  padding:0!important;
+  color:#17324d!important;
+  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
+  font-size:26px!important;
+  font-weight:750!important;
+  font-style:normal!important;
+  line-height:1.25!important;
+  letter-spacing:-.02em!important;
+}
+/* Same typography across the existing twelve refresh titles. */
+body#wooten-admin-page :is(
+ #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
+ #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
+ #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
+){
+  display:inline-flex!important;align-items:center!important;
+  justify-content:flex-start!important;
+  gap:11px!important;
+  margin:0!important;padding:0!important;
+  color:#17324d!important;
+  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
+  font-size:26px!important;
+  font-weight:750!important;
+  line-height:1.25!important;
+  letter-spacing:-.02em!important;
+  text-align:left!important;
+  white-space:normal!important;
+}
+body#wooten-admin-page :is(
+ #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
+ #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
+ #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
+) > svg[class*="refresh-icon"]{
+  display:block!important;
+  box-sizing:border-box!important;
+  width:18px!important;height:18px!important;
+  min-width:18px!important;min-height:18px!important;
+  max-width:18px!important;max-height:18px!important;
+  flex:0 0 18px!important;
+  margin:0!important;
+  transform-origin:center center!important;
+}
+body#wooten-admin-page :is(
+ #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
+ #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
+ #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
+) > span[class*="refresh-text"]{margin:0!important;padding:0!important;line-height:inherit!important;}
+@media(max-width:720px){
+  body#wooten-admin-page .admin-tab-panel :is(.documents-form-heading,.sh-heading,.fm-heading,.pt-heading,.mas90-health-heading,.collections-heading,.backup-heading) h2,
+  body#wooten-admin-page .admin-tab-panel .admin-page-label + h2,
+  body#wooten-admin-page .admin-tab-panel .admin-page-label + h3,
+  body#wooten-admin-page #fuelMonitorRoot .fm-heading h2{font-size:23px!important;}
+  body#wooten-admin-page :is(
+   #fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,
+   #portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,
+   #invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh
+  ){font-size:23px!important;gap:10px!important;}
+}
+</style>
 
+<style id="wooten-refresh-exact-gap-ver1040">
+/* One true 10px icon-to-title gap, without competing inline icon margins. */
+body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,#portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh),
+body#wooten-admin-page #fuelMonitorRoot .fm-heading #fmRefresh.fm-title-refresh,
+body#wooten-admin-page #fm977Section #fm977Refresh.fm977-title-refresh {
+  column-gap:10px!important;gap:10px!important;
+}
+body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,#portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh) > svg,
+body#wooten-admin-page #fuelMonitorRoot .fm-heading #fmRefresh .fm-title-refresh-icon,
+body#wooten-admin-page #fm977Section #fm977Refresh .fm977-title-refresh-icon {
+  box-sizing:border-box!important;display:block!important;
+  width:18px!important;height:18px!important;min-width:18px!important;max-width:18px!important;
+  flex:0 0 18px!important;
+  margin:0!important;margin-left:0!important;margin-right:0!important;
+  padding:0!important;
+}
+</style>
