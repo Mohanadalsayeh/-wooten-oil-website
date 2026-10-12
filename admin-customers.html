@@ -6148,6 +6148,28 @@ body#wooten-admin-page .wooten-refresh-spin-active > svg.fm977-title-refresh-ico
  if(target)new MutationObserver(scan).observe(target,{childList:true});
 })();
 </script>
+<style id="wooten-heading-animation-fix-ver1038">
+/* Same compact icon treatment on Windows and iPhone. Retain each refresh action's existing handler. */
+body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90HealthRefresh,#scheduleRefresh,#portalBackupRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh) svg[class*="refresh-icon"]{
+  width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
+  max-width:18px!important;max-height:18px!important;flex:0 0 18px!important;
+  display:block!important;transform-origin:center center!important;transform-box:view-box!important;
+}
+body#wooten-admin-page #fuelMonitorRoot .fm-heading #fmRefresh .fm-title-refresh-icon{
+  width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
+  max-width:18px!important;max-height:18px!important;flex:0 0 18px!important;margin-right:9px!important;
+}
+body#wooten-admin-page #fuelMonitorRoot .fm-heading #fmRefresh:hover .fm-title-refresh-text,
+body#wooten-admin-page #fuelMonitorRoot .fm-heading #fmRefresh:focus-visible .fm-title-refresh-text{
+  text-decoration:none!important;text-decoration-line:none!important;
+}
+@keyframes wootenSpin1038{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90HealthRefresh,#scheduleRefresh,#portalBackupRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh):is([aria-busy="true"],.is-refreshing,.sh-is-refreshing,.wooten-auto-loading,.wooten-refresh-spin-active) svg[class*="refresh-icon"]{
+  animation-name:wootenSpin1038!important;animation-duration:0.95s!important;
+  animation-timing-function:linear!important;animation-iteration-count:infinite!important;
+  animation-play-state:running!important;transform-origin:center center!important;transform-box:view-box!important;
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -16895,7 +16917,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1020"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1038"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
