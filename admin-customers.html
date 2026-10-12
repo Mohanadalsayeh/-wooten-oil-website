@@ -6075,6 +6075,19 @@ body#wooten-admin-page svg:is(.fm-title-refresh-icon,.fm977-title-refresh-icon,.
  width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;max-width:18px!important;max-height:18px!important;flex:0 0 18px!important;
 }
 </style>
+<style id="wooten-mobile-refresh-heading-spacing-ver1036">
+/* Phone only: keep longer refresh headings clear of the description when ... wraps. */
+@media (max-width:720px){
+ body#wooten-admin-page :is(.fm-refresh-heading,.fm977-refresh-heading,.statement-refresh-heading,.mas90-refresh-heading,.backup-refresh-heading,.sh-refresh-heading,.db-clickable-refresh-heading,.live-payment-clickable-refresh-heading,.invoice-clickable-refresh-heading,.pt-clickable-refresh-heading,.fleet-cards-clickable-refresh-heading,.collections-clickable-refresh-heading){
+   margin-bottom:16px!important;
+   line-height:1.25!important;
+ }
+ body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#scheduleRefresh,#mas90HealthRefresh,#portalBackupRefresh,#shTitleRefresh,#dbTitleRefresh,#livePaymentTitleRefresh,#invoiceDbTitleRefresh,#ptTitleRefresh,#adminFleetCardTitleRefresh,#collectionsTitleRefresh){
+   font-size:.92em!important;
+   line-height:1.25!important;
+ }
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
