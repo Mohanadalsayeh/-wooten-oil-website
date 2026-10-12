@@ -5997,6 +5997,18 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
   }
 }
 </style>
+<style id="wooten-statement-cycle-mobile-width-ver1023">
+/* Width-only: contain cycle-period controls inside the fieldset's content area.
+   Keep native input height, dates, time values, and original vertical order. */
+@media (max-width:600px) {
+ body#wooten-admin-page #statementCyclePeriods fieldset { box-sizing:border-box!important; min-width:0!important; width:100%!important; max-width:100%!important; }
+ body#wooten-admin-page #statementCyclePeriods fieldset label { box-sizing:border-box!important; display:block!important; width:calc(100% - 18px)!important; min-width:0!important; max-width:calc(100% - 18px)!important; margin-left:0!important; margin-right:0!important; }
+ body#wooten-admin-page #statementCyclePeriods fieldset label > input:not([type=checkbox]):not([type=radio]),
+ body#wooten-admin-page #statementCyclePeriods fieldset label > select,
+ body#wooten-admin-page #statementCyclePeriods fieldset input[type=date],
+ body#wooten-admin-page #statementCyclePeriods fieldset input[type=time] { box-sizing:border-box!important; width:100%!important; max-width:100%!important; min-width:0!important; margin-inline:0!important; }
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -7647,7 +7659,7 @@ SOFTWARE.
 
 <section class="card admin-tab-panel" id="admin-tab-fuel-monitor" role="tabpanel" aria-labelledby="admin-tab-btn-fuel-monitor" data-admin-panel="fuel-monitor" hidden><div id="fuelMonitorRoot"></div>
 <section class="fm977-section" id="fm977Section" aria-label="Scheduled Report Activity">
- <div class="fm977-header"><div><h3>Scheduled Report Activity</h3><p>Scheduled reports and manual fuel-reading sends across all locations · Central Time</p></div><button type="button" class="secondary" id="fm977Refresh">Refresh</button></div>
+ <div class="fm977-header"><div><h3 class="fm977-refresh-heading"><button type="button" id="fm977Refresh" class="fm977-title-refresh" aria-label="Refresh Scheduled Report Activity" title="Refresh scheduled report activity"><svg class="fm977-title-refresh-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 9.5A8.5 8.5 0 0 0 5.1 6.1"/><path d="M5.1 2.8v3.3h3.3"/><path d="M3.5 14.5A8.5 8.5 0 0 0 18.9 17.9"/><path d="M18.9 21.2v-3.3h-3.3"/></svg><span class="fm977-title-refresh-text">Scheduled Report Activity</span></button></h3><p>Scheduled reports and manual fuel-reading sends across all locations · Central Time</p></div></div>
  <div class="fm977-stats" id="fm977Stats"></div>
  <div class="fm977-controls"><label for="fm977Range">Show activity</label><select id="fm977Range"><option value="1">24 Hours</option><option value="7">7 Days</option><option value="30">30 Days</option></select><label for="fm977Filter">Status</label><select id="fm977Filter"><option value="all">All</option><option value="success">Successful</option><option value="issues">Issues / Pending</option></select></div>
  <p id="fm977Message" class="fm977-message" role="status">Open Locations &amp; Fuel Monitoring to view activity.</p>
@@ -16824,6 +16836,100 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 @media(max-width:600px){#admin-tab-fuel-monitor .fm988-skeleton-row{min-height:80px;padding:14px 12px;gap:10px}#admin-tab-fuel-monitor .fm988-skeleton-title{width:65%}#admin-tab-fuel-monitor .fm988-skeleton-subtitle{width:92%}}
 @media(prefers-reduced-motion:reduce){#admin-tab-fuel-monitor .fm988-skeleton-bar{animation:none;background:#e4edf4}}
 </style>
+<style id="fm977-title-refresh-ver1024">
+#admin-tab-fuel-monitor #fuelMonitorRoot #fmMessage.fm-status-line{
+  display:flex!important;
+  align-items:flex-start!important;
+  gap:10px!important;
+  margin:14px 0 12px!important;
+}
+#admin-tab-fuel-monitor #fuelMonitorRoot #fmMessage.fm-status-line .fm-status-icon{
+  flex:0 0 18px!important;
+  width:18px!important;
+  height:18px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  margin-top:2px!important;
+}
+#admin-tab-fuel-monitor #fuelMonitorRoot #fmMessage.fm-status-line .fm-status-icon svg{
+  width:18px!important;
+  height:18px!important;
+  display:block!important;
+}
+#admin-tab-fuel-monitor #fuelMonitorRoot #fmMessage.fm-status-line > span:last-child{
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+#admin-tab-fuel-monitor #fm977Section .fm977-refresh-heading{margin:0!important;}
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh.fm977-title-refresh,
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh.fm977-title-refresh:is(:hover,:focus,:focus-visible,:active,:disabled){
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:12px!important;
+  vertical-align:middle!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#17324d!important;
+  box-shadow:none!important;
+  font:inherit!important;
+  font-weight:inherit!important;
+  letter-spacing:inherit!important;
+  line-height:inherit!important;
+  text-align:left!important;
+  white-space:normal!important;
+  transform:none!important;
+  opacity:1!important;
+  cursor:pointer!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh:disabled{cursor:default!important;}
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh .fm977-title-refresh-text{
+  display:inline!important;
+  color:inherit!important;
+  font:inherit!important;
+  text-decoration:none!important;
+  overflow-wrap:normal!important;
+}
+@media(hover:hover) and (pointer:fine){
+  #admin-tab-fuel-monitor #fm977Section #fm977Refresh:hover:not(:disabled) .fm977-title-refresh-text{
+    text-decoration:underline!important;
+    text-underline-offset:3px!important;
+  }
+}
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh:focus-visible{
+  outline:2px solid #417fa8!important;
+  outline-offset:4px!important;
+  border-radius:3px!important;
+}
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh .fm977-title-refresh-icon{
+  width:24px!important;
+  height:24px!important;
+  min-width:24px!important;
+  flex:0 0 24px!important;
+  display:block!important;
+  color:#245e87!important;
+  transform-origin:center!important;
+}
+#admin-tab-fuel-monitor #fm977Section #fm977Refresh[aria-busy="true"] .fm977-title-refresh-icon{
+  animation:fm977TitleRefreshSpin .85s linear infinite!important;
+}
+@keyframes fm977TitleRefreshSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  #admin-tab-fuel-monitor #fm977Section #fm977Refresh[aria-busy="true"] .fm977-title-refresh-icon{
+    animation-duration:2.5s!important;
+  }
+}
+</style>
 <script id="fm977-script">
 (()=>{'use strict';
 const get=id=>document.getElementById(id),panel=get('admin-tab-fuel-monitor');if(!panel)return;
@@ -16850,7 +16956,7 @@ function showSkeleton(more=false){
  cards.setAttribute('aria-busy','true');
 }
 function clearSkeleton(){const cards=get('fm977Cards');if(!cards)return;cards.removeAttribute('aria-busy');cards.querySelectorAll('.fm988-skeleton-row').forEach(node=>node.remove());}
-async function load(more=false){if(working)return;if(!key()){get('fm977Message').textContent='Admin authentication is needed. Sign in and select Fuel Monitoring Activity again.';return;}working=true;const refreshButton=get('fm977Refresh'),moreButton=get('fm977More');if(refreshButton){refreshButton.disabled=true;refreshButton.textContent='Refreshing...';refreshButton.setAttribute('aria-busy','true');}if(moreButton)moreButton.disabled=true;if(!more){offset=0;items=[];}showSkeleton(more);get('fm977Message').textContent='Loading fuel report activity…';try{const q=new URLSearchParams({delivery_activity:'list',days:get('fm977Range').value,filter:get('fm977Filter').value,offset:String(offset)});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Activity unavailable');items=more?items.concat(d.items||[]):(d.items||[]);next=d.next_offset??null;loadedTotal=Number(d.total)||0;offset=next??(offset+((d.items||[]).length));loaded=true;lastLoadError=false;clearSkeleton();render();get('fm977Stats').innerHTML=[['Displayed',items.length],['Pending',items.filter(x=>x.status==='pending').length],['Issues',items.filter(x=>x.status==='issues').length]].map(([label,n])=>`<div class="fm977-stat"><strong>${n}</strong><span>${label}</span></div>`).join('');get('fm977Message').textContent=items.length?'Recent scheduled reports and manual sends. Details load on demand.':'No scheduled reports or manual sends in this date range. This view does not list five-minute collector uploads. Try 7 or 30 Days.';}catch(e){lastLoadError=true;clearSkeleton();if(!more)get('fm977Cards').replaceChildren();get('fm977Message').textContent='Unable to load scheduled activity: '+(e.message||'Request failed')+'. Check that the Ver977+ fuel monitoring server module is deployed. You can retry with Refresh.';}finally{working=false;if(refreshButton){refreshButton.disabled=false;refreshButton.textContent='Refresh';refreshButton.removeAttribute('aria-busy');}if(moreButton)moreButton.disabled=false;}}
+async function load(more=false){if(working)return;if(!key()){get('fm977Message').textContent='Admin authentication is needed. Sign in and select Fuel Monitoring Activity again.';return;}working=true;const refreshButton=get('fm977Refresh'),moreButton=get('fm977More');const setRefreshHeading=busy=>{if(!refreshButton)return;refreshButton.disabled=!!busy;refreshButton.setAttribute('aria-busy',busy?'true':'false');refreshButton.classList.toggle('is-refreshing',!!busy);const label=refreshButton.querySelector('.fm977-title-refresh-text');if(label)label.textContent=busy?'Scheduled Report Activity...':'Scheduled Report Activity';};setRefreshHeading(true);if(moreButton)moreButton.disabled=true;if(!more){offset=0;items=[];}showSkeleton(more);get('fm977Message').textContent='Loading fuel report activity…';try{const q=new URLSearchParams({delivery_activity:'list',days:get('fm977Range').value,filter:get('fm977Filter').value,offset:String(offset)});const r=await fetch('/api/admin/fuel-monitor?'+q,{headers:{'X-Admin-Key':key()},cache:'no-store'});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'Activity unavailable');items=more?items.concat(d.items||[]):(d.items||[]);next=d.next_offset??null;loadedTotal=Number(d.total)||0;offset=next??(offset+((d.items||[]).length));loaded=true;lastLoadError=false;clearSkeleton();render();get('fm977Stats').innerHTML=[['Displayed',items.length],['Pending',items.filter(x=>x.status==='pending').length],['Issues',items.filter(x=>x.status==='issues').length]].map(([label,n])=>`<div class="fm977-stat"><strong>${n}</strong><span>${label}</span></div>`).join('');get('fm977Message').textContent=items.length?'Recent scheduled reports and manual sends. Details load on demand.':'No scheduled reports or manual sends in this date range. This view does not list five-minute collector uploads. Try 7 or 30 Days.';}catch(e){lastLoadError=true;clearSkeleton();if(!more)get('fm977Cards').replaceChildren();get('fm977Message').textContent='Unable to load scheduled activity: '+(e.message||'Request failed')+'. Check that the Ver977+ fuel monitoring server module is deployed. You can retry with Refresh.';}finally{working=false;setRefreshHeading(false);if(moreButton)moreButton.disabled=false;}}
 get('fm977Refresh')?.addEventListener('click',()=>load());get('fm977More')?.addEventListener('click',()=>{if(next!==null)load(true)});['fm977Range','fm977Filter'].forEach(id=>get(id)?.addEventListener('change',()=>load()));
 window.addEventListener('wooten:fuel-activity-tab',()=>{mountActivity();if(!loaded||lastLoadError)load()});
 window.addEventListener('wooten-admin-auth-changed',()=>{loaded=false;lastLoadError=false;items=[];next=null;offset=0;get('fm977Cards').replaceChildren();get('fm977Stats').replaceChildren();get('fm977Message').textContent='Select this tab to load scheduled activity.';});
