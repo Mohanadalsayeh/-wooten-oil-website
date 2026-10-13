@@ -32,8 +32,9 @@ const mobileDropdownStyle=document.createElement('style');
  draftTankStyle.id='fm1060-draft-tank-close';
  draftTankStyle.textContent=`
  #fuelMonitorRoot .fm-tank-editor, .fm-dialog .fm-tank-editor{position:relative}
+ #fuelMonitorRoot .fm-tank-editor[data-unsaved-tank="true"], .fm-dialog .fm-tank-editor[data-unsaved-tank="true"]{padding-top:58px!important}
  #fuelMonitorRoot .fm-tank-editor .fm-tank-close, .fm-dialog .fm-tank-editor .fm-tank-close{
-   position:absolute;top:-26px;right:10px;display:inline-flex;align-items:center;justify-content:center;
+   position:absolute;top:8px;right:12px;z-index:2;display:inline-flex;align-items:center;justify-content:center;
    width:36px;height:36px;padding:0;border:0;border-radius:10px;
    background:#e7edf4;color:#163454;cursor:pointer;font-size:25px;line-height:1;font-weight:500;
  }

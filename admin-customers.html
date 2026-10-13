@@ -6228,6 +6228,27 @@ body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90Health
  }
 }
 </style>
+<style id="wooten-1063-mobile-analytics-fixes">
+/* Ver1063: avoid header collisions and horizontal clipping on phone-sized analytics dialogs. */
+@media(max-width:640px){
+ .fm-analytics-dialog .fm-analytics-table-wrap{width:100%;max-width:100%;overflow:visible!important}
+ .fm-analytics-dialog .fm-analytics-table-wrap table,
+ .fm-analytics-dialog .fm-analytics-table-wrap tbody,
+ .fm-analytics-dialog .fm-analytics-table-wrap tr,
+ .fm-analytics-dialog .fm-analytics-table-wrap td{display:block;width:100%;min-width:0!important;box-sizing:border-box}
+ .fm-analytics-dialog .fm-analytics-table-wrap thead{display:none}
+ .fm-analytics-dialog .fm-analytics-table-wrap tr{border:1px solid #d7e3ef;border-radius:12px;margin:0 0 12px;overflow:hidden;background:#fff}
+ .fm-analytics-dialog .fm-analytics-table-wrap td{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;overflow-wrap:anywhere;white-space:normal;text-align:right;border-bottom:1px solid #e1eaf2}
+ .fm-analytics-dialog .fm-analytics-table-wrap td:last-child{border-bottom:0}
+ .fm-analytics-dialog .fm-analytics-table-wrap td::before{content:"";display:block;font-size:12px;font-weight:700;line-height:1.35;color:#395772;text-align:left;flex:0 1 48%}
+ .fm-analytics-dialog .fm-analytics-table-wrap td:nth-child(1)::before{content:"Fuel product"}
+ .fm-analytics-dialog .fm-analytics-table-wrap td:nth-child(2)::before{content:"Estimated use"}
+ .fm-analytics-dialog .fm-analytics-table-wrap td:nth-child(3)::before{content:"Daily average"}
+ .fm-analytics-dialog .fm-analytics-table-wrap td:nth-child(4)::before{content:"Observed days"}
+ .fm-analytics-dialog .fm-analytics-panel,
+ .fm-analytics-dialog .fm-analytics-content{min-width:0;max-width:100%;box-sizing:border-box}
+}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -16975,7 +16996,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1062"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1063"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=1061"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
