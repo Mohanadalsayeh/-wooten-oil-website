@@ -251,14 +251,16 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     const config=JSON.parse(location.config);
     const offset=Math.min(2000000,Math.max(0,Number(new URL(request.url).searchParams.get('offset')||0)||0));
     const limit=3000;
-    // Export only readings retained by a scheduled report. Continuous 5-minute
-    // tank samples remain available for monitoring and analytics, but not Excel.
+    // Standard for ALL locations (including newly created ones): only tank
+    // snapshots saved by a completed scheduled reading belong in Excel exports.
+    // Continuous 5-minute collector readings remain for monitoring/analytics only.
+    // Do not filter by station name or fall back to raw readings.
     const rows=(await env.DB.prepare(`SELECT observed_at,tank_number,volume,water,temperature
        FROM fuel_monitor_saved_snapshots
        WHERE location_id=? AND schedule_id IS NOT NULL AND schedule_id<>''
        ORDER BY observed_at ASC,tank_number ASC LIMIT ? OFFSET ?`)
        .bind(exportId,limit,offset).all()).results||[];
-    return reply({success:true,location_name:config.name,location_id:exportId,interval:config.interval,tanks:config.tanks.map(t=>({number:t.number,fuel:t.fuel})),rows,next_offset:rows.length===limit?offset+limit:null});
+    return reply({success:true,export_mode:'scheduled_only',location_name:config.name,location_id:exportId,interval:config.interval,tanks:config.tanks.map(t=>({number:t.number,fuel:t.fuel})),rows,next_offset:rows.length===limit?offset+limit:null});
    }
    const analyticsId=new URL(request.url).searchParams.get('analytics_id');
    if(analyticsId!==null){

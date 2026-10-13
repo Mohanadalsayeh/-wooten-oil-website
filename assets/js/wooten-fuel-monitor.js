@@ -27,6 +27,24 @@ const mobileDropdownStyle=document.createElement('style');
  }`;
  document.head.appendChild(mobileDropdownStyle);
  const removalPasswords=new WeakMap();
+ // Ver1060: a draft tank can be discarded directly; only an existing saved tank needs confirmation.
+ const draftTankStyle=document.createElement('style');
+ draftTankStyle.id='fm1060-draft-tank-close';
+ draftTankStyle.textContent=`
+ #fuelMonitorRoot .fm-tank-editor, .fm-dialog .fm-tank-editor{position:relative}
+ #fuelMonitorRoot .fm-tank-editor .fm-tank-close, .fm-dialog .fm-tank-editor .fm-tank-close{
+   position:absolute;top:9px;right:10px;display:inline-flex;align-items:center;justify-content:center;
+   width:36px;height:36px;padding:0;border:0;border-radius:10px;
+   background:#e7edf4;color:#163454;cursor:pointer;font-size:25px;line-height:1;font-weight:500;
+ }
+ #fuelMonitorRoot .fm-tank-editor .fm-tank-close:hover, .fm-dialog .fm-tank-editor .fm-tank-close:hover{
+   background:#dbe6f1;color:#0b345f;
+ }
+ #fuelMonitorRoot .fm-tank-editor .fm-tank-close:focus-visible, .fm-dialog .fm-tank-editor .fm-tank-close:focus-visible{
+   outline:2px solid #1d6dae;outline-offset:2px;
+ }
+ `;
+ document.head.appendChild(draftTankStyle);
  const key=()=>document.getElementById('adminKey')?.value.trim()||'';
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';
@@ -417,13 +435,17 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
   while(lines.length&&isDateTime(lines[0]))lines.shift();
   return {name:lines[0]||'',address:lines.slice(1).join(', ')};
  }
- function tankRow(t={}){return '<fieldset class="fm-tank-editor" data-threshold-mode="' + (t.mode==='percent'?'percent':'gallons') + '"><legend>Tank settings</legend><div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)+'</div><button class="secondary fm-remove" type="button">Remove tank</button></fieldset>';}
+ function tankRow(t={},isDraft=false){return '<fieldset class="fm-tank-editor" data-threshold-mode="' + (t.mode==='percent'?'percent':'gallons') + '"'+(isDraft?' data-unsaved-tank="true"':'')+'><legend>Tank settings</legend>'+(isDraft?'<button class="fm-tank-close" type="button" aria-label="Close unsaved tank" title="Discard unsaved tank">&times;</button>':'')+'<div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)+'</div>'+(isDraft?'':'<button class="secondary fm-remove" type="button">Remove tank</button>')+'</fieldset>';}
  function startLocationTab(){
   previousLocationBeforeCreate=activeLocation;
   creatingLocation=true;
-  const tabs=document.getElementById('fmLocationTabs');tabs.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-selected','false');b.tabIndex=-1;});
-  const tab=document.createElement('button');tab.type='button';tab.id='fm-location-tab-new';tab.className='fm-location-tab';tab.setAttribute('role','tab');tab.setAttribute('aria-selected','true');tab.setAttribute('aria-controls','fmLocations');tab.append(WootenLocationIcons.icon('fuel'),document.createTextNode('New location'));tabs.append(tab);
-  const panel=document.getElementById('fmLocations');panel.setAttribute('aria-labelledby',tab.id);panel.replaceChildren();
+  // The add form is a temporary page state, not a location and not a navigation tab.
+  const tabs=document.getElementById('fmLocationTabs');
+  tabs.querySelectorAll('[role=tab]').forEach(b=>{const selected=b.id==='fm-locations-trigger';b.setAttribute('aria-selected',String(selected));b.tabIndex=selected?0:-1;});
+  const dropdown=tabs.querySelector('.fm-locations-menu');if(dropdown)dropdown.hidden=true;
+  const locationTrigger=tabs.querySelector('#fm-locations-trigger');
+  if(locationTrigger){locationTrigger.setAttribute('aria-expanded','false');locationTrigger.classList.remove('is-open');}
+  const panel=document.getElementById('fmLocations');panel.setAttribute('aria-labelledby','fm-locations-trigger');panel.replaceChildren();
   const editor=document.createElement('div');editor.className='fm-dialog fm-new-location-page';panel.append(editor);
   editor.close=()=>{creatingLocation=false;editing=null;activeLocation=previousLocationBeforeCreate;render();};
   return editor;
@@ -434,11 +456,15 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
   compactIconPicker(editor.querySelector('#fmIconChoices'),l.icon||'fuel');
   setupRecipients(editor);if(editor===dialog)editor.showModal();editor.querySelector('[name=name]').focus({preventScroll:true});countTanks(editor);
   editor.querySelectorAll('.fm-close').forEach(b=>b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();if(editor===dialog){dialog.close();}else{creatingLocation=false;editing=null;activeLocation=previousLocationBeforeCreate;render();}}));
-  editor.querySelector('#fmAddTank').onclick=()=>{if(editor.querySelectorAll('.fm-tank-editor').length>=64)return;editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}));countTanks(editor);};
+  editor.querySelector('#fmAddTank').onclick=()=>{if(editor.querySelectorAll('.fm-tank-editor').length>=64)return;editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({mode:'percent'},true));countTanks(editor);};
   if(addTank){editor.querySelector('#fmAddTank').click();const row=editor.querySelector('#fmTankEditors').lastElementChild;row?.scrollIntoView({block:'center'});row?.querySelector('[name=number]')?.focus({preventScroll:true});}
-  editor.querySelector('#fmTankEditors').onclick=e=>{if(e.target.closest('.fm-remove')){confirmTankRemoval(e.target.closest('fieldset'),()=>countTanks(editor));}};
+  editor.querySelector('#fmTankEditors').onclick=e=>{
+   const close=e.target.closest('.fm-tank-close');
+   if(close){const row=close.closest('.fm-tank-editor');if(row?.dataset.unsavedTank==='true'){row.remove();countTanks(editor);}return;}
+   if(e.target.closest('.fm-remove')){confirmTankRemoval(e.target.closest('fieldset'),()=>countTanks(editor));}
+  };
   editor.querySelector('#fmImportHeader')?.addEventListener('click',()=>{const parsed=parseMonitorStationHeader(l.reading.site_header);if(parsed.name)editor.querySelector('[name=name]').value=parsed.name;if(parsed.address)editor.querySelector('[name=address]').value=parsed.address;});
-  editor.querySelector('#fmDetect')?.addEventListener('click',()=>{const ids=[...editor.querySelectorAll('.fm-tank-editor [name=number]')].map(el=>Number(el.value));for(const t of l.reading.tanks)if(!ids.includes(t.number))editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}));countTanks(editor);});
+  editor.querySelector('#fmDetect')?.addEventListener('click',()=>{const ids=[...editor.querySelectorAll('.fm-tank-editor [name=number]')].map(el=>Number(el.value));for(const t of l.reading.tanks)if(!ids.includes(t.number))editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false},true));countTanks(editor);});
   editor.querySelector('.fm-delete')?.addEventListener('click',()=>deleteLocation(l));
   editor.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,c={};for(const name of ['name','phone','address','model','host','port','interval','enabled','portal','email','sms','email_to','sms_to']){const el=form.elements.namedItem(name);c[name]=el.type==='checkbox'?el.checked:el.value;}
    c.icon=form.querySelector('[name=icon]:checked')?.value||'fuel';
@@ -554,10 +580,15 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
     if(password&&inlineEdit?.id===id&&inlineEdit.section===section)openInline(id,'connection',password);
     return;
    }
-   if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'}).replace('fmFuelTypes','fmInlineFuelTypes'));count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
+   if(b.hasAttribute('data-inline-add')){if(!validTanks())return;if(form.querySelectorAll('.fm-tank-editor').length>=64)return;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({mode:'percent'},true).replace('fmFuelTypes','fmInlineFuelTypes'));count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();form.querySelector('[data-inline-tanks]').lastElementChild.querySelector('input').focus();}
+   if(b.classList.contains('fm-tank-close')){
+    const row=b.closest('.fm-tank-editor');
+    if(row?.dataset.unsavedTank==='true'){row.remove();count();updateInlineSave();}
+    return;
+   }
    if(b.classList.contains('fm-remove')){confirmTankRemoval(b.closest('fieldset'),()=>{count();updateInlineSave();});}
    if(b.hasAttribute('data-inline-reset-tanks')){await resetTankConfigurations(l);return;}
-   if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false}).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();}
+   if(b.hasAttribute('data-inline-detect')){if(!validTanks())return;const ids=new Set([...form.querySelectorAll('.fm-tank-editor [name=number]')].map(x=>Number(x.value)));for(const t of l.reading.tanks){if(ids.has(t.number)||form.querySelectorAll('.fm-tank-editor').length>=64)continue;form.querySelector('[data-inline-tanks]').insertAdjacentHTML('beforeend',tankRow({number:t.number,fuel:t.fuel,mode:'percent',alerts:false},true).replace('fmFuelTypes','fmInlineFuelTypes'));ids.add(t.number);break;}count(form.querySelector('[data-inline-tanks]').lastElementChild);updateInlineSave();}
    if(b.hasAttribute('data-inline-import')){const parsed=parseMonitorStationHeader(l.reading.site_header);if(parsed.name)form.elements.name.value=parsed.name;if(parsed.address)form.elements.address.value=parsed.address;updateInlineSave();}
    if(b.hasAttribute('data-inline-delete')){if(!leaveInline())return;render();deleteLocation(l);}
   });
