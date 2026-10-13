@@ -251,9 +251,12 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     const config=JSON.parse(location.config);
     const offset=Math.min(2000000,Math.max(0,Number(new URL(request.url).searchParams.get('offset')||0)||0));
     const limit=3000;
-    const rows=(await env.DB.prepare(`SELECT r.observed_at,r.tank_number,r.volume,r.water,r.temperature
-       FROM (SELECT a.location_id,a.tank_number,a.observed_at,a.volume,b.water,b.temperature FROM fuel_monitor_tank_readings a LEFT JOIN fuel_monitor_tank_reading_details b ON b.location_id=a.location_id AND b.tank_number=a.tank_number AND b.observed_at=a.observed_at UNION ALL SELECT h.location_id,h.tank_number,h.observed_at,h.volume,h.water,h.temperature FROM fuel_monitor_saved_snapshots h WHERE NOT EXISTS (SELECT 1 FROM fuel_monitor_tank_readings d WHERE d.location_id=h.location_id AND d.tank_number=h.tank_number AND d.observed_at=h.observed_at)) r
-       WHERE r.location_id=? ORDER BY r.observed_at ASC,r.tank_number ASC LIMIT ? OFFSET ?`)
+    // Export only readings retained by a scheduled report. Continuous 5-minute
+    // tank samples remain available for monitoring and analytics, but not Excel.
+    const rows=(await env.DB.prepare(`SELECT observed_at,tank_number,volume,water,temperature
+       FROM fuel_monitor_saved_snapshots
+       WHERE location_id=? AND schedule_id IS NOT NULL AND schedule_id<>''
+       ORDER BY observed_at ASC,tank_number ASC LIMIT ? OFFSET ?`)
        .bind(exportId,limit,offset).all()).results||[];
     return reply({success:true,location_name:config.name,location_id:exportId,interval:config.interval,tanks:config.tanks.map(t=>({number:t.number,fuel:t.fuel})),rows,next_offset:rows.length===limit?offset+limit:null});
    }
