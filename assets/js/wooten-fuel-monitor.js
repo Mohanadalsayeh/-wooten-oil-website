@@ -192,6 +192,28 @@ const mobileDropdownStyle=document.createElement('style');
   }
   nums.innerHTML=parts.join('');
  }
+ // Ver1057: exactly one primary navigation tile is selected at a time.
+ // An open Locations menu temporarily owns the highlight; closing it without
+ // choosing a location restores the tile for the currently displayed view.
+ function syncLocationTabSelection(){
+  if(creatingLocation)return; // Preserve the separate new-location form state.
+  const tabs=document.getElementById('fmLocationTabs');if(!tabs)return;
+  const trigger=tabs.querySelector('#fm-locations-trigger');
+  const menu=tabs.querySelector('.fm-locations-menu');
+  const open=!!menu&&!menu.hidden;
+  const locationSelected=activeLocation!=='all'&&activeLocation!=='activity';
+  const selectedId=(open||locationSelected)?'fm-locations-trigger':'fm-location-tab-'+activeLocation;
+  for(const id of ['fm-location-tab-all','fm-location-tab-activity','fm-locations-trigger']){
+   const button=tabs.querySelector('#'+id);if(!button)continue;
+   const selected=id===selectedId;
+   button.setAttribute('aria-selected',String(selected));
+   button.tabIndex=selected?0:-1;
+  }
+  if(trigger){
+   trigger.setAttribute('aria-expanded',String(open));
+   trigger.classList.toggle('is-open',open);
+  }
+ }
  function render(){
   if(activeLocation!=='all'&&activeLocation!=='activity'&&!locations.some(l=>l.id===activeLocation))activeLocation='all';
   const tabs=document.getElementById('fmLocationTabs');tabs.replaceChildren();
@@ -201,12 +223,11 @@ const mobileDropdownStyle=document.createElement('style');
   const trigger=document.createElement('button');trigger.type='button';trigger.id='fm-locations-trigger';trigger.className='fm-location-tab fm-locations-trigger fm-edit-dropdown-trigger';trigger.setAttribute('role','tab');trigger.setAttribute('aria-controls','fmLocations');trigger.setAttribute('aria-haspopup','true');trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-label','Choose or manage locations');const triggerLabel=document.createElement('span');triggerLabel.className='fm-tile-label';triggerLabel.textContent='Locations';trigger.append(WootenLocationIcons.icon('store'),triggerLabel);
   const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');arrow.setAttribute('viewBox','0 0 24 24');arrow.setAttribute('width','18');arrow.setAttribute('height','18');arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';trigger.append(arrow);
   const menu=document.createElement('div');menu.className='fm-locations-menu fm-edit-dropdown-menu';menu.hidden=true;
-  const syncLocationTriggerState=()=>{const selected=activeLocation!=='all'&&activeLocation!=='activity';const open=!menu.hidden;trigger.setAttribute('aria-selected',String(selected||open));trigger.classList.toggle('is-open',open);trigger.tabIndex=(selected||open)?0:-1;};
   const title=document.createElement('div');title.className='fm-locations-menu-heading';title.innerHTML='<strong>Your Locations</strong><span>'+locations.length+' location'+(locations.length===1?'':'s')+'</span>';menu.append(title);
   for(const l of locations){const row=document.createElement('div');row.className='fm-locations-menu-row';const name=document.createElement('button');name.type='button';name.className='fm-locations-menu-name';name.dataset.locationTab=l.id;name.append(WootenLocationIcons.icon(l.icon||'fuel'),document.createTextNode(l.name));name.title='Open '+l.name;const edit=document.createElement('button');edit.type='button';edit.className='fm-locations-menu-action';edit.dataset.manageEdit=l.id;edit.title='Edit '+l.name;edit.setAttribute('aria-label','Edit '+l.name);edit.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';const del=document.createElement('button');del.type='button';del.className='fm-locations-menu-action fm-locations-delete';del.dataset.manageDelete=l.id;del.title='Delete '+l.name;del.setAttribute('aria-label','Delete '+l.name);del.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>';row.append(name,edit,del);menu.append(row)}
   const add=document.createElement('button');add.type='button';add.className='fm-locations-menu-add';add.dataset.manageAdd='true';add.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Add Location</span>';menu.append(add);
-  trigger.addEventListener('click',()=>{const opening=menu.hidden;root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;const otherTrigger=m.parentElement?.querySelector('.fm-edit-dropdown-trigger');if(otherTrigger){otherTrigger.setAttribute('aria-expanded','false');otherTrigger.classList.remove('is-open');}});menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));syncLocationTriggerState();});
-  syncLocationTriggerState();selector.append(trigger,menu);tabs.append(selector);
+  trigger.addEventListener('click',()=>{const opening=menu.hidden;root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;const otherTrigger=m.parentElement?.querySelector('.fm-edit-dropdown-trigger');if(otherTrigger){otherTrigger.setAttribute('aria-expanded','false');otherTrigger.classList.remove('is-open');}});menu.hidden=!opening;syncLocationTabSelection();});
+  selector.append(trigger,menu);tabs.append(selector);syncLocationTabSelection();
   const activityPane=document.getElementById('fm977Section');
   const fuelLocations=document.getElementById('fmLocations');
   const alertPanel=document.getElementById('fmAlerts');
@@ -272,6 +293,7 @@ const mobileDropdownStyle=document.createElement('style');
           const opening=menu.hidden;
           root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;m.parentElement?.querySelector('.fm-edit-dropdown-trigger')?.setAttribute('aria-expanded','false');});
           menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
+          syncLocationTabSelection();
         });
         edit.replaceWith(wrap);wrap.append(trigger,menu);
       }
@@ -921,7 +943,7 @@ root.addEventListener('click',e=>{
  }
 });
 
-  document.addEventListener('click',e=>{if(e.target.closest('.fm-edit-dropdown'))return;root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;m.parentElement?.querySelector('.fm-edit-dropdown-trigger')?.setAttribute('aria-expanded','false');});});
+  document.addEventListener('click',e=>{if(e.target.closest('.fm-edit-dropdown'))return;root.querySelectorAll('.fm-edit-dropdown-menu').forEach(m=>{m.hidden=true;m.parentElement?.querySelector('.fm-edit-dropdown-trigger')?.setAttribute('aria-expanded','false');});syncLocationTabSelection();});
 
  // Verifone read-only setup preview. No credentials are persisted client-side.
  const verifoneDialog=document.createElement('dialog');
@@ -957,8 +979,7 @@ root.addEventListener('click',e=>{
   footer.append(cancel,save);form.append(header,content,footer);verifoneDialog.append(form);
   verifoneDialog.showModal();
  }
- document.addEventListener('click',e=>{const menu=document.querySelector('#fmLocationTabs .fm-locations-menu');const trigger=document.getElementById('fm-locations-trigger');if(!menu||!trigger||menu.hidden)return;if(e.target.closest('#fmLocationTabs .fm-locations-dropdown'))return;menu.hidden=true;trigger.setAttribute('aria-expanded','false');trigger.classList.remove('is-open');const selected=activeLocation!=='all'&&activeLocation!=='activity';trigger.setAttribute('aria-selected',String(selected));trigger.tabIndex=selected?0:-1;});
- document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const menu=document.querySelector('#fmLocationTabs .fm-locations-menu');const trigger=document.getElementById('fm-locations-trigger');if(!menu||!trigger||menu.hidden)return;menu.hidden=true;trigger.setAttribute('aria-expanded','false');trigger.classList.remove('is-open');const selected=activeLocation!=='all'&&activeLocation!=='activity';trigger.setAttribute('aria-selected',String(selected));trigger.tabIndex=selected?0:-1;trigger.focus({preventScroll:true});});
+ document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const menu=document.querySelector('#fmLocationTabs .fm-locations-menu');const trigger=document.getElementById('fm-locations-trigger');if(!menu||!trigger||menu.hidden)return;menu.hidden=true;syncLocationTabSelection();trigger.focus({preventScroll:true});});
  root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.verifoneId){e.preventDefault();openVerifoneSetup(b.dataset.verifoneId);return;}if(b.dataset.manageAdd){if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline()){render();openEdit();}return;}if(b.dataset.manageEdit){if(!leaveInline())return;activeLocation=b.dataset.manageEdit;render();openInline(b.dataset.manageEdit,'location');return;}if(b.dataset.manageDelete){const station=locations.find(l=>String(l.id)===String(b.dataset.manageDelete));if(!station)return message('Location not found. Refresh locations and try again.',true);if(!leaveInline())return;deleteLocation(station);return;}if(b.dataset.cloneLocation){await cloneLocationSettings(b.dataset.cloneLocation);return;}if(b.dataset.inlineSection){if(activeLocation==='all'){if(!leaveInline())return;activeLocation=b.dataset.inlineId;render();}openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();(document.getElementById('fm-location-tab-'+activeLocation)||document.getElementById('fm-locations-trigger'))?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  async function showDeletedLocations(){
