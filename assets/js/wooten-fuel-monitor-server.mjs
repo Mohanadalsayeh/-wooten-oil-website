@@ -255,6 +255,25 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     // snapshots saved by a completed scheduled reading belong in Excel exports.
     // Continuous 5-minute collector readings remain for monitoring/analytics only.
     // Do not filter by station name or fall back to raw readings.
+    // Historical scheduled SEND reports predate durable snapshot storage on some
+    // locations. Recover only explicitly schedule-linked reports with parseable,
+    // timestamped tank readings. Never infer scheduled runs from raw polling data.
+    // This is idempotent and applies uniformly to every location ID.
+    const oldReports=(await env.DB.prepare(`SELECT schedule_id,message FROM fuel_monitor_alerts
+      WHERE location_id=? AND level='scheduled_reading' AND schedule_id IS NOT NULL
+      ORDER BY id ASC`).bind(exportId).all()).results||[];
+    for(const report of oldReports){
+     const observed=String(report.message||'').match(/^Reading\s+(\d{4}-\d{2}-\d{2}T[^\s.]+(?:\.\d+)?Z?)\.$/m);
+     if(!observed||!Number.isFinite(Date.parse(observed[1])))continue;
+     const matches=[...String(report.message).matchAll(/^Tank\s+(\d+)\s+\([^\n)]*\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\(/gm)];
+     for(const match of matches){
+      const tank=Number(match[1]),volume=Number(match[2].replace(/,/g,''));
+      if(!Number.isSafeInteger(tank)||!Number.isFinite(volume))continue;
+      await env.DB.prepare(`INSERT OR IGNORE INTO fuel_monitor_saved_snapshots
+       (location_id,tank_number,observed_at,volume,water,temperature,schedule_id)
+       VALUES(?,?,?,?,NULL,NULL,?)`).bind(exportId,tank,observed[1],volume,report.schedule_id).run();
+     }
+    }
     const rows=(await env.DB.prepare(`SELECT observed_at,tank_number,volume,water,temperature
        FROM fuel_monitor_saved_snapshots
        WHERE location_id=? AND schedule_id IS NOT NULL AND schedule_id<>''
