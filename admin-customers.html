@@ -6170,6 +6170,15 @@ body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90Health
   animation-play-state:running!important;transform-origin:center center!important;transform-box:view-box!important;
 }
 </style>
+
+<style id="wooten-verifone-dialog-ver1048">
+#fuelMonitorRoot .fm-header-actions [data-verifone-id]{white-space:nowrap}
+.fm-verifone-dialog{width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+.fm-verifone-dialog .fm-dialog-body label{display:block;margin:12px 0;color:#17324d;font-weight:700;font-size:13px}
+.fm-verifone-dialog .fm-dialog-body label input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:43px;border:1px solid #cbd8e5;border-radius:9px;padding:9px 12px;font-size:15px}
+.fm-verifone-dialog .fm-verifone-security-note{border:1px solid #ead2a0;border-radius:9px;background:#fff8e8;padding:12px;line-height:1.5;color:#744e0c}
+.fm-verifone-dialog footer button:disabled{opacity:.5;cursor:not-allowed}
+</style>
 </head>
 <body id="wooten-admin-page">
 <div class="admin-login-watermark" id="adminLoginWatermark" aria-hidden="true">
@@ -16917,7 +16926,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1038"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1048"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
