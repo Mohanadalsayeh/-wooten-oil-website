@@ -5936,7 +5936,16 @@ body#wooten-admin-page #statementCyclePeriods .sm-period-setup #statementWeeklyC
 #fmLocationTabs .fm-locations-menu-name{flex:1;min-width:0;overflow-wrap:anywhere}
 #fmLocationTabs .fm-locations-menu-name svg{flex:0 0 20px;color:#478c78}
 #fmLocationTabs .fm-locations-menu-action{flex:0 0 38px;justify-content:center}
+#fmLocationTabs .fm-locations-menu-row .fm-locations-download{color:#236aa6!important;flex:0 0 38px;justify-content:center!important;align-items:center!important;}
+#fmLocationTabs .fm-locations-menu-row .fm-locations-download:hover,#fmLocationTabs .fm-locations-menu-row .fm-locations-download:focus-visible{color:#145789!important;background:#eaf4fc!important;}
+#fmLocationTabs .fm-locations-menu-row .fm-locations-download svg{display:block;flex:none;width:18px;height:18px;}
+#fmLocationTabs .fm-locations-menu-row .fm-locations-download[aria-busy="true"]{opacity:.65;cursor:progress;}
 #fmLocationTabs .fm-locations-menu-row .fm-locations-delete{color:#d7192a!important}
+@media(max-width:540px){
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu{width:min(390px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;right:0!important;left:auto!important;}
+ #fmLocationTabs .fm-locations-menu-row .fm-locations-menu-action{flex:0 0 34px!important;min-width:34px!important;padding:10px 5px!important;}
+}
+
 #fmLocationTabs .fm-locations-menu-add{color:#246aa1!important;width:100%;margin-top:7px}
 @media(max-width:540px){#fmLocationTabs .fm-locations-dropdown{width:auto!important;max-width:100%!important}#fmLocationTabs .fm-locations-menu{position:fixed!important;top:auto!important;left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;min-width:0!important;max-width:calc(100vw - 24px)!important;transform:none!important}#fmLocationTabs .fm-locations-menu-row button{min-width:0!important}}
 </style>
@@ -16966,8 +16975,8 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1057"></script>
-<script src="assets/js/wooten-fuel-excel.js?v=934"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1058"></script>
+<script src="assets/js/wooten-fuel-excel.js?v=1058"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
 <style id="wooten-master-data-cleanup-ver858">
