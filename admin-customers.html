@@ -16966,7 +16966,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1049"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1055"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=934"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
 
@@ -18009,93 +18009,95 @@ body#wooten-admin-page #adminNotificationMenu .admin-bell-count strong{
 }
 </style>
 
-<style id="wooten-fuel-icon-tiles-ver1054">
-/* Design #5: separated, bordered, icon-above-label tiles on desktop and phones. */
-#fuelMonitorRoot #fmLocationTabs{
+<style id="wooten-fuel-icon-tiles-ver1055">
+/* Design #5: three genuinely distinct, compact icon tiles. No tab-bar rules. */
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs {
  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
- align-items:stretch!important;gap:12px!important;width:100%!important;
- background:transparent!important;border:0!important;padding:0!important;
- margin:18px 0 20px!important;overflow:visible!important;position:relative!important;
+ width:min(100%,690px)!important;max-width:690px!important;
+ gap:12px!important;align-items:stretch!important;
+ padding:0!important;margin:16px 0 20px!important;
+ border:0!important;background:transparent!important;overflow:visible!important;
 }
-#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab,
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger{
- display:flex!important;flex-direction:column!important;align-items:center!important;
- justify-content:center!important;gap:8px!important;
- min-width:0!important;width:100%!important;max-width:100%!important;
- height:100%!important;min-height:91px!important;
- padding:13px 8px 14px!important;margin:0!important;
- border:1px solid #cbdde9!important;border-radius:12px!important;
- background:#fff!important;color:#496986!important;
- box-shadow:0 1px 2px rgba(22,56,84,.04)!important;
- text-align:center!important;font-family:inherit!important;
- font-size:14px!important;font-weight:600!important;line-height:1.2!important;
- text-decoration:none!important;position:relative!important;white-space:normal!important;
- cursor:pointer!important;box-sizing:border-box!important;
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown {
+ display:block!important;position:relative!important;grid-column:auto!important;
+ align-self:stretch!important;width:100%!important;min-width:0!important;max-width:none!important;
+ margin:0!important;padding:0!important;border:0!important;background:transparent!important;
 }
-#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab > svg,
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:first-child{
- display:block!important;width:27px!important;height:27px!important;
- min-width:27px!important;min-height:27px!important;flex:0 0 27px!important;
- margin:0!important;position:static!important;color:#35668a!important;
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger {
+ appearance:none!important;display:flex!important;flex-direction:column!important;
+ justify-content:center!important;align-items:center!important;
+ gap:9px!important;width:100%!important;min-width:0!important;max-width:none!important;
+ box-sizing:border-box!important;height:94px!important;min-height:94px!important;max-height:94px!important;
+ padding:12px 17px!important;margin:0!important;
+ border:1px solid #cfdeeb!important;border-radius:13px!important;
+ background:#fff!important;color:#244765!important;
+ box-shadow:none!important;outline-offset:2px!important;
+ text-align:center!important;text-decoration:none!important;text-transform:none!important;
+ font-family:inherit!important;font-size:14px!important;font-weight:600!important;
+ line-height:1.2!important;letter-spacing:normal!important;
+ white-space:normal!important;position:relative!important;cursor:pointer!important;
 }
-#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab > span{
- display:block!important;text-align:center!important;
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab:hover,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger:hover {
+ border-color:#91badb!important;background:#f6fafe!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab[aria-selected="true"],
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger[aria-selected="true"] {
+ background:#edf6ff!important;border-color:#a8cbe6!important;
+ color:#142f4e!important;font-weight:750!important;
+ box-shadow:inset 0 -3px #dc1629!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab > svg:first-child,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:first-child {
+ display:block!important;position:static!important;box-sizing:content-box!important;
+ width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;
+ max-width:26px!important;max-height:26px!important;flex:0 0 26px!important;
+ margin:0!important;padding:0!important;color:#396587!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab[aria-selected="true"] > svg:first-child,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger[aria-selected="true"] > svg:first-child {color:#d7192d!important;}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab > span,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > .fm-tile-label {
+ display:block!important;position:static!important;flex:0 0 auto!important;
+ width:auto!important;max-width:100%!important;
+ margin:0!important;padding:0!important;border:0!important;
+ text-align:center!important;white-space:normal!important;
+ line-height:1.2!important;font:inherit!important;color:inherit!important;
  overflow-wrap:normal!important;word-break:normal!important;
- white-space:normal!important;line-height:1.22!important;margin:0!important;
 }
-#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab[aria-selected="true"],
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger[aria-selected="true"]{
- border-color:#a9cbe5!important;background:#ebf4fc!important;
- color:#163956!important;font-weight:750!important;
- box-shadow:inset 0 -3px 0 #d7192a!important;
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child {
+ position:absolute!important;top:50%!important;right:10px!important;bottom:auto!important;
+ transform:translateY(-50%)!important;
+ width:13px!important;height:13px!important;min-width:13px!important;min-height:13px!important;
+ max-width:13px!important;max-height:13px!important;flex:none!important;
+ margin:0!important;padding:0!important;color:#577994!important;
 }
-#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab[aria-selected="true"] > svg,
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger[aria-selected="true"] > svg:first-child{
- color:#d7192a!important;
-}
-/* Remove legacy tab-bar markers; selected state is contained inside its card. */
-#fuelMonitorRoot #fmLocationTabs .fm-location-tab::before,
-#fuelMonitorRoot #fmLocationTabs .fm-location-tab::after{content:none!important;display:none!important;}
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown{
- grid-column:auto!important;display:block!important;align-self:stretch!important;
- width:100%!important;min-width:0!important;max-width:100%!important;
- margin:0!important;position:relative!important;z-index:90!important;
-}
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger{
- white-space:normal!important;
-}
-#fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child{
- position:absolute!important;right:9px!important;bottom:12px!important;
- width:13px!important;height:13px!important;min-width:13px!important;
- min-height:13px!important;flex:0 0 13px!important;
-}
-#fuelMonitorRoot #fmLocationTabs .fm-locations-menu{
- position:absolute!important;left:auto!important;right:0!important;
- top:calc(100% + 6px)!important;bottom:auto!important;
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-location-tab::before,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-location-tab::after {content:none!important;display:none!important;}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu {
+ position:absolute!important;z-index:200!important;top:calc(100% + 6px)!important;
+ bottom:auto!important;left:auto!important;right:0!important;
  width:min(390px,calc(100vw - 28px))!important;
- max-width:calc(100vw - 28px)!important;min-width:0!important;
- transform:none!important;z-index:200!important;
+ max-width:calc(100vw - 28px)!important;transform:none!important;
 }
-#fuelMonitorRoot #fmLocationTabs .fm-locations-menu[hidden]{display:none!important;}
-@media(max-width:600px){
- #fuelMonitorRoot #fmLocationTabs{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;margin:14px 0 18px!important;}
- #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab,
- #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger{
-  min-height:92px!important;padding:10px 3px 12px!important;gap:7px!important;
-  font-size:11px!important;line-height:1.2!important;border-radius:10px!important;
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu[hidden] {display:none!important;}
+@media(max-width:700px){
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs{width:100%!important;max-width:100%!important;gap:7px!important;margin:14px 0 18px!important;}
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab,
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger {
+   height:92px!important;min-height:92px!important;max-height:92px!important;
+   padding:9px 5px!important;gap:7px!important;border-radius:11px!important;
+   font-size:11px!important;line-height:1.2!important;
  }
- #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab > svg,
- #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:first-child{
-  width:25px!important;height:25px!important;min-width:25px!important;min-height:25px!important;flex:0 0 25px!important;
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab > svg:first-child,
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:first-child {
+   width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;max-width:24px!important;max-height:24px!important;flex-basis:24px!important;
  }
- #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child{
-  right:3px!important;bottom:13px!important;width:10px!important;height:10px!important;min-width:10px!important;min-height:10px!important;
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child{
+    right:3px!important;width:10px!important;height:10px!important;min-width:10px!important;min-height:10px!important;
  }
- #fuelMonitorRoot #fmLocationTabs .fm-locations-menu{
-  left:auto!important;right:0!important;top:calc(100% + 6px)!important;
-  width:min(320px,calc(100vw - 28px))!important;
-  max-height:min(65vh,460px)!important;overflow-y:auto!important;
- }
+ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu{width:min(320px,calc(100vw - 28px))!important;max-height:65vh!important;overflow-y:auto!important;}
 }
 </style>
 </body>
