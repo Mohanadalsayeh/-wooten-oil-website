@@ -18008,6 +18008,75 @@ body#wooten-admin-page #adminNotificationMenu .admin-bell-count strong{
   }
 }
 </style>
+
+<style id="wooten-fuel-icon-tabs-ver1053">
+/* Option #5: three icon navigation tabs; preserve original button/dropdown logic. */
+#fuelMonitorRoot #fmLocationTabs{
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ align-items:stretch!important;gap:10px!important;width:100%!important;
+ border-bottom:1px solid #cbdde9!important;padding:0!important;margin:18px 0 18px!important;
+ overflow:visible!important;position:relative!important;
+}
+#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab,
+#fuelMonitorRoot #fmLocationTabs .fm-locations-trigger{
+ display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+ gap:7px!important;min-width:0!important;width:100%!important;max-width:100%!important;
+ min-height:78px!important;height:100%!important;box-sizing:border-box!important;
+ padding:11px 7px 13px!important;margin:0!important;border:0!important;
+ border-radius:10px 10px 0 0!important;background:transparent!important;
+ color:#4e6e88!important;text-align:center!important;line-height:1.2!important;
+ font-family:inherit!important;font-size:14px!important;font-weight:600!important;
+ text-decoration:none!important;box-shadow:none!important;position:relative!important;
+}
+#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab svg,
+#fuelMonitorRoot #fmLocationTabs .fm-locations-trigger > svg:first-child{
+ width:25px!important;height:25px!important;min-width:25px!important;min-height:25px!important;
+ flex:0 0 25px!important;margin:0!important;display:block!important;
+}
+#fuelMonitorRoot #fmLocationTabs .fm-location-tab span{display:block!important;min-width:0!important;max-width:100%!important;overflow-wrap:normal!important;word-break:normal!important;line-height:1.25!important;text-align:center!important;}
+#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab[aria-selected="true"],
+#fuelMonitorRoot #fmLocationTabs .fm-locations-trigger[aria-selected="true"]{
+ color:#153756!important;background:#eff5fb!important;font-weight:750!important;
+}
+#fuelMonitorRoot #fmLocationTabs > button.fm-location-tab[aria-selected="true"] > svg{color:#d7192a!important;}
+#fuelMonitorRoot #fmLocationTabs .fm-location-tab[aria-selected="true"]::before{display:none!important;content:none!important;}
+#fuelMonitorRoot #fmLocationTabs .fm-location-tab[aria-selected="true"]::after{
+ content:""!important;position:absolute!important;left:0!important;right:0!important;
+ bottom:0!important;top:auto!important;height:3px!important;background:#d7192a!important;
+ border-radius:0!important;
+}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-dropdown{
+ grid-column:auto!important;display:block!important;position:relative!important;align-self:stretch!important;
+ min-width:0!important;width:100%!important;max-width:100%!important;
+ margin:0!important;z-index:90!important;
+}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-trigger{flex-direction:column!important;white-space:normal!important;cursor:pointer!important;}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-trigger > svg:last-child{
+ width:13px!important;height:13px!important;min-width:13px!important;min-height:13px!important;
+ flex:0 0 13px!important;position:absolute!important;right:7px!important;bottom:15px!important;
+}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-menu{
+ position:absolute!important;top:calc(100% + 5px)!important;left:auto!important;right:0!important;
+ bottom:auto!important;width:min(390px,calc(100vw - 28px))!important;
+ min-width:0!important;max-width:calc(100vw - 28px)!important;
+ transform:none!important;z-index:200!important;
+}
+#fuelMonitorRoot #fmLocationTabs .fm-locations-menu[hidden]{display:none!important;}
+@media(max-width:600px){
+ #fuelMonitorRoot #fmLocationTabs{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:3px!important;margin:15px 0 15px!important;}
+ #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab,
+ #fuelMonitorRoot #fmLocationTabs .fm-locations-trigger{
+  min-height:82px!important;padding:10px 3px 12px!important;font-size:11.5px!important;
+  gap:5px!important;line-height:1.22!important;
+ }
+ #fuelMonitorRoot #fmLocationTabs > button.fm-location-tab svg,
+ #fuelMonitorRoot #fmLocationTabs .fm-locations-trigger > svg:first-child{
+  width:23px!important;height:23px!important;min-width:23px!important;min-height:23px!important;flex:0 0 23px!important;
+ }
+ #fuelMonitorRoot #fmLocationTabs .fm-locations-trigger > svg:last-child{right:1px!important;bottom:17px!important;width:10px!important;height:10px!important;min-width:10px!important;min-height:10px!important;}
+ #fuelMonitorRoot #fmLocationTabs .fm-locations-menu{right:0!important;left:auto!important;top:calc(100% + 5px)!important;width:min(320px,calc(100vw - 28px))!important;max-height:min(65vh,460px)!important;overflow-y:auto!important;}
+}
+</style>
 </body>
 
 </html>
