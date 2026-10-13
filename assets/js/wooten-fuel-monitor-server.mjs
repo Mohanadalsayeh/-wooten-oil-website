@@ -50,9 +50,10 @@ export function alertRecipients(value,type){
  return list;
 }
 export function validateConfig(input){
- const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:alertRecipients(input.email_to,'email').join(', '),sms_to:alertRecipients(input.sms_to,'sms').join(', '),tanks:[]};
+ const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),manager_phone:str(input.manager_phone,32).trim(),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:alertRecipients(input.email_to,'email').join(', '),sms_to:alertRecipients(input.sms_to,'sms').join(', '),tanks:[]};
  if(!['fuel','store','truck','building-2','wrench','tractor'].includes(c.icon))fail('Choose an available location icon.');
  if(!c.name)fail('Enter a station name.');
+ if(c.manager_phone&&!/^\+[1-9]\d{7,14}$/.test(c.manager_phone))fail('Enter the manager cell phone with country code, such as +19015551234.');
  if(!/^([a-zA-Z0-9][a-zA-Z0-9.-]*)$/.test(c.host)||!Number.isInteger(c.port)||c.port<1||c.port>65535)fail('Enter the local monitor IP/hostname and a valid TCP data port.');
  if(!Number.isInteger(c.interval)||c.interval<60||c.interval>86400)fail('Reading interval must be 60–86400 seconds.');
  if(c.email&&!c.email_to)fail('Add at least one alert email address.');
@@ -733,11 +734,13 @@ export async function checkCollectorConnections(env,now=new Date()){
    const message=lost
     ?`${config.name} — CONNECTION LOST. No fresh tank readings for ${ageMinutes} minutes. Last successful reading: ${record.last_observed||'Never received'}. The displayed tank levels are last known values, not live.`
     :`${config.name} — CONNECTION RESTORED. Fresh fuel readings have resumed at ${record.last_observed}.`;
-   const mail=!!config.email&&!!String(config.email_to||'').trim();
-   const sms=!!config.sms&&!!String(config.sms_to||'').trim();
+   // Connection alerts are deliberately isolated from tank/report recipients.
+   const managerPhone=String(config.manager_phone||'').trim();
+   const mail=false;
+   const sms=/^\+[1-9]\d{7,14}$/.test(managerPhone);
    try{
     await env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
-     .bind(record.id,0,level,message,1,mail?config.email_to:'',sms?config.sms_to:'',mail?'pending':'off',sms?'pending':'off').run();
+     .bind(record.id,0,level,message,1,'',sms?managerPhone:'','off',sms?'pending':'off').run();
     events++;
    }catch(error){
     // Allow next cron to retry if an alert could not be recorded.
