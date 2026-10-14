@@ -521,7 +521,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     if(!destination)fail('Destination location not found.',404);
     const mode=b.mode==='replace'?'replace':'append';
     const source=JSON.parse(row.config),dest=JSON.parse(destination.config);
-    cloneSummary={added_schedules:0,skipped_schedules:0,added_emails:0,added_phones:0,receiver_settings_updated:false};
+    cloneSummary={added_schedules:0,enabled_schedules:0,disabled_schedules:0,skipped_schedules:0,added_emails:0,added_phones:0,receiver_settings_updated:false};
     if(receiver){
      const emails=alertRecipients(source.email_to,'email'),phones=alertRecipients(source.sms_to,'sms');
      const existingEmails=alertRecipients(dest.email_to,'email');
@@ -533,7 +533,10 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
      cloneSummary.receiver_settings_updated=true;
      // Only delivery toggles and receiver lists; NEVER copy machine, tanks, station identity or phone.
      dest.email_to=mergedEmails.join(', ');dest.sms_to=mergedPhones.join(', ');
+     // Replace copies delivery switches exactly. Append merges the enabled source
+     // delivery methods without disabling existing destination delivery methods.
      if(mode==='replace'){dest.portal=source.portal;dest.email=source.email;dest.sms=source.sms;}
+     else {dest.portal=!!(dest.portal||source.portal);dest.email=!!(dest.email||source.email);dest.sms=!!(dest.sms||source.sms);}
      jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(dest),target));
     }
     if(schedules){
@@ -546,8 +549,12 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
       if(occupiedTimes.has(clock)){cloneSummary.skipped_schedules++;continue;}
       occupiedTimes.add(clock);
       cloneSummary.added_schedules++;
-      // New cloned schedules start DISABLED until the receiving location is reviewed.
-      jobs.push(env.DB.prepare("INSERT INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_status) VALUES(?,?,0,?,?,?,?,?,'Cloned — review and enable')").bind(crypto.randomUUID(),target,s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action));
+      // Preserve each source schedule's enabled/disabled state. Do not copy
+      // last_run_at: the destination location has not executed the new schedule.
+      const clonedEnabled=Number(s.enabled)===1?1:0;
+      if(clonedEnabled)cloneSummary.enabled_schedules++;
+      else cloneSummary.disabled_schedules++;
+      jobs.push(env.DB.prepare("INSERT INTO fuel_monitor_schedule_items(id,location_id,enabled,repeat_type,days,dates,send_time,schedule_action,last_status) VALUES(?,?,?,?,?,?,?,?,'Cloned')").bind(crypto.randomUUID(),target,clonedEnabled,s.repeat_type,s.days,s.dates,s.send_time,s.schedule_action));
      }
     }
     detail='Cloned '+[receiver?'receiver settings':null,schedules?'schedules':null].filter(Boolean).join(' and ')+' to '+dest.name+' ('+mode+'). No location, tank, Veeder-Root, or collector configuration copied.';
