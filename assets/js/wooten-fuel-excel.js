@@ -13,21 +13,27 @@
  const crc=b=>{let n=0xffffffff;for(let i=0;i<b.length;i++)n=crcTable[(n^b[i])&255]^(n>>>8);return (n^0xffffffff)>>>0};
  const u16=(v)=>[v&255,(v>>>8)&255],u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
  function zip(files){const chunks=[],central=[];let offset=0;for(const [name,body] of files){const fn=enc.encode(name),data=enc.encode(body),check=crc(data);const local=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(check),...u32(data.length),...u32(data.length),...u16(fn.length),...u16(0),...fn]);chunks.push(local,data);central.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(check),...u32(data.length),...u32(data.length),...u16(fn.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset),...fn]));offset+=local.length+data.length}const centralLen=central.reduce((x,b)=>x+b.length,0);return new Blob([...chunks,...central,new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(centralLen),...u32(offset),...u16(0)])],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
- const wrapSheet=(rows,lastCol,widths,kind='main')=>{const last=column(lastCol),end=rows.length,main=kind==='main',summary=kind==='summary',headerRow=main?5:summary?5:null,merged=main||summary?`<mergeCells count="3"><mergeCell ref="A1:${last}1"/><mergeCell ref="A2:${last}2"/><mergeCell ref="A3:${last}3"/></mergeCells>`:'';return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${end}"/><sheetViews><sheetView workbookViewId="0">${kind==='notes'?'':`<pane xSplit="2" ySplit="5" topLeftCell="C6" activePane="bottomRight" state="frozen"/><selection pane="bottomRight" activeCell="C6" sqref="C6"/>`}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData>${headerRow?`<autoFilter ref="A${headerRow}:${last}${Math.max(end,headerRow)}"/>`:''}${merged}<pageMargins left="0.25" right="0.25" top="0.55" bottom="0.55" header="0.2" footer="0.2"/></worksheet>`};
+ // Freeze header ROWS only. Never freeze A:B: Excel draws a vertical divider
+ // after column B for xSplit=2 (the divider users asked to remove).
+ const wrapSheet=(rows,lastCol,widths,kind='main')=>{
+  const last=column(lastCol),end=rows.length,main=kind==='main',summary=kind==='summary';
+  const headerRow=main?2:summary?5:null;
+  const merged=main?`<mergeCells count="1"><mergeCell ref="A1:${last}1"/></mergeCells>`:summary?`<mergeCells count="3"><mergeCell ref="A1:${last}1"/><mergeCell ref="A2:${last}2"/><mergeCell ref="A3:${last}3"/></mergeCells>`:'';
+  const pane=kind==='notes'?'':main?'<pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/>':'<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A6" sqref="A6"/>';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${end}"/><sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData>${headerRow?`<autoFilter ref="A${headerRow}:${last}${Math.max(end,headerRow)}"/>`:''}${merged}<pageMargins left="0.25" right="0.25" top="0.55" bottom="0.55" header="0.2" footer="0.2"/></worksheet>`;
+ };
  const row=(r,cells,height=0)=>`<row r="${r}"${height?` ht="${height}" customHeight="1"`:""}>${cells.join('')}</row>`;
  function workbook(location,tanks,readings,interval){
   const byTime=new Map();for(const x of readings){let m=byTime.get(x.observed_at);if(!m)byTime.set(x.observed_at,m=new Map());m.set(Number(x.tank_number),x)}
   const ordered=[...byTime.keys()].sort((a,b)=>Date.parse(b)-Date.parse(a));const perDay=new Map();const main=[];
   const colCount=2+tanks.length*2+1;
-  main.push(row(1,[cell(1,0,'WOOTEN OIL CO., INC.  |  FUEL READING HISTORY',1)],42));
-  main.push(row(2,[cell(2,0,location+'  |  Fuel gallons and water levels',2)],28));
-  main.push(row(3,[cell(3,0,'Fuel inventory in US gallons  |  Water in inches  |  Central Time  |  Blank = not recorded',2)],25));
-  main.push(row(4,[cell(4,0,'Scheduled snapshots only  |  Fuel gallons (gal) · Water height (in) · One row per saved reading',2)]));
+  // Same compact title/header layout for every station, including newly added stations.
+  main.push(row(1,[cell(1,0,location.toUpperCase()+'  |  FUEL READING HISTORY  |  Fuel gallons and water levels in inches',1)],46));
   const headers=['Date','Time (CT)'];for(const t of tanks){const name=String(t.fuel||'TANK '+t.number).toUpperCase();headers.push(name+'\nGallons',name+'\nWater (in)')}headers.push('Tanks Read');
-  main.push(row(5,headers.map((h,i)=>cell(5,i,h,3)),48));
+  main.push(row(2,headers.map((h,i)=>cell(2,i,h,3)),52));
   const centralFmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
   for(let i=0;i<ordered.length;i++){
-   const r=i+6,m=byTime.get(ordered[i]),d=new Date(ordered[i]),parts=Object.fromEntries(centralFmt.formatToParts(d).map(p=>[p.type,p.value]));
+   const r=i+3,m=byTime.get(ordered[i]),d=new Date(ordered[i]),parts=Object.fromEntries(centralFmt.formatToParts(d).map(p=>[p.type,p.value]));
    const date=`${parts.month}/${parts.day}/${parts.year}`,time=`${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod}`;
    let stats=perDay.get(date);if(!stats)perDay.set(date,stats={times:0,total:0,missing:0});stats.times++;stats.total+=m.size;stats.missing+=Math.max(0,tanks.length-m.size);
    const cells=[cell(r,0,date,i%2?5:4),cell(r,1,time,i%2?5:4)];
