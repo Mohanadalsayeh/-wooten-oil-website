@@ -1056,12 +1056,19 @@ root.addEventListener('click',e=>{
   verifoneDialog.replaceChildren();
   const form=document.createElement('form');
   form.method='dialog';
+  // Ver1083: build the approved Icon + Title header directly each time the dialog opens.
+  // The older DOM observer did not catch this dialog because the dialog node is reused.
   const header=document.createElement('header');
-  const title=document.createElement('h2');title.textContent='Verifone Connection';
+  header.className='fm-verifone-header-modern';
+  const icon=document.createElement('span');icon.className='fm-verifone-header-icon';icon.setAttribute('aria-hidden','true');
+  icon.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+  const heading=document.createElement('div');heading.className='fm-verifone-header-copy';
+  const title=document.createElement('h2');title.className='fm-verifone-header-title';title.textContent='Verifone Connection';
+  const subtitle=document.createElement('p');subtitle.className='fm-verifone-header-subtitle';subtitle.textContent=loc.name+' · Read-only fuel pricing';
+  heading.append(title,subtitle);
   const close=document.createElement('button');close.type='button';close.className='secondary';close.textContent='×';close.setAttribute('aria-label','Close Verifone settings');close.onclick=()=>verifoneDialog.close();
-  header.append(title,close);
+  header.append(icon,heading,close);
   const content=document.createElement('div');content.className='fm-dialog-body';
-  const station=document.createElement('p');station.textContent=loc.name+' · Read-only fuel pricing';content.append(station);
   const notice=document.createElement('p');notice.className='fm-verifone-security-note';notice.textContent='Setup preview: secure server-side credential storage and local Windows collector connection are not yet installed. These entries will not be saved. Do not enter real credentials yet.';content.append(notice);
   function addField(label,type,placeholder,value){
    const wrapper=document.createElement('label');wrapper.textContent=label;
