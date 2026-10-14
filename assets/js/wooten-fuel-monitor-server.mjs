@@ -658,7 +658,7 @@ export async function agent(request,env){
   if(remoteMode==='heartbeat'&&request.method==='POST'){
    const b=await bodyOf(request);
    const version=str(b.version,40),computer=str(b.computer,90);
-   if(!/^win7-1\.7(?:\.[0-9]+)?$/.test(version)||!computer)fail('Invalid remote agent identity.',400);
+   if(!/^(?:win7|win11)-1\.7(?:\.[0-9]+)?$/.test(version)||!computer)fail('Invalid remote agent identity.',400);
    await env.DB.prepare('INSERT INTO fuel_monitor_remote_agents(location_id,last_seen,version,computer_name) VALUES(?,?,?,?) ON CONFLICT(location_id) DO UPDATE SET last_seen=excluded.last_seen,version=excluded.version,computer_name=excluded.computer_name').bind(id,new Date().toISOString(),version,computer).run();
    return reply({success:true});
   }
