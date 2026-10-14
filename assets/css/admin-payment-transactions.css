@@ -95,3 +95,27 @@
 .pt-posting-editor textarea{min-height:70px;margin-bottom:12px}
 .pt-posting-audit{margin-top:16px}.pt-posting-audit p{overflow-wrap:anywhere;margin:10px 0}
 @media(max-width:600px){.pt-posting-inputs{grid-template-columns:1fr}.pt-actions{flex-wrap:wrap}}
+
+
+/* Ver1072: prevent the iOS native date control from expanding past its filter grid cell. */
+#admin-tab-payment-transactions .pt-filters > div {
+  min-width: 0;
+  min-inline-size: 0;
+  max-width: 100%;
+}
+#admin-tab-payment-transactions .pt-filters :is(#ptFrom, #ptTo) {
+  display: block;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  inline-size: 100% !important;
+  min-inline-size: 0 !important;
+  max-inline-size: 100% !important;
+  -webkit-min-logical-width: 0 !important;
+  margin: 0 !important;
+}
+#admin-tab-payment-transactions .pt-filters :is(#ptFrom, #ptTo)::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
