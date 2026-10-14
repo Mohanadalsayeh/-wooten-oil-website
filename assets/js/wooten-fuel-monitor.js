@@ -46,6 +46,75 @@ const mobileDropdownStyle=document.createElement('style');
  }
  `;
  document.head.appendChild(draftTankStyle);
+ // Ver1081: use the same rounded-square X styling as the Admin Notification bell menu.
+ // The buttons are 36px with 9px corners, NOT circular.
+ const sharedXStyle=document.createElement('style');
+ sharedXStyle.id='fm1081-notification-close-match';
+ sharedXStyle.textContent=`
+  #fuelMonitorRoot .fm-new-location-page > form > header {
+    position:relative!important;
+    padding-right:64px!important;
+  }
+  #fuelMonitorRoot .fm-new-location-page > form > header > button.fm-close {
+    position:absolute!important;
+    top:16px!important;
+    right:16px!important;
+    margin:0!important;
+  }
+  #fuelMonitorRoot .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close,
+  .fm-dialog .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close {
+    position:absolute!important;
+    top:16px!important;
+    right:16px!important;
+    margin:0!important;
+  }
+  #fuelMonitorRoot .fm-new-location-page > form > header > button.fm-close,
+  #fuelMonitorRoot .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close,
+  .fm-dialog .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close {
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    min-height:36px!important;
+    max-width:36px!important;
+    max-height:36px!important;
+    flex:0 0 36px!important;
+    box-sizing:border-box!important;
+    border:0!important;
+    border-radius:9px!important;
+    background:#f4f6f8!important;
+    color:#334155!important;
+    -webkit-text-fill-color:#334155!important;
+    font-family:inherit!important;
+    font-size:24px!important;
+    font-weight:500!important;
+    line-height:1!important;
+    padding:0!important;
+    box-shadow:none!important;
+    transform:none!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    cursor:pointer!important;
+    transition:background .15s ease,color .15s ease!important;
+  }
+  #fuelMonitorRoot .fm-new-location-page > form > header > button.fm-close:is(:hover,:active),
+  #fuelMonitorRoot .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close:is(:hover,:active),
+  .fm-dialog .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close:is(:hover,:active) {
+    background:#b73333!important;
+    border-color:#b73333!important;
+    color:#fff!important;
+    -webkit-text-fill-color:#fff!important;
+    box-shadow:none!important;
+    transform:none!important;
+  }
+  #fuelMonitorRoot .fm-new-location-page > form > header > button.fm-close:focus-visible,
+  #fuelMonitorRoot .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close:focus-visible,
+  .fm-dialog .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close:focus-visible {
+    outline:3px solid rgba(47,125,215,.25)!important;
+    outline-offset:2px!important;
+  }
+ `;
+ document.head.appendChild(sharedXStyle);
  const key=()=>document.getElementById('adminKey')?.value.trim()||'';
  const allowed=()=>window.WootenAdminAccess?.has(window.wootenAdminUser,'fuel_monitoring');
  const time=v=>v?(window.WootenTime?.dateTime(v)||new Date(v).toLocaleString()):'Not retrieved yet';
@@ -438,12 +507,7 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
  }
  function tankRow(t={},isDraft=false){return '<fieldset class="fm-tank-editor" data-threshold-mode="' + (t.mode==='percent'?'percent':'gallons') + '"'+(isDraft?' data-unsaved-tank="true"':'')+'><legend>Tank settings</legend>'+(isDraft?'<button class="fm-tank-close" type="button" aria-label="Close unsaved tank" title="Discard unsaved tank">&times;</button>':'')+'<div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)+'</div>'+(isDraft?'':'<button class="secondary fm-remove" type="button">Remove tank</button>')+'</fieldset>';}
  function startLocationTab(){
-  // The Locations pane may be hidden when launched from Fuel Monitoring Activity.
-  // Switch to the visible overview before inserting the draft, and remember the
-  // previous view so Cancel returns to the user's original tab.
   previousLocationBeforeCreate=activeLocation;
-  activeLocation='all';
-  render();
   creatingLocation=true;
   // The add form is a temporary page state, not a location and not a navigation tab.
   const tabs=document.getElementById('fmLocationTabs');
@@ -453,7 +517,7 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
   if(locationTrigger){locationTrigger.setAttribute('aria-expanded','false');locationTrigger.classList.remove('is-open');}
   const panel=document.getElementById('fmLocations');panel.setAttribute('aria-labelledby','fm-locations-trigger');panel.replaceChildren();
   const editor=document.createElement('div');editor.className='fm-dialog fm-new-location-page';panel.append(editor);
-  editor.close=()=>{creatingLocation=false;editing=null;editor.remove();activeLocation=previousLocationBeforeCreate;render();};
+  editor.close=()=>{creatingLocation=false;editing=null;activeLocation=previousLocationBeforeCreate;render();};
   return editor;
  }
  function openEdit(id,addTank=false){
@@ -461,7 +525,7 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
   editor.innerHTML='<form id="fmForm"><header><h2>'+(editing?'Edit location':'Add location')+'</h2><button class="fm-close secondary" type="button" aria-label="Close">×</button></header><div class="fm-dialog-body"><fieldset class="fm-icon-field"><legend>Location tab icon</legend><div id="fmIconChoices"></div></fieldset><div class="fm-grid">'+field('name','Station name',l.name,'text','required maxlength="100"')+field('phone','Station phone',l.phone,'tel')+field('manager_phone','Station manager cell phone (connection alerts only)',l.manager_phone||'','tel','placeholder="+19015551234" pattern="\+[1-9][0-9]{7,14}"')+field('manager_email','Station manager email (connection alerts only)',l.manager_email||'','email','placeholder="manager@example.com"')+field('address','Street address / location',l.address,'text','maxlength="300"')+modelField(l.model,'fmModelChoices')+'</div><h3>Veeder-Root connection</h3><p>A station computer collects readings and sends them securely to the portal. It must reach both the monitor and the internet.</p><div class="fm-grid">'+field('host','Local monitor IP / hostname',l.host,'text','required placeholder="e.g. 192.168.51.2"')+field('port','TCP data port',l.port,'number','required min="1" max="65535"')+field('interval','Read every (seconds)',l.interval,'number','required min="60" max="86400"')+toggle('enabled','Enable monitoring',l.enabled)+'</div><p>Use the inventory data port, not the web login or configuration port. Read-only TLS-350 display-format collector. This setup uses US gallons, inches, and °F.</p>'+(l.reading?.site_header?'<div class="fm-detected"><h3>Station header from monitor</h3><pre>'+esc(l.reading.site_header)+'</pre><button class="secondary" type="button" id="fmImportHeader">Use header name & address</button><p>Review imported details before saving.</p></div>':'')+'<div class="fm-heading"><h3>Tanks <span id="fmTankCount"></span></h3><button class="secondary" id="fmAddTank" type="button">Add tank</button></div><p>Use the same tank numbers as the monitor. These settings affect portal monitoring only.</p>'+(l.reading?.tanks?.length?'<button class="secondary" type="button" id="fmDetect">Add detected tanks</button>':'')+'<datalist id="fmFuelTypes"><option>Regular Unleaded (87)</option><option>Premium Unleaded (93)</option><option>Road Diesel</option><option>Off-Road Diesel</option><option>Kerosene</option></datalist><div id="fmTankEditors">'+l.tanks.map(tankRow).join('')+'</div><p>Critical must be below Low. Recovery must be above Low. Alerts are sent when the level changes; repeated readings at the same level do not repeat the alert.</p><h3>Alert delivery</h3><div class="fm-delivery-methods">'+toggle('portal','Portal notification',l.portal)+toggle('email','Email alert',l.email)+toggle('sms','SMS alert',l.sms)+'</div><div class="fm-grid">'+recipientFields('email_to','Alert email addresses',l.email_to,'email')+recipientFields('sms_to','Alert mobile numbers',l.sms_to,'tel')+'</div><p>Email and SMS use your existing portal providers. Recipient can differ from the station contact.</p><p id="fmDialogMessage" role="status"></p></div><footer>'+(editing?'<button class="secondary fm-delete" type="button">Delete location</button>':'')+'<button class="secondary fm-close" type="button">Cancel</button><button type="submit">Save location</button></footer></form>';
   compactIconPicker(editor.querySelector('#fmIconChoices'),l.icon||'fuel');
   setupRecipients(editor);if(editor===dialog)editor.showModal();editor.querySelector('[name=name]').focus({preventScroll:true});countTanks(editor);
-  editor.querySelectorAll('.fm-close').forEach(b=>b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();if(editor===dialog){dialog.close();}else{editor.close();}}));
+  editor.querySelectorAll('.fm-close').forEach(b=>b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();if(editor===dialog){dialog.close();}else{creatingLocation=false;editing=null;activeLocation=previousLocationBeforeCreate;render();}}));
   editor.querySelector('#fmAddTank').onclick=()=>{if(editor.querySelectorAll('.fm-tank-editor').length>=64)return;editor.querySelector('#fmTankEditors').insertAdjacentHTML('beforeend',tankRow({mode:'percent'},true));countTanks(editor);};
   if(addTank){editor.querySelector('#fmAddTank').click();const row=editor.querySelector('#fmTankEditors').lastElementChild;row?.scrollIntoView({block:'center'});row?.querySelector('[name=number]')?.focus({preventScroll:true});}
   editor.querySelector('#fmTankEditors').onclick=e=>{
@@ -1063,7 +1127,7 @@ root.addEventListener('click',e=>{
   d.addEventListener('close',()=>clearInterval(timer));await refresh();
  }
 
- root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.remoteOpen){e.preventDefault();openRemoteControls(b.dataset.remoteOpen);return;}if(b.dataset.verifoneId){e.preventDefault();openVerifoneSetup(b.dataset.verifoneId);return;}if(b.dataset.downloadFuelHistory){e.preventDefault();e.stopPropagation();if(b.disabled)return;const exporter=window.WootenFuelHistoryExport?.exportLocation;if(typeof exporter!=='function'){alert('Fuel Reading History export is unavailable. Refresh this page and try again.');return;}b.disabled=true;b.setAttribute('aria-busy','true');const progress=document.createElement('button');progress.type='button';try{await exporter(b.dataset.downloadFuelHistory,progress)}finally{b.disabled=false;b.removeAttribute('aria-busy');}return;}if(b.dataset.manageAdd){e.preventDefault();e.stopPropagation();if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline())openEdit();return;}if(b.dataset.manageEdit){if(!leaveInline())return;activeLocation=b.dataset.manageEdit;render();openInline(b.dataset.manageEdit,'location');return;}if(b.dataset.manageDelete){const station=locations.find(l=>String(l.id)===String(b.dataset.manageDelete));if(!station)return message('Location not found. Refresh locations and try again.',true);if(!leaveInline())return;deleteLocation(station);return;}if(b.dataset.cloneLocation){await cloneLocationSettings(b.dataset.cloneLocation);return;}if(b.dataset.inlineSection){if(activeLocation==='all'){if(!leaveInline())return;activeLocation=b.dataset.inlineId;render();}openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();(document.getElementById('fm-location-tab-'+activeLocation)||document.getElementById('fm-locations-trigger'))?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
+ root.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.remoteOpen){e.preventDefault();openRemoteControls(b.dataset.remoteOpen);return;}if(b.dataset.verifoneId){e.preventDefault();openVerifoneSetup(b.dataset.verifoneId);return;}if(b.dataset.downloadFuelHistory){e.preventDefault();e.stopPropagation();if(b.disabled)return;const exporter=window.WootenFuelHistoryExport?.exportLocation;if(typeof exporter!=='function'){alert('Fuel Reading History export is unavailable. Refresh this page and try again.');return;}b.disabled=true;b.setAttribute('aria-busy','true');const progress=document.createElement('button');progress.type='button';try{await exporter(b.dataset.downloadFuelHistory,progress)}finally{b.disabled=false;b.removeAttribute('aria-busy');}return;}if(b.dataset.manageAdd){if(creatingLocation){root.querySelector('.fm-new-location-page [name=name]')?.focus();return;}if(leaveInline()){render();openEdit();}return;}if(b.dataset.manageEdit){if(!leaveInline())return;activeLocation=b.dataset.manageEdit;render();openInline(b.dataset.manageEdit,'location');return;}if(b.dataset.manageDelete){const station=locations.find(l=>String(l.id)===String(b.dataset.manageDelete));if(!station)return message('Location not found. Refresh locations and try again.',true);if(!leaveInline())return;deleteLocation(station);return;}if(b.dataset.cloneLocation){await cloneLocationSettings(b.dataset.cloneLocation);return;}if(b.dataset.inlineSection){if(activeLocation==='all'){if(!leaveInline())return;activeLocation=b.dataset.inlineId;render();}openInline(b.dataset.inlineId,b.dataset.inlineSection);return;}if(b.dataset.locationTab){clearFuelAlertHighlight();focusedFuelAlert=null;scrollToFuelAlert=0;alertPage=1;const now=Date.now(),double=lastSimulationClick.id===b.dataset.locationTab&&now-lastSimulationClick.time<450;lastSimulationClick={id:b.dataset.locationTab,time:now};if(double&&b.dataset.locationTab==='all'&&!inlineEdit&&!creatingLocation){const station=locations.find(isMidwayOne);if(station)showTankSimulation(station.id);return;}if(creatingLocation){const draft=root.querySelector('.fm-new-location-page');if(draft?.dataset.busy)return;if(!confirm('Cancel this new location? Unsaved information will be discarded.'))return;creatingLocation=false;}if(!leaveInline())return;activeLocation=b.dataset.locationTab;render();(document.getElementById('fm-location-tab-'+activeLocation)||document.getElementById('fm-locations-trigger'))?.focus({preventScroll:true});return;}if(b.dataset.addTank)openEdit(b.dataset.addTank,true);if(b.dataset.edit)openEdit(b.dataset.edit);if(b.dataset.alertPage){alertPage=Number(b.dataset.alertPage)||1;render();return;}if(b.id==='fmAlertPrev'){alertPage=Math.max(1,alertPage-1);render();return;}if(b.id==='fmAlertNext'){alertPage+=1;render();return;}if(b.dataset.sendReading){await sendFuelReading(b.dataset.sendReading);return;}if(b.dataset.pair){if(!leaveInline())return;render();await pair(b.dataset.pair);}if(b.dataset.ack){b.disabled=true;try{await api({action:'acknowledge',id:b.dataset.location,alert_id:Number(b.dataset.ack)});await load();window.wootenRefreshAdminNotifications?.()}catch(err){message(err.message,true)}finally{b.disabled=false}}});
  document.getElementById('fmLocationTabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const buttons=[...e.currentTarget.querySelectorAll('[role=tab]')],index=buttons.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();});
  async function showDeletedLocations(){
   let list=deletedLocations;
