@@ -100,8 +100,8 @@ const mobileDropdownStyle=document.createElement('style');
   #fuelMonitorRoot .fm-new-location-page > form > header > button.fm-close:is(:hover,:active),
   #fuelMonitorRoot .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close:is(:hover,:active),
   .fm-dialog .fm-tank-editor[data-unsaved-tank="true"] > button.fm-tank-close:is(:hover,:active) {
-    background:#b73333!important;
-    border-color:#b73333!important;
+    background:#de1c28!important;
+    border-color:#de1c28!important;
     color:#fff!important;
     -webkit-text-fill-color:#fff!important;
     box-shadow:none!important;
