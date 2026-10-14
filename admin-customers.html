@@ -19496,6 +19496,9 @@ html,body{
 .db-customer-modal .db-customer-close,
 .schedule-cleanup-dialog .schedule-cleanup-close,
 .collections-modal-card .collections-modal-close,
+.fm-analytics-panel > header > button.fm-analytics-close,
+.fm-remote-dialog > header > button.fm-remote-close,
+.fm-verifone-dialog > form > header > button.secondary,
 .mas90-request-dialog .mas90-request-close{
   width:42px!important;
   height:42px!important;
@@ -19520,7 +19523,14 @@ html,body{
 .db-customer-modal .db-customer-close:hover,
 .schedule-cleanup-dialog .schedule-cleanup-close:hover,
 .collections-modal-card .collections-modal-close:hover,
-.mas90-request-dialog .mas90-request-close:hover{
+.fm-analytics-panel > header > button.fm-analytics-close:hover,
+.fm-remote-dialog > header > button.fm-remote-close:hover,
+.fm-verifone-dialog > form > header > button.secondary:hover,
+.mas90-request-dialog .mas90-request-close:hover,
+.fm-analytics-panel > header > button.fm-analytics-close:active,
+.fm-remote-dialog > header > button.fm-remote-close:active,
+.fm-verifone-dialog > form > header > button.secondary:active,
+.mas90-request-dialog .mas90-request-close:active{
   background:#c83c34!important;
   border-color:#c83c34!important;
   color:#fff!important;
@@ -19529,9 +19539,23 @@ html,body{
 .db-customer-modal .db-customer-close:focus-visible,
 .schedule-cleanup-dialog .schedule-cleanup-close:focus-visible,
 .collections-modal-card .collections-modal-close:focus-visible,
+.fm-analytics-panel > header > button.fm-analytics-close:focus-visible,
+.fm-remote-dialog > header > button.fm-remote-close:focus-visible,
+.fm-verifone-dialog > form > header > button.secondary:focus-visible,
 .mas90-request-dialog .mas90-request-close:focus-visible{
   outline:3px solid rgba(47,125,215,.25)!important;
   outline-offset:2px!important;
+}
+
+/* Shared 42px close-button geometry for MAS 90 and the three fuel dialogs. */
+.mas90-request-dialog .mas90-request-close,
+.fm-analytics-panel > header > button.fm-analytics-close,
+.fm-remote-dialog > header > button.fm-remote-close,
+.fm-verifone-dialog > form > header > button.secondary{
+  flex:0 0 42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  max-width:42px!important;
 }
 
 /* Style 2: close buttons for compact admin popup menus. */
@@ -22174,4 +22198,61 @@ body#wooten-admin-page #adminNotificationMenu :is(.admin-bell-menu-head,.admin-b
     max-height:calc(100dvh - 88px)!important;
   }
 }
+</style>
+
+
+<style id="wooten-fm-location-actions-borderless-ver1070">
+/* Ver1070: icon-only Download / Edit / Delete actions in the Locations dropdown.
+   The menu also inherits full-width, white-background buttons from fm-edit-dropdown-menu;
+   reset those declarations specifically for the three right-side action buttons. */
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-menu-action {
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  flex:0 0 40px!important;
+  box-sizing:border-box!important;
+  width:40px!important;
+  min-width:40px!important;
+  max-width:40px!important;
+  height:44px!important;
+  min-height:44px!important;
+  max-height:44px!important;
+  margin:0!important;
+  padding:0!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:0!important;
+  border-top:0!important;
+  border-bottom:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  outline:none;
+  text-align:center!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-menu-action:is(:hover,:focus,:active){
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-menu-action:focus-visible {
+  outline:2px solid #377ba8!important;
+  outline-offset:-2px!important;
+  border-radius:6px!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-menu-action::before,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-menu-action::after{
+  content:none!important;
+  display:none!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-menu-action svg {
+  display:block!important;
+  flex:0 0 19px!important;
+  width:19px!important;
+  height:19px!important;
+  margin:0!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-download {color:#236aa6!important;}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-edit-dropdown-menu .fm-locations-menu-row > button.fm-locations-delete {color:#d7192a!important;}
 </style>
