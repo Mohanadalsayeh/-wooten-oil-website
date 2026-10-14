@@ -22284,6 +22284,14 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-ed
     align-self:start!important;justify-self:end!important;
     text-align:right!important;
   }
+  /* Ver1076: Overview cards must not reserve desktop grid width for hidden controls. */
+  body#wooten-admin-page #fuelMonitorRoot .fm-station-header .fm-header-actions.fm-actions-reserved {
+    display:none!important;
+    width:0!important;
+    min-width:0!important;
+    padding:0!important;
+    margin:0!important;
+  }
   body#wooten-admin-page #fuelMonitorRoot .fm-station-header .fm-header-actions:not(.fm-actions-reserved) {
     grid-column:1/-1!important;grid-row:2!important;
     display:grid!important;
@@ -22322,3 +22330,170 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-ed
   }
 }
 </style>
+
+
+<style id="wooten-verifone-header-1077">
+.fm-verifone-dialog > form > header.fm-verifone-header-modern{
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+  padding:18px 20px!important;
+}
+.fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-icon{
+  width:54px!important;
+  height:54px!important;
+  min-width:54px!important;
+  border-radius:14px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:#eef4fb!important;
+  border:1px solid #d7e3ef!important;
+  color:#2f6fb0!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85)!important;
+}
+.fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-icon svg{
+  width:28px!important;
+  height:28px!important;
+  stroke:currentColor!important;
+  fill:none!important;
+  stroke-width:1.9!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+.fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-copy{
+  min-width:0!important;
+  flex:1 1 auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+.fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-title{
+  margin:0!important;
+  color:#17324d!important;
+  font-size:24px!important;
+  line-height:1.15!important;
+  font-weight:800!important;
+  letter-spacing:-.02em!important;
+}
+.fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-subtitle{
+  margin-top:6px!important;
+  color:#69809b!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+  font-weight:500!important;
+  white-space:normal!important;
+}
+.fm-verifone-dialog > form > header.fm-verifone-header-modern button.secondary{
+  margin-left:auto!important;
+  flex:0 0 42px!important;
+}
+.fm-verifone-dialog [data-verifone-subtitle-source="true"]{
+  display:none!important;
+}
+@media (max-width:640px){
+  .fm-verifone-dialog > form > header.fm-verifone-header-modern{
+    align-items:flex-start!important;
+    gap:12px!important;
+    padding:16px 16px!important;
+  }
+  .fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-icon{
+    width:48px!important;
+    height:48px!important;
+    min-width:48px!important;
+    border-radius:13px!important;
+  }
+  .fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-title{
+    font-size:20px!important;
+  }
+  .fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-subtitle{
+    font-size:13px!important;
+  }
+}
+</style>
+<script id="wooten-verifone-header-script-1077">
+(function(){
+  function textFromNodeExcludingButton(header, closeBtn){
+    const titleCandidate = header.querySelector('h1,h2,h3,strong,.fm-dialog-title,.fm-title,.dialog-title');
+    if(titleCandidate && titleCandidate.textContent.trim()) return titleCandidate.textContent.trim();
+    const clone = header.cloneNode(true);
+    const btn = clone.querySelector('button.secondary,button');
+    if(btn) btn.remove();
+    const text = (clone.textContent || '').replace(/\s+/g,' ').trim();
+    return text || 'Verifone Connection';
+  }
+  function findSubtitle(form, header){
+    const body = form.querySelector('.fm-dialog-body') || form;
+    const candidates = Array.from(body.querySelectorAll('p,div,section,header > div, header > p, small, .subtitle, .fm-subtitle'));
+    for(const el of candidates){
+      if(header.contains(el)) continue;
+      const t = (el.textContent || '').replace(/\s+/g,' ').trim();
+      if(!t) continue;
+      if(/read-only fuel pricing/i.test(t) || /midway market/i.test(t) || /\s·\s/.test(t) || /setup preview/i.test(t) === false && /read-only/i.test(t)){
+        el.setAttribute('data-verifone-subtitle-source','true');
+        return t;
+      }
+    }
+    return '';
+  }
+  function getTerminalIcon(){
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+      + '<rect x="5" y="2.5" width="14" height="19" rx="2.75"></rect>'
+      + '<rect x="7.75" y="5.25" width="8.5" height="3.3" rx="0.9"></rect>'
+      + '<path d="M8 12h.01M12 12h.01M16 12h.01M8 15h.01M12 15h.01M16 15h.01"></path>'
+      + '<path d="M10 18.2h4"></path>'
+      + '</svg>';
+  }
+  function enhanceVerifoneHeader(dialog){
+    if(!dialog || dialog.dataset.verifoneHeaderEnhanced === 'true') return;
+    const form = dialog.querySelector('form');
+    if(!form) return;
+    const header = form.querySelector('header');
+    if(!header) return;
+    const closeBtn = header.querySelector('button.secondary, button');
+    if(!closeBtn) return;
+    const title = textFromNodeExcludingButton(header, closeBtn) || 'Verifone Connection';
+    const subtitle = findSubtitle(form, header);
+    header.classList.add('fm-verifone-header-modern');
+    const left = document.createElement('div');
+    left.className = 'fm-verifone-header-icon';
+    left.innerHTML = getTerminalIcon();
+    const copy = document.createElement('div');
+    copy.className = 'fm-verifone-header-copy';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'fm-verifone-header-title';
+    titleEl.textContent = title;
+    copy.appendChild(titleEl);
+    if(subtitle){
+      const subEl = document.createElement('div');
+      subEl.className = 'fm-verifone-header-subtitle';
+      subEl.textContent = subtitle;
+      copy.appendChild(subEl);
+    }
+    while(header.firstChild){ header.removeChild(header.firstChild); }
+    header.appendChild(left);
+    header.appendChild(copy);
+    header.appendChild(closeBtn);
+    dialog.dataset.verifoneHeaderEnhanced = 'true';
+  }
+  function scan(root){
+    const scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('.fm-verifone-dialog').forEach(enhanceVerifoneHeader);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ scan(document); });
+  } else {
+    scan(document);
+  }
+  const observer = new MutationObserver(function(mutations){
+    for(const mutation of mutations){
+      for(const node of mutation.addedNodes){
+        if(!(node instanceof Element)) continue;
+        if(node.matches && node.matches('.fm-verifone-dialog')) enhanceVerifoneHeader(node);
+        if(node.querySelectorAll) scan(node);
+      }
+    }
+  });
+  observer.observe(document.documentElement, {childList:true, subtree:true});
+})();
+</script>
