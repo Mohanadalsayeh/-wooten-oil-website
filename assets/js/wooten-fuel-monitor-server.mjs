@@ -6,6 +6,9 @@ const digest=async v=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-
 export async function ensure(env){
  const sql=[
  `CREATE TABLE IF NOT EXISTS fuel_monitor_history(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,location_name TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,changes TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_remote_commands(id TEXT PRIMARY KEY,location_id TEXT NOT NULL,command TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',actor TEXT NOT NULL,issued_at TEXT NOT NULL,expires_at TEXT NOT NULL,claimed_at TEXT,finished_at TEXT,result TEXT)`,
+ `CREATE INDEX IF NOT EXISTS fuel_monitor_remote_location ON fuel_monitor_remote_commands(location_id,issued_at DESC)`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_remote_agents(location_id TEXT PRIMARY KEY,last_seen TEXT NOT NULL,version TEXT NOT NULL,computer_name TEXT NOT NULL)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_locations(id TEXT PRIMARY KEY,config TEXT NOT NULL,token_hash TEXT,reading TEXT,last_observed TEXT,last_contact TEXT,error TEXT,lock_until INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_tank_readings(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,observed_at TEXT NOT NULL,volume REAL NOT NULL,PRIMARY KEY(location_id,tank_number,observed_at))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_tank_reading_details(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,observed_at TEXT NOT NULL,water REAL,temperature REAL,PRIMARY KEY(location_id,tank_number,observed_at))`,
@@ -162,6 +165,18 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(!env.ADMIN_IMPORT_KEY||request.headers.get('X-Admin-Key')!==env.ADMIN_IMPORT_KEY)return reply({success:false,error:'Unauthorized'},401);
   await ensure(env);
   if(request.method==='GET'){
+   const remoteQuery=new URL(request.url).searchParams;
+   const remoteId=remoteQuery.get('remote_location');
+   if(remoteId!==null){
+    if(!/^[a-zA-Z0-9-]{1,80}$/.test(remoteId))fail('Invalid location.',400);
+    const location=await env.DB.prepare('SELECT id,token_hash FROM fuel_monitor_locations WHERE id=?').bind(remoteId).first();
+    if(!location)fail('Location not found.',404);
+    // Expire commands that a station did not collect; never dispatch after expiry.
+    await env.DB.prepare("UPDATE fuel_monitor_remote_commands SET status='expired',finished_at=? WHERE location_id=? AND status='pending' AND expires_at<=?").bind(new Date().toISOString(),remoteId,new Date().toISOString()).run();
+    const agent=await env.DB.prepare('SELECT last_seen,version,computer_name FROM fuel_monitor_remote_agents WHERE location_id=?').bind(remoteId).first();
+    const command=await env.DB.prepare('SELECT id,command,status,actor,issued_at,expires_at,claimed_at,finished_at,result FROM fuel_monitor_remote_commands WHERE location_id=? ORDER BY issued_at DESC LIMIT 1').bind(remoteId).first();
+    return reply({success:true,agent:agent||null,command:command||null,server_time:new Date().toISOString()});
+   }
    // Ver977: paginated delivery activity. Never query raw tank samples for this feed.
    const deliveryMode=new URL(request.url).searchParams.get('delivery_activity');
    if(deliveryMode==='list'||deliveryMode==='detail'){
@@ -348,6 +363,26 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
   if(action==='verify_tank_removal'){
    if(typeof verifyPassword!=='function'||!await verifyPassword(b.password))fail('The signed-in admin password is incorrect.',403);
    return reply({success:true});
+  }
+  if(action==='remote_command'){
+   const types=['restart_collector','restart_pc','test_connection','view_logs'];
+   if(!types.includes(b.command))fail('Unknown remote action.',400);
+   const existing=await env.DB.prepare('SELECT token_hash,config FROM fuel_monitor_locations WHERE id=?').bind(id).first();
+   if(!existing||!existing.token_hash)fail('Location is not paired to a collector.',409);
+   // Every remote operation, including read-only logs, needs fresh Master Admin verification.
+   if(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password))fail('Incorrect Master Admin password.',403);
+   if(b.command==='restart_pc'&&b.confirmation!=='RESTART')fail('Type RESTART to confirm the Windows reboot.',400);
+   const agent=await env.DB.prepare('SELECT last_seen FROM fuel_monitor_remote_agents WHERE location_id=?').bind(id).first();
+   if(!agent||Date.now()-Date.parse(agent.last_seen)>90000)fail('Remote helper is not online. No command was sent.',409);
+   const now=new Date(),issued=now.toISOString(),expiry=new Date(now.getTime()+120000).toISOString();
+   // Only one uncompleted command per location. Do not queue repeated power/restart actions.
+   const active=await env.DB.prepare("SELECT id FROM fuel_monitor_remote_commands WHERE location_id=? AND status IN ('pending','claimed') AND expires_at>?").bind(id,issued).first();
+   if(active)fail('A remote command is already in progress for this location.',409);
+   const commandId=crypto.randomUUID();
+   await env.DB.prepare('INSERT INTO fuel_monitor_remote_commands(id,location_id,command,status,actor,issued_at,expires_at) VALUES(?,?,?,?,?,?,?)').bind(commandId,id,b.command,'pending',str(actor?.name||'Master Admin',120),issued,expiry).run();
+   await env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,JSON.parse(existing.config).name,str(actor?.name||'Master Admin',120),'remote_command_requested',JSON.stringify([{field:b.command,before:null,after:commandId}])).run();
+   if(typeof auditStatement==='function')await auditStatement({action:'fuel_monitor_remote_command',id,detail:`Remote ${b.command} requested; ID ${commandId}`});
+   return reply({success:true,command_id:commandId,status:'pending',expires_at:expiry});
   }
   if(!['save','pair','delete','acknowledge','send_reading','schedule_save','schedule_remove','clone_settings','verify_connection_edit','reset_tanks','restore_location','reconnect_collector','purge_deleted_location'].includes(action))fail('Unknown action.');
   if(action==='restore_location'||action==='reconnect_collector'||action==='purge_deleted_location'){
@@ -603,6 +638,33 @@ export async function agent(request,env){
   }
   if(!row?.token_hash||!token||hashed!==row.token_hash)fail('Collector authentication failed.',401);
   let config=JSON.parse(row.config);
+  const remoteMode=u.searchParams.get('remote');
+  if(remoteMode==='poll'&&request.method==='GET'){
+   const now=new Date().toISOString();
+   await env.DB.prepare("UPDATE fuel_monitor_remote_commands SET status='expired',finished_at=? WHERE location_id=? AND status='pending' AND expires_at<=?").bind(now,id,now).run();
+   const item=await env.DB.prepare("SELECT id,command,expires_at FROM fuel_monitor_remote_commands WHERE location_id=? AND status='pending' AND expires_at>? ORDER BY issued_at LIMIT 1").bind(id,now).first();
+   if(!item)return reply({success:true,command:null});
+   const result=await env.DB.prepare("UPDATE fuel_monitor_remote_commands SET status='claimed',claimed_at=? WHERE id=? AND location_id=? AND status='pending' AND expires_at>?").bind(now,item.id,id,now).run();
+   if(Number(result?.meta?.changes||0)!==1)return reply({success:true,command:null});
+   return reply({success:true,command:item});
+  }
+  if(remoteMode==='heartbeat'&&request.method==='POST'){
+   const b=await bodyOf(request);
+   const version=str(b.version,40),computer=str(b.computer,90);
+   if(!/^win7-1\.7(?:\.[0-9]+)?$/.test(version)||!computer)fail('Invalid remote agent identity.',400);
+   await env.DB.prepare('INSERT INTO fuel_monitor_remote_agents(location_id,last_seen,version,computer_name) VALUES(?,?,?,?) ON CONFLICT(location_id) DO UPDATE SET last_seen=excluded.last_seen,version=excluded.version,computer_name=excluded.computer_name').bind(id,new Date().toISOString(),version,computer).run();
+   return reply({success:true});
+  }
+  if(remoteMode==='result'&&request.method==='POST'){
+   const b=await bodyOf(request);
+   if(typeof b.id!=='string'||!/^[a-f0-9-]{36}$/.test(b.id))fail('Invalid command ID.',400);
+   if(!['succeeded','failed','accepted'].includes(b.status))fail('Invalid command result.',400);
+   const detail=str(b.result,12000);const now=new Date().toISOString();
+   const changed=await env.DB.prepare("UPDATE fuel_monitor_remote_commands SET status=?,result=?,finished_at=? WHERE id=? AND location_id=? AND status='claimed'").bind(b.status,detail,now,b.id,id).run();
+   if(Number(changed?.meta?.changes||0)!==1)fail('Command no longer active or already completed.',409);
+   return reply({success:true});
+  }
+  if(remoteMode!==null)fail('Invalid remote request.',405);
   if(request.method==='GET')return reply({success:true,config:{host:config.host,port:config.port,interval:config.interval,enabled:config.enabled}});
   if(request.method!=='POST')fail('Use GET or POST.',405);
   const b=await bodyOf(request);if(!config.enabled)fail('Monitoring is paused.',409);
