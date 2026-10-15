@@ -99,3 +99,44 @@
 #woStatementSync .ss-source-copy:hover [data-choice-label]{color:#236daa}
 #woStatementSync .ss-source-copy:focus-visible{outline:2px solid #2379d3;outline-offset:4px;border-radius:3px}
 #woStatementSync .ss-source-icon svg{width:21px;height:21px;display:block}
+
+/* Ver1089 — understated accordion controls and consistent visual alignment. */
+#woStatementSync .ss-source-copy:hover [data-choice-label]{
+  color:#193953!important;
+  text-decoration:underline!important;
+  text-decoration-thickness:1px!important;
+  text-underline-offset:3px!important;
+}
+#woStatementSync .ss-source-copy:focus:not(:focus-visible){outline:0!important;box-shadow:none!important}
+#woStatementSync .ss-source-copy [data-choice-label]{text-decoration:none}
+#woStatementSync .ss-source-icon{
+  width:30px;height:30px;min-width:30px;
+  align-self:flex-start;
+  margin-top:0;
+}
+#woStatementSync .ss-source-icon svg{width:20px;height:20px}
+#woStatementSync .ss-source-copy{align-self:flex-start;min-width:0;padding-top:1px}
+#woStatementSync .ss-accordion-toggle{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  color:#193953!important;
+}
+#woStatementSync .ss-accordion-toggle:hover,
+#woStatementSync .ss-accordion-toggle:active{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  color:#193953!important;transform:none!important;
+}
+#woStatementSync .ss-accordion-toggle .ss-chevron{
+  display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;
+  transform:rotate(0deg);transition:transform .16s ease;
+}
+#woStatementSync .ss-accordion-toggle .ss-chevron svg{width:19px;height:19px;display:block}
+#woStatementSync .ss-accordion-toggle[aria-expanded="true"] .ss-chevron{transform:rotate(90deg)}
+#woStatementSync .ss-summary-stat strong,
+#woStatementSync .ss-report-stat strong{
+  font-weight:400!important;
+}
+@media(max-width:650px){
+  #woStatementSync .ss-source-icon{display:none}
+}
+@media(prefers-reduced-motion:reduce){#woStatementSync .ss-accordion-toggle .ss-chevron{transition:none}}
