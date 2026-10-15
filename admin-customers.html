@@ -7534,6 +7534,28 @@ SOFTWARE.
           </div>
         </div>
 
+      <section id="statementBalancePanel" class="statement-balance-panel schedule-shared" role="group" aria-labelledby="statementBalanceTitle">
+        <div class="statement-balance-heading">
+          <strong id="statementBalanceTitle">Statement Balance Filter</strong>
+          <span>Choose which customer balances to include in this list.</span>
+        </div>
+        <div class="statement-balance-options">
+          <label class="statement-balance-option" for="statementBalancePositive">
+            <input type="checkbox" id="statementBalancePositive" checked>
+            <span><strong>Positive balance (greater than $0)</strong><small>Customers who owe a balance.</small></span>
+          </label>
+          <label class="statement-balance-option" for="statementBalanceNegative">
+            <input type="checkbox" id="statementBalanceNegative" checked>
+            <span><strong>Negative balance (less than $0)</strong><small>Customers with a credit balance.</small></span>
+          </label>
+          <label class="statement-balance-option" for="statementBalanceZero">
+            <input type="checkbox" id="statementBalanceZero">
+            <span><strong>Zero balance ($0)</strong><small>Customers with no outstanding balance.</small></span>
+          </label>
+        </div>
+        <div class="statement-balance-foot"><span id="statementBalanceListHint">Settings for All customers</span><span id="statementBalanceSaveStatus" role="status" aria-live="polite"></span></div>
+      </section>
+
       <div class="statement-filter-panel">
         <div class="statement-filter-heading">
           <strong>Statement &amp; Customer Filters</strong>
@@ -12535,11 +12557,38 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   window.WootenStatementCustomerName=account=>customers.find(customer=>String(customer.account_number)===String(account))?.account_name||'';
   const selected=window.WootenStatementSelectedAccounts||(window.WootenStatementSelectedAccounts=new Set());
   let savedLists=[],activeListId='',savedListsBusy=false,listDialogAction='',listDialogAccounts=[],listDialogId='',listDialogSession='',listDialogGeneration=0;
+  // Ver1092 — per-list balance choices, persisted via the admin statement-lists API.
+  const balanceInputs={positive:document.getElementById('statementBalancePositive'),negative:document.getElementById('statementBalanceNegative'),zero:document.getElementById('statementBalanceZero')};
+  const balanceInfo=document.getElementById('statementBalanceSaveStatus'),balanceListHint=document.getElementById('statementBalanceListHint');
+  const defaultBalanceTypes=()=>({positive:true,negative:true,zero:false});
+  let allBalanceTypes=defaultBalanceTypes(),listBalanceTypes=new Map(),balanceSaveBusy=false,balanceSettingsLoaded=false;
+  const normalizedBalance=source=>({positive:source?.positive!==false,negative:source?.negative!==false,zero:source?.zero===true});
+  function currentBalanceTypes(){return activeListId?(listBalanceTypes.get(activeListId)||defaultBalanceTypes()):allBalanceTypes;}
+  function renderBalanceTypes(){const value=currentBalanceTypes();for(const [name,input] of Object.entries(balanceInputs)){input.checked=!!value[name];input.disabled=balanceSaveBusy||!balanceSettingsLoaded||listControlsBusy();}
+    balanceListHint.textContent='Settings for '+(savedLists.find(item=>item.id===activeListId)?.name||'All customers');
+  }
+  function balanceMatches(row){const amount=Number(String(row.total_balance??0).replace(/,/g,''));if(!Number.isFinite(amount))return false;
+    const choices=currentBalanceTypes();return amount>0?choices.positive:amount<0?choices.negative:choices.zero;}
+  async function saveBalanceTypes(){if(!balanceSettingsLoaded||balanceSaveBusy||listControlsBusy())return;
+    const chosen={positive:balanceInputs.positive.checked,negative:balanceInputs.negative.checked,zero:balanceInputs.zero.checked};
+    if(!Object.values(chosen).some(Boolean)){balanceInfo.dataset.error='true';balanceInfo.textContent='Select at least one balance type.';renderBalanceTypes();return;}
+    const id=activeListId,previous={...currentBalanceTypes()};balanceSaveBusy=true;balanceInfo.dataset.error='false';balanceInfo.textContent='Saving…';
+    if(id)listBalanceTypes.set(id,chosen);else allBalanceTypes=chosen;
+    renderBalanceTypes();clearSelectionForFilter();customerPage=1;render();
+    try{await listApi({action:'set_balance_types',id:id||'__all__',balance_types:chosen});
+      balanceInfo.textContent='Saved for this list';updateFilterStatus();
+    }catch(error){if(id)listBalanceTypes.set(id,previous);else allBalanceTypes=previous;
+      balanceInfo.dataset.error='true';balanceInfo.textContent='Not saved: '+error.message;
+      clearSelectionForFilter();customerPage=1;render();
+    }finally{balanceSaveBusy=false;render();}
+  }
+  Object.values(balanceInputs).forEach(input=>input.addEventListener('change',saveBalanceTypes));
+
   let customersLoadedFor='',customersLoadingFor='',customerLoadGeneration=0,customerLoadController=null;
   let statementCustomerSession=document.getElementById('adminKey').value.trim();
   const listTabs=document.getElementById('statementSavedListTabs'),listDialog=document.getElementById('statementSavedListDialog');
   const listEl=id=>document.getElementById(id);
-  function listControlsBusy(){return savedListsBusy||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true';}
+  function listControlsBusy(){return savedListsBusy||balanceSaveBusy||loadBtn.disabled||sendBtn.dataset.requestPending==='true'||document.getElementById('statementPreview')?.dataset.requestPending==='true';}
   function refreshListControls(){
     const busy=listControlsBusy(),current=savedLists.find(l=>l.id===activeListId);
     listTabs.querySelectorAll('button').forEach(b=>b.disabled=busy);
@@ -12564,10 +12613,10 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     listTabs.replaceChildren();
     for(const item of [{id:'',name:'All customers'},...savedLists]){
       const button=document.createElement('button');button.type='button';const label=document.createElement('span');label.className='statement-list-tab-name';label.textContent=item.name+(item.accounts?' ('+item.accounts.length+')':'');button.append(window.WootenStatementListIcons.icon(item.id?item.icon:'users'),label);button.setAttribute('aria-pressed',String(item.id===activeListId));
-      button.addEventListener('click',()=>{if(listControlsBusy())return;activeListId=item.id;clearSelectionForFilter();groupFilter.value='all';phoneScope.value='all';emailScope.value='all';search.value='';appliedSearch='';customerPage=1;renderListTabs();render();updateFilterStatus();});listTabs.append(button);
+      button.addEventListener('click',()=>{if(listControlsBusy())return;activeListId=item.id;balanceInfo.textContent='';delete balanceInfo.dataset.error;clearSelectionForFilter();groupFilter.value='all';phoneScope.value='all';emailScope.value='all';search.value='';appliedSearch='';customerPage=1;renderListTabs();render();updateFilterStatus();});listTabs.append(button);
     }
     listEl('statementSavedListTitle').textContent=savedLists.find(l=>l.id===activeListId)?.name||'All customers';
-    refreshListControls();
+    refreshListControls();renderBalanceTypes();
   }
   async function listApi(body){
     const session=document.getElementById('adminKey').value.trim();
@@ -12576,7 +12625,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     if(document.getElementById('adminKey').value.trim()!==session)throw Error('Admin session changed. Reload customers.');
     if(!response.ok||data.success===false)throw Error(data.error||'Customer lists could not be loaded.');return data;
   }
-  async function refreshSavedLists(){const data=await listApi();savedLists=data.lists||[];if(activeListId&&!savedLists.some(l=>l.id===activeListId))activeListId='';renderListTabs();}
+  async function refreshSavedLists(){const data=await listApi();savedLists=data.lists||[];allBalanceTypes=normalizedBalance(data.all_balance_types);listBalanceTypes=new Map(savedLists.map(item=>[item.id,normalizedBalance(item.balance_types)]));balanceSettingsLoaded=true;if(activeListId&&!savedLists.some(l=>l.id===activeListId))activeListId='';renderListTabs();}
   function closeListDialog(){listDialogGeneration++;listEl('statementListDeletePassword').value='';listDialog.close();}
   async function openListDialog(action){
     if(listControlsBusy())return;
@@ -12650,6 +12699,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
   listEl('statementDeleteList').onclick=()=>{const item=savedLists.find(l=>l.id===activeListId);if(item&&confirm('Delete the list “'+item.name+'”? Customer records and their cycles will be kept.'))openListDialog('delete');};
   // Ver733: reconcile visible checkboxes before capturing a new preview selection.
   window.WootenStatementGetSelectedAccounts=()=>{
+    if(!balanceSettingsLoaded||balanceSaveBusy)return [];
     list.querySelectorAll('.statement-customer-check[data-account]').forEach(box=>{
       const account=box.getAttribute('data-account');
       if(box.checked)selected.add(account);else selected.delete(account);
@@ -12688,6 +12738,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     const members=activeListId?new Set(savedLists.find(l=>l.id===activeListId)?.accounts||[]):null;
     return customers.filter(c=>{
       if(members&&!members.has(c.account_number))return false;
+      if(!balanceMatches(c))return false;
       const hasPhone=!!String(c.phone||'').trim();
       const hasEmail=!!String(c.email||'').trim();
       const phoneChoice=phoneScope?phoneScope.value:'all';
@@ -12762,8 +12813,8 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
     document.getElementById('statementBulkMove').disabled=moveUnavailable||!hasCycleChange;
     const previewButton=document.getElementById('statementPreview');
     showExceptional.disabled=savedListsBusy||sendBtn.dataset.requestPending==='true'||previewButton?.dataset.requestPending==='true'||loadBtn.disabled;
-    sendBtn.disabled=selected.size===0||showExceptional.disabled;
-    if(previewButton)previewButton.disabled=savedListsBusy||selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
+    sendBtn.disabled=selected.size===0||showExceptional.disabled||!balanceSettingsLoaded||balanceSaveBusy;
+    if(previewButton)previewButton.disabled=savedListsBusy||!balanceSettingsLoaded||balanceSaveBusy||selected.size===0||previewButton.dataset.requestPending==='true'||sendBtn.dataset.requestPending==='true';
     const exportButton=document.getElementById('statementExportCustomersPdf');
     if(exportButton) exportButton.disabled=savedListsBusy||!filteredCustomers().length||loadBtn.disabled||exportButton.dataset.exporting==='true';
     document.getElementById('statementSelectAllHeader').disabled=showExceptional.disabled||!filteredCustomers().length;
@@ -12778,6 +12829,7 @@ prevPage?.addEventListener('click',()=>{if(documentPage>1){documentPage--;render
       selectAllVisible.indeterminate=!checked && visible.some(c=>selected.has(c.account_number));
     }
     updatePagination();
+    renderBalanceTypes();
   }
   function render(){
     const visible=visibleCustomers();
@@ -13055,7 +13107,7 @@ if(customerPrev)customerPrev.addEventListener('click',function(){if(customerPage
       if(listDialog.open)closeListDialog();listEl('statementListDeletePassword').value='';
       customerLoadController?.abort();customerLoadController=null;
       customersLoadedFor='';customersLoadingFor='';customers=[];selected.clear();
-      savedLists=[];activeListId='';loadBtn.disabled=false;loadBtn.textContent='Load Customers';
+      savedLists=[];activeListId='';allBalanceTypes=defaultBalanceTypes();listBalanceTypes.clear();balanceSettingsLoaded=false;balanceInfo.textContent='';loadBtn.disabled=false;loadBtn.textContent='Load Customers';
       hideAdminActionProgress('statementCustomerLoad');renderListTabs();render();setStatus('');
     }
     // Wait for the other authentication listeners to reset their state first.
@@ -16863,6 +16915,22 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 @media(max-width:600px){.statement-list-actions{display:grid;grid-template-columns:minmax(0,1fr)}.statement-list-actions button{width:100%!important}.statement-list-move{display:grid!important;grid-template-columns:minmax(0,1fr)!important}.statement-list-move button{width:100%!important}}
 </style>
 
+<style id="wooten-statement-balance-filter-ver1092">
+#documentSectionSendStatements #statementBalancePanel{margin:14px 0 20px;background:#fff;border:1px solid #cfdfeb;border-radius:14px;overflow:hidden;color:#173a57}
+#statementBalancePanel .statement-balance-heading{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:15px 18px;background:#eef5fa;border-bottom:1px solid #d8e6f0}
+#statementBalancePanel .statement-balance-heading strong{font-size:16px;line-height:1.35;color:#173a57}
+#statementBalancePanel .statement-balance-heading span{font-size:13px;color:#607a92;line-height:1.4}
+#statementBalancePanel .statement-balance-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:12px 10px}
+#statementBalancePanel .statement-balance-option{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:11px 14px;margin:0;border-right:1px solid #dce6ee;cursor:pointer}
+#statementBalancePanel .statement-balance-option:last-child{border-right:0}
+#statementBalancePanel .statement-balance-option input{appearance:auto!important;-webkit-appearance:checkbox!important;width:18px!important;height:18px!important;min-width:18px!important;max-width:18px!important;min-height:18px!important;margin:2px 0 0!important;flex:0 0 18px;accent-color:#1976d2!important;cursor:pointer;opacity:1!important;box-shadow:none!important;transform:none!important}
+#statementBalancePanel .statement-balance-option span{display:block;min-width:0}
+#statementBalancePanel .statement-balance-option strong{font-size:13px;line-height:1.35;display:block;font-weight:700;color:#173a57}
+#statementBalancePanel .statement-balance-option small{display:block;font-size:12px;line-height:1.4;margin-top:3px;color:#667e93}
+#statementBalancePanel .statement-balance-foot{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:7px 18px 11px;font-size:12px;color:#607a92}
+#statementBalanceSaveStatus[data-error="true"]{color:#b4232f}
+@media(max-width:720px){#statementBalancePanel .statement-balance-options{grid-template-columns:1fr;padding:7px 12px}#statementBalancePanel .statement-balance-option{padding:11px 8px;border-right:0;border-bottom:1px solid #e3edf5}#statementBalancePanel .statement-balance-option:last-child{border-bottom:0}#statementBalancePanel .statement-balance-heading{padding:14px 16px}}
+</style>
 <style id="wooten-ipad-portrait-layout-ver761">
 /* Tablet navigation and scripts share the 1024px breakpoint above. */
 @media(max-width:1180px){

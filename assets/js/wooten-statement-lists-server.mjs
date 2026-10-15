@@ -8,8 +8,23 @@ export async function handle(request,env,{verifyCurrentAdminPassword,auditStatem
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS statement_saved_lists(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS statement_saved_list_members(list_id TEXT NOT NULL,account_number TEXT NOT NULL,PRIMARY KEY(list_id,account_number))').run();
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS statement_saved_list_icons(list_id TEXT PRIMARY KEY,icon TEXT NOT NULL)').run();
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS statement_saved_list_balance_filters(list_id TEXT PRIMARY KEY,positive INTEGER NOT NULL DEFAULT 1,negative INTEGER NOT NULL DEFAULT 1,zero INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
   if(request.method==='POST'){
    const body=await request.json(),action=body.action;
+   if(action==='set_balance_types'){
+    const id=String(body.id||''),filters=body.balance_types;
+    if(id!=='__all__'&&!/^[a-zA-Z0-9-]{1,80}$/.test(id))return json({success:false,error:'Choose a valid customer list.'},400);
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||['positive','negative','zero'].some(k=>typeof filters[k]!=='boolean')||!['positive','negative','zero'].some(k=>filters[k]))return json({success:false,error:'Choose at least one balance type.'},400);
+    const source=id==='__all__'?null:await env.DB.prepare('SELECT name FROM statement_saved_lists WHERE id=?').bind(id).first();
+    if(id!=='__all__'&&!source)return json({success:false,error:'This customer list no longer exists. Reload customers.'},404);
+    if(typeof auditStatement!=='function')return json({success:false,error:'List tracking is unavailable.'},503);
+    const choices=['positive','negative','zero'].filter(k=>filters[k]);
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO statement_saved_list_balance_filters(list_id,positive,negative,zero,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(list_id) DO UPDATE SET positive=excluded.positive,negative=excluded.negative,zero=excluded.zero,updated_at=CURRENT_TIMESTAMP').bind(id,Number(filters.positive),Number(filters.negative),Number(filters.zero)),
+      await auditStatement({action:'statement_balance_filters_updated',id,detail:'Updated statement balance filter for “'+(source?.name||'All customers')+'”: '+choices.join(', ')+'.'})
+    ]);
+    return json({success:true,id,balance_types:filters});
+   }
    if(!['create','rename','add','remove','move','delete'].includes(action))return json({success:false,error:'Unknown list action.'},400);
    if(action==='delete'&&(typeof verifyCurrentAdminPassword!=='function'||!await verifyCurrentAdminPassword(body.current_admin_password)))return json({success:false,error:'The password for the signed-in admin is incorrect. The list was not deleted.'},403);
    const id=action==='create'?crypto.randomUUID():String(body.id||'');
@@ -49,7 +64,7 @@ export async function handle(request,env,{verifyCurrentAdminPassword,auditStatem
     jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_members WHERE list_id=? AND account_number IN (SELECT value FROM json_each(?))').bind(id,JSON.stringify(accounts)));
    }
    if(action==='remove')jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_members WHERE list_id=? AND account_number IN (SELECT value FROM json_each(?))').bind(id,JSON.stringify(accounts)));
-   if(action==='delete'){jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_icons WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_members WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_lists WHERE id=?').bind(id));}
+   if(action==='delete'){jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_balance_filters WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_icons WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_list_members WHERE list_id=?').bind(id));jobs.push(env.DB.prepare('DELETE FROM statement_saved_lists WHERE id=?').bind(id));}
    // Commit the list change and its tracking history entry together.
    if(typeof auditStatement!=='function')return json({success:false,error:'List tracking is unavailable. Update the Worker together with the statement list module.'},503);
    const label=action==='create'?name:previous.name;
@@ -80,6 +95,9 @@ export async function handle(request,env,{verifyCurrentAdminPassword,auditStatem
   const lists=await env.DB.prepare('SELECT l.id,l.name,l.created_at,COALESCE(i.icon,\'folder\') AS icon FROM statement_saved_lists l LEFT JOIN statement_saved_list_icons i ON i.list_id=l.id ORDER BY l.created_at,l.id').all();
   const members=await env.DB.prepare('SELECT list_id,account_number FROM statement_saved_list_members ORDER BY account_number').all();
   const byList=new Map();for(const row of members.results||[]){if(!byList.has(row.list_id))byList.set(row.list_id,[]);byList.get(row.list_id).push(row.account_number);}
-  return json({success:true,lists:(lists.results||[]).map(row=>({...row,accounts:byList.get(row.id)||[]}))});
+  const filterRows=await env.DB.prepare('SELECT list_id,positive,negative,zero FROM statement_saved_list_balance_filters').all();
+  const filtersById=new Map((filterRows.results||[]).map(row=>[row.list_id,{positive:Number(row.positive)!==0,negative:Number(row.negative)!==0,zero:Number(row.zero)!==0}]));
+  const defaults={positive:true,negative:true,zero:false};
+  return json({success:true,all_balance_types:filtersById.get('__all__')||defaults,lists:(lists.results||[]).map(row=>({...row,accounts:byList.get(row.id)||[],balance_types:filtersById.get(row.id)||defaults}))});
  }catch(error){console.error('Statement saved lists:',error);return json({success:false,error:'Customer lists could not be saved or loaded. Please try again.'},500);}
 }
