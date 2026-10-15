@@ -64,7 +64,14 @@ export class IntevaconApiScheduler{
     await storage.put('historyConfig',c);await storage.put('historyState',s);await this.schedule(c,s);return response({success:true,message:'History retrieval queued. You can close this page.'},202);
    }
    if(route==='/sync'&&request.method==='POST'){
-    let input;try{input=await request.json();parametersFor(input);}catch(e){return response({success:false,error:e.message},400);}
+    let input;
+    try{
+     input=await request.json();
+     // The request ID is scheduler metadata for cancellation, not an Intevacon API filter.
+     // Retain it for this.manual(), but validate only the upstream-supported fields.
+     const query={...input};delete query.request_id;
+     parametersFor(query);
+    }catch(e){return response({success:false,error:e.message},400);}
     return this.manual(input);
    }
    return response({success:false},404);
@@ -92,7 +99,9 @@ export class IntevaconApiScheduler{
   try{
    this.manualId=id||null;this.manualController=new AbortController();this.manualPhase='retrieving';
    if(id&&this.cancelledManual.has(id))this.manualController.abort();
-   const r=await this.get(input,this.manualController.signal),data=await r.json();
+   // Never forward the local cancel/track request ID to the strict Intevacon test handler.
+   const query={...input};delete query.request_id;
+   const r=await this.get(query,this.manualController.signal),data=await r.json();
    if(this.manualController.signal.aborted||(id&&this.cancelledManual.has(id)))return response({success:false,error:'Cancelled. Previous saved history kept.',code:'cancelled'},409);
    if(!r.ok||!data.success){s.error=data.error||'API pull failed.';s.retryAt=Date.now()+Math.max(60000,Number(r.headers.get('Retry-After')||0)*1000);return response({...data,retryAfterSeconds:60},r.status);}
    this.manualPhase='saving';
