@@ -140,3 +140,61 @@
   #woStatementSync .ss-source-icon{display:none}
 }
 @media(prefers-reduced-motion:reduce){#woStatementSync .ss-accordion-toggle .ss-chevron{transition:none}}
+
+
+/* Ver1090 — collapsed-by-default sync items with lighter results and cleaner title hovers. */
+#woStatementSync .ss-source-copy,
+#woStatementSync .ss-source-copy:hover,
+#woStatementSync .ss-source-copy:active{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+#woStatementSync .ss-source-copy:hover [data-choice-label]{
+  color:#193953!important;
+  text-decoration:underline!important;
+  text-decoration-thickness:1px!important;
+  text-underline-offset:3px!important;
+}
+#woStatementSync .ss-source-copy:hover [data-source-caption]{
+  color:#657c90!important;
+}
+#woStatementSync .ss-source-icon{
+  align-self:flex-start;
+  margin-top:3px;
+}
+#woStatementSync .ss-accordion-toggle{
+  width:32px;
+  min-width:32px;
+  height:32px;
+}
+#woStatementSync .ss-accordion-toggle .ss-chevron{
+  width:20px;
+  height:20px;
+}
+#woStatementSync .ss-accordion-toggle .ss-chevron svg{
+  width:18px;
+  height:18px;
+}
+#woStatementSync .ss-accordion-toggle[aria-expanded="true"] .ss-chevron{
+  transform:rotate(90deg);
+}
+#woStatementSync .ss-summary-stat small,
+#woStatementSync .ss-report-stat small{
+  font-size:11px;
+}
+#woStatementSync .ss-summary-stat strong,
+#woStatementSync .ss-report-stat strong{
+  font-size:17px!important;
+  font-weight:400!important;
+}
+#woStatementSync .ss-summary-meta p,
+#woStatementSync .ss-report-content p,
+#woStatementSync .ss-report-content li,
+#woStatementSync .ss-report-failure-table{
+  font-size:11px;
+}
+@media(max-width:650px){
+  #woStatementSync .ss-summary-stat strong,
+  #woStatementSync .ss-report-stat strong{font-size:15px!important;}
+}
