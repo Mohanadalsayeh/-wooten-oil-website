@@ -3970,7 +3970,7 @@ async function ensureCustomerLoginActivityTable(env){
 async function recordCustomerLoginActivity(env,request,customer,result){
   try{await ensureCustomerLoginActivityTable(env);const ipHash=await accountApplicationIpHash(request);await env.DB.prepare(`INSERT INTO customer_login_activity(customer_id,account_number,result,user_agent,ip_hash) VALUES (?,?,?,?,?)`).bind(Number(customer?.id||0)||null,String(customer?.account_number||""),String(result||"unknown").slice(0,40),String(request.headers.get("User-Agent")||"").slice(0,300),ipHash||null).run();}catch(error){console.error("Customer login activity could not be recorded",error);}
 }
-async function getCustomerFromSession(request, env) {
+async function getCustomerFromSession(request, env, allowPendingPasswordChange = false) {
   await ensureCustomerSessionScopeColumns(env);
   const cookies = parseCookies(request);
   const token = cookies[SESSION_COOKIE];
@@ -4029,6 +4029,11 @@ async function getCustomerFromSession(request, env) {
     return null;
   }
   if (clean(row.account_status).toLowerCase() !== "active") {
+    return null;
+  }
+  // Temporary-password sessions cannot read customer data or call other account APIs.
+  // A dedicated verified shared-email login is a separate credential and is unchanged.
+  if (Number(row.must_change_password || 0) === 1 && clean(row.login_method).toLowerCase() !== "email" && !allowPendingPasswordChange) {
     return null;
   }
   env.DB.prepare(`
@@ -4114,6 +4119,7 @@ async function customerLoginPost({
   }
   let customer = null;
   let emailMatches = [];
+  let usedSharedEmailPassword = false;
   const loginMethod = user.includes("@") ? "email" : "account";
   const normalizedAccount = loginMethod === "account" ? normalizeAccount(user) : "";
   if (normalizedAccount) {
@@ -4139,7 +4145,10 @@ async function customerLoginPost({
     });
     const sharedCredential = await getSharedEmailCredential(env, emailKey);
     if (sharedCredential && clean(sharedCredential.password_hash)) {
-      if (await verifyPassword(password, sharedCredential.password_hash)) customer = activeMatches[0] || null;
+      if (await verifyPassword(password, sharedCredential.password_hash)) {
+        customer = activeMatches[0] || null;
+        usedSharedEmailPassword = !!customer;
+      }
     } else {
       // Backward-compatible migration: until a shared-email password is created,
       // an existing linked account password can still establish the email-scoped session.
@@ -4199,13 +4208,19 @@ async function customerLoginPost({
       error: "Customer Number or password is incorrect."
     }, 401);
   }
+  const temporaryLogin = Number(customer.must_change_password || 0) === 1 && !usedSharedEmailPassword;
+  const sessionMethod = temporaryLogin ? "account" : loginMethod;
   const token = await createSession(
     env,
     customer.id,
-    rememberMe,
-    loginMethod,
-    loginMethod === "email" ? user : ""
+    temporaryLogin ? false : rememberMe,
+    sessionMethod,
+    sessionMethod === "email" ? user : ""
   );
+  if (temporaryLogin) {
+    await recordCustomerLoginActivity(env,request,customer,"temporary_password_change_required");
+    return json4({success:true,must_change_password:true,account_number:customer.account_number,account_name:customer.account_name},200,{"Set-Cookie":sessionCookie(token,false)});
+  }
   await recordCustomerLoginActivity(env,request,customer,"success");
   return json4(
     {
@@ -4970,6 +4985,83 @@ async function adminGenerateActivationCode({
 }
 __name(adminGenerateActivationCode, "adminGenerateActivationCode");
 
+// Ver1095: Master/Admin online activation with a randomly generated temporary password.
+// This is distinct from existing activation codes and password reset assistance.
+function createCustomerTemporaryPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const limit = Math.floor(256 / alphabet.length) * alphabet.length;
+  let value = "";
+  while (value.length < 10) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    for (const byte of bytes) {
+      if (byte >= limit) continue;
+      value += alphabet[byte % alphabet.length];
+      if (value.length === 10) break;
+    }
+  }
+  return value;
+}
+
+async function adminActivateCustomerWithTemporaryPassword({ request, env }) {
+  if (!env.DB) return json5({success:false,error:"Customer database is not configured."},503);
+  const supplied = request.headers.get("X-Admin-Key") || "";
+  if (!env.ADMIN_IMPORT_KEY || !constantTimeEqual(supplied, env.ADMIN_IMPORT_KEY))
+    return json5({success:false,error:"Unauthorized."},401);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json5({success:false,error:"Invalid activation request."},400); }
+  const account = normalizeAccount2(body?.account_number || body?.accountNumber);
+  if (!account) return json5({success:false,error:"Enter a valid Customer Number."},400);
+
+  try {
+    const customer = await getCustomerByAccount(env,account);
+    if (!customer) return json5({success:false,error:"Customer was not found."},404);
+    const status = clean2(customer.account_status).toLowerCase();
+    if (status && status !== "active")
+      return json5({success:false,error:"This customer account is inactive. No changes were made."},403);
+    if (clean2(customer.password_hash))
+      return json5({success:false,already_activated:true,error:"This online account is already activated. Use Password Reset Assistance instead."},409);
+
+    const temporaryPassword = createCustomerTemporaryPassword();
+    const passwordHash = await createPasswordHash(temporaryPassword);
+    const result = await env.DB.prepare(`
+      UPDATE customers
+      SET password_hash=?, must_change_password=1, updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND (password_hash IS NULL OR trim(password_hash)='')
+    `).bind(passwordHash, customer.id).run();
+    if (Number(result?.meta?.changes ?? result?.changes ?? 0) !== 1)
+      return json5({success:false,error:"Account activation status changed. Refresh and try again."},409);
+
+    // Cleanup is best effort: once the password hash is saved, never suppress the
+    // one-time password response because an unrelated token-history table failed.
+    // All existing sessions remain denied by the must_change_password guard.
+    for (const [label,sql] of [
+      ["customer sessions",`DELETE FROM customer_sessions WHERE customer_id=?`],
+      ["activation codes",`UPDATE customer_activation_codes SET used_at=CURRENT_TIMESTAMP WHERE customer_id=? AND used_at IS NULL`],
+      ["password reset tokens",`UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE customer_id=? AND used_at IS NULL`]
+    ]) {
+      try { await env.DB.prepare(sql).bind(customer.id).run(); }
+      catch (error) { console.error("Activation cleanup failed: "+label,error); }
+    }
+    await adminAudit(env,request,"online_account_activated_by_admin","customer",customer.account_number,"Temporary password created; mandatory first-login change. Password not logged.");
+
+    return json5({
+      success:true,
+      account_number:customer.account_number,
+      account_name:customer.account_name,
+      temporary_password:temporaryPassword,
+      must_change_password:true,
+      message:"Online account activated. Give the temporary password privately to the verified customer. It will be shown only now."
+    });
+  } catch (error) {
+    console.error("adminActivateCustomerWithTemporaryPassword",error);
+    return json5({success:false,error:"Could not activate this customer account. Please try again."},500);
+  }
+}
+
+
 // functions/api/password-reset.js
 var CODE_MINUTES2 = 15;
 var PASSWORD_ITERATIONS2 = 1e5;
@@ -5405,7 +5497,7 @@ __name(customerPasswordResetComplete, "customerPasswordResetComplete");
 async function customerChangePassword({ request, env }) {
   try {
     if (!env.DB) return json6({ success: false, error: "Customer database is not configured." }, 503);
-    const session = await getCustomerFromSession(request, env);
+    const session = await getCustomerFromSession(request, env, true);
     if (!session) return json6({ success: false, error: "Your customer session has expired. Please sign in again." }, 401);
     let body;
     try { body = await request.json(); } catch { return json6({ success: false, error: "Invalid password change request." }, 400); }
@@ -11579,6 +11671,7 @@ function adminGeneralAuditDescriptor(request){
   if(path==="/api/admin/audit")return null;
   // List mutations write their specific audit entry in the same D1 transaction.
   if(method==="POST"&&path==="/api/admin/statement-lists")return null;
+  if(method==="POST"&&path==="/api/admin/customer-activate")return null; // Audited with customer number after activation.
   if(method==="DELETE"&&/^\/api\/admin\/account-applications\/\d+$/.test(path))return null;
   if(method==="POST"&&(path==="/api/admin/users"||path==="/api/admin/customers-import"||path==="/api/admin/customer-payments-import"||path==="/api/admin/account-applications"))return null;
   if(method==="POST"&&path==="/api/admin/import-control/cancel")return null;
@@ -13411,6 +13504,10 @@ var worker_default = {
       if (request.method === "POST") {
         return customerPasswordResetComplete({ request, env });
       }
+      return methodNotAllowed();
+    }
+    if (url.pathname === "/api/admin/customer-activate") {
+      if (request.method === "POST") return adminActivateCustomerWithTemporaryPassword({request,env});
       return methodNotAllowed();
     }
     if (url.pathname === "/api/admin/customer-activation-code") {

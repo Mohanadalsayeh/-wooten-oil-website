@@ -8341,6 +8341,26 @@ SOFTWARE.
     <h2>Customer Online Account Activation</h2>
     <p>Use this section when a customer does not have an email address on file. Verify the customer first, then generate a one-time 6-digit activation code so they can create their own password.</p>
 
+    <div class="activation-card" id="adminImmediateActivationCard">
+      <h3 style="margin:0 0 8px;color:var(--navy)">Activate Customer Account</h3>
+      <p>Immediately enable online access and generate a secure temporary password. The customer must set a new password at their first login before viewing account information.</p>
+      <div class="activation-grid">
+        <div><label for="immediateActivationAccount">Customer Number</label>
+          <input id="immediateActivationAccount" type="text" inputmode="numeric" placeholder="Example: 0000999" autocomplete="off"></div>
+        <button class="primary" id="immediateActivationBtn" type="button">Activate Account</button>
+      </div>
+      <div id="immediateActivationStatus" class="status" aria-live="polite"></div>
+      <div id="immediateActivationResult" class="activation-result" role="status" aria-live="polite">
+        <div class="cust"><strong id="immediateActivationCustomerName"></strong><br>Customer # <span id="immediateActivationCustomerNumber"></span></div>
+        <div class="code-label">Temporary Password — Shown Once</div>
+        <div class="activation-code" id="immediateActivationPassword" style="font-size:25px;letter-spacing:.07em;overflow-wrap:anywhere"></div>
+        <button class="copy-btn" id="copyImmediateActivationPassword" type="button">Copy Temporary Password</button>
+        <div class="activation-meta" style="margin-top:10px">Account activated. The customer must change this password on first login.</div>
+      </div>
+      <div class="activation-warning"><strong>Security:</strong> Verify the customer's identity first. Share the temporary password privately. It is only displayed once and is not emailed, texted, or stored in readable form.</div>
+    </div>
+
+    <h3 style="margin:28px 0 0;color:var(--navy)">One-Time Activation Code (Existing Option)</h3>
     <div class="activation-card">
       <div class="activation-grid">
         <div>
@@ -11518,6 +11538,46 @@ sendCustomerNotificationBtn.addEventListener("click",async()=>{
     btn.textContent=notifyAudienceAll.checked ? "Send to All Customers" : "Send Notification";
   }
 });
+
+/* Ver1095 — immediate online activation with mandatory temporary-password change. */
+(function(){
+  const input=document.getElementById('immediateActivationAccount');
+  const button=document.getElementById('immediateActivationBtn');
+  const result=document.getElementById('immediateActivationResult');
+  const status=document.getElementById('immediateActivationStatus');
+  const copy=document.getElementById('copyImmediateActivationPassword');
+  const passwordEl=document.getElementById('immediateActivationPassword');
+  if(!input||!button||!result||!status||!copy||!passwordEl)return;
+  function clearResult(){result.classList.remove('show');passwordEl.textContent='';copy.textContent='Copy Temporary Password';}
+  input.addEventListener('input',clearResult);
+  button.addEventListener('click',async()=>{
+    const key=document.getElementById('adminKey').value.trim();
+    const account=normalizeActivationAccount(input.value);
+    clearResult();
+    if(!key){status.className='status show bad';status.textContent='Enter your Admin Import Key in the Admin Login window first.';return;}
+    if(!account){status.className='status show bad';status.textContent='Enter a valid Customer Number.';return;}
+    if(!confirm('Activate online access for Customer #'+account+' now and create a temporary password?'))return;
+    button.disabled=true;button.textContent='Activating…';
+    status.className='status';status.textContent='';
+    try{
+      const response=await fetch('/api/admin/customer-activate',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Key':key},body:JSON.stringify({account_number:account})});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.success===false)throw new Error(data.error||'Customer account could not be activated.');
+      document.getElementById('immediateActivationCustomerName').textContent=data.account_name||'Customer';
+      document.getElementById('immediateActivationCustomerNumber').textContent=data.account_number||account;
+      passwordEl.textContent=data.temporary_password||'';
+      if(!passwordEl.textContent)throw new Error('Activation succeeded, but no temporary password was returned. Contact support before attempting again.');
+      status.className='status show ok';status.textContent='Account activated successfully. Copy the temporary password now; it will not be displayed again.';
+      result.classList.add('show');
+    }catch(e){status.className='status show bad';status.textContent=e.message||'Activation failed.';clearResult();}
+    finally{button.disabled=false;button.textContent='Activate Account';}
+  });
+  copy.addEventListener('click',async()=>{
+    const value=passwordEl.textContent.trim();if(!value)return;
+    try{await navigator.clipboard.writeText(value);copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy Temporary Password',1500);}
+    catch{status.className='status show bad';status.textContent='Automatic copying is unavailable. Please manually copy the password shown above.';}
+  });
+})();
 
 document.getElementById("activationBtn").addEventListener("click",async()=>{
   const key=document.getElementById("adminKey").value.trim();

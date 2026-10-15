@@ -972,6 +972,7 @@
     loginCard.style.display='none';
     activationCard.classList.remove('show');
     resetCard.classList.remove('show');
+    if(temporaryCard)temporaryCard.classList.remove('show');
     accountCard.classList.remove('show');
   }
   function showLogin(){
@@ -1129,6 +1130,46 @@
     }catch(e){}
   }
 
+  // Ver1095 — a temporary credential never grants access to the customer dashboard.
+  var temporaryCard=document.getElementById('portalTemporaryPasswordCard');
+  var temporarySubmit=document.getElementById('temporaryPasswordSubmit');
+  var temporarySignOut=document.getElementById('temporaryPasswordSignOut');
+  var temporaryStatus=document.getElementById('temporaryPasswordStatus');
+  function showTemporaryPasswordChange(){
+    hideAll();
+    if(!temporaryCard)return;
+    temporaryCard.classList.add('show');
+    updateCustomerMenu(null);
+    clearStatus(temporaryStatus);
+    document.getElementById('temporaryCurrentPassword').value='';
+    document.getElementById('temporaryNewPassword').value='';
+    document.getElementById('temporaryConfirmPassword').value='';
+    setTimeout(function(){document.getElementById('temporaryCurrentPassword').focus();},50);
+  }
+  if(temporarySubmit)temporarySubmit.addEventListener('click',async function(){
+    var current=document.getElementById('temporaryCurrentPassword').value;
+    var next=document.getElementById('temporaryNewPassword').value;
+    var confirmNext=document.getElementById('temporaryConfirmPassword').value;
+    if(!current){setStatus(temporaryStatus,'Enter your temporary password.',false);return;}
+    if(next.length<10||!/[A-Za-z]/.test(next)){setStatus(temporaryStatus,'New password must have at least 10 characters and one letter.',false);return;}
+    if(next===current){setStatus(temporaryStatus,'Choose a new password different from your temporary password.',false);return;}
+    if(next!==confirmNext){setStatus(temporaryStatus,'The new passwords do not match.',false);return;}
+    temporarySubmit.disabled=true;temporarySubmit.textContent='Saving…';
+    try{
+      var r=await customerFetch('/api/customer/change-password',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:next,confirm_password:confirmNext})});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok||!d.success)throw new Error(d.error||'Could not change your password.');
+      showLogin();
+      setStatus(status,'Your new password has been saved. Please sign in again.',true);
+      document.getElementById('portal-password').value='';
+    }catch(e){setStatus(temporaryStatus,e.message||'Could not change your password.',false);}
+    finally{temporarySubmit.disabled=false;temporarySubmit.textContent='Set New Password';}
+  });
+  if(temporarySignOut)temporarySignOut.addEventListener('click',async function(){
+    try{await customerFetch(LOGOUT_ENDPOINT,{method:'POST',credentials:'same-origin'});}catch(e){}
+    showLogin();updateCustomerMenu(null);
+  });
+
   form.addEventListener('submit',async function(e){
     e.preventDefault();
     if(!form.reportValidity()) return;
@@ -1158,6 +1199,7 @@
         throw new Error(d.error || 'The customer number/email or password is incorrect.');
       }
       invalidateCurrentCustomerLoad();
+      if(d.must_change_password){showTemporaryPasswordChange();document.getElementById('portal-password').value='';return;}
       if(d.customer){ showAccount(d.customer); }
       else{
         var loginLoad=await loadCurrentAccount(false);

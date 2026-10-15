@@ -471,6 +471,19 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     <div class="portal-help">Need login help? <a href="mailto:Support@wootenoil.com">Contact Wooten Oil</a></div>
   </div>
 
+  <div class="portal-card portal-activation-card" id="portalTemporaryPasswordCard" aria-live="polite">
+    <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
+    <h2>Set Your New Password</h2>
+    <p>Your online account has been activated by Wooten Oil. Before you can view your account, replace the temporary password with your own.</p>
+    <div class="portal-field"><label for="temporaryCurrentPassword">Temporary Password</label><input id="temporaryCurrentPassword" type="password" autocomplete="current-password" maxlength="128" /></div>
+    <div class="portal-field"><label for="temporaryNewPassword">New Password</label><input id="temporaryNewPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" placeholder="At least 10 characters with a letter" /></div>
+    <div class="portal-field"><label for="temporaryConfirmPassword">Confirm New Password</label><input id="temporaryConfirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></div>
+    <div id="temporaryPasswordStatus" class="portal-status" role="status" aria-live="polite"></div>
+    <button class="portal-primary-btn" id="temporaryPasswordSubmit" type="button">Set New Password</button>
+    <button class="portal-secondary-btn" id="temporaryPasswordSignOut" type="button" style="width:100%;margin-top:10px">Sign Out</button>
+    <div class="portal-help">Need login help? <a href="mailto:support@wootenoil.com">Contact Wooten Oil</a></div>
+  </div>
+
   <div class="portal-card portal-activation-card" id="portalActivationCard" aria-live="polite">
     <a class="portal-close" href="#top" aria-label="Close account activation">&times;</a>
     <div class="portal-eyebrow">Wooten Oil Customer Portal</div>
@@ -1446,7 +1459,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   </div>
 </div>
 
-<script src="assets/js/script-07.js?v=802"></script>
+<script src="assets/js/script-07.js?v=1095"></script>
 
 
 <div class="cookie-consent" id="wootenCookieConsent" role="dialog" aria-live="polite" aria-label="Cookie preferences">
