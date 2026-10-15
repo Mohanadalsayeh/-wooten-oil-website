@@ -1,6 +1,6 @@
 // Ver692: resumable 92-day history, short rolling updates, and independent nightly refresh.
 import {handle as retrieve,parametersFor} from './intevacon-api-test.mjs';
-import {saveHistory,coverage,queryHistory} from './intevacon-history.mjs';
+import {saveHistory,saveStatementSyncWithReport,coverage,queryHistory} from './intevacon-history.mjs';
 const DAY=86400000;
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private'}});
 export const defaults={enabled:false,intervalSeconds:300,days:2,cardNumber:'',nightlyEnabled:true,nightlyTime:'02:00'};
@@ -27,7 +27,7 @@ export async function handle({request,env,actor}){
  if(request.method==='POST'&&(request.headers.get('Origin')!==url.origin||!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||'')))return response({success:false,error:'Use the admin page.'},403);
  if(route==='history'){try{return response(await queryHistory(env.DB,url.searchParams,{admin:true}));}catch(e){return response({success:false,error:e.message},400);}}
  let body;if(request.method==='POST'){body=await request.text();if(body.length>2048)return response({success:false,error:'Request too large.'},413);}
- return env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request('https://scheduler/'+route,{method:request.method,headers:{'Content-Type':'application/json'},body}));
+ return env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request('https://scheduler/'+route+(route==='results'?url.search:''),{method:request.method,headers:{'Content-Type':'application/json'},body}));
 }
 export class IntevaconApiScheduler{
  constructor(ctx,env){this.ctx=ctx;this.env=env;this.running=false;this.queue=Promise.resolve();this.manualController=null;this.manualId=null;this.manualPhase=null;this.cancelledManual=new Set();}
@@ -35,7 +35,7 @@ export class IntevaconApiScheduler{
  async config(){return await this.ctx.storage.get('historyConfig')||{...defaults};}
  async state(){return await this.ctx.storage.get('historyState')||{initialized:false,job:null,nightlyJob:null,nextRecent:null,nextNight:null,lastSuccess:null,lastNight:null,error:null};}
  async fetch(request){
-  const route=new URL(request.url).pathname;
+  const requestUrl=new URL(request.url),route=requestUrl.pathname;
   if(route==='/schedule'&&request.method==='GET'){
    const c=await this.config(),s=await this.state(),status=await this.ctx.storage.get('status')||{},j=s.job||s.nightlyJob;
    const percent=j?Math.min(99,Math.floor((wall(j.cursor)-wall(j.from))/(wall(j.to)-wall(j.from))*100)):s.initialized?100:0;
@@ -51,7 +51,15 @@ export class IntevaconApiScheduler{
   if(route==='/sync'&&this.running)return response({success:false,code:'sync_in_progress',error:'An API pull is already running.'},409);
   return this.exclusive(async()=>{
    const storage=this.ctx.storage;
-   if(route==='/results')return response({success:true,result:await readSnapshot(storage)});
+   if(route==='/results'){
+    const id=requestUrl.searchParams.get('run_id');
+    if(id){if(!/^[a-f0-9-]{36}$/i.test(id))return response({success:false,error:'Invalid report ID.'},400);
+     const report=await storage.get('statementReport:'+id);
+     return report?response({success:true,report}):response({success:false,error:'Synchronization report is no longer available.'},404);
+    }
+    if(requestUrl.searchParams.has('history'))return response({success:true,reports:await storage.get('statementReportIndex')||[]});
+    return response({success:true,result:await readSnapshot(storage)});
+   }
    if(route==='/schedule'&&request.method==='POST'){
     let c;try{c=validateConfig(await request.json());}catch(e){return response({success:false,error:e.message},400);}
     const s=await this.state();s.nextNight=c.nightlyEnabled?nextNight(Date.now(),c.nightlyTime):null;if(c.enabled&&!s.nextRecent)s.nextRecent=Date.now();
@@ -69,7 +77,8 @@ export class IntevaconApiScheduler{
      input=await request.json();
      // The request ID is scheduler metadata for cancellation, not an Intevacon API filter.
      // Retain it for this.manual(), but validate only the upstream-supported fields.
-     const query={...input};delete query.request_id;
+     const query={...input};delete query.request_id;delete query.report;
+     if(input.report!==undefined&&input.report!==true)throw Error('Invalid report option.');
      parametersFor(query);
     }catch(e){return response({success:false,error:e.message},400);}
     return this.manual(input);
@@ -91,26 +100,54 @@ export class IntevaconApiScheduler{
   try{return await retrieve({request:new Request('https://scheduler/api',{method:'POST',headers:{Origin:'https://scheduler','Content-Type':'application/json'},body:JSON.stringify(input),signal}),env:this.env,actor:{owner:true}});}
   finally{this.running=false;await this.ctx.storage.put('nextAllowed',Date.now()+30000);}
  }
+ async saveStatementReport(report){
+  if(!report?.id)return;
+  const storage=this.ctx.storage;
+  const index=(await storage.get('statementReportIndex')||[]).filter(r=>r.id!==report.id);
+  index.unshift({id:report.id,completedAt:report.completedAt||report.startedAt,status:report.status,from:report.from,to:report.to,received:report.stats?.received??null,failed:report.stats?.failed??null});
+  for(const stale of index.slice(40))await storage.delete('statementReport:'+stale.id);
+  await storage.put('statementReportIndex',index.slice(0,40));
+  await storage.put('statementReport:'+report.id,report);
+ }
  async manual(input){
   const id=input.request_id;if(id&&!/^[a-f0-9-]{36}$/i.test(id))return response({success:false,error:'Invalid request ID.'},400);
   if(id&&this.cancelledManual.has(id))return response({success:false,error:'Cancelled.',code:'cancelled'},409);
   const wait=Number(await this.ctx.storage.get('nextAllowed')||0)-Date.now();if(wait>0)return response({success:false,code:'sync_cooldown',error:'Please wait before the next API sync.',retryAfterSeconds:Math.ceil(wait/1000)},429);
-  const c=await this.config(),s=await this.state();
+  const c=await this.config(),s=await this.state(),audited=input.report===true;
+  const report=audited?{id:id||crypto.randomUUID(),from:input.from,to:input.to,days:[1,2,7,14,30].includes(c.days)?c.days:2,
+   startedAt:new Date().toISOString(),completedAt:null,status:'running',stats:null,failures:[],failuresTruncated:0,error:null}:null;
   try{
    this.manualId=id||null;this.manualController=new AbortController();this.manualPhase='retrieving';
    if(id&&this.cancelledManual.has(id))this.manualController.abort();
-   // Never forward the local cancel/track request ID to the strict Intevacon test handler.
-   const query={...input};delete query.request_id;
+   // Keep scheduler metadata and reporting internal: only accepted date/card filters reach Intevacon.
+   const query={...input};delete query.request_id;delete query.report;
    const r=await this.get(query,this.manualController.signal),data=await r.json();
-   if(this.manualController.signal.aborted||(id&&this.cancelledManual.has(id)))return response({success:false,error:'Cancelled. Previous saved history kept.',code:'cancelled'},409);
-   if(!r.ok||!data.success){s.error=data.error||'API pull failed.';s.retryAt=Date.now()+Math.max(60000,Number(r.headers.get('Retry-After')||0)*1000);return response({...data,retryAfterSeconds:60},r.status);}
+   if(this.manualController.signal.aborted||(id&&this.cancelledManual.has(id))){
+    if(report){report.status='cancelled';report.error='Cancelled before database changes.';report.completedAt=new Date().toISOString();await this.saveStatementReport(report);}
+    return response({success:false,error:'Cancelled. Previous saved history kept.',code:'cancelled',report},409);
+   }
+   if(!r.ok||!data.success){
+    s.error=data.error||'API pull failed.';s.retryAt=Date.now()+Math.max(60000,Number(r.headers.get('Retry-After')||0)*1000);
+    if(report){report.status='failed';report.error=s.error;report.completedAt=new Date().toISOString();await this.saveStatementReport(report);}
+    return response({...data,report,retryAfterSeconds:60},r.status);
+   }
    this.manualPhase='saving';
-   await saveHistory(this.env.DB,data.rows,data.completedAt,data.cardNumber?null:{from:data.from,to:data.to});
+   if(audited){
+    const accounting=await saveStatementSyncWithReport(this.env.DB,data.rows,data.completedAt,data.cardNumber?null:{from:data.from,to:data.to});
+    Object.assign(report,accounting,{completedAt:data.completedAt,status:accounting.stats.failed?'completed_with_errors':'completed'});
+    await this.saveStatementReport(report);
+   }else await saveHistory(this.env.DB,data.rows,data.completedAt,data.cardNumber?null:{from:data.from,to:data.to});
    await writeSnapshot(this.ctx.storage,data);s.lastSuccess=data.completedAt;s.error=null;
    await this.ctx.storage.put('status',{state:'success',completedAt:data.completedAt,count:data.count});
+   if(audited)return response({success:true,readOnly:true,completedAt:data.completedAt,retrieved_at:data.completedAt,
+      from:data.from,to:data.to,count:data.count,reportId:report.id,report,retryAfterSeconds:30});
    return response({...data,retryAfterSeconds:30});
-  }catch(e){s.error='Sync did not finish. Saved history was kept.';return response({success:false,error:s.error},502);}
-  finally{this.manualController=null;this.manualId=null;this.manualPhase=null;await this.ctx.storage.put('historyState',s);await this.schedule(c,s);}
+  }catch(e){
+   s.error='Sync did not finish. Saved history was kept.';
+   if(report){report.status='failed';report.error=(e.message||s.error).slice(0,300);report.completedAt=new Date().toISOString();
+    try{await this.saveStatementReport(report);}catch{}}
+   return response({success:false,error:s.error,report},502);
+  }finally{this.manualController=null;this.manualId=null;this.manualPhase=null;await this.ctx.storage.put('historyState',s);await this.schedule(c,s);}
  }
  async alarm(){return this.exclusive(async()=>{
   const storage=this.ctx.storage,c=await this.config(),s=await this.state();if(!c.enabled)return;

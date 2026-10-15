@@ -53,6 +53,44 @@ export async function saveHistory(db,rows,fetchedAt,range){
  if(statements.length)await db.batch(statements);
  if(range){const c=await coverage(db);await db.batch([db.prepare('DELETE FROM intevacon_coverage_v692'),...c.spans.map(span=>db.prepare('INSERT INTO intevacon_coverage_v692 VALUES(?,?,?)').bind(span.from,span.to,c.last_sync))]);}
 }
+// Ver1087 — Audited, statement-triggered ingestion. Other import paths remain unchanged.
+// Counts describe database changes, not card authorization or settlement outcomes.
+export async function saveStatementSyncWithReport(db, rows, fetchedAt, range){
+ await ensureHistory(db);
+ if(!Array.isArray(rows)||!Number.isFinite(Date.parse(fetchedAt)))throw Error('Invalid transaction result.');
+ const stats={received:rows.length,added:0,updated:0,unchanged:0,failed:0,saved:0};
+ const failures=[];const accepted=[];const seen=new Set();
+ const mask=value=>{const s=String(value||'');return s?s.length<=4?'****':'****'+s.slice(-4):'';};
+ const describe=(row,reason)=>({transaction_id:String(row?.ID??'').slice(0,120),customer_id:String(row?.CustomerID??'').slice(0,80),card_number:mask(row?.CardNumber),reason:String(reason||'Invalid transaction').slice(0,300),retryable:false});
+ for(const row of rows){
+  try{
+   const p=projectTransaction(row),id=String(p.transaction_id||'').trim();
+   if(!id)throw Error('Missing transaction ID.');
+   if(seen.has(id)){stats.unchanged++;continue;}
+   seen.add(id);
+   const record=JSON.stringify(p.source);
+   if(new TextEncoder().encode(record).length>900000)throw Error('Transaction record exceeds storage limits.');
+   accepted.push({id,row,record});
+  }catch(e){stats.failed++;if(failures.length<250)failures.push(describe(row,e.message));}
+ }
+ for(let i=0;i<accepted.length;i+=150){
+  const batch=accepted.slice(i,i+150),ids=batch.map(r=>r.id);
+  // Compare the actual saved row JSON. Re-fetching an unchanged transaction is not an update.
+  const prior=await db.prepare(`SELECT id,row_json FROM ${table} WHERE id IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(ids)).all();
+  const existing=new Map((prior.results||[]).map(r=>[r.id,r.row_json]));
+  await saveHistory(db,batch.map(r=>r.row),fetchedAt,null);
+  for(const item of batch){
+   if(!existing.has(item.id))stats.added++;
+   else if(existing.get(item.id)===item.record)stats.unchanged++;
+   else stats.updated++;
+  }
+ }
+ stats.saved=stats.added+stats.updated;
+ // Mark coverage only after all returned records were accepted and the save completed.
+ if(range&&stats.failed===0)await saveHistory(db,[],fetchedAt,range);
+ return {stats,failures,failuresTruncated:Math.max(0,stats.failed-failures.length)};
+}
+
 export async function coverage(db){
  await ensureHistory(db);
  const result=await db.prepare('SELECT * FROM intevacon_coverage_v692 ORDER BY window_from,window_to').all();
