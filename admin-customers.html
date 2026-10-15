@@ -22536,3 +22536,79 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-ed
  .fm-analytics-modern>footer .fm-analytics-excel,.fm-analytics-modern>footer .fm-analytics-done{min-height:44px!important;}
 }
 </style>
+
+<style id="wooten-fm-locations-chevron-ver1093">
+/* Ver1093: Match Locations menu chevron to the View tanks and alarms chevron.
+   A larger outline with the same blue and visual stroke weight; keep its
+   tab placement, existing open/close behavior, and all other controls. */
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child {
+  width:26px!important;
+  height:26px!important;
+  min-width:26px!important;
+  min-height:26px!important;
+  max-width:26px!important;
+  max-height:26px!important;
+  right:10px!important;
+  color:#17689a!important;
+  stroke:currentColor!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child path {
+  stroke-width:2.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger.is-open > svg:last-child,
+body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger[aria-expanded="true"] > svg:last-child {
+  color:#17689a!important;
+}
+@media (max-width:700px){
+  body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown > button.fm-locations-trigger > svg:last-child {
+    width:26px!important;
+    height:26px!important;
+    min-width:26px!important;
+    min-height:26px!important;
+    max-width:26px!important;
+    max-height:26px!important;
+    right:4px!important;
+  }
+}
+</style>
+
+<style id="wooten-1094-mobile-analytics-product-cards">
+/* Ver1094: the desktop four-column analytics widths must not leak into
+   the mobile stacked fuel-product comparison cards. */
+@media (max-width:640px){
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap{
+   width:100%!important;max-width:100%!important;min-width:0!important;
+   overflow-x:hidden!important;box-sizing:border-box!important;
+ }
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap table{
+   display:block!important;min-width:0!important;max-width:100%!important;
+   width:100%!important;table-layout:auto!important;
+ }
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap tbody,
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap tr{
+   display:block!important;min-width:0!important;max-width:100%!important;
+   width:100%!important;box-sizing:border-box!important;
+ }
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap td,
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap td:nth-child(1),
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap td:nth-child(2),
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap td:nth-child(3),
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap td:nth-child(4){
+   display:flex!important;align-items:center!important;justify-content:space-between!important;
+   gap:10px!important;padding:11px 12px!important;
+   width:100%!important;min-width:0!important;max-width:100%!important;
+   box-sizing:border-box!important;white-space:normal!important;
+   overflow-wrap:anywhere!important;text-align:right!important;
+   border-bottom:1px solid #e1eaf2!important;
+ }
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap tr td:last-child{
+   border-bottom:0!important;
+ }
+ body#wooten-admin-page .fm-analytics-dialog .fm-analytics-panel .fm-analytics-table-wrap td::before{
+   flex:0 1 48%!important;min-width:0!important;white-space:normal!important;
+   text-align:left!important;
+ }
+}
+</style>
