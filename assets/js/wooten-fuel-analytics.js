@@ -1,7 +1,16 @@
 (()=>{'use strict';
  const root=document.getElementById('fuelMonitorRoot');if(!root)return;
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const colors=['#2476af','#e79731','#219479','#9463ad','#aa5c53','#738397'];
+ // Ver1085: soft fuel-specific palette approved for Usage Analytics.
+ const fuelPalette={regular:'#6AA8FF',premium:'#57C6B6',road:'#FFCA6B',farm:'#AA95F7',other:'#7995C6'};
+ const colorFor=t=>{const n=String(t.fuel||'').toLowerCase();
+  if(/farm|off.?road|hsdf/.test(n))return fuelPalette.farm;
+  if(/premium|93|super/.test(n))return fuelPalette.premium;
+  if(/road|diesel|lsdf|low.?sulfur/.test(n))return fuelPalette.road;
+  if(/regular|unleaded|87|gasoline/.test(n))return fuelPalette.regular;
+  return fuelPalette.other;
+ };
+ const dateLabel=iso=>{const a=String(iso).split('-');const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return (months[Number(a[1])-1]||'')+' '+Number(a[2]);};
  const dlg=document.createElement('dialog');dlg.className='fm-analytics-dialog';document.body.append(dlg);
  let state=null;
  const fmt=n=>Math.round(n).toLocaleString('en-US');
@@ -21,22 +30,37 @@
   dlg.querySelector('[data-coverage]').textContent=validDays+' / '+range+' days observed';
   dlg.querySelector('[data-confidence]').textContent=unknown?'Limited history — estimates may be incomplete':warning?'Review suggested — delivery/adjustment events detected':'Based on available readings';
   dlg.querySelector('[data-confidence]').className='fm-analytics-quality'+(unknown||warning?' warn':'');
-  const max=Math.max(10,...totals)*1.15,w=820,h=260,left=52,right=12,top=18,bottom=220,usable=w-left-right;
-  let svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Estimated daily fuel use in gallons" preserveAspectRatio="none">`;
-  for(let j=0;j<5;j++){let y=bottom-j*(bottom-top)/4;svg+=`<path d="M${left} ${y} H${w-right}" stroke="#dce6ef" stroke-dasharray="3 4"/><text x="${left-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#69829a">${fmt(max*j/4)}</text>`}
+  // Responsive SVG keeps short month names legible on narrow phone screens.
+  const compact=window.innerWidth<=600;
+  const max=Math.max(10,...totals)*1.15,w=compact?460:820,h=compact?255:280;
+  const left=compact?49:57,right=compact?10:16,top=15,bottom=compact?215:236;
+  const usable=w-left-right,step=usable/dates.length;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Estimated daily fuel use in gallons" preserveAspectRatio="xMidYMid meet">`;
+  for(let j=0;j<5;j++){
+   const y=bottom-j*(bottom-top)/4;
+   svg+=`<path d="M${left} ${y} H${w-right}" stroke="#D7E7F8" stroke-dasharray="3 4" stroke-width="1.2"/><text x="${left-9}" y="${y+4}" text-anchor="end" font-size="${compact?13:14}" fill="#6785A6">${fmt(max*j/4)}</text>`;
+  }
   dates.forEach((d,i)=>{
-   const bw=usable/dates.length,bar=Math.max(1,bw*.68),x=left+i*bw+bw*.16;
-   let y=bottom;datasets.forEach(t=>{const v=Number(t.points[i].gallons)||0;let bh=v/max*(bottom-top);if(bh>0){y-=bh;const color=colors[(Number(t.number)-1)%colors.length];svg+=`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${bar.toFixed(2)}" height="${bh.toFixed(2)}" fill="${color}" rx="2"><title>${esc(t.fuel)} — ${d}: ${fmt(v)} gal</title></rect>`}});
-   if(i%Math.ceil(dates.length/7)===0||i===dates.length-1)svg+=`<text x="${(x+bar/2).toFixed(1)}" y="${bottom+19}" text-anchor="middle" font-size="11" fill="#69829a">${d.slice(5)}</text>`;
+   const bar=Math.max(1,step*(compact?.61:.65)),x=left+i*step+(step-bar)/2;
+   let y=bottom;
+   datasets.forEach(t=>{
+    const v=Number(t.points[i].gallons)||0;
+    const bh=v/max*(bottom-top);
+    if(bh>0){y-=bh;svg+=`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${bar.toFixed(2)}" height="${bh.toFixed(2)}" fill="${colorFor(t)}" rx="2.5"><title>${esc(t.fuel)} — ${dateLabel(d)}: ${fmt(v)} gal</title></rect>`;}
+   });
+   if(i%Math.ceil(dates.length/(compact?7:10))===0||i===dates.length-1){
+    svg+=`<text x="${(x+bar/2).toFixed(1)}" y="${bottom+21}" text-anchor="middle" font-size="${compact?13:14}" fill="#5F80A7">${dateLabel(d)}</text>`;
+   }
   });
   svg+='</svg>';
-  dlg.querySelector('[data-chart]').innerHTML=svg;
-  dlg.querySelector('[data-products]').innerHTML=datasets.map(t=>{const sum=t.points.reduce((a,d)=>a+Number(d.gallons||0),0),days=t.points.filter(d=>Number(d.valid_intervals)>0).length;return `<tr><td><span class="fm-analytics-dot" style="background:${colors[(Number(t.number)-1)%colors.length]}"></span>${esc(t.fuel)} (Tank ${t.number})</td><td>${fmt(sum)} gal</td><td>${days?fmt(sum/days)+' gal':'—'}</td><td>${days} days</td></tr>`}).join('')||'<tr><td colspan="4">No tanks configured.</td></tr>';
+  const legend=[...new Map(datasets.map(t=>[String(t.fuel||''),{name:String(t.fuel||''),color:colorFor(t)}])).values()];
+  dlg.querySelector('[data-chart]').innerHTML=svg+'<div class="fm-analytics-legend" aria-label="Chart fuel products">'+legend.map(t=>`<span><i style="background:${t.color}"></i>${esc(t.name)}</span>`).join('')+'</div>';
+  dlg.querySelector('[data-products]').innerHTML=datasets.map(t=>{const sum=t.points.reduce((a,d)=>a+Number(d.gallons||0),0),days=t.points.filter(d=>Number(d.valid_intervals)>0).length;return `<tr><td><span class="fm-analytics-dot" style="background:${colorFor(t)}"></span>${esc(t.fuel)} (Tank ${t.number})</td><td>${fmt(sum)} gal</td><td>${days?fmt(sum/days)+' gal':'—'}</td><td>${days} days</td></tr>`}).join('')||'<tr><td colspan="4">No tanks configured.</td></tr>';
   dlg.querySelector('[data-explanation]').textContent=unknown?'There are not enough recorded days to establish a reliable typical daily rate. Data collection began when this feature was installed.':data.method;
  }
  async function open(id){
-  dlg.innerHTML=`<section class="fm-analytics-panel"><header><div><div class="fm-analytics-eyebrow">LOCATION MONITORING</div><h2>Fuel Usage Analytics</h2><p data-title>Loading...</p></div><button type="button" class="fm-analytics-close" aria-label="Close">×</button></header><div class="fm-analytics-content"><div class="fm-analytics-filters"><label>Time period<select data-range><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label><label>Fuel product<select data-fuel><option value="all">All fuel products</option></select></label></div><div class="fm-analytics-kpis"><div><small>Estimated usage</small><strong data-total>—</strong></div><div><small>Average on observed days</small><strong data-average>—</strong></div><div><small>Data coverage</small><strong data-coverage>—</strong></div></div><p data-confidence class="fm-analytics-quality">Loading history...</p><h3>Daily fuel consumption</h3><div class="fm-analytics-chart" data-chart></div><h3>Consumption by fuel product</h3><div class="fm-analytics-table-wrap"><table><thead><tr><th scope="col">Fuel product</th><th scope="col">Estimated use</th><th scope="col">Daily average</th><th scope="col">Observed days</th></tr></thead><tbody data-products></tbody></table></div><p class="fm-analytics-explain" data-explanation></p></div><footer><button type="button" class="fm-analytics-close fm-analytics-done">Done</button></footer></section>`;
-  const exportBtn=document.createElement('button');exportBtn.type='button';exportBtn.className='fm-analytics-excel';exportBtn.textContent='Export Excel — All Reading History';exportBtn.addEventListener('click',()=>window.WootenFuelHistoryExport.exportLocation(id,exportBtn));dlg.querySelector('footer').prepend(exportBtn);
+  dlg.innerHTML=`<section class="fm-analytics-panel fm-analytics-modern"><header><div class="fm-analytics-heading"><div class="fm-analytics-eyebrow">LOCATION MONITORING</div><h2>Fuel Usage Analytics</h2><p data-title>Loading...</p></div><button type="button" class="fm-analytics-close" aria-label="Close">×</button></header><div class="fm-analytics-content"><div class="fm-analytics-filters"><label>Time period<select data-range><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label><label>Fuel product<select data-fuel><option value="all">All fuel products</option></select></label></div><div class="fm-analytics-kpis"><div><span class="fm-kpi-icon"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16"/><path d="M2 21h16M7 6h7v6H7zM17 8l3 3v6a2 2 0 0 0 4 0v-5l-4-4"/></svg></span><span class="fm-kpi-copy"><small>Estimated usage</small><strong data-total>—</strong></span></div><div><span class="fm-kpi-icon"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></span><span class="fm-kpi-copy"><small>Average on observed days</small><strong data-average>—</strong></span></div><div><span class="fm-kpi-icon"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg></span><span class="fm-kpi-copy"><small>Data coverage</small><strong data-coverage>—</strong></span></div></div><p data-confidence class="fm-analytics-quality">Loading history...</p><h3>Daily fuel consumption</h3><div class="fm-analytics-chart" data-chart></div><h3>Consumption by fuel product</h3><div class="fm-analytics-table-wrap"><table><thead><tr><th scope="col">Fuel product</th><th scope="col">Estimated use</th><th scope="col">Daily average</th><th scope="col">Observed days</th></tr></thead><tbody data-products></tbody></table></div><p class="fm-analytics-explain" data-explanation></p></div><footer><button type="button" class="fm-analytics-close fm-analytics-done">Done</button></footer></section>`;
+  const exportBtn=document.createElement('button');exportBtn.type='button';exportBtn.className='fm-analytics-excel';exportBtn.textContent='Export Excel — All Reading History';exportBtn.addEventListener('click',()=>window.WootenFuelHistoryExport.exportLocation(id,exportBtn));exportBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>Export Excel — All Reading History</span>';dlg.querySelector('footer').prepend(exportBtn);
   dlg.showModal();
   dlg.querySelectorAll('.fm-analytics-close').forEach(b=>b.addEventListener('click',()=>dlg.close()));
   dlg.querySelector('[data-range]').addEventListener('change',e=>{state.range=e.target.value;build()});

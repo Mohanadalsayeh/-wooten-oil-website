@@ -16998,7 +16998,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 </style>
 <script src="assets/js/wooten-fuel-monitor.js?v=1083"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=1075"></script>
-<script src="assets/js/wooten-fuel-analytics.js?v=931"></script>
+<script src="assets/js/wooten-fuel-analytics.js?v=1085"></script>
 
 <style id="wooten-master-data-cleanup-ver858">
 .master-data-cleanup{margin-top:18px;padding:18px 20px;border:1px solid #f0c7c7;border-radius:14px;background:#fffafa;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
@@ -22409,5 +22409,62 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs .fm-locations-menu.fm-ed
   .fm-verifone-dialog > form > header.fm-verifone-header-modern .fm-verifone-header-subtitle{
     font-size:13px!important;
   }
+}
+</style>
+
+
+<style id="wooten-analytics-style-1085">
+/* Wooten Oil Ver1085 — approved plain-header analytics style. Other dialogs unchanged. */
+.fm-analytics-dialog{width:min(860px,calc(100vw - 24px));border-radius:22px!important;border:1px solid #cbdced!important;background:#fff!important;box-shadow:0 20px 60px rgba(10,36,66,.26)!important;}
+.fm-analytics-modern>header{background:white!important;border-bottom:1px solid #d8e4ef!important;padding:22px 24px!important;align-items:center!important;gap:16px!important;}
+.fm-analytics-modern .fm-analytics-heading{flex:1;min-width:0;}
+.fm-analytics-modern .fm-analytics-eyebrow{font-size:11px;font-weight:800;color:#7290af;letter-spacing:.14em!important;}
+.fm-analytics-modern>header h2{font-size:25px!important;line-height:1.2!important;color:#123554!important;font-weight:800!important;margin:5px 0 5px!important;}
+.fm-analytics-modern>header p{font-size:15px!important;line-height:1.4;color:#6686a8!important;overflow-wrap:anywhere;}
+/* Close button inherits the original portal's states, dimensions and click behavior. */
+.fm-analytics-modern>.fm-analytics-content{padding:17px 24px 24px!important;}
+.fm-analytics-modern .fm-analytics-filters{grid-template-columns:1fr 1fr!important;gap:10px 14px!important;}
+.fm-analytics-modern .fm-analytics-filters select{min-height:48px!important;border-radius:11px!important;border-color:#bad2e9!important;font-size:15px!important;}
+.fm-analytics-modern .fm-analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px 12px!important;margin:15px 0 0!important;}
+.fm-analytics-modern .fm-analytics-kpis>div{display:flex!important;flex-direction:row!important;align-items:center;justify-content:flex-start;gap:12px!important;padding:15px 16px!important;border-radius:13px!important;background:#eef6ff!important;min-width:0;}
+.fm-analytics-modern .fm-analytics-kpis>div:nth-child(3){grid-column:1/-1;}
+.fm-analytics-modern .fm-kpi-icon{display:inline-flex;flex:0 0 25px;color:#6694D0;align-items:center;justify-content:center;}
+.fm-analytics-modern .fm-kpi-icon svg{width:24px;height:24px;display:block;}
+.fm-analytics-modern .fm-kpi-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.fm-analytics-modern .fm-analytics-kpis small{color:#6180A4!important;font-size:13px!important;line-height:1.25!important;}
+.fm-analytics-modern .fm-analytics-kpis strong{font-size:21px!important;line-height:1.25!important;color:#0D345B!important;overflow-wrap:anywhere;font-weight:800;}
+.fm-analytics-modern .fm-analytics-quality{margin:10px 0 0;padding:10px 13px;border-radius:11px;background:#eaf8f2;color:#28785d;font-size:13px;line-height:1.35;}
+.fm-analytics-modern .fm-analytics-quality.warn{background:#fff5e8!important;color:#bf5d08!important;}
+.fm-analytics-modern .fm-analytics-quality.warn::before{content:'⚠';font-size:17px;margin-right:10px;vertical-align:middle;color:#bf5d08;}
+.fm-analytics-modern .fm-analytics-content h3{margin:16px 0 10px!important;font-size:18px!important;font-weight:800!important;color:#133654!important;}
+.fm-analytics-modern .fm-analytics-chart{height:auto!important;padding:14px 12px 12px!important;overflow:hidden!important;border-radius:13px!important;border:1px solid #d6e6f7!important;display:flex!important;flex-direction:column!important;gap:10px!important;}
+.fm-analytics-modern .fm-analytics-chart>svg{display:block;width:100%!important;height:245px!important;min-height:0;max-width:100%;}
+.fm-analytics-modern .fm-analytics-legend{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-around;gap:8px 13px;background:#f2f8ff;border-radius:12px;padding:10px 12px;color:#5b7fa6;font-size:12px;line-height:1.35;}
+.fm-analytics-modern .fm-analytics-legend span{display:inline-flex;align-items:center;gap:7px;white-space:normal;}
+.fm-analytics-modern .fm-analytics-legend i{display:inline-block;flex:0 0 13px;height:13px;border-radius:50%;}
+.fm-analytics-modern>footer{border-top:1px solid #dbe7f2;background:#fff!important;padding:12px 24px 18px!important;}
+.fm-analytics-modern>footer .fm-analytics-excel{background:#edf9f4!important;border:1px solid #218858!important;color:#116d49!important;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-size:14px!important;font-weight:650!important;}
+.fm-analytics-modern>footer .fm-analytics-excel svg{width:19px;height:19px;flex:0 0 19px;}
+.fm-analytics-modern>footer .fm-analytics-done{background:#ecf3fb!important;color:#123a5d!important;border:1px solid #c5dcf2!important;border-radius:11px!important;font-weight:600;}
+.fm-analytics-modern>footer .fm-analytics-done:hover{background:#dfeaf6!important;}
+@media(max-width:620px){
+ .fm-analytics-dialog{width:calc(100vw - 24px)!important;max-width:calc(100vw - 24px)!important;}
+ .fm-analytics-modern>header{padding:17px 15px!important;gap:10px!important;}
+ .fm-analytics-modern>header h2{font-size:21px!important;}
+ .fm-analytics-modern>header p{font-size:13px!important;}
+ .fm-analytics-modern>.fm-analytics-content{padding:13px 14px 16px!important;}
+ .fm-analytics-modern .fm-analytics-filters{grid-template-columns:1fr!important;}
+ .fm-analytics-modern .fm-analytics-kpis>div{padding:12px 10px!important;gap:7px!important;align-items:flex-start!important;}
+ .fm-analytics-modern .fm-kpi-icon{flex-basis:19px;}
+ .fm-analytics-modern .fm-kpi-icon svg{width:19px;height:19px;}
+ .fm-analytics-modern .fm-analytics-kpis small{font-size:11.5px!important;}
+ .fm-analytics-modern .fm-analytics-kpis strong{font-size:17px!important;}
+ .fm-analytics-modern .fm-analytics-kpis>div:nth-child(3){align-items:center!important;}
+ .fm-analytics-modern .fm-analytics-chart{padding:9px 7px!important;}
+ .fm-analytics-modern .fm-analytics-chart>svg{height:210px!important;}
+ .fm-analytics-modern .fm-analytics-legend{padding:9px 7px;gap:8px 10px;font-size:10px;}
+ .fm-analytics-modern .fm-analytics-legend i{width:11px;height:11px;flex-basis:11px;}
+ .fm-analytics-modern>footer{padding:11px 14px 13px!important;}
+ .fm-analytics-modern>footer .fm-analytics-excel,.fm-analytics-modern>footer .fm-analytics-done{min-height:44px!important;}
 }
 </style>
