@@ -44,7 +44,7 @@ const adminTransactionColumns=[
 const customerTransactionColumns=[
  ['Trans #',r=>r.transaction_id,'transaction','transaction_id'],['Received On',r=>sourceDate(r.received_at),'','received_at'],
  ['Card Number',r=>r.card_number,'card','card_number'],['Fuel Quantity',r=>quantity(r.fuel_quantity),'quantity','fuel_quantity'],
- ['Status',r=>r.status,'','status'],['Merchant',r=>r.merchant,'','merchant'],
+ ['Status',r=>r.status,'status','status'],['Merchant',r=>r.merchant,'','merchant'],
  ['Cardholder',r=>r.cardholder,'','cardholder'],['Invoice #',r=>r.invoice_number,'','invoice_number'],
  ['Driver #',r=>r.driver_number,'','driver_number'],['Driver Name',r=>r.driver_name,'','driver_name'],
  ['Vehicle #',r=>r.vehicle_number,'','vehicle_number'],['Vehicle Description',r=>r.vehicle_description,'','vehicle_description'],
@@ -72,7 +72,7 @@ function productsMarkup(row){
 }
 function customerTransactionCells(r,index){return customerTransactionColumns.map(([,value,type])=>{
  const text=esc(value(r)??'—')||'—';
- return type==='transaction'&&r.transaction_id?'<button type="button" class="iv-link fleet-transaction-link" data-fleet-transaction="'+index+'">'+text+'</button>':type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='money'?'<span class="fleet-money">'+text+'</span>':text;
+ return type==='transaction'&&r.transaction_id?'<button type="button" class="iv-link fleet-transaction-link" data-fleet-transaction="'+index+'">'+text+'</button>':type==='card'?'<strong class="fleet-card-number">'+text+'</strong>':type==='status'?badge(r.status)+(/declin/i.test(r.status||'')&&r.decline_reason?'<small class="fleet-decline-reason">'+esc(r.decline_reason)+'</small>':''):type==='money'?'<span class="fleet-money">'+text+'</span>':text;
 });}
 function adminTransactionCells(r,index){return adminTransactionColumns.map(([,value,type])=>{
  const text=esc(value(r)??'—')||'—';
@@ -244,7 +244,7 @@ function mount(root,admin){
    live.dataset.state=lastLiveState||'not_loaded';
   }
   if(websiteCards)get('[data-meta]').textContent=data.notice;
-  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-meta]').textContent+=(data.notice?' · '+data.notice:'')+' · '+data.summary.quantity_reported_count+' of '+data.summary.transactions+' transactions report fuel quantity. Dates use MM/DD/YYYY hh:mm AM/PM; transaction times follow Intevacon’s reported time.';}
+  if(!admin&&!websiteCards){get('[data-quantity]').textContent=quantity(data.summary.fuel_quantity);get('[data-meta]').textContent+=(data.notice?' · '+data.notice:'')+' · '+data.summary.quantity_reported_count+' completed transactions report fuel quantity. Declined and canceled attempts appear in history but never count as completed fuel. Dates use MM/DD/YYYY hh:mm AM/PM; transaction times follow Intevacon’s reported time.';}
   const headers=!admin?(kind==='cards'?customerCardColumns:customerTransactionColumns).map(([label])=>label):kind==='transactions'?adminTransactionColumns.map(([label])=>label):['Card number','Status','Cardholder','Assigned to','Driver / Vehicle'];
   if(admin)headers.unshift('Portal account');
   let html='<table data-auto-pdf="false" data-pdf-table-name="'+(kind==='cards'?'Fleet Cards':'Fleet Transactions')+'"><thead><tr>'+headers.map((h,i)=>{const key=fleetSortKeys(kind,admin)[i];return `<th scope="col" data-fleet-align="${['total_sale','billable_amount','fuel_quantity','transaction_count'].includes(key)?'right':'left'}" data-no-sort aria-sort="${sortKey===key?(sortDirection==='asc'?'ascending':'descending'):'none'}"><button type="button" class="wo-table-sort-button" data-fleet-sort="${key}" aria-label="Sort by ${esc(h)}"><span class="wo-table-sort-label">${esc(h)}</span><span class="wo-table-sort-icon" aria-hidden="true"></span></button></th>`;}).join('')+'</tr></thead><tbody>';

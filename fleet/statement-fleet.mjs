@@ -1,5 +1,6 @@
 import {productBreakdown} from './statement-fuel-summary.mjs';
 import {statementRows} from './intevacon-history.mjs';
+import {isCompletedTransaction,isWithinStatementPeriod} from './intevacon-statement-rules.mjs';
 // Ver691: account-scoped statement fleet data. No provider calls. Statement-only sale amounts are retained.
 const DAY=86400000;
 const text=v=>v==null?'':String(v).trim();
@@ -34,11 +35,11 @@ export function resolve(input,date,frequency='weekly'){
 const cardFields=['card_number','status','card_type','cardholder','driver_id','driver_no','vehicle_id','vehicle_no','assigned_to','last_used_on'];
 export function project(row){
  // A positive completion status is required before reported fuel can count as used.
- const complete=[2,6,7].includes(Number(row.StatusID))||['processed','complete','invoiced'].includes(text(row.Status).toLowerCase());
+ const complete=isCompletedTransaction(row);
  const fuel=(Array.isArray(row.Details)?row.Details:[]).filter(d=>d.IsFuel===true&&(d.IsTaxProduct!==true||text(d.ProductCategory).toLowerCase()==='fuel products'));
  const products=fuel.map(d=>({name:text(d.ProductName)||text(d.ProductCode)||'Fuel',quantity:finite(d.Quantity)?d.Quantity:null,code:text(d.ProductCode),breakdown:productBreakdown(d)}));
  const quantity=fuel.length&&fuel.every(d=>finite(d.Quantity))?fuel.reduce((n,d)=>n+d.Quantity,0):null;
- return {id:text(row.ID),card:text(row.CardNumber),received:text(row.ReceivedDateTime),merchant:[row.MerchantName,row.MerchantCity].map(text).filter(Boolean).join(' - '),status:text(row.Status)||'Unknown',driver:[row.DriverNumber,row.DriverName].map(text).filter(Boolean).join(' - '),vehicle:[row.VehicleNumber,row.VehicleDescription].map(text).filter(Boolean).join(' - '),odometer:text(row.Odometer),auth:text(row.AuthRef),invoice:text(row.InvoiceID),entry:text(row.EntryMethod),type:text(row.TranType),card_type:text(row.CardType),cardholder:text(row.CardHolderName),products,saleCents:finite(row.TotalAmountOfSale)?Math.round(row.TotalAmountOfSale*100):null,hasFuel:fuel.length>0,quantity,counted:complete&&quantity!==null,complete};
+ return {id:text(row.ID),card:text(row.CardNumber),received:text(row.ReceivedDateTime),purchase_date:text(row.LocalDateTime),merchant:[row.MerchantName,row.MerchantCity].map(text).filter(Boolean).join(' - '),status:text(row.Status)||'Unknown',driver:[row.DriverNumber,row.DriverName].map(text).filter(Boolean).join(' - '),vehicle:[row.VehicleNumber,row.VehicleDescription].map(text).filter(Boolean).join(' - '),odometer:text(row.Odometer),auth:text(row.AuthRef),invoice:text(row.InvoiceID),entry:text(row.EntryMethod),type:text(row.TranType),card_type:text(row.CardType),cardholder:text(row.CardHolderName),products,saleCents:finite(row.TotalAmountOfSale)?Math.round(row.TotalAmountOfSale*100):null,hasFuel:fuel.length>0,quantity,counted:complete&&quantity!==null,complete};
 }
 export async function load(env,customer,options){
  if(!options.enabled)return null;
@@ -75,8 +76,8 @@ export function snapshotData(snapshot,account,range,now=new Date()){
  const requiredTo=range.to>=today?today+'T00:00':shiftDay(range.to,1)+'T00:00';
  if(!snapshot||snapshot.readOnly!==true||snapshot.cardNumber||!Array.isArray(snapshot.rows)||snapshot.count!==snapshot.rows.length||snapshot.customerAccount&&snapshot.customerAccount!==account||!snapshot.from||!snapshot.to||!snapshot.completedAt||snapshot.from>range.from+'T00:00'||snapshot.to<requiredTo)
   throw Error('Fleet transactions do not cover '+range.from+' through '+range.to+'. In Fleet Cards & Transactions, sync API transactions for all cards from '+range.from+' at 12:00 AM through '+(range.to>=today?'the current time':shiftDay(range.to,1)+' at 12:00 AM')+', then generate the statement again.');
- const until=shiftDay(range.to,1),id=account.slice(3);
- const selected=snapshot.rows.filter(r=>text(r.CustomerID)===id&&text(r.ReceivedDateTime).slice(0,10)>=range.from&&text(r.ReceivedDateTime).slice(0,10)<until);
+ const id=account.slice(3);
+ const selected=snapshot.rows.filter(r=>text(r.CustomerID)===id&&isWithinStatementPeriod(r,range));
  if(selected.length>20000)throw Error('This fleet statement has more than 20,000 transactions. Choose a shorter date range.');
- return {success:true,account,transactions:selected.map(project).sort((a,b)=>a.received.localeCompare(b.received)||a.id.localeCompare(b.id,'en',{numeric:true})),retrieved:snapshot.completedAt,through:snapshot.to};
+ return {success:true,account,transactions:selected.map(project).sort((a,b)=>a.purchase_date.localeCompare(b.purchase_date)||a.id.localeCompare(b.id,'en',{numeric:true})),retrieved:snapshot.completedAt,through:snapshot.to};
 }

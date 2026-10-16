@@ -14,7 +14,7 @@ function roundedPath(x,y,w,h,r=6){
 }
 export function pages(fleet,customer,statementDate,letterhead){
  // Ver718: omit zero-gallon cards before pagination and numbering.
- const cards=(fleet?.cards||[]).filter(card=>card.total!==0);
+ const cards=(fleet?.cards||[]).filter(card=>card.total!==0&&card.transactions?.some(t=>t.complete));
  if(!cards.length)return [];
  const result=[];let ops=[],y=0;
  const text=(x,top,value,size=9,bold=false)=>ops.push(`BT /${bold?'F2':'F1'} ${size} Tf 100 Tz 0.08 0.19 0.29 rg ${x} ${top} Td (${esc(value)}) Tj ET`);
@@ -92,15 +92,16 @@ export function pages(fleet,customer,statementDate,letterhead){
   card=currentCard;cardIndex=index;
   continued=false;
   // Keep each card header with its first transaction (and total for short cards).
-  const needed=67+cardDetails().length*11+24+(card.transactions.length<=1?100:0);
+  const needed=67+cardDetails().length*11+24+(card.transactions.filter(t=>t.complete).length<=1?100:0);
   if(!ops.length)startPage();
   else if(y-20-needed<100){finish();startPage();}
   else y-=20;
   cardHeader();
   if(!card.transactions.length){text(46,y-15,'No saved transactions in this period.',9);y-=32;}
-  for(const [transactionIndex,t] of card.transactions.entries()){
-   const cells=[t.id+(!t.complete?' *':''),shortDay(t.received),t.merchant,t.products.map(p=>p.name).join('; ')||'No fuel',qty(t.quantity),money(t.saleCents)];
-   const reserve=transactionIndex===card.transactions.length-1?100:0;
+  const completedTransactions=card.transactions.filter(t=>t.complete);
+  for(const [transactionIndex,t] of completedTransactions.entries()){
+   const cells=[t.id,shortDay(t.purchase_date),t.merchant,t.products.map(p=>p.name).join('; ')||'No fuel',qty(t.quantity),money(t.saleCents)];
+   const reserve=transactionIndex===completedTransactions.length-1?100:0;
    if(y-24-reserve<100)next();
    cells.forEach((value,i)=>single(cols[i],y-14,value,widths[i],i===0,i>=4));
    y-=24;line(y);
@@ -114,7 +115,7 @@ export function pages(fleet,customer,statementDate,letterhead){
   text(42,y,(missingAmounts?'Known completed sale amount':'Total sale amount')+' for this card: '+money(saleTotal),11,true);y-=16;
   if(missingAmounts){text(42,y,missingAmounts+' completed transaction(s) have no reported sale amount; total is incomplete.',8);y-=12;}
   if(card.missing){text(42,y,card.missing+' completed transaction(s) have no reported fuel quantity; total is incomplete.',8);y-=12;}
-  if(card.excluded){text(42,y,card.excluded+' transaction(s) marked * are not completed and excluded from totals.',8);y-=12;}
+  // Declined, canceled, and pending records are never printed on statements.
   line(y);
  }
  if(ops.length)finish();

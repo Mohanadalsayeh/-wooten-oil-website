@@ -1,5 +1,6 @@
 // Ver657: persistent, issuer-wide history; every customer read is scoped by session CustomerID.
 import {customerIDForAccount,projectTransaction} from './intevacon-customer-api.mjs';
+import {isCompletedTransaction,isWithinStatementPeriod,localPurchaseKey} from './intevacon-statement-rules.mjs';
 
 const DAY=86400000,table='intevacon_transactions_v692';
 const schemas=new WeakMap();
@@ -117,7 +118,9 @@ export async function queryHistory(db,q,{account=null,admin=false}={}){
  if(search){where.push('instr('+(admin?'search_text':'public_search')+',?)>0');args.push(search);}
  if(admin&&q.get('card')){where.push('card_number=?');args.push(q.get('card'));}
  const sql=where.join(' AND '),sort=(!admin&&q.get('sort')==='total_sale'?null:sorts[q.get('sort')])||'received_at',direction=q.get('direction')==='asc'?'ASC':'DESC';
- const [summaryResult,cov]=await Promise.all([db.prepare(`SELECT COUNT(*) AS transactions,COUNT(DISTINCT NULLIF(card_number,'')) AS cards,SUM(fuel_quantity) AS fuel_quantity,COUNT(fuel_quantity) AS quantity_reported_count${admin?',SUM(total_sale) AS total_sale':''} FROM ${table} WHERE ${sql}`).bind(...args).first(),coverage(db)]);
+ const completedSQL="LOWER(TRIM(COALESCE(json_extract(row_json,'$.Status'),''))) IN ('processed','invoiced','complete','completed')";
+ const summaryFuel=admin?'SUM(fuel_quantity) AS fuel_quantity,COUNT(fuel_quantity) AS quantity_reported_count':`SUM(CASE WHEN ${completedSQL} THEN fuel_quantity ELSE 0 END) AS fuel_quantity,COUNT(CASE WHEN ${completedSQL} THEN fuel_quantity END) AS quantity_reported_count`;
+ const [summaryResult,cov]=await Promise.all([db.prepare(`SELECT COUNT(*) AS transactions,COUNT(DISTINCT NULLIF(card_number,'')) AS cards,${summaryFuel}${admin?',SUM(total_sale) AS total_sale':''} FROM ${table} WHERE ${sql}`).bind(...args).first(),coverage(db)]);
  const summary=summaryResult,total=summary.transactions,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(pages,Math.max(1,parseInt(q.get('page'),10)||1));
  const ordering=sort==='received_at'?`received_at ${direction},id ${direction}`:`(${sort} IS NULL OR ${sort}='') ASC,${sort} COLLATE NOCASE ${direction},id ASC`;
  const records=await db.prepare(`SELECT row_json FROM ${table} WHERE ${sql} ORDER BY ${ordering} LIMIT 20 OFFSET ?`).bind(...args,(page-1)*20).all();
@@ -127,15 +130,25 @@ export async function queryHistory(db,q,{account=null,admin=false}={}){
 }
 export async function statementRows(db,account,range){
  const id=customerIDForAccount(account);if(id===null)throw Error('Fleet account matching is unavailable.');
- const cov=await coverage(db),start=range.from+'T'+(range.fromTime||'00:00:00'),from=start.endsWith(':00')?start.slice(0,16):start;
+ const cov=await coverage(db),start=range.from+'T'+(range.fromTime||'00:00:00');
  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const endStamp=new Date(Date.parse(range.to+'T'+(range.toTime||'23:59:59')+'Z')+1000).toISOString().slice(0,19),end=endStamp.endsWith(':00')?endStamp.slice(0,16):endStamp;
  const requiredTo=range.to>=day?day+'T00:00':end;
  if(!cov.spans.some(s=>(s.from.length===16?s.from+':00':s.from)<=start&&(s.to.length===16?s.to+':00':s.to)>=requiredTo))throw Error('Saved fleet history does not yet cover '+range.from+' through '+range.to+'. Initialize or resume transaction history in Fleet Cards & Transactions.');
- const count=await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE customer_id=? AND received_at>=? AND received_at<?`).bind(id,from,end).first();
- if(count.n>20000)throw Error('This customer has more than 20,000 transactions. Choose a shorter statement period.');
- const result=await db.prepare(`SELECT row_json FROM ${table} WHERE customer_id=? AND received_at>=? AND received_at<? ORDER BY received_at,id`).bind(id,from,end).all();
- return {rows:result.results.map(r=>JSON.parse(r.row_json)),retrieved:cov.last_sync,through:cov.spans.find(s=>(s.from.length===16?s.from+':00':s.from)<=start&&(s.to.length===16?s.to+':00':s.to)>=requiredTo).to};
+ // Pull all saved records belonging to this customer, because a purchase can be
+ // received/invoiced days later than its LocalDateTime. Never filter first by
+ // ReceivedDateTime: that would silently omit late-posted purchases.
+ const result=await db.prepare(`SELECT row_json FROM ${table} WHERE customer_id=? ORDER BY id`).bind(id).all();
+ const raw=(result.results||[]).map(r=>JSON.parse(r.row_json));
+ const rows=raw.filter(r=>isWithinStatementPeriod(r,range));
+ if(rows.length>20000)throw Error('This customer has more than 20,000 completed transactions in the statement period. Choose a shorter period.');
+ // A completed transaction with no usable purchase timestamp must not be
+ // silently placed into a different date using a ReceivedDateTime fallback.
+ const undated=raw.filter(r=>isCompletedTransaction(r)&&!localPurchaseKey(r.LocalDateTime)&&
+   String(r.ReceivedDateTime||'').slice(0,10)>=range.from&&String(r.ReceivedDateTime||'').slice(0,10)<=range.to);
+ if(undated.length)throw Error(undated.length+' completed fleet transaction(s) received during this period have no purchase date. Review Intevacon history before generating statements.');
+ rows.sort((a,b)=>String(a.LocalDateTime).localeCompare(String(b.LocalDateTime))||String(a.ID).localeCompare(String(b.ID),'en',{numeric:true}));
+ return {rows,retrieved:cov.last_sync,through:cov.spans.find(s=>(s.from.length===16?s.from+':00':s.from)<=start&&(s.to.length===16?s.to+':00':s.to)>=requiredTo).to};
 }
 
 // Ver1098: Administrator-only, read-only export of the existing saved Intevacon API payload.

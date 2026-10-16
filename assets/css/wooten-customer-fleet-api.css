@@ -47,3 +47,6 @@ body #customerFleetRoot[data-kind="cards"] .fleet-summary{grid-template-columns:
 
 /* Ver676: quantity fills the last row when customer transaction metrics stack. */
 @media(max-width:760px){body #customerFleetRoot[data-kind="transactions"] .fleet-summary .fleet-stat:last-child{grid-column:1/-1}}
+
+/* Ver1099 — readable decline reason in the customer transaction history. */
+.wooten-fleet .fleet-decline-reason{display:block;margin-top:4px;font-size:.76rem;line-height:1.3;color:#a33333;white-space:normal;max-width:180px;}

@@ -1,6 +1,7 @@
 // Ver658: fresh customer API results; browser selects dates, never the customer identity.
 import {queryHistory} from './intevacon-history.mjs';
 import {parametersFor} from './intevacon-api-test.mjs';
+import {isCompletedTransaction} from './intevacon-statement-rules.mjs';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const text=v=>typeof v==='string'?v:typeof v==='number'&&Number.isSafeInteger(v)?String(v):'';
@@ -31,7 +32,7 @@ const pick=(value,fields)=>Object.fromEntries(fields.map(k=>[k,typeof value?.[k]
 export function projectTransaction(row){
  const source=pick(row,FIELDS);
  source.Details=(Array.isArray(row.Details)?row.Details:[]).map(d=>({...pick(d,PRODUCT_FIELDS),Taxes:(Array.isArray(d.Taxes)?d.Taxes:[]).map(t=>pick(t,TAX_FIELDS))}));
- return {transaction_id:text(row.ID),card_number:text(row.CardNumber),customer_id:text(row.CustomerID),cardholder:text(row.CardHolderName),card_type:text(row.CardType),received_at:row.ReceivedDateTime,local_date_time:row.LocalDateTime,processed_on:row.ProcessedDateTime,posted_on:row.PostedDateTime,merchant:text(row.MerchantName),merchant_city:text(row.MerchantCity),status:text(row.Status),entry_method:text(row.EntryMethod),auth_ref:text(row.AuthRef),invoice_number:text(row.InvoiceID),total_sale:money(row.TotalAmountOfSale),billable_amount:money(row.ResolvedTotalAmount),driver_number:text(row.DriverNumber),driver_name:text(row.DriverName),vehicle_number:text(row.VehicleNumber),vehicle_description:text(row.VehicleDescription),raw_vehicle_id:text(row.RawVehicleID),odometer:row.Odometer,decline_reason:text(row.DeclineReason),transaction_type:text(row.TranType),fuel_quantity:fuelQuantity(source),source};
+ return {transaction_id:text(row.ID),card_number:text(row.CardNumber),customer_id:text(row.CustomerID),cardholder:text(row.CardHolderName),card_type:text(row.CardType),received_at:row.ReceivedDateTime,local_date_time:row.LocalDateTime,processed_on:row.ProcessedDateTime,posted_on:row.PostedDateTime,merchant:text(row.MerchantName),merchant_city:text(row.MerchantCity),status:text(row.Status),entry_method:text(row.EntryMethod),auth_ref:text(row.AuthRef),invoice_number:text(row.InvoiceID),total_sale:money(row.TotalAmountOfSale),billable_amount:money(row.ResolvedTotalAmount),driver_number:text(row.DriverNumber),driver_name:text(row.DriverName),vehicle_number:text(row.VehicleNumber),vehicle_description:text(row.VehicleDescription),raw_vehicle_id:text(row.RawVehicleID),odometer:row.Odometer,decline_reason:text(row.DeclineReason),transaction_type:text(row.TranType),fuel_quantity:isCompletedTransaction(source)?fuelQuantity(source):null,source};
 }
 const numericKeys=new Set(['fuel_quantity','total_sale','billable_amount','transaction_count','odometer']);
 const transactionSort=new Set(['transaction_id','received_at','local_date_time','entry_method','decline_reason','merchant','auth_ref','card_number','total_sale','billable_amount','cardholder','driver_number','driver_name','vehicle_number','vehicle_description','raw_vehicle_id','odometer','processed_on','posted_on','fuel_quantity','status','invoice_number','card_type']);
@@ -65,7 +66,7 @@ export function customerData(snapshot,account,query=new URLSearchParams()){
  items.sort((a,b)=>compare(a,b,sort,direction));
  const total=items.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(pages,Math.max(1,parseInt(query.get('page'),10)||1));
  return json({success:true,source:'intevacon_api',kind,account_number:account,items:items.slice((page-1)*20,page*20),total,page,pages,
-  summary:{cards:cards.length,transactions:transactions.length,fuel_quantity:sum(transactions,'fuel_quantity'),quantity_reported_count:transactions.filter(r=>finite(r.fuel_quantity)).length,total_sale:money(sum(transactions.map(r=>({value:r.source.TotalAmountOfSale})),'value'))},
+  summary:{cards:cards.length,transactions:transactions.length,fuel_quantity:sum(transactions.filter(r=>isCompletedTransaction(r.source)),'fuel_quantity'),quantity_reported_count:transactions.filter(r=>isCompletedTransaction(r.source)&&finite(r.fuel_quantity)).length,total_sale:money(sum(transactions.filter(r=>isCompletedTransaction(r.source)).map(r=>({value:r.source.TotalAmountOfSale})),'value'))},
   last_sync:snapshot?.completedAt||null,window_from:snapshot?.from||null,window_to:snapshot?.to||null,card_scope:'transactions',
   notice:snapshot?'Cards shown had transactions in this period. Card activation status is not supplied.':'No fleet activity has been retrieved for this account yet. Click Refresh to check Intevacon.'});
 }
