@@ -15,6 +15,7 @@ import {readInvoices} from './assets/js/wooten-invoice-view-server.mjs';
 import {completedMas90ImportRun} from './assets/js/wooten-mas90-health-imports.mjs';
 import {history as statementRunHistory} from './assets/js/wooten-statement-history-server.mjs';
 import * as StatementFleet from './fleet/statement-fleet.mjs';
+import {loadStatementPeriodPayments} from './assets/js/wooten-statement-period-payments.mjs';
 import {pages as statementFleetPages} from './fleet/statement-fleet-pdf.mjs';
 import * as StatementProgress from './assets/js/wooten-statement-progress-server.mjs';
 import {statementRoundedPath} from './assets/js/wooten-statement-letterhead.mjs';
@@ -10078,7 +10079,7 @@ function statementBuildPdf(customer,statementDate,recentPayments=[],fleet=null){
     pText(42,666,13,"Statement Date",true,slate);
     pText(42,647,12,statementPdfDate(statementDate),false,navy);
     customerBox((...args)=>roundedRect(...args,pAdd),pText);
-    pText(42,533,9.5,`Recent Payments - ${payments.length} most recent payment${payments.length===1?"":"s"}`,false,slate);
+    pText(42,533,9.5,`Statement Period Payments - ${payments.length} shown`,false,slate);
 
     const columns=[
       {x:42,label:"PAYMENT DATE"},
@@ -10397,30 +10398,13 @@ async function statementLoadCustomer(env,account){
           LIMIT 1
         `).bind(account).first();
 }
-async function statementLoadPayments(env,account,paymentCount){
-        let recentPayments=[];
-        if(paymentCount>0){
-          const paymentResult=await env.DB.prepare(`
-            SELECT
-              payment_date,
-              reference AS check_number,
-              source_invoice_no AS invoice_number,
-              amount,
-              posting_date,
-              deposit_date
-            FROM customer_payments
-            WHERE account_number=?
-            ORDER BY COALESCE(NULLIF(posting_date,''),payment_date) DESC,id DESC
-            LIMIT ?
-          `).bind(account,paymentCount).all();
-          recentPayments=paymentResult?.results||[];
-        }
-  return recentPayments;
+async function statementLoadPayments(env,account,paymentCount,period){
+  return loadStatementPeriodPayments(env.DB,account,paymentCount,period);
 }
 
-async function statementFleetOptions(env,input){
+async function statementFleetOptions(env,input,statementDate){
   const config=await statementScheduleConfig(env);
-  return StatementFleet.resolve(input??config.fleet_json??{},statementCentralParts().date,config.weekly_frequency||'weekly');
+  return StatementFleet.resolve(input??config.fleet_json??{},statementDate||statementCentralParts().date,config.weekly_frequency||'weekly');
 }
 
 async function adminPreviewStatementsPost({request,env}){
@@ -10442,13 +10426,13 @@ async function adminPreviewStatementsPost({request,env}){
     const paymentCount=Math.max(0,Math.min(20,Number.parseInt(body.payment_count,10)||0));
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerPaymentsSchema(env);
-    const fleetOptions=await statementFleetOptions(env,body.fleet);
+    const fleetOptions=await statementFleetOptions(env,body.fleet,statementDate);
     const pdfs=[];
     for(const account of accounts){
       const customer=await statementLoadCustomer(env,account);
       if(!customer)return notificationJson({success:false,error:`Customer ${account} could not be found. Reload the customer list before previewing.`},404);
       customer.statement_period=fleetOptions.ranges[customer.statement_cycle]||fleetOptions.ranges.A;
-      const payments=await statementLoadPayments(env,account,paymentCount);
+      const payments=await statementLoadPayments(env,account,paymentCount,customer.statement_period);
       pdfs.push(statementBuildPdf(customer,statementDate,payments,await StatementFleet.load(env,customer,fleetOptions)));
     }
     // Preview has no document storage, notification, or delivery operations.
@@ -10549,7 +10533,7 @@ async function adminGenerateStatementsPost({request,env}){
     await ensureAdminContactPreferencesTable(env);
     await ensureCustomerPaymentsSchema(env);
 
-    const fleetOptions=await statementFleetOptions(env,body.fleet);
+    const fleetOptions=await statementFleetOptions(env,body.fleet,statementDate);
 
     const results=[];
     const generatedPdfParts=[];
@@ -10583,7 +10567,7 @@ async function adminGenerateStatementsPost({request,env}){
         if(progressRow){Object.assign(progressRow,{account_name:customer.account_name||account,total_balance:total});await persist();}
 
         customer.statement_period=fleetOptions.ranges[customer.statement_cycle]||fleetOptions.ranges.A;
-        const recentPayments=await statementLoadPayments(env,account,paymentCount);
+        const recentPayments=await statementLoadPayments(env,account,paymentCount,customer.statement_period);
 
         const fleet=await StatementFleet.load(env,customer,fleetOptions);
         const pdfBytes=statementBuildPdf(customer,statementDate,recentPayments,fleet);
@@ -12957,7 +12941,7 @@ var worker_default = {
     if(url.pathname==='/api/admin/statements/preview-file-ticket')return StatementPreviewFile.ticket(request,env);
     if(url.pathname==="/api/admin/open-invoices")return readInvoices({request,env,admin:true});
     if(url.pathname.startsWith("/api/admin/fleet/cards/"))return IntevaconCards.admin({request,env,actor:adminActor});
-    if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync","/api/admin/fleet/cancel","/api/admin/fleet/initialize","/api/admin/fleet/history"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
+    if(["/api/admin/fleet/schedule","/api/admin/fleet/results","/api/admin/fleet/sync","/api/admin/fleet/cancel","/api/admin/fleet/initialize","/api/admin/fleet/history","/api/admin/fleet/export"].includes(url.pathname))return IntevaconApiSchedule.handle({request,env,actor:adminActor});
     if(url.pathname.startsWith("/api/admin/fleet/"))return notificationJson({success:false,error:"Legacy fleet synchronization has been retired. Use Intevacon API."},410);
     if(url.pathname==="/api/admin/users"){
       if(request.method==="GET"||request.method==="POST")return adminUsersApi({request,env});

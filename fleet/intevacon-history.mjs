@@ -137,3 +137,31 @@ export async function statementRows(db,account,range){
  const result=await db.prepare(`SELECT row_json FROM ${table} WHERE customer_id=? AND received_at>=? AND received_at<? ORDER BY received_at,id`).bind(id,from,end).all();
  return {rows:result.results.map(r=>JSON.parse(r.row_json)),retrieved:cov.last_sync,through:cov.spans.find(s=>(s.from.length===16?s.from+':00':s.from)<=start&&(s.to.length===16?s.to+':00':s.to)>=requiredTo).to};
 }
+
+// Ver1098: Administrator-only, read-only export of the existing saved Intevacon API payload.
+// Full export intentionally ignores the dashboard's current 92-day date filter.
+// It returns complete row_json, including product details and their tax fields.
+export async function exportHistoryPage(db, query) {
+ await ensureHistory(db);
+ const scope=query.get('scope')==='full'?'full':'filtered';
+ const where=[], values=[];
+ if(scope==='filtered') {
+  const from=query.get('from')||'',to=query.get('to')||'';
+  const valid=s=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+':00Z'))&&new Date(s+':00Z').toISOString().slice(0,16)===s;
+  if(!valid(from)||!valid(to)||from>=to||Date.parse(to+':00Z')-Date.parse(from+':00Z')>92*86400000)
+   throw Error('Choose a valid filtered transaction range of no more than 92 days.');
+  where.push('received_at>=?','received_at<=?');values.push(from,to+':59.999');
+  const search=(query.get('search')||'').trim().toLowerCase().slice(0,200);
+  if(search){where.push('instr(search_text,?)>0');values.push(search);}
+  const card=(query.get('card')||'').trim();
+  if(card){if(!/^\d{1,32}$/.test(card))throw Error('Invalid card filter.');where.push('card_number=?');values.push(card);}
+ }
+ const clause=where.length?' WHERE '+where.join(' AND '):'';
+ const pageSize=200,page=Math.max(1,Math.min(1000000,parseInt(query.get('page'),10)||1));
+ const countResult=await db.prepare(`SELECT COUNT(*) AS total FROM ${table}${clause}`).bind(...values).first();
+ const total=Number(countResult?.total||0),pages=Math.max(1,Math.ceil(total/pageSize));
+ if(page>pages)throw Error('Requested export page is outside the available results.');
+ const result=await db.prepare(`SELECT id,row_json,fetched_at FROM ${table}${clause} ORDER BY id ASC LIMIT ? OFFSET ?`).bind(...values,pageSize,(page-1)*pageSize).all();
+ return {success:true,scope,page,pages,total,page_size:pageSize,
+   items:(result.results||[]).map(r=>JSON.parse(r.row_json))};
+}

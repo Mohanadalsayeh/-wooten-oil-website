@@ -8033,6 +8033,13 @@ SOFTWARE.
     <input id="apiTestSearch" type="search" placeholder="Search transaction, customer, card, merchant, driver or product…" autocomplete="off">
     <div class="api-test-summary" id="apiTestSummary"></div>
     <p id="apiTestResultMeta"></p>
+    <div class="table-pdf-export-toolbar database-export-actions" id="apiTestExportActions">
+      <button class="secondary table-pdf-export-button" id="apiTestExportPdf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"></path><path d="M14 2v5h5"></path><path d="M9 13h6M9 17h6"></path></svg><span>Export Filtered PDF</span></button>
+      <button class="secondary table-pdf-export-button" id="apiTestExportExcel" type="button">Export Full Database — Excel</button>
+      <button class="secondary" id="apiTestExportCancel" type="button" hidden>Cancel Export</button>
+    </div>
+    <p class="api-test-export-note">PDF includes every available saved/API field for matching transactions, including products and taxes, not just displayed table columns. Excel includes <strong>all saved Intevacon API transactions</strong> on three sheets (Transactions, Products, Taxes) with all available fields. API date/time values are kept exactly as returned; no unverified timezone conversion.</p>
+    <p id="apiTestExportStatus" role="status" aria-live="polite" hidden></p>
     <p class="api-test-help">Dates use MM/DD/YYYY hh:mm AM/PM and keep Intevacon’s reported time. Quantities use Intevacon’s units. Totals reflect reported values across all returned statuses, including declined or cancelled records if present. Choose a transaction number to inspect its products and quantities.</p>
     <div class="api-test-table-wrap"><table data-auto-pdf="false" aria-label="Intevacon API test transactions"><thead><tr><th scope="col">Trans #</th><th scope="col">Received (API)</th><th scope="col">API Customer ID</th><th scope="col">Cardholder</th><th scope="col">Card number</th><th scope="col">Merchant</th><th scope="col">Fuel quantity</th><th scope="col">Sale amount</th><th scope="col">Status</th></tr></thead><tbody id="apiTestRows"></tbody></table></div>
     <p id="apiTestRange" class="db-page-info" aria-live="polite"></p>
@@ -21170,7 +21177,7 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 
 <link rel="stylesheet" href="assets/css/wooten-fleet.css?v=545">
 
-<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=715">
+<link rel="stylesheet" href="assets/css/wooten-intevacon-api-test.css?v=1098">
 <link rel="stylesheet" href="assets/css/wooten-card-sync.css?v=709">
 <link rel="stylesheet" href="assets/css/wooten-fleet-admin-tabs.css?v=677">
 
@@ -21185,7 +21192,8 @@ prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventL
 </style>
 <script src="assets/js/wooten-fleet-admin-tabs.js?v=672"></script>
 <script src="assets/js/wooten-intevacon-dates.js?v=678"></script>
-<script src="assets/js/wooten-intevacon-api-test.js?v=716"></script>
+<script src="assets/js/wooten-intevacon-api-test.js?v=1098"></script>
+<script src="assets/js/wooten-intevacon-api-export.js?v=1098" defer></script>
 <script src="assets/js/wooten-card-sync.js?v=700"></script>
 <script id="wooten-fleet-manual-progress-controller-ver864">
 (function(){

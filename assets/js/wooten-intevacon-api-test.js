@@ -470,6 +470,15 @@
     finally{if(epoch===generation){scheduleSaving=false;scheduleSaveControls();await pollSchedule();}}
   });
 
+  // Read-only export adapter: represents the same filtered rows currently shown to the admin.
+  window.WootenIntevaconExportContext=Object.freeze({
+    allowed,
+    current:()=>({historyMode,historyRange:historyRange?{...historyRange}:null,
+      search:$('apiTestSearch').value.trim(),
+      loaded:!$('apiTestResults').hidden,
+      rows:historyMode?null:filtered.map(({row})=>row),
+      total:historyMode?Number(historyData?.total||0):filtered.length})
+  });
   // These requests read portal status/cache; only the cloud scheduler and Sync API Transactions Now contact Intevacon.
   setInterval(pollSchedule, 5000);
   document.addEventListener('visibilitychange', pollSchedule);

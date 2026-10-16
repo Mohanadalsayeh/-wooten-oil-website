@@ -200,3 +200,11 @@
 }
 #apiTestForm #apiTestFrom::-webkit-datetime-edit,
 #apiTestForm #apiTestTo::-webkit-datetime-edit{flex:1 1 auto;min-width:0}
+
+/* Ver1098 — matches Live Customers database export toolbar */
+#apiTestExportActions {margin:12px 0 6px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+#apiTestExportActions button {max-width:100%}
+.api-test-export-note {font-size:12px;color:#587088;line-height:1.5;margin:4px 0 10px}
+#apiTestExportStatus {margin:8px 0;padding:10px 12px;border-radius:8px;background:#eef5fb;color:#25415c}
+#apiTestExportStatus[data-error="true"] {background:#fff2f0;color:#9c2b2b}
+@media(max-width:600px){#apiTestExportActions button{width:100%}}

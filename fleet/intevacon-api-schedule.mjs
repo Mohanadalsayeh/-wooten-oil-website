@@ -1,6 +1,6 @@
 // Ver692: resumable 92-day history, short rolling updates, and independent nightly refresh.
 import {handle as retrieve,parametersFor} from './intevacon-api-test.mjs';
-import {saveHistory,saveStatementSyncWithReport,coverage,queryHistory} from './intevacon-history.mjs';
+import {saveHistory,saveStatementSyncWithReport,coverage,queryHistory,exportHistoryPage} from './intevacon-history.mjs';
 const DAY=86400000;
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private'}});
 export const defaults={enabled:false,intervalSeconds:300,days:2,cardNumber:'',nightlyEnabled:true,nightlyTime:'02:00'};
@@ -22,10 +22,11 @@ export async function handle({request,env,actor}){
  if(!actor||!(actor.owner===true||actor.permissions?.includes('fleet_cards')))return response({success:false,error:'Fleet administrator access is required.'},403);
  if(!env.INTEVACON_SCHEDULER)return response({success:false,error:'The Intevacon scheduler binding is missing.'},503);
  const url=new URL(request.url),route=url.pathname.split('/').pop();
- const methods={schedule:['GET','POST'],results:['GET'],sync:['POST'],cancel:['POST'],initialize:['POST'],history:['GET']};
+ const methods={schedule:['GET','POST'],results:['GET'],sync:['POST'],cancel:['POST'],initialize:['POST'],history:['GET'],export:['GET']};
  if(!methods[route]?.includes(request.method))return response({success:false},405);
  if(request.method==='POST'&&(request.headers.get('Origin')!==url.origin||!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||'')))return response({success:false,error:'Use the admin page.'},403);
  if(route==='history'){try{return response(await queryHistory(env.DB,url.searchParams,{admin:true}));}catch(e){return response({success:false,error:e.message},400);}}
+ if(route==='export'){try{return response(await exportHistoryPage(env.DB,url.searchParams));}catch(e){return response({success:false,error:e.message},400);}}
  let body;if(request.method==='POST'){body=await request.text();if(body.length>2048)return response({success:false,error:'Request too large.'},413);}
  return env.INTEVACON_SCHEDULER.get(env.INTEVACON_SCHEDULER.idFromName('wooten-api-sync')).fetch(new Request('https://scheduler/'+route+(route==='results'?url.search:''),{method:request.method,headers:{'Content-Type':'application/json'},body}));
 }
