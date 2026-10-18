@@ -1081,10 +1081,11 @@ root.addEventListener('click',e=>{
   addField('Username','text','Verifone username','');
   addField('Password','password','Verifone password','');
   const help=document.createElement('p');help.textContent='Pricing selection: Tier 1, Reg87 / Mid89 / Prem93 / Diesel; all six service/payment combinations. This does not change Verifone prices.';content.append(help);
-  const footer=document.createElement('footer');
-  const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary';cancel.textContent='Close';cancel.onclick=()=>verifoneDialog.close();
-  const save=document.createElement('button');save.type='button';save.disabled=true;save.textContent='Save Connection (requires secure backend)';
-  footer.append(cancel,save);form.append(header,content,footer);verifoneDialog.append(form);
+  const footer=document.createElement('footer');footer.className='fm-verifone-footer';
+  const footerNote=document.createElement('p');footerNote.className='fm-verifone-footer-note';footerNote.textContent='Saving will be available when the secure backend is installed.';
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary fm-verifone-footer-close';cancel.textContent='Close';cancel.onclick=()=>verifoneDialog.close();
+  const save=document.createElement('button');save.type='button';save.className='fm-verifone-footer-save';save.disabled=true;save.textContent='Save Connection';save.title='Saving requires the secure backend';
+  footer.append(footerNote,cancel,save);form.append(header,content,footer);verifoneDialog.append(form);
   verifoneDialog.showModal();
  }
  document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const menu=document.querySelector('#fmLocationTabs .fm-locations-menu');const trigger=document.getElementById('fm-locations-trigger');if(!menu||!trigger||menu.hidden)return;menu.hidden=true;syncLocationTabSelection();trigger.focus({preventScroll:true});});

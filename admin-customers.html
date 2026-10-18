@@ -17131,7 +17131,7 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
 .fm-restore-dialog .fm-dialog-body > p:not([role="status"]){margin:0 0 14px!important;line-height:1.65!important}
 @media(max-width:540px){.fm-restore-dialog .fm-dialog-body > label{margin-bottom:19px!important}.fm-restore-dialog .fm-dialog-body > label:last-of-type{margin-bottom:17px!important}}
 </style>
-<script src="assets/js/wooten-fuel-monitor.js?v=1083"></script>
+<script src="assets/js/wooten-fuel-monitor.js?v=1101"></script>
 <script src="assets/js/wooten-fuel-excel.js?v=1075"></script>
 <script src="assets/js/wooten-fuel-analytics.js?v=1085"></script>
 
@@ -22678,5 +22678,64 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown
    flex:0 1 48%!important;min-width:0!important;white-space:normal!important;
    text-align:left!important;
  }
+}
+</style>
+
+<style id="wooten-verifone-footer-mobile-ver1101">
+/* Ver1101: Scope responsive controls to the Verifone preview dialog only.
+   The Save Connection control stays disabled until secure backend exists. */
+.fm-verifone-dialog > form > footer.fm-verifone-footer{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  align-items:stretch!important;
+  justify-content:stretch!important;
+  padding:14px 20px 18px!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+}
+.fm-verifone-dialog > form > footer.fm-verifone-footer > .fm-verifone-footer-note{
+  grid-column:1/-1!important;
+  margin:0 0 2px!important;
+  font-size:12px!important;
+  line-height:1.4!important;
+  color:#64748b!important;
+  text-align:left!important;
+  overflow-wrap:anywhere!important;
+}
+.fm-verifone-dialog > form > footer.fm-verifone-footer > button{
+  flex:none!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  min-height:48px!important;
+  height:auto!important;
+  padding:11px 14px!important;
+  border-radius:12px!important;
+  font-size:15px!important;
+  font-weight:600!important;
+  line-height:1.3!important;
+  white-space:normal!important;
+  overflow-wrap:normal!important;
+  text-align:center!important;
+}
+.fm-verifone-dialog > form > footer.fm-verifone-footer > button:disabled{
+  opacity:.65!important;
+  cursor:not-allowed!important;
+}
+@media (max-width:640px){
+  .fm-verifone-dialog > form > footer.fm-verifone-footer{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:10px!important;
+    padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px))!important;
+  }
+  .fm-verifone-dialog > form > footer.fm-verifone-footer > .fm-verifone-footer-note{
+    grid-column:1!important;
+    font-size:12px!important;
+  }
+  .fm-verifone-dialog > form > footer.fm-verifone-footer > button{
+    min-height:48px!important;
+  }
 }
 </style>
