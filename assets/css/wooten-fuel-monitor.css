@@ -1209,6 +1209,7 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 .fm-clone-dialog .fm-dialog-body>p:not([role=status]){font-size:13px;line-height:1.55;color:#657d93;margin:0;}
 .fm-clone-dialog footer{display:flex;gap:12px;align-items:center;}
 .fm-clone-dialog footer button{flex:1;min-width:0;white-space:normal;}
+.fm-clone-dialog footer button[type=submit]{white-space:nowrap;}
 @media(max-width:480px){.fm-clone-dialog .fm-clone-option{grid-template-columns:38px minmax(0,1fr);gap:10px;padding:11px 9px}.fm-clone-dialog footer{gap:9px}}
 
 /* Ver943: location-only edit dropdown, preserving portal navigation/theme */
