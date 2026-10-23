@@ -201,7 +201,10 @@ const mobileDropdownStyle=document.createElement('style');
   for(const line of lines){
    const tank=line.match(/^Tank\s+(\d+)\s+\((.+?)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\(([\d.]+)%\)\s+—\s+(.+?)\.?$/i);
    if(tank){
-    result.tanks.push({number:tank[1],product:tank[2],volume:tank[3],percent:tank[4],status:tank[5].replace(/\.$/,'')});
+    // Keep legacy alerts intact; new alerts preserve the water level captured with that reading.
+    const rawStatus=tank[5].replace(/\.$/,'');
+    const waterMatch=rawStatus.match(/^(.*?)\.\s+Water:\s+(\d+(?:\.\d+)?)\s+in$/i);
+    result.tanks.push({number:tank[1],product:tank[2],volume:tank[3],percent:tank[4],status:waterMatch?waterMatch[1]:rawStatus,water:waterMatch?waterMatch[2]:null});
     continue;
    }
    if(/^Reading\s+/i.test(line))result.reading=line.replace(/^Reading\s+/i,'').replace(/\.$/,'');
@@ -222,7 +225,11 @@ const mobileDropdownStyle=document.createElement('style');
   const triggerTank=Number(a.tank_number)||0;
   const rows=snapshot.tanks.length?snapshot.tanks.map(t=>{
    const cls=alertStatusClass(t.status),trigger=Number(t.number)===triggerTank&&a.level!=='reading'&&a.level!=='scheduled_reading';
-   return '<div class="fm-alert-tank-row '+cls+(trigger?' is-trigger':'')+'"><span class="fm-alert-tank-no">T'+esc(t.number)+'</span><span class="fm-alert-tank-product">'+esc(t.product)+'</span><strong>'+esc(t.volume)+' gal</strong><span>'+esc(t.percent)+'%</span><b>'+esc(t.status)+'</b></div>';
+   return '<div class="fm-alert-tank-row '+cls+(trigger?' is-trigger':'')+'">'
+    +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
+    +'<span class="fm-alert-tank-details"><span class="fm-alert-tank-product">'+esc(t.product)+'</span><span class="fm-alert-tank-percent">'+esc(t.percent)+'%</span>'
+    +(t.water!==null?'<span class="fm-alert-tank-water">Water: '+esc(t.water)+' in</span>':'')
+    +'</span><span class="fm-alert-tank-right"><strong>'+esc(t.volume)+' gal</strong><b class="fm-alert-tank-status">'+esc(t.status)+'</b></span></div>';
   }).join(''):'';
   const delivery= snapshot.tanks.find(t=>/delivery/i.test(t.status));
   const triggerText=a.level==='connection_lost'?'Collector has stopped reporting. Gauges show last known values.'

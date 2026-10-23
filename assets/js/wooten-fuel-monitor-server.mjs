@@ -116,7 +116,9 @@ function allTankMessage(config,reading,{headline='',triggerTank=null,triggerLeve
   if(!r)continue;
   const status=tankStatusLabel(tank,r,'normal',delivery);
   const pct=Number(tank.capacity)>0?(Number(r.volume)/Number(tank.capacity)*100).toFixed(1):'—';
-  lines.push(`Tank ${tank.number} (${tank.fuel}): ${Number(r.volume).toLocaleString('en-US')} US gallons (${pct}%) — ${status}.`);
+  const water=r.water==null?NaN:Number(r.water);
+  const waterNote=Number.isFinite(water)&&water>=0?` Water: ${water.toFixed(2)} in.`:'';
+  lines.push(`Tank ${tank.number} (${tank.fuel}): ${Number(r.volume).toLocaleString('en-US')} US gallons (${pct}%) — ${status}.${waterNote}`);
  }
  if(triggerTank!=null&&triggerLevel!=='reading')lines.push(`Alert source: Tank ${triggerTank} — ${String(triggerLevel).toUpperCase()}.`);
  lines.push(`Reading ${reading?.observed_at||''}.`);

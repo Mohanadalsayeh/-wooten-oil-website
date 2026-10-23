@@ -1387,3 +1387,41 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 .fm957-remove-confirm .fm957-remove-details span{color:#647b90;font-size:13px}
 .fm957-remove-confirm .fm957-remove-danger{background:#d8192a;color:#fff}
 @media(max-width:740px){#fuelMonitorRoot .fm957-row-editor{padding:0 12px 16px!important}#fuelMonitorRoot .fm957-row-editor .fm940-fields{grid-template-columns:1fr}}
+
+
+/* Fuel Alert History: show the water level recorded with each tank-reading alert.
+   Older messages without a water measurement keep their existing contents. */
+#fuelMonitorRoot .fm-alert-tank-row{
+  grid-template-columns:42px minmax(0,1fr) minmax(98px,max-content);
+  gap:10px;min-height:70px;padding:11px 14px;
+}
+#fuelMonitorRoot .fm-alert-tank-details{
+  min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+}
+#fuelMonitorRoot .fm-alert-tank-details .fm-alert-tank-product{
+  display:block;line-height:1.18;overflow-wrap:anywhere;
+}
+#fuelMonitorRoot .fm-alert-tank-percent{font-weight:500;line-height:1.25}
+#fuelMonitorRoot .fm-alert-tank-water{
+  display:block;color:#72869b;font-weight:650;font-size:12px;line-height:1.3;
+}
+#fuelMonitorRoot .fm-alert-tank-right{
+  min-width:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:6px;
+}
+#fuelMonitorRoot .fm-alert-tank-right strong{white-space:nowrap;font-weight:800}
+#fuelMonitorRoot .fm-alert-tank-right .fm-alert-tank-status{
+  display:inline-block;padding:5px 9px;border-radius:8px;text-align:center;
+  font-size:12px;font-weight:800;white-space:nowrap;
+}
+#fuelMonitorRoot .fm-alert-tank-row.normal .fm-alert-tank-status{background:#e5f7ec;color:#13733d}
+#fuelMonitorRoot .fm-alert-tank-row.low .fm-alert-tank-status{background:#fff0c7;color:#9f5e00}
+#fuelMonitorRoot .fm-alert-tank-row.critical .fm-alert-tank-status{background:#ffe0e3;color:#c51829}
+#fuelMonitorRoot .fm-alert-tank-row.neutral .fm-alert-tank-status{background:#edf2f6;color:#61768a}
+@media(max-width:760px){
+  #fuelMonitorRoot .fm-alert-tanks{overflow-x:hidden}
+  #fuelMonitorRoot .fm-alert-tank-row{
+    min-width:0;grid-template-columns:27px minmax(0,1fr) minmax(90px,max-content);
+    gap:8px;padding:11px 9px;
+  }
+  #fuelMonitorRoot .fm-alert-tank-right strong{font-size:13px}
+}
