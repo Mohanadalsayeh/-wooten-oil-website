@@ -1425,3 +1425,13 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
   }
   #fuelMonitorRoot .fm-alert-tank-right strong{font-size:13px}
 }
+
+/* Water-level alert status colors. Near critical means ATTENTION (orange). */
+#fuelMonitorRoot .fm-alert-water-row .fm-alert-tank-status{font-size:12px;max-width:100%;white-space:normal;line-height:1.2}
+#fuelMonitorRoot .fm-alert-water-row.attention .fm-alert-tank-status{background:#ffedd5;color:#ad5600}
+#fuelMonitorRoot .fm-alert-water-row.attention .fm-alert-tank-water{color:#a15b16}
+#fuelMonitorRoot .fm-alert-water-row.critical .fm-alert-tank-status{background:#ffe0e3;color:#c51829}
+#fuelMonitorRoot .fm-alert-water-row.normal .fm-alert-tank-status{background:#e5f7ec;color:#13733d}
+#fuelMonitorRoot .fm-alert-water-row.neutral .fm-alert-tank-status{background:#edf2f6;color:#61768a}
+#fuelMonitorRoot .fm-alert-water-row .fm-alert-tank-product{font-weight:800}
+#fuelMonitorRoot .fm-alert-card.critical .fm-alert-symbol svg{height:28px;width:28px;display:block}

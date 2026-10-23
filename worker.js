@@ -13632,6 +13632,19 @@ function fuelMonitorEmailContent(message,context={}){
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
   const delivery=fuelMonitorDeliveryTanks(reading);
   const level=String(alert.level||'reading').toLowerCase();
+  if(level==='water_critical'){
+    // Water alert text is a historical snapshot, not the station's most recent reading.
+    const rows=String(message||'').split(/\r?\n/).filter(line=>/^Tank\s+\d+\s+\(/.test(line));
+    const body=rows.length?rows.join('\n'):'Water level reached a configured critical threshold.';
+    const link=fuelMonitorAlertDeepLink(context);
+    return {subject:'WATER LEVEL ALERT — '+(location.name||'Location'),
+      html:'<!doctype html><html><body style="font:16px Arial,sans-serif;color:#17324d;padding:24px">'
+        +'<h2>WATER LEVEL ALERT</h2><p>'+notificationEscapeHtml(location.name||'Location')+'</p>'
+        +'<p>Water level reached or exceeded a configured critical threshold.</p>'
+        +'<div style="white-space:pre-line;border:1px solid #d9e4ec;border-radius:10px;padding:12px">'+notificationEscapeHtml(body)+'</div>'
+        +'<p><a href="'+notificationEscapeHtml(link)+'">View this alert in Wooten Oil Portal</a></p>'
+        +'</body></html>'};
+  }
   const manual=level==='reading'||level==='scheduled_reading';
   const scheduled=level==='scheduled_reading';
   const critical=level==='critical';
@@ -13818,7 +13831,8 @@ function fuelMonitorSmsContent(message,context={}){
     return fuel.replace(/\s*\([^)]*\)\s*/g,' ').trim()||'Tank';
   };
 
-  const heading=level==='connection_lost'?'CONNECTION LOST'
+  const heading=level==='water_critical'?'WATER LEVEL ALERT'
+    :level==='connection_lost'?'CONNECTION LOST'
     :level==='connection_restored'?'CONNECTION RESTORED'
     :level==='critical'
     ?'CRITICAL FUEL ALERT'
@@ -13843,6 +13857,19 @@ function fuelMonitorSmsContent(message,context={}){
     eventTimeText=`${pieces.weekday}, ${pieces.month} ${pieces.day} at ${pieces.hour}:${pieces.minute} ${pieces.dayPeriod}`;
   }
   const lines=[heading,location.name||'Location',...(eventTimeText?[eventTimeText]:[]),''];
+  if(level==='water_critical'){
+    // Parse the immutable water readings included when this alert was created,
+    // never the more recent readings available when Twilio actually sends SMS.
+    const rowPattern=/^Tank\s+\d+\s+\((.+?)\):\s+(—|\d+(?:\.\d+)?)\s+in\s+—\s+(CRITICAL|ATTENTION|NORMAL|NO READING)\s+\(threshold\s+\d+(?:\.\d+)?\s+in\)\.$/i;
+    for(const line of String(message||'').split(/\r?\n/)){
+      const match=line.trim().match(rowPattern);
+      if(!match)continue;
+      lines.push(match[1]+': '+match[2]+' in - '+match[3].toUpperCase());
+    }
+    if(!lines.some(line=>/ in - (?:CRITICAL|ATTENTION|NORMAL|NO READING)$/.test(line)))lines.push('Water alert details available in portal.');
+    lines.push('','View details in',fuelMonitorAlertDeepLink(context));
+    return lines.join('\n');
+  }
 
   for(const tank of tanks){
     const r=readings.find(x=>Number(x.number)===Number(tank.number));

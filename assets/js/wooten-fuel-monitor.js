@@ -188,6 +188,7 @@ const mobileDropdownStyle=document.createElement('style');
  function alertTone(level){
   if(level==='connection_lost')return {label:'CONNECTION LOST',tone:'critical',icon:'!'};
   if(level==='connection_restored')return {label:'CONNECTION RESTORED',tone:'normal',icon:'✓'};
+  if(level==='water_critical')return {label:'WATER LEVEL ALERT',tone:'critical',icon:'<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M12 2C9 6.3 5 11.1 5 15.1a7 7 0 0 0 14 0C19 11.1 15 6.3 12 2Z"/></svg>'};
   if(level==='critical')return {label:'CRITICAL FUEL ALERT',tone:'critical',icon:'!'};
   if(level==='low')return {label:'LOW FUEL ALERT',tone:'low',icon:'!'};
   if(level==='normal')return {label:'FUEL RECOVERED',tone:'normal',icon:'✓'};
@@ -199,6 +200,11 @@ const mobileDropdownStyle=document.createElement('style');
   const lines=String(message||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   result.headline=lines.shift()||'';
   for(const line of lines){
+   const water=line.match(/^Tank\s+(\d+)\s+\((.+?)\):\s+(—|\d+(?:\.\d+)?)\s+in\s+—\s+(CRITICAL|ATTENTION|NORMAL|NO READING)\s+\(threshold\s+(\d+(?:\.\d+)?)\s+in\)\.$/i);
+   if(water){
+    result.tanks.push({number:water[1],product:water[2],water:water[3],status:water[4],threshold:water[5],isWater:true});
+    continue;
+   }
    const tank=line.match(/^Tank\s+(\d+)\s+\((.+?)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\(([\d.]+)%\)\s+—\s+(.+?)\.?$/i);
    if(tank){
     // Keep legacy alerts intact; new alerts preserve the water level captured with that reading.
@@ -214,6 +220,7 @@ const mobileDropdownStyle=document.createElement('style');
  function alertStatusClass(status){
   const s=String(status||'').toLowerCase();
   if(s.includes('delivery')||s.includes('critical'))return 'critical';
+  if(s.includes('attention'))return 'attention';
   if(s.includes('low'))return 'low';
   if(s.includes('normal')||s.includes('recover'))return 'normal';
   return 'neutral';
@@ -225,6 +232,12 @@ const mobileDropdownStyle=document.createElement('style');
   const triggerTank=Number(a.tank_number)||0;
   const rows=snapshot.tanks.length?snapshot.tanks.map(t=>{
    const cls=alertStatusClass(t.status),trigger=Number(t.number)===triggerTank&&a.level!=='reading'&&a.level!=='scheduled_reading';
+   if(t.isWater){
+    return '<div class="fm-alert-tank-row fm-alert-water-row '+cls+(trigger?' is-trigger':'')+'">'
+     +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
+     +'<span class="fm-alert-tank-details"><span class="fm-alert-tank-product">'+esc(t.product)+'</span><span class="fm-alert-tank-water">Critical threshold: '+esc(t.threshold)+' in</span></span>'
+     +'<span class="fm-alert-tank-right"><strong>'+esc(t.water)+' in</strong><b class="fm-alert-tank-status">'+esc(t.status)+'</b></span></div>';
+   }
    return '<div class="fm-alert-tank-row '+cls+(trigger?' is-trigger':'')+'">'
     +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
     +'<span class="fm-alert-tank-details"><span class="fm-alert-tank-product">'+esc(t.product)+'</span><span class="fm-alert-tank-percent">'+esc(t.percent)+'%</span>'
@@ -232,7 +245,8 @@ const mobileDropdownStyle=document.createElement('style');
     +'</span><span class="fm-alert-tank-right"><strong>'+esc(t.volume)+' gal</strong><b class="fm-alert-tank-status">'+esc(t.status)+'</b></span></div>';
   }).join(''):'';
   const delivery= snapshot.tanks.find(t=>/delivery/i.test(t.status));
-  const triggerText=a.level==='connection_lost'?'Collector has stopped reporting. Gauges show last known values.'
+  const triggerText=a.level==='water_critical'?'Water level has reached or exceeded the configured critical threshold in one or more tanks.'
+   :a.level==='connection_lost'?'Collector has stopped reporting. Gauges show last known values.'
    :a.level==='connection_restored'?'Fresh collector readings have resumed.'
    :a.level==='critical'
    ?(delivery?'Delivery needed — immediate attention required.':'Fuel is at or below the critical threshold.')
@@ -512,7 +526,9 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
   while(lines.length&&isDateTime(lines[0]))lines.shift();
   return {name:lines[0]||'',address:lines.slice(1).join(', ')};
  }
- function tankRow(t={},isDraft=false){return '<fieldset class="fm-tank-editor" data-threshold-mode="' + (t.mode==='percent'?'percent':'gallons') + '"'+(isDraft?' data-unsaved-tank="true"':'')+'><legend>Tank settings</legend>'+(isDraft?'<button class="fm-tank-close" type="button" aria-label="Close unsaved tank" title="Discard unsaved tank">&times;</button>':'')+'<div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)+'</div>'+(isDraft?'':'<button class="secondary fm-remove" type="button">Remove tank</button>')+'</fieldset>';}
+ function tankRow(t={},isDraft=false){return '<fieldset class="fm-tank-editor" data-threshold-mode="' + (t.mode==='percent'?'percent':'gallons') + '"'+(isDraft?' data-unsaved-tank="true"':'')+'><legend>Tank settings</legend>'+(isDraft?'<button class="fm-tank-close" type="button" aria-label="Close unsaved tank" title="Discard unsaved tank">&times;</button>':'')+'<div class="fm-grid">'+field('number','Tank / probe number',t.number||'','number','required min="1" max="99"')+field('fuel','Fuel product',t.fuel||'','text','required list="fmFuelTypes"')+unitField('capacity','Tank capacity (US gallons)',t.capacity||'','gal','required min="1" step="any"')+'<label>Threshold units<select name="mode"><option value="gallons" '+(t.mode!=='percent'?'selected':'')+'>Gallons</option><option value="percent" '+(t.mode==='percent'?'selected':'')+'>Percent of capacity</option></select></label>'+unitField('low','Low fuel',t.low??20,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('critical','Critical fuel',t.critical??10,t.mode==='percent'?'%':'gal','required min="0" step="any"')+unitField('recovery','Recovery level',t.recovery??25,t.mode==='percent'?'%':'gal','required min="0" step="any"')+toggle('alerts','Enable alerts for this tank',t.alerts!==false)
+   +unitField('water_critical','Critical water level (inches)',t.water_critical??1,'in','required min="0.01" max="120" step="0.01"')
+   +toggle('water_alerts','Enable water level alerts for this tank',t.water_alerts===true)+'</div>'+(isDraft?'':'<button class="secondary fm-remove" type="button">Remove tank</button>')+'</fieldset>';}
  function startLocationTab(){
   previousLocationBeforeCreate=activeLocation;
   creatingLocation=true;
@@ -605,7 +621,8 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
     number:inlineField(row,'number'),fuel:inlineField(row,'fuel'),
     capacity:inlineField(row,'capacity'),mode:inlineField(row,'mode'),
     low:inlineField(row,'low'),critical:inlineField(row,'critical'),
-    recovery:inlineField(row,'recovery'),alerts:inlineField(row,'alerts')
+    recovery:inlineField(row,'recovery'),alerts:inlineField(row,'alerts'),
+    water_critical:inlineField(row,'water_critical'),water_alerts:inlineField(row,'water_alerts')
    }));
    return JSON.stringify({tanks,portal:inlineField(form,'portal'),email:inlineField(form,'email'),
     sms:inlineField(form,'sms'),email_to:inlineField(form,'email_to'),sms_to:inlineField(form,'sms_to')});
@@ -634,6 +651,8 @@ const modelField=(value,listId)=>field('model','Monitor model',value,'text','req
     if(!get('fuel').value.trim())get('fuel').setCustomValidity('Enter the fuel product.');
     if(!(critical<low))get('critical').setCustomValidity('Critical fuel must be below Low fuel.');
     if(!(low<recovery&&recovery<=limit))get('recovery').setCustomValidity('Recovery must be above Low fuel and no greater than '+limit+'.');
+    const waterCritical=Number(get('water_critical').value);
+    if(!Number.isFinite(waterCritical)||waterCritical<0.01||waterCritical>120)get('water_critical').setCustomValidity('Critical water level must be between 0.01 and 120 inches.');
     const invalid=[...row.querySelectorAll('input,select')].find(el=>!el.checkValidity());
     if(invalid){count(row);form.querySelector('.fm-inline-message').textContent='Complete this tank’s settings before adding another tank or saving.';invalid.reportValidity();return false;}
    }

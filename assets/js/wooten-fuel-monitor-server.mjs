@@ -15,6 +15,7 @@ export async function ensure(env){
  `CREATE INDEX IF NOT EXISTS fuel_monitor_tank_readings_recent ON fuel_monitor_tank_readings(location_id,observed_at)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_states(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_mutes(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,acknowledged_alert_id INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,tank_number))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_water_states(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,message TEXT NOT NULL,portal INTEGER NOT NULL DEFAULT 1,acknowledged INTEGER NOT NULL DEFAULT 0,email_to TEXT,sms_to TEXT,email_status TEXT NOT NULL,sms_status TEXT NOT NULL,email_detail TEXT,sms_detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE INDEX IF NOT EXISTS fuel_monitor_alerts_recent ON fuel_monitor_alerts(created_at DESC,id DESC)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_schedules(location_id TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 0,days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',send_time TEXT NOT NULL DEFAULT '08:00',last_sent_at TEXT,last_sent_date TEXT,last_status TEXT)`,
@@ -65,11 +66,13 @@ export function validateConfig(input){
  if(!Array.isArray(input.tanks)||input.tanks.length>64)fail('Enter up to 64 tanks.');
  const seen=new Set();
  for(const t of input.tanks){
-  const tank={number:Number(t.number),fuel:str(t.fuel,80),capacity:Number(t.capacity),mode:t.mode,low:Number(t.low),critical:Number(t.critical),recovery:Number(t.recovery),alerts:t.alerts===true};
+  const tank={number:Number(t.number),fuel:str(t.fuel,80),capacity:Number(t.capacity),mode:t.mode,low:Number(t.low),critical:Number(t.critical),recovery:Number(t.recovery),alerts:t.alerts===true,
+   water_alerts:t.water_alerts===true,water_critical:t.water_critical==null||t.water_critical===''?1:Number(t.water_critical)};
   if(!Number.isInteger(tank.number)||tank.number<1||tank.number>99||seen.has(tank.number))fail('Tank numbers must be unique and between 1 and 99.');seen.add(tank.number);
   if(!tank.fuel||!Number.isFinite(tank.capacity)||tank.capacity<=0||tank.capacity>1000000)fail('Enter each tank’s fuel and capacity in US gallons.');
   const max=tank.mode==='percent'?100:tank.capacity;
   if(!['gallons','percent'].includes(tank.mode)||![tank.low,tank.critical,tank.recovery].every(Number.isFinite)||tank.critical<0||tank.critical>=tank.low||tank.low>=tank.recovery||tank.recovery>max)fail('Thresholds must be: critical < low < recovery, within tank capacity (or 100%).');
+  if(!Number.isFinite(tank.water_critical)||tank.water_critical<0.01||tank.water_critical>120)fail('Critical water level must be between 0.01 and 120 inches.');
   c.tanks.push(tank);
  }
  return c;
@@ -106,6 +109,28 @@ function tankStatusLabel(configTank,readingTank,previous='normal',deliverySet=ne
  if(level==='low')return 'Low';
  if(level==='normal')return 'Normal';
  return 'No reading';
+}
+// Water status is independent from fuel alerts. Yellow begins at 70% of
+// the critical water threshold; only critical crossings queue an alert.
+export function waterLevelStatus(tank,readingTank){
+ if(readingTank?.water==null)return 'unknown';
+ const water=Number(readingTank.water),critical=Number(tank.water_critical??1);
+ if(!Number.isFinite(water)||water<0||!Number.isFinite(critical)||critical<=0)return 'unknown';
+ if(water>=critical)return 'critical';
+ return water>=critical*0.7?'near':'normal';
+}
+function allTankWaterMessage(config,reading){
+ const lines=[`${config.name} — WATER LEVEL ALERT`];
+ for(const tank of config.tanks||[]){
+  const sample=reading?.tanks?.find(x=>Number(x.number)===Number(tank.number));
+  const status=waterLevelStatus(tank,sample);
+  const value=sample?.water==null?NaN:Number(sample.water);
+  const shown=Number.isFinite(value)&&value>=0?value.toFixed(2):'—';
+  const label=status==='critical'?'CRITICAL':status==='near'?'ATTENTION':status==='normal'?'NORMAL':'NO READING';
+  lines.push(`Tank ${tank.number} (${tank.fuel}): ${shown} in — ${label} (threshold ${Number(tank.water_critical??1).toFixed(2)} in).`);
+ }
+ lines.push(`Reading ${reading?.observed_at||''}.`);
+ return lines.join('\n');
 }
 function allTankMessage(config,reading,{headline='',triggerTank=null,triggerLevel='reading'}={}){
  const delivery=monitorDeliveryNeededTanks(reading),lines=[];
@@ -153,7 +178,7 @@ function addDetectedTanks(config,readingTanks){
    recovery:25,
    // Newly detected tanks begin with alerts off so detection itself cannot create
    // an unexpected notification before the admin reviews thresholds.
-   alerts:false
+   alerts:false,water_alerts:false,water_critical:1
   };
   config.tanks.push(tank);existing.add(number);added.push(tank);
  }
@@ -399,6 +424,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
       env.DB.prepare('DELETE FROM fuel_monitor_tank_readings WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_tank_reading_details WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_water_states WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_alerts WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_schedules WHERE location_id=?').bind(id),
@@ -485,6 +511,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
      env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(next),id),
      env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
      env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
+     env.DB.prepare('DELETE FROM fuel_monitor_water_states WHERE location_id=?').bind(id),
      env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,config.name,str(actor?.name||'Admin',160),'reset_tanks',JSON.stringify(changeDetails)),
      audit
     ]);
@@ -570,6 +597,16 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
     const connectionChanged=connectionFields.some(field=>JSON.stringify(oldConfig[field])!==JSON.stringify(c[field]));
     if(connectionChanged&&(typeof verifyMasterPassword!=='function'||!await verifyMasterPassword(b.password)))fail('Enter the Master Admin password to change Veeder-Root connection settings.',403);
     if(previous.some(t=>!numbers.has(Number(t.number)))&&(typeof verifyPassword!=='function'||!await verifyPassword(b.password)))fail('Enter the signed-in admin password before removing saved tanks.',403);
+   }
+   if(row){
+    const oldTanks=JSON.parse(row.config).tanks||[];
+    // Re-arm affected tanks when an administrator changes their water settings.
+    for(const t of c.tanks){
+     const old=oldTanks.find(x=>Number(x.number)===t.number);
+     if(old&&(!!old.water_alerts!==!!t.water_alerts||Number(old.water_critical??1)!==t.water_critical)){
+      jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_water_states WHERE location_id=? AND tank_number=?').bind(id,t.number));
+     }
+    }
    }
    const before=row?JSON.parse(row.config):{};
    for(const field of Object.keys(c))if(JSON.stringify(before[field])!==JSON.stringify(c[field]))changes.push({field,before:before[field]??null,after:c[field]});
@@ -706,6 +743,8 @@ export async function agent(request,env){
   }
   const states=new Map((await env.DB.prepare('SELECT tank_number,level FROM fuel_monitor_states WHERE location_id=?').bind(id).all()).results.map(s=>[s.tank_number,s.level]));
   const mutedTanks=new Set((await env.DB.prepare('SELECT tank_number FROM fuel_monitor_mutes WHERE location_id=?').bind(id).all()).results.map(s=>Number(s.tank_number)));
+  const waterStates=new Map((await env.DB.prepare('SELECT tank_number,level FROM fuel_monitor_water_states WHERE location_id=?').bind(id).all()).results.map(s=>[Number(s.tank_number),s.level]));
+  const waterTriggered=[];
   const jobs=[];
   if(autoAdded.length){
    jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(config),id));
@@ -739,6 +778,19 @@ export async function agent(request,env){
      jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,tank.number,level,message,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
     }
    }
+   const waterStatus=waterLevelStatus(tank,r);
+   if(waterStatus!=='unknown'){
+    const previousWater=waterStates.get(Number(tank.number))||'normal';
+    const nextWater=tank.water_alerts?waterStatus:'normal';
+    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_water_states(location_id,tank_number,level) VALUES(?,?,?) ON CONFLICT(location_id,tank_number) DO UPDATE SET level=excluded.level').bind(id,tank.number,nextWater));
+    if(tank.water_alerts&&nextWater==='critical'&&previousWater!=='critical')waterTriggered.push(Number(tank.number));
+   }
+  }
+  // One event for the entire location even if several tanks cross at once.
+  if(waterTriggered.length){
+   const message=allTankWaterMessage(config,reading);
+   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
+    .bind(id,waterTriggered[0],'water_critical',message,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
   }
   for(const t of tanks)jobs.push(env.DB.prepare('INSERT OR IGNORE INTO fuel_monitor_tank_readings(location_id,tank_number,observed_at,volume) VALUES(?,?,?,?)').bind(id,t.number,reading.observed_at,t.volume));
   for(const t of tanks)jobs.push(env.DB.prepare('INSERT OR IGNORE INTO fuel_monitor_tank_reading_details(location_id,tank_number,observed_at,water,temperature) VALUES(?,?,?,?,?)').bind(id,t.number,reading.observed_at,t.water??null,t.temperature??null));
