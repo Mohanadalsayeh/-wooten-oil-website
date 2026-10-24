@@ -13,6 +13,13 @@
  const settingsKey=v=>JSON.stringify({enabled:!!v.enabled,interval_seconds:Number(v.interval_seconds)});
  function saveControls(){get('[name=cardsInterval]').disabled=!get('[name=cardsEnabled]').checked||busy||!allowed()||savedSettings===null;dirty=savedSettings!==null&&settingsKey(settings())!==savedSettings;get('[data-card-save]').disabled=!allowed()||busy||savedSettings===null||!dirty;}
  const refreshButton=get('[data-card-refresh]');
+ // The manual card queue can be cancelled independently of the automatic schedule.
+ const cancelButton=document.createElement('button');
+ cancelButton.type='button';
+ cancelButton.dataset.cardCancel='';
+ cancelButton.textContent='Cancel Sync';
+ cancelButton.hidden=true;
+ refreshButton.after(cancelButton);
  function refreshControls(){
   const manual=!!refreshOperation?.manual;
   refreshButton.disabled=busy||manual||!allowed();
@@ -28,6 +35,9 @@
   get('[data-card-spinner]').hidden=!syncing;
   get('[data-card-sync-label]').textContent=label;
   window.WootenFleetTabs?.setBusy('cards',syncing,label);
+  // Only show Cancel when the cloud backend confirms a queued or running sync.
+  cancelButton.hidden=!(serverRunning||serverRequested)||!allowed();
+  cancelButton.disabled=busy||!allowed();
   refreshControls();saveControls();
  }
  const message=(text,error=false,source='action')=>{messageSource=source;get('[data-card-message]').textContent=text;get('[data-card-message]').dataset.error=String(error);get('[data-card-message]').hidden=!text;};
@@ -78,6 +88,7 @@
     get('[data-card-secret]').value=result.credential;get('[data-card-secret-area]').hidden=false;
     message('Copy this credential to PORTAL_SYNC_CREDENTIAL in the card Worker. It will not be shown again.');
    }else if(route==='settings'){savedSettings=settingsKey(data);saveControls();message('Card schedule saved.');}
+   else if(route==='cancel'){message('Card sync cancelled. Previous complete card list kept.');}
    const status=route==='credential'?await request('status'):result;if(ticket===generation){busy=false;syncRequestPending=false;display(status);}
   }catch(e){if(ticket===generation&&e.name!=='AbortError')message(e.message,true);}
   finally{if(ticket===generation){busy=false;syncRequestPending=false;syncControls();root.removeAttribute('aria-busy');saveControls();get('[data-card-credential]').disabled=serverRunning||!allowed();await refresh();}}
@@ -93,6 +104,12 @@
  for(const event of ['input','change'])get('form').addEventListener(event,saveControls);
  get('[data-card-sync]').addEventListener('click',()=>{if(confirm('Sync the complete fleet card list from Intevacon now? This will update the saved cards shown in the portal.'))action('sync',{});});
  refreshButton.addEventListener('click',()=>refresh(true));
+ cancelButton.addEventListener('click',()=>{
+  if(busy||!allowed()||!(serverRequested||serverRunning))return;
+  const description=serverRunning?'currently running card collection':'queued card synchronization';
+  if(!confirm('Cancel the '+description+'? The previous complete card list will be kept. The automatic schedule stays enabled.'))return;
+  action('cancel',{});
+ });
  get('[data-card-credential]').addEventListener('click',()=>{
   if(configured&&!confirm('Replace the card sync credential? You will need to update the separate card Worker secret.'))return;
   action('credential',{});

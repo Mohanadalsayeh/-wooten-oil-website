@@ -62,11 +62,23 @@ export async function admin({request,env,actor}){
    return status(db,actor);
   }
   if(path==='cancel'){
-   need(typeof b.request_id==='string'&&uuid(b.request_id),'A valid request ID is required.');
+   const specific=Object.hasOwn(b,'request_id');
+   if(specific)need(typeof b.request_id==='string'&&uuid(b.request_id),'A valid request ID is required.');
    const current=await control(db);
-   if(current.manual_request_id!==b.request_id)return json({success:false,error:'This card sync is no longer current.'},409);
-   await db.prepare(`UPDATE intevacon_card_control SET requested=0,lease=NULL,lease_until=NULL,expected=NULL,state='cancelled',message='Card sync cancelled. Previous complete cards kept.',next_due=CASE WHEN enabled=1 THEN ?+interval_seconds*1000 ELSE NULL END WHERE id=1 AND manual_request_id=? AND (requested=1 OR lease IS NOT NULL)`).bind(now,b.request_id).run();
-   return json({success:true,cancelled:true});
+   if(specific&&current.manual_request_id!==b.request_id)return json({success:false,error:'This card sync is no longer current.'},409);
+   // Statement synchronization supplies a request ID. Manual Sync (and older
+   // queued requests) can cancel the currently queued or leased collection.
+   // Revoking the lease prevents an in-flight collector from publishing cards.
+   const where=specific?'AND manual_request_id=?':'';
+   const query=`UPDATE intevacon_card_control
+      SET requested=0,lease=NULL,lease_until=NULL,expected=NULL,manual_request_id=NULL,
+          state='cancelled',message='Card sync cancelled. Previous complete cards kept.',
+          next_due=CASE WHEN enabled=1 THEN ?+interval_seconds*1000 ELSE NULL END
+      WHERE id=1 AND (requested=1 OR lease IS NOT NULL) ${where} RETURNING id`;
+   const statement=db.prepare(query);
+   const updated=await (specific?statement.bind(now,b.request_id):statement.bind(now)).first();
+   if(!updated)return json({success:false,error:'No pending or running card sync remains to cancel. Refresh status.'},409);
+   return specific?json({success:true,cancelled:true}):status(db,actor);
   }
   if(path==='sync'&&b.request_id){
    need(uuid(b.request_id),'A valid request ID is required.');

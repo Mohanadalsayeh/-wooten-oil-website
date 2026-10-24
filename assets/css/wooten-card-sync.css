@@ -116,3 +116,17 @@
  margin:0!important;align-self:end!important;line-height:normal!important;
 }
 #websiteCardSync .cards-schedule-controls [data-card-save]{display:flex!important;align-items:center!important;justify-content:center!important;padding:0 16px!important}
+
+/* Manual Intevacon card synchronization: cancellation of a queued/running job.
+   Keep the existing Sync and Refresh button layout on desktop and mobile. */
+#websiteCardSync .cards-manual-panel .cards-actions [data-card-cancel]{
+  border:1px solid #c62a36;
+  background:#fff;
+  color:#b42332;
+}
+#websiteCardSync .cards-manual-panel .cards-actions [data-card-cancel]:hover:not(:disabled){
+  background:#fff1f2;
+}
+#websiteCardSync .cards-manual-panel .cards-actions [data-card-cancel]:focus-visible{
+  outline:2px solid #c62a36;outline-offset:3px;
+}
