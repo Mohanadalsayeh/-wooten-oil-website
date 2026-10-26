@@ -859,7 +859,8 @@ export async function agent(request,env){
    jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_delivery_sessions WHERE location_id=?').bind(id));
   }
   if(deliveryStep.started){
-   const msg=allTankMessage(config,reading,{headline:`${config.name} — Fuel delivery detected; refilling in progress`});
+   const msg=allTankMessage(config,reading,{headline:`${config.name} — Fuel delivery detected; refilling in progress`})
+     +'\nRefilling tanks: '+deliveryStep.startedTanks.join(', ')+'.';
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
     .bind(id,0,'delivery_started',msg,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
   }

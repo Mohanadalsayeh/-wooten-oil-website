@@ -198,7 +198,7 @@ const mobileDropdownStyle=document.createElement('style');
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){
-  const result={headline:'',tanks:[],reading:''};
+  const result={headline:'',tanks:[],reading:'',recovered:[],refilling:[]};
   const lines=String(message||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   result.headline=lines.shift()||'';
   for(const line of lines){
@@ -215,6 +215,10 @@ const mobileDropdownStyle=document.createElement('style');
     result.tanks.push({number:tank[1],product:tank[2],volume:tank[3],percent:tank[4],status:waterMatch?waterMatch[1]:rawStatus,water:waterMatch?waterMatch[2]:null});
     continue;
    }
+   const recovered=line.match(/^Recovered tanks:\s*(.+)\.$/i);
+   if(recovered){result.recovered=recovered[1].match(/\d+/g)?.map(Number)||[];continue;}
+   const refilling=line.match(/^Refilling tanks:\s*(.+)\.$/i);
+   if(refilling){result.refilling=refilling[1].match(/\d+/g)?.map(Number)||[];continue;}
    if(/^Reading\s+/i.test(line))result.reading=line.replace(/^Reading\s+/i,'').replace(/\.$/,'');
   }
   return result;
@@ -222,6 +226,7 @@ const mobileDropdownStyle=document.createElement('style');
  function alertStatusClass(status){
   const s=String(status||'').toLowerCase();
   if(s.includes('delivery')||s.includes('critical'))return 'critical';
+  if(s.includes('refilling'))return 'attention';
   if(s.includes('attention'))return 'attention';
   if(s.includes('low'))return 'low';
   if(s.includes('normal')||s.includes('recover'))return 'normal';
@@ -233,7 +238,8 @@ const mobileDropdownStyle=document.createElement('style');
   const locationName=location?.name||snapshot.headline.split(' — ')[0]||'Fuel location';
   const triggerTank=Number(a.tank_number)||0;
   const rows=snapshot.tanks.length?snapshot.tanks.map(t=>{
-   const cls=alertStatusClass(t.status),trigger=Number(t.number)===triggerTank&&a.level!=='reading'&&a.level!=='scheduled_reading';
+   const effectiveStatus=a.level==='normal'&&snapshot.recovered.includes(Number(t.number))?'RECOVERED':a.level==='delivery_started'&&snapshot.refilling.includes(Number(t.number))?'REFILLING':t.status;
+   const cls=alertStatusClass(effectiveStatus),trigger=Number(t.number)===triggerTank&&a.level!=='reading'&&a.level!=='scheduled_reading';
    if(t.isWater){
     return '<div class="fm-alert-tank-row fm-alert-water-row '+cls+(trigger?' is-trigger':'')+'">'
      +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
@@ -244,7 +250,7 @@ const mobileDropdownStyle=document.createElement('style');
     +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
     +'<span class="fm-alert-tank-details"><span class="fm-alert-tank-product">'+esc(t.product)+'</span><span class="fm-alert-tank-percent">'+esc(t.percent)+'%</span>'
     +(t.water!==null?'<span class="fm-alert-tank-water">Water: '+esc(t.water)+' in</span>':'')
-    +'</span><span class="fm-alert-tank-right"><strong>'+esc(t.volume)+' gal</strong><b class="fm-alert-tank-status">'+esc(t.status)+'</b></span></div>';
+    +'</span><span class="fm-alert-tank-right"><strong>'+esc(t.volume)+' gal</strong><b class="fm-alert-tank-status">'+esc(effectiveStatus)+'</b></span></div>';
   }).join(''):'';
   const delivery= snapshot.tanks.find(t=>/delivery/i.test(t.status));
   const triggerText=a.level==='delivery_started'?'Fuel levels are rising. A delivery or refill is detected and may still be in progress.'

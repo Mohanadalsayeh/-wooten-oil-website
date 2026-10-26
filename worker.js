@@ -13640,12 +13640,18 @@ function fuelMonitorDeliveryAlertSnapshot(message,latest,level){
  }
  return tanks.length?{...latest,tanks}:latest;
 }
+function fuelMonitorTaggedTankNumbers(message,label){
+ const found=String(message||'').split(/\r?\n/).find(line=>line.startsWith(label+':'));
+ return new Set((found?.match(/\d+/g)||[]).map(Number));
+}
 function fuelMonitorEmailContent(message,context={}){
   const location=context.location||{},alert=context.alert||{};
   const reading=fuelMonitorDeliveryAlertSnapshot(message,context.reading||{},String(alert.level||'').toLowerCase());
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
   const delivery=fuelMonitorDeliveryTanks(reading);
   const level=String(alert.level||'reading').toLowerCase();
+  const recoveredTanks=fuelMonitorTaggedTankNumbers(message,'Recovered tanks');
+  const refillingTanks=fuelMonitorTaggedTankNumbers(message,'Refilling tanks');
   if(level==='water_critical'){
     // Water alert text is a historical snapshot, not the station's most recent reading.
     const rows=String(message||'').split(/\r?\n/).filter(line=>/^Tank\s+\d+\s+\(/.test(line));
@@ -13683,7 +13689,9 @@ function fuelMonitorEmailContent(message,context={}){
   let rows='',triggerTank=null,triggerReading=null,triggerStatus='';
   for(const tank of tanks){
     const r=readings.find(x=>Number(x.number)===Number(tank.number));if(!r)continue;
-    const status=fuelMonitorTankStatus(tank,r,delivery);
+    let status=fuelMonitorTankStatus(tank,r,delivery);
+    if(recoveredTanks.has(Number(tank.number))&&level==='normal')status={...status,label:'RECOVERED',tone:'green'};
+    else if(refillingTanks.has(Number(tank.number))&&level==='delivery_started')status={...status,label:'REFILLING',tone:'orange'};
     const capacity=Number(tank.capacity),volume=Number(r.volume),pct=capacity>0?volume/capacity*100:NaN;
     const tone=status.tone==='red'
       ?{bg:'#ffe7ea',fg:'#c8182a',dot:'#df1428'}
@@ -13846,6 +13854,8 @@ function fuelMonitorSmsContent(message,context={}){
   const reading=fuelMonitorDeliveryAlertSnapshot(message,context.reading||{},String(alert.level||'').toLowerCase());
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[],delivery=fuelMonitorDeliveryTanks(reading);
   const level=String(alert.level||'reading').toLowerCase();
+  const recoveredTanks=fuelMonitorTaggedTankNumbers(message,'Recovered tanks');
+  const refillingTanks=fuelMonitorTaggedTankNumbers(message,'Refilling tanks');
 
   const shortFuelName=value=>{
     const fuel=String(value||'').trim();
@@ -13906,9 +13916,11 @@ function fuelMonitorSmsContent(message,context={}){
     if(!r)continue;
     const status=fuelMonitorTankStatus(tank,r,delivery);
     let suffix='';
-    if(/delivery needed/i.test(status.label))suffix=' — DN';
-    else if(/critical/i.test(status.label))suffix=' — CRITICAL';
-    else if(/low/i.test(status.label))suffix=' — LOW';
+    if(recoveredTanks.has(Number(tank.number))&&level==='normal')suffix=' — RECOVERED';
+    else if(refillingTanks.has(Number(tank.number))&&level==='delivery_started')suffix=' — REFILLING';
+    if(!suffix&&/delivery needed/i.test(status.label))suffix=' — DN';
+    else if(!suffix&&/critical/i.test(status.label))suffix=' — CRITICAL';
+    else if(!suffix&&/low/i.test(status.label))suffix=' — LOW';
     lines.push(`${shortFuelName(tank.fuel)}: ${fuelMonitorFmt(r.volume)} gal${suffix}`);
   }
 
