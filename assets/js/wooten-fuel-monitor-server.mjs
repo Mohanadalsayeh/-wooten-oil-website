@@ -17,6 +17,7 @@ export async function ensure(env){
  `CREATE TABLE IF NOT EXISTS fuel_monitor_mutes(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,acknowledged_alert_id INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_water_states(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,PRIMARY KEY(location_id,tank_number))`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_water_alert_progress(location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,last_notified REAL NOT NULL,PRIMARY KEY(location_id,tank_number))`,
+ `CREATE TABLE IF NOT EXISTS fuel_monitor_delivery_sessions(location_id TEXT PRIMARY KEY,state TEXT NOT NULL)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,location_id TEXT NOT NULL,tank_number INTEGER NOT NULL,level TEXT NOT NULL,message TEXT NOT NULL,portal INTEGER NOT NULL DEFAULT 1,acknowledged INTEGER NOT NULL DEFAULT 0,email_to TEXT,sms_to TEXT,email_status TEXT NOT NULL,sms_status TEXT NOT NULL,email_detail TEXT,sms_detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
  `CREATE INDEX IF NOT EXISTS fuel_monitor_alerts_recent ON fuel_monitor_alerts(created_at DESC,id DESC)`,
  `CREATE TABLE IF NOT EXISTS fuel_monitor_schedules(location_id TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 0,days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',send_time TEXT NOT NULL DEFAULT '08:00',last_sent_at TEXT,last_sent_date TEXT,last_status TEXT)`,
@@ -55,7 +56,7 @@ export function alertRecipients(value,type){
  return list;
 }
 export function validateConfig(input){
- const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),manager_phone:str(input.manager_phone,32).trim(),manager_email:str(input.manager_email,254).trim().toLowerCase(),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,email_to:alertRecipients(input.email_to,'email').join(', '),sms_to:alertRecipients(input.sms_to,'sms').join(', '),tanks:[]};
+ const c={icon:input.icon||'fuel',name:str(input.name,100),phone:str(input.phone,32),manager_phone:str(input.manager_phone,32).trim(),manager_email:str(input.manager_email,254).trim().toLowerCase(),address:str(input.address,300),model:str(input.model,80)||'TLS-350',host:str(input.host,253),port:Number(input.port),interval:Number(input.interval),enabled:input.enabled===true,portal:input.portal===true,email:input.email===true,sms:input.sms===true,delivery_notification:input.delivery_notification===true,email_to:alertRecipients(input.email_to,'email').join(', '),sms_to:alertRecipients(input.sms_to,'sms').join(', '),tanks:[]};
  if(!['fuel','store','truck','building-2','wrench','tractor'].includes(c.icon))fail('Choose an available location icon.');
  if(!c.name)fail('Enter a station name.');
  if(c.manager_phone&&!/^\+[1-9]\d{7,14}$/.test(c.manager_phone))fail('Enter the manager cell phone with country code, such as +19015551234.');
@@ -141,6 +142,37 @@ function allTankWaterMessage(config,reading){
  }
  lines.push(`Reading ${reading?.observed_at||''}.`);
  return lines.join('\n');
+}
+// The gauge can detect a fuel-level increase, not the physical arrival of a truck.
+// Each station-wide delivery session waits for 20 minutes of stable tank volumes.
+export function deliverySessionStep(config,previousReading,reading,prior,recovered=[],levels={}){
+ const at=Date.parse(reading?.observed_at);
+ if(!Number.isFinite(at))return {session:prior||null,started:false,finished:false,startedTanks:[],recoveredTanks:[]};
+ const rising=[];
+ for(const tank of config.tanks||[]){
+  const next=reading?.tanks?.find(r=>Number(r.number)===Number(tank.number));
+  const prev=previousReading?.tanks?.find(r=>Number(r.number)===Number(tank.number));
+  if(!next||!prev)continue;
+  const diff=Number(next.volume)-Number(prev.volume);
+  if(Number.isFinite(diff)&&diff>=Math.max(50,Number(tank.capacity)*0.005))rising.push(Number(tank.number));
+ }
+ let session=prior&&Number.isFinite(Number(prior.started_at))&&Number.isFinite(Number(prior.last_rise_at))?
+  {...prior,pending_tanks:Array.isArray(prior.pending_tanks)?prior.pending_tanks:[],rise_tanks:Array.isArray(prior.rise_tanks)?prior.rise_tanks:[]}:null;
+ const opening=!session&&(rising.length>0||recovered.length>0);
+ if(opening)session={started_at:at,last_rise_at:at,last_checked_at:at,pending_tanks:[],rise_tanks:[],start_notified:false};
+ if(!session)return {session:null,started:false,finished:false,startedTanks:[],recoveredTanks:[]};
+ // A gap while offline must not count toward the stabilization period.
+ const maxGap=Math.max(15*60*1000,Number(config.interval||300)*3000);
+ if(Number.isFinite(Number(session.last_checked_at))&&at-Number(session.last_checked_at)>maxGap)session.last_rise_at=at;
+ if(rising.length)session.last_rise_at=at;
+ session.rise_tanks=[...new Set([...session.rise_tanks,...rising])];
+ session.pending_tanks=[...new Set([...session.pending_tanks,...recovered])].filter(number=>levels[number]==null||levels[number]==='normal');
+ session.last_checked_at=at;
+ const started=opening&&rising.length>0&&config.delivery_notification===true;
+ if(started)session.start_notified=true;
+ const finished=!rising.length&&at-Number(session.last_rise_at)>=20*60*1000;
+ if(finished)return {session:null,started,finished:true,startedTanks:session.rise_tanks,recoveredTanks:session.pending_tanks.filter(number=>levels[number]==='normal'),startNotified:session.start_notified};
+ return {session,started,finished:false,startedTanks:rising,recoveredTanks:[]};
 }
 function allTankMessage(config,reading,{headline='',triggerTank=null,triggerLevel='reading'}={}){
  const delivery=monitorDeliveryNeededTanks(reading),lines=[];
@@ -436,6 +468,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
       env.DB.prepare('DELETE FROM fuel_monitor_states WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_water_states WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_water_alert_progress WHERE location_id=?').bind(id),
+      env.DB.prepare('DELETE FROM fuel_monitor_delivery_sessions WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_alerts WHERE location_id=?').bind(id),
       env.DB.prepare('DELETE FROM fuel_monitor_schedules WHERE location_id=?').bind(id),
@@ -524,6 +557,7 @@ export async function admin(request,env,{auditStatement,verifyPassword,verifyMas
      env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=?').bind(id),
      env.DB.prepare('DELETE FROM fuel_monitor_water_states WHERE location_id=?').bind(id),
      env.DB.prepare('DELETE FROM fuel_monitor_water_alert_progress WHERE location_id=?').bind(id),
+     env.DB.prepare('DELETE FROM fuel_monitor_delivery_sessions WHERE location_id=?').bind(id),
      env.DB.prepare('INSERT INTO fuel_monitor_history(location_id,location_name,actor,action,changes) VALUES(?,?,?,?,?)').bind(id,config.name,str(actor?.name||'Admin',160),'reset_tanks',JSON.stringify(changeDetails)),
      audit
     ]);
@@ -759,6 +793,11 @@ export async function agent(request,env){
   const waterStates=new Map((await env.DB.prepare('SELECT tank_number,level FROM fuel_monitor_water_states WHERE location_id=?').bind(id).all()).results.map(s=>[Number(s.tank_number),s.level]));
   const waterProgress=new Map((await env.DB.prepare('SELECT tank_number,last_notified FROM fuel_monitor_water_alert_progress WHERE location_id=?').bind(id).all()).results.map(s=>[Number(s.tank_number),Number(s.last_notified)]));
   const waterTriggered=[];
+  const previousReading=row.reading?JSON.parse(row.reading):null;
+  const previousDelivery=await env.DB.prepare('SELECT state FROM fuel_monitor_delivery_sessions WHERE location_id=?').bind(id).first();
+  let deliverySession=null;
+  try{deliverySession=previousDelivery?.state?JSON.parse(previousDelivery.state):null;}catch{}
+  const recoveredTanks=[],currentFuelLevels={};
   const jobs=[];
   if(autoAdded.length){
    jobs.push(env.DB.prepare('UPDATE fuel_monitor_locations SET config=? WHERE id=?').bind(JSON.stringify(config),id));
@@ -772,6 +811,8 @@ export async function agent(request,env){
    const previous=states.get(tank.number)||'normal';
    // Disabling alerts must not create a fabricated recovery event.
    const level=tank.alerts?levelFor(tank,r.volume,previous):'normal';
+   currentFuelLevels[tank.number]=level;
+   if(tank.alerts&&level==='normal'&&previous!=='normal')recoveredTanks.push(Number(tank.number));
    const muted=mutedTanks.has(Number(tank.number));
    jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_states(location_id,tank_number,level) VALUES(?,?,?) ON CONFLICT(location_id,tank_number) DO UPDATE SET level=excluded.level').bind(id,tank.number,level));
 
@@ -783,7 +824,7 @@ export async function agent(request,env){
     jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_mutes WHERE location_id=? AND tank_number=?').bind(id,tank.number));
    }
 
-   if(tank.alerts&&level!==previous){
+   if(tank.alerts&&level!==previous&&level!=='normal'){
     const suppressLowCritical=muted&&level==='low'; // Critical escalation must reach administrators even after Low acknowledgment.
     if(!suppressLowCritical){
      const eventTitle=level==='normal'?'FUEL RECOVERED':level==='critical'?'CRITICAL FUEL ALERT':'LOW FUEL ALERT';
@@ -810,6 +851,23 @@ export async function agent(request,env){
      if(decision==='initial'||decision==='increase')waterTriggered.push(Number(tank.number));
     }
    }
+  }
+  const deliveryStep=deliverySessionStep(config,previousReading,reading,deliverySession,recoveredTanks,currentFuelLevels);
+  if(deliveryStep.session){
+   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_delivery_sessions(location_id,state) VALUES(?,?) ON CONFLICT(location_id) DO UPDATE SET state=excluded.state').bind(id,JSON.stringify(deliveryStep.session)));
+  }else if(deliverySession){
+   jobs.push(env.DB.prepare('DELETE FROM fuel_monitor_delivery_sessions WHERE location_id=?').bind(id));
+  }
+  if(deliveryStep.started){
+   const msg=allTankMessage(config,reading,{headline:`${config.name} — Fuel delivery detected; refilling in progress`});
+   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
+    .bind(id,0,'delivery_started',msg,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
+  }
+  if(deliveryStep.finished&&(deliveryStep.recoveredTanks.length||deliveryStep.startNotified)){
+   const title=deliveryStep.recoveredTanks.length?`${config.name} — Fuel recovered; delivery stabilized`:`${config.name} — Fuel delivery stabilized`;
+   const msg=allTankMessage(config,reading,{headline:title})+'\nRecovered tanks: '+(deliveryStep.recoveredTanks.length?deliveryStep.recoveredTanks.join(', '):'none')+'.';
+   jobs.push(env.DB.prepare('INSERT INTO fuel_monitor_alerts(location_id,tank_number,level,message,portal,email_to,sms_to,email_status,sms_status) VALUES(?,?,?,?,?,?,?,?,?)')
+    .bind(id,0,deliveryStep.recoveredTanks.length?'normal':'delivery_stabilized',msg,config.portal?1:0,config.email_to,config.sms_to,config.email?'pending':'off',config.sms?'pending':'off'));
   }
   // One event for the entire location even if several tanks cross at once.
   if(waterTriggered.length){

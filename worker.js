@@ -13627,8 +13627,22 @@ function fuelMonitorAlertDeepLink(context={}){
   if(!Number.isSafeInteger(id)||id<1||!/^[a-zA-Z0-9-]{1,80}$/.test(location))return 'https://wootenoil.com/admin-customers#fuel-monitor';
   return 'https://wootenoil.com/admin-customers#fuel-monitor?alert='+encodeURIComponent(id)+'&location='+encodeURIComponent(location);
 }
+// Delivery alerts show the snapshot captured when the alert was created.
+function fuelMonitorDeliveryAlertSnapshot(message,latest,level){
+ const headline=String(message||'').split(/\r?\n/)[0]||'';
+ if(level!=='delivery_started'&&level!=='delivery_stabilized'&&!(level==='normal'&&/delivery stabilized/i.test(headline)))return latest;
+ const tanks=[];
+ for(const line of String(message||'').split(/\r?\n/)){
+  const m=line.match(/^Tank\s+(\d+)\s+\((.+?)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\(([\d.]+)%\)/i);
+  if(!m)continue;
+  const water=line.match(/Water:\s+(\d+(?:\.\d+)?)\s+in\./i);
+  tanks.push({number:Number(m[1]),fuel:m[2],volume:Number(m[3].replace(/,/g,'')),...(water?{water:Number(water[1])}:{})});
+ }
+ return tanks.length?{...latest,tanks}:latest;
+}
 function fuelMonitorEmailContent(message,context={}){
-  const location=context.location||{},reading=context.reading||{},alert=context.alert||{};
+  const location=context.location||{},alert=context.alert||{};
+  const reading=fuelMonitorDeliveryAlertSnapshot(message,context.reading||{},String(alert.level||'').toLowerCase());
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[];
   const delivery=fuelMonitorDeliveryTanks(reading);
   const level=String(alert.level||'reading').toLowerCase();
@@ -13650,6 +13664,8 @@ function fuelMonitorEmailContent(message,context={}){
   const critical=level==='critical';
   const low=level==='low';
   const recovered=level==='normal';
+  const deliveryStarted=level==='delivery_started';
+  const deliveryStabilized=level==='delivery_stabilized';
   const created=context.last_observed||reading.observed_at||alert.created_at||new Date().toISOString();
 
   const theme=critical
@@ -13657,8 +13673,12 @@ function fuelMonitorEmailContent(message,context={}){
     :low
       ?{accent:'#e66f00',soft:'#fff7e8',border:'#f5a338',headline:'LOW FUEL ALERT',summary:'One or more tanks at '+(location.name||'this location')+' are below the low threshold.'}
       :recovered
-        ?{accent:'#18864b',soft:'#ecf8f1',border:'#9fd8b7',headline:'FUEL RECOVERED',summary:'The monitored tank has reached its recovery level.'}
-        :{accent:'#21699b',soft:'#eef6fb',border:'#b9d4e6',headline:'FUEL READING',summary:'Current readings for all configured tanks.'};
+        ?{accent:'#18864b',soft:'#ecf8f1',border:'#9fd8b7',headline:'FUEL RECOVERED',summary:/delivery stabilized/i.test(String(message).split('\n')[0])?'Delivery finished; fuel levels stable for 20 minutes.':'The monitored tank has reached its recovery level.'}
+        :deliveryStabilized
+          ?{accent:'#18864b',soft:'#ecf8f1',border:'#9fd8b7',headline:'FUEL DELIVERY STABILIZED',summary:'Tank volumes have stabilized for 20 minutes.'}
+          :deliveryStarted
+            ?{accent:'#21699b',soft:'#eef6fb',border:'#b9d4e6',headline:'FUEL DELIVERY DETECTED',summary:'Tank volume is rising; refilling appears to be in progress.'}
+            :{accent:'#21699b',soft:'#eef6fb',border:'#b9d4e6',headline:'FUEL READING',summary:'Current readings for all configured tanks.'};
 
   let rows='',triggerTank=null,triggerReading=null,triggerStatus='';
   for(const tank of tanks){
@@ -13813,12 +13833,17 @@ function fuelMonitorEmailContent(message,context={}){
       ?`Low Fuel Alert — ${location.name||'Location'}`
       :recovered
         ?`Fuel Recovered — ${location.name||'Location'}`
-        :`Fuel Reading — ${location.name||'Location'}`;
+        :deliveryStarted
+          ?`Fuel Delivery Detected — ${location.name||'Location'}`
+          :deliveryStabilized
+            ?`Fuel Delivery Stabilized — ${location.name||'Location'}`
+            :`Fuel Reading — ${location.name||'Location'}`;
 
   return {subject,html};
 }
 function fuelMonitorSmsContent(message,context={}){
-  const location=context.location||{},reading=context.reading||{},alert=context.alert||{};
+  const location=context.location||{},alert=context.alert||{};
+  const reading=fuelMonitorDeliveryAlertSnapshot(message,context.reading||{},String(alert.level||'').toLowerCase());
   const tanks=Array.isArray(location.tanks)?location.tanks:[],readings=Array.isArray(reading.tanks)?reading.tanks:[],delivery=fuelMonitorDeliveryTanks(reading);
   const level=String(alert.level||'reading').toLowerCase();
 
@@ -13831,7 +13856,9 @@ function fuelMonitorSmsContent(message,context={}){
     return fuel.replace(/\s*\([^)]*\)\s*/g,' ').trim()||'Tank';
   };
 
-  const heading=level==='water_critical'?'WATER LEVEL ALERT'
+  const heading=level==='delivery_started'?'FUEL DELIVERY DETECTED'
+    :level==='delivery_stabilized'?'FUEL DELIVERY STABILIZED'
+    :level==='water_critical'?'WATER LEVEL ALERT'
     :level==='connection_lost'?'CONNECTION LOST'
     :level==='connection_restored'?'CONNECTION RESTORED'
     :level==='critical'
@@ -13857,6 +13884,9 @@ function fuelMonitorSmsContent(message,context={}){
     eventTimeText=`${pieces.weekday}, ${pieces.month} ${pieces.day} at ${pieces.hour}:${pieces.minute} ${pieces.dayPeriod}`;
   }
   const lines=[heading,location.name||'Location',...(eventTimeText?[eventTimeText]:[]),''];
+  if(level==='delivery_started')lines.push('Fuel delivery detected — refilling in progress.','');
+  else if(level==='delivery_stabilized')lines.push('Fuel levels stable for 20 minutes.','');
+  else if(level==='normal'&&/delivery stabilized/i.test(String(message).split('\n')[0]))lines.push('Delivery completed — fuel levels stable for 20 minutes.','');
   if(level==='water_critical'){
     // Parse the immutable water readings included when this alert was created,
     // never the more recent readings available when Twilio actually sends SMS.

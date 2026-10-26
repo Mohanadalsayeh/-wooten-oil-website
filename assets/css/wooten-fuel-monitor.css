@@ -1436,3 +1436,20 @@ body #fuelMonitorRoot button.fm-collector-action:focus-visible{
 #fuelMonitorRoot .fm-alert-water-row.neutral .fm-alert-tank-status{background:#edf2f6;color:#61768a}
 #fuelMonitorRoot .fm-alert-water-row .fm-alert-tank-product{font-weight:800}
 #fuelMonitorRoot .fm-alert-card.critical .fm-alert-symbol svg{height:28px;width:28px;display:block}
+
+/* Optional immediate delivery-detected notification. Kept separate from
+   the existing portal/email/SMS delivery channel switches. */
+#fuelMonitorRoot .fm-delivery-choice,.fm-dialog .fm-delivery-choice{
+ border:1px solid #cfe0ed;border-radius:12px;background:#eef6fc;
+ padding:12px 14px;margin:12px 0 14px;
+}
+#fuelMonitorRoot .fm-delivery-choice .fm-toggle,.fm-dialog .fm-delivery-choice .fm-toggle{
+ display:flex;align-items:center;gap:10px;margin:0;line-height:1.4;
+}
+#fuelMonitorRoot .fm-delivery-choice p,.fm-dialog .fm-delivery-choice p{
+ margin:8px 0 0;color:#526b83;font-size:13px;line-height:1.5;
+}
+@media(max-width:640px){
+ #fuelMonitorRoot .fm-delivery-choice,.fm-dialog .fm-delivery-choice{padding:12px}
+ #fuelMonitorRoot .fm-delivery-choice .fm-toggle,.fm-dialog .fm-delivery-choice .fm-toggle{align-items:flex-start}
+}
