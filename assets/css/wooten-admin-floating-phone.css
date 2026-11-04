@@ -95,6 +95,7 @@
   right:-5px!important;top:-5px!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-menu-btn{
+  position:relative!important;
   order:3!important;
   flex:0 0 44px!important;
   display:flex!important;
@@ -115,10 +116,12 @@
   -webkit-tap-highlight-color:transparent!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-menu-btn span{
-  /* Three rounded white bars, mathematically centered X/Y in the 44px button. */
-  position:relative!important;
+  /* Absolute X/Y centering avoids flex text-node offsets on iOS Safari. */
+  position:absolute!important;
   display:block!important;
-  flex:0 0 24px!important;
+  left:50%!important;
+  top:50%!important;
+  flex:none!important;
   width:24px!important;
   height:3px!important;
   min-width:24px!important;
@@ -129,7 +132,7 @@
   border-radius:999px!important;
   background:#fff!important;
   box-shadow:none!important;
-  transform:none!important;
+  transform:translate(-50%,-50%)!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-menu-btn span::before,
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-menu-btn span::after{
