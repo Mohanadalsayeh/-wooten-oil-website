@@ -2,56 +2,117 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {deliverySessionStep} from '../assets/js/wooten-fuel-monitor-server.mjs';
 
-const location={
- interval:300,delivery_notification:true,
- tanks:[{number:1,capacity:10000},{number:2,capacity:10000},{number:3,capacity:10000}]
-};
-const base=Date.parse('2026-10-26T19:00:00.000Z');
-const reading=(minutes,volumes)=>({
- observed_at:new Date(base+minutes*60000).toISOString(),
- tanks:volumes.map((volume,i)=>({number:i+1,volume}))
-});
-test('one opt-in delivery alert, one combined stabilized recovery, no five-minute duplicates',()=>{
- const steps=[
-  {minute:0,values:[300,700,2500],levels:{1:'critical',2:'low',3:'normal'},recovered:[],start:false,finish:false},
-  {minute:5,values:[800,700,2500],levels:{1:'critical',2:'low',3:'normal'},recovered:[],start:true,finish:false},
-  {minute:10,values:[1500,750,2500],levels:{1:'normal',2:'low',3:'normal'},recovered:[1],start:false,finish:false},
-  {minute:15,values:[1800,820,2500],levels:{1:'normal',2:'low',3:'normal'},recovered:[],start:false,finish:false},
-  {minute:20,values:[1900,1300,2500],levels:{1:'normal',2:'normal',3:'normal'},recovered:[2],start:false,finish:false},
-  {minute:25,values:[1900,1300,2500],levels:{1:'normal',2:'normal',3:'normal'},recovered:[],start:false,finish:false},
-  {minute:30,values:[1900,1300,2500],levels:{1:'normal',2:'normal',3:'normal'},recovered:[],start:false,finish:false},
-  {minute:35,values:[1900,1300,2500],levels:{1:'normal',2:'normal',3:'normal'},recovered:[],start:false,finish:false},
-  {minute:40,values:[1900,1300,2500],levels:{1:'normal',2:'normal',3:'normal'},recovered:[],start:false,finish:true},
-  {minute:45,values:[1900,1300,2500],levels:{1:'normal',2:'normal',3:'normal'},recovered:[],start:false,finish:false}
- ];
- let previous=null,session=null;
- for(const step of steps){
-  const current=reading(step.minute,step.values);
-  const result=deliverySessionStep(location,previous,current,session,step.recovered,step.levels);
-  assert.equal(result.started,step.start,'start at minute '+step.minute);
-  assert.equal(result.finished,step.finish,'finish at minute '+step.minute);
-  if(step.finish)assert.deepEqual(result.recoveredTanks,[1,2]);
-  previous=current;session=result.session;
+const location={interval:300,delivery_notification:true,
+ tanks:[1,2,3].map(number=>({number,capacity:10000}))};
+const base=Date.parse('2026-11-04T01:00:00.000Z');
+const reading=(minute,values)=>({observed_at:new Date(base+minute*60000).toISOString(),
+ tanks:values.map((volume,i)=>({number:i+1,volume}))});
+function run(samples,options={}){
+ let previous=null,session=null;const output=[];
+ for(const step of samples){
+  const now=reading(step.minute,step.values);
+  const result=deliverySessionStep(options.config||location,previous,now,session,
+   step.recovered||[],step.levels||{1:'normal',2:'normal',3:'normal'});
+  output.push({...result,minute:step.minute});session=result.session;previous=now;
  }
+ return output;
+}
+const at=(minute,values,extra={})=>({minute,values,...extra});
+
+test('new monitoring session only establishes baseline and does not report historical fuel',()=>{
+ const x=run([at(0,[3100,1500,800]),at(5,[3100,1500,800])]);
+ assert.ok(x.every(s=>!s.started&&!s.finished));
+ assert.equal(x[0].session.phase,'armed');
 });
-test('unchecked delivery notification still permits a stabilized recovery',()=>{
+test('one transient 352-gallon spike is never confirmed as a delivery',()=>{
+ const x=run([at(0,[5000,6003,2800]),at(5,[5000,6355,2800]),
+  at(10,[5000,6003,2800]),at(15,[5000,6003,2800]),at(35,[5000,6003,2800])]);
+ assert.equal(x[1].session.phase,'candidate');
+ assert.equal(x[2].session.phase,'armed');
+ assert.ok(x.every(s=>!s.started&&!s.finished));
+});
+test('confirmed persistent delivery finishes after 20 minutes of actual stability',()=>{
+ const samples=[at(0,[3100,5900,2800]),at(5,[3100,6400,2800]),
+  at(10,[3100,6420,2800]),at(15,[3100,6420,2800]),at(20,[3100,6420,2800]),
+  at(25,[3100,6420,2800]),at(30,[3100,6420,2800])];
+ const x=run(samples);
+ assert.equal(x[1].started,false);
+ assert.equal(x[2].started,true);
+ assert.ok(x.slice(3,5).every(s=>!s.finished));
+ assert.equal(x[5].finished,true); // 20 minutes after the first stable reading
+ assert.equal(x[6].finished,false); // no duplicate alert
+ assert.deepEqual(x[5].deliveredTanks,[2]);
+ assert.equal(x[5].measurements.find(m=>m.number===2).received,520);
+});
+test('stability clock restarts after significant negative volume movement',()=>{
+ const samples=[at(0,[3100,5900,2800]),at(5,[3100,6400,2800]),at(10,[3100,6400,2800]),
+  at(15,[3100,6400,2800]),at(20,[3100,6335,2800]),at(25,[3100,6335,2800]),
+  at(30,[3100,6335,2800]),at(35,[3100,6335,2800]),at(40,[3100,6335,2800])];
+ const x=run(samples);
+ assert.equal(x[6].finished,false); // 20 minutes since confirmation, but unstable at 20
+ assert.equal(x.at(-1).finished,true); // 20 minutes from the actual new stable level
+});
+test('readings after a long collector gap do not create a new delivery',()=>{
+ const x=run([at(0,[3100,5900,2800]),at(45,[3100,6400,2800]),
+  at(50,[3100,6400,2800]),at(55,[3100,6400,2800])]);
+ assert.ok(x.every(s=>!s.started&&!s.finished));
+});
+test('threshold-only recovery stays separate from a completed delivery',()=>{
+ const samples=[at(0,[3100,5900,2800]),at(5,[3100,5900,2800],{recovered:[2]}),
+  at(10,[3100,5900,2800]),at(15,[3100,5900,2800]),at(20,[3100,5900,2800]),
+  at(25,[3100,5900,2800])];
+ const x=run(samples);
+ assert.equal(x.at(-1).finished,true);
+ assert.equal(x.at(-1).recoveryOnly,true);
+ assert.deepEqual(x.at(-1).recoveredTanks,[2]);
+ assert.deepEqual(x.at(-1).deliveredTanks,[]);
+ assert.deepEqual(x.at(-1).measurements,[]);
+ assert.ok(x.every(s=>!s.started));
+});
+test('delivery start toggle only affects start SMS, not verified finished delivery',()=>{
  const config={...location,delivery_notification:false};
- let a=reading(0,[400,400,2000]),b=reading(5,[900,400,2000]);
- let result=deliverySessionStep(config,a,b,null,[],{1:'critical',2:'low',3:'normal'});
- assert.equal(result.started,false);
- assert.ok(result.session);
- let last=b;
- for(const minute of [10,15,20,25]){
-  const current=reading(minute,[900,400,2000]);
-  result=deliverySessionStep(config,last,current,result.session,minute===10?[1]:[],{1:'normal',2:'low',3:'normal'});
-  last=current;
- }
- assert.equal(result.finished,true);
- assert.deepEqual(result.recoveredTanks,[1]);
+ const x=run([at(0,[3100,5900,2800]),at(5,[3100,6400,2800]),
+  at(10,[3100,6400,2800]),at(15,[3100,6400,2800]),at(20,[3100,6400,2800]),
+  at(25,[3100,6400,2800]),at(30,[3100,6400,2800])],{config});
+ assert.ok(x.every(s=>!s.started));
+ assert.equal(x.at(-2).finished,true);
+ assert.equal(x.at(-1).finished,false);
+ assert.deepEqual(x.at(-2).deliveredTanks,[2]);
 });
-test('no silent 20-minute stabilization while collector readings are missing',()=>{
- let a=reading(0,[400,400,2000]),b=reading(5,[900,400,2000]);
- const start=deliverySessionStep(location,a,b,null,[],{1:'critical',2:'low',3:'normal'});
- const afterGap=deliverySessionStep(location,b,reading(90,[900,400,2000]),start.session,[],{1:'normal',2:'low',3:'normal'});
- assert.equal(afterGap.finished,false);
+test('no delivery notification for normal five-minute variation',()=>{
+ const x=run([at(0,[3100,5900,2800]),at(5,[3094,5890,2794]),
+  at(10,[3100,5898,2800]),at(15,[3092,5890,2790]),at(20,[3096,5901,2795]),
+  at(25,[3084,5890,2790]),at(30,[3089,5898,2791])]);
+ assert.ok(x.every(s=>!s.started&&!s.finished));
+});
+test('unrelated tank sales do not reset stability of the receiving tank',()=>{
+ const x=run([at(0,[3100,5900,2800]),at(5,[3100,6400,2800]),
+  at(10,[3100,6400,2800]),at(15,[3000,6400,2800]),at(20,[2900,6400,2800]),
+  at(25,[2800,6400,2800]),at(30,[2700,6400,2800])]);
+ assert.equal(x.at(-2).finished,true);
+ assert.deepEqual(x.at(-2).deliveredTanks,[2]);
+});
+test('collector gap during confirmed delivery resets the 20-minute stability clock',()=>{
+ const x=run([at(0,[3100,5900,2800]),at(5,[3100,6400,2800]),
+  at(10,[3100,6400,2800]),at(40,[3100,6400,2800]),
+  at(45,[3100,6400,2800]),at(50,[3100,6400,2800]),
+  at(55,[3100,6400,2800]),at(60,[3100,6400,2800])]);
+ assert.equal(x[3].finished,false);
+ assert.equal(x.at(-1).finished,true);
+});
+test('separate tanks delivered in consecutive readings use their own pre-rise baselines',()=>{
+ const x=run([at(0,[3000,1000,2800]),at(5,[3600,1000,2800]),
+  at(10,[3600,1500,2800]),at(15,[3600,1500,2800]),
+  at(20,[3600,1500,2800]),at(25,[3600,1500,2800]),at(30,[3600,1500,2800])]);
+ assert.equal(x.at(-1).finished,true);
+ assert.deepEqual(x.at(-1).deliveredTanks,[1,2]);
+ assert.deepEqual(x.at(-1).measurements.slice(0,2).map(m=>m.received),[600,500]);
+});
+test('candidate spike reverting while a different tank rises waits for proof of the new rise',()=>{
+ const x=run([at(0,[3000,1000,2800]),at(5,[3600,1000,2800]),
+  at(10,[3000,1500,2800]),at(15,[3000,1500,2800])]);
+ assert.equal(x[2].started,false);
+ assert.equal(x[2].session.phase,'candidate');
+ assert.equal(x[3].started,true);
+ assert.deepEqual(x[3].startedTanks,[2]);
 });
