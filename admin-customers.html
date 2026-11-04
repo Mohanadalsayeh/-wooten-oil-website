@@ -16269,21 +16269,48 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
  // Use the actual inventory snapshot stored in each fuel alert. Never substitute
  // the latest tank readings for the values at the time the alert was generated.
  function compactFuelNotice(notice){
-   const rows=String(notice.name||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-   const first=rows.shift()||'';
+   const lines=String(notice.name||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+   const first=lines.shift()||'';
    const location=first.split(' — ')[0]?.trim()||'Fuel location';
-   const tanks=[];
-   for(const line of rows){
-     const match=line.match(/^Tank\s+(\d+)\s+\((.+)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\([\d.]+%\)\s+—\s+(.+?)\.?$/i);
+   const title=String(notice.request_number||'FUEL ALERT');
+   // Recovery volumes come from the immutable per-tank snapshot stored with
+   // this alert, NEVER from current fuel inventory or a later collector reading.
+   const amounts=new Map();
+   for(const line of lines){
+     const match=line.match(/^Delivery tank (\d+): before (—|[\d,.]+) gal; after (—|[\d,.]+) gal; received (—|[\d,.]+) gal\.$/i);
      if(!match)continue;
-     const fuel=match[2].trim(),status=match[4].replace(/\.$/,'').trim();
+     const received=match[4]==='—'?null:Number(match[4].replace(/,/g,''));
+     if(received===null||(Number.isFinite(received)&&received>=0))
+       amounts.set(Number(match[1]),received);
+   }
+   const recovery=title.toUpperCase()==='FUEL RECOVERED'&&
+     /delivery stabilized/i.test(first)&&amounts.size>0;
+   const tanks=[],deliveryRows=[];
+   for(const line of lines){
+     const match=line.match(/^Tank\s+(\d+)\s+\((.+?)\):\s+([\d,]+(?:\.\d+)?)\s+US gallons\s+\([\d.]+%\)\s+—\s+(.+?)\.?$/i);
+     if(!match)continue;
+     const number=Number(match[1]),fuel=match[2].trim(),status=match[4].replace(/\.$/,'').trim();
      const name=/off[- ]?road|farm diesel/i.test(fuel)?'Off-Road':/road diesel/i.test(fuel)?'Road Diesel':/premium/i.test(fuel)?'Premium':/regular/i.test(fuel)?'Regular':fuel;
      const flag=/delivery needed/i.test(status)?' — DN':/critical/i.test(status)?' — CRITICAL':/\blow\b/i.test(status)?' — LOW':'';
      tanks.push(name+': '+match[3]+' gal'+flag);
+     deliveryRows.push({name:fuel.toUpperCase(),volume:match[3]+' gal',
+       received:amounts.has(number)&&Number(amounts.get(number))>0?Number(amounts.get(number)).toLocaleString('en-US',{maximumFractionDigits:0}):null});
    }
-   const title=String(notice.request_number||'FUEL ALERT');
-   // Old notifications may have only the triggering tank; don't invent readings.
-   return {title,body:location+(tanks.length?'\n\n'+tanks.join('\n'):first?'\n\n'+first:'')};
+   // Older recovery alerts without captured baselines remain readable,
+   // but must not display guessed recovered quantities.
+   const isRecovery=!!(recovery&&deliveryRows.length);
+   return {title,location,isRecovery,deliveryRows,
+     body:location+(tanks.length?'\n\n'+tanks.join('\n'):first?'\n\n'+first:'')};
+ }
+ function recoveryBellMarkup(notice){
+   if(!notice.isRecovery)return '';
+   return '<span class="admin-bell-recovery-location">'+esc(notice.location)+'</span>'
+    +'<span class="admin-bell-recovery-summary">Delivery completed - fuel levels stable for 20 minutes.</span>'
+    +'<span class="admin-bell-recovery-rows">'+notice.deliveryRows.map(row=>
+      '<span class="admin-bell-recovery-row"><span class="admin-bell-recovery-product">'+esc(row.name)+'</span>'
+      +'<span class="admin-bell-recovery-volume">'+esc(row.volume)+'</span>'
+      +(row.received!==null?'<span class="admin-bell-recovery-amount">~'+esc(row.received)+' gal RECOVERED</span>':'')
+      +'</span>').join('')+'</span>';
  }
  let items=[],nextCursor=null,activeKey='',flight=null,controller=null,lastAttempt=0;
  let priorUnread=null,priorNoticeIds=null,ringTimer=null;
@@ -16303,7 +16330,12 @@ get('applicationPrev').addEventListener('click',()=>{if(page>1){page--;load();}}
    list.innerHTML=items.length?items.map(x=>{
      const tank=x.item_type==='tank',compact=tank?compactFuelNotice(x):null;
      const seen=tank&&Number(x.seen)===1;
-     return '<button class="admin-bell-item'+(tank?' admin-bell-fuel-item':'')+(seen?' admin-bell-seen-item':'')+'" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'" data-bell-location="'+esc(tank?x.account||'':'')+'" data-bell-request-number="'+esc(x.request_number||'')+'"'+(tank?' aria-label="Open '+esc(compact.title)+' at '+esc(compact.body.split('\n')[0])+(seen?' — Seen':'')+'"':'')+'><span class="admin-bell-dot"></span><span><strong>'+(tank?esc(compact.title):esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||''))+'</strong>'+(seen?'<em class="admin-bell-seen-label">Seen</em>':'')+'<span'+(tank?' class="admin-bell-fuel-lines"':'')+'>'+(tank?esc(compact.body):esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):''))+'</span><small class="admin-bell-time">'+esc(time(x.created_at))+'</small></span></button>';
+     const recovered=tank&&compact.isRecovery;
+     return '<button class="admin-bell-item'+(tank?' admin-bell-fuel-item':'')+(recovered?' admin-bell-recovery-item':'')+(seen?' admin-bell-seen-item':'')+'" type="button" data-bell-type="'+esc(x.item_type)+'" data-payment-id="'+esc(x.intent_id||'')+'" data-notice-id="'+esc(x.id)+'" data-bell-location="'+esc(tank?x.account||'':'')+'" data-bell-request-number="'+esc(x.request_number||'')+'"'+(tank?' aria-label="Open '+esc(compact.title)+' at '+esc(compact.location)+(seen?' — Seen':'')+'"':'')+'>'
+      +(recovered?'<span class="admin-bell-recovery-check" aria-hidden="true">✓</span>':'<span class="admin-bell-dot"></span>')
+      +'<span class="admin-bell-content"><strong>'+(tank?esc(compact.title):esc(labels[x.item_type]||'Admin Notification')+' — '+esc(x.request_number||''))+'</strong>'+(seen?'<em class="admin-bell-seen-label">Seen</em>':'')
+      +(recovered?recoveryBellMarkup(compact):'<span'+(tank?' class="admin-bell-fuel-lines"':'')+'>'+(tank?esc(compact.body):esc(x.name||'Customer')+(x.account?' • Customer #'+esc(x.account):''))+'</span>')
+      +'<small class="admin-bell-time">'+esc(time(x.created_at))+'</small></span></button>';
    }).join(''):'<div class="admin-bell-empty">No pending notifications.</div>';
    list.scrollTop=scroll;more.hidden=!nextCursor;
  }
@@ -22740,5 +22772,6 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown
 }
 </style>
 
+<link rel="stylesheet" href="assets/css/wooten-admin-bell-recovery.css?v=1107">
 <link rel="stylesheet" href="assets/css/wooten-admin-floating-phone.css?v=1105">
 <script src="assets/js/wooten-admin-floating-phone.js?v=1102"></script>
