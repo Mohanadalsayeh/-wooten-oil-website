@@ -1,0 +1,137 @@
+/* Wooten Oil Administration desktop floating workspace header.
+   The original desktop Admin Access header is replaced only at >=1025px.
+   Phone floating header and tablet navigation retain their existing styles. */
+@media (min-width:1025px){
+  body#wooten-admin-page.wooten-admin-desktop-floating .admin-header{
+    display:none!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating > .wrap{
+    /* Reserve real document space for the fixed header on every admin tab. */
+    padding-top:142px!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating .wooten-admin-desktop-float{
+    display:flex!important;
+    position:fixed!important;
+    top:19px!important;
+    left:calc(max(var(--admin-layout-gutter,24px),calc((100% - var(--admin-layout-max,1560px)) / 2 + var(--admin-layout-gutter,24px))) + var(--admin-sidebar-width,274px) + var(--admin-page-gap,28px))!important;
+    right:max(var(--admin-layout-gutter,24px),calc((100% - var(--admin-layout-max,1560px)) / 2 + var(--admin-layout-gutter,24px)))!important;
+    width:auto!important;
+    height:96px!important;
+    min-height:96px!important;
+    padding:15px 17px 15px 29px!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:18px!important;
+    border:1px solid rgba(255,255,255,.20)!important;
+    border-radius:19px!important;
+    background:linear-gradient(116deg,#0a2a4a 0%,#10385f 61%,#153e67 100%)!important;
+    box-shadow:0 14px 30px rgba(10,39,69,.19), inset 0 1px 0 rgba(255,255,255,.13)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(140%)!important;
+    backdrop-filter:blur(18px) saturate(140%)!important;
+    z-index:70!important;
+    overflow:visible!important;
+    color:#fff!important;
+    isolation:isolate;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating .wooten-admin-desktop-titles{
+    min-width:0;flex:1 1 auto;display:flex;flex-direction:column;
+    align-items:flex-start;justify-content:center;gap:5px;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating .wooten-admin-desktop-titles h1{
+    margin:0!important;padding:0!important;border:0!important;
+    color:#fff!important;
+    font:800 clamp(19px,1.8vw,26px)/1.15 Inter,'Segoe UI',Arial,sans-serif!important;
+    letter-spacing:-.6px!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopDate{
+    display:block;min-width:0;
+    color:#e3edf7!important;
+    font:700 13px/1.35 Inter,'Segoe UI',Arial,sans-serif!important;
+    white-space:normal;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopBell{
+    display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;
+    min-width:52px;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopBell .admin-bell-shell{
+    width:52px!important;height:52px!important;
+    min-width:52px!important;flex:0 0 52px!important;
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    margin:0!important;padding:0!important;
+    position:relative!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopBell #adminNotificationBell{
+    display:grid!important;place-items:center!important;
+    width:52px!important;height:52px!important;
+    min-width:52px!important;min-height:52px!important;
+    padding:0!important;margin:0!important;
+    border:1px solid rgba(255,255,255,.35)!important;
+    border-radius:14px!important;
+    background:rgba(255,255,255,.12)!important;
+    box-shadow:none!important;color:#fff!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopBell #adminNotificationBell svg{
+    display:block;width:24px!important;height:24px!important;
+    stroke:currentColor!important;stroke-width:1.8!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopBell #adminNotificationBadge{
+    right:-6px!important;top:-7px!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #wootenAdminDesktopBell #adminNotificationMenu{
+    position:absolute!important;top:calc(100% + 12px)!important;
+    right:0!important;left:auto!important;
+    width:min(390px,calc(100vw - 48px))!important;
+    max-height:calc(100dvh - 136px)!important;
+    z-index:250!important;
+  }
+  /* The dashboard's old blue welcome banner is now the floating header.
+     Keep its markup/date for the existing mobile dashboard. */
+  body#wooten-admin-page.wooten-admin-desktop-floating #admin-tab-dashboard .admin-dashboard-welcome{
+    display:none!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #admin-tab-dashboard .admin-dashboard-grid{
+    grid-auto-flow:row!important;
+  }
+  /* The same access control, moved into the permanent sidebar footer. */
+  body#wooten-admin-page.wooten-admin-desktop-floating #adminSidebar #adminSidebarFooter{
+    display:grid!important;
+    grid-template-columns:8px minmax(0,1fr)!important;
+    align-items:center!important;
+    column-gap:12px!important;row-gap:12px!important;
+    flex:0 0 auto!important;
+    width:100%!important;min-height:110px!important;
+    padding:13px 16px 17px!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+    background:#f8fafc!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #adminSidebar .admin-sidebar-footer-status{
+    grid-column:1!important;grid-row:1!important;margin:0!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #adminSidebar .admin-sidebar-footer-copy{
+    grid-column:2!important;grid-row:1!important;margin:0!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #adminSidebar #adminAccessOpenBtn{
+    grid-column:1/-1!important;grid-row:2!important;
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    width:100%!important;min-width:0!important;max-width:none!important;
+    height:43px!important;min-height:43px!important;
+    margin:0!important;padding:0 12px!important;
+    border:1px solid #d5e0e9!important;border-radius:11px!important;
+    background:#edf3f8!important;color:#18354f!important;
+    box-shadow:none!important;
+    font:700 13px/1.2 Inter,'Segoe UI',Arial,sans-serif!important;
+    white-space:nowrap!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #adminSidebar #adminAccessOpenBtn:hover{
+    background:#e0ebf3!important;color:#17324d!important;
+  }
+  body#wooten-admin-page.wooten-admin-desktop-floating #adminSidebar #adminAccessOpenBtn:focus-visible{
+    outline:2px solid #475569!important;outline-offset:2px!important;
+  }
+  html:has(body#wooten-admin-page.wooten-admin-desktop-floating){scroll-padding-top:132px}
+}
+.wooten-admin-desktop-float{display:none}

@@ -6304,11 +6304,7 @@ body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90Health
 <div class="wrap">
 
   <div class="admin-header">
-    <div>
-      <div class="admin-brand-kicker">Wooten Oil</div>
-      <h1>Customer Administration</h1>
-      <p>Monitor customer accounts, documents, communications, applications, and administrative activity.</p>
-    </div>
+    <div class="admin-retired-heading" hidden aria-hidden="true"></div>
     <div class="admin-access-box">
       <div>
         <div class="admin-access-label">Admin Access</div>
@@ -6338,6 +6334,14 @@ body#wooten-admin-page :is(#fmRefresh,#fm977Refresh,#shTitleRefresh,#mas90Health
     <button class="admin-mobile-menu-btn" id="adminMobileMenuBtn" type="button" aria-controls="adminSidebar" aria-expanded="false"><span aria-hidden="true"></span> Menu</button>
     <div class="admin-mobile-title" id="adminMobileTitle">Overview</div>
   </div>
+
+  <header class="wooten-admin-desktop-float" id="wootenAdminDesktopFloat" aria-label="Wooten Oil Administration">
+    <div class="wooten-admin-desktop-titles">
+      <h1>Wooten Oil Administration</h1>
+      <span id="wootenAdminDesktopDate"></span>
+    </div>
+    <div class="wooten-admin-desktop-bell" id="wootenAdminDesktopBell"></div>
+  </header>
 
   <div class="admin-workspace">
   <div class="admin-tabs-shell" id="adminSidebar">
@@ -22774,4 +22778,5 @@ body#wooten-admin-page #fuelMonitorRoot #fmLocationTabs > .fm-locations-dropdown
 
 <link rel="stylesheet" href="assets/css/wooten-admin-bell-recovery.css?v=1107">
 <link rel="stylesheet" href="assets/css/wooten-admin-floating-phone.css?v=1105">
-<script src="assets/js/wooten-admin-floating-phone.js?v=1102"></script>
+<link rel="stylesheet" href="assets/css/wooten-admin-floating-desktop.css?v=1108">
+<script src="assets/js/wooten-admin-floating-phone.js?v=1108"></script>
