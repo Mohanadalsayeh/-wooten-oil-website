@@ -13644,6 +13644,20 @@ function fuelMonitorTaggedTankNumbers(message,label){
  const found=String(message||'').split(/\r?\n/).find(line=>line.startsWith(label+':'));
  return new Set((found?.match(/\d+/g)||[]).map(Number));
 }
+// Read delivery calculations saved when the stable alert was generated.
+// Never use current tank values to recompute an old alert.
+function fuelMonitorDeliveryMeasurements(message){
+ const result=new Map();
+ for(const line of String(message||'').split(/\r?\n/)){
+  const match=line.match(/^Delivery tank (\d+): before (—|[\d,.]+) gal; after (—|[\d,.]+) gal; received (—|[\d,.]+) gal\.$/i);
+  if(!match)continue;
+  const value=text=>text==='—'?null:Number(text.replace(/,/g,''));
+  const before=value(match[2]),after=value(match[3]),received=value(match[4]);
+  if([before,after,received].some(x=>x!==null&&(!Number.isFinite(x)||x<0)))continue;
+  result.set(Number(match[1]),{before,after,received});
+ }
+ return result;
+}
 function fuelMonitorEmailContent(message,context={}){
   const location=context.location||{},alert=context.alert||{};
   const reading=fuelMonitorDeliveryAlertSnapshot(message,context.reading||{},String(alert.level||'').toLowerCase());
@@ -13856,6 +13870,9 @@ function fuelMonitorSmsContent(message,context={}){
   const level=String(alert.level||'reading').toLowerCase();
   const recoveredTanks=fuelMonitorTaggedTankNumbers(message,'Recovered tanks');
   const refillingTanks=fuelMonitorTaggedTankNumbers(message,'Refilling tanks');
+  const deliveryMeasurements=fuelMonitorDeliveryMeasurements(message);
+  const stabilizedRecovery=deliveryMeasurements.size>0 &&
+    (level==='delivery_stabilized'||(level==='normal'&&/delivery stabilized/i.test(String(message).split(/\r?\n/)[0])));
 
   const shortFuelName=value=>{
     const fuel=String(value||'').trim();
@@ -13867,7 +13884,7 @@ function fuelMonitorSmsContent(message,context={}){
   };
 
   const heading=level==='delivery_started'?'FUEL DELIVERY DETECTED'
-    :level==='delivery_stabilized'?'FUEL DELIVERY STABILIZED'
+    :level==='delivery_stabilized'?(stabilizedRecovery?'FUEL RECOVERED':'FUEL DELIVERY STABILIZED')
     :level==='water_critical'?'WATER LEVEL ALERT'
     :level==='connection_lost'?'CONNECTION LOST'
     :level==='connection_restored'?'CONNECTION RESTORED'
@@ -13895,6 +13912,7 @@ function fuelMonitorSmsContent(message,context={}){
   }
   const lines=[heading,location.name||'Location',...(eventTimeText?[eventTimeText]:[]),''];
   if(level==='delivery_started')lines.push('Fuel delivery detected — refilling in progress.','');
+  else if(stabilizedRecovery)lines.push('Delivery completed - fuel levels stable for 20 minutes.','');
   else if(level==='delivery_stabilized')lines.push('Fuel levels stable for 20 minutes.','');
   else if(level==='normal'&&/delivery stabilized/i.test(String(message).split('\n')[0]))lines.push('Delivery completed — fuel levels stable for 20 minutes.','');
   if(level==='water_critical'){
@@ -13914,6 +13932,14 @@ function fuelMonitorSmsContent(message,context={}){
   for(const tank of tanks){
     const r=readings.find(x=>Number(x.number)===Number(tank.number));
     if(!r)continue;
+    if(stabilizedRecovery){
+      // Every tank is shown; only delivered tanks have a recovered amount.
+      const delivered=deliveryMeasurements.get(Number(tank.number));
+      const label=String(tank.fuel||r.fuel||'Tank').trim().replace(/\s+/g,' ').toUpperCase();
+      const suffix=delivered?.received!=null?' - ~'+fuelMonitorFmt(delivered.received)+' gal RECOVERED':'';
+      lines.push(label+': '+fuelMonitorFmt(r.volume)+' gal'+suffix);
+      continue;
+    }
     const status=fuelMonitorTankStatus(tank,r,delivery);
     let suffix='';
     if(recoveredTanks.has(Number(tank.number))&&level==='normal')suffix=' — RECOVERED';

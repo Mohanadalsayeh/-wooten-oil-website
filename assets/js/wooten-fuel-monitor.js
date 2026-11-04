@@ -198,7 +198,7 @@ const mobileDropdownStyle=document.createElement('style');
   return {label:String(level||'FUEL ALERT').toUpperCase(),tone:'reading',icon:'!'};
  }
  function parseAlertSnapshot(message){
-  const result={headline:'',tanks:[],reading:'',recovered:[],refilling:[]};
+  const result={headline:'',tanks:[],reading:'',recovered:[],refilling:[],deliveries:{}};
   const lines=String(message||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   result.headline=lines.shift()||'';
   for(const line of lines){
@@ -213,6 +213,15 @@ const mobileDropdownStyle=document.createElement('style');
     const rawStatus=tank[5].replace(/\.$/,'');
     const waterMatch=rawStatus.match(/^(.*?)\.\s+Water:\s+(\d+(?:\.\d+)?)\s+in$/i);
     result.tanks.push({number:tank[1],product:tank[2],volume:tank[3],percent:tank[4],status:waterMatch?waterMatch[1]:rawStatus,water:waterMatch?waterMatch[2]:null});
+    continue;
+   }
+   // Immutable per-tank inventory snapshots, saved at the end of a delivery.
+   const delivery=line.match(/^Delivery tank (\d+): before (—|[\d,.]+) gal; after (—|[\d,.]+) gal; received (—|[\d,.]+) gal\.$/i);
+   if(delivery){
+    const toNumber=value=>value==='—'?null:Number(value.replace(/,/g,''));
+    const before=toNumber(delivery[2]),after=toNumber(delivery[3]),received=toNumber(delivery[4]);
+    if([before,after,received].every(n=>n===null||(Number.isFinite(n)&&n>=0)))
+     result.deliveries[Number(delivery[1])]={before,after,received};
     continue;
    }
    const recovered=line.match(/^Recovered tanks:\s*(.+)\.$/i);
@@ -237,14 +246,31 @@ const mobileDropdownStyle=document.createElement('style');
   const location=locations.find(l=>l.id===a.location_id);
   const locationName=location?.name||snapshot.headline.split(' — ')[0]||'Fuel location';
   const triggerTank=Number(a.tank_number)||0;
+  const stabilizedRecovery=(a.level==='normal'&&/delivery stabilized/i.test(snapshot.headline))||a.level==='delivery_stabilized';
+  const deliveryDetail=stabilizedRecovery&&Object.keys(snapshot.deliveries).length>0;
+  const fmtGallons=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
   const rows=snapshot.tanks.length?snapshot.tanks.map(t=>{
-   const effectiveStatus=a.level==='normal'&&snapshot.recovered.includes(Number(t.number))?'RECOVERED':a.level==='delivery_started'&&snapshot.refilling.includes(Number(t.number))?'REFILLING':t.status;
+   const measured=deliveryDetail?snapshot.deliveries[Number(t.number)]:null;
+   const isDelivered=measured?.received!=null&&measured.received>0;
+   const effectiveStatus=isDelivered?'RECOVERED':a.level==='normal'&&snapshot.recovered.includes(Number(t.number))?'RECOVERED':a.level==='delivery_started'&&snapshot.refilling.includes(Number(t.number))?'REFILLING':t.status;
    const cls=alertStatusClass(effectiveStatus),trigger=Number(t.number)===triggerTank&&a.level!=='reading'&&a.level!=='scheduled_reading';
    if(t.isWater){
     return '<div class="fm-alert-tank-row fm-alert-water-row '+cls+(trigger?' is-trigger':'')+'">'
      +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
      +'<span class="fm-alert-tank-details"><span class="fm-alert-tank-product">'+esc(t.product)+'</span><span class="fm-alert-tank-water">Critical threshold: '+esc(t.threshold)+' in</span></span>'
      +'<span class="fm-alert-tank-right"><strong>'+esc(t.water)+' in</strong><b class="fm-alert-tank-status">'+esc(t.status)+'</b></span></div>';
+   }
+   if(deliveryDetail){
+    const before=measured?.before!=null?fmtGallons(measured.before)+' gal':'—';
+    const after=measured?.after!=null?fmtGallons(measured.after)+' gal':esc(t.volume)+' gal';
+    return '<div class="fm-alert-tank-row fm-alert-delivery-row '+cls+(trigger?' is-trigger':'')+'">'
+     +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
+     +'<span class="fm-alert-tank-details"><span class="fm-alert-tank-product">'+esc(t.product)+'</span><span class="fm-alert-tank-percent">'+esc(t.percent)+'%</span>'
+     +(t.water!==null?'<span class="fm-alert-tank-water">Water: '+esc(t.water)+' in</span>':'')+'</span>'
+     +'<span class="fm-alert-delivery-values"><span>Before: <strong>'+before+'</strong></span><span>After: <strong>'+after+'</strong></span></span>'
+     +'<span class="fm-alert-tank-right"><strong>'+esc(t.volume)+' gal</strong>'
+     +(isDelivered?'<span class="fm-alert-delivery-amount">+'+fmtGallons(measured.received)+' gal</span>':'')
+     +'<b class="fm-alert-tank-status">'+esc(effectiveStatus)+'</b></span></div>';
    }
    return '<div class="fm-alert-tank-row '+cls+(trigger?' is-trigger':'')+'">'
     +'<span class="fm-alert-tank-no">T'+esc(t.number)+'</span>'
@@ -254,14 +280,14 @@ const mobileDropdownStyle=document.createElement('style');
   }).join(''):'';
   const delivery= snapshot.tanks.find(t=>/delivery/i.test(t.status));
   const triggerText=a.level==='delivery_started'?'Fuel levels are rising. A delivery or refill is detected and may still be in progress.'
-   :a.level==='delivery_stabilized'?'Tank levels have stabilized after the refill. No configured tank crossed its recovery level.'
+   :a.level==='delivery_stabilized'?'Delivery completed - fuel levels stable for 20 minutes.'
    :a.level==='water_critical'?'Water level has reached or exceeded the configured critical threshold in one or more tanks.'
    :a.level==='connection_lost'?'Collector has stopped reporting. Gauges show last known values.'
    :a.level==='connection_restored'?'Fresh collector readings have resumed.'
    :a.level==='critical'
    ?(delivery?'Delivery needed — immediate attention required.':'Fuel is at or below the critical threshold.')
    :a.level==='low'?'Fuel is below the configured low threshold.'
-   :a.level==='normal'?(snapshot.headline.toLowerCase().includes('delivery stabilized')?'Fuel delivery stabilized for 20 minutes. One combined recovery notification.':'Fuel has reached the configured recovery level.')
+   :a.level==='normal'?(snapshot.headline.toLowerCase().includes('delivery stabilized')?'Delivery completed - fuel levels stable for 20 minutes.':'Fuel has reached the configured recovery level.')
    :a.level==='reading'||a.level==='scheduled_reading'?'Current readings for all configured tanks.':'Fuel monitoring event.';
   const deliveryStatus='<div class="fm-alert-channel-status"><span>Email: '+esc(a.email_status)+'</span><span>SMS: '+esc(a.sms_status)+'</span></div>';
   const action=!a.acknowledged&&locations.some(l=>l.id===a.location_id)
@@ -270,6 +296,7 @@ const mobileDropdownStyle=document.createElement('style');
   return '<article class="fm-alert-card '+meta.tone+'" data-fuel-alert-id="'+esc(a.id)+'" tabindex="-1">'
    +'<div class="fm-alert-banner"><span class="fm-alert-symbol">'+meta.icon+'</span><div><strong>'+meta.label+'</strong><p>'+esc(locationName)+'</p></div><time>'+esc(time(a.created_at))+'</time></div>'
    +'<div class="fm-alert-card-body"><div class="fm-alert-summary"><div><span>Alert</span><strong>'+esc(triggerText)+'</strong></div>'+(snapshot.reading?'<div><span>Reading time</span><strong>'+esc(time(snapshot.reading))+'</strong></div>':'')+'</div>'
+   +(deliveryDetail?'<p class="fm-alert-delivery-caption">Estimated fuel received per tank from pre-delivery and stabilized readings.</p>':'')
    +(rows?'<div class="fm-alert-tanks">'+rows+'</div>':'<p class="fm-alert-legacy">'+esc(a.message)+'</p>')
    +'<div class="fm-alert-card-foot">'+deliveryStatus+action+'</div>'
    +(['failed','partial'].includes(a.email_status)?'<p class="fm-error">Email: '+esc(a.email_detail)+'</p>':'')
