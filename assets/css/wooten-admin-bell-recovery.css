@@ -132,3 +132,161 @@ body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item.admin-be
    flex-basis:26px;width:26px;height:26px;font-size:17px!important;
  }
 }
+
+/* Style #6 — Minimal status chip (2026-11-04).
+   Presentation only: retains the recorded readings, immutable per-tank recovery
+   amounts, notification behavior, click actions, and alert timestamps. */
+body#wooten-admin-page #adminNotificationMenu .admin-bell-item.admin-bell-recovery-item{
+ position:relative!important;
+ display:block!important;
+ margin:8px 10px!important;
+ padding:14px 15px 13px!important;
+ border:1px solid #dfe7ed!important;
+ border-radius:16px!important;
+ background:#fff!important;
+ box-shadow:0 3px 13px rgba(20,47,67,.075)!important;
+ color:#1b3650!important;
+ overflow:hidden;
+ transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-item.admin-bell-recovery-item:hover{
+ background:#fbfdfb!important;
+ border-color:#c8dcd0!important;
+ box-shadow:0 5px 17px rgba(20,47,67,.1)!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-item.admin-bell-recovery-item:focus-visible{
+ outline:2px solid #809688!important;
+ outline-offset:1px;
+ border-color:#b9d0be!important;
+ background:#fff!important;
+}
+/* Align the check mark inside the slim green status badge. */
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-check{
+ position:absolute!important;
+ z-index:1;
+ top:18px;
+ left:20px;
+ width:19px!important;
+ height:19px!important;
+ min-width:19px!important;
+ min-height:19px!important;
+ padding:0!important;
+ border-radius:50%!important;
+ background:#26a943!important;
+ color:white!important;
+ font-family:Inter,'Segoe UI',Arial,sans-serif;
+ font-size:13px!important;
+ font-weight:800!important;
+ line-height:19px!important;
+ pointer-events:none;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item .admin-bell-content{
+ display:block!important;
+ width:100%!important;
+ min-width:0!important;
+ margin:0!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item .admin-bell-content>strong{
+ display:inline-block!important;
+ width:auto!important;
+ max-width:calc(100% - 133px);
+ margin:0!important;
+ padding:5px 11px 5px 30px!important;
+ border-radius:999px!important;
+ background:#ddf4e2!important;
+ color:#125e2e!important;
+ font:800 12px/1.3 Inter,'Segoe UI',Arial,sans-serif!important;
+ letter-spacing:0!important;
+ vertical-align:top;
+ white-space:nowrap;
+}
+/* Blue-gray outlined truck: distinct from the recovered status itself. */
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item::after{
+ content:'Delivery Completed';
+ position:absolute;
+ top:19px;
+ right:15px;
+ display:block;
+ max-width:135px;
+ padding:1px 0 1px 20px;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a5271' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 17h4V5H2v12h3'/%3E%3Cpath d='M14 9h4l4 4v4h-3'/%3E%3Ccircle cx='7.5' cy='17.5' r='2.5'/%3E%3Ccircle cx='16.5' cy='17.5' r='2.5'/%3E%3C/svg%3E") no-repeat left center/16px 16px;
+ color:#31516b;
+ font:650 11px/1.4 Inter,'Segoe UI',Arial,sans-serif;
+ white-space:nowrap;
+ pointer-events:none;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-location{
+ margin:13px 0 0!important;
+ color:#1c3650!important;
+ font:800 13px/1.4 Inter,'Segoe UI',Arial,sans-serif!important;
+}
+/* Shorter visual caption; the original text remains in the DOM for accessibility. */
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-summary{
+ margin:6px 0 11px!important;
+ color:#3e5669!important;
+ font-size:0!important;
+ line-height:1.4!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-summary::after{
+ content:'Fuel levels stable for 20 minutes.';
+ font:500 12px/1.4 Inter,'Segoe UI',Arial,sans-serif;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-rows{
+ margin:0!important;
+ padding:0!important;
+ border-top:1px solid #e3e9ee!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-row{
+ gap:3px 9px;
+ padding:9px 0!important;
+ border-bottom:1px solid #e9eef2!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-product{
+ color:#27445d!important;
+ font:700 12px/1.35 Inter,'Segoe UI',Arial,sans-serif!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-volume{
+ color:#203e56!important;
+ font:650 12px/1.35 Inter,'Segoe UI',Arial,sans-serif!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-amount{
+ margin:2px 0 0!important;
+ padding:5px 9px!important;
+ border-radius:999px!important;
+ background:#d8f5dd!important;
+ color:#0e6b32!important;
+ font:800 11px/1.25 Inter,'Segoe UI',Arial,sans-serif!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item .admin-bell-time{
+ margin:11px 0 0!important;
+ color:#7a8d9c!important;
+ font:500 11px/1.35 Inter,'Segoe UI',Arial,sans-serif!important;
+}
+body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item.admin-bell-seen-item{
+ background:#f9fbfa!important;
+}
+@media(max-width:390px){
+ body#wooten-admin-page #adminNotificationMenu .admin-bell-item.admin-bell-recovery-item{
+  padding:12px 10px 11px!important;
+ }
+ body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-check{
+  top:16px;left:15px;
+ }
+ body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item::after{
+  top:16px;right:10px;
+  font-size:10px!important;
+ }
+ body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item .admin-bell-content>strong{
+  font-size:11px!important;
+  padding-left:27px!important;
+ }
+}
+@media(max-width:340px){
+ body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item::after{
+  content:'Completed';
+  max-width:88px;
+ }
+ body#wooten-admin-page #adminNotificationMenu .admin-bell-recovery-item .admin-bell-content>strong{
+  max-width:calc(100% - 100px);
+ }
+}
