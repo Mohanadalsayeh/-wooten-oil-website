@@ -4,13 +4,19 @@
  body#wooten-admin-page.wooten-admin-phone-floating .wrap{
   padding-left:12px!important;
   padding-right:12px!important;
+  /* Replaces the mobile bar's former in-flow height (10 + 62 + 16px). */
+  padding-top:calc(88px + env(safe-area-inset-top, 0px))!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-header{
   display:none!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-bar{
-  position:sticky!important;
+  /* Fixed to the viewport, not the page's nested scroll container.
+     Works during iOS Safari address-bar collapse and long admin pages. */
+  position:fixed!important;
   top:calc(10px + env(safe-area-inset-top, 0px))!important;
+  left:12px!important;
+  right:12px!important;
   z-index:65!important;
   display:flex!important;
   align-items:center!important;
@@ -19,7 +25,7 @@
   width:auto!important;
   min-height:62px!important;
   box-sizing:border-box!important;
-  margin:10px 0 16px!important;
+  margin:0!important;
   padding:8px 10px!important;
   border:1px solid rgba(255,255,255,.34)!important;
   border-radius:22px!important;
@@ -109,10 +115,18 @@
   -webkit-tap-highlight-color:transparent!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-menu-btn span{
+  /* Three solid evenly spaced stripes; do not rely on box-shadow bars. */
   display:block!important;
-  flex:0 0 19px!important;
-  width:19px!important;
-  background:#fff!important;
+  flex:0 0 23px!important;
+  width:23px!important;
+  height:20px!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:linear-gradient(to bottom,#fff 0 2px,transparent 2px 9px,#fff 9px 11px,transparent 11px 18px,#fff 18px 20px)!important;
+  box-shadow:none!important;
+  transform:none!important;
  }
  /* Popover anchors to bell; backdrop-filter creates a containing block on iOS.
     Use absolute positioning so the menu follows the floating header reliably. */
