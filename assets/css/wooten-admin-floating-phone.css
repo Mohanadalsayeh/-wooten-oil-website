@@ -17,7 +17,7 @@
   top:calc(10px + env(safe-area-inset-top, 0px))!important;
   left:12px!important;
   right:12px!important;
-  z-index:65!important;
+  z-index:110!important; /* Above Fuel Monitoring navigation (80), below modal overlays. */
   display:flex!important;
   align-items:center!important;
   justify-content:flex-start!important;
@@ -38,6 +38,13 @@
  }
  body#wooten-admin-page.admin-drawer-open .admin-mobile-bar{
   z-index:40!important;
+ }
+ /* Escalate the entire header stacking context only while notifications are open.
+    Otherwise its children cannot rise above other page overlays on iOS Safari.
+    The mobile drawer rule above retains priority while it is open. */
+ body#wooten-admin-page.wooten-admin-phone-floating:not(.admin-drawer-open)
+ .admin-mobile-bar:has(#adminNotificationMenu:not([hidden])){
+  z-index:1000!important;
  }
  body#wooten-admin-page.wooten-admin-phone-floating .admin-mobile-title{
   order:1!important;
