@@ -77,3 +77,14 @@
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
  else init();
 })();
+
+/* Lightweight optional add-on for paired gauge / FUEL TC delivery labels.
+   The original header layout and bell controls above remain untouched. */
+(function(){
+ if(document.body?.id!=='wooten-admin-page')return;
+ if(document.getElementById('wootenFuelDualDisplayScript'))return;
+ const script=document.createElement('script');
+ script.id='wootenFuelDualDisplayScript';
+ script.src=new URL('wooten-fuel-dual-display.js?v=1121',document.currentScript?.src||document.baseURI).href;
+ document.head.appendChild(script);
+})();

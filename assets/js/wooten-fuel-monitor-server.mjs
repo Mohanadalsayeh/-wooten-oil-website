@@ -160,6 +160,19 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
   const capacity=Number(setting?.capacity);
   return tank&&Number.isFinite(n)&&n>=0&&Number.isFinite(capacity)&&capacity>0&&n<=capacity*1.05?n:null;
  };
+ // TC is the gauge's native temperature-corrected fuel volume (FUEL TC).
+ // Never derive it from ordinary gallons or infer zero from a missing field.
+ const tcVolume=(source,number)=>{
+  const tank=sample(source,number),setting=configured.find(t=>Number(t.number)===Number(number));
+  if(!tank||tank.tc_volume==null||tank.tc_volume==='')return null;
+  const n=Number(tank.tc_volume),capacity=Number(setting?.capacity);
+  return Number.isFinite(n)&&n>=0&&Number.isFinite(capacity)&&capacity>0&&n<=capacity*1.05?n:null;
+ };
+ const captureBeforeTc=source=>{
+  const values={};
+  for(const tank of configured){const n=tcVolume(source,tank.number);if(n!==null)values[tank.number]=n;}
+  return values;
+ };
  const large=(tank)=>Math.max(50,Number(tank.capacity)*0.005);
  const tolerance=(tank)=>Math.max(15,Number(tank.capacity)*0.003);
  const maxGap=Math.max(15*60000,Number(config?.interval||300)*3000);
@@ -171,6 +184,7 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
  if(!prior||prior.version!==2||!['armed','candidate','delivering','recovering'].includes(prior.phase))
   return {...empty,session:armed()};
  let session={...prior,before_volumes:{...(prior.before_volumes||{})},
+  before_tc_volumes:{...(prior.before_tc_volumes||{})},
   rise_tanks:Array.isArray(prior.rise_tanks)?[...prior.rise_tanks]:[],
   pending_tanks:Array.isArray(prior.pending_tanks)?[...prior.pending_tanks]:[],
   anchor_volumes:{...(prior.anchor_volumes||{})}};
@@ -205,7 +219,8 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
    const anchor_volumes={};
    for(const tank of configured){const v=volume(reading,tank.number);if(v!==null)anchor_volumes[tank.number]=v;}
    return {...empty,session:{version:2,phase:'candidate',started_at:at,last_checked_at:at,
-    before_volumes,rise_tanks:rises,pending_tanks:recoveredNow,anchor_volumes}};
+    before_volumes,before_tc_volumes:captureBeforeTc(previousReading),
+    rise_tanks:rises,pending_tanks:recoveredNow,anchor_volumes}};
   }
   if(recoveredNow.length){
    const anchor_volumes={};
@@ -224,7 +239,8 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
    const anchor_volumes={};
    for(const tank of configured){const v=volume(reading,tank.number);if(v!==null)anchor_volumes[tank.number]=v;}
    return {...empty,session:{version:2,phase:'candidate',started_at:at,last_checked_at:at,
-    before_volumes,rise_tanks:rises,pending_tanks:[...new Set([...session.pending_tanks,...recoveredNow])],anchor_volumes}};
+    before_volumes,before_tc_volumes:captureBeforeTc(previousReading),
+    rise_tanks:rises,pending_tanks:[...new Set([...session.pending_tanks,...recoveredNow])],anchor_volumes}};
   }
   const stillRecovered=session.pending_tanks.filter(n=>levels[n]==='normal');
   if(!stillRecovered.length)return {...empty,session:armed()};
@@ -264,7 +280,8 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
      if(after!==null)anchor_volumes[tank.number]=after;
     }
     return {...empty,session:{version:2,phase:'candidate',started_at:at,last_checked_at:at,
-     before_volumes,rise_tanks:rises,pending_tanks:recoveredNow,anchor_volumes}};
+     before_volumes,before_tc_volumes:captureBeforeTc(previousReading),
+    rise_tanks:rises,pending_tanks:recoveredNow,anchor_volumes}};
    }
    if(recoveredNow.length){
     const anchor_volumes={};
@@ -277,7 +294,11 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
   // Other tanks may begin rising during the candidate interval. Capture their
   // own pre-rise baselines; final validation still requires sustained net gain.
   const newlyRising=rises.filter(n=>!valid.includes(n));
-  for(const n of newlyRising){const before=volume(previousReading,n);if(before!==null)session.before_volumes[n]=before;}
+  for(const n of newlyRising){
+   const before=volume(previousReading,n),tcBefore=tcVolume(previousReading,n);
+   if(before!==null)session.before_volumes[n]=before;
+   if(tcBefore!==null)session.before_tc_volumes[n]=tcBefore;
+  }
   const confirmedTanks=[...new Set([...valid,...newlyRising])];
   // A candidate that remains level at the confirmation sample has already
   // been stable since the candidate started. Do not add another five minutes.
@@ -308,6 +329,8 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
   if(session.rise_tanks.includes(n))continue;
   const v=volume(previousReading,n);
   if(v!==null)session.before_volumes[n]=v;
+  const tcBefore=tcVolume(previousReading,n);
+  if(tcBefore!==null)session.before_tc_volumes[n]=tcBefore;
   session.rise_tanks.push(n);
   unstable=true;
  }
@@ -325,7 +348,15 @@ export function deliverySessionStep(config,previousReading,reading,prior,recover
   const diff=before!==null&&Number.isFinite(before)&&after!==null?after-before:null;
   const delivered=session.rise_tanks.includes(n)&&diff!==null&&diff>=large(tank)&&
    diff<=Number(tank.capacity)*0.8;
-  return {number:n,before,after,received:delivered?Math.round(diff):null};
+  const rawTc=session.before_tc_volumes[n];
+  const tcBefore=rawTc===undefined?null:Number(rawTc),tcAfter=tcVolume(reading,n);
+  const tcDifference=tcBefore!==null&&Number.isFinite(tcBefore)&&tcAfter!==null?tcAfter-tcBefore:null;
+  // Paired samples only: if the gauge never supplied FUEL TC at either
+  // endpoint, show unavailable. Do not fabricate a 60°F corrected estimate.
+  const tcReceived=delivered&&tcDifference!==null&&tcDifference>=0&&tcDifference<=Number(tank.capacity)*0.8
+   ?Math.round(tcDifference):null;
+  return {number:n,before,after,received:delivered?Math.round(diff):null,
+   tc_before:tcBefore,tc_after:tcAfter,tc_received:tcReceived};
  });
  const deliveredTanks=measurements.filter(m=>m.received!==null).map(m=>m.number);
  // No confirmed net increase means no delivery, even if a prior sample jumped.
@@ -1033,7 +1064,10 @@ export async function agent(request,env){
     `${config.name} — Fuel recovered`;
    // Immutable BEFORE/AFTER volume snapshots belong to the alert, not the
    // location's latest reading (which will change after a delivery).
-   const lines=verifiedDelivery?deliveryStep.measurements.map(m=>`Delivery tank ${m.number}: before ${m.before===null?'—':m.before} gal; after ${m.after===null?'—':m.after} gal; received ${m.received===null?'—':m.received} gal.`):[];
+   const lines=verifiedDelivery?deliveryStep.measurements.flatMap(m=>[
+    `Delivery tank ${m.number}: before ${m.before===null?'—':m.before} gal; after ${m.after===null?'—':m.after} gal; received ${m.received===null?'—':m.received} gal.`,
+    `TC delivery tank ${m.number}: before ${m.tc_before===null?'—':m.tc_before} gal; after ${m.tc_after===null?'—':m.tc_after} gal; received ${m.tc_received===null?'—':m.tc_received} gal.`
+   ]):[];
    const msg=allTankMessage(config,reading,{headline:title})
     +'\nRecovered tanks: '+(deliveryStep.recoveredTanks.length?deliveryStep.recoveredTanks.join(', '):'none')+'.'
     +(lines.length?'\n'+lines.join('\n'):'');

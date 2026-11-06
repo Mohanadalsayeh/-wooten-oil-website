@@ -116,3 +116,58 @@ test('candidate spike reverting while a different tank rises waits for proof of 
  assert.equal(x[3].started,true);
  assert.deepEqual(x[3].startedTanks,[2]);
 });
+
+test('same timestamps yield separate ordinary and gauge-FUEL-TC delivery estimates',()=>{
+ const samples=[
+  {minute:0, values:[490,1353,1554], tc:[483,1336,1540]},
+  {minute:5, values:[6013,1353,1554], tc:[5955,1336,1540]},
+  {minute:10,values:[6013,1353,1554], tc:[5955,1336,1540]},
+  {minute:15,values:[6013,1353,1554], tc:[5955,1336,1540]},
+  {minute:20,values:[6013,1353,1554], tc:[5955,1336,1540]},
+  {minute:25,values:[6013,1353,1554], tc:[5955,1336,1540]},
+ ];
+ let previous=null,session=null,final;
+ for(const entry of samples){
+  const current=reading(entry.minute,entry.values);
+  current.tanks.forEach((t,index)=>{t.tc_volume=entry.tc[index]});
+  const step=deliverySessionStep(location,previous,current,session,[],{1:'normal',2:'normal',3:'normal'});
+  if(step.finished)final=step;
+  session=step.session;previous=current;
+ }
+ assert.ok(final?.finished);
+ const regular=final.measurements.find(x=>x.number===1);
+ assert.equal(regular.received,5523);
+ assert.equal(regular.tc_received,5472);
+ assert.equal(regular.before,490);
+ assert.equal(regular.tc_before,483);
+ assert.equal(regular.after,6013);
+ assert.equal(regular.tc_after,5955);
+ assert.equal(final.measurements.find(x=>x.number===2).received,null);
+});
+
+test('missing gauge temperature-corrected volume remains unavailable, never zero or estimated',()=>{
+ const samples=[at(0,[490,1353,1554]),at(5,[6013,1353,1554]),at(10,[6013,1353,1554]),
+  at(15,[6013,1353,1554]),at(20,[6013,1353,1554]),at(25,[6013,1353,1554])];
+ const x=run(samples),m=x.at(-1).measurements[0];
+ assert.equal(m.received,5523);
+ assert.equal(m.tc_before,null);
+ assert.equal(m.tc_after,null);
+ assert.equal(m.tc_received,null);
+});
+
+test('FUEL TC available only after delivery is insufficient for a corrected delta',()=>{
+ const samples=[at(0,[490,1353,1554]),at(5,[6013,1353,1554]),at(10,[6013,1353,1554]),
+  at(15,[6013,1353,1554]),at(20,[6013,1353,1554]),at(25,[6013,1353,1554])];
+ let previous=null,session=null,final;
+ for(const entry of samples){
+  const current=reading(entry.minute,entry.values);
+  if(entry.minute>=5)current.tanks[0].tc_volume=5955;
+  const result=deliverySessionStep(location,previous,current,session,[],{1:'normal'});
+  if(result.finished)final=result;
+  previous=current;session=result.session;
+ }
+ assert.ok(final?.finished);
+ assert.equal(final.measurements[0].tc_before,null);
+ assert.equal(final.measurements[0].tc_after,5955);
+ assert.equal(final.measurements[0].tc_received,null);
+});
